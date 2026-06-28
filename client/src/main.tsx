@@ -7,7 +7,7 @@ if (!rootElement.innerHTML) {
     const root = createRoot(rootElement);
     root.render(
         <StrictMode>
-            <div className="bg-gray-900 w-full h-dvh text-2xl font-black text-orange-400 flex justify-center items-center">
+            <div className="bg-gray-900 w-full h-dvh text-2xl font-black text-brand flex justify-center items-center">
                 ســــــــــــــلام دنــیا!
             </div>
         </StrictMode>,
