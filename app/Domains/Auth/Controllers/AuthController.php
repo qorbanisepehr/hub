@@ -83,11 +83,7 @@ class AuthController
 
         RateLimiter::clear($this->rateLimiterKey($user));
 
-        return response()->json([
-            'user' => new UserResource($user),
-            'token' => $this->createToken($user, $request),
-
-        ]);
+        return $this->authenticate($request, $user);
     }
 
     public function loginWithPassword(LoginWithPasswordRequest $request): JsonResponse
@@ -115,15 +111,20 @@ class AuthController
 
         RateLimiter::clear($this->rateLimiterKey($user));
 
-        return response()->json([
-            'user' => new UserResource($user),
-            'token' => $this->createToken($user, $request),
-        ]);
+        return $this->authenticate($request, $user);
     }
 
     public function logout(Request $request): JsonResponse
     {
-        $request->user()->currentAccessToken()->delete();
+        if ($request->hasSession()) {
+            auth('web')->logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+        } else {
+            $request->user()->currentAccessToken()->delete();
+        }
+
+        app('auth')->forgetGuards();
 
         return response()->json(['message' => __('auth.logout')]);
     }
@@ -131,6 +132,25 @@ class AuthController
     public function me(Request $request): UserResource
     {
         return new UserResource($request->user());
+    }
+
+    private function authenticate(Request $request, User $user): JsonResponse
+    {
+        if ($request->hasSession()) {
+            auth()->login($user);
+            $request->session()->regenerate();
+
+            return response()->json([
+                'user' => new UserResource($user),
+            ]);
+        }
+
+        $token = $this->createToken($user, $request);
+
+        return response()->json([
+            'user' => new UserResource($user),
+            'token' => $token,
+        ]);
     }
 
     private function rateLimiterKey(User $user): string

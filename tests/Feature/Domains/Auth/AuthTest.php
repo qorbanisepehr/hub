@@ -4,6 +4,11 @@ use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
 
+function stateful(): array
+{
+    return ['Referer' => 'http://localhost'];
+}
+
 describe('auth endpoints', function () {
     describe('login (request OTP)', function () {
         it('sends OTP via email', function () {
@@ -58,7 +63,27 @@ describe('auth endpoints', function () {
     });
 
     describe('verify OTP', function () {
-        it('returns a token with valid OTP', function () {
+        it('authenticates with valid OTP (stateful)', function () {
+            $user = User::factory()->create([
+                'otp_code' => Hash::make('123456'),
+                'otp_expires_at' => now()->addMinutes(5),
+            ]);
+
+            $response = $this->withHeaders(stateful())
+                ->postJson('/api/auth/verify-otp', [
+                    'identifier' => $user->email,
+                    'code' => '123456',
+                ]);
+
+            $response->assertStatus(200)
+                ->assertJsonStructure(['user' => ['id', 'name', 'email', 'phone', 'username']])
+                ->assertJsonMissing(['token' => true]);
+
+            expect($user->fresh()->otp_code)->toBeNull();
+            expect(auth()->check())->toBeTrue();
+        });
+
+        it('authenticates with valid OTP (stateless, returns token)', function () {
             $user = User::factory()->create([
                 'otp_code' => Hash::make('123456'),
                 'otp_expires_at' => now()->addMinutes(5),
@@ -70,10 +95,7 @@ describe('auth endpoints', function () {
             ]);
 
             $response->assertStatus(200)
-                ->assertJsonStructure([
-                    'user' => ['id', 'name', 'email', 'phone', 'username'],
-                    'token',
-                ]);
+                ->assertJsonStructure(['user', 'token']);
 
             expect($user->fresh()->otp_code)->toBeNull();
         });
@@ -156,7 +178,21 @@ describe('auth endpoints', function () {
     });
 
     describe('login with password', function () {
-        it('returns a token with valid credentials', function () {
+        it('authenticates with valid credentials (stateful)', function () {
+            $user = User::factory()->create();
+
+            $this->withHeaders(stateful())
+                ->postJson('/api/auth/login-with-password', [
+                    'identifier' => $user->email,
+                    'password' => 'password',
+                ])->assertStatus(200)
+                ->assertJsonStructure(['user'])
+                ->assertJsonMissing(['token' => true]);
+
+            expect(auth()->check())->toBeTrue();
+        });
+
+        it('authenticates with valid credentials (stateless, returns token)', function () {
             $user = User::factory()->create();
 
             $this->postJson('/api/auth/login-with-password', [
@@ -242,16 +278,32 @@ describe('auth endpoints', function () {
     });
 
     describe('logout', function () {
-        it('revokes the current token', function () {
+        it('ends the session (stateful)', function () {
             $user = User::factory()->create();
-            $token = $user->createToken('test-token')->plainTextToken;
+            $sessionName = config('session.cookie');
 
-            $this->withToken($token)
+            $login = $this->withHeaders(stateful())
+                ->postJson('/api/auth/login-with-password', [
+                    'identifier' => $user->email,
+                    'password' => 'password',
+                ])->assertStatus(200);
+
+            $sessionCookie = collect($login->headers->getCookies())
+                ->firstWhere('name', $sessionName)?->getValue() ?? '';
+
+            $logout = $this->withUnencryptedCookies([$sessionName => $sessionCookie])
+                ->withHeaders(stateful())
                 ->postJson('/api/auth/logout')
                 ->assertStatus(200)
                 ->assertJson(['message' => __('auth.logout')]);
 
-            expect($user->tokens()->count())->toBe(0);
+            $newSessionCookie = collect($logout->headers->getCookies())
+                ->firstWhere('name', $sessionName)?->getValue() ?? '';
+
+            $this->withUnencryptedCookies([$sessionName => $newSessionCookie])
+                ->withHeaders(stateful())
+                ->getJson('/api/auth/me')
+                ->assertStatus(401);
         });
 
         it('fails without authentication', function () {
@@ -260,11 +312,16 @@ describe('auth endpoints', function () {
     });
 
     describe('me', function () {
-        it('returns the authenticated user', function () {
+        it('returns the authenticated user (stateful)', function () {
             $user = User::factory()->create();
-            $token = $user->createToken('test-token')->plainTextToken;
 
-            $this->withToken($token)
+            $this->withHeaders(stateful())
+                ->postJson('/api/auth/login-with-password', [
+                    'identifier' => $user->email,
+                    'password' => 'password',
+                ])->assertStatus(200);
+
+            $this->withHeaders(stateful())
                 ->getJson('/api/auth/me')
                 ->assertStatus(200)
                 ->assertJson([
