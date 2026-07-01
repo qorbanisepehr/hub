@@ -69,6 +69,7 @@
     --color-foreground: var(--foreground);
     --color-background: var(--background);
     --color-brand: #db7868;
+    --color-brand-secondary: #1c2538;
     --radius-sm: calc(var(--radius) * 0.6);
     --radius-md: calc(var(--radius) * 0.8);
     --radius-lg: var(--radius);
@@ -145,6 +146,23 @@
     --sidebar-accent-foreground: oklch(0.985 0 0);
     --sidebar-border: oklch(1 0 0 / 10%);
     --sidebar-ring: oklch(0.552 0.016 285.938);
+}
+
+@utility bg-dot-grid {
+    background-image: radial-gradient(
+        circle,
+        color-mix(in oklch, currentColor 12%, transparent) 1px,
+        transparent 1px
+    );
+    background-size: 24px 24px;
+}
+
+@utility bg-brand-glow {
+    background: radial-gradient(
+        ellipse 80% 50% at 50% -20%,
+        color-mix(in oklch, var(--color-brand) 15%, transparent),
+        transparent
+    );
 }
 
 @layer base {
