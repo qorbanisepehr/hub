@@ -5,12 +5,13 @@ import {
     SidebarMenuButton,
     SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import { IconDashboard, IconSettings, IconUsers } from "@tabler/icons-react";
+import { IconDashboard, IconIdBadge2, IconSettings, IconUsers } from "@tabler/icons-react";
 import { useAuth } from "@/features/auth/useAuth";
 import { Link } from "@tanstack/react-router";
 
 const items = [
     { title: "داشبورد", url: "/dashboard", icon: <IconDashboard /> },
+    { title: "کارمندان", url: "/employees", icon: <IconIdBadge2 /> },
     { title: "کاربران", url: "#", icon: <IconUsers /> },
     { title: "تنظیمات", url: "#", icon: <IconSettings /> },
 ];
