@@ -1,8 +1,16 @@
 import * as React from "react";
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { IconArrowRight, IconPencil, IconUsers } from "@tabler/icons-react";
+import {
+    IconArrowRight,
+    IconFile,
+    IconFileUpload,
+    IconPencil,
+    IconTrash,
+    IconUsers,
+} from "@tabler/icons-react";
 
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ConfirmDeleteButton } from "@/components/ui/confirm-delete-button";
 import {
@@ -12,10 +20,13 @@ import {
     CardTitle,
     CardDescription,
 } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { fetchEmployee, deleteEmployee } from "@/features/employees/api";
+import { fetchTrashedDocuments } from "@/features/documents/api";
 import { getApiError } from "@/lib/error-utils";
+import { DocumentSection } from "@/features/documents/components/document-section";
+import { DocumentUploadModal } from "@/features/documents/components/document-upload-modal";
+import { DocumentTrashModal } from "@/features/documents/components/document-trash-modal";
 
 import {
     genderLabels,
@@ -41,6 +52,8 @@ export function EmployeeViewPage() {
     const { id } = useParams({ from: "/protected/employees/$id" });
     const navigate = useNavigate();
     const queryClient = useQueryClient();
+    const [uploadOpen, setUploadOpen] = React.useState(false);
+    const [trashOpen, setTrashOpen] = React.useState(false);
 
     const { data: employee, isLoading } = useQuery({
         queryKey: ["employee", Number(id)],
@@ -58,14 +71,79 @@ export function EmployeeViewPage() {
         },
     });
 
+    const { data: trashedDocuments } = useQuery({
+        queryKey: ["employee-documents", Number(id), "trash"],
+        queryFn: async () => {
+            const { data } = await fetchTrashedDocuments(Number(id));
+            return data.data;
+        },
+    });
+
+    const trashCount = trashedDocuments?.length ?? 0;
+
     if (isLoading) {
         return (
             <div className="flex flex-1 flex-col gap-6 p-6">
-                <Skeleton className="h-8 w-48" />
-                <div className="grid gap-6 md:grid-cols-2">
-                    <Skeleton className="h-64" />
-                    <Skeleton className="h-64" />
+                <div className="flex items-center justify-between">
+                    <div className="space-y-2">
+                        <Skeleton className="h-8 w-56" />
+                        <Skeleton className="h-4 w-32" />
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <Skeleton className="h-8 w-8 rounded-lg" />
+                        <Skeleton className="h-8 w-24 rounded-lg" />
+                        <Skeleton className="h-8 w-24 rounded-lg" />
+                    </div>
                 </div>
+                <div className="grid gap-6 md:grid-cols-2">
+                    <Card>
+                        <CardHeader>
+                            <Skeleton className="h-5 w-28" />
+                            <Skeleton className="h-4 w-40" />
+                        </CardHeader>
+                        <CardContent className="space-y-0 divide-y">
+                            {Array.from({ length: 6 }).map((_, i) => (
+                                <div key={i} className="flex items-baseline gap-2 py-2">
+                                    <Skeleton className="h-4 w-24 shrink-0" />
+                                    <Skeleton className="h-4 w-32" />
+                                </div>
+                            ))}
+                        </CardContent>
+                    </Card>
+                    <Card>
+                        <CardHeader>
+                            <Skeleton className="h-5 w-28" />
+                            <Skeleton className="h-4 w-40" />
+                        </CardHeader>
+                        <CardContent className="space-y-0 divide-y">
+                            {Array.from({ length: 6 }).map((_, i) => (
+                                <div key={i} className="flex items-baseline gap-2 py-2">
+                                    <Skeleton className="h-4 w-24 shrink-0" />
+                                    <Skeleton className="h-4 w-32" />
+                                </div>
+                            ))}
+                        </CardContent>
+                    </Card>
+                </div>
+                <Card>
+                    <CardHeader>
+                        <div className="flex items-center justify-between">
+                            <div className="space-y-2">
+                                <Skeleton className="h-5 w-24" />
+                                <Skeleton className="h-4 w-48" />
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <Skeleton className="h-7 w-28 rounded-lg" />
+                                <Skeleton className="h-7 w-28 rounded-lg" />
+                            </div>
+                        </div>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                        {Array.from({ length: 3 }).map((_, i) => (
+                            <Skeleton key={i} className="h-14 w-full rounded-xl" />
+                        ))}
+                    </CardContent>
+                </Card>
             </div>
         );
     }
@@ -98,6 +176,13 @@ export function EmployeeViewPage() {
                     </p>
                 </div>
                 <div className="flex items-center gap-2">
+                    <Button
+                        variant="outline"
+                        nativeButton={false}
+                        render={<Link to="/employees" />}
+                    >
+                        <IconArrowRight className="size-4" />
+                    </Button>
                     <Button
                         variant="outline"
                         nativeButton={false}
@@ -232,16 +317,63 @@ export function EmployeeViewPage() {
                 </Card>
             </div>
 
-            <div className="flex justify-start">
-                <Button
-                    variant="outline"
-                    nativeButton={false}
-                    render={<Link to="/employees" />}
-                >
-                    <IconArrowRight className="size-4" />
-                    بازگشت به لیست
-                </Button>
-            </div>
+            <Card>
+                <CardHeader>
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <CardTitle className="flex items-center gap-2">
+                                <IconFile className="size-5" />
+                                مدارک
+                            </CardTitle>
+                            <CardDescription>
+                                مدارک و مستندات کارمند
+                            </CardDescription>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setTrashOpen(true)}
+                            >
+                                <IconTrash className="size-4" />
+                                سطل زباله
+                                {trashCount > 0 && (
+                                    <Badge
+                                        variant="secondary"
+                                        className="ml-1 px-1.5 py-0 text-xs"
+                                    >
+                                        {trashCount}
+                                    </Badge>
+                                )}
+                            </Button>
+                            <Button
+                                size="sm"
+                                onClick={() => setUploadOpen(true)}
+                            >
+                                <IconFileUpload className="size-4" />
+                                آپلود مدرک
+                            </Button>
+                        </div>
+                    </div>
+                </CardHeader>
+                <CardContent>
+                    <DocumentSection
+                        employeeId={employee.id}
+                        showActions={false}
+                    />
+                </CardContent>
+            </Card>
+
+            <DocumentUploadModal
+                employeeId={Number(id)}
+                open={uploadOpen}
+                onOpenChange={setUploadOpen}
+            />
+            <DocumentTrashModal
+                employeeId={Number(id)}
+                open={trashOpen}
+                onOpenChange={setTrashOpen}
+            />
         </div>
     );
 }
