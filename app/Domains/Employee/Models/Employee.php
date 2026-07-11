@@ -2,6 +2,8 @@
 
 namespace App\Domains\Employee\Models;
 
+use App\Contracts\Documentable;
+use App\Domains\Document\Models\Document;
 use App\Models\User;
 use Database\Factories\EmployeeFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -9,6 +11,7 @@ use Illuminate\Database\Eloquent\Attributes\UseFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 #[Fillable([
@@ -27,7 +30,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     'user_id',
 ])]
 #[UseFactory(EmployeeFactory::class)]
-class Employee extends Model
+class Employee extends Model implements Documentable
 {
     /** @use HasFactory<EmployeeFactory> */
     use HasFactory, SoftDeletes;
@@ -36,6 +39,17 @@ class Employee extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /** @return MorphMany<Document, $this> */
+    public function documents(): MorphMany
+    {
+        return $this->morphMany(Document::class, 'documentable');
+    }
+
+    public function getDocumentIdentifier(): string
+    {
+        return $this->personnel_code;
     }
 
     protected function casts(): array

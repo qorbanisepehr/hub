@@ -20,7 +20,7 @@ class StoreEmployeeRequest extends FormRequest
             'last_name' => ['required', 'string', 'max:255'],
             'gender' => ['required', 'string', 'in:male,female'],
             'birth_date' => ['nullable', 'date'],
-            'id_number' => ['nullable', 'string', 'max:10','min:10','unique:employees,id_number'],
+            'id_number' => ['nullable', 'string', 'max:10', 'min:10', 'unique:employees,id_number'],
             'marital_status' => ['nullable', 'string', 'in:single,married'],
             'education_level' => ['nullable', 'string', 'max:100'],
             'education_field' => ['nullable', 'string', 'max:255'],
