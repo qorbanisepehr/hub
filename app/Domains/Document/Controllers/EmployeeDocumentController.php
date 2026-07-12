@@ -262,14 +262,14 @@ class EmployeeDocumentController
         $originalName = basename($filePath);
 
         if ($categoryId === null) {
-            $failed[] = ['name' => $originalName, 'error' => 'Category not found'];
+            $failed[] = ['name' => $originalName, 'error' => __('document.zip_root_file')];
 
             return;
         }
 
         $category = DocumentCategory::find($categoryId);
         if ($category && $category->documentable_type !== $employee->getMorphClass()) {
-            $failed[] = ['name' => $originalName, 'error' => 'Category not applicable to employee'];
+            $failed[] = ['name' => $originalName, 'error' => __('document.zip_category_not_applicable')];
 
             return;
         }

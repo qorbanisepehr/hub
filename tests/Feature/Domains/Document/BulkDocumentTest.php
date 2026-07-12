@@ -355,7 +355,7 @@ describe('bulk document API', function () {
 
             expect($response->json('data.uploaded'))->toHaveCount(0);
             expect($response->json('data.failed'))->toHaveCount(1);
-            expect($response->json('data.failed.0.error'))->toBe('Category not found');
+            expect($response->json('data.failed.0.error'))->toBe(__('document.zip_root_file'));
             @unlink($zipPath);
         });
 
