@@ -42,9 +42,9 @@ type FileUploadProps = {
 };
 
 const ACCEPTED_FILE_TYPES: AcceptedFileType[] = [
-    { label: "Image", icon: IconPhoto },
+    { label: "تصویر", icon: IconPhoto },
     { label: "PDF", icon: IconUpload },
-    { label: "Sheet", icon: IconFileSpreadsheet },
+    { label: "جدول", icon: IconFileSpreadsheet },
 ];
 const DEFAULT_ACCEPT = [
     ".pdf",
@@ -79,9 +79,9 @@ const ICON_TRANSFORMS = [
 ];
 
 function formatBytes(bytes: number) {
-    if (bytes === 0) return "0 B";
+    if (bytes === 0) return "0 بایت";
 
-    const units = ["B", "KB", "MB", "GB"];
+    const units = ["بایت", "کیلوبایت", "مگابایت", "گیگابایت"];
     const index = Math.min(
         Math.floor(Math.log(bytes) / Math.log(1024)),
         units.length - 1,
@@ -113,7 +113,7 @@ function toUploadItems(files: FileList | File[]): FileUploadItem[] {
     return Array.from(files).map((file) => ({
         id: `${file.name}-${file.size}-${file.lastModified}`,
         name: file.name,
-        type: file.type || "Unknown type",
+        type: file.type || "نوع نامشخص",
         size: file.size,
         url: URL.createObjectURL(file),
     }));
@@ -158,13 +158,13 @@ function UploadIconCluster({
 export function FileUpload({
     accept = DEFAULT_ACCEPT,
     acceptedFileTypes = ACCEPTED_FILE_TYPES,
-    browseLabel = "Browse files",
+    browseLabel = "انتخاب فایل‌ها",
     className,
-    description = "PDF, DOC/DOCX, XLSX, CSV, PNG, or JPG",
-    draggingLabel = "Drop to add",
+    description = "PDF, DOC/DOCX, XLSX, CSV, PNG, یا JPG",
+    draggingLabel = "برای اضافه کردن رها کنید",
     multiple = true,
     showFileList = true,
-    title = "Click to upload or drop files",
+    title = "برای آپلود کلیک کنید یا فایل‌ها را رها کنید",
     onFilesAccepted,
     onFilesChange,
 }: FileUploadProps) {
@@ -183,7 +183,7 @@ export function FileUpload({
                 .slice(0, multiple ? undefined : 1);
 
             if (acceptedFiles.length === 0) {
-                setRejectionMessage("This file type is not supported here.");
+                setRejectionMessage("این نوع فایل پشتیبانی نمی‌شود.");
                 return;
             }
 
@@ -338,7 +338,7 @@ export function FileUpload({
                                     removeFile();
                                 }}
                                 className="rounded-full p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-                                aria-label="Remove file"
+                                aria-label="حذف فایل"
                             >
                                 <IconX className="size-4" />
                             </button>

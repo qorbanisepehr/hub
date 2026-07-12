@@ -1,10 +1,13 @@
 import * as React from "react";
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { saveAs } from "file-saver";
 import {
     IconArrowRight,
+    IconDownload,
     IconFile,
     IconFileUpload,
+    IconLoader2,
     IconPencil,
     IconTrash,
     IconUsers,
@@ -22,7 +25,7 @@ import {
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { fetchEmployee, deleteEmployee } from "@/features/employees/api";
-import { fetchTrashedDocuments } from "@/features/documents/api";
+import { fetchTrashedDocuments, bulkDownloadDocuments } from "@/features/documents/api";
 import { getApiError } from "@/lib/error-utils";
 import { DocumentSection } from "@/features/documents/components/document-section";
 import { DocumentUploadModal } from "@/features/documents/components/document-upload-modal";
@@ -54,6 +57,9 @@ export function EmployeeViewPage() {
     const queryClient = useQueryClient();
     const [uploadOpen, setUploadOpen] = React.useState(false);
     const [trashOpen, setTrashOpen] = React.useState(false);
+    const [selectedIds, setSelectedIds] = React.useState<number[]>([]);
+    const [isDownloading, setIsDownloading] = React.useState(false);
+    const [downloadError, setDownloadError] = React.useState<string | null>(null);
 
     const { data: employee, isLoading } = useQuery({
         queryKey: ["employee", Number(id)],
@@ -80,6 +86,23 @@ export function EmployeeViewPage() {
     });
 
     const trashCount = trashedDocuments?.length ?? 0;
+
+    async function handleBulkDownload() {
+        setIsDownloading(true);
+        setDownloadError(null);
+        try {
+            const response = await bulkDownloadDocuments(
+                Number(id),
+                selectedIds.length > 0 ? selectedIds : undefined,
+            );
+            const blob = new Blob([response.data as BlobPart], { type: "application/zip" });
+            saveAs(blob, `${employee?.personnel_code ?? id}.zip`);
+        } catch (error) {
+            setDownloadError(getApiError(error));
+        } finally {
+            setIsDownloading(false);
+        }
+    }
 
     if (isLoading) {
         return (
@@ -203,7 +226,7 @@ export function EmployeeViewPage() {
                 </div>
             </div>
 
-            {getApiError(deleteMutation.error) && (
+            {deleteMutation.error && (
                 <div className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
                     {getApiError(deleteMutation.error)}
                 </div>
@@ -347,6 +370,27 @@ export function EmployeeViewPage() {
                                 )}
                             </Button>
                             <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={handleBulkDownload}
+                                disabled={isDownloading}
+                            >
+                                {isDownloading ? (
+                                    <IconLoader2 className="size-4 animate-spin" />
+                                ) : (
+                                    <IconDownload className="size-4" />
+                                )}
+                                دانلود
+                                {selectedIds.length > 0 && (
+                                    <Badge
+                                        variant="secondary"
+                                        className="ml-1 px-1.5 py-0 text-xs"
+                                    >
+                                        {selectedIds.length}
+                                    </Badge>
+                                )}
+                            </Button>
+                            <Button
                                 size="sm"
                                 onClick={() => setUploadOpen(true)}
                             >
@@ -356,10 +400,18 @@ export function EmployeeViewPage() {
                         </div>
                     </div>
                 </CardHeader>
+                {downloadError && (
+                    <div className="px-6">
+                        <p className="text-sm text-destructive">{downloadError}</p>
+                    </div>
+                )}
                 <CardContent>
                     <DocumentSection
                         employeeId={employee.id}
+                        personnelCode={employee.personnel_code}
                         showActions={false}
+                        selectedIds={selectedIds}
+                        onSelectionChange={setSelectedIds}
                     />
                 </CardContent>
             </Card>

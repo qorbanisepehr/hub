@@ -20,6 +20,8 @@ import { CardAttachmentItem } from "./card-attachment-item";
 
 type DocumentListProps = {
     employeeId: number;
+    selectedIds: number[];
+    onSelectionChange: (ids: number[]) => void;
 };
 
 function handleDownload(doc: Document) {
@@ -32,7 +34,11 @@ function handleDownload(doc: Document) {
     a.remove();
 }
 
-export function DocumentList({ employeeId }: DocumentListProps) {
+export function DocumentList({
+    employeeId,
+    selectedIds,
+    onSelectionChange,
+}: DocumentListProps) {
     const queryClient = useQueryClient();
     const [viewMode, setViewMode] = React.useState<"card" | "list" | "table">(
         "table",
@@ -50,7 +56,7 @@ export function DocumentList({ employeeId }: DocumentListProps) {
         string | null
     >(null);
 
-    const { data: documents, isLoading } = useQuery({
+    const { data: documents, isLoading, error } = useQuery({
         queryKey: ["employee-documents", employeeId],
         queryFn: async () => {
             const { data } = await fetchDocuments(employeeId);
@@ -74,6 +80,7 @@ export function DocumentList({ employeeId }: DocumentListProps) {
             });
             setDeletingIds(new Set());
             setLightboxIndex(null);
+            onSelectionChange(selectedIds.filter((id) => id !== documentId));
         },
         onError: () => {
             setDeletingIds(new Set());
@@ -106,6 +113,15 @@ export function DocumentList({ employeeId }: DocumentListProps) {
                 {Array.from({ length: 3 }).map((_, i) => (
                     <Skeleton key={i} className="h-14 w-full rounded-xl" />
                 ))}
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+                <IconFile className="size-10 mb-3 opacity-30" />
+                <p className="text-sm text-destructive">خطا در بارگذاری مدارک</p>
             </div>
         );
     }
@@ -175,6 +191,8 @@ export function DocumentList({ employeeId }: DocumentListProps) {
                     onStartDelete={handleStartDelete}
                     onConfirmDelete={handleConfirmDelete}
                     onCancelDelete={handleCancelDelete}
+                    selectedIds={selectedIds}
+                    onSelectionChange={onSelectionChange}
                 />
             ) : (
                 <>
@@ -216,55 +234,72 @@ export function DocumentList({ employeeId }: DocumentListProps) {
                             ))}
                         </div>
                     )}
-                    {(selectedCategory
-                        ? [selectedCategory]
-                        : categories
-                    ).map((categoryName) => (
-                        <div key={categoryName} className="space-y-2">
-                            {!selectedCategory && (
-                                <h4 className="text-sm font-medium text-muted-foreground">
-                                    {categoryName}
-                                </h4>
-                            )}
-                            {viewMode === "card" ? (
-                                <AttachmentGroup>
-                                    {grouped[categoryName].map((doc) => (
-                                        <CardAttachmentItem
-                                            key={doc.id}
-                                            doc={doc}
-                                            isDeleting={deletingIds.has(doc.id)}
-                                            isConfirming={
-                                                confirmingDeleteId === doc.id
-                                            }
-                                            onPreview={handlePreview}
-                                            onDownload={handleDownload}
-                                            onStartDelete={handleStartDelete}
-                                            onConfirmDelete={handleConfirmDelete}
-                                            onCancelDelete={handleCancelDelete}
-                                        />
-                                    ))}
-                                </AttachmentGroup>
-                            ) : (
-                                <div className="flex gap-2">
-                                    {grouped[categoryName].map((doc) => (
-                                        <ListAttachmentItem
-                                            key={doc.id}
-                                            doc={doc}
-                                            isDeleting={deletingIds.has(doc.id)}
-                                            isConfirming={
-                                                confirmingDeleteId === doc.id
-                                            }
-                                            onPreview={handlePreview}
-                                            onDownload={handleDownload}
-                                            onStartDelete={handleStartDelete}
-                                            onConfirmDelete={handleConfirmDelete}
-                                            onCancelDelete={handleCancelDelete}
-                                        />
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                    ))}
+                    {(selectedCategory ? [selectedCategory] : categories).map(
+                        (categoryName) => (
+                            <div key={categoryName} className="space-y-2">
+                                {!selectedCategory && (
+                                    <h4 className="text-sm font-medium text-muted-foreground">
+                                        {categoryName}
+                                    </h4>
+                                )}
+                                {viewMode === "card" ? (
+                                    <AttachmentGroup>
+                                        {grouped[categoryName].map((doc) => (
+                                            <CardAttachmentItem
+                                                key={doc.id}
+                                                doc={doc}
+                                                isDeleting={deletingIds.has(
+                                                    doc.id,
+                                                )}
+                                                isConfirming={
+                                                    confirmingDeleteId ===
+                                                    doc.id
+                                                }
+                                                onPreview={handlePreview}
+                                                onDownload={handleDownload}
+                                                onStartDelete={
+                                                    handleStartDelete
+                                                }
+                                                onConfirmDelete={
+                                                    handleConfirmDelete
+                                                }
+                                                onCancelDelete={
+                                                    handleCancelDelete
+                                                }
+                                            />
+                                        ))}
+                                    </AttachmentGroup>
+                                ) : (
+                                    <div className="flex gap-2 flex-wrap">
+                                        {grouped[categoryName].map((doc) => (
+                                            <ListAttachmentItem
+                                                key={doc.id}
+                                                doc={doc}
+                                                isDeleting={deletingIds.has(
+                                                    doc.id,
+                                                )}
+                                                isConfirming={
+                                                    confirmingDeleteId ===
+                                                    doc.id
+                                                }
+                                                onPreview={handlePreview}
+                                                onDownload={handleDownload}
+                                                onStartDelete={
+                                                    handleStartDelete
+                                                }
+                                                onConfirmDelete={
+                                                    handleConfirmDelete
+                                                }
+                                                onCancelDelete={
+                                                    handleCancelDelete
+                                                }
+                                            />
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        ),
+                    )}
                 </>
             )}
             <DocumentPreviewLightbox
