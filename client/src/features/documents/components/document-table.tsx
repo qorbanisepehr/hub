@@ -4,10 +4,12 @@ import {
     getCoreRowModel,
     flexRender,
     type ColumnDef,
+    type RowSelectionState,
 } from "@tanstack/react-table";
 import { IconDownload, IconLoader2, IconTrash } from "@tabler/icons-react";
 
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { ConfirmDeleteActions } from "./confirm-delete-actions";
 import { DocumentFileCell } from "./document-file-cell";
 import { toPersianDate } from "@/lib/date-format";
@@ -22,6 +24,8 @@ type DocumentTableProps = {
     onStartDelete: (id: number) => void;
     onConfirmDelete: (id: number) => void;
     onCancelDelete: () => void;
+    selectedIds: number[];
+    onSelectionChange: (ids: number[]) => void;
 };
 
 export function DocumentTable({
@@ -33,15 +37,76 @@ export function DocumentTable({
     onStartDelete,
     onConfirmDelete,
     onCancelDelete,
+    selectedIds,
+    onSelectionChange,
 }: DocumentTableProps) {
+    const [rowSelection, setRowSelection] = React.useState<RowSelectionState>(
+        () => {
+            const selection: RowSelectionState = {};
+            documents.forEach((doc, index) => {
+                if (selectedIds.includes(doc.id)) {
+                    selection[index] = true;
+                }
+            });
+            return selection;
+        },
+    );
+
+    React.useEffect(() => {
+        const selection: RowSelectionState = {};
+        documents.forEach((doc, index) => {
+            if (selectedIds.includes(doc.id)) {
+                selection[index] = true;
+            }
+        });
+        setRowSelection(selection);
+    }, [selectedIds, documents]);
+
+    const handleSelectionChange = React.useCallback(
+        (updater: RowSelectionState | ((old: RowSelectionState) => RowSelectionState)) => {
+            const newSelection =
+                typeof updater === "function" ? updater(rowSelection) : updater;
+            setRowSelection(newSelection);
+
+            const selectedDocuments = Object.keys(newSelection)
+                .filter((key) => newSelection[key])
+                .map((key) => documents[parseInt(key)]?.id)
+                .filter((id): id is number => id !== undefined);
+            onSelectionChange(selectedDocuments);
+        },
+        [rowSelection, documents, onSelectionChange],
+    );
+
     const columns = React.useMemo<ColumnDef<Document>[]>(
         () => [
+            {
+                id: "select",
+                header: ({ table }) => (
+                    <Checkbox
+                        checked={table.getIsAllPageRowsSelected()}
+                        indeterminate={table.getIsSomePageRowsSelected() && !table.getIsAllPageRowsSelected()}
+                        onCheckedChange={(value) =>
+                            table.toggleAllPageRowsSelected(!!value)
+                        }
+                        aria-label="Select all"
+                    />
+                ),
+                cell: ({ row }) => (
+                    <Checkbox
+                        checked={row.getIsSelected()}
+                        onCheckedChange={(value) => row.toggleSelected(!!value)}
+                        onClick={(e) => e.stopPropagation()}
+                        aria-label="Select row"
+                    />
+                ),
+                size: 40,
+            },
             {
                 accessorKey: "category.name",
                 header: "دسته‌بندی",
                 cell: ({ row }) => (
                     <span className="text-sm">
-                        {row.original.category?.name ?? "—"}
+                        {row.original.category?.name ?? "سایر"}
                     </span>
                 ),
             },
@@ -152,6 +217,10 @@ export function DocumentTable({
         data: documents,
         columns,
         getCoreRowModel: getCoreRowModel(),
+        onRowSelectionChange: handleSelectionChange,
+        state: {
+            rowSelection,
+        },
     });
 
     return (
@@ -165,13 +234,16 @@ export function DocumentTable({
                         >
                             {headerGroup.headers.map((header) => {
                                 const isActions = header.id === "actions";
+                                const isSelect = header.id === "select";
                                 return (
                                     <th
                                         key={header.id}
                                         className={
                                             isActions
                                                 ? "sticky inset-e-0 z-20 bg-card shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.1)] h-10 px-3 text-start text-xs font-medium text-muted-foreground cursor-default"
-                                                : "h-10 px-3 text-start text-xs font-medium text-muted-foreground"
+                                                : isSelect
+                                                    ? "h-10 px-3 text-start text-xs font-medium text-muted-foreground w-10"
+                                                    : "h-10 px-3 text-start text-xs font-medium text-muted-foreground"
                                         }
                                     >
                                         {header.isPlaceholder
@@ -196,16 +268,19 @@ export function DocumentTable({
                         >
                             {row.getVisibleCells().map((cell) => {
                                 const isActions = cell.column.id === "actions";
+                                const isSelect = cell.column.id === "select";
                                 return (
                                     <td
                                         key={cell.id}
                                         className={
                                             isActions
                                                 ? "sticky inset-e-0 z-10 bg-card shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.1)] p-3 cursor-default"
-                                                : "p-3"
+                                                : isSelect
+                                                    ? "p-3 w-10"
+                                                    : "p-3"
                                         }
                                         onClick={
-                                            isActions
+                                            isActions || isSelect
                                                 ? (e) => e.stopPropagation()
                                                 : undefined
                                         }
