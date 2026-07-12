@@ -14,6 +14,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('employees/{employee}/documents', [EmployeeDocumentController::class, 'index']);
     Route::get('employees/{employee}/documents/trash', [EmployeeDocumentController::class, 'trashed']);
     Route::post('employees/{employee}/documents', [EmployeeDocumentController::class, 'store']);
+    Route::post('employees/{employee}/documents/bulk', [EmployeeDocumentController::class, 'bulkStore']);
+    Route::post('employees/{employee}/documents/download', [EmployeeDocumentController::class, 'bulkDownload']);
+    Route::post('employees/{employee}/documents/zip', [EmployeeDocumentController::class, 'zipStore']);
     Route::get('employees/documents/{employee_document}/download', [EmployeeDocumentController::class, 'download'])
         ->name('employee-documents.download');
     Route::delete('employees/documents/{employee_document}', [EmployeeDocumentController::class, 'destroy']);

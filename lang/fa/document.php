@@ -9,4 +9,8 @@ return [
     'document_force_deleted' => 'مدرک برای همیشه حذف شد.',
     'document_not_found' => 'مدرک مورد نظر یافت نشد.',
     'document_uploaded' => 'مدرک با موفقیت آپلود شد.',
+    'bulk_uploaded' => ':count مدرک با موفقیت آپلود شد.',
+    'bulk_skipped' => ':count مدرک تکراری رد شد.',
+    'bulk_failed' => 'بارگذاری :count مدرک با خطا مواجه شد.',
+    'zip_uploaded' => 'فایل فشرده با موفقیت پردازش شد.',
 ];
