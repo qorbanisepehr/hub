@@ -13,4 +13,6 @@ return [
     'bulk_skipped' => ':count مدرک تکراری رد شد.',
     'bulk_failed' => 'بارگذاری :count مدرک با خطا مواجه شد.',
     'zip_uploaded' => 'فایل فشرده با موفقیت پردازش شد.',
+    'zip_root_file' => 'فایل باید در پوشه دسته‌بندی قرار گیرد.',
+    'zip_category_not_applicable' => 'دسته‌بندی برای کارمند مجاز نیست.',
 ];

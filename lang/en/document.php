@@ -13,4 +13,6 @@ return [
     'bulk_skipped' => ':count duplicate documents skipped.',
     'bulk_failed' => ':count documents failed to upload.',
     'zip_uploaded' => 'Zip file processed successfully.',
+    'zip_root_file' => 'File must be placed in a category folder.',
+    'zip_category_not_applicable' => 'Category is not applicable to this employee.',
 ];
