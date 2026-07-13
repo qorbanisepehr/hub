@@ -5,7 +5,7 @@ import { isAxiosError } from "axios";
  * Handles Laravel 422 validation responses, plain error messages,
  * and unknown error types.
  */
-export function getApiError(e: unknown): string {
+export function getApiError(e: unknown): string | null {
     if (isAxiosError(e) && e.response?.data) {
         const data = e.response.data as Record<string, unknown>;
 
@@ -16,8 +16,7 @@ export function getApiError(e: unknown): string {
                 .filter((m): m is string => typeof m === "string");
 
             if (messages.length > 0) {
-                return messages[0]
-                    .replace(/files\.\d+/g, "فایل");
+                return messages[0].replace(/files\.\d+/g, "فایل");
             }
         }
 
@@ -30,5 +29,5 @@ export function getApiError(e: unknown): string {
         return e.message;
     }
 
-    return "خطای ناشناخته";
+    return e ? "خطای ناشناخته" : null;
 }
