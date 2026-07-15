@@ -8,16 +8,6 @@ import { PageLayout } from "@/components/shared/page-layout";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ErrorSection } from "@/components/shared/error-section";
 
-function PermissionsSkeleton() {
-    return (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {Array.from({ length: 6 }).map((_, i) => (
-                <Skeleton key={i} className="h-40 w-full" />
-            ))}
-        </div>
-    );
-}
-
 export function PermissionsPage() {
     const { data, isLoading, isError } = usePermissions();
 
@@ -46,7 +36,11 @@ export function PermissionsPage() {
                 </CardHeader>
                 <CardContent>
                     {isLoading ? (
-                        <PermissionsSkeleton />
+                        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                            {Array.from({ length: 6 }).map((_, i) => (
+                                <Skeleton key={i} className="h-40 w-full rounded-lg" />
+                            ))}
+                        </div>
                     ) : isError ? (
                         <ErrorSection icon={IconPalette} />
                     ) : !data?.length ? (

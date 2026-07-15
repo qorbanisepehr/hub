@@ -1,3 +1,4 @@
+import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/features/auth/useAuth";
 
 export function DashboardPage() {
@@ -6,7 +7,10 @@ export function DashboardPage() {
     if (isLoading) {
         return (
             <div className="flex flex-1 flex-col items-center justify-center p-6">
-                <p className="text-muted-foreground">در حال بارگذاری...</p>
+                <div className="text-center space-y-2">
+                    <Skeleton className="h-6 w-48 mx-auto" />
+                    <Skeleton className="h-4 w-32 mx-auto" />
+                </div>
             </div>
         );
     }

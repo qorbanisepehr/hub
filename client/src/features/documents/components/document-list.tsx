@@ -114,7 +114,7 @@ export function DocumentList({
         return (
             <div className="space-y-3">
                 {Array.from({ length: 3 }).map((_, i) => (
-                    <Skeleton key={i} className="h-14 w-full rounded-xl" />
+                    <Skeleton key={i} className="h-14 w-full rounded-lg" />
                 ))}
             </div>
         );
