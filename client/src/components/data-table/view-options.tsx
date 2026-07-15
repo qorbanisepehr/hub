@@ -53,7 +53,7 @@ export function DataTableViewOptions<TData>({
                                         column.toggleVisibility(!!value)
                                     }
                                 >
-                                    {column.id}
+                                    {column.columnDef.meta?.displayName ?? column.id}
                                 </DropdownMenuCheckboxItem>
                             );
                         })}

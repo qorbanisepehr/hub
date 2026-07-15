@@ -1,6 +1,6 @@
 import { type ColumnDef } from "@tanstack/react-table";
 import { Link } from "@tanstack/react-router";
-import { IconEye, IconUserCog, IconToggleLeft, IconToggleRight, IconTrash } from "@tabler/icons-react";
+import { IconPencil, IconToggleLeft, IconToggleRight, IconTrash } from "@tabler/icons-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DataTableColumnHeader } from "@/components/data-table";
@@ -28,6 +28,7 @@ export function getRoleColumns(actions: RoleActions): ColumnDef<Role>[] {
                     {row.getValue("display_name")}
                 </Link>
             ),
+            meta: { displayName: "نام نمایشی" },
             enableHiding: false,
         },
         {
@@ -40,6 +41,7 @@ export function getRoleColumns(actions: RoleActions): ColumnDef<Role>[] {
                     {row.getValue("name")}
                 </span>
             ),
+            meta: { displayName: "نام سیستمی" },
         },
         {
             id: "parent",
@@ -55,6 +57,7 @@ export function getRoleColumns(actions: RoleActions): ColumnDef<Role>[] {
                     <span className="text-muted-foreground text-xs">—</span>
                 );
             },
+            meta: { displayName: "نقش والد" },
         },
         {
             accessorKey: "is_active",
@@ -69,27 +72,13 @@ export function getRoleColumns(actions: RoleActions): ColumnDef<Role>[] {
                     </Badge>
                 );
             },
+            meta: { displayName: "وضعیت" },
         },
         {
             id: "actions",
             header: "عملیات",
             cell: ({ row }) => (
                 <div className="flex items-center gap-1">
-                    <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        nativeButton={false}
-                        render={
-                            <Link
-                                to="/roles/$roleId"
-                                params={{
-                                    roleId: String(row.original.id),
-                                }}
-                            />
-                        }
-                    >
-                        <IconEye className="size-4" />
-                    </Button>
                     <PermissionGuard permission="role.update">
                         <Button
                             variant="ghost"
@@ -104,7 +93,7 @@ export function getRoleColumns(actions: RoleActions): ColumnDef<Role>[] {
                                 />
                             }
                         >
-                            <IconUserCog className="size-4" />
+                            <IconPencil className="size-4" />
                         </Button>
                     </PermissionGuard>
                     <PermissionGuard permission="role.update">

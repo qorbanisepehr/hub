@@ -23,6 +23,7 @@ export const employeeColumns: ColumnDef<Employee>[] = [
                 {row.getValue("personnel_code")}
             </span>
         ),
+        meta: { displayName: "کد پرسنلی" },
         enableHiding: false,
     },
     {
@@ -40,6 +41,7 @@ export const employeeColumns: ColumnDef<Employee>[] = [
                 {row.original.first_name} {row.original.last_name}
             </Link>
         ),
+        meta: { displayName: "نام و نام خانوادگی" },
     },
     {
         accessorKey: "gender",
@@ -52,6 +54,7 @@ export const employeeColumns: ColumnDef<Employee>[] = [
                     row.getValue("gender")}
             </Badge>
         ),
+        meta: { displayName: "جنسیت" },
     },
     {
         accessorKey: "employment_status",
@@ -66,6 +69,7 @@ export const employeeColumns: ColumnDef<Employee>[] = [
                 </Badge>
             );
         },
+        meta: { displayName: "وضعیت" },
     },
     {
         accessorKey: "hire_date",
@@ -77,6 +81,7 @@ export const employeeColumns: ColumnDef<Employee>[] = [
                 {row.getValue("hire_date") ?? "—"}
             </span>
         ),
+        meta: { displayName: "تاریخ استخدام" },
     },
     {
         id: "actions",
