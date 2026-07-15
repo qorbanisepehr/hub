@@ -131,7 +131,10 @@ class AuthController
 
     public function me(Request $request): UserResource
     {
-        return new UserResource($request->user());
+        $user = $request->user();
+        $user->load(['roles']);
+
+        return new UserResource($user);
     }
 
     private function authenticate(Request $request, User $user): JsonResponse
@@ -141,14 +144,14 @@ class AuthController
             $request->session()->regenerate();
 
             return response()->json([
-                'user' => new UserResource($user),
+                'user' => new UserResource($user->load(['roles'])),
             ]);
         }
 
         $token = $this->createToken($user, $request);
 
         return response()->json([
-            'user' => new UserResource($user),
+            'user' => new UserResource($user->load(['roles'])),
             'token' => $token,
         ]);
     }
