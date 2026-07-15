@@ -3,6 +3,7 @@
 namespace App\Domains\Employee\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rules\Enum;
 
 class StoreEmployeeRequest extends FormRequest
 {
@@ -11,7 +12,7 @@ class StoreEmployeeRequest extends FormRequest
         return true;
     }
 
-    /** @return array<string, array<int, string>> */
+    /** @return array<string, array<int, string|Enum>> */
     public function rules(): array
     {
         return [
@@ -22,12 +23,33 @@ class StoreEmployeeRequest extends FormRequest
             'birth_date' => ['nullable', 'date'],
             'id_number' => ['nullable', 'string', 'max:10', 'min:10', 'unique:employees,id_number'],
             'marital_status' => ['nullable', 'string', 'in:single,married'],
-            'education_level' => ['nullable', 'string', 'max:100'],
+            'education_level' => ['nullable', 'string', 'in:diploma,associate,bachelor,master,doctorate'],
             'education_field' => ['nullable', 'string', 'max:255'],
-            'employment_type' => ['nullable', 'string', 'max:100'],
+            'employment_type' => ['nullable', 'string', 'in:official,contractual,project-based'],
             'hire_date' => ['nullable', 'date'],
-            'employment_status' => ['nullable', 'string', 'max:100'],
-            'user_id' => ['nullable', 'integer', 'exists:users,id'],
+            'employment_status' => ['nullable', 'string', 'in:active,inactive,suspended'],
+            'user_id' => ['nullable', 'integer', 'exists:users,id', 'unique:employees,user_id'],
+        ];
+    }
+
+    /** @return array<string, string> */
+    public function messages(): array
+    {
+        return [
+            'personnel_code.required' => 'کد پرسنلی الزامی است.',
+            'personnel_code.unique' => 'این کد پرسنلی قبلاً استفاده شده است.',
+            'first_name.required' => 'نام الزامی است.',
+            'last_name.required' => 'نام خانوادگی الزامی است.',
+            'gender.required' => 'جنسیت الزامی است.',
+            'gender.in' => 'جنسیت نامعتبر است.',
+            'id_number.unique' => 'این کد ملی قبلاً در سیستم ثبت شده است.',
+            'id_number.min' => 'کد ملی باید ۱۰ رقم باشد.',
+            'id_number.max' => 'کد ملی باید ۱۰ رقم باشد.',
+            'education_level.in' => 'سطح تحصیلات نامعتبر است.',
+            'employment_type.in' => 'نوع استخدام نامعتبر است.',
+            'employment_status.in' => 'وضعیت استخدام نامعتبر است.',
+            'user_id.exists' => 'کاربر مورد نظر یافت نشد.',
+            'user_id.unique' => 'این کاربر قبلاً به کارمند دیگری اختصاص داده شده است.',
         ];
     }
 }
