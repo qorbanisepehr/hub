@@ -13,34 +13,49 @@ import {
 import { ErrorBanner } from "@/components/shared/error-banner";
 import { FormTextField } from "@/components/shared/form-fields";
 
-export const userSchema = z
-    .object({
-        name: z
-            .string()
-            .trim()
-            .min(1, "نام الزامی است")
-            .max(255, "حداکثر ۲۵۵ کاراکتر"),
-        email: z
-            .string()
-            .trim()
-            .min(1, "ایمیل الزامی است")
-            .email("ایمیل نامعتبر است"),
-        phone: z
-            .string()
-            .trim()
-            .max(20, "حداکثر ۲۰ کاراکتر")
-            .or(z.literal("")),
-        username: z
-            .string()
-            .trim()
-            .max(100, "حداکثر ۱۰۰ کاراکتر")
-            .or(z.literal("")),
-        password: z
-            .string()
-            .min(8, "حداقل ۸ کاراکتر")
-            .or(z.literal(""))
-            .or(z.undefined()),
-        password_confirmation: z.string().or(z.literal("")).or(z.undefined()),
+const baseUserSchema = z.object({
+    name: z
+        .string()
+        .trim()
+        .min(1, "نام الزامی است")
+        .max(255, "حداکثر ۲۵۵ کاراکتر"),
+    email: z
+        .string()
+        .trim()
+        .min(1, "ایمیل الزامی است")
+        .email("ایمیل نامعتبر است"),
+    phone: z
+        .string()
+        .trim()
+        .max(20, "حداکثر ۲۰ کاراکتر")
+        .or(z.literal("")),
+    username: z
+        .string()
+        .trim()
+        .max(100, "حداکثر ۱۰۰ کاراکتر")
+        .or(z.literal("")),
+    password: z
+        .string()
+        .min(8, "حداقل ۸ کاراکتر")
+        .or(z.literal(""))
+        .or(z.undefined()),
+    password_confirmation: z.string().or(z.literal("")).or(z.undefined()),
+});
+
+export const userSchema = baseUserSchema.refine(
+    (data) =>
+        data.password === "" ||
+        data.password === data.password_confirmation,
+    {
+        message: "رمز عبور و تکرار آن مطابقت ندارند",
+        path: ["password_confirmation"],
+    },
+);
+
+export const createUserSchema = baseUserSchema
+    .refine((data) => data.password !== "" && data.password !== undefined, {
+        message: "رمز عبور الزامی است",
+        path: ["password"],
     })
     .refine(
         (data) =>
@@ -63,6 +78,7 @@ interface UserFormProps {
     title?: string;
     description?: string;
     showPasswordField?: boolean;
+    passwordRequired?: boolean;
     passwordSectionLabel?: string;
     passwordSectionDescription?: string;
 }
@@ -76,6 +92,7 @@ export function UserForm({
     title = "اطلاعات کاربر",
     description = "اطلاعات هویتی کاربر",
     showPasswordField = true,
+    passwordRequired = false,
     passwordSectionLabel = "رمز عبور",
     passwordSectionDescription,
 }: UserFormProps) {
@@ -90,7 +107,7 @@ export function UserForm({
             ...defaultValues,
         } as UserFormValues,
         validators: {
-            onSubmit: userSchema,
+            onSubmit: passwordRequired ? createUserSchema : userSchema,
         },
         onSubmit: async ({ value }) => {
             onSubmit(value);

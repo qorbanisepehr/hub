@@ -42,6 +42,7 @@ export function UserCreatePage() {
                 isPending={mutation.isPending}
                 submitLabel="ایجاد کاربر"
                 description="فرم ایجاد کاربر جدید در سیستم"
+                passwordRequired
             />
         </PageLayout>
     );
