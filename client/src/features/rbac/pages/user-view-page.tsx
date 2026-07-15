@@ -13,10 +13,10 @@ import {
     CardTitle,
     CardDescription,
 } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
 import { fetchUser } from "@/features/rbac/api";
 import { RoleBadge } from "@/features/rbac/components/role-badge";
 import { PermissionGuard } from "@/features/auth/components/permission-guard";
+import { ViewSkeleton } from "@/components/shared/view-skeleton";
 import { InfoRow } from "@/components/shared/info-row";
 import { PageLayout } from "@/components/shared/page-layout";
 import { ErrorPage } from "@/components/shared/error-page";
@@ -38,42 +38,7 @@ export function UserViewPage() {
     });
 
     if (isLoading) {
-        return (
-            <PageLayout>
-                <div className="flex items-center gap-3">
-                    <Skeleton className="h-8 w-8 rounded-lg" />
-                    <div className="space-y-2">
-                        <Skeleton className="h-8 w-48" />
-                        <Skeleton className="h-4 w-32" />
-                    </div>
-                </div>
-                <div className="grid gap-6 md:grid-cols-2">
-                    <Card>
-                        <CardHeader>
-                            <Skeleton className="h-5 w-28" />
-                        </CardHeader>
-                        <CardContent className="space-y-0 divide-y">
-                            {Array.from({ length: 4 }).map((_, i) => (
-                                <div key={i} className="flex items-baseline gap-2 py-2">
-                                    <Skeleton className="h-4 w-24 shrink-0" />
-                                    <Skeleton className="h-4 w-32" />
-                                </div>
-                            ))}
-                        </CardContent>
-                    </Card>
-                    <Card>
-                        <CardHeader>
-                            <Skeleton className="h-5 w-28" />
-                        </CardHeader>
-                        <CardContent className="space-y-3">
-                            {Array.from({ length: 2 }).map((_, i) => (
-                                <Skeleton key={i} className="h-10 w-full rounded-lg" />
-                            ))}
-                        </CardContent>
-                    </Card>
-                </div>
-            </PageLayout>
-        );
+        return <ViewSkeleton leftRows={4} rightRows={2} />;
     }
 
     if (isError || !user) {

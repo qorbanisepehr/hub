@@ -24,7 +24,6 @@ import {
     CardTitle,
     CardDescription,
 } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
 import { fetchEmployee, deleteEmployee } from "@/features/employees/api";
 import { fetchTrashedDocuments, bulkDownloadDocuments } from "@/features/documents/api";
 import { getApiError } from "@/lib/error-utils";
@@ -32,7 +31,7 @@ import { DocumentSection } from "@/features/documents/components/document-sectio
 import { DocumentUploadModal } from "@/features/documents/components/document-upload-modal";
 import { DocumentTrashModal } from "@/features/documents/components/document-trash-modal";
 import { PermissionGuard } from "@/features/auth/components/permission-guard";
-import { TableSkeleton } from "@/components/shared/table-skeleton";
+import { ViewSkeleton } from "@/components/shared/view-skeleton";
 import { InfoRow } from "@/components/shared/info-row";
 import { PageLayout } from "@/components/shared/page-layout";
 import { ErrorPage } from "@/components/shared/error-page";
@@ -106,70 +105,7 @@ export function EmployeeViewPage() {
     }
 
     if (isLoading) {
-        return (
-            <PageLayout>
-                <div className="flex items-center justify-between">
-                    <div className="space-y-2">
-                        <Skeleton className="h-8 w-56" />
-                        <Skeleton className="h-4 w-32" />
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <Skeleton className="h-8 w-8 rounded-lg" />
-                        <Skeleton className="h-8 w-24 rounded-lg" />
-                        <Skeleton className="h-8 w-24 rounded-lg" />
-                    </div>
-                </div>
-                <div className="grid gap-6 md:grid-cols-2">
-                    <Card>
-                        <CardHeader>
-                            <Skeleton className="h-5 w-28" />
-                            <Skeleton className="h-4 w-40" />
-                        </CardHeader>
-                        <CardContent className="space-y-0 divide-y">
-                            {Array.from({ length: 6 }).map((_, i) => (
-                                <div key={i} className="flex items-baseline gap-2 py-2">
-                                    <Skeleton className="h-4 w-24 shrink-0" />
-                                    <Skeleton className="h-4 w-32" />
-                                </div>
-                            ))}
-                        </CardContent>
-                    </Card>
-                    <Card>
-                        <CardHeader>
-                            <Skeleton className="h-5 w-28" />
-                            <Skeleton className="h-4 w-40" />
-                        </CardHeader>
-                        <CardContent className="space-y-0 divide-y">
-                            {Array.from({ length: 6 }).map((_, i) => (
-                                <div key={i} className="flex items-baseline gap-2 py-2">
-                                    <Skeleton className="h-4 w-24 shrink-0" />
-                                    <Skeleton className="h-4 w-32" />
-                                </div>
-                            ))}
-                        </CardContent>
-                    </Card>
-                </div>
-                <Card>
-                    <CardHeader>
-                        <div className="flex items-center justify-between">
-                            <div className="space-y-2">
-                                <Skeleton className="h-5 w-24" />
-                                <Skeleton className="h-4 w-48" />
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <Skeleton className="h-7 w-28 rounded-lg" />
-                                <Skeleton className="h-7 w-28 rounded-lg" />
-                            </div>
-                        </div>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                        {Array.from({ length: 3 }).map((_, i) => (
-                            <Skeleton key={i} className="h-14 w-full rounded-xl" />
-                        ))}
-                    </CardContent>
-                </Card>
-            </PageLayout>
-        );
+        return <ViewSkeleton leftRows={6} rightRows={6} />;
     }
 
     if (!employee) {

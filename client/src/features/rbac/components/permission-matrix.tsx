@@ -26,7 +26,7 @@ export function PermissionMatrix({
         return (
             <div className="space-y-4">
                 {Array.from({ length: 3 }).map((_, i) => (
-                    <Skeleton key={i} className="h-24 w-full" />
+                    <Skeleton key={i} className="h-24 w-full rounded-lg" />
                 ))}
             </div>
         );
