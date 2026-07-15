@@ -1,11 +1,12 @@
 import { Component, type ReactNode } from "react";
-import { useLocation } from "@tanstack/react-router";
 
 import { ErrorPage } from "@/components/shared/error-page";
 
 interface Props {
     children: ReactNode;
     fallback?: ReactNode;
+    homeTo?: string;
+    onReset?: () => void;
 }
 
 interface State {
@@ -13,7 +14,7 @@ interface State {
     error: Error | null;
 }
 
-class ErrorBoundaryInner extends Component<Props, State> {
+export class ErrorBoundary extends Component<Props, State> {
     state: State = { hasError: false, error: null };
 
     static getDerivedStateFromError(error: Error): State {
@@ -21,25 +22,29 @@ class ErrorBoundaryInner extends Component<Props, State> {
     }
 
     componentDidCatch(error: Error, info: React.ErrorInfo) {
-        console.error("ErrorBoundary caught:", error, info.componentStack);
+        console.error("ErrorBoundary caught an error:", error, info.componentStack);
     }
+
+    private resetError = () => {
+        this.setState({ hasError: false, error: null });
+        this.props.onReset?.();
+    };
 
     render() {
         if (this.state.hasError) {
-            return this.props.fallback ?? <ErrorPage status={500} />;
+            if (this.props.fallback) {
+                return this.props.fallback;
+            }
+
+            return (
+                <ErrorPage
+                    status={500}
+                    title="خطای غیرمنتظره در رابط کاربری"
+                    homeTo={this.props.homeTo ?? "/"}
+                />
+            );
         }
+
         return this.props.children;
     }
 }
-
-function ErrorBoundaryWrapper({ children, fallback }: Props) {
-    const location = useLocation();
-
-    return (
-        <ErrorBoundaryInner key={location.href} fallback={fallback}>
-            {children}
-        </ErrorBoundaryInner>
-    );
-}
-
-export { ErrorBoundaryWrapper as ErrorBoundary };
