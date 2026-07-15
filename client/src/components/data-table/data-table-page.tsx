@@ -1,0 +1,191 @@
+import type { ReactNode } from "react";
+import {
+    flexRender,
+    type Table as TanStackTable,
+} from "@tanstack/react-table";
+import type { Icon } from "@tabler/icons-react";
+
+import {
+    Card,
+    CardContent,
+    CardHeader,
+    CardTitle,
+    CardDescription,
+} from "@/components/ui/card";
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from "@/components/ui/table";
+import { TableSkeleton } from "@/components/shared/table-skeleton";
+import { PageLayout } from "@/components/shared/page-layout";
+import { EmptyState } from "@/components/shared/empty-state";
+import { DataTablePagination } from "./pagination";
+
+type Meta = {
+    current_page: number;
+    last_page: number;
+    per_page: number;
+    total: number;
+} | undefined;
+
+interface DataTablePageProps<T> {
+    table: TanStackTable<T>;
+    meta?: Meta;
+    isLoading?: boolean;
+    isError?: boolean;
+    title: string;
+    description?: string;
+    totalLabel?: string;
+    icon: Icon;
+    header?: ReactNode;
+    toolbar?: ReactNode;
+    emptyMessage?: string;
+    emptyAction?: ReactNode;
+    errorAction?: ReactNode;
+    colSpan: number;
+}
+
+export function DataTablePage<T>({
+    table,
+    meta,
+    isLoading = false,
+    isError = false,
+    title,
+    description,
+    totalLabel = "مورد",
+    icon: Icon,
+    header,
+    toolbar,
+    emptyMessage = "هیچ موردی یافت نشد",
+    emptyAction,
+    errorAction,
+    colSpan,
+}: DataTablePageProps<T>) {
+    return (
+        <PageLayout>
+            {header && (
+                <div className="flex items-center justify-between">
+                    {header}
+                </div>
+            )}
+
+            <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                        <Icon className="size-5" />
+                        {title}
+                    </CardTitle>
+                    {description ?? (meta && (
+                        <CardDescription>
+                            مجموع {meta.total.toLocaleString("fa-IR")} {totalLabel}
+                        </CardDescription>
+                    ))}
+                </CardHeader>
+                <CardContent className="p-0">
+                    {isLoading ? (
+                        <div className="p-4">
+                            <TableSkeleton />
+                        </div>
+                    ) : isError ? (
+                        <EmptyState
+                            icon={Icon}
+                            message="خطا در بارگذاری اطلاعات"
+                        >
+                            {errorAction}
+                        </EmptyState>
+                    ) : (
+                        <div className="overflow-x-auto">
+                            {toolbar}
+                            <Table>
+                                <TableHeader>
+                                    {table
+                                        .getHeaderGroups()
+                                        .map((headerGroup) => (
+                                            <TableRow
+                                                key={headerGroup.id}
+                                                className="group/row"
+                                            >
+                                                {headerGroup.headers.map(
+                                                    (header) => (
+                                                        <TableHead
+                                                            key={header.id}
+                                                            colSpan={
+                                                                header.colSpan
+                                                            }
+                                                            className="bg-background group-hover/row:bg-muted"
+                                                        >
+                                                            {header.isPlaceholder
+                                                                ? null
+                                                                : flexRender(
+                                                                      header
+                                                                          .column
+                                                                          .columnDef
+                                                                          .header,
+                                                                      header.getContext(),
+                                                                  )}
+                                                        </TableHead>
+                                                    ),
+                                                )}
+                                            </TableRow>
+                                        ))}
+                                </TableHeader>
+                                <TableBody>
+                                    {table.getRowModel().rows?.length ? (
+                                        table
+                                            .getRowModel()
+                                            .rows.map((row) => (
+                                                <TableRow
+                                                    key={row.id}
+                                                    className="group/row"
+                                                >
+                                                    {row
+                                                        .getVisibleCells()
+                                                        .map((cell) => (
+                                                            <TableCell
+                                                                key={cell.id}
+                                                                className="bg-background group-hover/row:bg-muted"
+                                                            >
+                                                                {flexRender(
+                                                                    cell.column
+                                                                        .columnDef
+                                                                        .cell,
+                                                                    cell.getContext(),
+                                                                )}
+                                                            </TableCell>
+                                                        ))}
+                                                </TableRow>
+                                            ))
+                                    ) : (
+                                        <TableRow>
+                                            <TableCell
+                                                colSpan={colSpan}
+                                                className="h-24 text-center"
+                                            >
+                                                <EmptyState
+                                                    icon={Icon}
+                                                    message={emptyMessage}
+                                                >
+                                                    {emptyAction}
+                                                </EmptyState>
+                                            </TableCell>
+                                        </TableRow>
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </div>
+                    )}
+                </CardContent>
+            </Card>
+
+            {!isLoading && !isError && (
+                <div className="flex items-center justify-between">
+                    <DataTablePagination table={table} meta={meta} />
+                </div>
+            )}
+        </PageLayout>
+    );
+}

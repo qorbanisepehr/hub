@@ -1,7 +1,7 @@
 import { createRootRoute, Outlet } from "@tanstack/react-router";
-import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import { ThemeProvider } from "next-themes";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { Toaster } from "@/components/ui/sonner";
 
 export const Route = createRootRoute({
     component: () => (
@@ -9,11 +9,10 @@ export const Route = createRootRoute({
             attribute="class"
             defaultTheme="system"
             enableSystem
-            // disableTransitionOnChange
         >
             <TooltipProvider>
                 <Outlet />
-                {/* <TanStackRouterDevtools /> */}
+                <Toaster richColors closeButton />
             </TooltipProvider>
         </ThemeProvider>
     ),

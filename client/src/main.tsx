@@ -1,19 +1,10 @@
 import "@/assets/styles/app.css";
 import { StrictMode, Suspense } from "react";
 import { createRoot } from "react-dom/client";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider } from "@tanstack/react-router";
 import { router } from "@/router";
-
-const queryClient = new QueryClient({
-    defaultOptions: {
-        queries: {
-            retry: 1,
-            staleTime: 30_000,
-            refetchOnWindowFocus: false,
-        },
-    },
-});
+import { queryClient } from "@/lib/query-client";
 
 const rootElement = document.getElementById("app")!;
 if (!rootElement.innerHTML) {
