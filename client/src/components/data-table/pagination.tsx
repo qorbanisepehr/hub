@@ -38,12 +38,12 @@ export function DataTablePagination<TData>({
     return (
         <div
             className={cn(
-                "flex items-center justify-between overflow-clip px-2",
+                "flex items-center justify-between gap-4 overflow-clip px-2",
                 className,
             )}
             style={{ overflowClipMargin: 1 }}
         >
-            <div className="flex w-full items-center gap-2">
+            <div className="flex items-center gap-2">
                 <div className="flex items-center gap-2">
                     <Select
                         value={`${table.getState().pagination.pageSize}`}

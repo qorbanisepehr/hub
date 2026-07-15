@@ -99,7 +99,9 @@ export function DataTablePage<T>({
                         </EmptyState>
                     ) : (
                         <div className="overflow-x-auto">
-                            {toolbar}
+                            {toolbar && (
+                                <div className="px-4 pt-3 pb-3">{toolbar}</div>
+                            )}
                             <Table>
                                 <TableHeader>
                                     {table
@@ -179,13 +181,12 @@ export function DataTablePage<T>({
                         </div>
                     )}
                 </CardContent>
+                {!isLoading && !isError && (
+                    <div className="border-t px-4 py-3">
+                        <DataTablePagination table={table} meta={meta} />
+                    </div>
+                )}
             </Card>
-
-            {!isLoading && !isError && (
-                <div className="flex items-center justify-between">
-                    <DataTablePagination table={table} meta={meta} />
-                </div>
-            )}
         </PageLayout>
     );
 }
