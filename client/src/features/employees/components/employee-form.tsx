@@ -11,14 +11,6 @@ import {
     CardDescription,
 } from "@/components/ui/card";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
 import { DatePicker } from "@/components/ui/date-picker";
 import {
     genderLabels,
@@ -28,6 +20,9 @@ import {
     statusLabels,
 } from "@/features/employees/constants";
 import { Link } from "@tanstack/react-router";
+import { FormTextField, FormSelectField } from "@/components/shared/form-fields";
+import { ErrorBanner } from "@/components/shared/error-banner";
+import { UserSearchSelect } from "@/features/rbac/components/user-search-select";
 
 const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -98,6 +93,10 @@ const employeeSchema = z.object({
             message: "وضعیت اشتغال نامعتبر است",
         })
         .or(z.literal("")),
+    user_id: z
+        .number()
+        .nullable()
+        .or(z.undefined()),
 });
 
 type EmployeeFormValues = z.infer<typeof employeeSchema>;
@@ -131,6 +130,7 @@ export function EmployeeForm({
             employment_type: "",
             hire_date: "",
             employment_status: "",
+            user_id: null,
             ...defaultValues,
         } as EmployeeFormValues,
         validators: {
@@ -167,36 +167,14 @@ export function EmployeeForm({
                                     .max(50, "حداکثر ۵۰ کاراکتر"),
                             }}
                         >
-                            {(field) => {
-                                const isInvalid =
-                                    field.state.meta.isTouched &&
-                                    !field.state.meta.isValid;
-                                return (
-                                    <Field data-invalid={isInvalid}>
-                                        <FieldLabel htmlFor={field.name}>
-                                            کد پرسنلی
-                                        </FieldLabel>
-                                        <Input
-                                            id={field.name}
-                                            name={field.name}
-                                            value={field.state.value}
-                                            onBlur={field.handleBlur}
-                                            onChange={(e) =>
-                                                field.handleChange(
-                                                    e.target.value,
-                                                )
-                                            }
-                                            placeholder="۰۰۰۰۱"
-                                            dir="ltr"
-                                        />
-                                        {isInvalid && (
-                                            <FieldError
-                                                errors={field.state.meta.errors}
-                                            />
-                                        )}
-                                    </Field>
-                                );
-                            }}
+                            {(field) => (
+                                <FormTextField
+                                    field={field}
+                                    label="کد پرسنلی"
+                                    placeholder="۰۰۰۰۱"
+                                    dir="ltr"
+                                />
+                            )}
                         </form.Field>
 
                         <form.Field
@@ -208,35 +186,13 @@ export function EmployeeForm({
                                     .max(255, "حداکثر ۲۵۵ کاراکتر"),
                             }}
                         >
-                            {(field) => {
-                                const isInvalid =
-                                    field.state.meta.isTouched &&
-                                    !field.state.meta.isValid;
-                                return (
-                                    <Field data-invalid={isInvalid}>
-                                        <FieldLabel htmlFor={field.name}>
-                                            نام
-                                        </FieldLabel>
-                                        <Input
-                                            id={field.name}
-                                            name={field.name}
-                                            value={field.state.value}
-                                            onBlur={field.handleBlur}
-                                            onChange={(e) =>
-                                                field.handleChange(
-                                                    e.target.value,
-                                                )
-                                            }
-                                            placeholder="محمدرضا"
-                                        />
-                                        {isInvalid && (
-                                            <FieldError
-                                                errors={field.state.meta.errors}
-                                            />
-                                        )}
-                                    </Field>
-                                );
-                            }}
+                            {(field) => (
+                                <FormTextField
+                                    field={field}
+                                    label="نام"
+                                    placeholder="محمدرضا"
+                                />
+                            )}
                         </form.Field>
 
                         <form.Field
@@ -248,35 +204,13 @@ export function EmployeeForm({
                                     .max(255, "حداکثر ۲۵۵ کاراکتر"),
                             }}
                         >
-                            {(field) => {
-                                const isInvalid =
-                                    field.state.meta.isTouched &&
-                                    !field.state.meta.isValid;
-                                return (
-                                    <Field data-invalid={isInvalid}>
-                                        <FieldLabel htmlFor={field.name}>
-                                            نام خانوادگی
-                                        </FieldLabel>
-                                        <Input
-                                            id={field.name}
-                                            name={field.name}
-                                            value={field.state.value}
-                                            onBlur={field.handleBlur}
-                                            onChange={(e) =>
-                                                field.handleChange(
-                                                    e.target.value,
-                                                )
-                                            }
-                                            placeholder="احمدی"
-                                        />
-                                        {isInvalid && (
-                                            <FieldError
-                                                errors={field.state.meta.errors}
-                                            />
-                                        )}
-                                    </Field>
-                                );
-                            }}
+                            {(field) => (
+                                <FormTextField
+                                    field={field}
+                                    label="نام خانوادگی"
+                                    placeholder="احمدی"
+                                />
+                            )}
                         </form.Field>
 
                         <form.Field
@@ -289,48 +223,16 @@ export function EmployeeForm({
                                     .or(z.literal("")),
                             }}
                         >
-                            {(field) => {
-                                const isInvalid =
-                                    field.state.meta.isTouched &&
-                                    !field.state.meta.isValid;
-                                return (
-                                    <Field data-invalid={isInvalid}>
-                                        <FieldLabel htmlFor={field.name}>
-                                            جنسیت
-                                        </FieldLabel>
-                                        <Select
-                                            value={field.state.value || null}
-                                            onValueChange={(val) =>
-                                                field.handleChange(val ?? "")
-                                            }
-                                            itemToStringLabel={(val) =>
-                                                val
-                                                    ? (genderLabels[
-                                                          val as string
-                                                      ] ?? val)
-                                                    : ""
-                                            }
-                                        >
-                                            <SelectTrigger id={field.name}>
-                                                <SelectValue placeholder="انتخاب کنید" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="male">
-                                                    مرد
-                                                </SelectItem>
-                                                <SelectItem value="female">
-                                                    زن
-                                                </SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                        {isInvalid && (
-                                            <FieldError
-                                                errors={field.state.meta.errors}
-                                            />
-                                        )}
-                                    </Field>
-                                );
-                            }}
+                            {(field) => (
+                                <FormSelectField
+                                    field={field}
+                                    label="جنسیت"
+                                    options={[
+                                        { value: "male", label: "مرد" },
+                                        { value: "female", label: "زن" },
+                                    ]}
+                                />
+                            )}
                         </form.Field>
 
                         <form.Field
@@ -363,7 +265,9 @@ export function EmployeeForm({
                                         />
                                         {isInvalid && (
                                             <FieldError
-                                                errors={field.state.meta.errors}
+                                                errors={
+                                                    field.state.meta.errors
+                                                }
                                             />
                                         )}
                                     </Field>
@@ -384,36 +288,14 @@ export function EmployeeForm({
                                     ),
                             }}
                         >
-                            {(field) => {
-                                const isInvalid =
-                                    field.state.meta.isTouched &&
-                                    !field.state.meta.isValid;
-                                return (
-                                    <Field data-invalid={isInvalid}>
-                                        <FieldLabel htmlFor={field.name}>
-                                            کد ملی
-                                        </FieldLabel>
-                                        <Input
-                                            id={field.name}
-                                            name={field.name}
-                                            value={field.state.value}
-                                            onBlur={field.handleBlur}
-                                            onChange={(e) =>
-                                                field.handleChange(
-                                                    e.target.value,
-                                                )
-                                            }
-                                            placeholder="۱۲۳۴۵۶۷۸۹۰"
-                                            dir="ltr"
-                                        />
-                                        {isInvalid && (
-                                            <FieldError
-                                                errors={field.state.meta.errors}
-                                            />
-                                        )}
-                                    </Field>
-                                );
-                            }}
+                            {(field) => (
+                                <FormTextField
+                                    field={field}
+                                    label="کد ملی"
+                                    placeholder="۱۲۳۴۵۶۷۸۹۰"
+                                    dir="ltr"
+                                />
+                            )}
                         </form.Field>
 
                         <form.Field
@@ -426,48 +308,16 @@ export function EmployeeForm({
                                     .or(z.literal("")),
                             }}
                         >
-                            {(field) => {
-                                const isInvalid =
-                                    field.state.meta.isTouched &&
-                                    !field.state.meta.isValid;
-                                return (
-                                    <Field data-invalid={isInvalid}>
-                                        <FieldLabel htmlFor={field.name}>
-                                            وضعیت تاهل
-                                        </FieldLabel>
-                                        <Select
-                                            value={field.state.value || null}
-                                            onValueChange={(val) =>
-                                                field.handleChange(val ?? "")
-                                            }
-                                            itemToStringLabel={(val) =>
-                                                val
-                                                    ? (maritalLabels[
-                                                          val as string
-                                                      ] ?? val)
-                                                    : ""
-                                            }
-                                        >
-                                            <SelectTrigger id={field.name}>
-                                                <SelectValue placeholder="انتخاب کنید" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="single">
-                                                    مجرد
-                                                </SelectItem>
-                                                <SelectItem value="married">
-                                                    متاهل
-                                                </SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                        {isInvalid && (
-                                            <FieldError
-                                                errors={field.state.meta.errors}
-                                            />
-                                        )}
-                                    </Field>
-                                );
-                            }}
+                            {(field) => (
+                                <FormSelectField
+                                    field={field}
+                                    label="وضعیت تاهل"
+                                    options={[
+                                        { value: "single", label: "مجرد" },
+                                        { value: "married", label: "متاهل" },
+                                    ]}
+                                />
+                            )}
                         </form.Field>
                     </div>
 
@@ -476,311 +326,185 @@ export function EmployeeForm({
                             اطلاعات شغلی
                         </h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            <form.Field
-                                name="employment_type"
-                                validators={{
-                                    onBlur: z
-                                        .enum(
-                                            [
-                                                "official",
-                                                "contractual",
-                                                "project-based",
-                                            ],
-                                            {
-                                                message:
-                                                    "نوع استخدام نامعتبر است",
-                                            },
-                                        )
-                                        .or(z.literal("")),
-                                }}
-                            >
-                                {(field) => {
-                                    const isInvalid =
-                                        field.state.meta.isTouched &&
-                                        !field.state.meta.isValid;
-                                    return (
-                                        <Field data-invalid={isInvalid}>
-                                            <FieldLabel htmlFor={field.name}>
-                                                نوع استخدام
-                                            </FieldLabel>
-                                            <Select
-                                                value={
-                                                    field.state.value || null
-                                                }
-                                                onValueChange={(val) =>
-                                                    field.handleChange(
-                                                        val ?? "",
-                                                    )
-                                                }
-                                                itemToStringLabel={(val) =>
-                                                    val
-                                                        ? (employmentLabels[
-                                                              val as string
-                                                          ] ?? val)
-                                                        : ""
-                                                }
-                                            >
-                                                <SelectTrigger id={field.name}>
-                                                    <SelectValue placeholder="انتخاب کنید" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="official">
-                                                        رسمی
-                                                    </SelectItem>
-                                                    <SelectItem value="contractual">
-                                                        قراردادی
-                                                    </SelectItem>
-                                                    <SelectItem value="project-based">
-                                                        پروژه‌ای
-                                                    </SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                            {isInvalid && (
-                                                <FieldError
-                                                    errors={
-                                                        field.state.meta.errors
-                                                    }
-                                                />
-                                            )}
-                                        </Field>
-                                    );
-                                }}
-                            </form.Field>
+                        <form.Field
+                            name="employment_type"
+                            validators={{
+                                onBlur: z
+                                    .enum(
+                                        [
+                                            "official",
+                                            "contractual",
+                                            "project-based",
+                                        ],
+                                        {
+                                            message:
+                                                "نوع استخدام نامعتبر است",
+                                        },
+                                    )
+                                    .or(z.literal("")),
+                            }}
+                        >
+                            {(field) => (
+                                <FormSelectField
+                                    field={field}
+                                    label="نوع استخدام"
+                                    options={Object.entries(employmentLabels).map(
+                                        ([value, label]) => ({
+                                            value,
+                                            label,
+                                        }),
+                                    )}
+                                />
+                            )}
+                        </form.Field>
 
-                            <form.Field
-                                name="hire_date"
-                                validators={{
-                                    onBlur: z
-                                        .string()
-                                        .regex(
-                                            dateRegex,
-                                            "فرمت تاریخ نامعتبر است (YYYY-MM-DD)",
-                                        )
-                                        .or(z.literal("")),
-                                }}
-                            >
-                                {(field) => {
-                                    const isInvalid =
-                                        field.state.meta.isTouched &&
-                                        !field.state.meta.isValid;
-                                    return (
-                                        <Field data-invalid={isInvalid}>
-                                            <FieldLabel htmlFor={field.name}>
-                                                تاریخ استخدام
-                                            </FieldLabel>
-                                            <DatePicker
-                                                value={field.state.value}
-                                                onChange={(val) =>
-                                                    field.handleChange(val)
+                        <form.Field
+                            name="hire_date"
+                            validators={{
+                                onBlur: z
+                                    .string()
+                                    .regex(
+                                        dateRegex,
+                                        "فرمت تاریخ نامعتبر است (YYYY-MM-DD)",
+                                    )
+                                    .or(z.literal("")),
+                            }}
+                        >
+                            {(field) => {
+                                const isInvalid =
+                                    field.state.meta.isTouched &&
+                                    !field.state.meta.isValid;
+                                return (
+                                    <Field data-invalid={isInvalid}>
+                                        <FieldLabel htmlFor={field.name}>
+                                            تاریخ استخدام
+                                        </FieldLabel>
+                                        <DatePicker
+                                            value={field.state.value}
+                                            onChange={(val) =>
+                                                field.handleChange(val)
+                                            }
+                                            placeholder="تاریخ استخدام"
+                                        />
+                                        {isInvalid && (
+                                            <FieldError
+                                                errors={
+                                                    field.state.meta.errors
                                                 }
-                                                placeholder="تاریخ استخدام"
                                             />
-                                            {isInvalid && (
-                                                <FieldError
-                                                    errors={
-                                                        field.state.meta.errors
-                                                    }
-                                                />
-                                            )}
-                                        </Field>
-                                    );
-                                }}
-                            </form.Field>
+                                        )}
+                                    </Field>
+                                );
+                            }}
+                        </form.Field>
 
-                            <form.Field
-                                name="employment_status"
-                                validators={{
-                                    onBlur: z
-                                        .enum(
-                                            ["active", "inactive", "suspended"],
-                                            {
-                                                message:
-                                                    "وضعیت اشتغال نامعتبر است",
-                                            },
-                                        )
-                                        .or(z.literal("")),
-                                }}
-                            >
-                                {(field) => {
-                                    const isInvalid =
-                                        field.state.meta.isTouched &&
-                                        !field.state.meta.isValid;
-                                    return (
-                                        <Field data-invalid={isInvalid}>
-                                            <FieldLabel htmlFor={field.name}>
-                                                وضعیت اشتغال
-                                            </FieldLabel>
-                                            <Select
-                                                value={
-                                                    field.state.value || null
-                                                }
-                                                onValueChange={(val) =>
-                                                    field.handleChange(
-                                                        val ?? "",
-                                                    )
-                                                }
-                                                itemToStringLabel={(val) =>
-                                                    val
-                                                        ? (statusLabels[
-                                                              val as string
-                                                          ] ?? val)
-                                                        : ""
-                                                }
-                                            >
-                                                <SelectTrigger id={field.name}>
-                                                    <SelectValue placeholder="انتخاب کنید" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="active">
-                                                        فعال
-                                                    </SelectItem>
-                                                    <SelectItem value="inactive">
-                                                        غیرفعال
-                                                    </SelectItem>
-                                                    <SelectItem value="suspended">
-                                                        تعلیق
-                                                    </SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                            {isInvalid && (
-                                                <FieldError
-                                                    errors={
-                                                        field.state.meta.errors
-                                                    }
-                                                />
-                                            )}
-                                        </Field>
-                                    );
-                                }}
-                            </form.Field>
+                        <form.Field
+                            name="employment_status"
+                            validators={{
+                                onBlur: z
+                                    .enum(
+                                        ["active", "inactive", "suspended"],
+                                        {
+                                            message:
+                                                "وضعیت اشتغال نامعتبر است",
+                                        },
+                                    )
+                                    .or(z.literal("")),
+                            }}
+                        >
+                            {(field) => (
+                                <FormSelectField
+                                    field={field}
+                                    label="وضعیت اشتغال"
+                                    options={Object.entries(statusLabels).map(
+                                        ([value, label]) => ({
+                                            value,
+                                            label,
+                                        }),
+                                    )}
+                                />
+                            )}
+                        </form.Field>
 
-                            <form.Field
-                                name="education_level"
-                                validators={{
-                                    onBlur: z
-                                        .enum(
-                                            [
-                                                "diploma",
-                                                "associate",
-                                                "bachelor",
-                                                "master",
-                                                "doctorate",
-                                            ],
-                                            {
-                                                message:
-                                                    "سطح تحصیلات نامعتبر است",
-                                            },
-                                        )
-                                        .or(z.literal("")),
-                                }}
-                            >
-                                {(field) => {
-                                    const isInvalid =
-                                        field.state.meta.isTouched &&
-                                        !field.state.meta.isValid;
-                                    return (
-                                        <Field data-invalid={isInvalid}>
-                                            <FieldLabel htmlFor={field.name}>
-                                                سطح تحصیلات
-                                            </FieldLabel>
-                                            <Select
-                                                value={
-                                                    field.state.value || null
-                                                }
-                                                onValueChange={(val) =>
-                                                    field.handleChange(
-                                                        val ?? "",
-                                                    )
-                                                }
-                                                itemToStringLabel={(val) =>
-                                                    val
-                                                        ? (educationLabels[
-                                                              val as string
-                                                          ] ?? val)
-                                                        : ""
-                                                }
-                                            >
-                                                <SelectTrigger id={field.name}>
-                                                    <SelectValue placeholder="انتخاب کنید" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="diploma">
-                                                        دیپلم
-                                                    </SelectItem>
-                                                    <SelectItem value="associate">
-                                                        فوق دیپلم
-                                                    </SelectItem>
-                                                    <SelectItem value="bachelor">
-                                                        لیسانس
-                                                    </SelectItem>
-                                                    <SelectItem value="master">
-                                                        فوق لیسانس
-                                                    </SelectItem>
-                                                    <SelectItem value="doctorate">
-                                                        دکتری
-                                                    </SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                            {isInvalid && (
-                                                <FieldError
-                                                    errors={
-                                                        field.state.meta.errors
-                                                    }
-                                                />
-                                            )}
-                                        </Field>
-                                    );
-                                }}
-                            </form.Field>
+                        <form.Field
+                            name="education_level"
+                            validators={{
+                                onBlur: z
+                                    .enum(
+                                        [
+                                            "diploma",
+                                            "associate",
+                                            "bachelor",
+                                            "master",
+                                            "doctorate",
+                                        ],
+                                        {
+                                            message:
+                                                "سطح تحصیلات نامعتبر است",
+                                        },
+                                    )
+                                    .or(z.literal("")),
+                            }}
+                        >
+                            {(field) => (
+                                <FormSelectField
+                                    field={field}
+                                    label="سطح تحصیلات"
+                                    options={Object.entries(educationLabels).map(
+                                        ([value, label]) => ({
+                                            value,
+                                            label,
+                                        }),
+                                    )}
+                                />
+                            )}
+                        </form.Field>
 
-                            <form.Field
-                                name="education_field"
-                                validators={{
-                                    onBlur: z
-                                        .string()
-                                        .max(255, "حداکثر ۲۵۵ کاراکتر"),
-                                }}
-                            >
-                                {(field) => {
-                                    const isInvalid =
-                                        field.state.meta.isTouched &&
-                                        !field.state.meta.isValid;
-                                    return (
-                                        <Field data-invalid={isInvalid}>
-                                            <FieldLabel htmlFor={field.name}>
-                                                رشته تحصیلی
-                                            </FieldLabel>
-                                            <Input
-                                                id={field.name}
-                                                name={field.name}
-                                                value={field.state.value}
-                                                onBlur={field.handleBlur}
-                                                onChange={(e) =>
-                                                    field.handleChange(
-                                                        e.target.value,
-                                                    )
-                                                }
-                                                placeholder="مهندسی کامپیوتر"
-                                            />
-                                            {isInvalid && (
-                                                <FieldError
-                                                    errors={
-                                                        field.state.meta.errors
-                                                    }
-                                                />
-                                            )}
-                                        </Field>
-                                    );
-                                }}
-                            </form.Field>
+                        <form.Field
+                            name="education_field"
+                            validators={{
+                                onBlur: z
+                                    .string()
+                                    .max(255, "حداکثر ۲۵۵ کاراکتر"),
+                            }}
+                        >
+                            {(field) => (
+                                <FormTextField
+                                    field={field}
+                                    label="رشته تحصیلی"
+                                    placeholder="مهندسی کامپیوتر"
+                                />
+                            )}
+                        </form.Field>
                         </div>
                     </div>
 
-                    {error && (
-                        <div className="mt-6 rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
-                            {error}
-                        </div>
-                    )}
+                    <div className="mt-8">
+                        <h3 className="text-base font-medium mb-4">
+                            کاربر مرتبط
+                        </h3>
+                        <p className="text-sm text-muted-foreground mb-4">
+                            کاربر سیستمی مرتبط با این کارمند را انتخاب کنید
+                        </p>
+                        <form.Field name="user_id">
+                            {(field) => {
+                                return (
+                                    <Field>
+                                        <FieldLabel>کاربر</FieldLabel>
+                                        <UserSearchSelect
+                                            value={typeof field.state.value === "number" ? field.state.value : null}
+                                            onChange={(user) =>
+                                                field.handleChange(user?.id ?? null)
+                                            }
+                                            placeholder="انتخاب کاربر..."
+                                        />
+                                    </Field>
+                                );
+                            }}
+                        </form.Field>
+                    </div>
+
+                    {error && <ErrorBanner message={error} />}
 
                     <div className="mt-8 flex items-center gap-3">
                         <Button type="submit" disabled={isPending}>

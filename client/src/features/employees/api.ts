@@ -1,10 +1,14 @@
 import { api } from "@/lib/api";
-import type { Employee, EmployeeFormData, PaginatedResponse } from "./types";
+import type { PaginatedResponse, PaginatedListParams } from "@/lib/types";
+import type { Employee, EmployeeFormData } from "./types";
 
-export function fetchEmployees(page = 1) {
-    return api.get<PaginatedResponse<Employee>>("/employees", {
-        params: { page },
-    });
+export type EmployeeListParams = PaginatedListParams & {
+    filter?: string;
+    status?: string;
+};
+
+export function fetchEmployees(params: EmployeeListParams = {}) {
+    return api.get<PaginatedResponse<Employee>>("/employees", { params });
 }
 
 export function fetchEmployee(id: number) {

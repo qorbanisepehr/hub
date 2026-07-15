@@ -1,11 +1,16 @@
-import { useNavigate, Link, useParams } from "@tanstack/react-router";
+import { useNavigate, useParams } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { IconLoader2, IconUsers } from "@tabler/icons-react";
+import { IconUsers } from "@tabler/icons-react";
+import { toast } from "sonner";
 
 import { EmployeeForm } from "@/features/employees/components/employee-form";
 import { fetchEmployee, updateEmployee } from "@/features/employees/api";
 import { getApiError } from "@/lib/error-utils";
-import { Button } from "@/components/ui/button";
+import { PageLayout } from "@/components/shared/page-layout";
+import { EmptyState } from "@/components/shared/empty-state";
+import { PageHeader } from "@/components/shared/page-header";
+import { PageSkeleton } from "@/components/shared/page-skeleton";
+import { BackButton } from "@/components/shared/back-button";
 
 export function EmployeeEditPage() {
     const { id } = useParams({ from: "/protected/employees/$id/edit" });
@@ -32,69 +37,41 @@ export function EmployeeEditPage() {
             queryClient.invalidateQueries({
                 queryKey: ["employee", Number(id)],
             });
+            toast.success("اطلاعات کارمند به‌روزرسانی شد");
             navigate({ to: "/employees" });
+        },
+        onError: () => {
+            toast.error("خطا در به‌روزرسانی اطلاعات کارمند");
         },
     });
 
     if (isLoading) {
-        return (
-            <div className="flex flex-1 items-center justify-center p-6">
-                <IconLoader2 className="size-6 animate-spin text-muted-foreground" />
-            </div>
-        );
+        return <PageSkeleton />;
     }
 
     if (isError) {
         return (
-            <div className="flex flex-1 flex-col items-center justify-center gap-4 p-6 text-muted-foreground">
-                <IconUsers className="size-12 opacity-30" />
-                <p>خطا در بارگذاری اطلاعات کارمند</p>
-                <Button
-                    variant="outline"
-                    nativeButton={false}
-                    render={<Link to="/employees" />}
-                >
-                    بازگشت به لیست
-                </Button>
-            </div>
+            <EmptyState icon={IconUsers} message="خطا در بارگذاری اطلاعات کارمند">
+                <BackButton to="/employees" label="بازگشت به لیست" />
+            </EmptyState>
         );
     }
 
     if (!employee) {
         return (
-            <div className="flex flex-1 flex-col items-center justify-center gap-4 p-6 text-muted-foreground">
-                <IconUsers className="size-12 opacity-30" />
-                <p>کارمند مورد نظر یافت نشد</p>
-                <Button
-                    variant="outline"
-                    nativeButton={false}
-                    render={<Link to="/employees" />}
-                >
-                    بازگشت به لیست
-                </Button>
-            </div>
+            <EmptyState icon={IconUsers} message="کارمند مورد نظر یافت نشد">
+                <BackButton to="/employees" label="بازگشت به لیست" />
+            </EmptyState>
         );
     }
 
     return (
-        <div className="flex flex-1 flex-col gap-6 p-6">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold tracking-tight">
-                        ویرایش کارمند
-                    </h1>
-                    <p className="text-sm text-muted-foreground mt-1">
-                        {employee.first_name} {employee.last_name}
-                    </p>
-                </div>
-                <Button
-                    variant="outline"
-                    nativeButton={false}
-                    render={<Link to="/employees" />}
-                >
-                    بازگشت به لیست
-                </Button>
-            </div>
+        <PageLayout>
+            <PageHeader
+                title="ویرایش کارمند"
+                description={`${employee.first_name} ${employee.last_name}`}
+                backTo="/employees"
+            />
 
             <EmployeeForm
                 defaultValues={{
@@ -127,12 +104,13 @@ export function EmployeeEditPage() {
                         | "active"
                         | "inactive"
                         | "suspended",
+                    user_id: employee.user?.id ?? null,
                 }}
                 onSubmit={(values) => mutation.mutate(values)}
                 isPending={mutation.isPending}
                 error={getApiError(mutation.error)}
                 submitLabel="ذخیره تغییرات"
             />
-        </div>
+        </PageLayout>
     );
 }

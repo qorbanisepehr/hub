@@ -1,10 +1,12 @@
-import { useNavigate, Link } from "@tanstack/react-router";
+import { useNavigate } from "@tanstack/react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 
 import { EmployeeForm } from "@/features/employees/components/employee-form";
 import { createEmployee } from "@/features/employees/api";
 import { getApiError } from "@/lib/error-utils";
-import { Button } from "@/components/ui/button";
+import { PageLayout } from "@/components/shared/page-layout";
+import { PageHeader } from "@/components/shared/page-header";
 
 export function EmployeeCreatePage() {
     const navigate = useNavigate();
@@ -15,35 +17,27 @@ export function EmployeeCreatePage() {
             createEmployee(data),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["employees"] });
+            toast.success("کارمند جدید ثبت شد");
             navigate({ to: "/employees" });
+        },
+        onError: () => {
+            toast.error("خطا در ثبت کارمند جدید");
         },
     });
 
     return (
-        <div className="flex flex-1 flex-col gap-6 p-6">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold tracking-tight">
-                        کارمند جدید
-                    </h1>
-                    <p className="text-sm text-muted-foreground mt-1">
-                        ثبت اطلاعات کارمند جدید در سیستم
-                    </p>
-                </div>
-                <Button
-                    variant="outline"
-                    nativeButton={false}
-                    render={<Link to="/employees" />}
-                >
-                    بازگشت به لیست
-                </Button>
-            </div>
+        <PageLayout>
+            <PageHeader
+                title="کارمند جدید"
+                description="ثبت اطلاعات کارمند جدید در سیستم"
+                backTo="/employees"
+            />
 
             <EmployeeForm
                 onSubmit={(values) => mutation.mutate(values)}
                 isPending={mutation.isPending}
                 error={getApiError(mutation.error)}
             />
-        </div>
+        </PageLayout>
     );
 }
