@@ -1,0 +1,89 @@
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useNavigate, useParams } from "@tanstack/react-router";
+import { toast } from "sonner";
+
+import { fetchRole, updateRole } from "@/features/rbac/api";
+import type { UpdateRoleData } from "@/features/rbac/types";
+import { RoleForm } from "@/features/rbac/components/role-form";
+import { getApiError } from "@/lib/error-utils";
+import { PageLayout } from "@/components/shared/page-layout";
+import { PageHeader } from "@/components/shared/page-header";
+import { PageSkeleton } from "@/components/shared/page-skeleton";
+
+export function RoleEditPage() {
+    const { roleId } = useParams({ from: "/protected/roles/$roleId" });
+    const roleIdNum = Number(roleId);
+    const navigate = useNavigate();
+    const queryClient = useQueryClient();
+
+    const { data: roleData, isLoading: roleLoading } = useQuery({
+        queryKey: ["role", roleIdNum],
+        queryFn: async () => {
+            const { data } = await fetchRole(roleIdNum);
+            return data;
+        },
+    });
+
+    const updateMutation = useMutation({
+        mutationFn: (data: UpdateRoleData) => updateRole(roleIdNum, data),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["roles"] });
+            queryClient.invalidateQueries({ queryKey: ["role", roleIdNum] });
+            toast.success("نقش با موفقیت به‌روزرسانی شد");
+            navigate({ to: "/roles" });
+        },
+        onError: () => {
+            toast.error("خطا در به‌روزرسانی نقش");
+        },
+    });
+
+    if (roleLoading) {
+        return <PageSkeleton />;
+    }
+
+    const role = roleData?.data;
+
+    // Parent roles that would cause cycles (role's own id + immediate children)
+    const excludedParentIds = [roleIdNum];
+    if (role?.children) {
+        for (const child of role.children) {
+            excludedParentIds.push(child.id);
+        }
+    }
+
+    return (
+        <PageLayout>
+            <PageHeader
+                title={`ویرایش نقش: ${role?.display_name}`}
+                backTo="/roles"
+            />
+
+            <RoleForm
+                defaultValues={{
+                    name: role?.name ?? "",
+                    display_name: role?.display_name ?? "",
+                    description: role?.description ?? "",
+                    parent_id: role?.parent_id ?? null,
+                    inherits_permissions: role?.inherits_permissions ?? false,
+                    is_active: role?.is_active ?? true,
+                    permission_ids: role?.permissions?.map((p) => p.id) ?? [],
+                    permission_group_ids: role?.permission_groups?.map((g) => g.id) ?? [],
+                }}
+                onSubmit={(values) => updateMutation.mutate(values)}
+                isPending={updateMutation.isPending}
+                error={getApiError(updateMutation.error)}
+                submitLabel="ذخیره تغییرات"
+                excludeParentIds={excludedParentIds}
+                inheritedPermissionIds={(() => {
+                    if (!role?.parent || !role.inherits_permissions) return [];
+                    const parentPerms = role.parent.permissions?.map((p) => p.id) ?? [];
+                    const parentGroups = role.parent.permission_groups ?? [];
+                    const groupPerms = parentGroups.flatMap((g) =>
+                        (g.permissions ?? []).map((p) => p.id),
+                    );
+                    return [...new Set([...parentPerms, ...groupPerms])];
+                })()}
+            />
+        </PageLayout>
+    );
+}
