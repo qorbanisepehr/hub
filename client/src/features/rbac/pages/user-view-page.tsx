@@ -2,7 +2,6 @@ import { Link, useParams } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import {
     IconPencil,
-    IconUser,
     IconBuilding,
 } from "@tabler/icons-react";
 
@@ -20,8 +19,7 @@ import { RoleBadge } from "@/features/rbac/components/role-badge";
 import { PermissionGuard } from "@/features/auth/components/permission-guard";
 import { InfoRow } from "@/components/shared/info-row";
 import { PageLayout } from "@/components/shared/page-layout";
-import { BackButton } from "@/components/shared/back-button";
-import { EmptyState } from "@/components/shared/empty-state";
+import { ErrorPage } from "@/components/shared/error-page";
 import { PageHeader } from "@/components/shared/page-header";
 
 export function UserViewPage() {
@@ -80,9 +78,12 @@ export function UserViewPage() {
 
     if (isError || !user) {
         return (
-            <EmptyState icon={IconUser} message="کاربر مورد نظر یافت نشد">
-                <BackButton to="/users" label="بازگشت به لیست" />
-            </EmptyState>
+            <ErrorPage
+                status={404}
+                title="کاربر مورد نظر یافت نشد"
+                homeTo="/users"
+                homeLabel="بازگشت به لیست"
+            />
         );
     }
 

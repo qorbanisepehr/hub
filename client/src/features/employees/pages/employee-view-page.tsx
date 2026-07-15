@@ -11,7 +11,6 @@ import {
     IconSettings,
     IconTrash,
     IconUser,
-    IconUsers,
 } from "@tabler/icons-react";
 import { toast } from "sonner";
 
@@ -36,9 +35,8 @@ import { PermissionGuard } from "@/features/auth/components/permission-guard";
 import { TableSkeleton } from "@/components/shared/table-skeleton";
 import { InfoRow } from "@/components/shared/info-row";
 import { PageLayout } from "@/components/shared/page-layout";
-import { EmptyState } from "@/components/shared/empty-state";
+import { ErrorPage } from "@/components/shared/error-page";
 import { PageHeader } from "@/components/shared/page-header";
-import { BackButton } from "@/components/shared/back-button";
 
 import {
     genderLabels,
@@ -176,9 +174,12 @@ export function EmployeeViewPage() {
 
     if (!employee) {
         return (
-            <EmptyState icon={IconUsers} message="کارمند مورد نظر یافت نشد">
-                <BackButton to="/employees" label="بازگشت به لیست" />
-            </EmptyState>
+            <ErrorPage
+                status={404}
+                title="کارمند مورد نظر یافت نشد"
+                homeTo="/employees"
+                homeLabel="بازگشت به لیست"
+            />
         );
     }
 

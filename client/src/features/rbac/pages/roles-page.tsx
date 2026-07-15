@@ -205,17 +205,10 @@ export function RolesPage() {
                     اولین نقش را ایجاد کنید
                 </Button>
             }
-            errorAction={
-                <Button
-                    variant="link"
-                    onClick={() =>
-                        queryClient.invalidateQueries({
-                            queryKey: ["roles"],
-                        })
-                    }
-                >
-                    تلاش مجدد
-                </Button>
+            onRetry={() =>
+                queryClient.invalidateQueries({
+                    queryKey: ["roles"],
+                })
             }
             colSpan={columns.length}
         />

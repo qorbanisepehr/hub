@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { usePermissions } from "@/features/rbac/hooks/use-permissions";
 import { PageLayout } from "@/components/shared/page-layout";
 import { EmptyState } from "@/components/shared/empty-state";
+import { ErrorSection } from "@/components/shared/error-section";
 
 function PermissionsSkeleton() {
     return (
@@ -47,7 +48,7 @@ export function PermissionsPage() {
                     {isLoading ? (
                         <PermissionsSkeleton />
                     ) : isError ? (
-                        <EmptyState icon={IconPalette} message="خطا در بارگذاری اطلاعات" />
+                        <ErrorSection icon={IconPalette} />
                     ) : !data?.length ? (
                         <EmptyState icon={IconPalette} message="هیچ گروه مجوزی یافت نشد" />
                     ) : (

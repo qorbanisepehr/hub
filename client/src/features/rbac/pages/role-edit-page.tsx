@@ -7,6 +7,7 @@ import type { UpdateRoleData } from "@/features/rbac/types";
 import { RoleForm } from "@/features/rbac/components/role-form";
 import { getApiError } from "@/lib/error-utils";
 import { PageLayout } from "@/components/shared/page-layout";
+import { ErrorPage } from "@/components/shared/error-page";
 import { PageHeader } from "@/components/shared/page-header";
 import { PageSkeleton } from "@/components/shared/page-skeleton";
 
@@ -16,7 +17,7 @@ export function RoleEditPage() {
     const navigate = useNavigate();
     const queryClient = useQueryClient();
 
-    const { data: roleData, isLoading: roleLoading } = useQuery({
+    const { data: roleData, isLoading: roleLoading, isError } = useQuery({
         queryKey: ["role", roleIdNum],
         queryFn: async () => {
             const { data } = await fetchRole(roleIdNum);
@@ -41,7 +42,28 @@ export function RoleEditPage() {
         return <PageSkeleton />;
     }
 
+    if (isError) {
+        return (
+            <ErrorPage
+                title="خطا در بارگذاری اطلاعات نقش"
+                homeTo="/roles"
+                homeLabel="بازگشت به لیست"
+            />
+        );
+    }
+
     const role = roleData?.data;
+
+    if (!role) {
+        return (
+            <ErrorPage
+                status={404}
+                title="نقش مورد نظر یافت نشد"
+                homeTo="/roles"
+                homeLabel="بازگشت به لیست"
+            />
+        );
+    }
 
     // Parent roles that would cause cycles (role's own id + immediate children)
     const excludedParentIds = [roleIdNum];

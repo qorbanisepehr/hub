@@ -177,17 +177,10 @@ export function UsersPage() {
                     اولین کاربر را ایجاد کنید
                 </Button>
             }
-            errorAction={
-                <Button
-                    variant="link"
-                    onClick={() =>
-                        queryClient.invalidateQueries({
-                            queryKey: ["users"],
-                        })
-                    }
-                >
-                    تلاش مجدد
-                </Button>
+            onRetry={() =>
+                queryClient.invalidateQueries({
+                    queryKey: ["users"],
+                })
             }
             colSpan={userColumns.length}
         />

@@ -1,6 +1,5 @@
 import { Link, useParams } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { IconPencil } from "@tabler/icons-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -9,10 +8,9 @@ import { getApiError } from "@/lib/error-utils";
 import { UserForm } from "@/features/rbac/components/user-form";
 import { PermissionGuard } from "@/features/auth/components/permission-guard";
 import { PageLayout } from "@/components/shared/page-layout";
-import { EmptyState } from "@/components/shared/empty-state";
+import { ErrorPage } from "@/components/shared/error-page";
 import { PageHeader } from "@/components/shared/page-header";
 import { PageSkeleton } from "@/components/shared/page-skeleton";
-import { BackButton } from "@/components/shared/back-button";
 
 export function UserEditPage() {
     const { userId } = useParams({ from: "/protected/users/$userId/edit" });
@@ -49,9 +47,12 @@ export function UserEditPage() {
 
     if (isError || !user) {
         return (
-            <EmptyState icon={IconPencil} message="کاربر مورد نظر یافت نشد">
-                <BackButton to="/users" label="بازگشت به لیست" />
-            </EmptyState>
+            <ErrorPage
+                status={404}
+                title="کاربر مورد نظر یافت نشد"
+                homeTo="/users"
+                homeLabel="بازگشت به لیست"
+            />
         );
     }
 
