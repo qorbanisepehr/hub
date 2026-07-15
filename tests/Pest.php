@@ -1,5 +1,9 @@
 <?php
 
+use App\Domains\Rbac\Models\Permission;
+use App\Domains\Rbac\Models\PermissionGroup;
+use App\Domains\Rbac\Models\Role;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -44,7 +48,30 @@ expect()->extend('toBeOne', function () {
 |
 */
 
-function something()
+function createUserWithPermissions(array $permissionNames = []): User
 {
-    // ..
+    $user = User::factory()->create();
+
+    $role = Role::create([
+        'name' => 'test-role-'.uniqid(),
+        'display_name' => 'Test Role',
+        'is_active' => true,
+    ]);
+
+    $group = PermissionGroup::firstOrCreate(
+        ['slug' => 'test'],
+        ['name' => 'Test Group', 'sort_order' => 999],
+    );
+
+    foreach ($permissionNames as $name) {
+        $permission = Permission::firstOrCreate(
+            ['name' => $name],
+            ['display_name' => $name, 'group_id' => $group->id],
+        );
+        $role->permissions()->attach($permission);
+    }
+
+    $user->assignRole($role->id, true);
+
+    return $user;
 }
