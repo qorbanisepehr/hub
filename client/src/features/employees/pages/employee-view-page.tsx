@@ -3,15 +3,17 @@ import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { saveAs } from "file-saver";
 import {
-    IconArrowRight,
     IconDownload,
     IconFile,
     IconFileUpload,
     IconLoader2,
     IconPencil,
+    IconSettings,
     IconTrash,
+    IconUser,
     IconUsers,
 } from "@tabler/icons-react";
+import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -30,6 +32,13 @@ import { getApiError } from "@/lib/error-utils";
 import { DocumentSection } from "@/features/documents/components/document-section";
 import { DocumentUploadModal } from "@/features/documents/components/document-upload-modal";
 import { DocumentTrashModal } from "@/features/documents/components/document-trash-modal";
+import { PermissionGuard } from "@/features/auth/components/permission-guard";
+import { TableSkeleton } from "@/components/shared/table-skeleton";
+import { InfoRow } from "@/components/shared/info-row";
+import { PageLayout } from "@/components/shared/page-layout";
+import { EmptyState } from "@/components/shared/empty-state";
+import { PageHeader } from "@/components/shared/page-header";
+import { BackButton } from "@/components/shared/back-button";
 
 import {
     genderLabels,
@@ -40,17 +49,6 @@ import {
     statusVariants,
 } from "@/features/employees/constants";
 
-function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
-    return (
-        <div className="flex items-baseline gap-2 py-2 border-b last:border-b-0">
-            <span className="text-sm text-muted-foreground min-w-32">
-                {label}
-            </span>
-            <span className="text-sm font-medium">{value ?? "—"}</span>
-        </div>
-    );
-}
-
 export function EmployeeViewPage() {
     const { id } = useParams({ from: "/protected/employees/$id" });
     const navigate = useNavigate();
@@ -60,27 +58,32 @@ export function EmployeeViewPage() {
     const [selectedIds, setSelectedIds] = React.useState<number[]>([]);
     const [isDownloading, setIsDownloading] = React.useState(false);
     const [downloadError, setDownloadError] = React.useState<string | null>(null);
+    const employeeId = Number(id);
 
     const { data: employee, isLoading } = useQuery({
-        queryKey: ["employee", Number(id)],
+        queryKey: ["employee", employeeId],
         queryFn: async () => {
-            const { data } = await fetchEmployee(Number(id));
+            const { data } = await fetchEmployee(employeeId);
             return data.data;
         },
     });
 
     const deleteMutation = useMutation({
-        mutationFn: () => deleteEmployee(Number(id)),
+        mutationFn: () => deleteEmployee(employeeId),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["employees"] });
+            toast.success("کارمند حذف شد");
             navigate({ to: "/employees" });
+        },
+        onError: () => {
+            toast.error("خطا در حذف کارمند");
         },
     });
 
     const { data: trashedDocuments } = useQuery({
-        queryKey: ["employee-documents", Number(id), "trash"],
+        queryKey: ["employee-documents", employeeId, "trash"],
         queryFn: async () => {
-            const { data } = await fetchTrashedDocuments(Number(id));
+            const { data } = await fetchTrashedDocuments(employeeId);
             return data.data;
         },
     });
@@ -92,7 +95,7 @@ export function EmployeeViewPage() {
         setDownloadError(null);
         try {
             const response = await bulkDownloadDocuments(
-                Number(id),
+                employeeId,
                 selectedIds.length > 0 ? selectedIds : undefined,
             );
             const blob = new Blob([response.data as BlobPart], { type: "application/zip" });
@@ -106,7 +109,7 @@ export function EmployeeViewPage() {
 
     if (isLoading) {
         return (
-            <div className="flex flex-1 flex-col gap-6 p-6">
+            <PageLayout>
                 <div className="flex items-center justify-between">
                     <div className="space-y-2">
                         <Skeleton className="h-8 w-56" />
@@ -167,64 +170,49 @@ export function EmployeeViewPage() {
                         ))}
                     </CardContent>
                 </Card>
-            </div>
+            </PageLayout>
         );
     }
 
     if (!employee) {
         return (
-            <div className="flex flex-1 flex-col items-center justify-center gap-4 p-6 text-muted-foreground">
-                <IconUsers className="size-12 opacity-30" />
-                <p>کارمند مورد نظر یافت نشد</p>
-                <Button
-                    variant="outline"
-                    nativeButton={false}
-                    render={<Link to="/employees" />}
-                >
-                    بازگشت به لیست
-                </Button>
-            </div>
+            <EmptyState icon={IconUsers} message="کارمند مورد نظر یافت نشد">
+                <BackButton to="/employees" label="بازگشت به لیست" />
+            </EmptyState>
         );
     }
 
     return (
-        <div className="flex flex-1 flex-col gap-6 p-6">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold tracking-tight">
-                        {employee.first_name} {employee.last_name}
-                    </h1>
-                    <p className="text-sm text-muted-foreground mt-1">
-                        کد پرسنلی: {employee.personnel_code}
-                    </p>
-                </div>
+        <PageLayout>
+            <PageHeader
+                title={`${employee.first_name} ${employee.last_name}`}
+                description={`کد پرسنلی: ${employee.personnel_code}`}
+                backTo="/employees"
+            >
                 <div className="flex items-center gap-2">
-                    <Button
-                        variant="outline"
-                        nativeButton={false}
-                        render={<Link to="/employees" />}
-                    >
-                        <IconArrowRight className="size-4" />
-                    </Button>
-                    <Button
-                        variant="outline"
-                        nativeButton={false}
-                        render={
-                            <Link
-                                to="/employees/$id/edit"
-                                params={{ id: String(employee.id) }}
-                            />
-                        }
-                    >
-                        <IconPencil className="size-4" />
-                        ویرایش
-                    </Button>
-                    <ConfirmDeleteButton
-                        onConfirm={() => deleteMutation.mutate()}
-                        isPending={deleteMutation.isPending}
-                    />
+                    <PermissionGuard permission={["employee.update_own", "employee.update_all"]}>
+                        <Button
+                            variant="outline"
+                            nativeButton={false}
+                            render={
+                                <Link
+                                    to="/employees/$id/edit"
+                                    params={{ id: String(employee.id) }}
+                                />
+                            }
+                        >
+                            <IconPencil className="size-4" />
+                            ویرایش
+                        </Button>
+                    </PermissionGuard>
+                    <PermissionGuard permission="employee.delete">
+                        <ConfirmDeleteButton
+                            onConfirm={() => deleteMutation.mutate()}
+                            isPending={deleteMutation.isPending}
+                        />
+                    </PermissionGuard>
                 </div>
-            </div>
+            </PageHeader>
 
             {deleteMutation.error && (
                 <div className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
@@ -328,17 +316,105 @@ export function EmployeeViewPage() {
                             label="رشته تحصیلی"
                             value={employee.education_field ?? "—"}
                         />
-                        <InfoRow
-                            label="کاربر مرتبط"
-                            value={
-                                employee.user
-                                    ? `${employee.user.name} (${employee.user.email})`
-                                    : "—"
-                            }
-                        />
                     </CardContent>
                 </Card>
             </div>
+
+            <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                        <IconUser className="size-5" />
+                        کاربر سیستمی مرتبط
+                    </CardTitle>
+                    <CardDescription>
+                        اطلاعات حساب کاربری متصل به این کارمند
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    {employee.user ? (
+                        <div className="grid gap-6 md:grid-cols-2">
+                            <div className="divide-y">
+                                <InfoRow
+                                    label="نام"
+                                    value={employee.user.name}
+                                />
+                                <InfoRow
+                                    label="ایمیل"
+                                    value={
+                                        <span dir="ltr">
+                                            {employee.user.email}
+                                        </span>
+                                    }
+                                />
+                                <InfoRow
+                                    label="تلفن"
+                                    value={employee.user.phone ?? "—"}
+                                />
+                            </div>
+                            <div className="divide-y">
+                                <InfoRow
+                                    label="نام کاربری"
+                                    value={
+                                        <span dir="ltr">
+                                            {employee.user.username ?? "—"}
+                                        </span>
+                                    }
+                                />
+                                <InfoRow
+                                    label="نقش فعال"
+                                    value={
+                                        employee.user.active_role ? (
+                                            <Badge variant="secondary">
+                                                {employee.user.active_role.display_name}
+                                            </Badge>
+                                        ) : (
+                                            "—"
+                                        )
+                                    }
+                                />
+                                <div className="flex items-center justify-end gap-2 py-2">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        nativeButton={false}
+                                        render={
+                                            <Link
+                                                to="/users/$userId"
+                                                params={{ userId: String(employee.user!.id) }}
+                                            />
+                                        }
+                                    >
+                                        <IconUser className="size-4" />
+                                        مشاهده کاربر
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        nativeButton={false}
+                                        render={
+                                            <Link
+                                                to="/users/$userId/roles"
+                                                params={{ userId: String(employee.user!.id) }}
+                                            />
+                                        }
+                                    >
+                                        <IconSettings className="size-4" />
+                                        مدیریت نقش‌ها
+                                    </Button>
+                                </div>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+                            <IconUser className="mb-2 size-8 opacity-40" />
+                            <p className="text-sm">کاربر سیستمی متصل نیست</p>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                                از صفحه ویرایش کارمند می‌توانید کاربر مرتبط را انتخاب کنید
+                            </p>
+                        </div>
+                    )}
+                </CardContent>
+            </Card>
 
             <Card>
                 <CardHeader>
@@ -353,50 +429,56 @@ export function EmployeeViewPage() {
                             </CardDescription>
                         </div>
                         <div className="flex items-center gap-2">
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setTrashOpen(true)}
-                            >
-                                <IconTrash className="size-4" />
-                                سطل زباله
-                                {trashCount > 0 && (
-                                    <Badge
-                                        variant="secondary"
-                                        className="ml-1 px-1.5 py-0 text-xs"
-                                    >
-                                        {trashCount}
-                                    </Badge>
-                                )}
-                            </Button>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={handleBulkDownload}
-                                disabled={isDownloading}
-                            >
-                                {isDownloading ? (
-                                    <IconLoader2 className="size-4 animate-spin" />
-                                ) : (
-                                    <IconDownload className="size-4" />
-                                )}
-                                دانلود
-                                {selectedIds.length > 0 && (
-                                    <Badge
-                                        variant="secondary"
-                                        className="ml-1 px-1.5 py-0 text-xs"
-                                    >
-                                        {selectedIds.length}
-                                    </Badge>
-                                )}
-                            </Button>
-                            <Button
-                                size="sm"
-                                onClick={() => setUploadOpen(true)}
-                            >
-                                <IconFileUpload className="size-4" />
-                                آپلود مدرک
-                            </Button>
+                            <PermissionGuard permission={["document.delete_own", "document.delete_all"]}>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setTrashOpen(true)}
+                                >
+                                    <IconTrash className="size-4" />
+                                    سطل زباله
+                                    {trashCount > 0 && (
+                                        <Badge
+                                            variant="secondary"
+                                            className="ml-1 px-1.5 py-0 text-xs"
+                                        >
+                                            {trashCount}
+                                        </Badge>
+                                    )}
+                                </Button>
+                            </PermissionGuard>
+                            <PermissionGuard permission={["document.download_own", "document.download_all"]}>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={handleBulkDownload}
+                                    disabled={isDownloading}
+                                >
+                                    {isDownloading ? (
+                                        <IconLoader2 className="size-4 animate-spin" />
+                                    ) : (
+                                        <IconDownload className="size-4" />
+                                    )}
+                                    دانلود
+                                    {selectedIds.length > 0 && (
+                                        <Badge
+                                            variant="secondary"
+                                            className="ml-1 px-1.5 py-0 text-xs"
+                                        >
+                                            {selectedIds.length}
+                                        </Badge>
+                                    )}
+                                </Button>
+                            </PermissionGuard>
+                            <PermissionGuard permission={["document.upload_own", "document.upload_all"]}>
+                                <Button
+                                    size="sm"
+                                    onClick={() => setUploadOpen(true)}
+                                >
+                                    <IconFileUpload className="size-4" />
+                                    آپلود مدرک
+                                </Button>
+                            </PermissionGuard>
                         </div>
                     </div>
                 </CardHeader>
@@ -417,15 +499,15 @@ export function EmployeeViewPage() {
             </Card>
 
             <DocumentUploadModal
-                employeeId={Number(id)}
+                employeeId={employeeId}
                 open={uploadOpen}
                 onOpenChange={setUploadOpen}
             />
             <DocumentTrashModal
-                employeeId={Number(id)}
+                employeeId={employeeId}
                 open={trashOpen}
                 onOpenChange={setTrashOpen}
             />
-        </div>
+        </PageLayout>
     );
 }

@@ -12,7 +12,14 @@ export type Employee = {
     employment_type: "official" | "contractual" | "project-based" | null;
     hire_date: string | null;
     employment_status: "active" | "inactive" | "suspended" | null;
-    user: { id: number; name: string; email: string } | null;
+    user: {
+        id: number;
+        name: string;
+        email: string;
+        phone: string | null;
+        username: string | null;
+        active_role: { id: number; display_name: string } | null;
+    } | null;
     created_at: string;
     updated_at: string;
 };
@@ -31,14 +38,4 @@ export type EmployeeFormData = {
     hire_date: string;
     employment_status: "active" | "inactive" | "suspended" | "";
     user_id?: number | null;
-};
-
-export type PaginatedResponse<T> = {
-    data: T[];
-    meta: {
-        current_page: number;
-        last_page: number;
-        per_page: number;
-        total: number;
-    };
 };
