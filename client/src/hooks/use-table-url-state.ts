@@ -103,7 +103,7 @@ export function useTableUrlState(
             if (cfg.type === "string") {
                 const value = (deserialize(raw) as string) ?? "";
                 if (typeof value === "string" && value.trim() !== "") {
-                    collected.push({ id: cfg.columnId, value });
+                    collected.push({ id: cfg.columnId, value: [value] });
                 }
             } else {
                 const value = (deserialize(raw) as unknown[]) ?? [];
@@ -278,10 +278,15 @@ export function useTableUrlState(
                 const found = next.find((f) => f.id === cfg.columnId);
                 const serialize = cfg.serialize ?? ((v: unknown) => v);
                 if (cfg.type === "string") {
-                    const value =
-                        typeof found?.value === "string"
-                            ? (found.value as string)
-                            : "";
+                    let value = "";
+                    if (typeof found?.value === "string") {
+                        value = found.value;
+                    } else if (
+                        Array.isArray(found?.value) &&
+                        found.value.length > 0
+                    ) {
+                        value = String(found.value[0]);
+                    }
                     patch[cfg.searchKey] =
                         value.trim() !== "" ? serialize(value) : undefined;
                 } else {

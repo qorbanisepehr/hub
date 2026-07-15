@@ -48,16 +48,16 @@ export function RolesPage() {
                 columnId: "is_active",
                 searchKey: "is_active",
                 type: "string",
-                deserialize: (v) => (typeof v === "boolean" ? (v ? "true" : "false") : v),
-                serialize: (v) => (v === "true" ? true : v === "false" ? false : undefined),
+                serialize: (v) => v === "true" ? true : v === "false" ? false : undefined,
+                deserialize: (v) => typeof v === "boolean" ? (v ? "true" : "false") : v,
             },
         ],
     });
 
     const activeSort = sorting[0];
     const activeIsActive =
-        columnFilters.find((f) => f.id === "is_active")
-            ?.value as string ?? undefined;
+        (columnFilters.find((f) => f.id === "is_active")
+            ?.value as string[] | undefined)?.[0];
 
     const { data, isLoading, isError } = useQuery({
         queryKey: [

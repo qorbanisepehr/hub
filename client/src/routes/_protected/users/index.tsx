@@ -10,7 +10,7 @@ const usersSearchSchema = z.object({
     sort: z.string().optional(),
     order: z.enum(["asc", "desc"]).optional(),
     filter: z.string().optional(),
-    role: z.number().optional(),
+    role: z.string().optional(),
 });
 
 export const Route = createRoute({
