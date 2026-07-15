@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, getRouteApi } from "@tanstack/react-router";
 import {
     getCoreRowModel,
@@ -18,6 +18,7 @@ import { PermissionGuard } from "@/features/auth/components/permission-guard";
 const route = getRouteApi("/protected/employees");
 
 export function EmployeesPage() {
+    const queryClient = useQueryClient();
     const search = route.useSearch();
     const navigate = route.useNavigate();
 
@@ -52,8 +53,8 @@ export function EmployeesPage() {
 
     const activeSort = sorting[0];
     const activeStatus =
-        columnFilters.find((f) => f.id === "employment_status")
-            ?.value as string ?? undefined;
+        (columnFilters.find((f) => f.id === "employment_status")
+            ?.value as string[] | undefined)?.[0];
 
     const { data, isLoading, isError } = useQuery({
         queryKey: [
@@ -163,6 +164,18 @@ export function EmployeesPage() {
                     render={<Link to="/employees/create" />}
                 >
                     اولین کارمند را ثبت کنید
+                </Button>
+            }
+            errorAction={
+                <Button
+                    variant="link"
+                    onClick={() =>
+                        queryClient.invalidateQueries({
+                            queryKey: ["employees"],
+                        })
+                    }
+                >
+                    تلاش مجدد
                 </Button>
             }
             colSpan={employeeColumns.length}

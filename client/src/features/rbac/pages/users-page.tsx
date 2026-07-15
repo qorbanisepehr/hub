@@ -44,19 +44,17 @@ export function UsersPage() {
         globalFilter: { enabled: true, key: "filter" },
         columnFilters: [
             {
-                columnId: "role",
+                columnId: "roles",
                 searchKey: "role",
                 type: "string",
-                deserialize: (v) => (typeof v === "number" ? String(v) : v),
-                serialize: (v) => (typeof v === "string" && v ? Number(v) : v),
             },
         ],
     });
 
     const activeSort = sorting[0];
     const activeRole =
-        columnFilters.find((f) => f.id === "role")
-            ?.value as string ?? undefined;
+        (columnFilters.find((f) => f.id === "roles")
+            ?.value as string[] | undefined)?.[0];
 
     const { data, isLoading, isError } = useQuery({
         queryKey: [
@@ -75,7 +73,7 @@ export function UsersPage() {
                 sort: activeSort?.id,
                 order: activeSort?.desc ? "desc" : "asc",
                 filter: globalFilter || undefined,
-                role: activeRole ? Number(activeRole) : undefined,
+                role: activeRole || undefined,
             });
             return data;
         },
@@ -160,7 +158,7 @@ export function UsersPage() {
                         roleFilterOptions.length > 0
                             ? [
                                   {
-                                      columnId: "role",
+                                      columnId: "roles",
                                       title: "نقش",
                                       options: roleFilterOptions,
                                   },

@@ -16,7 +16,7 @@ export type { PaginatedResponse };
 
 export type UserListParams = PaginatedListParams & {
     filter?: string;
-    role?: number;
+    role?: string;
 };
 
 export type RoleListParams = PaginatedListParams & {
