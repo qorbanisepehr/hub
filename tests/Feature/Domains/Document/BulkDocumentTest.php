@@ -4,7 +4,6 @@ use App\Domains\Document\Jobs\GenerateDocumentThumbnail;
 use App\Domains\Document\Models\Document;
 use App\Domains\Document\Models\DocumentCategory;
 use App\Domains\Employee\Models\Employee;
-use App\Models\User;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
@@ -14,7 +13,7 @@ describe('bulk document API', function () {
         it('uploads multiple documents', function () {
             Storage::fake('local');
             Queue::fake();
-            $user = User::factory()->create();
+            $user = createUserWithPermissions(['document.upload_all']);
             $employee = Employee::factory()->create();
             $category = DocumentCategory::factory()->create();
 
@@ -48,7 +47,7 @@ describe('bulk document API', function () {
 
         it('skips duplicate documents', function () {
             Storage::fake('local');
-            $user = User::factory()->create();
+            $user = createUserWithPermissions(['document.upload_all']);
             $employee = Employee::factory()->create();
             $category = DocumentCategory::factory()->create();
 
@@ -77,7 +76,7 @@ describe('bulk document API', function () {
 
         it('fails without required fields', function () {
             Storage::fake('local');
-            $user = User::factory()->create();
+            $user = createUserWithPermissions(['document.upload_all']);
             $employee = Employee::factory()->create();
 
             $this->actingAs($user)
@@ -88,7 +87,7 @@ describe('bulk document API', function () {
 
         it('fails with invalid category', function () {
             Storage::fake('local');
-            $user = User::factory()->create();
+            $user = createUserWithPermissions(['document.upload_all']);
             $employee = Employee::factory()->create();
             $file = UploadedFile::fake()->create('doc.pdf', 100);
 
@@ -105,7 +104,7 @@ describe('bulk document API', function () {
     describe('bulk download', function () {
         it('downloads all documents when no ids provided', function () {
             Storage::fake('local');
-            $user = User::factory()->create();
+            $user = createUserWithPermissions(['document.download_all']);
             $employee = Employee::factory()->create();
             $category = DocumentCategory::factory()->create(['slug' => 'contracts']);
 
@@ -140,7 +139,7 @@ describe('bulk document API', function () {
 
         it('downloads selected documents only', function () {
             Storage::fake('local');
-            $user = User::factory()->create();
+            $user = createUserWithPermissions(['document.download_all']);
             $employee = Employee::factory()->create();
             $category = DocumentCategory::factory()->create(['slug' => 'certs']);
 
@@ -173,7 +172,7 @@ describe('bulk document API', function () {
         });
 
         it('returns 404 when no documents exist', function () {
-            $user = User::factory()->create();
+            $user = createUserWithPermissions(['document.download_all']);
             $employee = Employee::factory()->create();
 
             $this->actingAs($user)
@@ -183,7 +182,7 @@ describe('bulk document API', function () {
 
         it('includes all files with duplicate names in zip', function () {
             Storage::fake('local');
-            $user = User::factory()->create();
+            $user = createUserWithPermissions(['document.download_all']);
             $employee = Employee::factory()->create();
             $category = DocumentCategory::factory()->create(['slug' => 'contracts']);
 
@@ -242,7 +241,7 @@ describe('bulk document API', function () {
 
         it('organizes files by category in zip', function () {
             Storage::fake('local');
-            $user = User::factory()->create();
+            $user = createUserWithPermissions(['document.download_all']);
             $employee = Employee::factory()->create();
             $cat1 = DocumentCategory::factory()->create(['slug' => 'contracts']);
             $cat2 = DocumentCategory::factory()->create(['slug' => 'certs']);
@@ -295,7 +294,7 @@ describe('bulk document API', function () {
         it('extracts and uploads files from zip', function () {
             Storage::fake('local');
             Queue::fake();
-            $user = User::factory()->create();
+            $user = createUserWithPermissions(['document.upload_all']);
             $employee = Employee::factory()->create();
             $category = DocumentCategory::factory()->create(['slug' => 'contracts']);
 
@@ -336,7 +335,7 @@ describe('bulk document API', function () {
 
         it('fails for files at zip root without category subdirectory', function () {
             Storage::fake('local');
-            $user = User::factory()->create();
+            $user = createUserWithPermissions(['document.upload_all']);
             $employee = Employee::factory()->create();
 
             $zipPath = tempnam(sys_get_temp_dir(), 'zip_test_').'.zip';
@@ -361,7 +360,7 @@ describe('bulk document API', function () {
 
         it('skips duplicate files in zip', function () {
             Storage::fake('local');
-            $user = User::factory()->create();
+            $user = createUserWithPermissions(['document.upload_all']);
             $employee = Employee::factory()->create();
             $category = DocumentCategory::factory()->create(['slug' => 'certs']);
 
@@ -394,13 +393,24 @@ describe('bulk document API', function () {
         });
 
         it('fails without file', function () {
-            $user = User::factory()->create();
+            $user = createUserWithPermissions(['document.upload_all']);
             $employee = Employee::factory()->create();
 
             $this->actingAs($user)
                 ->postJson('/api/employees/'.$employee->id.'/documents/zip', [])
                 ->assertStatus(422)
                 ->assertJsonValidationErrors(['file']);
+        });
+    });
+
+    describe('authorization', function () {
+        it('denies access without required permission', function () {
+            $user = createUserWithPermissions([]);
+            $employee = Employee::factory()->create();
+
+            $this->actingAs($user)
+                ->postJson('/api/employees/'.$employee->id.'/documents/bulk', [])
+                ->assertStatus(403);
         });
     });
 });

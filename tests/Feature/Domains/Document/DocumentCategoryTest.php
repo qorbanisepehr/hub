@@ -2,7 +2,6 @@
 
 use App\Domains\Document\Models\DocumentCategory;
 use App\Domains\Employee\Models\Employee;
-use App\Models\User;
 
 function categoryData(array $overrides = []): array
 {
@@ -28,7 +27,7 @@ describe('document category CRUD', function () {
 
     describe('index', function () {
         it('lists all categories ordered by sort_order', function () {
-            $user = User::factory()->create();
+            $user = createUserWithPermissions(['document-category.view', 'document-category.manage']);
             DocumentCategory::factory()->create(['name' => 'Second', 'sort_order' => 2]);
             DocumentCategory::factory()->create(['name' => 'First', 'sort_order' => 1]);
 
@@ -41,7 +40,7 @@ describe('document category CRUD', function () {
         });
 
         it('filters by type', function () {
-            $user = User::factory()->create();
+            $user = createUserWithPermissions(['document-category.view', 'document-category.manage']);
             DocumentCategory::factory()->create(['name' => 'Employee Cat', 'sort_order' => 1, 'documentable_type' => Employee::class]);
             DocumentCategory::factory()->create(['name' => 'Other Cat', 'sort_order' => 2, 'documentable_type' => 'App\Domains\SomeOther\Models\Something']);
 
@@ -53,7 +52,7 @@ describe('document category CRUD', function () {
         });
 
         it('returns all categories for unknown type', function () {
-            $user = User::factory()->create();
+            $user = createUserWithPermissions(['document-category.view', 'document-category.manage']);
             DocumentCategory::factory()->create();
             DocumentCategory::factory()->create();
 
@@ -64,7 +63,7 @@ describe('document category CRUD', function () {
         });
 
         it('includes documents_count', function () {
-            $user = User::factory()->create();
+            $user = createUserWithPermissions(['document-category.view', 'document-category.manage']);
             $category = DocumentCategory::factory()->create();
 
             $this->actingAs($user)
@@ -80,7 +79,7 @@ describe('document category CRUD', function () {
 
     describe('store', function () {
         it('creates a category with valid data', function () {
-            $user = User::factory()->create();
+            $user = createUserWithPermissions(['document-category.manage']);
 
             $this->actingAs($user)
                 ->postJson('/api/document-categories', categoryData())
@@ -100,7 +99,7 @@ describe('document category CRUD', function () {
         });
 
         it('fails with duplicate slug', function () {
-            $user = User::factory()->create();
+            $user = createUserWithPermissions(['document-category.manage']);
             DocumentCategory::factory()->create(['slug' => 'personal-docs']);
 
             $this->actingAs($user)
@@ -110,7 +109,7 @@ describe('document category CRUD', function () {
         });
 
         it('fails with missing required fields', function () {
-            $user = User::factory()->create();
+            $user = createUserWithPermissions(['document-category.manage']);
 
             $this->actingAs($user)
                 ->postJson('/api/document-categories', [])
@@ -121,7 +120,7 @@ describe('document category CRUD', function () {
 
     describe('show', function () {
         it('returns a single category', function () {
-            $user = User::factory()->create();
+            $user = createUserWithPermissions(['document-category.view', 'document-category.manage']);
             $category = DocumentCategory::factory()->create();
 
             $this->actingAs($user)
@@ -131,7 +130,7 @@ describe('document category CRUD', function () {
         });
 
         it('returns 404 for non-existent category', function () {
-            $user = User::factory()->create();
+            $user = createUserWithPermissions(['document-category.view', 'document-category.manage']);
 
             $this->actingAs($user)
                 ->getJson('/api/document-categories/99999')
@@ -141,7 +140,7 @@ describe('document category CRUD', function () {
 
     describe('update', function () {
         it('updates a category', function () {
-            $user = User::factory()->create();
+            $user = createUserWithPermissions(['document-category.manage']);
             $category = DocumentCategory::factory()->create();
 
             $this->actingAs($user)
@@ -154,7 +153,7 @@ describe('document category CRUD', function () {
         });
 
         it('allows unique slug on own record', function () {
-            $user = User::factory()->create();
+            $user = createUserWithPermissions(['document-category.manage']);
             $category = DocumentCategory::factory()->create();
 
             $this->actingAs($user)
@@ -168,7 +167,7 @@ describe('document category CRUD', function () {
 
     describe('destroy', function () {
         it('deletes a category', function () {
-            $user = User::factory()->create();
+            $user = createUserWithPermissions(['document-category.manage']);
             $category = DocumentCategory::factory()->create();
 
             $this->actingAs($user)
@@ -177,6 +176,24 @@ describe('document category CRUD', function () {
                 ->assertJson(['message' => __('document.category_deleted')]);
 
             $this->assertDatabaseMissing('document_categories', ['id' => $category->id]);
+        });
+    });
+
+    describe('authorization', function () {
+        it('denies access without required permission', function () {
+            $user = createUserWithPermissions([]);
+
+            $this->actingAs($user)
+                ->getJson('/api/document-categories')
+                ->assertStatus(403);
+        });
+
+        it('denies store without document-category.manage permission', function () {
+            $user = createUserWithPermissions(['document-category.view']);
+
+            $this->actingAs($user)
+                ->postJson('/api/document-categories', categoryData())
+                ->assertStatus(403);
         });
     });
 });

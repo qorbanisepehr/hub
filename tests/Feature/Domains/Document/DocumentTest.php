@@ -4,7 +4,6 @@ use App\Domains\Document\Jobs\GenerateDocumentThumbnail;
 use App\Domains\Document\Models\Document;
 use App\Domains\Document\Models\DocumentCategory;
 use App\Domains\Employee\Models\Employee;
-use App\Models\User;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
@@ -25,7 +24,7 @@ describe('employee document API', function () {
     describe('index', function () {
         it('lists documents for an employee', function () {
             Storage::fake('local');
-            $user = User::factory()->create();
+            $user = createUserWithPermissions(['document.view_all', 'document.view_own']);
             $employee = Employee::factory()->create();
             $category = DocumentCategory::factory()->create();
 
@@ -56,7 +55,7 @@ describe('employee document API', function () {
         });
 
         it('returns empty array when no documents', function () {
-            $user = User::factory()->create();
+            $user = createUserWithPermissions(['document.view_all', 'document.view_own']);
             $employee = Employee::factory()->create();
 
             $this->actingAs($user)
@@ -69,7 +68,7 @@ describe('employee document API', function () {
     describe('store', function () {
         it('uploads a document', function () {
             Storage::fake('local');
-            $user = User::factory()->create();
+            $user = createUserWithPermissions(['document.upload_own', 'document.upload_all']);
             $employee = Employee::factory()->create();
             $category = DocumentCategory::factory()->create();
 
@@ -98,7 +97,7 @@ describe('employee document API', function () {
 
         it('fails without required fields', function () {
             Storage::fake('local');
-            $user = User::factory()->create();
+            $user = createUserWithPermissions(['document.upload_own', 'document.upload_all']);
             $employee = Employee::factory()->create();
 
             $this->actingAs($user)
@@ -109,7 +108,7 @@ describe('employee document API', function () {
 
         it('fails with invalid category', function () {
             Storage::fake('local');
-            $user = User::factory()->create();
+            $user = createUserWithPermissions(['document.upload_own', 'document.upload_all']);
             $employee = Employee::factory()->create();
 
             $file = UploadedFile::fake()->create('doc.pdf', 100);
@@ -126,7 +125,7 @@ describe('employee document API', function () {
         it('dispatches thumbnail generation job on upload', function () {
             Storage::fake('local');
             Queue::fake();
-            $user = User::factory()->create();
+            $user = createUserWithPermissions(['document.upload_own', 'document.upload_all']);
             $employee = Employee::factory()->create();
             $category = DocumentCategory::factory()->create();
             $file = UploadedFile::fake()->create('doc.pdf', 100);
@@ -142,7 +141,7 @@ describe('employee document API', function () {
 
         it('generates thumbnail for image uploads', function () {
             Storage::fake('local');
-            $user = User::factory()->create();
+            $user = createUserWithPermissions(['document.upload_own', 'document.upload_all']);
             $employee = Employee::factory()->create();
             $category = DocumentCategory::factory()->create();
 
@@ -165,7 +164,7 @@ describe('employee document API', function () {
 
         it('does not generate thumbnail for non-image uploads', function () {
             Storage::fake('local');
-            $user = User::factory()->create();
+            $user = createUserWithPermissions(['document.upload_own', 'document.upload_all']);
             $employee = Employee::factory()->create();
             $category = DocumentCategory::factory()->create();
             $file = UploadedFile::fake()->create('document.pdf', 100);
@@ -186,7 +185,7 @@ describe('employee document API', function () {
 
         it('fails with file exceeding max size', function () {
             Storage::fake('local');
-            $user = User::factory()->create();
+            $user = createUserWithPermissions(['document.upload_own', 'document.upload_all']);
             $employee = Employee::factory()->create();
             $category = DocumentCategory::factory()->create();
 
@@ -202,7 +201,7 @@ describe('employee document API', function () {
 
         it('rejects disallowed mime types', function () {
             Storage::fake('local');
-            $user = User::factory()->create();
+            $user = createUserWithPermissions(['document.upload_own', 'document.upload_all']);
             $employee = Employee::factory()->create();
             $category = DocumentCategory::factory()->create();
 
@@ -221,7 +220,7 @@ describe('employee document API', function () {
     describe('destroy', function () {
         it('soft-deletes a document and keeps files on disk', function () {
             Storage::fake('local');
-            $user = User::factory()->create();
+            $user = createUserWithPermissions(['document.delete_all']);
             $employee = Employee::factory()->create();
             $category = DocumentCategory::factory()->create();
             $file = UploadedFile::fake()->create('doc.pdf', 100);
@@ -250,7 +249,7 @@ describe('employee document API', function () {
         });
 
         it('returns 404 for non-existent document', function () {
-            $user = User::factory()->create();
+            $user = createUserWithPermissions(['document.delete_all']);
 
             $this->actingAs($user)
                 ->deleteJson('/api/employees/documents/99999')
@@ -259,7 +258,7 @@ describe('employee document API', function () {
 
         it('hides soft-deleted documents from the index', function () {
             Storage::fake('local');
-            $user = User::factory()->create();
+            $user = createUserWithPermissions(['document.view_all', 'document.view_own']);
             $employee = Employee::factory()->create();
             $category = DocumentCategory::factory()->create();
             $document = Document::factory()->create([
@@ -280,7 +279,7 @@ describe('employee document API', function () {
     describe('trash', function () {
         it('lists trashed documents for an employee', function () {
             Storage::fake('local');
-            $user = User::factory()->create();
+            $user = createUserWithPermissions(['document.view_all', 'document.view_own']);
             $employee = Employee::factory()->create();
             $category = DocumentCategory::factory()->create();
 
@@ -304,7 +303,7 @@ describe('employee document API', function () {
         });
 
         it('returns empty array when no trashed documents', function () {
-            $user = User::factory()->create();
+            $user = createUserWithPermissions(['document.view_all', 'document.view_own']);
             $employee = Employee::factory()->create();
 
             $this->actingAs($user)
@@ -316,7 +315,7 @@ describe('employee document API', function () {
 
     describe('restore', function () {
         it('restores a soft-deleted document', function () {
-            $user = User::factory()->create();
+            $user = createUserWithPermissions(['document.delete_all']);
             $employee = Employee::factory()->create();
             $category = DocumentCategory::factory()->create();
             $document = Document::factory()->create([
@@ -336,7 +335,7 @@ describe('employee document API', function () {
         });
 
         it('returns 404 for non-existent trashed document', function () {
-            $user = User::factory()->create();
+            $user = createUserWithPermissions(['document.delete_all']);
 
             $this->actingAs($user)
                 ->postJson('/api/employees/documents/99999/restore')
@@ -347,7 +346,7 @@ describe('employee document API', function () {
     describe('force destroy', function () {
         it('permanently deletes a document and its files', function () {
             Storage::fake('local');
-            $user = User::factory()->create();
+            $user = createUserWithPermissions(['document.delete_all']);
             $employee = Employee::factory()->create();
             $category = DocumentCategory::factory()->create();
             $file = UploadedFile::fake()->create('doc.pdf', 100);
@@ -372,7 +371,7 @@ describe('employee document API', function () {
         });
 
         it('returns 404 for non-existent document', function () {
-            $user = User::factory()->create();
+            $user = createUserWithPermissions(['document.delete_all']);
 
             $this->actingAs($user)
                 ->deleteJson('/api/employees/documents/99999/force')
@@ -383,7 +382,7 @@ describe('employee document API', function () {
     describe('download', function () {
         it('downloads with personnel_code-category_slug format', function () {
             Storage::fake('local');
-            $user = User::factory()->create();
+            $user = createUserWithPermissions(['document.download_all']);
             $employee = Employee::factory()->create();
             $category = DocumentCategory::factory()->create();
 
@@ -410,7 +409,7 @@ describe('employee document API', function () {
 
         it('returns 404 when file missing from disk', function () {
             Storage::fake('local');
-            $user = User::factory()->create();
+            $user = createUserWithPermissions(['document.download_all']);
             $employee = Employee::factory()->create();
             $category = DocumentCategory::factory()->create();
 
@@ -430,6 +429,7 @@ describe('employee document API', function () {
     describe('serve', function () {
         it('serves thumbnail when requested with ?thumbnail=1', function () {
             Storage::fake('local');
+            $user = createUserWithPermissions(['document.download_all']);
             $category = DocumentCategory::factory()->create();
 
             $file = UploadedFile::fake()->image('photo.jpg', 800, 600);
@@ -450,13 +450,14 @@ describe('employee document API', function () {
                 ['employee_document' => $document->id, 'thumbnail' => 1],
             );
 
-            $this->get($url)
+            $this->actingAs($user)->get($url)
                 ->assertStatus(200)
                 ->assertHeader('Content-Type', 'image/webp');
         });
 
         it('serves original file when thumbnail does not exist', function () {
             Storage::fake('local');
+            $user = createUserWithPermissions(['document.download_all']);
             $category = DocumentCategory::factory()->create();
 
             $file = UploadedFile::fake()->image('photo.jpg', 100, 100);
@@ -475,9 +476,268 @@ describe('employee document API', function () {
                 ['employee_document' => $document->id, 'thumbnail' => 1],
             );
 
-            $this->get($url)
+            $this->actingAs($user)->get($url)
                 ->assertStatus(200)
                 ->assertHeader('Content-Type', 'image/jpeg');
+        });
+
+        it('denies serve without auth', function () {
+            Storage::fake('local');
+            $category = DocumentCategory::factory()->create();
+            $document = Document::factory()->create([
+                'document_category_id' => $category->id,
+            ]);
+
+            $url = URL::temporarySignedRoute(
+                'employee-documents.serve',
+                now()->addHour(),
+                ['employee_document' => $document->id],
+            );
+
+            $this->get($url)->assertStatus(401);
+        });
+
+        it('denies serve for other users document with download_own only', function () {
+            Storage::fake('local');
+            $user = createUserWithPermissions(['document.download_own']);
+            $category = DocumentCategory::factory()->create();
+            $document = Document::factory()->create([
+                'document_category_id' => $category->id,
+                'uploaded_by' => null,
+            ]);
+
+            $url = URL::temporarySignedRoute(
+                'employee-documents.serve',
+                now()->addHour(),
+                ['employee_document' => $document->id],
+            );
+
+            $this->actingAs($user)->get($url)->assertStatus(403);
+        });
+    });
+
+    describe('authorization', function () {
+        it('denies access without required permission', function () {
+            $user = createUserWithPermissions([]);
+            $employee = Employee::factory()->create();
+
+            $this->actingAs($user)
+                ->getJson('/api/employees/'.$employee->id.'/documents')
+                ->assertStatus(403);
+        });
+
+        it('denies upload without document.upload permission', function () {
+            $user = createUserWithPermissions(['document.view_all']);
+            $employee = Employee::factory()->create();
+
+            $this->actingAs($user)
+                ->postJson('/api/employees/'.$employee->id.'/documents', [
+                    'document_category_id' => 1,
+                ])
+                ->assertStatus(403);
+        });
+    });
+
+    describe('own/all scoping', function () {
+        it('scopes index to own documents with view_own only', function () {
+            Storage::fake('local');
+            $owner = createUserWithPermissions(['document.view_own']);
+            $employee = Employee::factory()->create(['user_id' => $owner->id]);
+            $category = DocumentCategory::factory()->create();
+
+            $ownDoc = Document::factory()->create([
+                'documentable_id' => $employee->id,
+                'documentable_type' => Employee::class,
+                'document_category_id' => $category->id,
+                'uploaded_by' => $owner->id,
+            ]);
+
+            $otherUser = createUserWithPermissions([]);
+            Document::factory()->create([
+                'documentable_id' => $employee->id,
+                'documentable_type' => Employee::class,
+                'document_category_id' => $category->id,
+                'uploaded_by' => $otherUser->id,
+            ]);
+
+            $this->actingAs($owner)
+                ->getJson('/api/employees/'.$employee->id.'/documents')
+                ->assertStatus(200)
+                ->assertJsonCount(1, 'data')
+                ->assertJsonPath('data.0.id', $ownDoc->id);
+        });
+
+        it('shows all documents with view_all permission', function () {
+            Storage::fake('local');
+            $user = createUserWithPermissions(['document.view_all']);
+            $employee = Employee::factory()->create();
+            $category = DocumentCategory::factory()->create();
+
+            Document::factory()->count(2)->create([
+                'documentable_id' => $employee->id,
+                'documentable_type' => Employee::class,
+                'document_category_id' => $category->id,
+            ]);
+
+            $this->actingAs($user)
+                ->getJson('/api/employees/'.$employee->id.'/documents')
+                ->assertStatus(200)
+                ->assertJsonCount(2, 'data');
+        });
+
+        it('scopes trash to own documents with view_own only', function () {
+            Storage::fake('local');
+            $owner = createUserWithPermissions(['document.view_own']);
+            $employee = Employee::factory()->create(['user_id' => $owner->id]);
+            $category = DocumentCategory::factory()->create();
+
+            $ownTrashed = Document::factory()->create([
+                'documentable_id' => $employee->id,
+                'documentable_type' => Employee::class,
+                'document_category_id' => $category->id,
+                'uploaded_by' => $owner->id,
+            ]);
+            $ownTrashed->delete();
+
+            $otherUser = createUserWithPermissions([]);
+            $otherTrashed = Document::factory()->create([
+                'documentable_id' => $employee->id,
+                'documentable_type' => Employee::class,
+                'document_category_id' => $category->id,
+                'uploaded_by' => $otherUser->id,
+            ]);
+            $otherTrashed->delete();
+
+            $this->actingAs($owner)
+                ->getJson('/api/employees/'.$employee->id.'/documents/trash')
+                ->assertStatus(200)
+                ->assertJsonCount(1, 'data')
+                ->assertJsonPath('data.0.id', $ownTrashed->id);
+        });
+
+        it('denies upload to other employees with upload_own only', function () {
+            Storage::fake('local');
+            $user = createUserWithPermissions(['document.upload_own']);
+            $otherEmployee = Employee::factory()->create();
+            $category = DocumentCategory::factory()->create();
+            $file = UploadedFile::fake()->create('doc.pdf', 100);
+
+            $this->actingAs($user)
+                ->postJson('/api/employees/'.$otherEmployee->id.'/documents', [
+                    'document_category_id' => $category->id,
+                    'file' => $file,
+                ])
+                ->assertStatus(403);
+        });
+
+        it('allows upload to own employee with upload_own', function () {
+            Storage::fake('local');
+            $user = createUserWithPermissions(['document.upload_own']);
+            $employee = Employee::factory()->create(['user_id' => $user->id]);
+            $category = DocumentCategory::factory()->create();
+            $file = UploadedFile::fake()->create('doc.pdf', 100);
+
+            $this->actingAs($user)
+                ->postJson('/api/employees/'.$employee->id.'/documents', [
+                    'document_category_id' => $category->id,
+                    'file' => $file,
+                ])
+                ->assertStatus(201);
+        });
+
+        it('allows upload to any employee with upload_all', function () {
+            Storage::fake('local');
+            $user = createUserWithPermissions(['document.upload_all']);
+            $employee = Employee::factory()->create();
+            $category = DocumentCategory::factory()->create();
+            $file = UploadedFile::fake()->create('doc.pdf', 100);
+
+            $this->actingAs($user)
+                ->postJson('/api/employees/'.$employee->id.'/documents', [
+                    'document_category_id' => $category->id,
+                    'file' => $file,
+                ])
+                ->assertStatus(201);
+        });
+
+        it('scopes bulk download to own documents with download_own only', function () {
+            Storage::fake('local');
+            $owner = createUserWithPermissions(['document.download_own']);
+            $employee = Employee::factory()->create(['user_id' => $owner->id]);
+            $category = DocumentCategory::factory()->create();
+
+            $ownDoc = Document::factory()->create([
+                'documentable_id' => $employee->id,
+                'documentable_type' => Employee::class,
+                'document_category_id' => $category->id,
+                'uploaded_by' => $owner->id,
+            ]);
+
+            $otherUser = createUserWithPermissions([]);
+            Document::factory()->create([
+                'documentable_id' => $employee->id,
+                'documentable_type' => Employee::class,
+                'document_category_id' => $category->id,
+                'uploaded_by' => $otherUser->id,
+            ]);
+
+            $this->actingAs($owner)
+                ->postJson('/api/employees/'.$employee->id.'/documents/download', [
+                    'document_ids' => [],
+                ])
+                ->assertStatus(200)
+                ->assertHeader('Content-Type', 'application/zip');
+        });
+
+        it('allows bulk download of all documents with download_all', function () {
+            Storage::fake('local');
+            $user = createUserWithPermissions(['document.download_all']);
+            $employee = Employee::factory()->create();
+            $category = DocumentCategory::factory()->create();
+
+            Document::factory()->count(2)->create([
+                'documentable_id' => $employee->id,
+                'documentable_type' => Employee::class,
+                'document_category_id' => $category->id,
+            ]);
+
+            $this->actingAs($user)
+                ->postJson('/api/employees/'.$employee->id.'/documents/download', [
+                    'document_ids' => [],
+                ])
+                ->assertStatus(200)
+                ->assertHeader('Content-Type', 'application/zip');
+        });
+
+        it('denies delete of other users documents with delete_own only', function () {
+            $owner = createUserWithPermissions(['document.delete_own']);
+            $employee = Employee::factory()->create(['user_id' => $owner->id]);
+
+            $otherUser = createUserWithPermissions([]);
+            $document = Document::factory()->create([
+                'documentable_id' => $employee->id,
+                'documentable_type' => Employee::class,
+                'uploaded_by' => $otherUser->id,
+            ]);
+
+            $this->actingAs($owner)
+                ->deleteJson('/api/employees/documents/'.$document->id)
+                ->assertStatus(403);
+        });
+
+        it('allows delete of own documents with delete_own', function () {
+            $owner = createUserWithPermissions(['document.delete_own']);
+            $employee = Employee::factory()->create(['user_id' => $owner->id]);
+
+            $document = Document::factory()->create([
+                'documentable_id' => $employee->id,
+                'documentable_type' => Employee::class,
+                'uploaded_by' => $owner->id,
+            ]);
+
+            $this->actingAs($owner)
+                ->deleteJson('/api/employees/documents/'.$document->id)
+                ->assertStatus(200);
         });
     });
 });

@@ -8,6 +8,7 @@ import {
 import { IconArrowBackUp, IconLoader2, IconTrash } from "@tabler/icons-react";
 
 import { Button } from "@/components/ui/button";
+import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
 import { ConfirmDeleteActions } from "./confirm-delete-actions";
 import { DocumentFileCell } from "./document-file-cell";
 import { toPersianDate } from "@/lib/date-format";
@@ -152,71 +153,68 @@ export function DocumentTrashTable({
     });
 
     return (
-        <div className="relative w-full overflow-auto rounded-lg border">
-            <table className="w-full caption-bottom text-sm">
-                <thead>
-                    {table.getHeaderGroups().map((headerGroup) => (
-                        <tr
-                            key={headerGroup.id}
-                            className="border-b transition-colors"
-                        >
-                            {headerGroup.headers.map((header) => {
-                                const isActions = header.id === "actions";
-                                return (
-                                    <th
-                                        key={header.id}
-                                        className={
-                                            isActions
-                                                ? "sticky inset-e-0 z-20 bg-card shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.1)] h-10 px-3 text-start text-xs font-medium text-muted-foreground cursor-default"
-                                                : "h-10 px-3 text-start text-xs font-medium text-muted-foreground"
-                                        }
-                                    >
-                                        {header.isPlaceholder
-                                            ? null
-                                            : flexRender(
-                                                  header.column.columnDef
-                                                      .header,
-                                                  header.getContext(),
-                                              )}
-                                    </th>
-                                );
-                            })}
-                        </tr>
-                    ))}
-                </thead>
-                <tbody>
-                    {table.getRowModel().rows.map((row) => (
-                        <tr
-                            key={row.id}
-                            className="border-b transition-colors hover:bg-muted/50 last:border-b-0"
-                        >
-                            {row.getVisibleCells().map((cell) => {
-                                const isActions = cell.column.id === "actions";
-                                return (
-                                    <td
-                                        key={cell.id}
-                                        className={
-                                            isActions
-                                                ? "sticky inset-e-0 z-10 bg-card shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.1)] p-3 cursor-default"
-                                                : "p-3"
-                                        }
-                                        onClick={
-                                            isActions
-                                                ? (e) => e.stopPropagation()
-                                                : undefined
-                                        }
-                                    >
-                                        {flexRender(
-                                            cell.column.columnDef.cell,
-                                            cell.getContext(),
-                                        )}
-                                    </td>
-                                );
-                            })}
-                        </tr>
-                    ))}
-                </tbody>
-            </table>
-        </div>
+        <Table>
+            <TableHeader>
+                {table.getHeaderGroups().map((headerGroup) => (
+                    <TableRow
+                        key={headerGroup.id}
+                        className="group/row"
+                    >
+                        {headerGroup.headers.map((header) => {
+                            const isActions = header.id === "actions";
+                            return (
+                                <TableHead
+                                    key={header.id}
+                                    className={
+                                        isActions
+                                            ? "sticky inset-e-0 z-20 bg-card shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.1)] cursor-default"
+                                            : undefined
+                                    }
+                                >
+                                    {header.isPlaceholder
+                                        ? null
+                                        : flexRender(
+                                              header.column.columnDef.header,
+                                              header.getContext(),
+                                          )}
+                                </TableHead>
+                            );
+                        })}
+                    </TableRow>
+                ))}
+            </TableHeader>
+            <TableBody>
+                {table.getRowModel().rows.map((row) => (
+                    <TableRow
+                        key={row.id}
+                        className="group/row"
+                    >
+                        {row.getVisibleCells().map((cell) => {
+                            const isActions = cell.column.id === "actions";
+                            return (
+                                <TableCell
+                                    key={cell.id}
+                                    className={
+                                        isActions
+                                            ? "sticky inset-e-0 z-10 bg-card shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.1)] cursor-default"
+                                            : undefined
+                                    }
+                                    onClick={
+                                        isActions
+                                            ? (e) => e.stopPropagation()
+                                            : undefined
+                                    }
+                                >
+                                    {flexRender(
+                                        cell.column.columnDef.cell,
+                                        cell.getContext(),
+                                    )}
+                                </TableCell>
+                            );
+                        })}
+                    </TableRow>
+                ))}
+            </TableBody>
+        </Table>
     );
 }
