@@ -4,13 +4,25 @@ import { AppSidebar } from "@/features/dashboard/components/app-sidebar";
 import { SiteHeader } from "@/features/dashboard/components/site-header";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { requireAuth } from "@/features/auth/guards";
+import { ErrorPage } from "@/components/shared/error-page";
 
 export const Route = createRoute({
     getParentRoute: () => RootRoute,
     id: "protected",
     beforeLoad: ({ location }) => requireAuth(location),
+    errorComponent: ProtectedError,
+    notFoundComponent: ProtectedNotFound,
     component: ProtectedLayout,
 });
+
+function ProtectedError({ error }: { error: Error }) {
+    const message = error?.message ?? "خطای ناشناخته";
+    return <ErrorPage title={message} homeTo="/dashboard" />;
+}
+
+function ProtectedNotFound() {
+    return <ErrorPage status={404} homeTo="/dashboard" />;
+}
 
 function ProtectedLayout() {
     return (

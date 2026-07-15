@@ -1,16 +1,14 @@
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { IconUsers } from "@tabler/icons-react";
 import { toast } from "sonner";
 
 import { EmployeeForm } from "@/features/employees/components/employee-form";
 import { fetchEmployee, updateEmployee } from "@/features/employees/api";
 import { getApiError } from "@/lib/error-utils";
 import { PageLayout } from "@/components/shared/page-layout";
-import { EmptyState } from "@/components/shared/empty-state";
+import { ErrorPage } from "@/components/shared/error-page";
 import { PageHeader } from "@/components/shared/page-header";
 import { PageSkeleton } from "@/components/shared/page-skeleton";
-import { BackButton } from "@/components/shared/back-button";
 
 export function EmployeeEditPage() {
     const { id } = useParams({ from: "/protected/employees/$id/edit" });
@@ -51,17 +49,22 @@ export function EmployeeEditPage() {
 
     if (isError) {
         return (
-            <EmptyState icon={IconUsers} message="خطا در بارگذاری اطلاعات کارمند">
-                <BackButton to="/employees" label="بازگشت به لیست" />
-            </EmptyState>
+            <ErrorPage
+                title="خطا در بارگذاری اطلاعات کارمند"
+                homeTo="/employees"
+                homeLabel="بازگشت به لیست"
+            />
         );
     }
 
     if (!employee) {
         return (
-            <EmptyState icon={IconUsers} message="کارمند مورد نظر یافت نشد">
-                <BackButton to="/employees" label="بازگشت به لیست" />
-            </EmptyState>
+            <ErrorPage
+                status={404}
+                title="کارمند مورد نظر یافت نشد"
+                homeTo="/employees"
+                homeLabel="بازگشت به لیست"
+            />
         );
     }
 

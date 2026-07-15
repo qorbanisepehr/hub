@@ -18,6 +18,7 @@ import { RoleSearchSelect } from "@/features/rbac/components/role-search-select"
 import { PermissionGuard } from "@/features/auth/components/permission-guard";
 import { useRoles } from "@/features/rbac/hooks/use-roles";
 import { PageLayout } from "@/components/shared/page-layout";
+import { ErrorPage } from "@/components/shared/error-page";
 import { PageHeader } from "@/components/shared/page-header";
 import { PageSkeleton } from "@/components/shared/page-skeleton";
 import { ConfirmDeleteButton } from "@/components/ui/confirm-delete-button";
@@ -29,7 +30,7 @@ export function UserRolesPage() {
     const queryClient = useQueryClient();
     const [selectedRoleId, setSelectedRoleId] = useState<number | null>(null);
 
-    const { data: userRoles, isLoading: rolesLoading } = useQuery({
+    const { data: userRoles, isLoading: rolesLoading, isError } = useQuery({
         queryKey: ["user-roles", userIdNum],
         queryFn: async () => {
             const { data } = await fetchUserRoles(userIdNum);
@@ -89,6 +90,16 @@ export function UserRolesPage() {
 
     if (rolesLoading) {
         return <PageSkeleton />;
+    }
+
+    if (isError) {
+        return (
+            <ErrorPage
+                title="خطا در بارگذاری اطلاعات نقش کاربر"
+                homeTo={`/users/${userId}`}
+                homeLabel="بازگشت به کاربر"
+            />
+        );
     }
 
     return (

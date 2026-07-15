@@ -15,14 +15,32 @@ export const api = axios.create({
 api.interceptors.response.use(
     (response) => response,
     (error) => {
-        if (error.response?.status === 401) {
-            authClient.clearSession();
+        if (axios.isCancel(error)) {
+            return Promise.reject(error);
         }
 
-        if (error.response?.status === 403) {
+        const status = error.response?.status;
+
+        if (status === 401) {
+            authClient.clearSession();
+            return Promise.reject(error);
+        }
+
+        if (status === 403) {
             const message =
                 error.response?.data?.message ?? "شما مجوز این عملیات را ندارید";
             toast.error(message);
+            return Promise.reject(error);
+        }
+
+        if (status === 500) {
+            toast.error("خطای سرور. لطفاً بعداً دوباره تلاش کنید.");
+            return Promise.reject(error);
+        }
+
+        if (!error.response) {
+            toast.error("خطای شبکه. اتصال اینترنت خود را بررسی کنید.");
+            return Promise.reject(error);
         }
 
         return Promise.reject(error);

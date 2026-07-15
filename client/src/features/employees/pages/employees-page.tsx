@@ -166,17 +166,10 @@ export function EmployeesPage() {
                     اولین کارمند را ثبت کنید
                 </Button>
             }
-            errorAction={
-                <Button
-                    variant="link"
-                    onClick={() =>
-                        queryClient.invalidateQueries({
-                            queryKey: ["employees"],
-                        })
-                    }
-                >
-                    تلاش مجدد
-                </Button>
+            onRetry={() =>
+                queryClient.invalidateQueries({
+                    queryKey: ["employees"],
+                })
             }
             colSpan={employeeColumns.length}
         />

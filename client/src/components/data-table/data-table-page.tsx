@@ -23,6 +23,7 @@ import {
 import { TableSkeleton } from "@/components/shared/table-skeleton";
 import { PageLayout } from "@/components/shared/page-layout";
 import { EmptyState } from "@/components/shared/empty-state";
+import { ErrorSection } from "@/components/shared/error-section";
 import { DataTablePagination } from "./pagination";
 
 type Meta = {
@@ -45,7 +46,7 @@ interface DataTablePageProps<T> {
     toolbar?: ReactNode;
     emptyMessage?: string;
     emptyAction?: ReactNode;
-    errorAction?: ReactNode;
+    onRetry?: () => void;
     colSpan: number;
 }
 
@@ -62,7 +63,7 @@ export function DataTablePage<T>({
     toolbar,
     emptyMessage = "هیچ موردی یافت نشد",
     emptyAction,
-    errorAction,
+    onRetry,
     colSpan,
 }: DataTablePageProps<T>) {
     return (
@@ -91,12 +92,7 @@ export function DataTablePage<T>({
                             <TableSkeleton />
                         </div>
                     ) : isError ? (
-                        <EmptyState
-                            icon={Icon}
-                            message="خطا در بارگذاری اطلاعات"
-                        >
-                            {errorAction}
-                        </EmptyState>
+                        <ErrorSection icon={Icon} onRetry={onRetry} />
                     ) : (
                         <div className="overflow-x-auto">
                             {toolbar && (
