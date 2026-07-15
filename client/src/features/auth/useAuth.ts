@@ -10,8 +10,7 @@ import {
     requestOtp,
     verifyOtp,
 } from "@/features/auth/api";
-
-const ME_KEY = ["auth:me"];
+import { ME_KEY } from "@/features/auth/constants";
 
 export function useAuth() {
     const queryClient = useQueryClient();
