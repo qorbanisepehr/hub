@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
-import { IconCheck, IconCirclePlus } from "@tabler/icons-react";
+import { IconCheck, IconFilter } from "@tabler/icons-react";
 import { type Column } from "@tanstack/react-table";
 
 type DataTableFacetedFilterProps<TData, TValue> = {
@@ -54,7 +54,7 @@ export function DataTableFacetedFilter<TData, TValue>({
                         size="sm"
                         className="h-8 border-dashed"
                     >
-                        <IconCirclePlus className="size-4" />
+                        <IconFilter className="size-4" />
                         {title}
                         {selectedOption && (
                             <>
