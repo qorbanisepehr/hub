@@ -6,6 +6,7 @@ import {
     IconList,
     IconTable,
 } from "@tabler/icons-react";
+import { toast } from "sonner";
 
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -81,9 +82,11 @@ export function DocumentList({
             setDeletingIds(new Set());
             setLightboxIndex(null);
             onSelectionChange(selectedIds.filter((id) => id !== documentId));
+            toast.success("مدرک حذف شد");
         },
         onError: () => {
             setDeletingIds(new Set());
+            toast.error("خطا در حذف مدرک");
         },
     });
 

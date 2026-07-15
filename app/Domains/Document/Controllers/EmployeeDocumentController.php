@@ -11,27 +11,42 @@ use App\Domains\Document\Requests\StoreEmployeeDocumentRequest;
 use App\Domains\Document\Requests\ZipStoreEmployeeDocumentRequest;
 use App\Domains\Document\Resources\DocumentResource;
 use App\Domains\Employee\Models\Employee;
+use App\Http\Controllers\ApiController;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use ZipArchive;
 
-class EmployeeDocumentController
+class EmployeeDocumentController extends ApiController
 {
-    public function index(Employee $employee): AnonymousResourceCollection
+    protected ?string $model = Document::class;
+
+    /**
+     * Disable auto-authorization for this controller.
+     * This is a nested resource with custom authorization logic.
+     */
+    protected array $actionPermissions = [];
+
+    public function index(Employee $employee, Request $request): AnonymousResourceCollection
     {
-        $documents = $employee->documents()
-            ->with(['category', 'uploader', 'documentable'])
-            ->latest()
-            ->get();
+        $query = $employee->documents()
+            ->with(['category', 'uploader', 'documentable']);
+
+        $this->scopeQuery($query, $request, 'uploaded_by');
+
+        $documents = $query->latest()->get();
 
         return DocumentResource::collection($documents);
     }
 
     public function store(StoreEmployeeDocumentRequest $request, Employee $employee): DocumentResource
     {
+        $this->authorizeUpload($request->user(), $employee);
+
         $file = $request->file('file');
 
         $categorySlug = DocumentCategory::where('id', $request->document_category_id)->value('slug');
@@ -59,6 +74,8 @@ class EmployeeDocumentController
 
     public function bulkStore(BulkStoreEmployeeDocumentRequest $request, Employee $employee): JsonResponse
     {
+        $this->authorizeUpload($request->user(), $employee);
+
         $categoryId = $request->document_category_id;
         $categorySlug = DocumentCategory::where('id', $categoryId)->value('slug');
         $disk = config('documents.storage_disk');
@@ -121,6 +138,10 @@ class EmployeeDocumentController
 
         $query = $employee->documents()->with('category');
 
+        if (! $request->user()->hasPermissionTo('document.download_all')) {
+            $query->where('uploaded_by', $request->user()->id);
+        }
+
         if (! empty($documentIds)) {
             $query->whereIn('id', $documentIds);
         }
@@ -175,6 +196,8 @@ class EmployeeDocumentController
 
     public function zipStore(ZipStoreEmployeeDocumentRequest $request, Employee $employee): JsonResponse
     {
+        $this->authorizeUpload($request->user(), $employee);
+
         $file = $request->file('file');
         $disk = config('documents.storage_disk');
         $userId = $request->user()?->id;
@@ -239,6 +262,19 @@ class EmployeeDocumentController
                 'skipped' => $skipped,
             ],
         ]);
+    }
+
+    private function authorizeUpload(User $user, Employee $employee): void
+    {
+        if ($user->hasPermissionTo('document.upload_all')) {
+            return;
+        }
+
+        if ($user->hasPermissionTo('document.upload_own') && $employee->user_id === $user->id) {
+            return;
+        }
+
+        abort(403, __('messages.permission_denied'));
     }
 
     private function isPathSafe(string $path, string $baseDir): bool
@@ -328,8 +364,10 @@ class EmployeeDocumentController
         @rmdir($path);
     }
 
-    public function download(Document $employeeDocument): StreamedResponse
+    public function download(Document $employeeDocument, Request $request): StreamedResponse
     {
+        Gate::forUser($request->user())->authorize('download', $employeeDocument);
+
         $employeeDocument->load(['documentable', 'category']);
 
         if (! Storage::disk(config('documents.storage_disk'))->exists($employeeDocument->stored_path)) {
@@ -346,6 +384,8 @@ class EmployeeDocumentController
 
     public function serve(Document $employeeDocument, Request $request): StreamedResponse
     {
+        Gate::forUser($request->user())->authorize('download', $employeeDocument);
+
         $useThumbnail = $request->boolean('thumbnail') && $employeeDocument->thumbnail_path;
         $path = $useThumbnail ? $employeeDocument->thumbnail_path : $employeeDocument->stored_path;
 
@@ -356,26 +396,32 @@ class EmployeeDocumentController
         return Storage::disk(config('documents.storage_disk'))->response($path);
     }
 
-    public function destroy(Document $employeeDocument): JsonResponse
+    public function destroy(Document $employeeDocument, Request $request): JsonResponse
     {
+        Gate::forUser($request->user())->authorize('delete', $employeeDocument);
+
         $employeeDocument->delete();
 
         return response()->json(['message' => __('document.document_deleted')]);
     }
 
-    public function trashed(Employee $employee): AnonymousResourceCollection
+    public function trashed(Employee $employee, Request $request): AnonymousResourceCollection
     {
-        $documents = $employee->documents()
+        $query = $employee->documents()
             ->onlyTrashed()
-            ->with(['category', 'uploader', 'documentable'])
-            ->latest('deleted_at')
-            ->get();
+            ->with(['category', 'uploader', 'documentable']);
+
+        $this->scopeQuery($query, $request, 'uploaded_by');
+
+        $documents = $query->latest('deleted_at')->get();
 
         return DocumentResource::collection($documents);
     }
 
-    public function restore(Document $employeeDocument): DocumentResource
+    public function restore(Document $employeeDocument, Request $request): DocumentResource
     {
+        Gate::forUser($request->user())->authorize('delete', $employeeDocument);
+
         $employeeDocument->restore();
 
         $employeeDocument->load(['category', 'uploader']);
@@ -383,8 +429,10 @@ class EmployeeDocumentController
         return new DocumentResource($employeeDocument);
     }
 
-    public function forceDestroy(Document $employeeDocument): JsonResponse
+    public function forceDestroy(Document $employeeDocument, Request $request): JsonResponse
     {
+        Gate::forUser($request->user())->authorize('delete', $employeeDocument);
+
         Storage::disk(config('documents.storage_disk'))->delete(
             array_filter([$employeeDocument->stored_path, $employeeDocument->thumbnail_path]),
         );

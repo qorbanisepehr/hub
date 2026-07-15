@@ -6,12 +6,15 @@ use App\Domains\Document\Models\DocumentCategory;
 use App\Domains\Document\Requests\StoreDocumentCategoryRequest;
 use App\Domains\Document\Requests\UpdateDocumentCategoryRequest;
 use App\Domains\Document\Resources\DocumentCategoryResource;
+use App\Http\Controllers\ApiController;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
-class DocumentCategoryController
+class DocumentCategoryController extends ApiController
 {
+    protected ?string $model = DocumentCategory::class;
+
     public function index(Request $request): AnonymousResourceCollection
     {
         $categories = DocumentCategory::query()
