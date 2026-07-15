@@ -22,6 +22,7 @@ export const userColumns: ColumnDef<UserListItem>[] = [
                 {row.getValue("name")}
             </Link>
         ),
+        meta: { displayName: "نام" },
         enableHiding: false,
     },
     {
@@ -34,6 +35,7 @@ export const userColumns: ColumnDef<UserListItem>[] = [
                 {row.getValue("email")}
             </span>
         ),
+        meta: { displayName: "ایمیل" },
     },
     {
         id: "roles",
@@ -61,6 +63,7 @@ export const userColumns: ColumnDef<UserListItem>[] = [
                 </div>
             );
         },
+        meta: { displayName: "نقش‌ها" },
         enableSorting: false,
     },
     {
