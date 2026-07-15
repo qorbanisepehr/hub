@@ -34,7 +34,7 @@ describe('employee CRUD', function () {
 
     describe('index', function () {
         it('lists employees with pagination', function () {
-            $user = User::factory()->create();
+            $user = createUserWithPermissions(['employee.view_all', 'employee.view_own']);
             Employee::factory()->count(3)->create();
 
             $this->actingAs($user)
@@ -48,11 +48,23 @@ describe('employee CRUD', function () {
                 ])
                 ->assertJsonPath('meta.total', 3);
         });
+
+        it('filters employees by own scope', function () {
+            $user = createUserWithPermissions(['employee.view_own']);
+            $ownEmployee = Employee::factory()->create(['user_id' => $user->id]);
+            Employee::factory()->create();
+
+            $this->actingAs($user)
+                ->getJson('/api/employees')
+                ->assertStatus(200)
+                ->assertJsonPath('meta.total', 1)
+                ->assertJsonPath('data.0.id', $ownEmployee->id);
+        });
     });
 
     describe('store', function () {
         it('creates an employee with valid data', function () {
-            $user = User::factory()->create();
+            $user = createUserWithPermissions(['employee.create']);
             $data = employeeData();
 
             $this->actingAs($user)
@@ -74,7 +86,7 @@ describe('employee CRUD', function () {
         });
 
         it('fails with duplicate personnel_code', function () {
-            $user = User::factory()->create();
+            $user = createUserWithPermissions(['employee.create']);
             Employee::factory()->create(['personnel_code' => '00001']);
 
             $this->actingAs($user)
@@ -84,7 +96,7 @@ describe('employee CRUD', function () {
         });
 
         it('fails with missing required fields', function () {
-            $user = User::factory()->create();
+            $user = createUserWithPermissions(['employee.create']);
 
             $this->actingAs($user)
                 ->postJson('/api/employees', [])
@@ -95,7 +107,7 @@ describe('employee CRUD', function () {
         });
 
         it('fails with invalid gender', function () {
-            $user = User::factory()->create();
+            $user = createUserWithPermissions(['employee.create']);
 
             $this->actingAs($user)
                 ->postJson('/api/employees', employeeData(['gender' => 'other']))
@@ -104,7 +116,7 @@ describe('employee CRUD', function () {
         });
 
         it('links employee to a user when user_id is provided', function () {
-            $user = User::factory()->create();
+            $user = createUserWithPermissions(['employee.create']);
             $employeeUser = User::factory()->create();
 
             $this->actingAs($user)
@@ -119,7 +131,7 @@ describe('employee CRUD', function () {
 
     describe('show', function () {
         it('returns a single employee', function () {
-            $user = User::factory()->create();
+            $user = createUserWithPermissions(['employee.view_all']);
             $employee = Employee::factory()->create();
 
             $this->actingAs($user)
@@ -135,17 +147,26 @@ describe('employee CRUD', function () {
         });
 
         it('returns 404 for non-existent employee', function () {
-            $user = User::factory()->create();
+            $user = createUserWithPermissions(['employee.view_all']);
 
             $this->actingAs($user)
                 ->getJson('/api/employees/99999')
                 ->assertStatus(404);
         });
+
+        it('denies access to other employee with own scope', function () {
+            $user = createUserWithPermissions(['employee.view_own']);
+            $employee = Employee::factory()->create();
+
+            $this->actingAs($user)
+                ->getJson('/api/employees/'.$employee->id)
+                ->assertStatus(403);
+        });
     });
 
     describe('update', function () {
         it('updates an employee', function () {
-            $user = User::factory()->create();
+            $user = createUserWithPermissions(['employee.update_all']);
             $employee = Employee::factory()->create();
 
             $this->actingAs($user)
@@ -160,7 +181,7 @@ describe('employee CRUD', function () {
         });
 
         it('allows unique personnel_code on own record', function () {
-            $user = User::factory()->create();
+            $user = createUserWithPermissions(['employee.update_all']);
             $employee = Employee::factory()->create();
 
             $this->actingAs($user)
@@ -174,7 +195,7 @@ describe('employee CRUD', function () {
         });
 
         it('fails with duplicate personnel_code on other record', function () {
-            $user = User::factory()->create();
+            $user = createUserWithPermissions(['employee.update_all']);
             $employee = Employee::factory()->create();
             $other = Employee::factory()->create();
 
@@ -188,11 +209,25 @@ describe('employee CRUD', function () {
                 ->assertStatus(422)
                 ->assertJsonValidationErrors(['personnel_code']);
         });
+
+        it('denies update on other employee with own scope', function () {
+            $user = createUserWithPermissions(['employee.update_own']);
+            $employee = Employee::factory()->create();
+
+            $this->actingAs($user)
+                ->putJson('/api/employees/'.$employee->id, [
+                    'personnel_code' => $employee->personnel_code,
+                    'first_name' => 'Jane',
+                    'last_name' => $employee->last_name,
+                    'gender' => $employee->gender,
+                ])
+                ->assertStatus(403);
+        });
     });
 
     describe('destroy', function () {
         it('soft deletes an employee', function () {
-            $user = User::factory()->create();
+            $user = createUserWithPermissions(['employee.delete']);
             $employee = Employee::factory()->create();
 
             $this->actingAs($user)
@@ -204,7 +239,7 @@ describe('employee CRUD', function () {
         });
 
         it('returns 404 for already deleted employee', function () {
-            $user = User::factory()->create();
+            $user = createUserWithPermissions(['employee.delete']);
             $employee = Employee::factory()->create();
             $employee->delete();
 
@@ -216,7 +251,7 @@ describe('employee CRUD', function () {
 
     describe('index with soft deleted', function () {
         it('excludes soft deleted employees from list', function () {
-            $user = User::factory()->create();
+            $user = createUserWithPermissions(['employee.view_all']);
             Employee::factory()->count(2)->create();
             $deleted = Employee::factory()->create();
             $deleted->delete();
@@ -224,6 +259,24 @@ describe('employee CRUD', function () {
             $this->actingAs($user)
                 ->getJson('/api/employees')
                 ->assertJsonPath('meta.total', 2);
+        });
+    });
+
+    describe('authorization', function () {
+        it('denies access without required permission', function () {
+            $user = createUserWithPermissions([]);
+
+            $this->actingAs($user)
+                ->getJson('/api/employees')
+                ->assertStatus(403);
+        });
+
+        it('denies store without employee.create permission', function () {
+            $user = createUserWithPermissions(['employee.view_all']);
+
+            $this->actingAs($user)
+                ->postJson('/api/employees', employeeData())
+                ->assertStatus(403);
         });
     });
 });

@@ -30,6 +30,11 @@ class EmployeeResource extends JsonResource
                 'id' => $this->user->id,
                 'name' => $this->user->name,
                 'email' => $this->user->email,
+                'phone' => $this->user->phone,
+                'username' => $this->user->username,
+                'active_role' => $this->user->activeRole
+                    ? ['id' => $this->user->activeRole->id, 'display_name' => $this->user->activeRole->display_name]
+                    : null,
             ]),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
