@@ -2,6 +2,7 @@ import { api } from "@/lib/api";
 import type { PaginatedResponse, PaginatedListParams } from "@/lib/types";
 import type {
     Role,
+    Permission,
     PermissionGroup,
     UserRoleAssignment,
     CreateRoleData,
@@ -17,11 +18,16 @@ export type { PaginatedResponse };
 export type UserListParams = PaginatedListParams & {
     filter?: string;
     role?: string;
+    has_employee?: boolean;
 };
 
 export type RoleListParams = PaginatedListParams & {
     filter?: string;
     is_active?: boolean;
+};
+
+export type PermissionListParams = PaginatedListParams & {
+    filter?: string;
 };
 
 // ── Roles ──
@@ -58,6 +64,10 @@ export function toggleRole(id: number) {
 
 export function fetchPermissions() {
     return api.get<{ data: PermissionGroup[] }>("/permissions");
+}
+
+export function fetchPermissionsPaginated(params: PermissionListParams = {}) {
+    return api.get<PaginatedResponse<Permission>>("/permissions/search", { params });
 }
 
 export function fetchRegisteredPermissions() {

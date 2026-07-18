@@ -110,13 +110,9 @@ export function RolesPage() {
 
     const columns = getRoleColumns({
         onToggle: (role) => toggleMutation.mutate(role.id),
-        onDelete: (role) => {
-            if (
-                confirm(`آیا از حذف نقش "${role.display_name}" اطمینان دارید؟`)
-            ) {
-                deleteMutation.mutate(role.id);
-            }
-        },
+        onDelete: (role) => deleteMutation.mutate(role.id),
+        isToggling: toggleMutation.isPending,
+        isDeleting: deleteMutation.isPending,
     });
 
     const tableData = data?.data ?? [];

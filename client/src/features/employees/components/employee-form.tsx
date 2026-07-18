@@ -497,6 +497,7 @@ export function EmployeeForm({
                                                 field.handleChange(user?.id ?? null)
                                             }
                                             placeholder="انتخاب کاربر..."
+                                            hasEmployee={false}
                                         />
                                     </Field>
                                 );
