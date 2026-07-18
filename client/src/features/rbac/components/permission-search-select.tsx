@@ -1,6 +1,6 @@
-import { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { fetchPermissions } from "@/features/rbac/api";
+import { useState } from "react";
+import { useInfiniteQuery } from "@tanstack/react-query";
+import { fetchPermissionsPaginated } from "@/features/rbac/api";
 import { SearchSelectModal } from "@/components/shared/search-select-modal";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import type { Permission } from "@/features/rbac/types";
@@ -25,46 +25,36 @@ export function PermissionSearchSelect({
     const [search, setSearch] = useState("");
     const debouncedSearch = useDebouncedValue(search, 300);
 
-    const { data: groups, isLoading } = useQuery({
-        queryKey: ["permissions"],
-        queryFn: async () => {
-            const { data } = await fetchPermissions();
-            return data.data;
-        },
-    });
+    const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } =
+        useInfiniteQuery({
+            queryKey: ["permissions", "select", debouncedSearch],
+            queryFn: async ({ pageParam = 1 }) => {
+                const { data } = await fetchPermissionsPaginated({
+                    filter: debouncedSearch || undefined,
+                    per_page: 20,
+                    page: pageParam,
+                });
+                return data;
+            },
+            getNextPageParam: (lastPage) =>
+                lastPage.meta.current_page < lastPage.meta.last_page
+                    ? lastPage.meta.current_page + 1
+                    : undefined,
+            initialPageParam: 1,
+            staleTime: 5 * 60 * 1000,
+        });
 
-    const allPermissions = useMemo(() => {
-        return (groups ?? []).flatMap((g) => g.permissions);
-    }, [groups]);
-
-    const filteredPermissions = useMemo(() => {
-        const filtered = allPermissions.filter(
-            (p) => !excludeIds.includes(p.id),
-        );
-        if (!debouncedSearch.trim()) return filtered;
-        const lower = debouncedSearch.toLowerCase();
-        return filtered.filter(
-            (p) =>
-                p.display_name.toLowerCase().includes(lower) ||
-                p.name.toLowerCase().includes(lower),
-        );
-    }, [allPermissions, excludeIds, debouncedSearch]);
-
-    const groupMap = useMemo(() => {
-        const map = new Map<number, string>();
-        for (const g of groups ?? []) {
-            for (const p of g.permissions) {
-                map.set(p.id, g.name);
-            }
-        }
-        return map;
-    }, [groups]);
+    const allItems = data?.pages.flatMap((p) => p.data) ?? [];
+    const filteredItems = allItems.filter((p) => !excludeIds.includes(p.id));
 
     return (
         <SearchSelectModal
-            items={filteredPermissions}
+            items={filteredItems}
             isLoading={isLoading}
+            isFetchingNextPage={isFetchingNextPage}
             isSearchPending={search !== debouncedSearch}
+            hasNextPage={hasNextPage ?? false}
+            fetchNextPage={fetchNextPage}
             searchQuery={search}
             onSearchChange={setSearch}
             value={value}
@@ -77,7 +67,7 @@ export function PermissionSearchSelect({
             disabled={disabled}
             getItemKey={(p) => p.id}
             getItemLabel={(p) => p.display_name}
-            getItemSubLabel={(p) => groupMap.get(p.id) ?? ""}
+            getItemSubLabel={(p) => p.name}
             className={className}
         />
     );

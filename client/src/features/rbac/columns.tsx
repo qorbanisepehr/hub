@@ -1,15 +1,16 @@
 import { type ColumnDef } from "@tanstack/react-table";
 import { Link } from "@tanstack/react-router";
-import { IconPencil, IconToggleLeft, IconToggleRight, IconTrash } from "@tabler/icons-react";
+import { IconPencil, IconTrash } from "@tabler/icons-react";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { DataTableColumnHeader } from "@/components/data-table";
-import { PermissionGuard } from "@/features/auth/components/permission-guard";
+import { RowActions } from "@/components/shared/row-actions";
 import type { Role } from "@/features/rbac/types";
 
 type RoleActions = {
     onToggle: (role: Role) => void;
     onDelete: (role: Role) => void;
+    isToggling?: boolean;
+    isDeleting?: boolean;
 };
 
 export function getRoleColumns(actions: RoleActions): ColumnDef<Role>[] {
@@ -78,47 +79,31 @@ export function getRoleColumns(actions: RoleActions): ColumnDef<Role>[] {
             id: "actions",
             header: "عملیات",
             cell: ({ row }) => (
-                <div className="flex items-center gap-1">
-                    <PermissionGuard permission="role.update">
-                        <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            nativeButton={false}
-                            render={
-                                <Link
-                                    to="/roles/$roleId"
-                                    params={{
-                                        roleId: String(row.original.id),
-                                    }}
-                                />
-                            }
-                        >
-                            <IconPencil className="size-4" />
-                        </Button>
-                    </PermissionGuard>
-                    <PermissionGuard permission="role.update">
-                        <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            onClick={() => actions.onToggle(row.original)}
-                        >
-                            {row.original.is_active ? (
-                                <IconToggleRight className="size-4 text-green-600" />
-                            ) : (
-                                <IconToggleLeft className="size-4 text-muted-foreground" />
-                            )}
-                        </Button>
-                    </PermissionGuard>
-                    <PermissionGuard permission="role.delete">
-                        <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            onClick={() => actions.onDelete(row.original)}
-                        >
-                            <IconTrash className="size-4 text-destructive" />
-                        </Button>
-                    </PermissionGuard>
-                </div>
+                <RowActions
+                    actions={[
+                        {
+                            icon: <IconPencil className="size-4" />,
+                            label: "ویرایش",
+                            href: `/roles/${row.original.id}`,
+                            permission: "role.update",
+                        },
+                        {
+                            type: "switch",
+                            checked: row.original.is_active,
+                            onCheckedChange: () => actions.onToggle(row.original),
+                            disabled: actions.isToggling,
+                            permission: "role.update",
+                        },
+                        {
+                            type: "confirm-delete",
+                            label: "حذف نقش",
+                            message: `آیا از حذف نقش «${row.original.display_name}» اطمینان دارید؟`,
+                            onConfirm: () => actions.onDelete(row.original),
+                            isPending: actions.isDeleting,
+                            permission: "role.delete",
+                        },
+                    ]}
+                />
             ),
             enableSorting: false,
             enableHiding: false,

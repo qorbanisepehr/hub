@@ -12,6 +12,7 @@ type UserSearchSelectProps = {
     placeholder?: string;
     disabled?: boolean;
     excludeIds?: number[];
+    hasEmployee?: boolean;
     className?: string;
 };
 
@@ -21,6 +22,7 @@ export function UserSearchSelect({
     placeholder = "انتخاب کاربر",
     disabled = false,
     excludeIds = [],
+    hasEmployee,
     className,
 }: UserSearchSelectProps) {
     const navigate = useNavigate();
@@ -29,10 +31,11 @@ export function UserSearchSelect({
 
     const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } =
         useInfiniteQuery({
-            queryKey: ["users", "select", debouncedSearch],
+            queryKey: ["users", "select", debouncedSearch, hasEmployee],
             queryFn: async ({ pageParam = 1 }) => {
                 const { data } = await fetchUsers({
                     filter: debouncedSearch || undefined,
+                    has_employee: hasEmployee,
                     per_page: 20,
                     page: pageParam,
                 });
