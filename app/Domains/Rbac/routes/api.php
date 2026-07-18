@@ -25,6 +25,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::get('permissions', [PermissionController::class, 'index'])
         ->middleware('permission:role.view');
+    Route::get('permissions/search', [PermissionController::class, 'search'])
+        ->middleware('permission:role.view');
     Route::get('permissions/registered', [PermissionController::class, 'registered'])
         ->middleware('permission:role.view');
     Route::post('permissions', [PermissionController::class, 'store'])

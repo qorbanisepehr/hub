@@ -37,6 +37,13 @@ class UserController
             });
         }
 
+        if ($request->has('has_employee')) {
+            $hasEmployee = filter_var($request->input('has_employee'), FILTER_VALIDATE_BOOLEAN);
+            if (! $hasEmployee) {
+                $query->doesntHave('employee');
+            }
+        }
+
         $sortField = $request->input('sort', 'name');
         $sortDirection = $request->input('order', 'asc') === 'desc' ? 'desc' : 'asc';
         $query->orderBy($this->sortable[$sortField] ?? 'name', $sortDirection);
