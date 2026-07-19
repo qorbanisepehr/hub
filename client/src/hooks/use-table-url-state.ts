@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useRef, useState } from "react";
+import { PAGINATION } from "@/lib/constants";
 import type {
     ColumnFiltersState,
     OnChangeFn,
@@ -84,7 +85,7 @@ export function useTableUrlState(
     const pageKey = paginationCfg?.pageKey ?? ("page" as string);
     const pageSizeKey = paginationCfg?.pageSizeKey ?? ("per_page" as string);
     const defaultPage = paginationCfg?.defaultPage ?? 1;
-    const defaultPageSize = paginationCfg?.defaultPageSize ?? 10;
+    const defaultPageSize = paginationCfg?.defaultPageSize ?? PAGINATION.DEFAULT_PAGE_SIZE;
 
     const sortKey = sortingCfg?.sortKey ?? ("sort" as string);
     const orderKey = sortingCfg?.orderKey ?? ("order" as string);

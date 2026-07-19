@@ -21,6 +21,7 @@ import { usePermissions } from "@/features/rbac/hooks/use-permissions";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { fetchPermissionsPaginated } from "@/features/rbac/api";
 import { permissionKeys } from "@/lib/query-keys";
+import { PAGINATION, DEBOUNCE } from "@/lib/constants";
 
 interface PermissionAddModalProps {
     open: boolean;
@@ -31,7 +32,7 @@ interface PermissionAddModalProps {
     onPermissionToggle: (permissionId: number, groupId: number) => void;
 }
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = PAGINATION.SEARCH_PAGE_SIZE;
 
 const GroupsSkeleton = memo(function GroupsSkeleton() {
     return (
@@ -184,7 +185,7 @@ function PermissionsTab({
     onPermissionToggle: (permissionId: number, groupId: number) => void;
 }) {
     const [search, setSearch] = useState("");
-    const debouncedSearch = useDebouncedValue(search, 300);
+    const debouncedSearch = useDebouncedValue(search, DEBOUNCE.SEARCH);
     const scrollRef = useRef<HTMLDivElement | null>(null);
 
     const { data, isLoading, isFetchingNextPage, hasNextPage, fetchNextPage } =

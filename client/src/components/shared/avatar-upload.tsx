@@ -9,6 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { ConfirmDeleteButton } from "@/components/ui/confirm-delete-button";
 import { cn } from "@/lib/utils";
+import { FILE_UPLOAD } from "@/lib/constants";
 
 type AvatarUploadProps = {
     avatarUrl: string | null;
@@ -19,7 +20,7 @@ type AvatarUploadProps = {
 };
 
 const ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
-const MAX_SIZE = 2 * 1024 * 1024;
+const MAX_SIZE = FILE_UPLOAD.MAX_SIZE_AVATAR;
 
 export function AvatarUpload({
     avatarUrl,

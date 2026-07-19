@@ -5,6 +5,7 @@ import { fetchEmployees } from "@/features/employees/api";
 import { SearchSelectModal } from "@/components/shared/search-select-modal";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { employeeKeys } from "@/lib/query-keys";
+import { PAGINATION, DEBOUNCE } from "@/lib/constants";
 import type { Employee } from "@/features/employees/types";
 
 type EmployeeSearchSelectProps = {
@@ -26,7 +27,7 @@ export function EmployeeSearchSelect({
 }: EmployeeSearchSelectProps) {
     const navigate = useNavigate();
     const [search, setSearch] = useState("");
-    const debouncedSearch = useDebouncedValue(search, 300);
+    const debouncedSearch = useDebouncedValue(search, DEBOUNCE.SEARCH);
 
     const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } =
         useInfiniteQuery({
@@ -34,7 +35,7 @@ export function EmployeeSearchSelect({
             queryFn: async ({ pageParam = 1 }) => {
                 const { data } = await fetchEmployees({
                     filter: debouncedSearch || undefined,
-                    per_page: 20,
+                    per_page: PAGINATION.SEARCH_PAGE_SIZE,
                     page: pageParam,
                 });
                 return data;

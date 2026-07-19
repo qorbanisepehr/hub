@@ -16,6 +16,7 @@ import { useTableUrlState } from "@/hooks/use-table-url-state";
 import { PermissionGuard } from "@/features/auth/components/permission-guard";
 import { PERMISSIONS } from "@/lib/permissions";
 import { employeeKeys } from "@/lib/query-keys";
+import { PAGINATION } from "@/lib/constants";
 
 const route = getRouteApi("/protected/employees");
 
@@ -41,7 +42,7 @@ export function EmployeesPage() {
     } = useTableUrlState({
         search: search as unknown as Record<string, unknown>,
         navigate: navigate as never,
-        pagination: { defaultPage: 1, defaultPageSize: 10 },
+        pagination: { defaultPage: 1, defaultPageSize: PAGINATION.DEFAULT_PAGE_SIZE },
         sorting: { sortKey: "sort", orderKey: "order" },
         globalFilter: { enabled: true, key: "filter" },
         columnFilters: [
