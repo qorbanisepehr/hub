@@ -1,4 +1,4 @@
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
     SidebarMenu,
     SidebarMenuButton,
@@ -34,6 +34,13 @@ export function NavUser() {
                     }
                 >
                     <Avatar className="size-8 rounded-lg after:rounded-lg">
+                        {user.avatar_url && (
+                            <AvatarImage
+                                src={user.avatar_url}
+                                alt={user.name}
+                                className="rounded-lg"
+                            />
+                        )}
                         <AvatarFallback className="rounded-lg">
                             {initials}
                         </AvatarFallback>
@@ -43,7 +50,7 @@ export function NavUser() {
                             {user.name}
                         </span>
                         <span className="truncate text-xs text-foreground/70">
-                            {user.email}
+                            {user.active_role?.display_name ?? user.email}
                         </span>
                     </div>
                 </UserMenu>
