@@ -1,8 +1,9 @@
+import { useState } from "react";
 import { Link, useParams } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import {
     IconPencil,
-    IconBuilding,
+    IconMasksTheater,
 } from "@tabler/icons-react";
 
 import { Button } from "@/components/ui/button";
@@ -13,9 +14,13 @@ import {
     CardTitle,
     CardDescription,
 } from "@/components/ui/card";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { fetchUser } from "@/features/rbac/api";
 import { RoleBadge } from "@/features/rbac/components/role-badge";
+import { UserRoleManager } from "@/features/rbac/components/user-role-manager";
 import { PermissionGuard } from "@/features/auth/components/permission-guard";
+import { ResponsiveDialog } from "@/components/ui/responsive-dialog";
 import { ViewSkeleton } from "@/components/shared/view-skeleton";
 import { InfoRow } from "@/components/shared/info-row";
 import { PageLayout } from "@/components/shared/page-layout";
@@ -24,11 +29,13 @@ import { PageHeader } from "@/components/shared/page-header";
 
 export function UserViewPage() {
     const { userId } = useParams({ from: "/protected/users/$userId" });
+    const [rolesOpen, setRolesOpen] = useState(false);
 
     const {
         data: user,
         isLoading,
         isError,
+        refetch,
     } = useQuery({
         queryKey: ["user", Number(userId)],
         queryFn: async () => {
@@ -78,14 +85,9 @@ export function UserViewPage() {
                     <PermissionGuard permission="user.assign-roles">
                         <Button
                             variant="outline"
-                            nativeButton={false}
-                            render={
-                                <Link
-                                    to="/users/$userId/roles"
-                                    params={{ userId: String(user.id) }}
-                                />
-                            }
+                            onClick={() => setRolesOpen(true)}
                         >
+                            <IconMasksTheater className="size-4" />
                             مدیریت نقش‌ها
                         </Button>
                     </PermissionGuard>
@@ -95,7 +97,22 @@ export function UserViewPage() {
             <div className="grid gap-6 md:grid-cols-2">
                 <Card>
                     <CardHeader>
-                        <CardTitle>اطلاعات کاربر</CardTitle>
+                        <div className="flex items-center gap-3">
+                            <Avatar size="lg">
+                                <AvatarImage src={user.avatar_url ?? undefined} alt={user.name} />
+                                <AvatarFallback>
+                                    {user.name.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase()}
+                                </AvatarFallback>
+                            </Avatar>
+                            <div className="space-y-0.5">
+                                <CardTitle>{user.name}</CardTitle>
+                                <div className="flex items-center gap-2">
+                                    <Badge variant={user.is_active ? "default" : "secondary"}>
+                                        {user.is_active ? "فعال" : "غیرفعال"}
+                                    </Badge>
+                                </div>
+                            </div>
+                        </div>
                         <CardDescription>اطلاعات هویتی کاربر</CardDescription>
                     </CardHeader>
                     <CardContent className="divide-y">
@@ -112,7 +129,7 @@ export function UserViewPage() {
                 <Card>
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
-                            <IconBuilding className="size-5" />
+                            <IconMasksTheater className="size-5" />
                             نقش‌ها
                         </CardTitle>
                         <CardDescription>نقش‌های تخصیص داده شده</CardDescription>
@@ -137,6 +154,18 @@ export function UserViewPage() {
                     </CardContent>
                 </Card>
             </div>
+
+            <ResponsiveDialog
+                open={rolesOpen}
+                onOpenChange={setRolesOpen}
+                title="مدیریت نقش کاربر"
+                description={`تخصیص و مدیریت نقش‌های ${user.name}`}
+            >
+                <UserRoleManager
+                    userId={user.id}
+                    onRolesChanged={() => refetch()}
+                />
+            </ResponsiveDialog>
         </PageLayout>
     );
 }

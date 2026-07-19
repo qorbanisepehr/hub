@@ -39,12 +39,14 @@ type SearchSelectModalProps<T> = {
     getItemKey: (item: T) => number | string;
     getItemLabel: (item: T) => string;
     getItemSubLabel?: (item: T) => string;
+    getItemDisabled?: (item: T) => boolean;
     className?: string;
 };
 
 function SelectItem<T>({
     item,
     isSelected,
+    disabled,
     onSelect,
     getItemKey,
     getItemLabel,
@@ -52,6 +54,7 @@ function SelectItem<T>({
 }: {
     item: T;
     isSelected: boolean;
+    disabled?: boolean;
     onSelect: (key: number | string) => void;
     getItemKey: (item: T) => number | string;
     getItemLabel: (item: T) => string;
@@ -61,10 +64,13 @@ function SelectItem<T>({
     return (
         <button
             type="button"
-            onClick={() => onSelect(key)}
-            className={`flex w-full items-center gap-3 rounded-lg px-2 py-2 text-start text-sm transition-colors outline-none hover:bg-accent hover:text-accent-foreground ${
-                isSelected ? "bg-accent text-accent-foreground" : ""
-            }`}
+            onClick={() => !disabled && onSelect(key)}
+            disabled={disabled}
+            className={`flex w-full items-center gap-3 rounded-lg px-2 py-2 text-start text-sm transition-colors outline-none ${
+                disabled
+                    ? "cursor-not-allowed opacity-50"
+                    : "hover:bg-accent hover:text-accent-foreground"
+            } ${isSelected ? "bg-accent text-accent-foreground" : ""}`}
         >
             <div className="flex min-w-0 flex-1 flex-col">
                 <span className="truncate font-medium">
@@ -132,6 +138,7 @@ export function SearchSelectModal<T>({
     getItemKey,
     getItemLabel,
     getItemSubLabel,
+    getItemDisabled,
     className,
 }: SearchSelectModalProps<T>) {
     const [open, setOpen] = useState(false);
@@ -281,6 +288,7 @@ export function SearchSelectModal<T>({
                                         key={key}
                                         item={item}
                                         isSelected={key === value}
+                                        disabled={getItemDisabled?.(item) ?? false}
                                         onSelect={handleItemSelect}
                                         getItemKey={getItemKey}
                                         getItemLabel={getItemLabel}
