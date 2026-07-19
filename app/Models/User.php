@@ -11,9 +11,10 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\HasApiTokens;
 
-#[Fillable(['name', 'email', 'phone', 'username', 'password', 'otp_code', 'otp_expires_at'])]
+#[Fillable(['name', 'avatar_url', 'email', 'phone', 'username', 'is_active', 'password', 'otp_code', 'otp_expires_at'])]
 #[Hidden(['password', 'remember_token', 'otp_code'])]
 class User extends Authenticatable
 {
@@ -26,6 +27,7 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'otp_expires_at' => 'datetime',
             'password' => 'hashed',
+            'is_active' => 'boolean',
         ];
     }
 
@@ -33,5 +35,57 @@ class User extends Authenticatable
     public function employee(): HasOne
     {
         return $this->hasOne(Employee::class);
+    }
+
+    public function getAvatarDisk(): string
+    {
+        return 'avatars';
+    }
+
+    public function getAvatarStoragePath(): string
+    {
+        $employee = $this->employee;
+
+        if ($employee?->personnel_code) {
+            return $employee->personnel_code.'/avatar';
+        }
+
+        return 'avatars/'.$this->id;
+    }
+
+    public function getAvatarFullPath(): ?string
+    {
+        if (! $this->avatar_url || str_starts_with($this->avatar_url, 'http')) {
+            return null;
+        }
+
+        return $this->getAvatarStoragePath().'/'.$this->avatar_url;
+    }
+
+    public function storeAvatar(string $contents, string $extension): string
+    {
+        $filename = bin2hex(random_bytes(16)).'.'.$extension;
+        $path = $this->getAvatarStoragePath().'/'.$filename;
+
+        Storage::disk($this->getAvatarDisk())->put($path, $contents);
+
+        if ($this->avatar_url) {
+            $this->deleteAvatarFromDisk();
+        }
+
+        $this->update(['avatar_url' => $filename]);
+
+        return $path;
+    }
+
+    public function deleteAvatarFromDisk(): void
+    {
+        $fullPath = $this->getAvatarFullPath();
+
+        if ($fullPath && Storage::disk($this->getAvatarDisk())->exists($fullPath)) {
+            Storage::disk($this->getAvatarDisk())->delete($fullPath);
+        }
+
+        $this->update(['avatar_url' => null]);
     }
 }
