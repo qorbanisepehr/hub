@@ -73,6 +73,7 @@ export function RoleSearchSelect({
             getItemKey={(r) => r.id}
             getItemLabel={(r) => r.display_name}
             getItemSubLabel={(r) => r.description ?? ""}
+            getItemDisabled={(r) => !r.is_active}
             className={className}
         />
     );

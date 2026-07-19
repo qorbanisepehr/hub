@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { IconLoader2, IconTrash } from "@tabler/icons-react";
+import { IconLoader2, IconTrash, IconX } from "@tabler/icons-react";
 
 import { Button } from "@/components/ui/button";
 
@@ -12,7 +12,10 @@ type Props = {
     confirmLabel?: string;
     cancelLabel?: string;
     variant?: React.ComponentProps<typeof Button>["variant"];
+    confirmVariant?: React.ComponentProps<typeof Button>["variant"];
     size?: React.ComponentProps<typeof Button>["size"];
+    /** Render confirmation UI as an absolute overlay instead of inline expansion */
+    overlay?: boolean;
 };
 
 export function ConfirmDeleteButton({
@@ -22,15 +25,17 @@ export function ConfirmDeleteButton({
     confirmLabel = "تأیید حذف",
     cancelLabel = "انصراف",
     variant = "destructive",
+    confirmVariant = "default",
     size,
+    overlay = false,
 }: Props) {
     const [confirming, setConfirming] = React.useState(false);
 
     if (confirming) {
-        return (
+        const content = (
             <div className="flex items-center gap-2">
                 <Button
-                    variant={variant}
+                    variant={confirmVariant}
                     size={size}
                     disabled={isPending}
                     onClick={() => {
@@ -51,14 +56,29 @@ export function ConfirmDeleteButton({
                     disabled={isPending}
                     onClick={() => setConfirming(false)}
                 >
+                    <IconX className="size-4" />
                     {cancelLabel}
                 </Button>
             </div>
         );
+
+        if (overlay) {
+            return (
+                <div className="absolute inset-y-0 inset-e-0 z-10 flex items-center gap-2 rounded-lg bg-background shadow-md">
+                    {content}
+                </div>
+            );
+        }
+
+        return content;
     }
 
     return (
-        <Button variant={variant} size={size} onClick={() => setConfirming(true)}>
+        <Button
+            variant={variant}
+            size={size}
+            onClick={() => setConfirming(true)}
+        >
             <IconTrash className="size-4" />
             {label}
         </Button>
