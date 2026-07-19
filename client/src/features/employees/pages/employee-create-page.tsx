@@ -21,8 +21,8 @@ export function EmployeeCreatePage() {
             toast.success("کارمند جدید ثبت شد");
             navigate({ to: "/employees" });
         },
-        onError: () => {
-            toast.error("خطا در ثبت کارمند جدید");
+        onError: (err: unknown) => {
+            toast.error(getApiError(err));
         },
     });
 

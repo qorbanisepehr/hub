@@ -37,8 +37,8 @@ export function UserEditPage() {
             queryClient.invalidateQueries({ queryKey: userKeys.detail(Number(userId)) });
             toast.success("اطلاعات کاربر به‌روزرسانی شد");
         },
-        onError: () => {
-            toast.error("خطا در به‌روزرسانی اطلاعات کاربر");
+        onError: (err: unknown) => {
+            toast.error(getApiError(err));
         },
     });
 

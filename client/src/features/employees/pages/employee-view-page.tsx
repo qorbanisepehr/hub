@@ -74,8 +74,8 @@ export function EmployeeViewPage() {
             toast.success("کارمند حذف شد");
             navigate({ to: "/employees" });
         },
-        onError: () => {
-            toast.error("خطا در حذف کارمند");
+        onError: (err: unknown) => {
+            toast.error(getApiError(err));
         },
     });
 
@@ -153,7 +153,7 @@ export function EmployeeViewPage() {
                 </div>
             </PageHeader>
 
-            {deleteMutation.error && (
+            {deleteMutation.isError && (
                 <div className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
                     {getApiError(deleteMutation.error)}
                 </div>

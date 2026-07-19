@@ -34,8 +34,8 @@ export function RoleEditPage() {
             toast.success("نقش با موفقیت به‌روزرسانی شد");
             navigate({ to: "/roles" });
         },
-        onError: () => {
-            toast.error("خطا در به‌روزرسانی نقش");
+        onError: (err: unknown) => {
+            toast.error(getApiError(err));
         },
     });
 

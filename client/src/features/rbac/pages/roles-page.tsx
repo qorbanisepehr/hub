@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { deleteRole, fetchRoles, toggleRole } from "@/features/rbac/api";
 import { getRoleColumns } from "@/features/rbac/columns";
+import { getApiError } from "@/lib/error-utils";
 import { PermissionGuard } from "@/features/auth/components/permission-guard";
 import { PERMISSIONS } from "@/lib/permissions";
 import { DataTablePage, DataTableToolbar } from "@/components/data-table";
@@ -94,8 +95,8 @@ export function RolesPage() {
             queryClient.invalidateQueries({ queryKey: roleKeys.all });
             toast.success("وضعیت نقش به‌روزرسانی شد");
         },
-        onError: () => {
-            toast.error("خطا در به‌روزرسانی وضعیت نقش");
+        onError: (err: unknown) => {
+            toast.error(getApiError(err));
         },
     });
 
@@ -105,8 +106,8 @@ export function RolesPage() {
             queryClient.invalidateQueries({ queryKey: roleKeys.all });
             toast.success("نقش حذف شد");
         },
-        onError: () => {
-            toast.error("خطا در حذف نقش");
+        onError: (err: unknown) => {
+            toast.error(getApiError(err));
         },
     });
 
