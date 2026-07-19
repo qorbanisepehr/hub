@@ -31,6 +31,7 @@ import { DocumentSection } from "@/features/documents/components/document-sectio
 import { DocumentUploadModal } from "@/features/documents/components/document-upload-modal";
 import { DocumentTrashModal } from "@/features/documents/components/document-trash-modal";
 import { PermissionGuard } from "@/features/auth/components/permission-guard";
+import { PERMISSIONS } from "@/lib/permissions";
 import { ViewSkeleton } from "@/components/shared/view-skeleton";
 import { InfoRow } from "@/components/shared/info-row";
 import { PageLayout } from "@/components/shared/page-layout";
@@ -128,7 +129,7 @@ export function EmployeeViewPage() {
                 backTo="/employees"
             >
                 <div className="flex items-center gap-2">
-                    <PermissionGuard permission={["employee.update_own", "employee.update_all"]}>
+                    <PermissionGuard permission={[PERMISSIONS.EMPLOYEE_UPDATE_OWN, PERMISSIONS.EMPLOYEE_UPDATE_ALL]}>
                         <Button
                             variant="outline"
                             nativeButton={false}
@@ -143,7 +144,7 @@ export function EmployeeViewPage() {
                             ویرایش
                         </Button>
                     </PermissionGuard>
-                    <PermissionGuard permission="employee.delete">
+                    <PermissionGuard permission={PERMISSIONS.EMPLOYEE_DELETE}>
                         <ConfirmDeleteButton
                             onConfirm={() => deleteMutation.mutate()}
                             isPending={deleteMutation.isPending}
@@ -367,7 +368,7 @@ export function EmployeeViewPage() {
                             </CardDescription>
                         </div>
                         <div className="flex items-center gap-2">
-                            <PermissionGuard permission={["document.delete_own", "document.delete_all"]}>
+                            <PermissionGuard permission={[PERMISSIONS.DOCUMENT_DELETE_OWN, PERMISSIONS.DOCUMENT_DELETE_ALL]}>
                                 <Button
                                     variant="outline"
                                     size="sm"
@@ -385,7 +386,7 @@ export function EmployeeViewPage() {
                                     )}
                                 </Button>
                             </PermissionGuard>
-                            <PermissionGuard permission={["document.download_own", "document.download_all"]}>
+                            <PermissionGuard permission={[PERMISSIONS.DOCUMENT_DOWNLOAD_OWN, PERMISSIONS.DOCUMENT_DOWNLOAD_ALL]}>
                                 <Button
                                     variant="outline"
                                     size="sm"
@@ -408,7 +409,7 @@ export function EmployeeViewPage() {
                                     )}
                                 </Button>
                             </PermissionGuard>
-                            <PermissionGuard permission={["document.upload_own", "document.upload_all"]}>
+                            <PermissionGuard permission={[PERMISSIONS.DOCUMENT_UPLOAD_OWN, PERMISSIONS.DOCUMENT_UPLOAD_ALL]}>
                                 <Button
                                     size="sm"
                                     onClick={() => setUploadOpen(true)}

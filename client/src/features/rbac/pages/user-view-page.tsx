@@ -20,6 +20,7 @@ import { fetchUser } from "@/features/rbac/api";
 import { RoleBadge } from "@/features/rbac/components/role-badge";
 import { UserRoleManager } from "@/features/rbac/components/user-role-manager";
 import { PermissionGuard } from "@/features/auth/components/permission-guard";
+import { PERMISSIONS } from "@/lib/permissions";
 import { ResponsiveDialog } from "@/components/ui/responsive-dialog";
 import { ViewSkeleton } from "@/components/shared/view-skeleton";
 import { InfoRow } from "@/components/shared/info-row";
@@ -68,7 +69,7 @@ export function UserViewPage() {
                 backTo="/users"
             >
                 <div className="flex items-center gap-2">
-                    <PermissionGuard permission={["user.update"]}>
+                    <PermissionGuard permission={[PERMISSIONS.USER_UPDATE]}>
                         <Button
                             variant="outline"
                             nativeButton={false}
@@ -83,7 +84,7 @@ export function UserViewPage() {
                             ویرایش
                         </Button>
                     </PermissionGuard>
-                    <PermissionGuard permission="user.assign-roles">
+                    <PermissionGuard permission={PERMISSIONS.USER_ASSIGN_ROLES}>
                         <Button
                             variant="outline"
                             onClick={() => setRolesOpen(true)}
