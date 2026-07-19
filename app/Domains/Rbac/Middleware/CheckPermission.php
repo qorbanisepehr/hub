@@ -25,6 +25,10 @@ class CheckPermission
             abort(401);
         }
 
+        if (! $user->is_active) {
+            abort(401, __('auth.inactive'));
+        }
+
         if ($user->isSuperAdmin()) {
             return $next($request);
         }
