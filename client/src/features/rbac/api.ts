@@ -1,4 +1,5 @@
 import { api } from "@/lib/api";
+import { PAGINATION } from "@/lib/constants";
 import type { PaginatedResponse, PaginatedListParams } from "@/lib/types";
 import type {
     Role,
@@ -38,7 +39,7 @@ export function fetchRoles(params: RoleListParams = {}) {
 }
 
 export function fetchAllRoles() {
-    return api.get<{ data: Role[] }>("/roles", { params: { per_page: 100 } });
+    return api.get<{ data: Role[] }>("/roles", { params: { per_page: PAGINATION.FETCH_ALL_SIZE } });
 }
 
 export function fetchRole(id: number) {

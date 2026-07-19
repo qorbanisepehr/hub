@@ -7,6 +7,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { cn, getPageNumbers } from "@/lib/utils";
+import { PAGINATION } from "@/lib/constants";
 import {
     IconChevronLeft,
     IconChevronRight,
@@ -59,7 +60,7 @@ export function DataTablePagination<TData>({
                             />
                         </SelectTrigger>
                         <SelectContent side="top">
-                            {[10, 15, 30, 50].map((pageSize) => (
+                            {PAGINATION.PAGE_SIZE_OPTIONS.map((pageSize) => (
                                 <SelectItem
                                     key={pageSize}
                                     value={`${pageSize}`}

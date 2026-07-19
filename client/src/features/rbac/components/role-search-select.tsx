@@ -5,6 +5,7 @@ import { fetchRoles } from "@/features/rbac/api";
 import { SearchSelectModal } from "@/components/shared/search-select-modal";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { roleKeys } from "@/lib/query-keys";
+import { PAGINATION, DEBOUNCE } from "@/lib/constants";
 import type { Role } from "@/features/rbac/types";
 
 type RoleSearchSelectProps = {
@@ -26,7 +27,7 @@ export function RoleSearchSelect({
 }: RoleSearchSelectProps) {
     const navigate = useNavigate();
     const [search, setSearch] = useState("");
-    const debouncedSearch = useDebouncedValue(search, 300);
+    const debouncedSearch = useDebouncedValue(search, DEBOUNCE.SEARCH);
 
     const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } =
         useInfiniteQuery({
@@ -34,7 +35,7 @@ export function RoleSearchSelect({
             queryFn: async ({ pageParam = 1 }) => {
                 const { data } = await fetchRoles({
                     filter: debouncedSearch || undefined,
-                    per_page: 20,
+                    per_page: PAGINATION.SEARCH_PAGE_SIZE,
                     page: pageParam,
                 });
                 return data;

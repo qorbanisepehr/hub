@@ -5,6 +5,7 @@ import { fetchUsers } from "@/features/rbac/api";
 import { SearchSelectModal } from "@/components/shared/search-select-modal";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { userKeys } from "@/lib/query-keys";
+import { PAGINATION, DEBOUNCE } from "@/lib/constants";
 import type { UserListItem } from "@/features/rbac/types";
 
 type UserSearchSelectProps = {
@@ -28,7 +29,7 @@ export function UserSearchSelect({
 }: UserSearchSelectProps) {
     const navigate = useNavigate();
     const [search, setSearch] = useState("");
-    const debouncedSearch = useDebouncedValue(search, 300);
+    const debouncedSearch = useDebouncedValue(search, DEBOUNCE.SEARCH);
 
     const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } =
         useInfiniteQuery({
@@ -37,7 +38,7 @@ export function UserSearchSelect({
                 const { data } = await fetchUsers({
                     filter: debouncedSearch || undefined,
                     has_employee: hasEmployee,
-                    per_page: 20,
+                    per_page: PAGINATION.SEARCH_PAGE_SIZE,
                     page: pageParam,
                 });
                 return data;

@@ -21,8 +21,9 @@ import {
 } from "@/features/documents/api";
 import { getApiError } from "@/lib/error-utils";
 import { employeeKeys } from "@/lib/query-keys";
+import { FILE_UPLOAD } from "@/lib/constants";
 
-const MAX_FILE_SIZE = 50 * 1024 * 1024;
+const MAX_FILE_SIZE = FILE_UPLOAD.MAX_SIZE;
 
 const documentSchema = z.object({
     document_category_id: z.string().min(1, "دسته‌بندی را انتخاب کنید"),

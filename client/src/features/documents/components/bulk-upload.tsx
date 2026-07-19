@@ -27,6 +27,7 @@ import {
 import { isAxiosError } from "axios";
 import { getApiError } from "@/lib/error-utils";
 import { employeeKeys } from "@/lib/query-keys";
+import { FILE_UPLOAD } from "@/lib/constants";
 
 function formatFileSize(bytes: number): string {
     if (bytes >= 1048576) return `${(bytes / 1048576).toFixed(1)} MB`;
@@ -39,12 +40,12 @@ const bulkSchema = z.object({
     notes: z.string().max(1000, "حداکثر ۱۰۰۰ کاراکتر").optional(),
 });
 
-const MAX_FILES = 20;
+const MAX_FILES = FILE_UPLOAD.MAX_FILES_BULK;
 
 const bulkFileSchema = z
     .instanceof(File)
     .refine(
-        (f) => f.size <= 50 * 1024 * 1024,
+        (f) => f.size <= FILE_UPLOAD.MAX_SIZE,
         "حداکثر اندازه ۵۰ مگابایت",
     )
     .refine(
