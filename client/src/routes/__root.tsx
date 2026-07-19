@@ -12,7 +12,7 @@ export const Route = createRootRoute({
         >
             <TooltipProvider>
                 <Outlet />
-                <Toaster richColors closeButton />
+                <Toaster position="top-center" />
             </TooltipProvider>
         </ThemeProvider>
     ),
