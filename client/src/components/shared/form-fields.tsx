@@ -16,7 +16,6 @@ type FormTextFieldProps = {
     field: AnyFieldApi;
     label: string;
     placeholder?: string;
-    type?: "text" | "password";
     dir?: "ltr" | "rtl";
     autoComplete?: string;
 };
@@ -25,7 +24,6 @@ export function FormTextField({
     field,
     label,
     placeholder,
-    type = "text",
     dir,
     autoComplete,
 }: FormTextFieldProps) {
@@ -37,7 +35,7 @@ export function FormTextField({
             <Input
                 id={field.name}
                 name={field.name}
-                type={type}
+                type="text"
                 value={field.state.value}
                 onBlur={field.handleBlur}
                 onChange={(e) => field.handleChange(e.target.value)}
@@ -125,9 +123,10 @@ export function FormSearchSelectField({
             {renderSelect({
                 value: field.state.value,
                 onChange: (item: never) => {
-                    const value = item && typeof item === "object" && "id" in item
-                        ? (item as { id: number }).id
-                        : item;
+                    const value =
+                        item && typeof item === "object" && "id" in item
+                            ? (item as { id: number }).id
+                            : item;
                     field.handleChange(value);
                 },
             })}
