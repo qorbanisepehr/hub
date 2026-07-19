@@ -1,6 +1,5 @@
 import * as React from "react";
 import { useForm } from "@tanstack/react-form";
-import { useStore } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import {
@@ -29,7 +28,6 @@ import { isAxiosError } from "axios";
 import { getApiError } from "@/lib/error-utils";
 import { employeeKeys } from "@/lib/query-keys";
 import { FILE_UPLOAD } from "@/lib/constants";
-import { UnsavedChangesDialog } from "@/components/shared/unsaved-changes-dialog";
 
 function formatFileSize(bytes: number): string {
     if (bytes >= 1048576) return `${(bytes / 1048576).toFixed(1)} MB`;
@@ -264,11 +262,9 @@ export function BulkUpload({ employeeId, onSuccess }: BulkUploadProps) {
     }
 
     const isUploading = uploadMutation.isPending;
-    const isDirty = useStore(form.store, (state) => state.isDirty);
 
     return (
         <div className="space-y-4">
-            <UnsavedChangesDialog isDirty={isDirty && !isUploading} />
             <FileUpload
                 multiple={true}
                 showFileList={false}

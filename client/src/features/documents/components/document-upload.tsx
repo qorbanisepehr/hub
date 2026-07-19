@@ -1,6 +1,5 @@
 import * as React from "react";
 import { useForm } from "@tanstack/react-form";
-import { useStore } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import { IconFileUpload, IconLoader2 } from "@tabler/icons-react";
@@ -23,7 +22,6 @@ import {
 import { getApiError } from "@/lib/error-utils";
 import { employeeKeys } from "@/lib/query-keys";
 import { FILE_UPLOAD } from "@/lib/constants";
-import { UnsavedChangesDialog } from "@/components/shared/unsaved-changes-dialog";
 
 const MAX_FILE_SIZE = FILE_UPLOAD.MAX_SIZE;
 
@@ -137,8 +135,6 @@ export function DocumentUpload({ employeeId, onSuccess }: DocumentUploadProps) {
         },
     });
 
-    const isDirty = useStore(form.store, (state) => state.isDirty);
-
     return (
         <form
             onSubmit={(e) => {
@@ -148,7 +144,6 @@ export function DocumentUpload({ employeeId, onSuccess }: DocumentUploadProps) {
             }}
             className="space-y-4"
         >
-            <UnsavedChangesDialog isDirty={isDirty} />
             <FileUpload
                 key={uploadKey}
                 multiple={false}
@@ -234,7 +229,7 @@ export function DocumentUpload({ employeeId, onSuccess }: DocumentUploadProps) {
 
             <Button
                 type="submit"
-                disabled={!acceptedFile || uploadMutation.isPending || !isDirty}
+                disabled={!acceptedFile || uploadMutation.isPending}
             >
                 {uploadMutation.isPending ? (
                     <IconLoader2 className="size-4 animate-spin" />
