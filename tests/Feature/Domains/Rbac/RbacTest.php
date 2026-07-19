@@ -9,6 +9,7 @@ use App\Domains\Rbac\Models\Role;
 use App\Domains\Rbac\Policies\DynamicPolicy;
 use App\Models\User;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Testing\Fluent\AssertableJson;
 
 describe('RBAC', function () {
     describe('models', function () {
@@ -493,6 +494,76 @@ describe('RBAC', function () {
                 ->assertStatus(422)
                 ->assertJsonValidationErrors(['email']);
         });
+
+        it('returns avatar_url and is_active in user list', function () {
+            $user = createUserWithPermissions(['user.view']);
+            $target = User::factory()->create([
+                'avatar_url' => 'test-avatar.jpg',
+                'is_active' => false,
+            ]);
+
+            $response = $this->actingAs($user)
+                ->getJson('/api/users')
+                ->assertStatus(200);
+
+            $data = $response->json('data');
+            $targetData = collect($data)->firstWhere('id', $target->id);
+
+            expect($targetData['avatar_url'])->not->toBeNull();
+            expect($targetData['is_active'])->toBeFalse();
+        });
+
+        it('returns avatar_url and is_active in user show', function () {
+            $user = createUserWithPermissions(['user.view']);
+            $target = User::factory()->create([
+                'avatar_url' => 'test-avatar.jpg',
+                'is_active' => true,
+            ]);
+
+            $this->actingAs($user)
+                ->getJson('/api/users/'.$target->id)
+                ->assertStatus(200)
+                ->assertJsonPath('data.is_active', true)
+                ->assertJson(fn (AssertableJson $json) => $json
+                    ->where('data.avatar_url', fn ($url) => str_starts_with((string) $url, 'http'))
+                    ->etc(),
+                );
+        });
+
+        it('filters users by is_active', function () {
+            $user = createUserWithPermissions(['user.view']);
+            User::factory()->create(['is_active' => false]);
+
+            $this->actingAs($user)
+                ->getJson('/api/users?is_active=1')
+                ->assertStatus(200)
+                ->assertJsonCount(1, 'data');
+
+            $this->actingAs($user)
+                ->getJson('/api/users?is_active=0')
+                ->assertStatus(200)
+                ->assertJsonCount(1, 'data');
+        });
+
+        it('updates avatar_url and is_active', function () {
+            $user = createUserWithPermissions(['user.update']);
+            $target = User::factory()->create([
+                'is_active' => true,
+                'avatar_url' => null,
+            ]);
+
+            $this->actingAs($user)
+                ->putJson('/api/users/'.$target->id, [
+                    'avatar_url' => 'new-avatar.jpg',
+                    'is_active' => false,
+                ])
+                ->assertStatus(200)
+                ->assertJsonPath('data.is_active', false)
+                ->assertJson(fn (AssertableJson $json) => $json
+                    ->where('data.avatar_url', fn ($url) => str_starts_with((string) $url, 'http'))
+                    ->etc(),
+                );
+        });
     });
 
     describe('permission groups', function () {
@@ -544,6 +615,33 @@ describe('RBAC', function () {
             $this->actingAs($user)
                 ->getJson('/api/employees')
                 ->assertStatus(200);
+        });
+
+        it('denies inactive user even with valid permissions', function () {
+            $user = createUserWithPermissions(['employee.view_all']);
+            $user->update(['is_active' => false]);
+
+            $this->actingAs($user)
+                ->getJson('/api/employees')
+                ->assertStatus(401);
+        });
+
+        it('allows super admin to access me endpoint', function () {
+            config(['rbac.super_admin_email' => 'superadmin@test.com']);
+            $user = User::factory()->create(['email' => 'superadmin@test.com']);
+
+            $this->actingAs($user)
+                ->getJson('/api/auth/me')
+                ->assertStatus(200)
+                ->assertJsonPath('data.is_super_admin', true);
+        });
+
+        it('returns 401 from me endpoint for inactive user', function () {
+            $user = User::factory()->create(['is_active' => false]);
+
+            $this->actingAs($user)
+                ->getJson('/api/auth/me')
+                ->assertStatus(401);
         });
     });
 

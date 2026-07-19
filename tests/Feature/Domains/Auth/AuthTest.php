@@ -1,8 +1,11 @@
 <?php
 
 use App\Models\User;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\URL;
 
 function stateful(): array
 {
@@ -44,6 +47,15 @@ describe('auth endpoints', function () {
             $this->postJson('/api/auth/login', [
                 'identifier' => 'unknown@example.com',
             ])->assertStatus(401);
+        });
+
+        it('fails when user is inactive', function () {
+            $user = User::factory()->create(['is_active' => false]);
+
+            $this->postJson('/api/auth/login', [
+                'identifier' => $user->email,
+            ])->assertStatus(403)
+                ->assertJsonPath('message', __('auth.inactive'));
         });
 
         it('fails when user is locked due to too many failed attempts', function () {
@@ -145,6 +157,20 @@ describe('auth endpoints', function () {
                 'identifier' => $user->email,
                 'code' => '000000',
             ])->assertStatus(422);
+        });
+
+        it('fails when user is inactive', function () {
+            $user = User::factory()->create([
+                'otp_code' => Hash::make('123456'),
+                'otp_expires_at' => now()->addMinutes(5),
+                'is_active' => false,
+            ]);
+
+            $this->postJson('/api/auth/verify-otp', [
+                'identifier' => $user->email,
+                'code' => '123456',
+            ])->assertStatus(403)
+                ->assertJsonPath('message', __('auth.inactive'));
         });
 
         it('fails with expired OTP', function () {
@@ -275,6 +301,16 @@ describe('auth endpoints', function () {
                 'password' => 'password',
             ])->assertStatus(401);
         });
+
+        it('fails when user is inactive', function () {
+            $user = User::factory()->create(['is_active' => false]);
+
+            $this->postJson('/api/auth/login-with-password', [
+                'identifier' => $user->email,
+                'password' => 'password',
+            ])->assertStatus(403)
+                ->assertJsonPath('message', __('auth.inactive'));
+        });
     });
 
     describe('logout', function () {
@@ -337,6 +373,149 @@ describe('auth endpoints', function () {
 
         it('fails without authentication', function () {
             $this->getJson('/api/auth/me')->assertStatus(401);
+        });
+    });
+
+    describe('profile', function () {
+        it('updates profile fields', function () {
+            $user = User::factory()->create();
+
+            $this->actingAs($user)
+                ->putJson('/api/auth/profile', [
+                    'name' => 'New Name',
+                    'email' => 'new@example.com',
+                ])
+                ->assertStatus(200)
+                ->assertJsonPath('data.name', 'New Name')
+                ->assertJsonPath('data.email', 'new@example.com');
+        });
+
+        it('validates unique email on profile update', function () {
+            $user = User::factory()->create();
+            User::factory()->create(['email' => 'taken@example.com']);
+
+            $this->actingAs($user)
+                ->putJson('/api/auth/profile', [
+                    'email' => 'taken@example.com',
+                ])
+                ->assertStatus(422)
+                ->assertJsonValidationErrors(['email']);
+        });
+
+        it('allows keeping current email on profile update', function () {
+            $user = User::factory()->create(['email' => 'current@example.com']);
+
+            $this->actingAs($user)
+                ->putJson('/api/auth/profile', [
+                    'email' => 'current@example.com',
+                    'name' => 'Updated Name',
+                ])
+                ->assertStatus(200);
+        });
+
+        it('fails without authentication', function () {
+            $this->putJson('/api/auth/profile', ['name' => 'Test'])->assertStatus(401);
+        });
+    });
+
+    describe('avatar', function () {
+        it('uploads an avatar', function () {
+            Storage::fake('avatars');
+            $user = User::factory()->create();
+            $file = UploadedFile::fake()->image('avatar.jpg', 200, 200);
+
+            $this->actingAs($user)
+                ->postJson('/api/auth/avatar', ['avatar' => $file])
+                ->assertStatus(200)
+                ->assertJsonPath('data.id', $user->id);
+
+            Storage::disk('avatars')->assertExists($user->getAvatarStoragePath());
+        });
+
+        it('replaces existing avatar on new upload', function () {
+            Storage::fake('avatars');
+            $user = User::factory()->create();
+            $file1 = UploadedFile::fake()->image('avatar1.jpg', 200, 200);
+            $file2 = UploadedFile::fake()->image('avatar2.jpg', 200, 200);
+
+            $this->actingAs($user)
+                ->postJson('/api/auth/avatar', ['avatar' => $file1])
+                ->assertStatus(200);
+
+            $oldPath = $user->fresh()->getAvatarFullPath();
+
+            $this->actingAs($user)
+                ->postJson('/api/auth/avatar', ['avatar' => $file2])
+                ->assertStatus(200);
+
+            Storage::disk('avatars')->assertMissing($oldPath);
+        });
+
+        it('rejects non-image files', function () {
+            Storage::fake('avatars');
+            $user = User::factory()->create();
+            $file = UploadedFile::fake()->create('document.pdf', 100, 'application/pdf');
+
+            $this->actingAs($user)
+                ->postJson('/api/auth/avatar', ['avatar' => $file])
+                ->assertStatus(422)
+                ->assertJsonValidationErrors(['avatar']);
+        });
+
+        it('rejects oversized avatars', function () {
+            Storage::fake('avatars');
+            $user = User::factory()->create();
+            $file = UploadedFile::fake()->image('avatar.jpg', 200, 200)->size(3000);
+
+            $this->actingAs($user)
+                ->postJson('/api/auth/avatar', ['avatar' => $file])
+                ->assertStatus(422)
+                ->assertJsonValidationErrors(['avatar']);
+        });
+
+        it('deletes avatar', function () {
+            Storage::fake('avatars');
+            $user = User::factory()->create();
+            $file = UploadedFile::fake()->image('avatar.jpg', 200, 200);
+
+            $this->actingAs($user)
+                ->postJson('/api/auth/avatar', ['avatar' => $file])
+                ->assertStatus(200);
+
+            $avatarPath = $user->fresh()->getAvatarFullPath();
+
+            $this->actingAs($user)
+                ->deleteJson('/api/auth/avatar')
+                ->assertStatus(200)
+                ->assertJsonPath('data.avatar_url', null);
+
+            Storage::disk('avatars')->assertMissing($avatarPath);
+            expect($user->fresh()->avatar_url)->toBeNull();
+        });
+
+        it('serves avatar via signed url', function () {
+            Storage::fake('avatars');
+            $user = User::factory()->create();
+            $file = UploadedFile::fake()->image('avatar.jpg', 200, 200);
+
+            $this->actingAs($user)
+                ->postJson('/api/auth/avatar', ['avatar' => $file])
+                ->assertStatus(200);
+
+            $signedUrl = URL::temporarySignedRoute(
+                'auth.avatar.serve',
+                now()->addMinutes(5),
+                ['user' => $user->id],
+            );
+
+            $path = parse_url($signedUrl, PHP_URL_PATH);
+
+            $this->get($path)->assertStatus(200);
+        });
+
+        it('fails without authentication', function () {
+            $file = UploadedFile::fake()->image('avatar.jpg', 200, 200);
+            $this->postJson('/api/auth/avatar', ['avatar' => $file])->assertStatus(401);
         });
     });
 });
