@@ -16,9 +16,11 @@ class StoreUserRequest extends FormRequest
     {
         return [
             'name' => 'required|string|max:255',
+            'avatar_url' => 'nullable|string|max:2048',
             'email' => 'required|email|unique:users,email',
             'phone' => 'nullable|string|max:20|unique:users,phone',
             'username' => 'nullable|string|max:100|unique:users,username',
+            'is_active' => 'sometimes|boolean',
             'password' => 'required|string|min:8|confirmed',
         ];
     }

@@ -44,6 +44,10 @@ class UserController
             }
         }
 
+        if ($request->has('is_active')) {
+            $query->where('is_active', filter_var($request->input('is_active'), FILTER_VALIDATE_BOOLEAN));
+        }
+
         $sortField = $request->input('sort', 'name');
         $sortDirection = $request->input('order', 'asc') === 'desc' ? 'desc' : 'asc';
         $query->orderBy($this->sortable[$sortField] ?? 'name', $sortDirection);
