@@ -10,7 +10,7 @@ import { IconPlus, IconUsers } from "@tabler/icons-react";
 
 import { Button } from "@/components/ui/button";
 import { fetchUsers, fetchAllRoles } from "@/features/rbac/api";
-import { userColumns } from "@/features/rbac/user-columns";
+import { getUserColumns } from "@/features/rbac/user-columns";
 import { DataTablePage, DataTableToolbar } from "@/components/data-table";
 import { useTableUrlState } from "@/hooks/use-table-url-state";
 import { PermissionGuard } from "@/features/auth/components/permission-guard";
@@ -48,12 +48,22 @@ export function UsersPage() {
                 searchKey: "role",
                 type: "string",
             },
+            {
+                columnId: "is_active",
+                searchKey: "is_active",
+                type: "string",
+                serialize: (v) => v === "true" ? true : v === "false" ? false : undefined,
+                deserialize: (v) => typeof v === "boolean" ? (v ? "true" : "false") : v,
+            },
         ],
     });
 
     const activeSort = sorting[0];
     const activeRole =
         (columnFilters.find((f) => f.id === "roles")
+            ?.value as string[] | undefined)?.[0];
+    const activeIsActive =
+        (columnFilters.find((f) => f.id === "is_active")
             ?.value as string[] | undefined)?.[0];
 
     const { data, isLoading, isError } = useQuery({
@@ -65,6 +75,7 @@ export function UsersPage() {
             activeSort?.desc ? "desc" : "asc",
             globalFilter,
             activeRole,
+            activeIsActive,
         ],
         queryFn: async () => {
             const { data } = await fetchUsers({
@@ -74,6 +85,11 @@ export function UsersPage() {
                 order: activeSort?.desc ? "desc" : "asc",
                 filter: globalFilter || undefined,
                 role: activeRole || undefined,
+                is_active: activeIsActive === "true"
+                    ? true
+                    : activeIsActive === "false"
+                        ? false
+                        : undefined,
             });
             return data;
         },
@@ -90,9 +106,11 @@ export function UsersPage() {
     const tableData = data?.data ?? [];
     const meta = data?.meta;
 
+    const columns = getUserColumns();
+
     const table = useReactTable({
         data: tableData,
-        columns: userColumns,
+        columns,
         state: {
             sorting,
             pagination,
@@ -154,17 +172,23 @@ export function UsersPage() {
                     searchPlaceholder="جستجوی کاربر..."
                     globalFilter={globalFilter}
                     onGlobalFilterChange={onGlobalFilterChange}
-                    filters={
-                        roleFilterOptions.length > 0
-                            ? [
-                                  {
-                                      columnId: "roles",
-                                      title: "نقش",
-                                      options: roleFilterOptions,
-                                  },
-                              ]
-                            : undefined
-                    }
+                    filters={[
+                        ...(roleFilterOptions.length > 0
+                            ? [{
+                                  columnId: "roles",
+                                  title: "نقش",
+                                  options: roleFilterOptions,
+                              }]
+                            : []),
+                        {
+                            columnId: "is_active",
+                            title: "وضعیت",
+                            options: [
+                                { label: "فعال", value: "true" },
+                                { label: "غیرفعال", value: "false" },
+                            ],
+                        },
+                    ]}
                 />
             }
             emptyAction={
@@ -182,7 +206,7 @@ export function UsersPage() {
                     queryKey: ["users"],
                 })
             }
-            colSpan={userColumns.length}
+            colSpan={columns.length}
         />
     );
 }

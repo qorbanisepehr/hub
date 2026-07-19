@@ -4,6 +4,7 @@ import { hasAnyPermission, hasAllPermissions } from "@/features/auth/permissions
 
 export function usePermission(permission: string | string[]): boolean {
     const { user } = useAuth();
+    if (user?.is_super_admin) return true;
     const names = Array.isArray(permission) ? permission : [permission];
     return hasAnyPermission(user?.permissions, names);
 }
@@ -24,8 +25,9 @@ export function PermissionGuard({
     const { user } = useAuth();
     const names = Array.isArray(permission) ? permission : [permission];
 
-    const allowed =
-        mode === "all"
+    const allowed = user?.is_super_admin
+        ? true
+        : mode === "all"
             ? hasAllPermissions(user?.permissions, names)
             : hasAnyPermission(user?.permissions, names);
 
