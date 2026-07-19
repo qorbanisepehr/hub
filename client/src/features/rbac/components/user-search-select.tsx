@@ -4,6 +4,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { fetchUsers } from "@/features/rbac/api";
 import { SearchSelectModal } from "@/components/shared/search-select-modal";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { userKeys } from "@/lib/query-keys";
 import type { UserListItem } from "@/features/rbac/types";
 
 type UserSearchSelectProps = {
@@ -31,7 +32,7 @@ export function UserSearchSelect({
 
     const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } =
         useInfiniteQuery({
-            queryKey: ["users", "select", debouncedSearch, hasEmployee],
+            queryKey: userKeys.select(debouncedSearch, hasEmployee),
             queryFn: async ({ pageParam = 1 }) => {
                 const { data } = await fetchUsers({
                     filter: debouncedSearch || undefined,

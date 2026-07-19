@@ -10,6 +10,7 @@ import { PageLayout } from "@/components/shared/page-layout";
 import { ErrorPage } from "@/components/shared/error-page";
 import { PageHeader } from "@/components/shared/page-header";
 import { PageSkeleton } from "@/components/shared/page-skeleton";
+import { roleKeys } from "@/lib/query-keys";
 
 export function RoleEditPage() {
     const { roleId } = useParams({ from: "/protected/roles/$roleId" });
@@ -18,7 +19,7 @@ export function RoleEditPage() {
     const queryClient = useQueryClient();
 
     const { data: roleData, isLoading: roleLoading, isError } = useQuery({
-        queryKey: ["role", roleIdNum],
+        queryKey: roleKeys.detail(roleIdNum),
         queryFn: async () => {
             const { data } = await fetchRole(roleIdNum);
             return data;
@@ -28,8 +29,8 @@ export function RoleEditPage() {
     const updateMutation = useMutation({
         mutationFn: (data: UpdateRoleData) => updateRole(roleIdNum, data),
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["roles"] });
-            queryClient.invalidateQueries({ queryKey: ["role", roleIdNum] });
+            queryClient.invalidateQueries({ queryKey: roleKeys.all });
+            queryClient.invalidateQueries({ queryKey: roleKeys.detail(roleIdNum) });
             toast.success("نقش با موفقیت به‌روزرسانی شد");
             navigate({ to: "/roles" });
         },

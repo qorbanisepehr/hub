@@ -14,6 +14,7 @@ import { employeeColumns } from "@/features/employees/columns";
 import { DataTablePage, DataTableToolbar } from "@/components/data-table";
 import { useTableUrlState } from "@/hooks/use-table-url-state";
 import { PermissionGuard } from "@/features/auth/components/permission-guard";
+import { employeeKeys } from "@/lib/query-keys";
 
 const route = getRouteApi("/protected/employees");
 
@@ -57,15 +58,14 @@ export function EmployeesPage() {
             ?.value as string[] | undefined)?.[0];
 
     const { data, isLoading, isError } = useQuery({
-        queryKey: [
-            "employees",
-            pagination.pageIndex + 1,
-            pagination.pageSize,
-            activeSort?.id,
-            activeSort?.desc ? "desc" : "asc",
-            globalFilter,
-            activeStatus,
-        ],
+        queryKey: employeeKeys.list({
+            page: pagination.pageIndex + 1,
+            per_page: pagination.pageSize,
+            sort: activeSort?.id,
+            order: activeSort?.desc ? "desc" : "asc",
+            filter: globalFilter,
+            status: activeStatus,
+        }),
         queryFn: async () => {
             const { data } = await fetchEmployees({
                 page: pagination.pageIndex + 1,
@@ -168,7 +168,7 @@ export function EmployeesPage() {
             }
             onRetry={() =>
                 queryClient.invalidateQueries({
-                    queryKey: ["employees"],
+                    queryKey: employeeKeys.all,
                 })
             }
             colSpan={employeeColumns.length}

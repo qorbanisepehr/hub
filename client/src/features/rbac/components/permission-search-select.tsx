@@ -3,6 +3,7 @@ import { useInfiniteQuery } from "@tanstack/react-query";
 import { fetchPermissionsPaginated } from "@/features/rbac/api";
 import { SearchSelectModal } from "@/components/shared/search-select-modal";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { permissionKeys } from "@/lib/query-keys";
 import type { Permission } from "@/features/rbac/types";
 
 type PermissionSearchSelectProps = {
@@ -27,7 +28,7 @@ export function PermissionSearchSelect({
 
     const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } =
         useInfiniteQuery({
-            queryKey: ["permissions", "select", debouncedSearch],
+            queryKey: permissionKeys.select(debouncedSearch),
             queryFn: async ({ pageParam = 1 }) => {
                 const { data } = await fetchPermissionsPaginated({
                     filter: debouncedSearch || undefined,

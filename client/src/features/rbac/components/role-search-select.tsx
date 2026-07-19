@@ -4,6 +4,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { fetchRoles } from "@/features/rbac/api";
 import { SearchSelectModal } from "@/components/shared/search-select-modal";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { roleKeys } from "@/lib/query-keys";
 import type { Role } from "@/features/rbac/types";
 
 type RoleSearchSelectProps = {
@@ -29,7 +30,7 @@ export function RoleSearchSelect({
 
     const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } =
         useInfiniteQuery({
-            queryKey: ["roles", "select", debouncedSearch],
+            queryKey: roleKeys.select(debouncedSearch),
             queryFn: async ({ pageParam = 1 }) => {
                 const { data } = await fetchRoles({
                     filter: debouncedSearch || undefined,

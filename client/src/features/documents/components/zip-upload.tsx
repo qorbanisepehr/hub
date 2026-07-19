@@ -8,6 +8,7 @@ import { Progress } from "@/components/ui/progress";
 import { FileUpload } from "@/components/ui/file-upload";
 import { zipUploadDocuments } from "@/features/documents/api";
 import { getApiError } from "@/lib/error-utils";
+import { employeeKeys } from "@/lib/query-keys";
 
 const zipFileSchema = z
     .instanceof(File)
@@ -55,7 +56,7 @@ export function ZipUpload({ employeeId, onSuccess }: ZipUploadProps) {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({
-                queryKey: ["employee-documents", employeeId],
+                queryKey: employeeKeys.documents(employeeId),
             });
             setProgress(0);
             setFile(null);

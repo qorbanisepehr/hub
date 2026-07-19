@@ -20,6 +20,7 @@ import {
 import { usePermissions } from "@/features/rbac/hooks/use-permissions";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { fetchPermissionsPaginated } from "@/features/rbac/api";
+import { permissionKeys } from "@/lib/query-keys";
 
 interface PermissionAddModalProps {
     open: boolean;
@@ -188,7 +189,7 @@ function PermissionsTab({
 
     const { data, isLoading, isFetchingNextPage, hasNextPage, fetchNextPage } =
         useInfiniteQuery({
-            queryKey: ["permissions-search", debouncedSearch],
+            queryKey: permissionKeys.search(debouncedSearch),
             queryFn: async ({ pageParam = 1 }) => {
                 const res = await fetchPermissionsPaginated({
                     filter: debouncedSearch || undefined,

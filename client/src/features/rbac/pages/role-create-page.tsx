@@ -8,6 +8,7 @@ import { RoleForm } from "@/features/rbac/components/role-form";
 import { getApiError } from "@/lib/error-utils";
 import { PageLayout } from "@/components/shared/page-layout";
 import { PageHeader } from "@/components/shared/page-header";
+import { roleKeys } from "@/lib/query-keys";
 
 export function RoleCreatePage() {
     const navigate = useNavigate();
@@ -16,7 +17,7 @@ export function RoleCreatePage() {
     const createMutation = useMutation({
         mutationFn: (data: CreateRoleData) => createRole(data),
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["roles"] });
+            queryClient.invalidateQueries({ queryKey: roleKeys.all });
             toast.success("نقش با موفقیت ایجاد شد");
             navigate({ to: "/roles" });
         },

@@ -4,6 +4,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { fetchEmployees } from "@/features/employees/api";
 import { SearchSelectModal } from "@/components/shared/search-select-modal";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { employeeKeys } from "@/lib/query-keys";
 import type { Employee } from "@/features/employees/types";
 
 type EmployeeSearchSelectProps = {
@@ -29,7 +30,7 @@ export function EmployeeSearchSelect({
 
     const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } =
         useInfiniteQuery({
-            queryKey: ["employees", "select", debouncedSearch],
+            queryKey: employeeKeys.select(debouncedSearch),
             queryFn: async ({ pageParam = 1 }) => {
                 const { data } = await fetchEmployees({
                     filter: debouncedSearch || undefined,

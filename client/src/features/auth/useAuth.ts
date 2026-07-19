@@ -10,7 +10,7 @@ import {
     requestOtp,
     verifyOtp,
 } from "@/features/auth/api";
-import { ME_KEY } from "@/features/auth/constants";
+import { authKeys } from "@/lib/query-keys";
 
 export function useAuth() {
     const queryClient = useQueryClient();
@@ -21,7 +21,7 @@ export function useAuth() {
         isLoading,
         isError,
     } = useQuery({
-        queryKey: ME_KEY,
+        queryKey: authKeys.me(),
         queryFn: async () => {
             const { data } = await fetchMe();
 
@@ -49,7 +49,7 @@ export function useAuth() {
             verifyOtp(identifier, code),
         onSuccess: () => {
             authClient.setSession();
-            queryClient.invalidateQueries({ queryKey: ME_KEY });
+            queryClient.invalidateQueries({ queryKey: authKeys.me() });
         },
     });
 
@@ -63,7 +63,7 @@ export function useAuth() {
         }) => loginWithPassword(identifier, password),
         onSuccess: () => {
             authClient.setSession();
-            queryClient.invalidateQueries({ queryKey: ME_KEY });
+            queryClient.invalidateQueries({ queryKey: authKeys.me() });
         },
     });
 
@@ -71,7 +71,7 @@ export function useAuth() {
         mutationFn: logoutApi,
         onSettled: () => {
             authClient.clearSession();
-            queryClient.setQueryData(ME_KEY, null);
+            queryClient.setQueryData(authKeys.me(), null);
             queryClient.clear();
         },
     });

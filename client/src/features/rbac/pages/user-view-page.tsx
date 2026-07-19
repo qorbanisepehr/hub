@@ -26,6 +26,7 @@ import { InfoRow } from "@/components/shared/info-row";
 import { PageLayout } from "@/components/shared/page-layout";
 import { ErrorPage } from "@/components/shared/error-page";
 import { PageHeader } from "@/components/shared/page-header";
+import { userKeys } from "@/lib/query-keys";
 
 export function UserViewPage() {
     const { userId } = useParams({ from: "/protected/users/$userId" });
@@ -37,7 +38,7 @@ export function UserViewPage() {
         isError,
         refetch,
     } = useQuery({
-        queryKey: ["user", Number(userId)],
+        queryKey: userKeys.detail(Number(userId)),
         queryFn: async () => {
             const { data } = await fetchUser(Number(userId));
             return data.data;

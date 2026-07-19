@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { bulkDownloadDocuments, fetchTrashedDocuments } from "@/features/documents/api";
 import { getApiError } from "@/lib/error-utils";
+import { employeeKeys } from "@/lib/query-keys";
 import { DocumentList } from "./document-list";
 import { DocumentUploadModal } from "./document-upload-modal";
 import { DocumentTrashModal } from "./document-trash-modal";
@@ -36,7 +37,7 @@ export function DocumentSection({
     const onSelectionChange = externalOnSelectionChange ?? setInternalSelectedIds;
 
     const { data: trashedDocuments } = useQuery({
-        queryKey: ["employee-documents", employeeId, "trash"],
+        queryKey: employeeKeys.documentTrash(employeeId),
         enabled: showActions,
         queryFn: async () => {
             const { data } = await fetchTrashedDocuments(employeeId);

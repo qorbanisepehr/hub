@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/features/auth/useAuth";
-import { ME_KEY } from "@/features/auth/constants";
+import { authKeys } from "@/lib/query-keys";
 import { uploadAvatar, deleteAvatar } from "@/features/auth/api";
 import { getApiError } from "@/lib/error-utils";
 import { AvatarUpload } from "@/components/shared/avatar-upload";
@@ -35,7 +35,7 @@ export function ProfilePage() {
             setIsAvatarPending(true);
             try {
                 await uploadAvatar(file);
-                await queryClient.invalidateQueries({ queryKey: ME_KEY });
+                await queryClient.invalidateQueries({ queryKey: authKeys.me() });
                 toast.success("عکس پروفایل با موفقیت آپلود شد.");
             } catch (err) {
                 toast.error(getApiError(err));
@@ -50,7 +50,7 @@ export function ProfilePage() {
         setIsAvatarPending(true);
         try {
             await deleteAvatar();
-            await queryClient.invalidateQueries({ queryKey: ME_KEY });
+            await queryClient.invalidateQueries({ queryKey: authKeys.me() });
             toast.success("عکس پروفایل حذف شد.");
         } catch (err) {
             toast.error(getApiError(err));

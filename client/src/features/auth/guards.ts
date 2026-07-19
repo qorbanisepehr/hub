@@ -3,11 +3,11 @@ import { authClient } from "@/features/auth/auth-client";
 import { queryClient } from "@/lib/query-client";
 import { fetchMe } from "@/features/auth/api";
 import type { User } from "@/features/auth/types";
-import { ME_KEY } from "@/features/auth/constants";
+import { authKeys } from "@/lib/query-keys";
 import { hasAnyPermission } from "@/features/auth/permissions";
 
 function getCachedUser(): User | null {
-    return queryClient.getQueryData<User>(ME_KEY) ?? null;
+    return queryClient.getQueryData<User>(authKeys.me()) ?? null;
 }
 
 export function requireAuth(location: { href: string }) {
@@ -26,7 +26,7 @@ export function requirePermission(permission: string | string[]) {
         if (!user) {
             try {
                 user = await queryClient.fetchQuery({
-                    queryKey: ME_KEY,
+                    queryKey: authKeys.me(),
                     queryFn: async () => {
                         const res = await fetchMe();
                         return res.data.data;

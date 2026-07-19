@@ -7,6 +7,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { fetchRoles } from "@/features/rbac/api";
+import { roleKeys } from "@/lib/query-keys";
 import type { Role } from "@/features/rbac/types";
 
 interface RoleSelectProps {
@@ -29,7 +30,7 @@ export function RoleSelect({
     excludeIds = [],
 }: RoleSelectProps) {
     const { data: rolesData, isLoading } = useQuery({
-        queryKey: ["roles"],
+        queryKey: roleKeys.all,
         queryFn: async () => {
             const { data } = await fetchRoles();
             return data;

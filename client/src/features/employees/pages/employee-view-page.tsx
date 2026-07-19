@@ -36,6 +36,7 @@ import { InfoRow } from "@/components/shared/info-row";
 import { PageLayout } from "@/components/shared/page-layout";
 import { ErrorPage } from "@/components/shared/error-page";
 import { PageHeader } from "@/components/shared/page-header";
+import { employeeKeys } from "@/lib/query-keys";
 
 import {
     genderLabels,
@@ -58,7 +59,7 @@ export function EmployeeViewPage() {
     const employeeId = Number(id);
 
     const { data: employee, isLoading } = useQuery({
-        queryKey: ["employee", employeeId],
+        queryKey: employeeKeys.detail(employeeId),
         queryFn: async () => {
             const { data } = await fetchEmployee(employeeId);
             return data.data;
@@ -68,7 +69,7 @@ export function EmployeeViewPage() {
     const deleteMutation = useMutation({
         mutationFn: () => deleteEmployee(employeeId),
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["employees"] });
+            queryClient.invalidateQueries({ queryKey: employeeKeys.all });
             toast.success("کارمند حذف شد");
             navigate({ to: "/employees" });
         },
@@ -78,7 +79,7 @@ export function EmployeeViewPage() {
     });
 
     const { data: trashedDocuments } = useQuery({
-        queryKey: ["employee-documents", employeeId, "trash"],
+        queryKey: employeeKeys.documentTrash(employeeId),
         queryFn: async () => {
             const { data } = await fetchTrashedDocuments(employeeId);
             return data.data;
