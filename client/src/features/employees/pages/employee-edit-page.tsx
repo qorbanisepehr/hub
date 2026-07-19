@@ -9,6 +9,7 @@ import { PageLayout } from "@/components/shared/page-layout";
 import { ErrorPage } from "@/components/shared/error-page";
 import { PageHeader } from "@/components/shared/page-header";
 import { PageSkeleton } from "@/components/shared/page-skeleton";
+import { employeeKeys } from "@/lib/query-keys";
 
 export function EmployeeEditPage() {
     const { id } = useParams({ from: "/protected/employees/$id/edit" });
@@ -20,7 +21,7 @@ export function EmployeeEditPage() {
         isLoading,
         isError,
     } = useQuery({
-        queryKey: ["employee", Number(id)],
+        queryKey: employeeKeys.detail(Number(id)),
         queryFn: async () => {
             const { data } = await fetchEmployee(Number(id));
             return data.data;
@@ -31,9 +32,9 @@ export function EmployeeEditPage() {
         mutationFn: (data: Parameters<typeof updateEmployee>[1]) =>
             updateEmployee(Number(id), data),
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["employees"] });
+            queryClient.invalidateQueries({ queryKey: employeeKeys.all });
             queryClient.invalidateQueries({
-                queryKey: ["employee", Number(id)],
+                queryKey: employeeKeys.detail(Number(id)),
             });
             toast.success("اطلاعات کارمند به‌روزرسانی شد");
             navigate({ to: "/employees" });

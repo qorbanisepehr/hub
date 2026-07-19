@@ -2,6 +2,7 @@ import * as React from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { IconTrashOff } from "@tabler/icons-react";
 
+import { employeeKeys } from "@/lib/query-keys";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ResponsiveDialog } from "@/components/ui/responsive-dialog";
 import {
@@ -34,7 +35,7 @@ export function DocumentTrashModal({
     );
 
     const { data: trashedDocuments, isLoading } = useQuery({
-        queryKey: ["employee-documents", employeeId, "trash"],
+        queryKey: employeeKeys.documentTrash(employeeId),
         enabled: open,
         queryFn: async () => {
             const { data } = await fetchTrashedDocuments(employeeId);
@@ -46,11 +47,11 @@ export function DocumentTrashModal({
         mutationFn: (documentId: number) => restoreDocument(documentId),
         onSuccess: (response, documentId) => {
             queryClient.setQueryData(
-                ["employee-documents", employeeId],
+                employeeKeys.documents(employeeId),
                 (old: any) => [response.data.data, ...(old ?? [])],
             );
             queryClient.invalidateQueries({
-                queryKey: ["employee-documents", employeeId, "trash"],
+                queryKey: employeeKeys.documentTrash(employeeId),
             });
             setRestoringIds(new Set());
         },
@@ -63,7 +64,7 @@ export function DocumentTrashModal({
         mutationFn: (documentId: number) => forceDeleteDocument(documentId),
         onSuccess: (_, documentId) => {
             queryClient.setQueryData(
-                ["employee-documents", employeeId, "trash"],
+                employeeKeys.documentTrash(employeeId),
                 (old: any) => old?.filter((d: any) => d.id !== documentId),
             );
             setForceDeletingIds(new Set());

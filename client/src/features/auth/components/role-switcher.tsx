@@ -10,7 +10,7 @@ import {
     CardDescription,
 } from "@/components/ui/card";
 import { useAuth } from "@/features/auth/useAuth";
-import { ME_KEY } from "@/features/auth/constants";
+import { authKeys } from "@/lib/query-keys";
 import { switchActiveRole } from "@/features/auth/api";
 import { getApiError } from "@/lib/error-utils";
 
@@ -21,7 +21,7 @@ export function RoleSwitcher() {
     const roleMutation = useMutation({
         mutationFn: (roleId: number) => switchActiveRole(roleId),
         onSuccess: async () => {
-            await queryClient.invalidateQueries({ queryKey: ME_KEY });
+            await queryClient.invalidateQueries({ queryKey: authKeys.me() });
             toast.success("نقش فعال تغییر کرد.");
         },
         onError: (err) => {

@@ -7,6 +7,7 @@ import { createEmployee } from "@/features/employees/api";
 import { getApiError } from "@/lib/error-utils";
 import { PageLayout } from "@/components/shared/page-layout";
 import { PageHeader } from "@/components/shared/page-header";
+import { employeeKeys } from "@/lib/query-keys";
 
 export function EmployeeCreatePage() {
     const navigate = useNavigate();
@@ -16,7 +17,7 @@ export function EmployeeCreatePage() {
         mutationFn: (data: Parameters<typeof createEmployee>[0]) =>
             createEmployee(data),
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["employees"] });
+            queryClient.invalidateQueries({ queryKey: employeeKeys.all });
             toast.success("کارمند جدید ثبت شد");
             navigate({ to: "/employees" });
         },

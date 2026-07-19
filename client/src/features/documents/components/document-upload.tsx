@@ -20,6 +20,7 @@ import {
     uploadDocument,
 } from "@/features/documents/api";
 import { getApiError } from "@/lib/error-utils";
+import { employeeKeys } from "@/lib/query-keys";
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
 
@@ -66,7 +67,7 @@ export function DocumentUpload({ employeeId, onSuccess }: DocumentUploadProps) {
     const [serverError, setServerError] = React.useState<string | null>(null);
 
     const { data: categories } = useQuery({
-        queryKey: ["document-categories", "employee"],
+        queryKey: employeeKeys.documentCategories("employee"),
         queryFn: async () => {
             const { data } = await fetchDocumentCategories("employee");
             return data.data;
@@ -87,7 +88,7 @@ export function DocumentUpload({ employeeId, onSuccess }: DocumentUploadProps) {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({
-                queryKey: ["employee-documents", employeeId],
+                queryKey: employeeKeys.documents(employeeId),
             });
             form.reset();
             setAcceptedFile(null);

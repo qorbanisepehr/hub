@@ -21,6 +21,7 @@ import { RoleSearchSelect } from "@/features/rbac/components/role-search-select"
 import { PermissionGuard } from "@/features/auth/components/permission-guard";
 import { useRoles } from "@/features/rbac/hooks/use-roles";
 import { ConfirmDeleteButton } from "@/components/ui/confirm-delete-button";
+import { roleKeys, userKeys } from "@/lib/query-keys";
 import type { Role } from "@/features/rbac/types";
 
 type UserRoleManagerProps = {
@@ -36,7 +37,7 @@ export function UserRoleManager({
     const [selectedRoleId, setSelectedRoleId] = useState<number | null>(null);
 
     const { data: userRoles, isLoading: rolesLoading } = useQuery({
-        queryKey: ["user-roles", userId],
+        queryKey: userKeys.roles(userId),
         queryFn: async () => {
             const { data } = await fetchUserRoles(userId);
             return data;
@@ -49,9 +50,9 @@ export function UserRoleManager({
         mutationFn: ({ roleId, active }: { roleId: number; active: boolean }) =>
             assignUserRole(userId, roleId, active),
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["user-roles", userId] });
-            queryClient.invalidateQueries({ queryKey: ["users"] });
-            queryClient.invalidateQueries({ queryKey: ["user", userId] });
+            queryClient.invalidateQueries({ queryKey: userKeys.roles(userId) });
+            queryClient.invalidateQueries({ queryKey: userKeys.all });
+            queryClient.invalidateQueries({ queryKey: userKeys.detail(userId) });
             setSelectedRoleId(null);
             toast.success("نقش با موفقیت تخصیص داده شد");
             onRolesChanged?.();
@@ -64,9 +65,9 @@ export function UserRoleManager({
     const removeMutation = useMutation({
         mutationFn: (roleId: number) => removeUserRole(userId, roleId),
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["user-roles", userId] });
-            queryClient.invalidateQueries({ queryKey: ["users"] });
-            queryClient.invalidateQueries({ queryKey: ["user", userId] });
+            queryClient.invalidateQueries({ queryKey: userKeys.roles(userId) });
+            queryClient.invalidateQueries({ queryKey: userKeys.all });
+            queryClient.invalidateQueries({ queryKey: userKeys.detail(userId) });
             toast.success("نقش از کاربر حذف شد");
             onRolesChanged?.();
         },
@@ -78,9 +79,9 @@ export function UserRoleManager({
     const switchMutation = useMutation({
         mutationFn: (roleId: number) => switchActiveRole(userId, roleId),
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["user-roles", userId] });
-            queryClient.invalidateQueries({ queryKey: ["users"] });
-            queryClient.invalidateQueries({ queryKey: ["user", userId] });
+            queryClient.invalidateQueries({ queryKey: userKeys.roles(userId) });
+            queryClient.invalidateQueries({ queryKey: userKeys.all });
+            queryClient.invalidateQueries({ queryKey: userKeys.detail(userId) });
             toast.success("نقش فعال تغییر کرد");
             onRolesChanged?.();
         },

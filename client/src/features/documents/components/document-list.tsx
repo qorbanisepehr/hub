@@ -9,6 +9,7 @@ import {
 import { toast } from "sonner";
 
 import { cn } from "@/lib/utils";
+import { employeeKeys } from "@/lib/query-keys";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AttachmentGroup } from "@/components/ui/attachment";
 import { Button } from "@/components/ui/button";
@@ -58,7 +59,7 @@ export function DocumentList({
     >(null);
 
     const { data: documents, isLoading, error } = useQuery({
-        queryKey: ["employee-documents", employeeId],
+        queryKey: employeeKeys.documents(employeeId),
         queryFn: async () => {
             const { data } = await fetchDocuments(employeeId);
             return data.data;
@@ -67,7 +68,7 @@ export function DocumentList({
 
     function removeFromCache(documentId: number) {
         queryClient.setQueryData<Document[]>(
-            ["employee-documents", employeeId],
+            employeeKeys.documents(employeeId),
             (old) => old?.filter((d) => d.id !== documentId),
         );
     }
@@ -77,7 +78,7 @@ export function DocumentList({
         onSuccess: (_, documentId) => {
             removeFromCache(documentId);
             queryClient.invalidateQueries({
-                queryKey: ["employee-documents", employeeId, "trash"],
+                queryKey: employeeKeys.documentTrash(employeeId),
             });
             setDeletingIds(new Set());
             setLightboxIndex(null);

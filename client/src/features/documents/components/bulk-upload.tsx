@@ -26,6 +26,7 @@ import {
 } from "@/features/documents/api";
 import { isAxiosError } from "axios";
 import { getApiError } from "@/lib/error-utils";
+import { employeeKeys } from "@/lib/query-keys";
 
 function formatFileSize(bytes: number): string {
     if (bytes >= 1048576) return `${(bytes / 1048576).toFixed(1)} MB`;
@@ -84,7 +85,7 @@ export function BulkUpload({ employeeId, onSuccess }: BulkUploadProps) {
     const [serverError, setServerError] = React.useState<string | null>(null);
 
     const { data: categories } = useQuery({
-        queryKey: ["document-categories", "employee"],
+        queryKey: employeeKeys.documentCategories("employee"),
         queryFn: async () => {
             const { data } = await fetchDocumentCategories("employee");
             return data.data;
@@ -133,7 +134,7 @@ export function BulkUpload({ employeeId, onSuccess }: BulkUploadProps) {
         },
         onSuccess: (data) => {
             queryClient.invalidateQueries({
-                queryKey: ["employee-documents", employeeId],
+                queryKey: employeeKeys.documents(employeeId),
             });
 
             const uploadedNames = new Set(data.data.uploaded.map((d: { original_name: string }) => d.original_name));

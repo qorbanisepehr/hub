@@ -16,7 +16,7 @@ import {
     CardDescription,
 } from "@/components/ui/card";
 import { useAuth } from "@/features/auth/useAuth";
-import { ME_KEY } from "@/features/auth/constants";
+import { authKeys } from "@/lib/query-keys";
 import {
     updateProfile,
     uploadAvatar,
@@ -84,7 +84,7 @@ export function ProfileEditPage() {
             setError(null);
             try {
                 await updateProfile(value);
-                await queryClient.invalidateQueries({ queryKey: ME_KEY });
+                await queryClient.invalidateQueries({ queryKey: authKeys.me() });
                 toast.success("پروفایل با موفقیت به‌روزرسانی شد.");
             } catch (err: unknown) {
                 setError(getApiError(err));
@@ -122,7 +122,7 @@ export function ProfileEditPage() {
             setIsAvatarPending(true);
             try {
                 await uploadAvatar(file);
-                await queryClient.invalidateQueries({ queryKey: ME_KEY });
+                await queryClient.invalidateQueries({ queryKey: authKeys.me() });
                 toast.success("عکس پروفایل با موفقیت آپلود شد.");
             } catch (err) {
                 toast.error(getApiError(err));
@@ -137,7 +137,7 @@ export function ProfileEditPage() {
         setIsAvatarPending(true);
         try {
             await deleteAvatar();
-            await queryClient.invalidateQueries({ queryKey: ME_KEY });
+            await queryClient.invalidateQueries({ queryKey: authKeys.me() });
             toast.success("عکس پروفایل حذف شد.");
         } catch (err) {
             toast.error(getApiError(err));

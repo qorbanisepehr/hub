@@ -11,6 +11,7 @@ import { PageLayout } from "@/components/shared/page-layout";
 import { ErrorPage } from "@/components/shared/error-page";
 import { PageHeader } from "@/components/shared/page-header";
 import { PageSkeleton } from "@/components/shared/page-skeleton";
+import { userKeys } from "@/lib/query-keys";
 
 export function UserEditPage() {
     const { userId } = useParams({ from: "/protected/users/$userId/edit" });
@@ -21,7 +22,7 @@ export function UserEditPage() {
         isLoading,
         isError,
     } = useQuery({
-        queryKey: ["user", Number(userId)],
+        queryKey: userKeys.detail(Number(userId)),
         queryFn: async () => {
             const { data } = await fetchUser(Number(userId));
             return data.data;
@@ -32,8 +33,8 @@ export function UserEditPage() {
         mutationFn: (data: Parameters<typeof updateUser>[1]) =>
             updateUser(Number(userId), data),
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["users"] });
-            queryClient.invalidateQueries({ queryKey: ["user", Number(userId)] });
+            queryClient.invalidateQueries({ queryKey: userKeys.all });
+            queryClient.invalidateQueries({ queryKey: userKeys.detail(Number(userId)) });
             toast.success("اطلاعات کاربر به‌روزرسانی شد");
         },
         onError: () => {

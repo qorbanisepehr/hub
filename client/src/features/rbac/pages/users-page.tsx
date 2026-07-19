@@ -14,6 +14,7 @@ import { getUserColumns } from "@/features/rbac/user-columns";
 import { DataTablePage, DataTableToolbar } from "@/components/data-table";
 import { useTableUrlState } from "@/hooks/use-table-url-state";
 import { PermissionGuard } from "@/features/auth/components/permission-guard";
+import { roleKeys, userKeys } from "@/lib/query-keys";
 
 const route = getRouteApi("/protected/users");
 
@@ -67,16 +68,15 @@ export function UsersPage() {
             ?.value as string[] | undefined)?.[0];
 
     const { data, isLoading, isError } = useQuery({
-        queryKey: [
-            "users",
-            pagination.pageIndex + 1,
-            pagination.pageSize,
-            activeSort?.id,
-            activeSort?.desc ? "desc" : "asc",
-            globalFilter,
-            activeRole,
-            activeIsActive,
-        ],
+        queryKey: userKeys.list({
+            page: pagination.pageIndex + 1,
+            per_page: pagination.pageSize,
+            sort: activeSort?.id,
+            order: activeSort?.desc ? "desc" : "asc",
+            filter: globalFilter,
+            role: activeRole,
+            is_active: activeIsActive,
+        }),
         queryFn: async () => {
             const { data } = await fetchUsers({
                 page: pagination.pageIndex + 1,
@@ -96,7 +96,7 @@ export function UsersPage() {
     });
 
     const { data: rolesData } = useQuery({
-        queryKey: ["roles", "filter-options"],
+        queryKey: roleKeys.filterOptions(),
         queryFn: async () => {
             const { data } = await fetchAllRoles();
             return data.data;
@@ -203,7 +203,7 @@ export function UsersPage() {
             }
             onRetry={() =>
                 queryClient.invalidateQueries({
-                    queryKey: ["users"],
+                    queryKey: userKeys.all,
                 })
             }
             colSpan={columns.length}

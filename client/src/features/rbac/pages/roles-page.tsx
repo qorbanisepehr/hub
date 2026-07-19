@@ -15,6 +15,7 @@ import { getRoleColumns } from "@/features/rbac/columns";
 import { PermissionGuard } from "@/features/auth/components/permission-guard";
 import { DataTablePage, DataTableToolbar } from "@/components/data-table";
 import { useTableUrlState } from "@/hooks/use-table-url-state";
+import { roleKeys } from "@/lib/query-keys";
 
 const route = getRouteApi("/protected/roles");
 
@@ -60,15 +61,14 @@ export function RolesPage() {
             ?.value as string[] | undefined)?.[0];
 
     const { data, isLoading, isError } = useQuery({
-        queryKey: [
-            "roles",
-            pagination.pageIndex + 1,
-            pagination.pageSize,
-            activeSort?.id,
-            activeSort?.desc ? "desc" : "asc",
-            globalFilter,
-            activeIsActive,
-        ],
+        queryKey: roleKeys.list({
+            page: pagination.pageIndex + 1,
+            per_page: pagination.pageSize,
+            sort: activeSort?.id,
+            order: activeSort?.desc ? "desc" : "asc",
+            filter: globalFilter,
+            is_active: activeIsActive,
+        }),
         queryFn: async () => {
             const { data } = await fetchRoles({
                 page: pagination.pageIndex + 1,
@@ -89,7 +89,7 @@ export function RolesPage() {
     const toggleMutation = useMutation({
         mutationFn: (id: number) => toggleRole(id),
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["roles"] });
+            queryClient.invalidateQueries({ queryKey: roleKeys.all });
             toast.success("وضعیت نقش به‌روزرسانی شد");
         },
         onError: () => {
@@ -100,7 +100,7 @@ export function RolesPage() {
     const deleteMutation = useMutation({
         mutationFn: (id: number) => deleteRole(id),
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["roles"] });
+            queryClient.invalidateQueries({ queryKey: roleKeys.all });
             toast.success("نقش حذف شد");
         },
         onError: () => {
@@ -203,7 +203,7 @@ export function RolesPage() {
             }
             onRetry={() =>
                 queryClient.invalidateQueries({
-                    queryKey: ["roles"],
+                    queryKey: roleKeys.all,
                 })
             }
             colSpan={columns.length}
