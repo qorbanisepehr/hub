@@ -39,8 +39,8 @@ export function EmployeeEditPage() {
             toast.success("اطلاعات کارمند به‌روزرسانی شد");
             navigate({ to: "/employees" });
         },
-        onError: () => {
-            toast.error("خطا در به‌روزرسانی اطلاعات کارمند");
+        onError: (err: unknown) => {
+            toast.error(getApiError(err));
         },
     });
 

@@ -4,6 +4,7 @@ import { toast } from "sonner";
 
 import { createUser } from "@/features/rbac/api";
 import { UserForm } from "@/features/rbac/components/user-form";
+import { getApiError } from "@/lib/error-utils";
 import { PageLayout } from "@/components/shared/page-layout";
 import { PageHeader } from "@/components/shared/page-header";
 
@@ -16,8 +17,8 @@ export function UserCreatePage() {
             toast.success("کاربر با موفقیت ایجاد شد");
             navigate({ to: "/users" });
         },
-        onError: () => {
-            toast.error("خطا در ایجاد کاربر");
+        onError: (err: unknown) => {
+            toast.error(getApiError(err));
         },
     });
 

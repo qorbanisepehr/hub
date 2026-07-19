@@ -21,8 +21,8 @@ export function RoleCreatePage() {
             toast.success("نقش با موفقیت ایجاد شد");
             navigate({ to: "/roles" });
         },
-        onError: () => {
-            toast.error("خطا در ایجاد نقش");
+        onError: (err: unknown) => {
+            toast.error(getApiError(err));
         },
     });
 

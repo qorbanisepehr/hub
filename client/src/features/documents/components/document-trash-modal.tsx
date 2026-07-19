@@ -1,7 +1,9 @@
 import * as React from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { IconTrashOff } from "@tabler/icons-react";
+import { toast } from "sonner";
 
+import { getApiError } from "@/lib/error-utils";
 import { employeeKeys } from "@/lib/query-keys";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ResponsiveDialog } from "@/components/ui/responsive-dialog";
@@ -55,8 +57,9 @@ export function DocumentTrashModal({
             });
             setRestoringIds(new Set());
         },
-        onError: () => {
+        onError: (err: unknown) => {
             setRestoringIds(new Set());
+            toast.error(getApiError(err));
         },
     });
 
@@ -69,8 +72,9 @@ export function DocumentTrashModal({
             );
             setForceDeletingIds(new Set());
         },
-        onError: () => {
+        onError: (err: unknown) => {
             setForceDeletingIds(new Set());
+            toast.error(getApiError(err));
         },
     });
 

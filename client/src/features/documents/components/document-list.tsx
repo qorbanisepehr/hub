@@ -9,6 +9,7 @@ import {
 import { toast } from "sonner";
 
 import { cn } from "@/lib/utils";
+import { getApiError } from "@/lib/error-utils";
 import { employeeKeys } from "@/lib/query-keys";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AttachmentGroup } from "@/components/ui/attachment";
@@ -85,9 +86,9 @@ export function DocumentList({
             onSelectionChange(selectedIds.filter((id) => id !== documentId));
             toast.success("مدرک حذف شد");
         },
-        onError: () => {
+        onError: (err: unknown) => {
             setDeletingIds(new Set());
-            toast.error("خطا در حذف مدرک");
+            toast.error(getApiError(err));
         },
     });
 
