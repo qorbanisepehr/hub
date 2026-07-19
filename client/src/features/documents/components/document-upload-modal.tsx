@@ -1,8 +1,16 @@
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useState } from "react";
+import { IconAlertTriangle } from "@tabler/icons-react";
 import { ResponsiveDialog } from "@/components/ui/responsive-dialog";
-import { DocumentUpload } from "./document-upload";
-import { BulkUpload } from "./bulk-upload";
-import { ZipUpload } from "./zip-upload";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { DocumentUploadForm } from "./document-upload-form";
 
 type DocumentUploadModalProps = {
     employeeId: number;
@@ -15,38 +23,59 @@ export function DocumentUploadModal({
     open,
     onOpenChange,
 }: DocumentUploadModalProps) {
+    const [isDirty, setIsDirty] = useState(false);
+    const [confirmClose, setConfirmClose] = useState(false);
+
+    function handleOpenChange(nextOpen: boolean) {
+        if (!nextOpen && isDirty) {
+            setConfirmClose(true);
+            return;
+        }
+        onOpenChange(false);
+    }
+
+    function handleConfirmClose() {
+        setConfirmClose(false);
+        onOpenChange(false);
+    }
+
     return (
-        <ResponsiveDialog
-            open={open}
-            onOpenChange={onOpenChange}
-            title="آپلود مدرک"
-            description="فایل را انتخاب و اطلاعات را تکمیل کنید"
-        >
-            <Tabs defaultValue="single">
-                <TabsList variant="line" className="w-full">
-                    <TabsTrigger value="single">تکی</TabsTrigger>
-                    <TabsTrigger value="bulk">چندگانه</TabsTrigger>
-                    <TabsTrigger value="zip">فایل فشرده</TabsTrigger>
-                </TabsList>
-                <TabsContent value="single">
-                    <DocumentUpload
-                        employeeId={employeeId}
-                        onSuccess={() => onOpenChange(false)}
-                    />
-                </TabsContent>
-                <TabsContent value="bulk">
-                    <BulkUpload
-                        employeeId={employeeId}
-                        onSuccess={() => onOpenChange(false)}
-                    />
-                </TabsContent>
-                <TabsContent value="zip">
-                    <ZipUpload
-                        employeeId={employeeId}
-                        onSuccess={() => onOpenChange(false)}
-                    />
-                </TabsContent>
-            </Tabs>
-        </ResponsiveDialog>
+        <>
+            <ResponsiveDialog
+                open={open}
+                onOpenChange={handleOpenChange}
+                title="آپلود مدرک"
+                description="فایل را انتخاب و اطلاعات را تکمیل کنید"
+            >
+                <DocumentUploadForm
+                    employeeId={employeeId}
+                    onSuccess={() => onOpenChange(false)}
+                    onDirtyChange={setIsDirty}
+                />
+            </ResponsiveDialog>
+
+            <Dialog open={confirmClose} onOpenChange={setConfirmClose}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <IconAlertTriangle className="size-5 text-orange-500" />
+                            تغییرات ذخیره نشده
+                        </DialogTitle>
+                        <DialogDescription className="py-4 leading-6">
+                            تغییراتی اعمال کرده‌اید که ذخیره نشده است. آیا مطمئن
+                            هستید که می‌خواهید این پنجره را ببندید؟
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setConfirmClose(false)}>
+                            بازگشت
+                        </Button>
+                        <Button variant="default" onClick={handleConfirmClose}>
+                            بستن
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+        </>
     );
 }
