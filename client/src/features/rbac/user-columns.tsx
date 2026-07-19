@@ -6,6 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { DataTableColumnHeader } from "@/components/data-table";
 import { RowActions } from "@/components/shared/row-actions";
+import { PERMISSIONS } from "@/lib/permissions";
 import { RoleBadge } from "@/features/rbac/components/role-badge";
 import { UserRoleManager } from "@/features/rbac/components/user-role-manager";
 import { ResponsiveDialog } from "@/components/ui/responsive-dialog";
@@ -141,13 +142,13 @@ function UserRowActions({ user }: { user: UserListItem }) {
                         icon: <IconPencil className="size-4" />,
                         label: "ویرایش",
                         href: `/users/${user.id}/edit`,
-                        permission: "user.update",
+                        permission: PERMISSIONS.USER_UPDATE,
                     },
                     {
                         icon: <IconMasksTheater className="size-4" />,
                         label: "مدیریت نقش‌ها",
                         onClick: () => setRolesOpen(true),
-                        permission: "user.assign-roles",
+                        permission: PERMISSIONS.USER_ASSIGN_ROLES,
                     },
                 ]}
             />

@@ -14,6 +14,7 @@ import { employeeColumns } from "@/features/employees/columns";
 import { DataTablePage, DataTableToolbar } from "@/components/data-table";
 import { useTableUrlState } from "@/hooks/use-table-url-state";
 import { PermissionGuard } from "@/features/auth/components/permission-guard";
+import { PERMISSIONS } from "@/lib/permissions";
 import { employeeKeys } from "@/lib/query-keys";
 
 const route = getRouteApi("/protected/employees");
@@ -126,7 +127,7 @@ export function EmployeesPage() {
                             مدیریت اطلاعات کارمندان شرکت
                         </p>
                     </div>
-                    <PermissionGuard permission="employee.create">
+                    <PermissionGuard permission={PERMISSIONS.EMPLOYEE_CREATE}>
                         <Button
                             nativeButton={false}
                             render={<Link to="/employees/create" />}

@@ -4,6 +4,7 @@ import { IconPencil, IconTrash } from "@tabler/icons-react";
 import { Badge } from "@/components/ui/badge";
 import { DataTableColumnHeader } from "@/components/data-table";
 import { RowActions } from "@/components/shared/row-actions";
+import { PERMISSIONS } from "@/lib/permissions";
 import type { Role } from "@/features/rbac/types";
 
 type RoleActions = {
@@ -85,14 +86,14 @@ export function getRoleColumns(actions: RoleActions): ColumnDef<Role>[] {
                             icon: <IconPencil className="size-4" />,
                             label: "ویرایش",
                             href: `/roles/${row.original.id}`,
-                            permission: "role.update",
+                            permission: PERMISSIONS.ROLE_UPDATE,
                         },
                         {
                             type: "switch",
                             checked: row.original.is_active,
                             onCheckedChange: () => actions.onToggle(row.original),
                             disabled: actions.isToggling,
-                            permission: "role.update",
+                            permission: PERMISSIONS.ROLE_UPDATE,
                         },
                         {
                             type: "confirm-delete",
@@ -100,7 +101,7 @@ export function getRoleColumns(actions: RoleActions): ColumnDef<Role>[] {
                             message: `آیا از حذف نقش «${row.original.display_name}» اطمینان دارید؟`,
                             onConfirm: () => actions.onDelete(row.original),
                             isPending: actions.isDeleting,
-                            permission: "role.delete",
+                            permission: PERMISSIONS.ROLE_DELETE,
                         },
                     ]}
                 />

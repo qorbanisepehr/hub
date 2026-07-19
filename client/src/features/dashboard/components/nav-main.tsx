@@ -8,13 +8,14 @@ import {
 import { IconDashboard, IconIdBadge2, IconSettings, IconMasksTheater, IconUsers } from "@tabler/icons-react";
 import { Link } from "@tanstack/react-router";
 import { PermissionGuard } from "@/features/auth/components/permission-guard";
+import { PERMISSIONS } from "@/lib/permissions";
 
 const items = [
     { title: "داشبورد", url: "/dashboard", icon: <IconDashboard /> },
-    { title: "کارمندان", url: "/employees", icon: <IconIdBadge2 />, permission: ["employee.view_own", "employee.view_all"] as const },
-    { title: "کاربران", url: "/users", icon: <IconUsers />, permission: "user.view" as const },
-    { title: "نقش‌ها", url: "/roles", icon: <IconMasksTheater />, permission: "role.view" as const },
-    { title: "تنظیمات", url: "/settings", icon: <IconSettings />, permission: ["permission-category.view", "permission-category.manage"] as const },
+    { title: "کارمندان", url: "/employees", icon: <IconIdBadge2 />, permission: [PERMISSIONS.EMPLOYEE_VIEW_OWN, PERMISSIONS.EMPLOYEE_VIEW_ALL] as const },
+    { title: "کاربران", url: "/users", icon: <IconUsers />, permission: PERMISSIONS.USER_VIEW as const },
+    { title: "نقش‌ها", url: "/roles", icon: <IconMasksTheater />, permission: PERMISSIONS.ROLE_VIEW as const },
+    { title: "تنظیمات", url: "/settings", icon: <IconSettings />, permission: [PERMISSIONS.DOCUMENT_CATEGORY_VIEW, PERMISSIONS.DOCUMENT_CATEGORY_MANAGE] as const },
 ];
 
 export function NavMain() {

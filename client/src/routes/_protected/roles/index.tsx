@@ -3,6 +3,7 @@ import { z } from "zod";
 import { Route as ProtectedRoute } from "@/routes/_protected";
 import { RolesPage } from "@/features/rbac/pages/roles-page";
 import { requirePermission } from "@/features/auth/guards";
+import { PERMISSIONS } from "@/lib/permissions";
 
 const rolesSearchSchema = z.object({
     page: z.number().optional(),
@@ -17,6 +18,6 @@ export const Route = createRoute({
     getParentRoute: () => ProtectedRoute,
     path: "/roles",
     validateSearch: rolesSearchSchema,
-    beforeLoad: requirePermission("role.view"),
+    beforeLoad: requirePermission(PERMISSIONS.ROLE_VIEW),
     component: RolesPage,
 });

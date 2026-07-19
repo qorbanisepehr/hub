@@ -19,6 +19,7 @@ import {
 import { getApiError } from "@/lib/error-utils";
 import { RoleSearchSelect } from "@/features/rbac/components/role-search-select";
 import { PermissionGuard } from "@/features/auth/components/permission-guard";
+import { PERMISSIONS } from "@/lib/permissions";
 import { useRoles } from "@/features/rbac/hooks/use-roles";
 import { ConfirmDeleteButton } from "@/components/ui/confirm-delete-button";
 import { roleKeys, userKeys } from "@/lib/query-keys";
@@ -130,7 +131,7 @@ export function UserRoleManager({
                                     className="relative flex items-center justify-between px-4 py-3"
                                 >
                                     <div className="flex items-center gap-3">
-                                        <PermissionGuard permission="user.assign-roles">
+                                        <PermissionGuard permission={PERMISSIONS.USER_ASSIGN_ROLES}>
                                             {isActive ? (
                                                 <span className="inline-flex size-6 items-center justify-center bg-primary text-primary-foreground rounded">
                                                     <IconCheck className="size-4" />
@@ -178,7 +179,7 @@ export function UserRoleManager({
                 )}
 
                 {/* Add role section */}
-                <PermissionGuard permission="user.assign-roles">
+                <PermissionGuard permission={PERMISSIONS.USER_ASSIGN_ROLES}>
                     {roles.length > 0 && <div className="border-t" />}
                     <div className="flex items-center gap-2 px-4 py-3">
                         <RoleSearchSelect

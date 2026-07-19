@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DataTableColumnHeader } from "@/components/data-table";
 import { PermissionGuard } from "@/features/auth/components/permission-guard";
+import { PERMISSIONS } from "@/lib/permissions";
 import {
     genderLabels,
     statusLabels,
@@ -103,8 +104,8 @@ export const employeeColumns: ColumnDef<Employee>[] = [
                 </Button>
                 <PermissionGuard
                     permission={[
-                        "employee.update_own",
-                        "employee.update_all",
+                        PERMISSIONS.EMPLOYEE_UPDATE_OWN,
+                        PERMISSIONS.EMPLOYEE_UPDATE_ALL,
                     ]}
                 >
                     <Button

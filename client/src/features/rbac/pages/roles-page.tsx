@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { deleteRole, fetchRoles, toggleRole } from "@/features/rbac/api";
 import { getRoleColumns } from "@/features/rbac/columns";
 import { PermissionGuard } from "@/features/auth/components/permission-guard";
+import { PERMISSIONS } from "@/lib/permissions";
 import { DataTablePage, DataTableToolbar } from "@/components/data-table";
 import { useTableUrlState } from "@/hooks/use-table-url-state";
 import { roleKeys } from "@/lib/query-keys";
@@ -162,7 +163,7 @@ export function RolesPage() {
                             مدیریت نقش‌ها و سطوح دسترسی
                         </p>
                     </div>
-                    <PermissionGuard permission="role.create">
+                    <PermissionGuard permission={PERMISSIONS.ROLE_CREATE}>
                         <Button
                             nativeButton={false}
                             render={<Link to="/roles/create" />}

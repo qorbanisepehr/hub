@@ -14,6 +14,7 @@ import { getUserColumns } from "@/features/rbac/user-columns";
 import { DataTablePage, DataTableToolbar } from "@/components/data-table";
 import { useTableUrlState } from "@/hooks/use-table-url-state";
 import { PermissionGuard } from "@/features/auth/components/permission-guard";
+import { PERMISSIONS } from "@/lib/permissions";
 import { roleKeys, userKeys } from "@/lib/query-keys";
 
 const route = getRouteApi("/protected/users");
@@ -155,7 +156,7 @@ export function UsersPage() {
                             مدیریت نقش‌های کاربران
                         </p>
                     </div>
-                    <PermissionGuard permission="user.create">
+                    <PermissionGuard permission={PERMISSIONS.USER_CREATE}>
                         <Button
                             nativeButton={false}
                             render={<Link to="/users/create" />}
