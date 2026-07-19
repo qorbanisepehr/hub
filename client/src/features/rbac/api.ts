@@ -19,6 +19,7 @@ export type UserListParams = PaginatedListParams & {
     filter?: string;
     role?: string;
     has_employee?: boolean;
+    is_active?: boolean;
 };
 
 export type RoleListParams = PaginatedListParams & {

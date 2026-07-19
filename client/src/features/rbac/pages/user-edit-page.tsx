@@ -70,6 +70,7 @@ export function UserEditPage() {
                     email: user.email,
                     phone: user.phone ?? "",
                     username: user.username ?? "",
+                    is_active: user.is_active,
                     password: "",
                     password_confirmation: "",
                 }}

@@ -40,6 +40,10 @@ export function requirePermission(permission: string | string[]) {
 
         const names = Array.isArray(permission) ? permission : [permission];
 
+        if (user?.is_super_admin) {
+            return;
+        }
+
         if (!hasAnyPermission(user?.permissions, names)) {
             throw redirect({ to: "/unauthorized" });
         }

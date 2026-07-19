@@ -55,7 +55,10 @@ export type UpdateRoleData = Partial<CreateRoleData>;
 export type UserListItem = {
     id: number;
     name: string;
+    avatar_url: string | null;
     email: string;
+    is_active: boolean;
+    is_super_admin: boolean;
     roles: Role[];
     active_role: Role | null;
 };
@@ -63,26 +66,33 @@ export type UserListItem = {
 export type UserDetail = {
     id: number;
     name: string;
+    avatar_url: string | null;
     email: string;
     phone: string | null;
     username: string | null;
+    is_active: boolean;
+    is_super_admin: boolean;
     roles: Role[];
     active_role: Role | null;
 };
 
 export type UpdateUserData = {
     name?: string;
+    avatar_url?: string | null;
     email?: string;
     phone?: string | null;
     username?: string | null;
+    is_active?: boolean;
     password?: string | null;
 };
 
 export type CreateUserData = {
     name: string;
+    avatar_url?: string | null;
     email: string;
     phone?: string | null;
     username?: string | null;
+    is_active?: boolean;
     password: string;
     password_confirmation: string;
 };
