@@ -19,6 +19,8 @@ import { Route as UserViewRoute } from "@/routes/_protected/users/$userId";
 import { Route as UserEditRoute } from "@/routes/_protected/users/$userId.edit";
 import { Route as UserRolesRoute } from "@/routes/_protected/users/$userId.roles";
 import { Route as SettingsRoute } from "@/routes/_protected/settings";
+import { Route as ProfileRoute } from "@/routes/_protected/profile";
+import { Route as ProfileEditRoute } from "@/routes/_protected/profile.edit";
 import { Route as UnauthorizedRoute } from "@/routes/_protected/unauthorized";
 import { Route as CatchAllRoute } from "@/routes/_protected/$";
 
@@ -40,6 +42,8 @@ const routeTree = RootRoute.addChildren([
         UserEditRoute,
         UserRolesRoute,
         SettingsRoute,
+        ProfileRoute,
+        ProfileEditRoute,
         UnauthorizedRoute,
         CatchAllRoute,
     ]),

@@ -23,3 +23,33 @@ export function logout() {
 export function fetchMe() {
     return api.get<{ data: User }>("/auth/me");
 }
+
+export function updateProfile(data: { name?: string; email?: string; phone?: string }) {
+    return api.put<{ data: User }>("/auth/profile", data);
+}
+
+export function uploadAvatar(file: File) {
+    const formData = new FormData();
+    formData.append("avatar", file);
+    return api.post<{ data: User }>("/auth/avatar", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+    });
+}
+
+export function deleteAvatar() {
+    return api.delete<{ data: User }>("/auth/avatar");
+}
+
+export function switchActiveRole(roleId: number) {
+    return api.post<{ data: User }>("/auth/switch-active-role", {
+        role_id: roleId,
+    });
+}
+
+export function changePassword(data: {
+    current_password: string;
+    password: string;
+    password_confirmation: string;
+}) {
+    return api.post<{ message: string }>("/auth/change-password", data);
+}

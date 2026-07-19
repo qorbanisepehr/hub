@@ -28,6 +28,11 @@ class AuthController
             ], 401);
         }
 
+        $inactive = $this->checkInactive($user);
+        if ($inactive) {
+            return $inactive;
+        }
+
         $locked = $this->checkLocked($user);
         if ($locked) {
             return $locked;
@@ -63,6 +68,11 @@ class AuthController
             ], 422);
         }
 
+        $inactive = $this->checkInactive($user);
+        if ($inactive) {
+            return $inactive;
+        }
+
         $locked = $this->checkLocked($user);
         if ($locked) {
             return $locked;
@@ -94,6 +104,11 @@ class AuthController
             return response()->json([
                 'message' => __('auth.failed'),
             ], 401);
+        }
+
+        $inactive = $this->checkInactive($user);
+        if ($inactive) {
+            return $inactive;
         }
 
         $locked = $this->checkLocked($user);
@@ -129,10 +144,17 @@ class AuthController
         return response()->json(['message' => __('auth.logout')]);
     }
 
-    public function me(Request $request): UserResource
+    public function me(Request $request): JsonResponse|UserResource
     {
         $user = $request->user();
-        $user->load(['roles']);
+
+        if (! $user->is_active) {
+            return response()->json([
+                'message' => __('auth.inactive'),
+            ], 401);
+        }
+
+        $user->load(['roles', 'activeRole']);
 
         return new UserResource($user);
     }
@@ -144,14 +166,14 @@ class AuthController
             $request->session()->regenerate();
 
             return response()->json([
-                'user' => new UserResource($user->load(['roles'])),
+                'user' => new UserResource($user->load(['roles', 'activeRole'])),
             ]);
         }
 
         $token = $this->createToken($user, $request);
 
         return response()->json([
-            'user' => new UserResource($user->load(['roles'])),
+            'user' => new UserResource($user->load(['roles', 'activeRole'])),
             'token' => $token,
         ]);
     }
@@ -205,5 +227,16 @@ class AuthController
             'message' => __('auth.locked', ['seconds' => $seconds]),
             'retry_after' => $seconds,
         ], 429);
+    }
+
+    private function checkInactive(User $user): ?JsonResponse
+    {
+        if ($user->is_active) {
+            return null;
+        }
+
+        return response()->json([
+            'message' => __('auth.inactive'),
+        ], 403);
     }
 }
