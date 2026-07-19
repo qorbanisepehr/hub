@@ -1,4 +1,4 @@
-import { useForm } from "@tanstack/react-form";
+import { useForm, useStore } from "@tanstack/react-form";
 import { z } from "zod";
 import { IconChecks, IconLoader2 } from "@tabler/icons-react";
 
@@ -22,6 +22,7 @@ import {
 import { Link } from "@tanstack/react-router";
 import { FormTextField, FormSelectField } from "@/components/shared/form-fields";
 import { ErrorBanner } from "@/components/shared/error-banner";
+import { UnsavedChangesDialog } from "@/components/shared/unsaved-changes-dialog";
 import { UserSearchSelect } from "@/features/rbac/components/user-search-select";
 
 const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
@@ -141,8 +142,11 @@ export function EmployeeForm({
         },
     });
 
+    const isDirty = useStore(form.store, (state) => state.isDirty);
+
     return (
         <Card>
+            <UnsavedChangesDialog isDirty={isDirty} />
             <CardHeader>
                 <CardTitle>اطلاعات فردی</CardTitle>
                 <CardDescription>
@@ -508,7 +512,7 @@ export function EmployeeForm({
                     {error && <ErrorBanner message={error} />}
 
                     <div className="mt-8 flex items-center gap-3">
-                        <Button type="submit" disabled={isPending}>
+                        <Button type="submit" disabled={isPending || !isDirty}>
                             {isPending ? (
                                 <>
                                     <IconLoader2 className="size-4 animate-spin" />

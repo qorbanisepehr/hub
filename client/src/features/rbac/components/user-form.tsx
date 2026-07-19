@@ -1,4 +1,4 @@
-import { useForm } from "@tanstack/react-form";
+import { useForm, useStore } from "@tanstack/react-form";
 import { z } from "zod";
 import { IconChecks, IconLoader2 } from "@tabler/icons-react";
 
@@ -10,7 +10,11 @@ import {
     CardTitle,
     CardDescription,
 } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { ErrorBanner } from "@/components/shared/error-banner";
+import { UnsavedChangesDialog } from "@/components/shared/unsaved-changes-dialog";
+import { PasswordField } from "@/features/auth/components/password-field";
 import { FormTextField } from "@/components/shared/form-fields";
 
 const baseUserSchema = z.object({
@@ -34,6 +38,7 @@ const baseUserSchema = z.object({
         .trim()
         .max(100, "حداکثر ۱۰۰ کاراکتر")
         .or(z.literal("")),
+    is_active: z.boolean(),
     password: z
         .string()
         .min(8, "حداقل ۸ کاراکتر")
@@ -102,6 +107,7 @@ export function UserForm({
             email: "",
             phone: "",
             username: "",
+            is_active: true,
             password: "",
             password_confirmation: "",
             ...defaultValues,
@@ -114,11 +120,36 @@ export function UserForm({
         },
     });
 
+    const isDirty = useStore(form.store, (state) => state.isDirty);
+
     return (
         <Card>
+            <UnsavedChangesDialog isDirty={isDirty} />
             <CardHeader>
-                <CardTitle>{title}</CardTitle>
-                <CardDescription>{description}</CardDescription>
+                <div className="flex items-center justify-between">
+                    <div>
+                        <CardTitle>{title}</CardTitle>
+                        <CardDescription>{description}</CardDescription>
+                    </div>
+                    <form.Field name="is_active">
+                        {(field) => (
+                            <div className="flex items-center gap-2">
+                                <Switch
+                                    size="sm"
+                                    checked={field.state.value}
+                                    onCheckedChange={(checked) =>
+                                        field.handleChange(checked)
+                                    }
+                                />
+                                <span className="text-xs text-muted-foreground">
+                                    {field.state.value
+                                        ? "فعال"
+                                        : "غیرفعال"}
+                                </span>
+                            </div>
+                        )}
+                    </form.Field>
+                </div>
             </CardHeader>
             <CardContent>
                 <form
@@ -218,12 +249,10 @@ export function UserForm({
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <form.Field name="password">
                                     {(field) => (
-                                        <FormTextField
+                                        <PasswordField
                                             field={field}
                                             label="رمز عبور"
-                                            type="password"
                                             placeholder="حداقل ۸ کاراکتر"
-                                            dir="ltr"
                                             autoComplete="new-password"
                                         />
                                     )}
@@ -231,12 +260,10 @@ export function UserForm({
 
                                 <form.Field name="password_confirmation">
                                     {(field) => (
-                                        <FormTextField
+                                        <PasswordField
                                             field={field}
                                             label="تکرار رمز عبور"
-                                            type="password"
                                             placeholder="تکرار رمز عبور"
-                                            dir="ltr"
                                             autoComplete="new-password"
                                         />
                                     )}
@@ -246,7 +273,7 @@ export function UserForm({
                     )}
 
                     <div className="mt-8 flex items-center gap-3">
-                        <Button type="submit" disabled={isPending}>
+                        <Button type="submit" disabled={isPending || !isDirty}>
                             {isPending ? (
                                 <>
                                     <IconLoader2 className="size-4 animate-spin" />

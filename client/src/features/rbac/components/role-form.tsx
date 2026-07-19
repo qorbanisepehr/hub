@@ -1,4 +1,4 @@
-import { useForm } from "@tanstack/react-form";
+import { useForm, useStore } from "@tanstack/react-form";
 import { z } from "zod";
 import { IconChecks, IconLoader2 } from "@tabler/icons-react";
 
@@ -12,6 +12,7 @@ import { RoleSearchSelect } from "@/features/rbac/components/role-search-select"
 import { PermissionSelector } from "@/features/rbac/components/permission-selector";
 import { FormTextField } from "@/components/shared/form-fields";
 import { ErrorBanner } from "@/components/shared/error-banner";
+import { UnsavedChangesDialog } from "@/components/shared/unsaved-changes-dialog";
 
 export const roleSchema = z.object({
     name: z
@@ -73,6 +74,9 @@ export function RoleForm({
         },
     });
 
+    const isDirty = useStore(form.store, (state) => state.isDirty);
+    const parentId = useStore(form.store, (state) => state.values.parent_id);
+
     return (
         <form
             onSubmit={(e) => {
@@ -82,6 +86,7 @@ export function RoleForm({
             }}
             className="space-y-6"
         >
+            <UnsavedChangesDialog isDirty={isDirty} />
             {error && <ErrorBanner message={error} />}
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -175,7 +180,7 @@ export function RoleForm({
                                             id={field.name}
                                             checked={field.state.value}
                                             disabled={
-                                                !form.state.values.parent_id
+                                                !parentId
                                             }
                                             onCheckedChange={(checked) =>
                                                 field.handleChange(
@@ -191,7 +196,7 @@ export function RoleForm({
                                         </Label>
                                     </div>
                                     <p className="text-xs text-muted-foreground ms-6">
-                                        {form.state.values.parent_id
+                                        {parentId
                                             ? "مجوزهای نقش والد به این نقش اضافه می‌شوند"
                                             : "نقش والدی تعیین نشده است"}
                                     </p>
@@ -283,7 +288,7 @@ export function RoleForm({
             </div>
 
             <div className="flex items-center gap-2">
-                <Button type="submit" disabled={isPending}>
+                <Button type="submit" disabled={isPending || !isDirty}>
                     {isPending ? (
                         <IconLoader2 className="size-4 animate-spin ms-1" />
                     ) : (
