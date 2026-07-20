@@ -78,6 +78,7 @@ export function UserSearchSelect({
             getItemKey={(u) => u.id}
             getItemLabel={(u) => u.name}
             getItemSubLabel={(u) => u.email}
+            getItemDisabled={(u) => !u.is_active}
             className={className}
         />
     );
