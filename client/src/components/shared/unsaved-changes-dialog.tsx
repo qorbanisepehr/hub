@@ -13,12 +13,15 @@ import {
 
 type UnsavedChangesDialogProps = {
     isDirty: boolean;
+    isSubmitting?: boolean;
 };
 
-export function UnsavedChangesDialog({ isDirty }: UnsavedChangesDialogProps) {
+export function UnsavedChangesDialog({ isDirty, isSubmitting }: UnsavedChangesDialogProps) {
+    const shouldBlock = isDirty && !isSubmitting;
+
     const blocker = useBlocker({
-        shouldBlockFn: () => isDirty,
-        enableBeforeUnload: () => isDirty,
+        shouldBlockFn: () => shouldBlock,
+        enableBeforeUnload: () => shouldBlock,
         withResolver: true,
     });
 

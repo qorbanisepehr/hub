@@ -86,7 +86,7 @@ export function RoleForm({
             }}
             className="space-y-6"
         >
-            <UnsavedChangesDialog isDirty={isDirty} />
+            <UnsavedChangesDialog isDirty={isDirty} isSubmitting={isPending} />
             {error && <ErrorBanner message={error} />}
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

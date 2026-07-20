@@ -164,7 +164,7 @@ export function ProfileEditPage() {
 
     return (
         <PageLayout>
-            <UnsavedChangesDialog isDirty={isDirty} />
+            <UnsavedChangesDialog isDirty={isDirty} isSubmitting={isProfileSubmitting || isPasswordSubmitting} />
             <PageHeader title="ویرایش پروفایل" backTo="/profile">
                 <Button
                     variant="outline"
