@@ -146,7 +146,7 @@ export function EmployeeForm({
 
     return (
         <Card>
-            <UnsavedChangesDialog isDirty={isDirty} />
+            <UnsavedChangesDialog isDirty={isDirty} isSubmitting={isPending} />
             <CardHeader>
                 <CardTitle>اطلاعات فردی</CardTitle>
                 <CardDescription>

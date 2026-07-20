@@ -124,7 +124,7 @@ export function UserForm({
 
     return (
         <Card>
-            <UnsavedChangesDialog isDirty={isDirty} />
+            <UnsavedChangesDialog isDirty={isDirty} isSubmitting={isPending} />
             <CardHeader>
                 <div className="flex items-center justify-between">
                     <div>

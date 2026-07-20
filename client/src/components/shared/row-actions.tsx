@@ -1,4 +1,5 @@
 import { type ReactNode, useState } from "react";
+import { Link } from "@tanstack/react-router";
 import { IconDotsVertical, IconLoader2, IconTrash } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -53,7 +54,7 @@ type RowActionsProps = {
 
 function ActionButton({ action }: { action: ButtonAction }) {
     const buttonProps = action.href
-        ? { render: <a href={action.href} />, nativeButton: false as const }
+        ? { render: <Link to={action.href} />, nativeButton: false as const }
         : { onClick: action.onClick };
 
     return (
@@ -65,7 +66,7 @@ function ActionButton({ action }: { action: ButtonAction }) {
 
 function ActionMenuItem({ action }: { action: ButtonAction }) {
     const itemProps = action.href
-        ? { render: <a href={action.href} /> }
+        ? { render: <Link to={action.href} /> }
         : { onClick: action.onClick };
 
     return (
