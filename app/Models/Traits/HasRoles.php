@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 
 trait HasRoles
 {
@@ -87,6 +88,8 @@ trait HasRoles
 
     public function getAllPermissions(): Collection
     {
+        $this->ensureActiveRole();
+
         $cacheKey = "user_{$this->id}_permissions";
         $store = Cache::store(config('rbac.cache_store'));
 
@@ -126,6 +129,24 @@ trait HasRoles
     public function flushPermissionCache(): void
     {
         Cache::store(config('rbac.cache_store'))->forget("user_{$this->id}_permissions");
+    }
+
+    private function ensureActiveRole(): void
+    {
+        if ($this->active_role_id !== null) {
+            return;
+        }
+
+        $fallbackRole = $this->roles()->where('is_active', true)->first();
+
+        if (! $fallbackRole) {
+            return;
+        }
+
+        DB::table('users')->where('id', $this->id)->update(['active_role_id' => $fallbackRole->id]);
+        $this->active_role_id = $fallbackRole->id;
+        $this->setRelation('activeRole', $fallbackRole);
+        $this->flushPermissionCache();
     }
 
     private function loadPermissionsFromDatabase(): Collection
