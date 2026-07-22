@@ -23,9 +23,18 @@ import { Route as ProfileRoute } from "@/routes/_protected/profile";
 import { Route as ProfileEditRoute } from "@/routes/_protected/profile.edit";
 import { Route as UnauthorizedRoute } from "@/routes/_protected/unauthorized";
 import { Route as CatchAllRoute } from "@/routes/_protected/$";
+import { Route as QuestionnaireRoute } from "@/routes/_public/questionnaire";
+import { Route as QuestionnaireIndexRoute } from "@/routes/_public/questionnaire/index";
+import { Route as QuestionnaireUuidRoute } from "@/routes/_public/questionnaire/$uuid";
 
 const routeTree = RootRoute.addChildren([
-    PublicRoute.addChildren([PublicIndexRoute]),
+    PublicRoute.addChildren([
+        PublicIndexRoute,
+        QuestionnaireRoute.addChildren([
+            QuestionnaireIndexRoute,
+            QuestionnaireUuidRoute,
+        ]),
+    ]),
     LoginRoute,
     ProtectedRoute.addChildren([
         DashboardRoute,
