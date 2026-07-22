@@ -20,7 +20,8 @@ import { getFileIcon } from "@/lib/file-icon";
 import { getFileColorClasses } from "@/lib/file-colors";
 import { renderPdfThumbnailUrl } from "@/lib/pdf-thumbnail-utils";
 import { ConfirmDeleteActions } from "./confirm-delete-actions";
-import type { Document } from "@/features/documents/types";
+import { buildParentPath, getExactCategoryName } from "@/features/documents/types";
+import type { Document, DocumentCategory } from "@/features/documents/types";
 
 function PdfAttachmentThumbnail({ fileUrl }: { fileUrl: string }) {
     const [imageUrl, setImageUrl] = React.useState<string | null>(null);
@@ -63,6 +64,7 @@ function PdfAttachmentThumbnail({ fileUrl }: { fileUrl: string }) {
 
 export function CardAttachmentItem({
     doc,
+    categories,
     isDeleting,
     isConfirming,
     onPreview,
@@ -72,6 +74,7 @@ export function CardAttachmentItem({
     onCancelDelete,
 }: {
     doc: Document;
+    categories?: DocumentCategory[];
     isDeleting: boolean;
     isConfirming: boolean;
     onPreview: (doc: Document) => void;
@@ -113,6 +116,16 @@ export function CardAttachmentItem({
             </AttachmentMedia>
             <AttachmentContent>
                 <AttachmentTitle>{doc.original_name}</AttachmentTitle>
+                {categories && (
+                    <div className="text-xs text-muted-foreground truncate mt-0.5">
+                        <span>{getExactCategoryName(categories, doc.document_category_id)}</span>
+                        {buildParentPath(categories, doc.document_category_id) && (
+                            <span className="ms-1 opacity-60">
+                                ({buildParentPath(categories, doc.document_category_id)})
+                            </span>
+                        )}
+                    </div>
+                )}
             </AttachmentContent>
             <AttachmentActions>
                 <AttachmentAction
