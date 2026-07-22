@@ -3,9 +3,13 @@ import { useForm } from "@tanstack/react-form";
 import { useStore } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+    IconFile,
+    IconFileText,
     IconFileUpload,
     IconFileZip,
+    IconFolder,
     IconLoader2,
+    IconSelector,
     IconX,
 } from "@tabler/icons-react";
 
@@ -14,12 +18,13 @@ import { Input } from "@/components/ui/input";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Progress } from "@/components/ui/progress";
 import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
+    Command,
+    CommandEmpty,
+    CommandInput,
+    CommandItem,
+    CommandList,
+} from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { FileUpload } from "@/components/ui/file-upload";
 import {
     fetchDocumentCategories,
@@ -31,6 +36,7 @@ import { isAxiosError } from "axios";
 import { getApiError } from "@/lib/error-utils";
 import { employeeKeys } from "@/lib/query-keys";
 import { FILE_UPLOAD } from "@/lib/constants";
+import { cn } from "@/lib/utils";
 
 type FileItem = {
     file: File;
@@ -74,6 +80,24 @@ function detectMode(files: File[]): "single" | "bulk" | "zip" | null {
     return null;
 }
 
+type FlatCategory = { id: number; name: string; depth: number; path: string };
+
+function flattenCategories(
+    cats: { id: number; name: string; children?: { id: number; name: string; children?: { id: number; name: string }[] }[] }[],
+    depth = 0,
+    parentPath = "",
+): FlatCategory[] {
+    const result: FlatCategory[] = [];
+    for (const cat of cats) {
+        const path = parentPath ? `${parentPath} > ${cat.name}` : cat.name;
+        result.push({ id: cat.id, name: cat.name, depth, path });
+        if (cat.children && cat.children.length > 0) {
+            result.push(...flattenCategories(cat.children, depth + 1, path));
+        }
+    }
+    return result;
+}
+
 export function DocumentUploadForm({
     employeeId,
     onSuccess,
@@ -85,6 +109,7 @@ export function DocumentUploadForm({
     const [overallProgress, setOverallProgress] = React.useState(0);
     const [validationError, setValidationError] = React.useState<string | null>(null);
     const [serverError, setServerError] = React.useState<string | null>(null);
+    const [categoryOpen, setCategoryOpen] = React.useState(false);
 
     const rawFiles = files.map((f) => f.file);
     const mode = detectMode(rawFiles);
@@ -400,29 +425,75 @@ export function DocumentUploadForm({
             {mode !== "zip" && (
                 <>
                     <form.Field name="document_category_id">
-                        {(field) => (
-                            <Field>
-                                <FieldLabel htmlFor={field.name}>دسته‌بندی</FieldLabel>
-                                <Select
-                                    value={field.state.value || null}
-                                    onValueChange={(val) => field.handleChange(val ?? "")}
-                                    disabled={isUploading}
-                                >
-                                    <SelectTrigger id={field.name}>
-                                        <SelectValue placeholder="انتخاب دسته‌بندی">
-                                            {categories?.find((c) => String(c.id) === field.state.value)?.name}
-                                        </SelectValue>
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {categories?.map((cat) => (
-                                            <SelectItem key={cat.id} value={String(cat.id)}>
-                                                {cat.name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </Field>
-                        )}
+                        {(field) => {
+                            const flat = flattenCategories(categories ?? []);
+                            const selected = flat.find((c) => String(c.id) === field.state.value);
+
+                            return (
+                                <Field>
+                                    <FieldLabel htmlFor={field.name}>دسته‌بندی</FieldLabel>
+                                    <Popover open={categoryOpen} onOpenChange={setCategoryOpen}>
+                                        <PopoverTrigger
+                                            render={
+                                                <button
+                                                    id={field.name}
+                                                    type="button"
+                                                    role="combobox"
+                                                    aria-expanded={categoryOpen}
+                                                    disabled={isUploading}
+                                                    className={cn(
+                                                        "border-input flex h-9 w-full items-center justify-between rounded-md border bg-transparent px-3 py-2 text-sm shadow-xs",
+                                                        "placeholder:text-muted-foreground",
+                                                        "focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring",
+                                                        "disabled:cursor-not-allowed disabled:opacity-50",
+                                                        "[&>span]:line-clamp-1",
+                                                    )}
+                                                />
+                                            }
+                                        >
+                                            <span className={selected ? "" : "text-muted-foreground"}>
+                                                {selected?.path ?? "انتخاب دسته‌بندی"}
+                                            </span>
+                                            <IconSelector className="size-4 shrink-0 opacity-50" />
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                                            <Command>
+                                                <CommandInput placeholder="جستجو..." />
+                                                <CommandList>
+                                                    <CommandEmpty>یافت نشد</CommandEmpty>
+                                                    {flat.map((item) => (
+                                                        <CommandItem
+                                                            key={item.id}
+                                                            value={item.name}
+                                                            onSelect={() => {
+                                                                field.handleChange(String(item.id));
+                                                                setCategoryOpen(false);
+                                                            }}
+                                                            style={{ paddingInlineStart: `${8 + item.depth * 16}px` }}
+                                                        >
+                                                            {item.depth === 0 ? (
+                                                                <span className="text-muted-foreground">
+                                                                    <IconFolder className="size-4" />
+                                                                </span>
+                                                            ) : item.depth === 1 ? (
+                                                                <span className="text-muted-foreground">
+                                                                    <IconFile className="size-4" />
+                                                                </span>
+                                                            ) : (
+                                                                <span className="text-muted-foreground">
+                                                                    <IconFileText className="size-4" />
+                                                                </span>
+                                                            )}
+                                                            <span>{item.name}</span>
+                                                        </CommandItem>
+                                                    ))}
+                                                </CommandList>
+                                            </Command>
+                                        </PopoverContent>
+                                    </Popover>
+                                </Field>
+                            );
+                        }}
                     </form.Field>
 
                     <form.Field name="notes">

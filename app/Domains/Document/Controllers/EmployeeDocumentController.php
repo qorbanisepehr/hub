@@ -136,7 +136,7 @@ class EmployeeDocumentController extends ApiController
         $disk = config('documents.storage_disk');
         $documentIds = $request->document_ids;
 
-        $query = $employee->documents()->with('category');
+        $query = $employee->documents()->with('category.parent');
 
         if (! $request->user()->hasPermissionTo('document.download_all')) {
             $query->where('uploaded_by', $request->user()->id);
@@ -162,23 +162,23 @@ class EmployeeDocumentController extends ApiController
         $usedPaths = [];
 
         foreach ($documents as $document) {
-            $categorySlug = $document->category?->slug ?? 'uncategorized';
+            $zipPath = $this->buildZipPath($document);
             $filename = $document->original_name;
-            $zipPath = $categorySlug.'/'.$filename;
+            $fullPath = $zipPath.$filename;
 
-            if (isset($usedPaths[$zipPath])) {
-                $usedPaths[$zipPath]++;
+            if (isset($usedPaths[$fullPath])) {
+                $usedPaths[$fullPath]++;
                 $name = pathinfo($filename, PATHINFO_FILENAME);
                 $ext = pathinfo($filename, PATHINFO_EXTENSION);
                 $suffix = $ext ? '.'.$ext : '';
-                $zipPath = $categorySlug.'/'.$name.'-'.$usedPaths[$zipPath].$suffix;
+                $fullPath = $zipPath.$name.'-'.$usedPaths[$fullPath].$suffix;
             } else {
-                $usedPaths[$zipPath] = 1;
+                $usedPaths[$fullPath] = 1;
             }
 
             if (Storage::disk($disk)->exists($document->stored_path)) {
                 $content = Storage::disk($disk)->get($document->stored_path);
-                $zip->addFromString($zipPath, $content);
+                $zip->addFromString($fullPath, $content);
             }
         }
 
@@ -192,6 +192,25 @@ class EmployeeDocumentController extends ApiController
         }, $zipFilename, [
             'Content-Type' => 'application/zip',
         ]);
+    }
+
+    private function buildZipPath(Document $document): string
+    {
+        $category = $document->category;
+
+        if (! $category) {
+            return '';
+        }
+
+        $parts = [];
+        $current = $category;
+
+        while ($current) {
+            array_unshift($parts, $current->name);
+            $current = $current->parent;
+        }
+
+        return implode('/', $parts).'/';
     }
 
     public function zipStore(ZipStoreEmployeeDocumentRequest $request, Employee $employee): JsonResponse

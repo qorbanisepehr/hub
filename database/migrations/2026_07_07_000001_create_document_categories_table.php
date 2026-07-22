@@ -14,6 +14,7 @@ return new class extends Migration
             $table->string('slug')->unique();
             $table->text('description')->nullable();
             $table->unsignedSmallInteger('sort_order')->default(0);
+            $table->foreignId('parent_id')->nullable()->constrained('document_categories')->nullOnDelete();
             $table->string('documentable_type')->nullable();
             $table->timestamps();
         });

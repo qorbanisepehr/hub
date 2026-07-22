@@ -14,10 +14,12 @@ import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@
 import { ConfirmDeleteActions } from "./confirm-delete-actions";
 import { DocumentFileCell } from "./document-file-cell";
 import { toPersianDate } from "@/lib/date-format";
-import type { Document } from "@/features/documents/types";
+import { buildParentPath, getExactCategoryName } from "@/features/documents/types";
+import type { Document, DocumentCategory } from "@/features/documents/types";
 
 type DocumentTableProps = {
     documents: Document[];
+    categories?: DocumentCategory[];
     onPreview: (doc: Document) => void;
     onDownload: (doc: Document) => void;
     confirmingDeleteId: number | null;
@@ -31,6 +33,7 @@ type DocumentTableProps = {
 
 export function DocumentTable({
     documents,
+    categories,
     onPreview,
     onDownload,
     confirmingDeleteId,
@@ -105,11 +108,24 @@ export function DocumentTable({
             {
                 accessorKey: "category.name",
                 header: "دسته‌بندی",
-                cell: ({ row }) => (
-                    <span className="text-sm">
-                        {row.original.category?.name ?? "سایر"}
-                    </span>
-                ),
+                cell: ({ row }) => {
+                    const exactName = categories
+                        ? getExactCategoryName(categories, row.original.document_category_id)
+                        : row.original.category?.name ?? "سایر";
+                    const parentPath = categories
+                        ? buildParentPath(categories, row.original.document_category_id)
+                        : "";
+                    return (
+                        <div>
+                            <span className="text-sm">{exactName}</span>
+                            {parentPath && (
+                                <p className="text-xs text-muted-foreground">
+                                    {parentPath}
+                                </p>
+                            )}
+                        </div>
+                    );
+                },
             },
             {
                 accessorKey: "original_name",
