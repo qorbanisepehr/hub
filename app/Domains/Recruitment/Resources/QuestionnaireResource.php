@@ -8,7 +8,6 @@ use Illuminate\Http\Resources\Json\JsonResource;
 /** @property-read int $id */
 /** @property-read string $uuid */
 /** @property-read string $status */
-/** @property-read int $current_step */
 /** @property-read string $first_name */
 /** @property-read string $last_name */
 /** @property-read string $email */
@@ -31,7 +30,6 @@ class QuestionnaireResource extends JsonResource
             'id' => $this->id,
             'uuid' => $this->uuid,
             'status' => $this->status,
-            'current_step' => $this->current_step,
             'first_name' => $this->first_name,
             'last_name' => $this->last_name,
             'email' => $this->email,

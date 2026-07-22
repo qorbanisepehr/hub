@@ -5,6 +5,7 @@ namespace App\Domains\Recruitment\Controllers;
 use App\Domains\Recruitment\Models\Questionnaire;
 use App\Domains\Recruitment\Requests\InitQuestionnaireRequest;
 use App\Domains\Recruitment\Requests\SaveQuestionnaireRequest;
+use App\Domains\Recruitment\Requests\SubmitQuestionnaireRequest;
 use App\Domains\Recruitment\Resources\QuestionnaireResource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -22,7 +23,6 @@ class QuestionnaireController extends Controller
             'email' => $data['email'],
             'mobile' => $data['mobile'],
             'status' => 'draft',
-            'current_step' => 0,
             'mobile_otp' => Questionnaire::generateOtp(),
             'email_otp' => Questionnaire::generateOtp(),
         ]);
@@ -141,6 +141,32 @@ class QuestionnaireController extends Controller
         return response()->json([
             'data' => new QuestionnaireResource($questionnaire->fresh()),
             'message' => __('recruitment.questionnaire.verified'),
+        ]);
+    }
+
+    public function submit(SubmitQuestionnaireRequest $request, string $uuid): JsonResponse
+    {
+        $questionnaire = Questionnaire::where('uuid', $uuid)->where('status', 'draft')->firstOrFail();
+
+        if (! $questionnaire->isMobileVerified()) {
+            return response()->json([
+                'message' => __('recruitment.questionnaire.mobile_not_verified'),
+            ], 422);
+        }
+
+        if (! $questionnaire->isEmailVerified()) {
+            return response()->json([
+                'message' => __('recruitment.questionnaire.email_not_verified'),
+            ], 422);
+        }
+
+        $questionnaire->update([
+            'status' => 'submitted',
+        ]);
+
+        return response()->json([
+            'data' => new QuestionnaireResource($questionnaire->fresh()),
+            'message' => __('recruitment.questionnaire.submitted'),
         ]);
     }
 }

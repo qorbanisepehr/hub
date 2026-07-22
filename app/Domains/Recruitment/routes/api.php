@@ -15,6 +15,7 @@ Route::post('questionnaire/{uuid}/send-email-otp', [QuestionnaireController::cla
     ->middleware('throttle:5,1');
 Route::post('questionnaire/{uuid}/verify-mobile-otp', [QuestionnaireController::class, 'verifyMobileOtp']);
 Route::post('questionnaire/{uuid}/verify-email-otp', [QuestionnaireController::class, 'verifyEmailOtp']);
+Route::post('questionnaire/{uuid}/submit', [QuestionnaireController::class, 'submit']);
 
 // Protected routes (HR management)
 Route::middleware('auth:sanctum')->group(function () {

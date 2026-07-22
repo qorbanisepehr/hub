@@ -12,7 +12,6 @@ return new class extends Migration
             $table->id();
             $table->uuid('uuid')->unique();
             $table->string('status')->default('draft'); // draft, submitted, reviewed
-            $table->unsignedSmallInteger('current_step')->default(0);
 
             // Core fields (searchable/reportable)
             $table->string('first_name');
