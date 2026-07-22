@@ -26,15 +26,15 @@ class InitQuestionnaireRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'first_name.required' => 'نام الزامی است.',
-            'first_name.max' => 'حداکثر ۱۰۰ کاراکتر.',
-            'last_name.required' => 'نام خانوادگی الزامی است.',
-            'last_name.max' => 'حداکثر ۱۰۰ کاراکتر.',
-            'email.required' => 'ایمیل الزامی است.',
-            'email.email' => 'فرمت ایمیل نامعتبر است.',
-            'email.max' => 'حداکثر ۲۵۵ کاراکتر.',
-            'mobile.required' => 'شماره موبایل الزامی است.',
-            'mobile.max' => 'حداکثر ۱۵ کاراکتر.',
+            'first_name.required' => __('recruitment.validation.first_name.required'),
+            'first_name.max' => __('recruitment.validation.first_name.max'),
+            'last_name.required' => __('recruitment.validation.last_name.required'),
+            'last_name.max' => __('recruitment.validation.last_name.max'),
+            'email.required' => __('recruitment.validation.email.required'),
+            'email.email' => __('recruitment.validation.email.email'),
+            'email.max' => __('recruitment.validation.email.max'),
+            'mobile.required' => __('recruitment.validation.mobile.required'),
+            'mobile.max' => __('recruitment.validation.mobile.max'),
         ];
     }
 }

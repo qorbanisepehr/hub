@@ -17,6 +17,8 @@ class SaveQuestionnaireRequest extends FormRequest
     {
         return [
             'current_step' => ['sometimes', 'integer', 'min:0', 'max:8'],
+            'email' => ['sometimes', 'email', 'max:255'],
+            'mobile' => ['sometimes', 'string', 'max:15'],
             'personal_info' => ['sometimes', 'nullable', 'array'],
             'education' => ['sometimes', 'nullable', 'array'],
             'work_experience' => ['sometimes', 'nullable', 'array'],
@@ -31,9 +33,9 @@ class SaveQuestionnaireRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'current_step.integer' => 'مرحله فعلی باید عدد باشد.',
-            'current_step.min' => 'مرحله فعلی نامعتبر است.',
-            'current_step.max' => 'مرحله فعلی نامعتبر است.',
+            'current_step.integer' => __('recruitment.validation.current_step.integer'),
+            'current_step.min' => __('recruitment.validation.current_step.min'),
+            'current_step.max' => __('recruitment.validation.current_step.max'),
         ];
     }
 }

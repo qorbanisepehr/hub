@@ -9,9 +9,12 @@ Route::post('questionnaire/init', [QuestionnaireController::class, 'init'])
     ->middleware('throttle:10,1');
 Route::get('questionnaire/{uuid}', [QuestionnaireController::class, 'show']);
 Route::put('questionnaire/{uuid}', [QuestionnaireController::class, 'save']);
-Route::post('questionnaire/{uuid}/send-otp', [QuestionnaireController::class, 'sendOtp'])
+Route::post('questionnaire/{uuid}/send-mobile-otp', [QuestionnaireController::class, 'sendMobileOtp'])
     ->middleware('throttle:5,1');
-Route::post('questionnaire/{uuid}/verify', [QuestionnaireController::class, 'verify']);
+Route::post('questionnaire/{uuid}/send-email-otp', [QuestionnaireController::class, 'sendEmailOtp'])
+    ->middleware('throttle:5,1');
+Route::post('questionnaire/{uuid}/verify-mobile-otp', [QuestionnaireController::class, 'verifyMobileOtp']);
+Route::post('questionnaire/{uuid}/verify-email-otp', [QuestionnaireController::class, 'verifyEmailOtp']);
 
 // Protected routes (HR management)
 Route::middleware('auth:sanctum')->group(function () {
