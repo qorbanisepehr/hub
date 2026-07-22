@@ -24,6 +24,15 @@ class DocumentCategoryController extends ApiController
                     $query->byType($resolved);
                 }
             })
+            ->when(! $request->boolean('all'), function ($query) {
+                $query->whereNull('parent_id');
+            })
+            ->with(['children' => function ($q) {
+                $q->orderBy('sort_order');
+                $q->with(['children' => function ($q2) {
+                    $q2->orderBy('sort_order');
+                }]);
+            }])
             ->withCount('documents')
             ->orderBy('sort_order')
             ->get();
@@ -36,6 +45,11 @@ class DocumentCategoryController extends ApiController
         $data = $request->validated();
 
         $data['documentable_type'] = DocumentCategory::resolveType($data['documentable_type']);
+
+        if (! empty($data['parent_id'])) {
+            $parent = DocumentCategory::findOrFail($data['parent_id']);
+            $data['documentable_type'] = $parent->documentable_type;
+        }
 
         $category = DocumentCategory::create($data);
 

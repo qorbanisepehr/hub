@@ -5,6 +5,9 @@ import {
     IconLayoutGrid,
     IconList,
     IconTable,
+    IconColumns,
+    IconFolder,
+    IconFolderOpen,
 } from "@tabler/icons-react";
 import { toast } from "sonner";
 
@@ -12,14 +15,207 @@ import { cn } from "@/lib/utils";
 import { getApiError } from "@/lib/error-utils";
 import { employeeKeys } from "@/lib/query-keys";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AttachmentGroup } from "@/components/ui/attachment";
 import { Button } from "@/components/ui/button";
-import { fetchDocuments, deleteDocument } from "@/features/documents/api";
-import type { Document } from "@/features/documents/types";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { fetchDocuments, deleteDocument, fetchDocumentCategories } from "@/features/documents/api";
+import type { Document, DocumentCategory } from "@/features/documents/types";
 import { DocumentPreviewLightbox } from "./document-preview-lightbox";
 import { DocumentTable } from "./document-table";
+import { DocumentGroupedTable } from "./document-grouped-table";
+import { DocumentTreeView } from "./document-tree-view";
 import { ListAttachmentItem } from "./list-attachment-item";
 import { CardAttachmentItem } from "./card-attachment-item";
+
+function collectDocs(
+    cat: DocumentCategory,
+    docs: Document[],
+): { doc: Document; exactCategory: string }[] {
+    const result: { doc: Document; exactCategory: string }[] = [];
+    for (const doc of docs) {
+        if (doc.document_category_id === cat.id) {
+            result.push({ doc, exactCategory: cat.name });
+        }
+    }
+    for (const child of cat.children ?? []) {
+        for (const item of collectDocs(child, docs)) {
+            result.push(item);
+        }
+    }
+    return result;
+}
+
+type FilterOption = {
+    key: string;
+    label: string;
+    count: number;
+};
+
+function buildFilterOptions(
+    categories: DocumentCategory[],
+    documents: Document[],
+): FilterOption[] {
+    const options: FilterOption[] = [];
+    for (const topCat of categories) {
+        for (const child of topCat.children ?? []) {
+            const items = collectDocs(child, documents);
+            if (items.length > 0) {
+                options.push({
+                    key: child.id.toString(),
+                    label: `${topCat.name}: ${child.name}`,
+                    count: items.length,
+                });
+            }
+        }
+    }
+    return options;
+}
+
+function NestedCategoryCards({
+    categories,
+    documents,
+    viewMode,
+    selectedCategory,
+    onCategoryChange,
+    deletingIds,
+    confirmingDeleteId,
+    onPreview,
+    onDownload,
+    onStartDelete,
+    onConfirmDelete,
+    onCancelDelete,
+}: {
+    categories: DocumentCategory[];
+    documents: Document[];
+    viewMode: "card" | "list";
+    selectedCategory: string | null;
+    onCategoryChange: (id: string | null) => void;
+    deletingIds: Set<number>;
+    confirmingDeleteId: number | null;
+    onPreview: (doc: Document) => void;
+    onDownload: (doc: Document) => void;
+    onStartDelete: (id: number) => void;
+    onConfirmDelete: (id: number) => void;
+    onCancelDelete: () => void;
+}) {
+    const filterOptions = React.useMemo(
+        () => buildFilterOptions(categories, documents),
+        [categories, documents],
+    );
+
+    const totalCount = filterOptions.reduce((sum, opt) => sum + opt.count, 0);
+
+    const filteredCategories = selectedCategory
+        ? categories.filter(
+              (topCat) =>
+                  topCat.children?.some(
+                      (child) => child.id.toString() === selectedCategory,
+                  ),
+          )
+        : categories;
+
+    return (
+        <div className="space-y-3">
+            {filterOptions.length > 1 && (
+                <div className="flex gap-1 overflow-x-auto" role="tablist">
+                    <button
+                        type="button"
+                        role="tab"
+                        aria-selected={selectedCategory === null}
+                        onClick={() => onCategoryChange(null)}
+                        className={cn(
+                            "shrink-0 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+                            selectedCategory === null
+                                ? "bg-secondary text-secondary-foreground"
+                                : "text-muted-foreground hover:text-foreground",
+                        )}
+                    >
+                        همه ({totalCount})
+                    </button>
+                    {filterOptions.map((opt) => (
+                        <button
+                            key={opt.key}
+                            type="button"
+                            role="tab"
+                            aria-selected={selectedCategory === opt.key}
+                            onClick={() => onCategoryChange(opt.key)}
+                            className={cn(
+                                "shrink-0 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+                                selectedCategory === opt.key
+                                    ? "bg-secondary text-secondary-foreground"
+                                    : "text-muted-foreground hover:text-foreground",
+                            )}
+                        >
+                            {opt.label} ({opt.count})
+                        </button>
+                    ))}
+                </div>
+            )}
+            {filteredCategories.map((topCat) => {
+                const children = selectedCategory
+                    ? (topCat.children ?? []).filter(
+                          (c) => c.id.toString() === selectedCategory,
+                      )
+                    : (topCat.children ?? []);
+
+                return children.map((child) => {
+                    const items = collectDocs(child, documents);
+                    if (items.length === 0) return null;
+
+                    return (
+                        <div key={child.id} className="space-y-1.5">
+                            <div className="flex items-center gap-1.5">
+                                <IconFolder className="size-4 text-blue-500" />
+                                <span className="text-sm font-medium text-foreground">
+                                    {topCat.name}: {child.name}
+                                </span>
+                                <span className="text-xs text-muted-foreground">
+                                    ({items.length})
+                                </span>
+                            </div>
+                            <div className="space-y-1.5 me-4">
+                                {items.map(({ doc }) =>
+                                    viewMode === "card" ? (
+                                        <CardAttachmentItem
+                                            key={doc.id}
+                                            doc={doc}
+                                            categories={categories}
+                                            isDeleting={deletingIds.has(doc.id)}
+                                            isConfirming={
+                                                confirmingDeleteId === doc.id
+                                            }
+                                            onPreview={onPreview}
+                                            onDownload={onDownload}
+                                            onStartDelete={onStartDelete}
+                                            onConfirmDelete={onConfirmDelete}
+                                            onCancelDelete={onCancelDelete}
+                                        />
+                                    ) : (
+                                        <ListAttachmentItem
+                                            key={doc.id}
+                                            doc={doc}
+                                            categories={categories}
+                                            isDeleting={deletingIds.has(doc.id)}
+                                            isConfirming={
+                                                confirmingDeleteId === doc.id
+                                            }
+                                            onPreview={onPreview}
+                                            onDownload={onDownload}
+                                            onStartDelete={onStartDelete}
+                                            onConfirmDelete={onConfirmDelete}
+                                            onCancelDelete={onCancelDelete}
+                                        />
+                                    ),
+                                )}
+                            </div>
+                        </div>
+                    );
+                });
+            })}
+        </div>
+    );
+}
+
+type ViewMode = "table" | "grouped" | "tree" | "card" | "list";
 
 type DocumentListProps = {
     employeeId: number;
@@ -37,15 +233,21 @@ function handleDownload(doc: Document) {
     a.remove();
 }
 
+const VIEW_BUTTONS: { mode: ViewMode; icon: typeof IconTable; label: string }[] = [
+    { mode: "table", icon: IconTable, label: "جدول" },
+    { mode: "grouped", icon: IconColumns, label: "جدول دسته‌بندی" },
+    { mode: "tree", icon: IconFolder, label: "پوشه‌ای" },
+    { mode: "card", icon: IconLayoutGrid, label: "کارتی" },
+    { mode: "list", icon: IconList, label: "لیستی" },
+];
+
 export function DocumentList({
     employeeId,
     selectedIds,
     onSelectionChange,
 }: DocumentListProps) {
     const queryClient = useQueryClient();
-    const [viewMode, setViewMode] = React.useState<"card" | "list" | "table">(
-        "table",
-    );
+    const [viewMode, setViewMode] = React.useState<ViewMode>("grouped");
     const [lightboxIndex, setLightboxIndex] = React.useState<number | null>(
         null,
     );
@@ -63,6 +265,14 @@ export function DocumentList({
         queryKey: employeeKeys.documents(employeeId),
         queryFn: async () => {
             const { data } = await fetchDocuments(employeeId);
+            return data.data;
+        },
+    });
+
+    const { data: categories } = useQuery({
+        queryKey: employeeKeys.documentCategories("employee"),
+        queryFn: async () => {
+            const { data } = await fetchDocumentCategories("employee");
             return data.data;
         },
     });
@@ -140,16 +350,6 @@ export function DocumentList({
         );
     }
 
-    const grouped = documents.reduce<Record<string, Document[]>>((acc, doc) => {
-        const key = doc.category?.name ?? "سایر";
-        if (!acc[key]) acc[key] = [];
-        acc[key].push(doc);
-        return acc;
-    }, {});
-
-    const sortedKeys = Object.keys(grouped).sort();
-    const categories = sortedKeys;
-
     return (
         <div className="space-y-4">
             <div className="flex items-center justify-between">
@@ -159,35 +359,45 @@ export function DocumentList({
                     role="group"
                     aria-label="حالت نمایش"
                 >
-                    <Button
-                        variant={viewMode === "table" ? "secondary" : "ghost"}
-                        size="icon-xs"
-                        onClick={() => setViewMode("table")}
-                        aria-pressed={viewMode === "table"}
-                    >
-                        <IconTable className="size-4" />
-                    </Button>
-                    <Button
-                        variant={viewMode === "card" ? "secondary" : "ghost"}
-                        size="icon-xs"
-                        onClick={() => setViewMode("card")}
-                        aria-pressed={viewMode === "card"}
-                    >
-                        <IconLayoutGrid className="size-4" />
-                    </Button>
-                    <Button
-                        variant={viewMode === "list" ? "secondary" : "ghost"}
-                        size="icon-xs"
-                        onClick={() => setViewMode("list")}
-                        aria-pressed={viewMode === "list"}
-                    >
-                        <IconList className="size-4" />
-                    </Button>
+                        {VIEW_BUTTONS.map(({ mode, icon: Icon, label }) => (
+                            <Tooltip key={mode}>
+                                <TooltipTrigger
+                                    render={
+                                        <Button
+                                            variant={viewMode === mode ? "secondary" : "ghost"}
+                                            size="icon-xs"
+                                            onClick={() => setViewMode(mode)}
+                                            aria-pressed={viewMode === mode}
+                                        />
+                                    }
+                                >
+                                    <Icon className="size-4" />
+                                </TooltipTrigger>
+                                <TooltipContent>{label}</TooltipContent>
+                            </Tooltip>
+                        ))}
+                    </div>
                 </div>
-            </div>
 
-            {viewMode === "table" ? (
+            {viewMode === "table" && (
                 <DocumentTable
+                    documents={documents}
+                    categories={categories}
+                    onPreview={handlePreview}
+                    onDownload={handleDownload}
+                    confirmingDeleteId={confirmingDeleteId}
+                    deletingIds={deletingIds}
+                    onStartDelete={handleStartDelete}
+                    onConfirmDelete={handleConfirmDelete}
+                    onCancelDelete={handleCancelDelete}
+                    selectedIds={selectedIds}
+                    onSelectionChange={onSelectionChange}
+                />
+            )}
+
+            {viewMode === "grouped" && categories && (
+                <DocumentGroupedTable
+                    categories={categories}
                     documents={documents}
                     onPreview={handlePreview}
                     onDownload={handleDownload}
@@ -199,114 +409,39 @@ export function DocumentList({
                     selectedIds={selectedIds}
                     onSelectionChange={onSelectionChange}
                 />
-            ) : (
-                <>
-                    {categories.length > 1 && (
-                        <div
-                            className="flex gap-1 overflow-x-auto"
-                            role="tablist"
-                        >
-                            <button
-                                type="button"
-                                role="tab"
-                                aria-selected={selectedCategory === null}
-                                onClick={() => setSelectedCategory(null)}
-                                className={cn(
-                                    "shrink-0 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
-                                    selectedCategory === null
-                                        ? "bg-secondary text-secondary-foreground"
-                                        : "text-muted-foreground hover:text-foreground",
-                                )}
-                            >
-                                همه ({documents.length})
-                            </button>
-                            {categories.map((name) => (
-                                <button
-                                    key={name}
-                                    type="button"
-                                    role="tab"
-                                    aria-selected={selectedCategory === name}
-                                    onClick={() => setSelectedCategory(name)}
-                                    className={cn(
-                                        "shrink-0 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
-                                        selectedCategory === name
-                                            ? "bg-secondary text-secondary-foreground"
-                                            : "text-muted-foreground hover:text-foreground",
-                                    )}
-                                >
-                                    {name} ({grouped[name].length})
-                                </button>
-                            ))}
-                        </div>
-                    )}
-                    {(selectedCategory ? [selectedCategory] : categories).map(
-                        (categoryName) => (
-                            <div key={categoryName} className="space-y-2">
-                                {!selectedCategory && (
-                                    <h4 className="text-sm font-medium text-muted-foreground">
-                                        {categoryName}
-                                    </h4>
-                                )}
-                                {viewMode === "card" ? (
-                                    <AttachmentGroup>
-                                        {grouped[categoryName].map((doc) => (
-                                            <CardAttachmentItem
-                                                key={doc.id}
-                                                doc={doc}
-                                                isDeleting={deletingIds.has(
-                                                    doc.id,
-                                                )}
-                                                isConfirming={
-                                                    confirmingDeleteId ===
-                                                    doc.id
-                                                }
-                                                onPreview={handlePreview}
-                                                onDownload={handleDownload}
-                                                onStartDelete={
-                                                    handleStartDelete
-                                                }
-                                                onConfirmDelete={
-                                                    handleConfirmDelete
-                                                }
-                                                onCancelDelete={
-                                                    handleCancelDelete
-                                                }
-                                            />
-                                        ))}
-                                    </AttachmentGroup>
-                                ) : (
-                                    <div className="flex gap-2 flex-wrap">
-                                        {grouped[categoryName].map((doc) => (
-                                            <ListAttachmentItem
-                                                key={doc.id}
-                                                doc={doc}
-                                                isDeleting={deletingIds.has(
-                                                    doc.id,
-                                                )}
-                                                isConfirming={
-                                                    confirmingDeleteId ===
-                                                    doc.id
-                                                }
-                                                onPreview={handlePreview}
-                                                onDownload={handleDownload}
-                                                onStartDelete={
-                                                    handleStartDelete
-                                                }
-                                                onConfirmDelete={
-                                                    handleConfirmDelete
-                                                }
-                                                onCancelDelete={
-                                                    handleCancelDelete
-                                                }
-                                            />
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        ),
-                    )}
-                </>
             )}
+
+            {viewMode === "tree" && categories && (
+                <DocumentTreeView
+                    categories={categories}
+                    documents={documents}
+                    onPreview={handlePreview}
+                    onDownload={handleDownload}
+                    confirmingDeleteId={confirmingDeleteId}
+                    deletingIds={deletingIds}
+                    onStartDelete={handleStartDelete}
+                    onConfirmDelete={handleConfirmDelete}
+                    onCancelDelete={handleCancelDelete}
+                />
+            )}
+
+            {(viewMode === "card" || viewMode === "list") && categories && (
+                <NestedCategoryCards
+                    categories={categories}
+                    documents={documents}
+                    viewMode={viewMode}
+                    selectedCategory={selectedCategory}
+                    onCategoryChange={setSelectedCategory}
+                    deletingIds={deletingIds}
+                    confirmingDeleteId={confirmingDeleteId}
+                    onPreview={handlePreview}
+                    onDownload={handleDownload}
+                    onStartDelete={handleStartDelete}
+                    onConfirmDelete={handleConfirmDelete}
+                    onCancelDelete={handleCancelDelete}
+                />
+            )}
+
             <DocumentPreviewLightbox
                 documents={documents}
                 currentIndex={lightboxIndex ?? 0}
