@@ -21,6 +21,7 @@ class StoreDocumentCategoryRequest extends FormRequest
             'description' => ['nullable', 'string', 'max:1000'],
             'sort_order' => ['nullable', 'integer', 'min:0'],
             'documentable_type' => ['required', 'string', 'in:'.implode(',', array_keys(DocumentCategory::allowedTypes()))],
+            'parent_id' => ['nullable', 'integer', 'exists:document_categories,id'],
         ];
     }
 }
