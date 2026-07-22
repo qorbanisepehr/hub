@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/card";
 import {
     IconArrowDownToArc,
+    IconClipboard,
     IconFileDescription,
     IconFiles,
     IconFolder,
@@ -110,6 +111,16 @@ export function HomePage() {
                             <IconHeadset className="ml-2 size-4" />
                             تماس با ما
                         </Button>
+                        <Link to="/questionnaire">
+                            <Button
+                                size="lg"
+                                variant="outline"
+                                className="px-8 cursor-pointer"
+                            >
+                                <IconClipboard className="ml-2 size-4" />
+                                پرسشنامه استخدامی
+                            </Button>
+                        </Link>
                     </div>
                 </div>
 
@@ -210,6 +221,12 @@ export function HomePage() {
                                 <IconHeadset className="ml-2 size-4" />
                                 تماس با ما
                             </Button>
+                            <Link to="/questionnaire">
+                                <Button variant="outline" className="px-8 cursor-pointer">
+                                    <IconClipboard className="ml-2 size-4" />
+                                    پرسشنامه استخدامی
+                                </Button>
+                            </Link>
                         </div>
                     </div>
                 </div>

@@ -1,0 +1,112 @@
+import type { ReactFormExtendedApi } from "@tanstack/react-form";
+
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+    FormTextField,
+    FormNumberField,
+    FormTextarea,
+    FormRadioGroup,
+} from "@/components/shared/form-fields";
+import { FormRepeater } from "@/components/shared/form-repeater";
+import { YES_NO_OPTIONS } from "@/features/recruitment/constants";
+
+type SectionProps = {
+    form: ReactFormExtendedApi<any, any, any, any, any, any, any, any, any, any, any, any>;
+};
+
+export function WorkExperienceSection({ form }: SectionProps) {
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>سوابق شغلی</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+                <form.Field name="work_experience.work_experiences">
+                    {(field) => (
+                        <FormRepeater
+                            field={field}
+                            label="سوابق شغلی"
+                            renderItem={(index) => (
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <form.Field
+                                        name={`work_experience.work_experiences.${index}.company`}
+                                    >
+                                        {(f) => <FormTextField field={f} label="شرکت" />}
+                                    </form.Field>
+                                    <form.Field
+                                        name={`work_experience.work_experiences.${index}.location`}
+                                    >
+                                        {(f) => <FormTextField field={f} label="محل کار" />}
+                                    </form.Field>
+                                    <form.Field
+                                        name={`work_experience.work_experiences.${index}.industry`}
+                                    >
+                                        {(f) => <FormTextField field={f} label="صنعت" />}
+                                    </form.Field>
+                                    <form.Field
+                                        name={`work_experience.work_experiences.${index}.position`}
+                                    >
+                                        {(f) => <FormTextField field={f} label="سمت شغلی" />}
+                                    </form.Field>
+                                    <form.Field name={`work_experience.work_experiences.${index}.from`}>
+                                        {(f) => <FormTextField field={f} label="از تاریخ" />}
+                                    </form.Field>
+                                    <form.Field name={`work_experience.work_experiences.${index}.to`}>
+                                        {(f) => <FormTextField field={f} label="تا تاریخ" />}
+                                    </form.Field>
+                                    <form.Field
+                                        name={`work_experience.work_experiences.${index}.contract_type`}
+                                    >
+                                        {(f) => <FormTextField field={f} label="نوع قرارداد" />}
+                                    </form.Field>
+                                    <form.Field name={`work_experience.work_experiences.${index}.phone`}>
+                                        {(f) => <FormTextField field={f} label="تلفن" dir="ltr" />}
+                                    </form.Field>
+                                    <form.Field
+                                        name={`work_experience.work_experiences.${index}.manager_name`}
+                                    >
+                                        {(f) => <FormTextField field={f} label="نام مدیر" />}
+                                    </form.Field>
+                                    <form.Field
+                                        name={`work_experience.work_experiences.${index}.last_salary`}
+                                    >
+                                        {(f) => <FormNumberField field={f} label="آخرین حقوق" />}
+                                    </form.Field>
+                                    <div className="md:col-span-3">
+                                        <form.Field
+                                            name={`work_experience.work_experiences.${index}.leave_reason`}
+                                        >
+                                            {(f) => <FormTextarea field={f} label="دلیل ترک" />}
+                                        </form.Field>
+                                    </div>
+                                </div>
+                            )}
+                        />
+                    )}
+                </form.Field>
+
+                <form.Field name="work_experience.achievements">
+                    {(field) => <FormTextarea field={field} label="دستاوردها" />}
+                </form.Field>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <form.Field name="work_experience.allow_contact_previous_managers">
+                        {(field) => (
+                            <FormRadioGroup
+                                field={field}
+                                label="اجازه تماس با مدیران قبلی"
+                                options={YES_NO_OPTIONS}
+                            />
+                        )}
+                    </form.Field>
+                </div>
+
+                <form.Field name="work_experience.contact_restriction_description">
+                    {(field) => (
+                        <FormTextarea field={field} label="توضیحات محدودیت تماس" />
+                    )}
+                </form.Field>
+            </CardContent>
+        </Card>
+    );
+}
