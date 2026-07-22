@@ -6,6 +6,7 @@ import {
     FormNumberField,
     FormTextarea,
     FormRadioGroup,
+    FormDatePicker,
 } from "@/components/shared/form-fields";
 import { FormRepeater } from "@/components/shared/form-repeater";
 import { YES_NO_OPTIONS } from "@/features/recruitment/constants";
@@ -49,10 +50,10 @@ export function WorkExperienceSection({ form }: SectionProps) {
                                         {(f) => <FormTextField field={f} label="سمت شغلی" />}
                                     </form.Field>
                                     <form.Field name={`work_experience.work_experiences.${index}.from`}>
-                                        {(f) => <FormTextField field={f} label="از تاریخ" />}
+                                        {(f) => <FormDatePicker field={f} label="از تاریخ" />}
                                     </form.Field>
                                     <form.Field name={`work_experience.work_experiences.${index}.to`}>
-                                        {(f) => <FormTextField field={f} label="تا تاریخ" />}
+                                        {(f) => <FormDatePicker field={f} label="تا تاریخ" />}
                                     </form.Field>
                                     <form.Field
                                         name={`work_experience.work_experiences.${index}.contract_type`}

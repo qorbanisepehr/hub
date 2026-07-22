@@ -9,6 +9,7 @@ import {
     FormTextarea,
     FormSelectField,
     FormRadioGroup,
+    FormDatePicker,
 } from "@/components/shared/form-fields";
 import { FormRepeater } from "@/components/shared/form-repeater";
 import { DEGREE_OPTIONS, YES_NO_OPTIONS } from "@/features/recruitment/constants";
@@ -52,10 +53,10 @@ export function EducationSection({ form }: SectionProps) {
                                         {(f) => <FormTextField field={f} label="محل" />}
                                     </form.Field>
                                     <form.Field name={`education.education_records.${index}.from`}>
-                                        {(f) => <FormTextField field={f} label="از تاریخ" />}
+                                        {(f) => <FormDatePicker field={f} label="از تاریخ" />}
                                     </form.Field>
                                     <form.Field name={`education.education_records.${index}.to`}>
-                                        {(f) => <FormTextField field={f} label="تا تاریخ" />}
+                                        {(f) => <FormDatePicker field={f} label="تا تاریخ" />}
                                     </form.Field>
                                     <form.Field
                                         name={`education.education_records.${index}.thesis_title`}
@@ -65,7 +66,7 @@ export function EducationSection({ form }: SectionProps) {
                                     <form.Field
                                         name={`education.education_records.${index}.graduation_date`}
                                     >
-                                        {(f) => <FormTextField field={f} label="تاریخ فارغ‌التحصیلی" />}
+                                        {(f) => <FormDatePicker field={f} label="تاریخ فارغ‌التحصیلی" />}
                                     </form.Field>
                                     <form.Field name={`education.education_records.${index}.gpa`}>
                                         {(f) => <FormTextField field={f} label="معدل" />}
@@ -150,11 +151,11 @@ export function EducationSection({ form }: SectionProps) {
                                         </div>
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                             <form.Field name="education.study_start">
-                                                {(f) => <FormTextField field={f} label="تاریخ شروع تحصیل" />}
+                                                {(f) => <FormDatePicker field={f} label="تاریخ شروع تحصیل" />}
                                             </form.Field>
                                             <form.Field name="education.expected_graduation">
                                                 {(f) => (
-                                                    <FormTextField
+                                                    <FormDatePicker
                                                         field={f}
                                                         label="تاریخ انتظار فارغ‌التحصیلی"
                                                     />

@@ -9,6 +9,7 @@ import {
     FormTextarea,
     FormRadioGroup,
     FormCheckboxGroup,
+    FormDatePicker,
 } from "@/components/shared/form-fields";
 import {
     EMPLOYMENT_TYPE_OPTIONS,
@@ -124,7 +125,7 @@ export function JobRequestSection({ form }: SectionProps) {
                         )}
                     </form.Field>
                     <form.Field name="job_request.available_start_date">
-                        {(field) => <FormTextField field={field} label="تاریخ شروع به کار" />}
+                        {(field) => <FormDatePicker field={field} label="تاریخ شروع به کار" />}
                     </form.Field>
                 </div>
             </CardContent>

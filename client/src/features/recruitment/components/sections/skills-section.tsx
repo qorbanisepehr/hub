@@ -1,7 +1,7 @@
 import type { ReactFormExtendedApi } from "@tanstack/react-form";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { FormTextField, FormTextarea, FormSelectField } from "@/components/shared/form-fields";
+import { FormTextField, FormSelectField } from "@/components/shared/form-fields";
 import { FormRepeater } from "@/components/shared/form-repeater";
 import {
     LANGUAGE_LEVEL_OPTIONS,
@@ -170,9 +170,32 @@ export function SkillsSection({ form }: SectionProps) {
                     )}
                 </form.Field>
 
-                <form.Field name="skills.special_skills">
-                    {(field) => <FormTextarea field={field} label="مهارت‌های خاص" />}
-                </form.Field>
+                <Card>
+                    <CardHeader>
+                        <CardTitle>مهارت‌های خاص</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <form.Field name="skills.special_skills">
+                            {(field) => (
+                                <FormRepeater
+                                    field={field}
+                                    label="مهارت‌های خاص"
+                                    renderItem={(index) => (
+                                        <form.Field name={`skills.special_skills.${index}`}>
+                                            {(f) => (
+                                                <FormTextField
+                                                    field={f}
+                                                    label={`مهارت ${index + 1}`}
+                                                    placeholder="نام مهارت"
+                                                />
+                                            )}
+                                        </form.Field>
+                                    )}
+                                />
+                            )}
+                        </form.Field>
+                    </CardContent>
+                </Card>
             </CardContent>
         </Card>
     );

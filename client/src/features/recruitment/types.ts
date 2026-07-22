@@ -30,6 +30,8 @@ export interface PersonalInfo {
     father_name: string;
     religion: string;
     marital_status: string;
+    first_name_en: string;
+    last_name_en: string;
     dependents_count: number | null;
     children_count: number | null;
     spouse_employment_status: string;
@@ -124,7 +126,7 @@ export interface Skills {
         general: SoftwareSkill[];
     };
     certificates: Certificate[];
-    special_skills: string;
+    special_skills: string[];
 }
 
 export interface TrainingCourse {

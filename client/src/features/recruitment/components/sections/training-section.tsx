@@ -1,7 +1,7 @@
 import type { ReactFormExtendedApi } from "@tanstack/react-form";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { FormTextField, FormTextarea } from "@/components/shared/form-fields";
+import { FormTextField, FormTextarea, FormDatePicker } from "@/components/shared/form-fields";
 import { FormRepeater } from "@/components/shared/form-repeater";
 
 type SectionProps = {
@@ -38,7 +38,7 @@ export function TrainingSection({ form }: SectionProps) {
                                         {(f) => <FormTextField field={f} label="سازمان برگزارکننده" />}
                                     </form.Field>
                                     <form.Field name={`training.training_courses.${index}.held_at`}>
-                                        {(f) => <FormTextField field={f} label="تاریخ برگزاری" />}
+                                        {(f) => <FormDatePicker field={f} label="تاریخ برگزاری" />}
                                     </form.Field>
                                     <form.Field
                                         name={`training.training_courses.${index}.certificate`}

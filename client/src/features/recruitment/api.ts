@@ -3,7 +3,6 @@ import type {
     Questionnaire,
     InitQuestionnaireResponse,
     SaveQuestionnaireResponse,
-    VerifyQuestionnaireResponse,
 } from "./types";
 
 export function initQuestionnaire(data: {
@@ -23,6 +22,8 @@ export function saveQuestionnaire(
     uuid: string,
     data: {
         current_step?: number;
+        email?: string;
+        mobile?: string;
         personal_info?: Questionnaire["personal_info"];
         education?: Questionnaire["education"];
         work_experience?: Questionnaire["work_experience"];
@@ -35,17 +36,25 @@ export function saveQuestionnaire(
     return api.put<SaveQuestionnaireResponse>(`/questionnaire/${uuid}`, data);
 }
 
-export function sendOtp(uuid: string) {
-    return api.post<{ message: string }>(`/questionnaire/${uuid}/send-otp`);
+export function sendMobileOtp(uuid: string) {
+    return api.post<{ message: string }>(`/questionnaire/${uuid}/send-mobile-otp`);
 }
 
-export function verifyQuestionnaire(
-    uuid: string,
-    data: { mobile_otp: string; email_otp: string }
-) {
-    return api.post<VerifyQuestionnaireResponse>(
-        `/questionnaire/${uuid}/verify`,
-        data
+export function sendEmailOtp(uuid: string) {
+    return api.post<{ message: string }>(`/questionnaire/${uuid}/send-email-otp`);
+}
+
+export function verifyMobileOtp(uuid: string, otp: string) {
+    return api.post<{ data: Questionnaire; message: string }>(
+        `/questionnaire/${uuid}/verify-mobile-otp`,
+        { otp }
+    );
+}
+
+export function verifyEmailOtp(uuid: string, otp: string) {
+    return api.post<{ data: Questionnaire; message: string }>(
+        `/questionnaire/${uuid}/verify-email-otp`,
+        { otp }
     );
 }
 
