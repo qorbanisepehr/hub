@@ -15,7 +15,6 @@ class Questionnaire extends Model
     protected $fillable = [
         'uuid',
         'status',
-        'current_step',
         'first_name',
         'last_name',
         'email',
@@ -36,7 +35,6 @@ class Questionnaire extends Model
     ];
 
     protected $casts = [
-        'current_step' => 'integer',
         'personal_info' => 'array',
         'education' => 'array',
         'work_experience' => 'array',

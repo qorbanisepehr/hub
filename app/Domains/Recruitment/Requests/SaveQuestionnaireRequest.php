@@ -28,14 +28,4 @@ class SaveQuestionnaireRequest extends FormRequest
             'job_request' => ['sometimes', 'nullable', 'array'],
         ];
     }
-
-    /** @return array<string, string> */
-    public function messages(): array
-    {
-        return [
-            'current_step.integer' => __('recruitment.validation.current_step.integer'),
-            'current_step.min' => __('recruitment.validation.current_step.min'),
-            'current_step.max' => __('recruitment.validation.current_step.max'),
-        ];
-    }
 }

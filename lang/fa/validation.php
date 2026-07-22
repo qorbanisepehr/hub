@@ -155,7 +155,117 @@ return [
     */
 
     'custom' => [
-        'attributes' => [],
+        // ── InitQuestionnaireRequest ──
+        'first_name' => [
+            'required' => 'نام الزامی است.',
+            'max' => 'حداکثر ۱۰۰ کاراکتر.',
+        ],
+        'first_name_en' => [
+            'max' => 'حداکثر ۱۰۰ کاراکتر.',
+        ],
+        'last_name' => [
+            'required' => 'نام خانوادگی الزامی است.',
+            'max' => 'حداکثر ۱۰۰ کاراکتر.',
+        ],
+        'last_name_en' => [
+            'max' => 'حداکثر ۱۰۰ کاراکتر.',
+        ],
+        'email' => [
+            'required' => 'ایمیل الزامی است.',
+            'email' => 'فرمت ایمیل نامعتبر است.',
+            'max' => 'حداکثر ۲۵۵ کاراکتر.',
+        ],
+        'mobile' => [
+            'required' => 'شماره موبایل الزامی است.',
+            'max' => 'حداکثر ۱۵ کاراکتر.',
+        ],
+        // ── VerifyQuestionnaireRequest ──
+        'mobile_otp' => [
+            'required' => 'کد تأیید موبایل الزامی است.',
+            'size' => 'کد تأیید موبایل باید ۶ رقم باشد.',
+        ],
+        'email_otp' => [
+            'required' => 'کد تأیید ایمیل الزامی است.',
+            'size' => 'کد تأیید ایمیل باید ۶ رقم باشد.',
+        ],
+        // ── SaveQuestionnaireRequest ──
+        'current_step' => [
+            'integer' => 'مرحله فعلی باید عدد باشد.',
+            'min' => 'مرحله فعلی نامعتبر است.',
+            'max' => 'مرحله فعلی نامعتبر است.',
+        ],
+        // ── SubmitQuestionnaireRequest ──
+        'personal_info' => [
+            'required' => 'اطلاعات شخصی الزامی است.',
+            'array' => 'اطلاعات شخصی باید آرایه باشد.',
+        ],
+        'personal_info.national_id' => [
+            'required' => 'کد ملی الزامی است.',
+        ],
+        'personal_info.gender' => [
+            'required' => 'جنسیت الزامی است.',
+        ],
+        'personal_info.birth_date' => [
+            'required' => 'تاریخ تولد الزامی است.',
+        ],
+        'personal_info.marital_status' => [
+            'required' => 'وضعیت تأهل الزامی است.',
+        ],
+        'education' => [
+            'required' => 'سوابق تحصیلی الزامی است.',
+            'array' => 'سوابق تحصیلی باید آرایه باشد.',
+        ],
+        'education.education_records' => [
+            'required' => 'حداقل یک سوابق تحصیلی الزامی است.',
+            'array' => 'سوابق تحصیلی باید آرایه باشد.',
+            'min' => 'حداقل یک سوابق تحصیلی الزامی است.',
+        ],
+        'work_experience' => [
+            'required' => 'سوابق شغلی الزامی است.',
+        ],
+        'skills' => [
+            'required' => 'مهارت‌ها الزامی است.',
+        ],
+        'training' => [
+            'required' => 'آموزش و تحقیقات الزامی است.',
+        ],
+        'additional_info' => [
+            'required' => 'اطلاعات تکمیلی الزامی است.',
+        ],
+        'job_request' => [
+            'required' => 'نوع درخواست همکاری الزامی است.',
+        ],
+        'job_request.employment_type' => [
+            'required' => 'نوع استخدام الزامی است.',
+        ],
+        'job_request.accept_information' => [
+            'required' => 'تأیید اطلاعات الزامی است.',
+            'accepted' => 'باید اطلاعات را تأیید کنید.',
+        ],
+    ],
+
+    'attributes' => [
+        'personal_info' => 'اطلاعات شخصی',
+        'personal_info.national_id' => 'کد ملی',
+        'personal_info.gender' => 'جنسیت',
+        'personal_info.birth_date' => 'تاریخ تولد',
+        'personal_info.marital_status' => 'وضعیت تأهل',
+        'education' => 'سوابق تحصیلی',
+        'education.education_records' => 'سوابق تحصیلی',
+        'work_experience' => 'سوابق شغلی',
+        'skills' => 'مهارت‌ها',
+        'training' => 'آموزش و تحقیقات',
+        'additional_info' => 'اطلاعات تکمیلی',
+        'job_request' => 'درخواست همکاری',
+        'job_request.employment_type' => 'نوع استخدام',
+        'job_request.accept_information' => 'تأیید اطلاعات',
+        'first_name' => 'نام',
+        'last_name' => 'نام خانوادگی',
+        'email' => 'ایمیل',
+        'mobile' => 'شماره موبایل',
+        'mobile_otp' => 'کد تأیید موبایل',
+        'email_otp' => 'کد تأیید ایمیل',
+        'current_step' => 'مرحله فعلی',
     ],
 
 ];

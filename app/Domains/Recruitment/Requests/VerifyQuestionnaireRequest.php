@@ -19,15 +19,4 @@ class VerifyQuestionnaireRequest extends FormRequest
             'email_otp' => ['required', 'string', 'size:6'],
         ];
     }
-
-    /** @return array<string, string> */
-    public function messages(): array
-    {
-        return [
-            'mobile_otp.required' => __('recruitment.validation.mobile_otp.required'),
-            'mobile_otp.size' => __('recruitment.validation.mobile_otp.size'),
-            'email_otp.required' => __('recruitment.validation.email_otp.required'),
-            'email_otp.size' => __('recruitment.validation.email_otp.size'),
-        ];
-    }
 }

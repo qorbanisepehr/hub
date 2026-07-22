@@ -179,22 +179,117 @@ return [
     */
 
     'custom' => [
-        'attribute-name' => [
-            'rule-name' => 'custom-message',
+        // ── InitQuestionnaireRequest ──
+        'first_name' => [
+            'required' => 'First name is required.',
+            'max' => 'Maximum 100 characters.',
+        ],
+        'first_name_en' => [
+            'max' => 'Maximum 100 characters.',
+        ],
+        'last_name' => [
+            'required' => 'Last name is required.',
+            'max' => 'Maximum 100 characters.',
+        ],
+        'last_name_en' => [
+            'max' => 'Maximum 100 characters.',
+        ],
+        'email' => [
+            'required' => 'Email is required.',
+            'email' => 'Invalid email format.',
+            'max' => 'Maximum 255 characters.',
+        ],
+        'mobile' => [
+            'required' => 'Mobile number is required.',
+            'max' => 'Maximum 15 characters.',
+        ],
+        // ── VerifyQuestionnaireRequest ──
+        'mobile_otp' => [
+            'required' => 'Mobile verification code is required.',
+            'size' => 'Mobile verification code must be 6 digits.',
+        ],
+        'email_otp' => [
+            'required' => 'Email verification code is required.',
+            'size' => 'Email verification code must be 6 digits.',
+        ],
+        // ── SaveQuestionnaireRequest ──
+        'current_step' => [
+            'integer' => 'Current step must be a number.',
+            'min' => 'Invalid current step.',
+            'max' => 'Invalid current step.',
+        ],
+        // ── SubmitQuestionnaireRequest ──
+        'personal_info' => [
+            'required' => 'Personal information is required.',
+            'array' => 'Personal information must be an array.',
+        ],
+        'personal_info.national_id' => [
+            'required' => 'National ID is required.',
+        ],
+        'personal_info.gender' => [
+            'required' => 'Gender is required.',
+        ],
+        'personal_info.birth_date' => [
+            'required' => 'Birth date is required.',
+        ],
+        'personal_info.marital_status' => [
+            'required' => 'Marital status is required.',
+        ],
+        'education' => [
+            'required' => 'Education information is required.',
+            'array' => 'Education must be an array.',
+        ],
+        'education.education_records' => [
+            'required' => 'At least one education record is required.',
+            'array' => 'Education records must be an array.',
+            'min' => 'At least one education record is required.',
+        ],
+        'work_experience' => [
+            'required' => 'Work experience is required.',
+        ],
+        'skills' => [
+            'required' => 'Skills are required.',
+        ],
+        'training' => [
+            'required' => 'Training information is required.',
+        ],
+        'additional_info' => [
+            'required' => 'Additional information is required.',
+        ],
+        'job_request' => [
+            'required' => 'Job request is required.',
+        ],
+        'job_request.employment_type' => [
+            'required' => 'Employment type is required.',
+        ],
+        'job_request.accept_information' => [
+            'required' => 'Information acceptance is required.',
+            'accepted' => 'You must accept the information.',
         ],
     ],
 
-    /*
-    |--------------------------------------------------------------------------
-    | Custom Validation Attributes
-    |--------------------------------------------------------------------------
-    |
-    | The following language lines are used to swap our attribute placeholder
-    | with something more reader friendly such as "E-Mail Address" instead
-    | of "email". This simply helps us make our message more expressive.
-    |
-    */
-
-    'attributes' => [],
+    'attributes' => [
+        'personal_info' => 'personal information',
+        'personal_info.national_id' => 'national ID',
+        'personal_info.gender' => 'gender',
+        'personal_info.birth_date' => 'birth date',
+        'personal_info.marital_status' => 'marital status',
+        'education' => 'education',
+        'education.education_records' => 'education records',
+        'work_experience' => 'work experience',
+        'skills' => 'skills',
+        'training' => 'training',
+        'additional_info' => 'additional information',
+        'job_request' => 'job request',
+        'job_request.employment_type' => 'employment type',
+        'job_request.accept_information' => 'information acceptance',
+        'first_name' => 'first name',
+        'last_name' => 'last name',
+        'email' => 'email',
+        'mobile' => 'mobile',
+        'mobile_otp' => 'mobile verification code',
+        'email_otp' => 'email verification code',
+        'current_step' => 'current step',
+    ],
 
 ];
