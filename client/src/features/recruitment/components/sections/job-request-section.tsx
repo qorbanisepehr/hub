@@ -1,4 +1,5 @@
 import type { ReactFormExtendedApi } from "@tanstack/react-form";
+import { z } from "zod";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -17,6 +18,7 @@ import {
     CURRENTLY_EMPLOYED_OPTIONS,
     PREFERRED_WORKPLACE_OPTIONS,
 } from "@/features/recruitment/constants";
+import { zodFieldValidator } from "@/lib/validation-helpers";
 
 type SectionProps = {
     form: ReactFormExtendedApi<any, any, any, any, any, any, any, any, any, any, any, any>;
@@ -29,7 +31,12 @@ export function JobRequestSection({ form }: SectionProps) {
                 <CardTitle>نوع درخواست همکاری</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
-                <form.Field name="job_request.employment_type">
+                <form.Field
+                    name="job_request.employment_type"
+                    validators={{
+                        onBlur: zodFieldValidator(z.string().min(1, "نوع استخدام الزامی است.")),
+                    }}
+                >
                     {(field) => (
                         <FormRadioGroup
                             field={field}
@@ -78,7 +85,14 @@ export function JobRequestSection({ form }: SectionProps) {
                     {(field) => <FormTextarea field={field} label="سایر اطلاعات" />}
                 </form.Field>
 
-                <form.Field name="job_request.accept_information">
+                <form.Field
+                    name="job_request.accept_information"
+                    validators={{
+                        onBlur: zodFieldValidator(
+                            z.literal(true, { message: "باید اطلاعات را تأیید کنید." })
+                        ),
+                    }}
+                >
                     {(field) => (
                         <Field>
                             <div className="flex items-center gap-2">

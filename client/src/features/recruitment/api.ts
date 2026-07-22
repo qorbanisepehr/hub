@@ -21,7 +21,6 @@ export function getQuestionnaire(uuid: string) {
 export function saveQuestionnaire(
     uuid: string,
     data: {
-        current_step?: number;
         email?: string;
         mobile?: string;
         personal_info?: Questionnaire["personal_info"];
@@ -55,6 +54,13 @@ export function verifyEmailOtp(uuid: string, otp: string) {
     return api.post<{ data: Questionnaire; message: string }>(
         `/questionnaire/${uuid}/verify-email-otp`,
         { otp }
+    );
+}
+
+export function submitQuestionnaire(uuid: string, data: Record<string, unknown>) {
+    return api.post<{ data: Questionnaire; message: string }>(
+        `/questionnaire/${uuid}/submit`,
+        data
     );
 }
 

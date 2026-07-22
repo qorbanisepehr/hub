@@ -2,7 +2,6 @@ export interface Questionnaire {
     id: number;
     uuid: string;
     status: "draft" | "submitted" | "reviewed";
-    current_step: number;
     first_name: string;
     last_name: string;
     email: string;

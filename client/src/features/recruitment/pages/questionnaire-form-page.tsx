@@ -6,6 +6,7 @@ import { ErrorPage } from "@/components/shared/error-page";
 import { PageSkeleton } from "@/components/shared/page-skeleton";
 import { getQuestionnaire } from "@/features/recruitment/api";
 import { QuestionnaireWizard } from "@/features/recruitment/components/questionnaire-wizard";
+import { QuestionnaireSuccessPage } from "./questionnaire-success-page";
 
 export function QuestionnaireFormPage() {
     const { uuid } = useParams({ from: "/public/questionnaire/$uuid" });
@@ -16,6 +17,10 @@ export function QuestionnaireFormPage() {
     });
 
     const questionnaire = data?.data?.data;
+
+    if (questionnaire && questionnaire.status === "submitted") {
+        return <QuestionnaireSuccessPage />;
+    }
 
     return (
         <div className="min-h-screen bg-background">
