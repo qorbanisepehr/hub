@@ -184,7 +184,7 @@ describe('bulk document API', function () {
             Storage::fake('local');
             $user = createUserWithPermissions(['document.download_all']);
             $employee = Employee::factory()->create();
-            $category = DocumentCategory::factory()->create(['slug' => 'contracts']);
+            $category = DocumentCategory::factory()->create(['name' => 'contracts', 'slug' => 'contracts']);
 
             $file1 = UploadedFile::fake()->create('report.pdf', 100);
             $file2 = UploadedFile::fake()->create('report.pdf', 100);
@@ -243,8 +243,8 @@ describe('bulk document API', function () {
             Storage::fake('local');
             $user = createUserWithPermissions(['document.download_all']);
             $employee = Employee::factory()->create();
-            $cat1 = DocumentCategory::factory()->create(['slug' => 'contracts']);
-            $cat2 = DocumentCategory::factory()->create(['slug' => 'certs']);
+            $cat1 = DocumentCategory::factory()->create(['name' => 'contracts', 'slug' => 'contracts']);
+            $cat2 = DocumentCategory::factory()->create(['name' => 'certs', 'slug' => 'certs']);
 
             $file1 = UploadedFile::fake()->create('contract.pdf', 100);
             $file2 = UploadedFile::fake()->create('cert.pdf', 100);
@@ -287,6 +287,59 @@ describe('bulk document API', function () {
             expect($names)->toHaveCount(2);
             expect($names)->toContain('contracts/contract.pdf');
             expect($names)->toContain('certs/cert.pdf');
+        });
+
+        it('organizes files in nested category hierarchy in zip', function () {
+            Storage::fake('local');
+            $user = createUserWithPermissions(['document.download_all']);
+            $employee = Employee::factory()->create();
+
+            $parent = DocumentCategory::factory()->create(['name' => 'مشخصات فردی']);
+            $child1 = DocumentCategory::factory()->create(['name' => 'شناسنامه', 'parent_id' => $parent->id]);
+            $child2 = DocumentCategory::factory()->create(['name' => 'کارت ملی', 'parent_id' => $parent->id]);
+            $grandchild = DocumentCategory::factory()->create(['name' => 'صفحه سوم', 'parent_id' => $child1->id]);
+
+            $file1 = UploadedFile::fake()->create('birth-page3.pdf', 100);
+            $file2 = UploadedFile::fake()->create('national-front.jpg', 100);
+            $path1 = $file1->store('test', 'local');
+            $path2 = $file2->store('test', 'local');
+
+            Document::factory()->create([
+                'documentable_id' => $employee->id,
+                'documentable_type' => Employee::class,
+                'document_category_id' => $grandchild->id,
+                'stored_path' => $path1,
+                'original_name' => 'birth-page3.pdf',
+            ]);
+            Document::factory()->create([
+                'documentable_id' => $employee->id,
+                'documentable_type' => Employee::class,
+                'document_category_id' => $child2->id,
+                'stored_path' => $path2,
+                'original_name' => 'national-front.jpg',
+            ]);
+
+            $response = $this->actingAs($user)
+                ->postJson('/api/employees/'.$employee->id.'/documents/download', [])
+                ->assertStatus(200);
+
+            $zipContent = $response->streamedContent();
+            $tempFile = tempnam(sys_get_temp_dir(), 'zip_verify_');
+            file_put_contents($tempFile, $zipContent);
+
+            $zip = new ZipArchive;
+            $zip->open($tempFile);
+
+            $names = [];
+            for ($i = 0; $i < $zip->numFiles; $i++) {
+                $names[] = $zip->getNameIndex($i);
+            }
+            $zip->close();
+            @unlink($tempFile);
+
+            expect($names)->toHaveCount(2);
+            expect($names)->toContain('مشخصات فردی/شناسنامه/صفحه سوم/birth-page3.pdf');
+            expect($names)->toContain('مشخصات فردی/کارت ملی/national-front.jpg');
         });
     });
 

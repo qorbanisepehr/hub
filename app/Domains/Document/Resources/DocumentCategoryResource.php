@@ -19,6 +19,8 @@ class DocumentCategoryResource extends JsonResource
             'description' => $this->description,
             'sort_order' => $this->sort_order,
             'documentable_type' => $this->documentable_type,
+            'parent_id' => $this->parent_id,
+            'children' => DocumentCategoryResource::collection($this->whenLoaded('children')),
             'documents_count' => $this->whenCounted('documents'),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
