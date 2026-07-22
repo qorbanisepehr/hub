@@ -1,15 +1,21 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
-import { IconLoader2 } from "@tabler/icons-react";
+import { IconLoader2, IconShare } from "@tabler/icons-react";
 
+import { Button } from "@/components/ui/button";
 import { ErrorPage } from "@/components/shared/error-page";
-import { PageSkeleton } from "@/components/shared/page-skeleton";
+import { QrCode } from "@/components/shared/qr-code";
+import { ShareDialog } from "@/components/shared/share-dialog";
 import { getQuestionnaire } from "@/features/recruitment/api";
 import { QuestionnaireWizard } from "@/features/recruitment/components/questionnaire-wizard";
 import { QuestionnaireSuccessPage } from "./questionnaire-success-page";
 
 export function QuestionnaireFormPage() {
     const { uuid } = useParams({ from: "/public/questionnaire/$uuid" });
+    const [shareOpen, setShareOpen] = useState(false);
+
+    const shareUrl = `${window.location.origin}/questionnaire/${uuid}`;
 
     const { data, isLoading, isError } = useQuery({
         queryKey: ["questionnaire", uuid],
@@ -23,15 +29,40 @@ export function QuestionnaireFormPage() {
     }
 
     return (
-        <div className="min-h-screen bg-background">
+        <div className="min-h-dvh bg-background pt-16">
             <div className="mx-auto max-w-4xl px-4 py-8">
-                <div className="text-center mb-8">
-                    <h1 className="text-2xl font-bold">پرسشنامه استخدامی</h1>
-                    {questionnaire && (
-                        <p className="text-muted-foreground mt-1">
-                            {questionnaire.first_name} {questionnaire.last_name}
-                        </p>
-                    )}
+                {/* Header */}
+                <div className="mb-8 rounded-xl border bg-card p-4 shadow-sm">
+                    <div className="flex items-center gap-4">
+                        {/* Share button — right side (start in RTL) */}
+                        <Button
+                            variant="outline"
+                            size="icon-sm"
+                            onClick={() => setShareOpen(true)}
+                        >
+                            <IconShare className="size-4" />
+                        </Button>
+
+                        {/* Title — center */}
+                        <div className="flex-1 text-center">
+                            <h1 className="text-xl font-bold">
+                                پرسشنامه استخدامی
+                            </h1>
+                            {questionnaire && (
+                                <p className="text-sm text-muted-foreground mt-0.5">
+                                    {questionnaire.first_name}{" "}
+                                    {questionnaire.last_name}
+                                </p>
+                            )}
+                        </div>
+
+                        {/* QR code — left side (end in RTL) */}
+                        {questionnaire && (
+                            <div className="rounded-lg border bg-background">
+                                <QrCode value={shareUrl} size={90} />
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 {isLoading && (
@@ -48,8 +79,17 @@ export function QuestionnaireFormPage() {
                     />
                 )}
 
-                {questionnaire && <QuestionnaireWizard questionnaire={questionnaire} />}
+                {questionnaire && (
+                    <QuestionnaireWizard questionnaire={questionnaire} />
+                )}
             </div>
+
+            {/* Share Modal */}
+            <ShareDialog
+                open={shareOpen}
+                onOpenChange={setShareOpen}
+                url={shareUrl}
+            />
         </div>
     );
 }
