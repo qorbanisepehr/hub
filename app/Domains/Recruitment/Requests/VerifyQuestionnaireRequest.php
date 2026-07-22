@@ -24,10 +24,10 @@ class VerifyQuestionnaireRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'mobile_otp.required' => 'کد تأیید موبایل الزامی است.',
-            'mobile_otp.size' => 'کد تأیید موبایل باید ۶ رقم باشد.',
-            'email_otp.required' => 'کد تأیید ایمیل الزامی است.',
-            'email_otp.size' => 'کد تأیید ایمیل باید ۶ رقم باشد.',
+            'mobile_otp.required' => __('recruitment.validation.mobile_otp.required'),
+            'mobile_otp.size' => __('recruitment.validation.mobile_otp.size'),
+            'email_otp.required' => __('recruitment.validation.email_otp.required'),
+            'email_otp.size' => __('recruitment.validation.email_otp.size'),
         ];
     }
 }

@@ -5,11 +5,10 @@ namespace App\Domains\Recruitment\Controllers;
 use App\Domains\Recruitment\Models\Questionnaire;
 use App\Domains\Recruitment\Requests\InitQuestionnaireRequest;
 use App\Domains\Recruitment\Requests\SaveQuestionnaireRequest;
-use App\Domains\Recruitment\Requests\VerifyQuestionnaireRequest;
 use App\Domains\Recruitment\Resources\QuestionnaireResource;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
-use Illuminate\Support\Facades\DB;
 
 class QuestionnaireController extends Controller
 {
@@ -30,7 +29,7 @@ class QuestionnaireController extends Controller
 
         return response()->json([
             'data' => new QuestionnaireResource($questionnaire),
-            'message' => 'پرسشنامه با موفقیت ایجاد شد.',
+            'message' => __('recruitment.questionnaire.created'),
         ], 201);
     }
 
@@ -49,63 +48,99 @@ class QuestionnaireController extends Controller
 
         $data = $request->validated();
 
+        // Reset verification if email changed
+        if (isset($data['email']) && $data['email'] !== $questionnaire->email) {
+            $data['email_verified_at'] = null;
+            $data['email_otp'] = Questionnaire::generateOtp();
+        }
+
+        // Reset verification if mobile changed
+        if (isset($data['mobile']) && $data['mobile'] !== $questionnaire->mobile) {
+            $data['mobile_verified_at'] = null;
+            $data['mobile_otp'] = Questionnaire::generateOtp();
+        }
+
         $questionnaire->update($data);
 
         return response()->json([
             'data' => new QuestionnaireResource($questionnaire->fresh()),
-            'message' => 'پرسشنامه ذخیره شد.',
+            'message' => __('recruitment.questionnaire.saved'),
         ]);
     }
 
-    public function sendOtp(string $uuid): JsonResponse
+    public function sendMobileOtp(string $uuid): JsonResponse
     {
         $questionnaire = Questionnaire::where('uuid', $uuid)->where('status', 'draft')->firstOrFail();
 
         $questionnaire->update([
             'mobile_otp' => Questionnaire::generateOtp(),
+        ]);
+
+        return response()->json([
+            'message' => __('recruitment.questionnaire.otp_sent'),
+        ]);
+    }
+
+    public function sendEmailOtp(string $uuid): JsonResponse
+    {
+        $questionnaire = Questionnaire::where('uuid', $uuid)->where('status', 'draft')->firstOrFail();
+
+        $questionnaire->update([
             'email_otp' => Questionnaire::generateOtp(),
         ]);
 
         return response()->json([
-            'message' => 'کد تأیید ارسال شد.',
+            'message' => __('recruitment.questionnaire.otp_sent'),
         ]);
     }
 
-    public function verify(VerifyQuestionnaireRequest $request, string $uuid): JsonResponse
+    public function verifyMobileOtp(Request $request, string $uuid): JsonResponse
     {
+        $request->validate([
+            'otp' => ['required', 'string', 'size:6'],
+        ]);
+
         $questionnaire = Questionnaire::where('uuid', $uuid)->where('status', 'draft')->firstOrFail();
 
-        $data = $request->validated();
-
-        $verified = true;
-
-        if ($data['mobile_otp'] !== $questionnaire->mobile_otp) {
-            $verified = false;
-        }
-
-        if ($data['email_otp'] !== $questionnaire->email_otp) {
-            $verified = false;
-        }
-
-        if (! $verified) {
+        if ($request->input('otp') !== $questionnaire->mobile_otp) {
             return response()->json([
-                'message' => 'کد تأیید نامعتبر است.',
+                'message' => __('recruitment.questionnaire.otp_invalid'),
             ], 422);
         }
 
-        DB::transaction(function () use ($questionnaire): void {
-            $questionnaire->update([
-                'status' => 'submitted',
-                'mobile_verified_at' => now(),
-                'email_verified_at' => now(),
-                'mobile_otp' => null,
-                'email_otp' => null,
-            ]);
-        });
+        $questionnaire->update([
+            'mobile_verified_at' => now(),
+            'mobile_otp' => null,
+        ]);
 
         return response()->json([
             'data' => new QuestionnaireResource($questionnaire->fresh()),
-            'message' => 'پرسشنامه با موفقیت ثبت شد.',
+            'message' => __('recruitment.questionnaire.verified'),
+        ]);
+    }
+
+    public function verifyEmailOtp(Request $request, string $uuid): JsonResponse
+    {
+        $request->validate([
+            'otp' => ['required', 'string', 'size:6'],
+        ]);
+
+        $questionnaire = Questionnaire::where('uuid', $uuid)->where('status', 'draft')->firstOrFail();
+
+        if ($request->input('otp') !== $questionnaire->email_otp) {
+            return response()->json([
+                'message' => __('recruitment.questionnaire.otp_invalid'),
+            ], 422);
+        }
+
+        $questionnaire->update([
+            'email_verified_at' => now(),
+            'email_otp' => null,
+        ]);
+
+        return response()->json([
+            'data' => new QuestionnaireResource($questionnaire->fresh()),
+            'message' => __('recruitment.questionnaire.verified'),
         ]);
     }
 }
