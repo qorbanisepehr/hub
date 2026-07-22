@@ -15,6 +15,15 @@ type SectionProps = {
     form: ReactFormExtendedApi<any, any, any, any, any, any, any, any, any, any, any, any>;
 };
 
+const WORK_COLUMNS = [
+    { key: "company", label: "شرکت" },
+    { key: "position", label: "سمت" },
+    { key: "industry", label: "صنعت" },
+    { key: "from", label: "از تاریخ" },
+    { key: "to", label: "تا تاریخ" },
+    { key: "contract_type", label: "نوع قرارداد" },
+];
+
 export function WorkExperienceSection({ form }: SectionProps) {
     return (
         <Card>
@@ -25,8 +34,18 @@ export function WorkExperienceSection({ form }: SectionProps) {
                 <form.Field name="work_experience.work_experiences">
                     {(field) => (
                         <FormRepeater
+                            defaultMode="table"
                             field={field}
                             label="سوابق شغلی"
+                            columns={WORK_COLUMNS}
+                            getSummary={(item) => ({
+                                company: item.company,
+                                position: item.position,
+                                industry: item.industry,
+                                from: item.from,
+                                to: item.to,
+                                contract_type: item.contract_type,
+                            })}
                             renderItem={(index) => (
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     <form.Field

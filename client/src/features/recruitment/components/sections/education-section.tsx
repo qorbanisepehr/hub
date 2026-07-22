@@ -1,4 +1,5 @@
 import type { ReactFormExtendedApi } from "@tanstack/react-form";
+import { z } from "zod";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -13,10 +14,20 @@ import {
 } from "@/components/shared/form-fields";
 import { FormRepeater } from "@/components/shared/form-repeater";
 import { DEGREE_OPTIONS, YES_NO_OPTIONS } from "@/features/recruitment/constants";
+import { zodFieldValidator } from "@/lib/validation-helpers";
 
 type SectionProps = {
     form: ReactFormExtendedApi<any, any, any, any, any, any, any, any, any, any, any, any>;
 };
+
+const EDUCATION_COLUMNS = [
+    { key: "degree", label: "مدرک" },
+    { key: "field", label: "رشته" },
+    { key: "institution", label: "دانشگاه" },
+    { key: "from", label: "از تاریخ" },
+    { key: "to", label: "تا تاریخ" },
+    { key: "gpa", label: "معدل" },
+];
 
 export function EducationSection({ form }: SectionProps) {
     return (
@@ -25,11 +36,28 @@ export function EducationSection({ form }: SectionProps) {
                 <CardTitle>سوابق تحصیلی</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
-                <form.Field name="education.education_records">
+                <form.Field
+                    name="education.education_records"
+                    validators={{
+                        onBlur: zodFieldValidator(
+                            z.array(z.object({})).min(1, "حداقل یک سوابق تحصیلی الزامی است.")
+                        ),
+                    }}
+                >
                     {(field) => (
                         <FormRepeater
+                            defaultMode="table"
                             field={field}
                             label="سوابق تحصیلی"
+                            columns={EDUCATION_COLUMNS}
+                            getSummary={(item) => ({
+                                degree: DEGREE_OPTIONS.find((d) => d.value === item.degree)?.label ?? item.degree,
+                                field: item.field,
+                                institution: item.institution,
+                                from: item.from,
+                                to: item.to,
+                                gpa: item.gpa,
+                            })}
                             renderItem={(index) => (
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     <form.Field name={`education.education_records.${index}.degree`}>
@@ -77,11 +105,8 @@ export function EducationSection({ form }: SectionProps) {
                     )}
                 </form.Field>
 
-                <Card>
-                    <CardHeader>
-                        <CardTitle>وضعیت دانشجویی</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
+                <div className="rounded-lg border p-4 space-y-4">
+                    <span className="text-sm font-medium">وضعیت دانشجویی</span>
                         <form.Field name="education.is_student">
                             {(field) => (
                                 <Field>
@@ -203,8 +228,7 @@ export function EducationSection({ form }: SectionProps) {
                                 ) : null
                             }
                         </form.Field>
-                    </CardContent>
-                </Card>
+                    </div>
             </CardContent>
         </Card>
     );

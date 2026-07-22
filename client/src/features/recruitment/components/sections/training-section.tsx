@@ -8,6 +8,13 @@ type SectionProps = {
     form: ReactFormExtendedApi<any, any, any, any, any, any, any, any, any, any, any, any>;
 };
 
+const COURSE_COLUMNS = [
+    { key: "course_name", label: "نام دوره" },
+    { key: "institution", label: "سازمان" },
+    { key: "duration", label: "مدت زمان" },
+    { key: "held_at", label: "تاریخ برگزاری" },
+];
+
 export function TrainingSection({ form }: SectionProps) {
     return (
         <Card>
@@ -18,8 +25,16 @@ export function TrainingSection({ form }: SectionProps) {
                 <form.Field name="training.training_courses">
                     {(field) => (
                         <FormRepeater
+                            defaultMode="table"
                             field={field}
                             label="دوره‌های آموزشی"
+                            columns={COURSE_COLUMNS}
+                            getSummary={(item) => ({
+                                course_name: item.course_name,
+                                institution: item.institution,
+                                duration: item.duration,
+                                held_at: item.held_at,
+                            })}
                             renderItem={(index) => (
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     <form.Field
@@ -58,8 +73,12 @@ export function TrainingSection({ form }: SectionProps) {
                 <form.Field name="training.researches">
                     {(field) => (
                         <FormRepeater
+                            defaultMode="card"
                             field={field}
                             label="تحقیقات و پژوهش‌ها"
+                            renderHeader={(item, index) => (
+                                <span>{String(item.title || `پژوهش ${index + 1}`)}</span>
+                            )}
                             renderItem={(index) => (
                                 <div className="grid grid-cols-1 gap-4">
                                     <form.Field name={`training.researches.${index}.title`}>

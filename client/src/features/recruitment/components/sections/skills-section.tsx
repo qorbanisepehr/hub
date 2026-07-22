@@ -22,8 +22,12 @@ export function SkillsSection({ form }: SectionProps) {
                 <form.Field name="skills.languages">
                     {(field) => (
                         <FormRepeater
+                            defaultMode="card"
                             field={field}
                             label="زبان‌ها"
+                            renderHeader={(item, index) => (
+                                <span>{String(item.language || `زبان ${index + 1}`)}</span>
+                            )}
                             renderItem={(index) => (
                                 <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                                     <form.Field name={`skills.languages.${index}.language`}>
@@ -85,9 +89,13 @@ export function SkillsSection({ form }: SectionProps) {
                         <form.Field name="skills.software_skills.specialized">
                             {(field) => (
                                 <FormRepeater
+                                    defaultMode="card"
                                     field={field}
                                     label="نرم‌افزارهای تخصصی"
                                     maxItems={8}
+                                    renderHeader={(item, index) => (
+                                        <span>{String(item.name || `نرم‌افزار ${index + 1}`)}</span>
+                                    )}
                                     renderItem={(index) => (
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                             <form.Field
@@ -122,9 +130,13 @@ export function SkillsSection({ form }: SectionProps) {
                         <form.Field name="skills.software_skills.general">
                             {(field) => (
                                 <FormRepeater
+                                    defaultMode="card"
                                     field={field}
                                     label="نرم‌افزارهای عمومی"
                                     maxItems={4}
+                                    renderHeader={(item, index) => (
+                                        <span>{String(item.name || `نرم‌افزار ${index + 1}`)}</span>
+                                    )}
                                     renderItem={(index) => (
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                             <form.Field
@@ -154,8 +166,12 @@ export function SkillsSection({ form }: SectionProps) {
                 <form.Field name="skills.certificates">
                     {(field) => (
                         <FormRepeater
+                            defaultMode="card"
                             field={field}
                             label="گواهینامه‌ها"
+                            renderHeader={(item, index) => (
+                                <span>{String(item.title || `گواهینامه ${index + 1}`)}</span>
+                            )}
                             renderItem={(index) => (
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <form.Field name={`skills.certificates.${index}.title`}>
@@ -178,8 +194,12 @@ export function SkillsSection({ form }: SectionProps) {
                         <form.Field name="skills.special_skills">
                             {(field) => (
                                 <FormRepeater
+                                    defaultMode="card"
                                     field={field}
                                     label="مهارت‌های خاص"
+                                    renderHeader={(item, index) => (
+                                        <span>{String((typeof item === "string" ? item : null) || `مهارت ${index + 1}`)}</span>
+                                    )}
                                     renderItem={(index) => (
                                         <form.Field name={`skills.special_skills.${index}`}>
                                             {(f) => (

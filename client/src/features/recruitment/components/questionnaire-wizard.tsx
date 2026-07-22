@@ -1,8 +1,16 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm, useStore } from "@tanstack/react-form";
+import { isAxiosError } from "axios";
 import { toast } from "sonner";
-import { IconLoader2, IconChecks, IconArrowRight, IconArrowLeft } from "@tabler/icons-react";
+import {
+    IconLoader2,
+    IconChecks,
+    IconArrowRight,
+    IconArrowLeft,
+    IconSend,
+    IconAlertTriangle,
+} from "@tabler/icons-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -18,9 +26,10 @@ import {
     StepperPanel,
     StepperContent,
 } from "@/components/reui/stepper";
-import { saveQuestionnaire } from "@/features/recruitment/api";
+import { saveQuestionnaire, submitQuestionnaire } from "@/features/recruitment/api";
 import { getApiError } from "@/lib/error-utils";
 import { WIZARD_STEPS } from "@/features/recruitment/constants";
+import { validateSubmitData } from "@/features/recruitment/validation";
 import type { Questionnaire } from "@/features/recruitment/types";
 
 import { PersonalInfoSection } from "./sections/personal-info-section";
@@ -48,7 +57,8 @@ const SECTION_COMPONENTS = [
 
 export function QuestionnaireWizard({ questionnaire }: QuestionnaireWizardProps) {
     const queryClient = useQueryClient();
-    const [currentStep, setCurrentStep] = useState(questionnaire.current_step);
+    const [currentStep, setCurrentStep] = useState(7);
+    const [submitErrors, setSubmitErrors] = useState<string[]>([]);
 
     const saveMutation = useMutation({
         mutationFn: (data: Parameters<typeof saveQuestionnaire>[1]) =>
@@ -58,6 +68,26 @@ export function QuestionnaireWizard({ questionnaire }: QuestionnaireWizardProps)
         },
         onError: () => {
             toast.error("خطا در ذخیره‌سازی");
+        },
+    });
+
+    const submitMutation = useMutation({
+        mutationFn: (data: Record<string, unknown>) =>
+            submitQuestionnaire(questionnaire.uuid, data),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["questionnaire", questionnaire.uuid] });
+            toast.success("پرسشنامه با موفقیت ثبت شد.");
+        },
+        onError: (error: Error) => {
+            if (isAxiosError(error) && error.response?.data?.errors) {
+                const serverErrors = Object.values(error.response.data.errors)
+                    .filter(Array.isArray)
+                    .flat()
+                    .filter((m): m is string => typeof m === "string");
+                setSubmitErrors(serverErrors.length > 0 ? serverErrors : [getApiError(error) ?? "خطای ناشناخته"]);
+            } else {
+                setSubmitErrors([getApiError(error) ?? "خطا در ثبت پرسشنامه"]);
+            }
         },
     });
 
@@ -115,23 +145,52 @@ export function QuestionnaireWizard({ questionnaire }: QuestionnaireWizardProps)
             if (sectionKey && sectionKey !== "summary" && sectionKey in value) {
                 sectionData[sectionKey] = value[sectionKey as keyof typeof value];
             }
-            sectionData.current_step = currentStep;
-
             saveMutation.mutate(sectionData);
         },
     });
 
     const isDirty = useStore(form.store, (s) => s.isDirty);
 
-    const goToStep = async (step: number) => {
-        const sectionKey = WIZARD_STEPS[currentStep]?.key;
-        const sectionData: Record<string, unknown> = {};
-        if (sectionKey && sectionKey !== "summary" && sectionKey in form.state.values) {
-            sectionData[sectionKey] = form.state.values[sectionKey as keyof typeof form.state.values];
+    useEffect(() => {
+        if (isDirty) {
+            setSubmitErrors([]);
         }
-        sectionData.current_step = step;
+    }, [isDirty]);
 
-        await saveMutation.mutateAsync(sectionData);
+    const canSubmit = (() => {
+        const validation = validateSubmitData(form.state.values);
+        const verified = questionnaire.email_verified && questionnaire.mobile_verified;
+        return validation.success && verified && questionnaire.status === "draft";
+    })();
+
+    const handleSubmit = () => {
+        const validation = validateSubmitData(form.state.values);
+        if (!validation.success) {
+            setSubmitErrors(validation.errors);
+            toast.error("لطفاً خطاهای زیر را اصلاح کنید.");
+            return;
+        }
+        if (!questionnaire.email_verified) {
+            setSubmitErrors(["ایمیل تأیید نشده است."]);
+            return;
+        }
+        if (!questionnaire.mobile_verified) {
+            setSubmitErrors(["شماره موبایل تأیید نشده است."]);
+            return;
+        }
+        setSubmitErrors([]);
+        submitMutation.mutate(form.state.values);
+    };
+
+    const goToStep = async (step: number) => {
+        if (isDirty) {
+            const sectionKey = WIZARD_STEPS[currentStep]?.key;
+            const sectionData: Record<string, unknown> = {};
+            if (sectionKey && sectionKey !== "summary" && sectionKey in form.state.values) {
+                sectionData[sectionKey] = form.state.values[sectionKey as keyof typeof form.state.values];
+            }
+            await saveMutation.mutateAsync(sectionData);
+        }
         setCurrentStep(step);
         form.reset(form.state.values);
     };
@@ -166,20 +225,12 @@ export function QuestionnaireWizard({ questionnaire }: QuestionnaireWizardProps)
 
                 <StepperPanel>
                     <StepperContent index={0}>
-                        <Card>
-                            <CardContent className="pt-6">
-                                <PersonalInfoSection form={form as never} questionnaire={questionnaire} />
-                            </CardContent>
-                        </Card>
+                        <PersonalInfoSection form={form as never} questionnaire={questionnaire} />
                     </StepperContent>
 
                     {SECTION_COMPONENTS.slice(1).map((Section, index) => (
                         <StepperContent key={index + 1} index={index + 1}>
-                            <Card>
-                                <CardContent className="pt-6">
-                                    <Section form={form as never} />
-                                </CardContent>
-                            </Card>
+                            <Section form={form as never} />
                         </StepperContent>
                     ))}
 
@@ -192,6 +243,25 @@ export function QuestionnaireWizard({ questionnaire }: QuestionnaireWizardProps)
             {saveMutation.error && (
                 <ErrorBanner message={getApiError(saveMutation.error) ?? "خطای ناشناخته"} />
             )}
+            {submitMutation.error && (
+                <ErrorBanner message={getApiError(submitMutation.error) ?? "خطای ناشناخته"} />
+            )}
+            {submitErrors.length > 0 && (
+                <div className="flex items-start gap-3 rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
+                    <IconAlertTriangle className="mt-0.5 size-4 shrink-0" />
+                    <div className="flex-1">
+                        {submitErrors.length === 1 ? (
+                            <p>{submitErrors[0]}</p>
+                        ) : (
+                            <ul className="space-y-1 list-disc ms-4">
+                                {submitErrors.map((err, i) => (
+                                    <li key={i}>{err}</li>
+                                ))}
+                            </ul>
+                        )}
+                    </div>
+                </div>
+            )}
 
             {/* Navigation */}
             <div className="flex items-center justify-between">
@@ -201,7 +271,7 @@ export function QuestionnaireWizard({ questionnaire }: QuestionnaireWizardProps)
                             type="button"
                             variant="outline"
                             onClick={() => goToStep(currentStep - 1)}
-                            disabled={saveMutation.isPending}
+                            disabled={saveMutation.isPending || submitMutation.isPending}
                         >
                             <IconArrowRight className="size-4 ms-1" />
                             مرحله قبل
@@ -217,7 +287,7 @@ export function QuestionnaireWizard({ questionnaire }: QuestionnaireWizardProps)
                             onClick={() => {
                                 form.handleSubmit();
                             }}
-                            disabled={saveMutation.isPending || !isDirty}
+                            disabled={saveMutation.isPending || submitMutation.isPending || !isDirty}
                         >
                             {saveMutation.isPending ? (
                                 <IconLoader2 className="size-4 animate-spin" />
@@ -232,11 +302,36 @@ export function QuestionnaireWizard({ questionnaire }: QuestionnaireWizardProps)
                         <Button
                             type="button"
                             onClick={() => goToStep(currentStep + 1)}
-                            disabled={saveMutation.isPending}
+                            disabled={saveMutation.isPending || submitMutation.isPending}
                         >
                             مرحله بعد
                             <IconArrowLeft className="size-4 me-1" />
                         </Button>
+                    )}
+
+                    {currentStep === 7 && (
+                        <div className="flex flex-col items-end gap-1">
+                            <Button
+                                type="button"
+                                onClick={handleSubmit}
+                                disabled={submitMutation.isPending || !canSubmit}
+                            >
+                                {submitMutation.isPending ? (
+                                    <IconLoader2 className="size-4 animate-spin" />
+                                ) : (
+                                    <IconSend className="size-4" />
+                                )}
+                                ثبت نهایی
+                            </Button>
+                            {!canSubmit && (
+                                <p className="text-xs text-muted-foreground">
+                                    {!questionnaire.mobile_verified && "mobایل تأیید نشده • "}
+                                    {!questionnaire.email_verified && "ایمیل تأیید نشده • "}
+                                    {!validateSubmitData(form.state.values).success &&
+                                        "همه فیلدهای الزامی باید تکمیل شوند"}
+                                </p>
+                            )}
+                        </div>
                     )}
                 </div>
             </div>

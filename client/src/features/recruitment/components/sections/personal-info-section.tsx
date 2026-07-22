@@ -3,6 +3,7 @@ import type { ReactFormExtendedApi } from "@tanstack/react-form";
 import { useStore } from "@tanstack/react-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { z } from "zod";
 import { IconLoader2, IconSend, IconCheck } from "@tabler/icons-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -32,7 +33,10 @@ import {
     verifyEmailOtp,
 } from "@/features/recruitment/api";
 import { getApiError } from "@/lib/error-utils";
+import { zodFieldValidator } from "@/lib/validation-helpers";
 import type { Questionnaire } from "@/features/recruitment/types";
+
+const requiredString = z.string().min(1, "این فیلد الزامی است.");
 
 type SectionProps = {
     form: ReactFormExtendedApi<any, any, any, any, any, any, any, any, any, any, any, any>;
@@ -48,14 +52,8 @@ export function PersonalInfoSection({ form, questionnaire }: SectionProps) {
     const emailVerified = questionnaire?.email_verified ?? false;
     const mobileVerified = questionnaire?.mobile_verified ?? false;
 
-    const maritalStatus = useStore(
-        form.store,
-        (s) => s.values.personal_info?.marital_status,
-    );
-    const gender = useStore(
-        form.store,
-        (s) => s.values.personal_info?.gender,
-    );
+    const maritalStatus = useStore(form.store, (s) => s.values.personal_info?.marital_status);
+    const gender = useStore(form.store, (s) => s.values.personal_info?.gender);
 
     const isSingle = maritalStatus === "single";
     const isMale = gender === "male";
@@ -105,7 +103,10 @@ export function PersonalInfoSection({ form, questionnaire }: SectionProps) {
                     <form.Field name="last_name">
                         {(field) => <FormTextField field={field} label="نام خانوادگی" />}
                     </form.Field>
-                    <form.Field name="personal_info.gender">
+                    <form.Field
+                        name="personal_info.gender"
+                        validators={{ onBlur: zodFieldValidator(requiredString) }}
+                    >
                         {(field) => (
                             <FormRadioGroup field={field} label="جنسیت" options={GENDER_OPTIONS} />
                         )}
@@ -121,125 +122,115 @@ export function PersonalInfoSection({ form, questionnaire }: SectionProps) {
                     </form.Field>
                 </div>
 
-                {/* ── Email + OTP Verification ── */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            ایمیل
-                            <Badge variant={emailVerified ? "default" : "secondary"}>
-                                {emailVerified ? "تأیید شده" : "تأیید نشده"}
-                            </Badge>
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                        <form.Field name="email">
-                            {(field) => (
-                                <FormTextField field={field} label="ایمیل" dir="ltr" />
+                <div className="rounded-lg border p-4 space-y-3">
+                    <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium">ایمیل</span>
+                        <Badge variant={emailVerified ? "default" : "secondary"}>
+                            {emailVerified ? "تأیید شده" : "تأیید نشده"}
+                        </Badge>
+                    </div>
+                    <form.Field name="email">
+                        {(field) => (
+                            <FormTextField field={field} label="ایمیل" dir="ltr" />
+                        )}
+                    </form.Field>
+                    <div className="flex items-end gap-2">
+                        <Field className="flex-1">
+                            <FieldLabel htmlFor="email_otp">کد تأیید ایمیل</FieldLabel>
+                            <Input
+                                id="email_otp"
+                                value={emailOtp}
+                                onChange={(e) => setEmailOtp(e.target.value)}
+                                dir="ltr"
+                                placeholder="۶ رقمی"
+                                maxLength={6}
+                            />
+                        </Field>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => sendEmailOtpMutation.mutate()}
+                            disabled={sendEmailOtpMutation.isPending}
+                        >
+                            {sendEmailOtpMutation.isPending ? (
+                                <IconLoader2 className="size-4 animate-spin" />
+                            ) : (
+                                <IconSend className="size-4" />
                             )}
-                        </form.Field>
-                        <div className="flex items-end gap-2">
-                            <Field className="flex-1">
-                                <FieldLabel htmlFor="email_otp">کد تأیید ایمیل</FieldLabel>
-                                <Input
-                                    id="email_otp"
-                                    value={emailOtp}
-                                    onChange={(e) => setEmailOtp(e.target.value)}
-                                    dir="ltr"
-                                    placeholder="۶ رقمی"
-                                    maxLength={6}
-                                />
-                            </Field>
-                            <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={() => sendEmailOtpMutation.mutate()}
-                                disabled={sendEmailOtpMutation.isPending}
-                            >
-                                {sendEmailOtpMutation.isPending ? (
-                                    <IconLoader2 className="size-4 animate-spin" />
-                                ) : (
-                                    <IconSend className="size-4" />
-                                )}
-                                ارسال کد
-                            </Button>
-                            <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={() => verifyEmailOtpMutation.mutate(emailOtp)}
-                                disabled={verifyEmailOtpMutation.isPending || emailOtp.length !== 6}
-                            >
-                                {verifyEmailOtpMutation.isPending ? (
-                                    <IconLoader2 className="size-4 animate-spin" />
-                                ) : (
-                                    <IconCheck className="size-4" />
-                                )}
-                                تأیید
-                            </Button>
-                        </div>
-                    </CardContent>
-                </Card>
+                            ارسال کد
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => verifyEmailOtpMutation.mutate(emailOtp)}
+                            disabled={verifyEmailOtpMutation.isPending || emailOtp.length !== 6}
+                        >
+                            {verifyEmailOtpMutation.isPending ? (
+                                <IconLoader2 className="size-4 animate-spin" />
+                            ) : (
+                                <IconCheck className="size-4" />
+                            )}
+                            تأیید
+                        </Button>
+                    </div>
+                </div>
 
-                {/* ── Mobile + OTP Verification ── */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            شماره موبایل
-                            <Badge variant={mobileVerified ? "default" : "secondary"}>
-                                {mobileVerified ? "تأیید شده" : "تأیید نشده"}
-                            </Badge>
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                        <form.Field name="mobile">
-                            {(field) => (
-                                <FormTextField field={field} label="شماره موبایل" dir="ltr" />
+                <div className="rounded-lg border p-4 space-y-3">
+                    <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium">شماره موبایل</span>
+                        <Badge variant={mobileVerified ? "default" : "secondary"}>
+                            {mobileVerified ? "تأیید شده" : "تأیید نشده"}
+                        </Badge>
+                    </div>
+                    <form.Field name="mobile">
+                        {(field) => (
+                            <FormTextField field={field} label="شماره موبایل" dir="ltr" />
+                        )}
+                    </form.Field>
+                    <div className="flex items-end gap-2">
+                        <Field className="flex-1">
+                            <FieldLabel htmlFor="mobile_otp">کد تأیید موبایل</FieldLabel>
+                            <Input
+                                id="mobile_otp"
+                                value={mobileOtp}
+                                onChange={(e) => setMobileOtp(e.target.value)}
+                                dir="ltr"
+                                placeholder="۶ رقمی"
+                                maxLength={6}
+                            />
+                        </Field>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => sendMobileOtpMutation.mutate()}
+                            disabled={sendMobileOtpMutation.isPending}
+                        >
+                            {sendMobileOtpMutation.isPending ? (
+                                <IconLoader2 className="size-4 animate-spin" />
+                            ) : (
+                                <IconSend className="size-4" />
                             )}
-                        </form.Field>
-                        <div className="flex items-end gap-2">
-                            <Field className="flex-1">
-                                <FieldLabel htmlFor="mobile_otp">کد تأیید موبایل</FieldLabel>
-                                <Input
-                                    id="mobile_otp"
-                                    value={mobileOtp}
-                                    onChange={(e) => setMobileOtp(e.target.value)}
-                                    dir="ltr"
-                                    placeholder="۶ رقمی"
-                                    maxLength={6}
-                                />
-                            </Field>
-                            <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={() => sendMobileOtpMutation.mutate()}
-                                disabled={sendMobileOtpMutation.isPending}
-                            >
-                                {sendMobileOtpMutation.isPending ? (
-                                    <IconLoader2 className="size-4 animate-spin" />
-                                ) : (
-                                    <IconSend className="size-4" />
-                                )}
-                                ارسال کد
-                            </Button>
-                            <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={() => verifyMobileOtpMutation.mutate(mobileOtp)}
-                                disabled={verifyMobileOtpMutation.isPending || mobileOtp.length !== 6}
-                            >
-                                {verifyMobileOtpMutation.isPending ? (
-                                    <IconLoader2 className="size-4 animate-spin" />
-                                ) : (
-                                    <IconCheck className="size-4" />
-                                )}
-                                تأیید
-                            </Button>
-                        </div>
-                    </CardContent>
-                </Card>
+                            ارسال کد
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => verifyMobileOtpMutation.mutate(mobileOtp)}
+                            disabled={verifyMobileOtpMutation.isPending || mobileOtp.length !== 6}
+                        >
+                            {verifyMobileOtpMutation.isPending ? (
+                                <IconLoader2 className="size-4 animate-spin" />
+                            ) : (
+                                <IconCheck className="size-4" />
+                            )}
+                            تأیید
+                        </Button>
+                    </div>
+                </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <form.Field name="personal_info.blood_group">
@@ -247,7 +238,10 @@ export function PersonalInfoSection({ form, questionnaire }: SectionProps) {
                             <FormSelectField field={field} label="گروه خونی" options={BLOOD_GROUPS} />
                         )}
                     </form.Field>
-                    <form.Field name="personal_info.birth_date">
+                    <form.Field
+                        name="personal_info.birth_date"
+                        validators={{ onBlur: zodFieldValidator(requiredString) }}
+                    >
                         {(field) => <FormDatePicker field={field} label="تاریخ تولد" />}
                     </form.Field>
                     <form.Field name="personal_info.birth_place">
@@ -268,7 +262,10 @@ export function PersonalInfoSection({ form, questionnaire }: SectionProps) {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <form.Field name="personal_info.marital_status">
+                    <form.Field
+                        name="personal_info.marital_status"
+                        validators={{ onBlur: zodFieldValidator(requiredString) }}
+                    >
                         {(field) => (
                             <FormRadioGroup
                                 field={field}
@@ -311,7 +308,10 @@ export function PersonalInfoSection({ form, questionnaire }: SectionProps) {
                             );
                         }}
                     </form.Field>
-                    <form.Field name="personal_info.national_id">
+                    <form.Field
+                        name="personal_info.national_id"
+                        validators={{ onBlur: zodFieldValidator(z.string().min(1, "کد ملی الزامی است.")) }}
+                    >
                         {(field) => <FormTextField field={field} label="کد ملی" dir="ltr" />}
                     </form.Field>
                     <form.Field name="personal_info.phone">
@@ -335,38 +335,34 @@ export function PersonalInfoSection({ form, questionnaire }: SectionProps) {
                 </form.Field>
 
                 {isMale && (
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>وضعیت نظام وظیفه</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <form.Field name="personal_info.military_status.status">
-                                    {(field) => (
-                                        <FormRadioGroup
-                                            field={field}
-                                            label="وضعیت"
-                                            options={MILITARY_STATUS_OPTIONS}
-                                        />
-                                    )}
-                                </form.Field>
-                                <form.Field name="personal_info.military_status.organization">
-                                    {(field) => <FormTextField field={field} label="سازمان" />}
-                                </form.Field>
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <form.Field name="personal_info.military_status.from">
-                                    {(field) => <FormDatePicker field={field} label="از تاریخ" />}
-                                </form.Field>
-                                <form.Field name="personal_info.military_status.to">
-                                    {(field) => <FormDatePicker field={field} label="تا تاریخ" />}
-                                </form.Field>
-                                <form.Field name="personal_info.military_status.reason">
-                                    {(field) => <FormTextField field={field} label="دلیل" />}
-                                </form.Field>
-                            </div>
-                        </CardContent>
-                    </Card>
+                    <div className="rounded-lg border p-4 space-y-4">
+                        <span className="text-sm font-medium">وضعیت نظام وظیفه</span>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <form.Field name="personal_info.military_status.status">
+                                {(field) => (
+                                    <FormRadioGroup
+                                        field={field}
+                                        label="وضعیت"
+                                        options={MILITARY_STATUS_OPTIONS}
+                                    />
+                                )}
+                            </form.Field>
+                            <form.Field name="personal_info.military_status.organization">
+                                {(field) => <FormTextField field={field} label="سازمان" />}
+                            </form.Field>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <form.Field name="personal_info.military_status.from">
+                                {(field) => <FormDatePicker field={field} label="از تاریخ" />}
+                            </form.Field>
+                            <form.Field name="personal_info.military_status.to">
+                                {(field) => <FormDatePicker field={field} label="تا تاریخ" />}
+                            </form.Field>
+                            <form.Field name="personal_info.military_status.reason">
+                                {(field) => <FormTextField field={field} label="دلیل" />}
+                            </form.Field>
+                        </div>
+                    </div>
                 )}
             </CardContent>
         </Card>
