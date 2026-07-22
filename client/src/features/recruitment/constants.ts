@@ -80,12 +80,12 @@ export const PREFERRED_WORKPLACE_OPTIONS = [
 ];
 
 export const WIZARD_STEPS = [
-    { id: 0, label: "مشخصات فردی", key: "personal_info" },
-    { id: 1, label: "سوابق تحصیلی", key: "education" },
-    { id: 2, label: "سوابق شغلی", key: "work_experience" },
-    { id: 3, label: "مهارت‌ها", key: "skills" },
-    { id: 4, label: "آموزشی و تحقیقاتی", key: "training" },
-    { id: 5, label: "اطلاعات تکمیلی", key: "additional_info" },
-    { id: 6, label: "نوع درخواست همکاری", key: "job_request" },
-    { id: 7, label: "تأیید و ارسال", key: "verify" },
+    { id: 0, label: "مشخصات فردی", description: "اطلاعات شخصی و شناسایی", key: "personal_info" },
+    { id: 1, label: "سوابق تحصیلی", description: "مدارک و سوابق تحصیلی", key: "education" },
+    { id: 2, label: "سوابق شغلی", description: "تجربیات کاری قبلی", key: "work_experience" },
+    { id: 3, label: "مهارت‌ها", description: "زبان‌ها و مهارت‌های نرم‌افزاری", key: "skills" },
+    { id: 4, label: "آموزشی و تحقیقاتی", description: "دوره‌ها و پژوهش‌ها", key: "training" },
+    { id: 5, label: "اطلاعات تکمیلی", description: "جزئیات اضافی", key: "additional_info" },
+    { id: 6, label: "نوع درخواست همکاری", description: "شرایط و انتظارات شغلی", key: "job_request" },
+    { id: 7, label: "خلاصه و تأیید", description: "بررسی و ارسال نهایی", key: "summary" },
 ] as const;

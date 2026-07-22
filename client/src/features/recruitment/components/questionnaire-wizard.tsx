@@ -7,8 +7,18 @@ import { IconLoader2, IconChecks, IconArrowRight, IconArrowLeft } from "@tabler/
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ErrorBanner } from "@/components/shared/error-banner";
-import { UnsavedChangesDialog } from "@/components/shared/unsaved-changes-dialog";
-import { saveQuestionnaire, verifyQuestionnaire, sendOtp } from "@/features/recruitment/api";
+import {
+    Stepper,
+    StepperNav,
+    StepperItem,
+    StepperTrigger,
+    StepperIndicator,
+    StepperTitle,
+    StepperDescription,
+    StepperPanel,
+    StepperContent,
+} from "@/components/reui/stepper";
+import { saveQuestionnaire } from "@/features/recruitment/api";
 import { getApiError } from "@/lib/error-utils";
 import { WIZARD_STEPS } from "@/features/recruitment/constants";
 import type { Questionnaire } from "@/features/recruitment/types";
@@ -26,6 +36,16 @@ type QuestionnaireWizardProps = {
     questionnaire: Questionnaire;
 };
 
+const SECTION_COMPONENTS = [
+    PersonalInfoSection,
+    EducationSection,
+    WorkExperienceSection,
+    SkillsSection,
+    TrainingSection,
+    AdditionalInfoSection,
+    JobRequestSection,
+];
+
 export function QuestionnaireWizard({ questionnaire }: QuestionnaireWizardProps) {
     const queryClient = useQueryClient();
     const [currentStep, setCurrentStep] = useState(questionnaire.current_step);
@@ -41,24 +61,13 @@ export function QuestionnaireWizard({ questionnaire }: QuestionnaireWizardProps)
         },
     });
 
-    const verifyMutation = useMutation({
-        mutationFn: (data: Parameters<typeof verifyQuestionnaire>[1]) =>
-            verifyQuestionnaire(questionnaire.uuid, data),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["questionnaire", questionnaire.uuid] });
-            toast.success("پرسشنامه با موفقیت ثبت شد.");
-        },
-        onError: (err) => {
-            toast.error(getApiError(err));
-        },
-    });
-
     const form = useForm({
         defaultValues: {
             personal_info: questionnaire.personal_info ?? {
                 gender: "", blood_group: "", birth_date: "", birth_place: "",
                 birth_certificate_number: "", father_name: "", religion: "",
-                marital_status: "", dependents_count: null, children_count: null,
+                marital_status: "", first_name_en: "", last_name_en: "",
+                dependents_count: null, children_count: null,
                 spouse_employment_status: "",
                 military_status: { status: "", organization: "", from: "", to: "", reason: "" },
                 photo: "", national_id: "", address: "", phone: "", emergency_phone: "",
@@ -76,7 +85,7 @@ export function QuestionnaireWizard({ questionnaire }: QuestionnaireWizardProps)
                 allow_contact_previous_managers: false, contact_restriction_description: "",
             },
             skills: questionnaire.skills ?? {
-                languages: [], certificates: [], special_skills: "",
+                languages: [], certificates: [], special_skills: [],
                 software_skills: { specialized: [], general: [] },
             },
             training: questionnaire.training ?? {
@@ -99,21 +108,11 @@ export function QuestionnaireWizard({ questionnaire }: QuestionnaireWizardProps)
                 preferred_workplace: [], job_priority_1: "", job_priority_2: "",
                 currently_employed: false, available_start_date: "",
             },
-            mobile_otp: "",
-            email_otp: "",
         },
         onSubmit: async ({ value }) => {
-            if (currentStep === 7) {
-                verifyMutation.mutate({
-                    mobile_otp: value.mobile_otp,
-                    email_otp: value.email_otp,
-                });
-                return;
-            }
-
             const sectionKey = WIZARD_STEPS[currentStep]?.key;
             const sectionData: Record<string, unknown> = {};
-            if (sectionKey && sectionKey !== "verify" && sectionKey in value) {
+            if (sectionKey && sectionKey !== "summary" && sectionKey in value) {
                 sectionData[sectionKey] = value[sectionKey as keyof typeof value];
             }
             sectionData.current_step = currentStep;
@@ -127,7 +126,7 @@ export function QuestionnaireWizard({ questionnaire }: QuestionnaireWizardProps)
     const goToStep = async (step: number) => {
         const sectionKey = WIZARD_STEPS[currentStep]?.key;
         const sectionData: Record<string, unknown> = {};
-        if (sectionKey && sectionKey !== "verify" && sectionKey in form.state.values) {
+        if (sectionKey && sectionKey !== "summary" && sectionKey in form.state.values) {
             sectionData[sectionKey] = form.state.values[sectionKey as keyof typeof form.state.values];
         }
         sectionData.current_step = step;
@@ -137,123 +136,110 @@ export function QuestionnaireWizard({ questionnaire }: QuestionnaireWizardProps)
         form.reset(form.state.values);
     };
 
-    const isVerifyStep = currentStep === 7;
-
-    const sectionComponents = [
-        PersonalInfoSection,
-        EducationSection,
-        WorkExperienceSection,
-        SkillsSection,
-        TrainingSection,
-        AdditionalInfoSection,
-        JobRequestSection,
-        ReviewSection,
-    ];
-
-    const CurrentSection = sectionComponents[currentStep];
+    const handleStepChange = (step: number) => {
+        goToStep(step);
+    };
 
     return (
-        <div className="space-y-6">
-            <UnsavedChangesDialog isDirty={isDirty} />
-
-            {/* Step indicators */}
-            <div className="flex flex-wrap gap-2">
-                {WIZARD_STEPS.map((step) => (
-                    <div
-                        key={step.id}
-                        className={`flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium ${
-                            step.id === currentStep
-                                ? "bg-primary text-primary-foreground"
-                                : step.id < currentStep
-                                  ? "bg-primary/10 text-primary"
-                                  : "bg-muted text-muted-foreground"
-                        }`}
-                    >
-                        {step.id + 1}. {step.label}
-                    </div>
-                ))}
-            </div>
-
-            <form
-                onSubmit={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    form.handleSubmit();
-                }}
+        <div className="space-y-6" dir="rtl">
+            <Stepper
+                value={currentStep}
+                onValueChange={handleStepChange}
             >
-                {saveMutation.error && (
-                    <ErrorBanner message={getApiError(saveMutation.error) ?? "خطای ناشناخته"} />
-                )}
-                {verifyMutation.error && (
-                    <ErrorBanner message={getApiError(verifyMutation.error) ?? "خطای ناشناخته"} />
-                )}
+                <StepperNav className="mb-4 gap-5">
+                    {WIZARD_STEPS.map((step, index) => (
+                        <StepperItem key={step.id} index={index} className="relative flex-1 items-start">
+                            <StepperTrigger className="flex w-full grow flex-col items-start justify-center gap-3.5">
+                                <StepperIndicator className="bg-border data-[state=active]:bg-primary data-[state=completed]:bg-primary h-1 w-full rounded-full" />
+                                <div className="flex flex-col items-start text-start">
+                                    <StepperTitle className="group-data-[state=inactive]/step:text-muted-foreground text-start font-semibold">
+                                        {step.label}
+                                    </StepperTitle>
+                                    <StepperDescription className="text-start">
+                                        {step.description}
+                                    </StepperDescription>
+                                </div>
+                            </StepperTrigger>
+                        </StepperItem>
+                    ))}
+                </StepperNav>
 
-                <Card>
-                    <CardContent className="pt-6">
-                        {CurrentSection && <CurrentSection form={form as never} />}
-                    </CardContent>
-                </Card>
+                <StepperPanel>
+                    <StepperContent index={0}>
+                        <Card>
+                            <CardContent className="pt-6">
+                                <PersonalInfoSection form={form as never} questionnaire={questionnaire} />
+                            </CardContent>
+                        </Card>
+                    </StepperContent>
 
-                {/* Navigation */}
-                <div className="flex items-center justify-between mt-6">
-                    <div>
-                        {currentStep > 0 && (
-                            <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() => goToStep(currentStep - 1)}
-                                disabled={saveMutation.isPending}
-                            >
-                                <IconArrowRight className="size-4 ms-1" />
-                                مرحله قبل
-                            </Button>
-                        )}
-                    </div>
+                    {SECTION_COMPONENTS.slice(1).map((Section, index) => (
+                        <StepperContent key={index + 1} index={index + 1}>
+                            <Card>
+                                <CardContent className="pt-6">
+                                    <Section form={form as never} />
+                                </CardContent>
+                            </Card>
+                        </StepperContent>
+                    ))}
 
-                    <div className="flex gap-2">
-                        {currentStep < 7 && (
-                            <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() => {
-                                    form.handleSubmit();
-                                }}
-                                disabled={saveMutation.isPending || !isDirty}
-                            >
-                                {saveMutation.isPending ? (
-                                    <IconLoader2 className="size-4 animate-spin" />
-                                ) : (
-                                    <IconChecks className="size-4" />
-                                )}
-                                ذخیره
-                            </Button>
-                        )}
+                    <StepperContent index={7}>
+                        <ReviewSection form={form as never} questionnaire={questionnaire} />
+                    </StepperContent>
+                </StepperPanel>
+            </Stepper>
 
-                        {currentStep < 7 ? (
-                            <Button
-                                type="button"
-                                onClick={() => goToStep(currentStep + 1)}
-                                disabled={saveMutation.isPending}
-                            >
-                                مرحله بعد
-                                <IconArrowLeft className="size-4 me-1" />
-                            </Button>
-                        ) : (
-                            <Button
-                                type="submit"
-                                disabled={verifyMutation.isPending || !form.state.values.mobile_otp || !form.state.values.email_otp}
-                            >
-                                {verifyMutation.isPending ? (
-                                    <IconLoader2 className="size-4 animate-spin" />
-                                ) : (
-                                    <IconChecks className="size-4" />
-                                )}
-                                ارسال نهایی
-                            </Button>
-                        )}
-                    </div>
+            {saveMutation.error && (
+                <ErrorBanner message={getApiError(saveMutation.error) ?? "خطای ناشناخته"} />
+            )}
+
+            {/* Navigation */}
+            <div className="flex items-center justify-between">
+                <div>
+                    {currentStep > 0 && (
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => goToStep(currentStep - 1)}
+                            disabled={saveMutation.isPending}
+                        >
+                            <IconArrowRight className="size-4 ms-1" />
+                            مرحله قبل
+                        </Button>
+                    )}
                 </div>
-            </form>
+
+                <div className="flex gap-2">
+                    {currentStep < 7 && (
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => {
+                                form.handleSubmit();
+                            }}
+                            disabled={saveMutation.isPending || !isDirty}
+                        >
+                            {saveMutation.isPending ? (
+                                <IconLoader2 className="size-4 animate-spin" />
+                            ) : (
+                                <IconChecks className="size-4" />
+                            )}
+                            ذخیره
+                        </Button>
+                    )}
+
+                    {currentStep < 7 && (
+                        <Button
+                            type="button"
+                            onClick={() => goToStep(currentStep + 1)}
+                            disabled={saveMutation.isPending}
+                        >
+                            مرحله بعد
+                            <IconArrowLeft className="size-4 me-1" />
+                        </Button>
+                    )}
+                </div>
+            </div>
         </div>
     );
 }

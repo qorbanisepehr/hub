@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { IconPlus, IconTrash } from "@tabler/icons-react";
+import { DatePicker } from "@/components/ui/date-picker";
 
 // ── Text Input ──
 
@@ -42,7 +43,7 @@ export function FormTextField({
                 id={field.name}
                 name={field.name}
                 type="text"
-                value={field.state.value}
+                value={field.state.value ?? ""}
                 onBlur={field.handleBlur}
                 onChange={(e) => field.handleChange(e.target.value)}
                 placeholder={placeholder}
@@ -90,6 +91,31 @@ export function FormNumberField({
                 min={min}
                 max={max}
                 dir="ltr"
+            />
+            {isInvalid && <FieldError errors={field.state.meta.errors} />}
+        </Field>
+    );
+}
+
+// ── Date Picker ──
+
+type FormDatePickerProps = {
+    field: AnyFieldApi;
+    label: string;
+    placeholder?: string;
+    disabled?: boolean;
+};
+
+export function FormDatePicker({ field, label, placeholder, disabled }: FormDatePickerProps) {
+    const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid;
+    return (
+        <Field data-invalid={isInvalid}>
+            <FieldLabel htmlFor={field.name}>{label}</FieldLabel>
+            <DatePicker
+                value={field.state.value || null}
+                onChange={(val) => field.handleChange(val)}
+                placeholder={placeholder}
+                disabled={disabled}
             />
             {isInvalid && <FieldError errors={field.state.meta.errors} />}
         </Field>
@@ -191,12 +217,14 @@ type FormRadioGroupProps = {
     field: AnyFieldApi;
     label: string;
     options: RadioOption[];
+    disabled?: boolean;
 };
 
 export function FormRadioGroup({
     field,
     label,
     options,
+    disabled,
 }: FormRadioGroupProps) {
     const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid;
 
@@ -206,6 +234,7 @@ export function FormRadioGroup({
             <RadioGroup
                 value={field.state.value ?? ""}
                 onValueChange={(val) => field.handleChange(val)}
+                disabled={disabled}
                 className="flex flex-row flex-wrap gap-4"
             >
                 {options.map((opt) => (

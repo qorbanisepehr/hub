@@ -17,7 +17,7 @@ const initSchema = z.object({
     first_name: z.string().trim().min(1, "نام الزامی است").max(100, "حداکثر ۱۰۰ کاراکتر"),
     last_name: z.string().trim().min(1, "نام خانوادگی الزامی است").max(100, "حداکثر ۱۰۰ کاراکتر"),
     email: z.string().trim().min(1, "ایمیل الزامی است").email("فرمت ایمیل نامعتبر است"),
-    mobile: z.string().trim().min(1, "شماره موبایل الزامی است").max(15, "حداکثر ۱۵ کاراکتر"),
+    mobile: z.string().trim().min(1, "شماره موبایل الزامی است").regex(/^(09\d{9}|\+989\d{9}|00989\d{9})$/, "فرمت شماره موبایل نامعتبر است (مثال: 09121234567)").max(15, "حداکثر ۱۵ کاراکتر"),
 });
 
 export function QuestionnaireStartPage() {

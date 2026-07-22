@@ -1,12 +1,22 @@
+import { useState } from "react";
 import type { ReactFormExtendedApi } from "@tanstack/react-form";
+import { useStore } from "@tanstack/react-form";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { IconLoader2, IconSend, IconCheck } from "@tabler/icons-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Field, FieldLabel } from "@/components/ui/field";
 import {
     FormTextField,
     FormNumberField,
     FormTextarea,
     FormSelectField,
     FormRadioGroup,
+    FormDatePicker,
 } from "@/components/shared/form-fields";
 import {
     GENDER_OPTIONS,
@@ -15,12 +25,73 @@ import {
     SPOUSE_EMPLOYMENT_OPTIONS,
     MILITARY_STATUS_OPTIONS,
 } from "@/features/recruitment/constants";
+import {
+    sendMobileOtp,
+    sendEmailOtp,
+    verifyMobileOtp,
+    verifyEmailOtp,
+} from "@/features/recruitment/api";
+import { getApiError } from "@/lib/error-utils";
+import type { Questionnaire } from "@/features/recruitment/types";
 
 type SectionProps = {
     form: ReactFormExtendedApi<any, any, any, any, any, any, any, any, any, any, any, any>;
+    questionnaire?: Questionnaire | null;
 };
 
-export function PersonalInfoSection({ form }: SectionProps) {
+export function PersonalInfoSection({ form, questionnaire }: SectionProps) {
+    const queryClient = useQueryClient();
+    const [mobileOtp, setMobileOtp] = useState("");
+    const [emailOtp, setEmailOtp] = useState("");
+
+    const uuid = questionnaire?.uuid;
+    const emailVerified = questionnaire?.email_verified ?? false;
+    const mobileVerified = questionnaire?.mobile_verified ?? false;
+
+    const maritalStatus = useStore(
+        form.store,
+        (s) => s.values.personal_info?.marital_status,
+    );
+    const gender = useStore(
+        form.store,
+        (s) => s.values.personal_info?.gender,
+    );
+
+    const isSingle = maritalStatus === "single";
+    const isMale = gender === "male";
+
+    const sendMobileOtpMutation = useMutation({
+        mutationFn: () => sendMobileOtp(uuid!),
+        onSuccess: () => toast.success("کد تأیید موبایل ارسال شد."),
+        onError: (err) => toast.error(getApiError(err)),
+    });
+
+    const sendEmailOtpMutation = useMutation({
+        mutationFn: () => sendEmailOtp(uuid!),
+        onSuccess: () => toast.success("کد تأیید ایمیل ارسال شد."),
+        onError: (err) => toast.error(getApiError(err)),
+    });
+
+    const verifyMobileOtpMutation = useMutation({
+        mutationFn: (otp: string) => verifyMobileOtp(uuid!, otp),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["questionnaire", uuid] });
+            toast.success("موبایل تأیید شد.");
+            setMobileOtp("");
+        },
+        onError: (err) => toast.error(getApiError(err)),
+    });
+
+    const verifyEmailOtpMutation = useMutation({
+        mutationFn: (otp: string) => verifyEmailOtp(uuid!, otp),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["questionnaire", uuid] });
+            toast.success("ایمیل تأیید شد.");
+            setEmailOtp("");
+        },
+        onError: (err) => toast.error(getApiError(err)),
+    });
+
     return (
         <Card>
             <CardHeader>
@@ -41,6 +112,135 @@ export function PersonalInfoSection({ form }: SectionProps) {
                     </form.Field>
                 </div>
 
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <form.Field name="personal_info.first_name_en">
+                        {(field) => <FormTextField field={field} label="First Name" dir="ltr" />}
+                    </form.Field>
+                    <form.Field name="personal_info.last_name_en">
+                        {(field) => <FormTextField field={field} label="Last Name" dir="ltr" />}
+                    </form.Field>
+                </div>
+
+                {/* ── Email + OTP Verification ── */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            ایمیل
+                            <Badge variant={emailVerified ? "default" : "secondary"}>
+                                {emailVerified ? "تأیید شده" : "تأیید نشده"}
+                            </Badge>
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                        <form.Field name="email">
+                            {(field) => (
+                                <FormTextField field={field} label="ایمیل" dir="ltr" />
+                            )}
+                        </form.Field>
+                        <div className="flex items-end gap-2">
+                            <Field className="flex-1">
+                                <FieldLabel htmlFor="email_otp">کد تأیید ایمیل</FieldLabel>
+                                <Input
+                                    id="email_otp"
+                                    value={emailOtp}
+                                    onChange={(e) => setEmailOtp(e.target.value)}
+                                    dir="ltr"
+                                    placeholder="۶ رقمی"
+                                    maxLength={6}
+                                />
+                            </Field>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => sendEmailOtpMutation.mutate()}
+                                disabled={sendEmailOtpMutation.isPending}
+                            >
+                                {sendEmailOtpMutation.isPending ? (
+                                    <IconLoader2 className="size-4 animate-spin" />
+                                ) : (
+                                    <IconSend className="size-4" />
+                                )}
+                                ارسال کد
+                            </Button>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => verifyEmailOtpMutation.mutate(emailOtp)}
+                                disabled={verifyEmailOtpMutation.isPending || emailOtp.length !== 6}
+                            >
+                                {verifyEmailOtpMutation.isPending ? (
+                                    <IconLoader2 className="size-4 animate-spin" />
+                                ) : (
+                                    <IconCheck className="size-4" />
+                                )}
+                                تأیید
+                            </Button>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* ── Mobile + OTP Verification ── */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            شماره موبایل
+                            <Badge variant={mobileVerified ? "default" : "secondary"}>
+                                {mobileVerified ? "تأیید شده" : "تأیید نشده"}
+                            </Badge>
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                        <form.Field name="mobile">
+                            {(field) => (
+                                <FormTextField field={field} label="شماره موبایل" dir="ltr" />
+                            )}
+                        </form.Field>
+                        <div className="flex items-end gap-2">
+                            <Field className="flex-1">
+                                <FieldLabel htmlFor="mobile_otp">کد تأیید موبایل</FieldLabel>
+                                <Input
+                                    id="mobile_otp"
+                                    value={mobileOtp}
+                                    onChange={(e) => setMobileOtp(e.target.value)}
+                                    dir="ltr"
+                                    placeholder="۶ رقمی"
+                                    maxLength={6}
+                                />
+                            </Field>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => sendMobileOtpMutation.mutate()}
+                                disabled={sendMobileOtpMutation.isPending}
+                            >
+                                {sendMobileOtpMutation.isPending ? (
+                                    <IconLoader2 className="size-4 animate-spin" />
+                                ) : (
+                                    <IconSend className="size-4" />
+                                )}
+                                ارسال کد
+                            </Button>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => verifyMobileOtpMutation.mutate(mobileOtp)}
+                                disabled={verifyMobileOtpMutation.isPending || mobileOtp.length !== 6}
+                            >
+                                {verifyMobileOtpMutation.isPending ? (
+                                    <IconLoader2 className="size-4 animate-spin" />
+                                ) : (
+                                    <IconCheck className="size-4" />
+                                )}
+                                تأیید
+                            </Button>
+                        </div>
+                    </CardContent>
+                </Card>
+
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <form.Field name="personal_info.blood_group">
                         {(field) => (
@@ -48,7 +248,7 @@ export function PersonalInfoSection({ form }: SectionProps) {
                         )}
                     </form.Field>
                     <form.Field name="personal_info.birth_date">
-                        {(field) => <FormTextField field={field} label="تاریخ تولد" />}
+                        {(field) => <FormDatePicker field={field} label="تاریخ تولد" />}
                     </form.Field>
                     <form.Field name="personal_info.birth_place">
                         {(field) => <FormTextField field={field} label="محل تولد" />}
@@ -87,13 +287,29 @@ export function PersonalInfoSection({ form }: SectionProps) {
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <form.Field name="personal_info.spouse_employment_status">
-                        {(field) => (
-                            <FormRadioGroup
-                                field={field}
-                                label="وضعیت اشتغال همسر"
-                                options={SPOUSE_EMPLOYMENT_OPTIONS}
-                            />
-                        )}
+                        {(field) => {
+                            if (isSingle && field.state.value) {
+                                field.handleChange("");
+                            }
+                            if (!isSingle && !field.state.value) {
+                                field.handleChange("housewife");
+                            }
+                            return (
+                                <>
+                                    <FormRadioGroup
+                                        field={field}
+                                        label="وضعیت اشتغال همسر"
+                                        options={SPOUSE_EMPLOYMENT_OPTIONS}
+                                        disabled={isSingle}
+                                    />
+                                    {isSingle && (
+                                        <p className="text-xs text-muted-foreground mt-1">
+                                            فقط برای افراد متاهل
+                                        </p>
+                                    )}
+                                </>
+                            );
+                        }}
                     </form.Field>
                     <form.Field name="personal_info.national_id">
                         {(field) => <FormTextField field={field} label="کد ملی" dir="ltr" />}
@@ -118,38 +334,40 @@ export function PersonalInfoSection({ form }: SectionProps) {
                     {(field) => <FormTextarea field={field} label="آدرس" />}
                 </form.Field>
 
-                <Card>
-                    <CardHeader>
-                        <CardTitle>وضعیت نظام وظیفه</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <form.Field name="personal_info.military_status.status">
-                                {(field) => (
-                                    <FormRadioGroup
-                                        field={field}
-                                        label="وضعیت"
-                                        options={MILITARY_STATUS_OPTIONS}
-                                    />
-                                )}
-                            </form.Field>
-                            <form.Field name="personal_info.military_status.organization">
-                                {(field) => <FormTextField field={field} label="سازمان" />}
-                            </form.Field>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <form.Field name="personal_info.military_status.from">
-                                {(field) => <FormTextField field={field} label="از تاریخ" />}
-                            </form.Field>
-                            <form.Field name="personal_info.military_status.to">
-                                {(field) => <FormTextField field={field} label="تا تاریخ" />}
-                            </form.Field>
-                            <form.Field name="personal_info.military_status.reason">
-                                {(field) => <FormTextField field={field} label="دلیل" />}
-                            </form.Field>
-                        </div>
-                    </CardContent>
-                </Card>
+                {isMale && (
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>وضعیت نظام وظیفه</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <form.Field name="personal_info.military_status.status">
+                                    {(field) => (
+                                        <FormRadioGroup
+                                            field={field}
+                                            label="وضعیت"
+                                            options={MILITARY_STATUS_OPTIONS}
+                                        />
+                                    )}
+                                </form.Field>
+                                <form.Field name="personal_info.military_status.organization">
+                                    {(field) => <FormTextField field={field} label="سازمان" />}
+                                </form.Field>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <form.Field name="personal_info.military_status.from">
+                                    {(field) => <FormDatePicker field={field} label="از تاریخ" />}
+                                </form.Field>
+                                <form.Field name="personal_info.military_status.to">
+                                    {(field) => <FormDatePicker field={field} label="تا تاریخ" />}
+                                </form.Field>
+                                <form.Field name="personal_info.military_status.reason">
+                                    {(field) => <FormTextField field={field} label="دلیل" />}
+                                </form.Field>
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
             </CardContent>
         </Card>
     );
