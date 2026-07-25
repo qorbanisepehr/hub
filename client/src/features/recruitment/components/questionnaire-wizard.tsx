@@ -55,10 +55,34 @@ const SECTION_COMPONENTS = [
     JobRequestSection,
 ];
 
+function getStepFromHash(): number {
+    const hash = window.location.hash.replace("#", "");
+    const step = parseInt(hash, 10);
+    if (!isNaN(step) && step >= 0 && step < WIZARD_STEPS.length) {
+        return step;
+    }
+    return 0;
+}
+
+function setStepHash(step: number) {
+    window.location.hash = `#${step}`;
+}
+
 export function QuestionnaireWizard({ questionnaire }: QuestionnaireWizardProps) {
     const queryClient = useQueryClient();
-    const [currentStep, setCurrentStep] = useState(7);
+    const [currentStep, setCurrentStep] = useState(getStepFromHash);
     const [submitErrors, setSubmitErrors] = useState<string[]>([]);
+
+    useEffect(() => {
+        const onHashChange = () => {
+            const step = getStepFromHash();
+            if (step !== currentStep) {
+                setCurrentStep(step);
+            }
+        };
+        window.addEventListener("hashchange", onHashChange);
+        return () => window.removeEventListener("hashchange", onHashChange);
+    }, [currentStep]);
 
     const saveMutation = useMutation({
         mutationFn: (data: Parameters<typeof saveQuestionnaire>[1]) =>
@@ -93,6 +117,10 @@ export function QuestionnaireWizard({ questionnaire }: QuestionnaireWizardProps)
 
     const form = useForm({
         defaultValues: {
+            first_name: questionnaire.first_name ?? "",
+            last_name: questionnaire.last_name ?? "",
+            email: questionnaire.email ?? "",
+            mobile: questionnaire.mobile ?? "",
             personal_info: questionnaire.personal_info ?? {
                 gender: "", blood_group: "", birth_date: "", birth_place: "",
                 birth_certificate_number: "", father_name: "", religion: "",
@@ -142,7 +170,13 @@ export function QuestionnaireWizard({ questionnaire }: QuestionnaireWizardProps)
         onSubmit: async ({ value }) => {
             const sectionKey = WIZARD_STEPS[currentStep]?.key;
             const sectionData: Record<string, unknown> = {};
-            if (sectionKey && sectionKey !== "summary" && sectionKey in value) {
+            if (sectionKey === "personal_info") {
+                sectionData.first_name = value.first_name;
+                sectionData.last_name = value.last_name;
+                sectionData.email = value.email;
+                sectionData.mobile = value.mobile;
+                sectionData.personal_info = value.personal_info;
+            } else if (sectionKey && sectionKey !== "summary" && sectionKey in value) {
                 sectionData[sectionKey] = value[sectionKey as keyof typeof value];
             }
             saveMutation.mutate(sectionData);
@@ -186,12 +220,19 @@ export function QuestionnaireWizard({ questionnaire }: QuestionnaireWizardProps)
         if (isDirty) {
             const sectionKey = WIZARD_STEPS[currentStep]?.key;
             const sectionData: Record<string, unknown> = {};
-            if (sectionKey && sectionKey !== "summary" && sectionKey in form.state.values) {
+            if (sectionKey === "personal_info") {
+                sectionData.first_name = form.state.values.first_name;
+                sectionData.last_name = form.state.values.last_name;
+                sectionData.email = form.state.values.email;
+                sectionData.mobile = form.state.values.mobile;
+                sectionData.personal_info = form.state.values.personal_info;
+            } else if (sectionKey && sectionKey !== "summary" && sectionKey in form.state.values) {
                 sectionData[sectionKey] = form.state.values[sectionKey as keyof typeof form.state.values];
             }
             await saveMutation.mutateAsync(sectionData);
         }
         setCurrentStep(step);
+        setStepHash(step);
         form.reset(form.state.values);
     };
 
@@ -235,16 +276,13 @@ export function QuestionnaireWizard({ questionnaire }: QuestionnaireWizardProps)
                     ))}
 
                     <StepperContent index={7}>
-                        <ReviewSection form={form as never} questionnaire={questionnaire} />
+                        <ReviewSection form={form as never} questionnaire={questionnaire} onNavigateToStep={goToStep} />
                     </StepperContent>
                 </StepperPanel>
             </Stepper>
 
             {saveMutation.error && (
                 <ErrorBanner message={getApiError(saveMutation.error) ?? "خطای ناشناخته"} />
-            )}
-            {submitMutation.error && (
-                <ErrorBanner message={getApiError(submitMutation.error) ?? "خطای ناشناخته"} />
             )}
             {submitErrors.length > 0 && (
                 <div className="flex items-start gap-3 rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
@@ -280,7 +318,7 @@ export function QuestionnaireWizard({ questionnaire }: QuestionnaireWizardProps)
                 </div>
 
                 <div className="flex gap-2">
-                    {currentStep < 7 && (
+                    {currentStep < WIZARD_STEPS.length - 1 && (
                         <Button
                             type="button"
                             variant="outline"
@@ -298,7 +336,7 @@ export function QuestionnaireWizard({ questionnaire }: QuestionnaireWizardProps)
                         </Button>
                     )}
 
-                    {currentStep < 7 && (
+                    {currentStep < WIZARD_STEPS.length - 1 && (
                         <Button
                             type="button"
                             onClick={() => goToStep(currentStep + 1)}
@@ -309,7 +347,7 @@ export function QuestionnaireWizard({ questionnaire }: QuestionnaireWizardProps)
                         </Button>
                     )}
 
-                    {currentStep === 7 && (
+                    {currentStep === WIZARD_STEPS.length - 1 && (
                         <div className="flex flex-col items-end gap-1">
                             <Button
                                 type="button"
@@ -325,7 +363,7 @@ export function QuestionnaireWizard({ questionnaire }: QuestionnaireWizardProps)
                             </Button>
                             {!canSubmit && (
                                 <p className="text-xs text-muted-foreground">
-                                    {!questionnaire.mobile_verified && "mobایل تأیید نشده • "}
+                                    {!questionnaire.mobile_verified && "موبایل تأیید نشده • "}
                                     {!questionnaire.email_verified && "ایمیل تأیید نشده • "}
                                     {!validateSubmitData(form.state.values).success &&
                                         "همه فیلدهای الزامی باید تکمیل شوند"}

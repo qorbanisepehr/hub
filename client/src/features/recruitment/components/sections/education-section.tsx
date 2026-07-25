@@ -13,7 +13,7 @@ import {
     FormDatePicker,
 } from "@/components/shared/form-fields";
 import { FormRepeater } from "@/components/shared/form-repeater";
-import { DEGREE_OPTIONS, YES_NO_OPTIONS } from "@/features/recruitment/constants";
+import { DEGREE_OPTIONS, YES_NO_OPTIONS, parseBoolean } from "@/features/recruitment/constants";
 import { zodFieldValidator } from "@/lib/validation-helpers";
 
 type SectionProps = {
@@ -194,6 +194,7 @@ export function EducationSection({ form }: SectionProps) {
                                                         field={f}
                                                         label="آیا پایان‌نامه ارائه شده است؟"
                                                         options={YES_NO_OPTIONS}
+                                                        parseValue={parseBoolean}
                                                     />
                                                 )}
                                             </form.Field>
@@ -216,17 +217,18 @@ export function EducationSection({ form }: SectionProps) {
                                                 )}
                                             </form.Field>
                                         </div>
-                                        <form.Field name="education.education_description">
-                                            {(f) => (
-                                                <FormTextarea
-                                                    field={f}
-                                                    label="توضیحات تحصیلی"
-                                                />
-                                            )}
-                                        </form.Field>
                                     </div>
                                 ) : null
                             }
+                        </form.Field>
+
+                        <form.Field name="education.education_description">
+                            {(f) => (
+                                <FormTextarea
+                                    field={f}
+                                    label="توضیحات تحصیلی"
+                                />
+                            )}
                         </form.Field>
                     </div>
             </CardContent>

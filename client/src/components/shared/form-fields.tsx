@@ -218,6 +218,7 @@ type FormRadioGroupProps = {
     label: string;
     options: RadioOption[];
     disabled?: boolean;
+    parseValue?: (value: string) => unknown;
 };
 
 export function FormRadioGroup({
@@ -225,15 +226,17 @@ export function FormRadioGroup({
     label,
     options,
     disabled,
+    parseValue,
 }: FormRadioGroupProps) {
     const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid;
+    const stringValue = String(field.state.value ?? "");
 
     return (
         <Field data-invalid={isInvalid}>
             <FieldLabel>{label}</FieldLabel>
             <RadioGroup
-                value={field.state.value ?? ""}
-                onValueChange={(val) => field.handleChange(val)}
+                value={stringValue}
+                onValueChange={(val) => field.handleChange(parseValue ? parseValue(val) : val)}
                 disabled={disabled}
                 className="flex flex-row flex-wrap gap-4"
             >

@@ -1,7 +1,7 @@
 import type { ReactFormExtendedApi } from "@tanstack/react-form";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { FormTextField, FormSelectField } from "@/components/shared/form-fields";
+import { FormTextField, FormSelectField, FormDatePicker } from "@/components/shared/form-fields";
 import { FormRepeater } from "@/components/shared/form-repeater";
 import {
     LANGUAGE_LEVEL_OPTIONS,
@@ -178,7 +178,7 @@ export function SkillsSection({ form }: SectionProps) {
                                         {(f) => <FormTextField field={f} label="عنوان" />}
                                     </form.Field>
                                     <form.Field name={`skills.certificates.${index}.expire_at`}>
-                                        {(f) => <FormTextField field={f} label="تاریخ انقضا" />}
+                                        {(f) => <FormDatePicker field={f} label="تاریخ انقضا" />}
                                     </form.Field>
                                 </div>
                             )}

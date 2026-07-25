@@ -17,6 +17,7 @@ import {
     YES_NO_OPTIONS,
     CURRENTLY_EMPLOYED_OPTIONS,
     PREFERRED_WORKPLACE_OPTIONS,
+    parseBoolean,
 } from "@/features/recruitment/constants";
 import { zodFieldValidator } from "@/lib/validation-helpers";
 
@@ -67,6 +68,7 @@ export function JobRequestSection({ form }: SectionProps) {
                                 field={field}
                                 label="آیا قبلاً رزومه ارسال کرده‌اید؟"
                                 options={YES_NO_OPTIONS}
+                                parseValue={parseBoolean}
                             />
                         )}
                     </form.Field>
@@ -76,6 +78,7 @@ export function JobRequestSection({ form }: SectionProps) {
                                 field={field}
                                 label="آیا قبلاً مصاحبه داشته‌اید؟"
                                 options={YES_NO_OPTIONS}
+                                parseValue={parseBoolean}
                             />
                         )}
                     </form.Field>
@@ -135,6 +138,7 @@ export function JobRequestSection({ form }: SectionProps) {
                                 field={field}
                                 label="آیا در حال حاضر شاغل هستید؟"
                                 options={CURRENTLY_EMPLOYED_OPTIONS}
+                                parseValue={parseBoolean}
                             />
                         )}
                     </form.Field>
