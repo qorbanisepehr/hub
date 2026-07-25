@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { IconLoader2, IconUpload, IconX, IconTrash } from "@tabler/icons-react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { cn } from "@/lib/utils";
@@ -11,6 +11,8 @@ import { getFileIcon } from "@/lib/file-icon";
 import { getFileColorClasses } from "@/lib/file-colors";
 import { FileThumbnail } from "@/components/ui/file-thumbnail";
 import { Button } from "@/components/ui/button";
+import { ConfirmAction } from "@/components/shared/confirm-action";
+import { useQuestionnaireDocuments } from "@/features/recruitment/hooks/use-questionnaire-documents";
 import type { Document } from "@/features/documents/types";
 
 type FileUploadFieldProps = {
@@ -21,6 +23,7 @@ type FileUploadFieldProps = {
     multiple?: boolean;
     maxFiles?: number;
     notes?: string;
+    recordKey?: string;
     className?: string;
     onUploadComplete?: (doc: Document) => void;
 };
@@ -48,6 +51,7 @@ export function FileUploadField({
     multiple = false,
     maxFiles = 1,
     notes,
+    recordKey,
     className,
     onUploadComplete,
 }: FileUploadFieldProps) {
@@ -56,24 +60,19 @@ export function FileUploadField({
     const [isDragging, setIsDragging] = React.useState(false);
     const dragDepthRef = React.useRef(0);
 
-    const { data: documents = [], isLoading } = useQuery({
-        queryKey: ["questionnaire-documents", uuid],
-        queryFn: () =>
-            api.get<{ data: Document[] }>(`/questionnaire/${uuid}/documents`).then((r) => r.data.data),
-        enabled: !!uuid,
-    });
-
-    const categoryDocs = React.useMemo(
-        () => documents.filter((d) => d.document_category_id === categoryId),
-        [documents, categoryId],
-    );
+    const { getDocuments } = useQuestionnaireDocuments(uuid);
+    const categoryDocs = getDocuments(categoryId, recordKey);
 
     const uploadMutation = useMutation({
         mutationFn: (file: File) => {
             const formData = new FormData();
             formData.append("document_category_id", String(categoryId));
             formData.append("file", file);
-            if (notes) formData.append("notes", notes);
+            if (recordKey) {
+                formData.append("meta", JSON.stringify({ recordKey }));
+            } else if (notes) {
+                formData.append("notes", notes);
+            }
             return api
                 .post<{ data: Document }>(`/questionnaire/${uuid}/documents`, formData, {
                     headers: { "Content-Type": "multipart/form-data" },
@@ -203,16 +202,21 @@ export function FileUploadField({
                                     {doc.file_size_formatted}
                                 </div>
                             </div>
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                className="size-7 p-0 text-muted-foreground hover:text-destructive"
-                                onClick={() => deleteMutation.mutate(doc.id)}
-                                disabled={deleteMutation.isPending}
-                            >
-                                <IconTrash className="size-3.5" />
-                            </Button>
+                            <ConfirmAction
+                                trigger={
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        className="size-7 p-0 text-muted-foreground hover:text-destructive"
+                                        disabled={deleteMutation.isPending}
+                                    >
+                                        <IconTrash className="size-3.5" />
+                                    </Button>
+                                }
+                                isPending={deleteMutation.isPending}
+                                onConfirm={() => deleteMutation.mutate(doc.id)}
+                            />
                         </div>
                     ))}
                 </div>

@@ -1,4 +1,5 @@
 import type { ReactFormExtendedApi } from "@tanstack/react-form";
+import { IconPaperclip } from "@tabler/icons-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -14,6 +15,7 @@ import {
 import { FileUploadField } from "@/components/shared/file-upload-field";
 import { FormRepeater } from "@/components/shared/form-repeater";
 import { DEGREE_OPTIONS, YES_NO_OPTIONS, parseBoolean } from "@/features/recruitment/constants";
+import { useQuestionnaireDocuments } from "@/features/recruitment/hooks/use-questionnaire-documents";
 import { zodFieldValidator } from "@/lib/validation-helpers";
 import { fieldSchemas } from "@/features/recruitment/schemas/education.schema";
 
@@ -22,16 +24,33 @@ type SectionProps = {
     uuid?: string;
 };
 
-const EDUCATION_COLUMNS = [
-    { key: "degree", label: "مدرک" },
-    { key: "field", label: "رشته" },
-    { key: "institution", label: "دانشگاه" },
-    { key: "from", label: "از تاریخ" },
-    { key: "to", label: "تا تاریخ" },
-    { key: "gpa", label: "معدل" },
-];
-
 export function EducationSection({ form, uuid }: SectionProps) {
+    const { hasDocument } = useQuestionnaireDocuments(uuid);
+
+    const educationColumns = [
+        { key: "degree", label: "مدرک" },
+        { key: "field", label: "رشته" },
+        { key: "institution", label: "دانشگاه" },
+        { key: "from", label: "از تاریخ" },
+        { key: "to", label: "تا تاریخ" },
+        { key: "gpa", label: "معدل" },
+        {
+            key: "_attachment",
+            label: "پیوست",
+            render: (_value: unknown, _item: unknown, index: number) => {
+                const has = hasDocument(17, `edu-${index}`);
+                return has ? (
+                    <span className="inline-flex items-center gap-1 text-primary">
+                        <IconPaperclip className="size-3.5" />
+                    </span>
+                ) : (
+                    <span className="text-muted-foreground/40">
+                        <IconPaperclip className="size-3.5" />
+                    </span>
+                );
+            },
+        },
+    ];
     return (
         <Card>
             <CardHeader>
@@ -49,7 +68,7 @@ export function EducationSection({ form, uuid }: SectionProps) {
                             defaultMode="table"
                             field={field}
                             label="سوابق تحصیلی"
-                            columns={EDUCATION_COLUMNS}
+                            columns={educationColumns}
                             getSummary={(item) => ({
                                 degree: DEGREE_OPTIONS.find((d) => d.value === item.degree)?.label ?? item.degree,
                                 field: item.field,
@@ -59,70 +78,61 @@ export function EducationSection({ form, uuid }: SectionProps) {
                                 gpa: item.gpa,
                             })}
                             renderItem={(index) => (
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                    <form.Field name={`education.education_records.${index}.degree`}>
-                                        {(f) => (
-                                            <FormSelectField
-                                                field={f}
-                                                label="مدرک"
-                                                options={DEGREE_OPTIONS}
-                                            />
-                                        )}
-                                    </form.Field>
-                                    <form.Field name={`education.education_records.${index}.field`}>
-                                        {(f) => <FormTextField field={f} label="رشته تحصیلی" />}
-                                    </form.Field>
-                                    <form.Field
-                                        name={`education.education_records.${index}.institution`}
-                                    >
-                                        {(f) => <FormTextField field={f} label="دانشگاه" />}
-                                    </form.Field>
-                                    <form.Field name={`education.education_records.${index}.location`}>
-                                        {(f) => <FormTextField field={f} label="محل" />}
-                                    </form.Field>
-                                    <form.Field name={`education.education_records.${index}.from`}>
-                                        {(f) => <FormDatePicker field={f} label="از تاریخ" />}
-                                    </form.Field>
-                                    <form.Field name={`education.education_records.${index}.to`}>
-                                        {(f) => <FormDatePicker field={f} label="تا تاریخ" />}
-                                    </form.Field>
-                                    <form.Field
-                                        name={`education.education_records.${index}.thesis_title`}
-                                    >
-                                        {(f) => <FormTextField field={f} label="عنوان پایان‌نامه" />}
-                                    </form.Field>
-                                    <form.Field
-                                        name={`education.education_records.${index}.graduation_date`}
-                                    >
-                                        {(f) => <FormDatePicker field={f} label="تاریخ فارغ‌التحصیلی" />}
-                                    </form.Field>
-                                    <form.Field name={`education.education_records.${index}.gpa`}>
-                                        {(f) => <FormTextField field={f} label="معدل" />}
-                                    </form.Field>
+                                <div className="space-y-4">
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <form.Field name={`education.education_records.${index}.degree`}>
+                                            {(f) => (
+                                                <FormSelectField
+                                                    field={f}
+                                                    label="مدرک"
+                                                    options={DEGREE_OPTIONS}
+                                                />
+                                            )}
+                                        </form.Field>
+                                        <form.Field name={`education.education_records.${index}.field`}>
+                                            {(f) => <FormTextField field={f} label="رشته تحصیلی" />}
+                                        </form.Field>
+                                        <form.Field
+                                            name={`education.education_records.${index}.institution`}
+                                        >
+                                            {(f) => <FormTextField field={f} label="دانشگاه" />}
+                                        </form.Field>
+                                        <form.Field name={`education.education_records.${index}.location`}>
+                                            {(f) => <FormTextField field={f} label="محل" />}
+                                        </form.Field>
+                                        <form.Field name={`education.education_records.${index}.from`}>
+                                            {(f) => <FormDatePicker field={f} label="از تاریخ" />}
+                                        </form.Field>
+                                        <form.Field name={`education.education_records.${index}.to`}>
+                                            {(f) => <FormDatePicker field={f} label="تا تاریخ" />}
+                                        </form.Field>
+                                        <form.Field
+                                            name={`education.education_records.${index}.thesis_title`}
+                                        >
+                                            {(f) => <FormTextField field={f} label="عنوان پایان‌نامه" />}
+                                        </form.Field>
+                                        <form.Field
+                                            name={`education.education_records.${index}.graduation_date`}
+                                        >
+                                            {(f) => <FormDatePicker field={f} label="تاریخ فارغ‌التحصیلی" />}
+                                        </form.Field>
+                                        <form.Field name={`education.education_records.${index}.gpa`}>
+                                            {(f) => <FormTextField field={f} label="معدل" />}
+                                        </form.Field>
+                                    </div>
+                                    {uuid && (
+                                        <FileUploadField
+                                            uuid={uuid}
+                                            categoryId={17}
+                                            label="مدرک تحصیلی"
+                                            recordKey={`edu-${index}`}
+                                        />
+                                    )}
                                 </div>
                             )}
                         />
                     )}
                 </form.Field>
-
-                {uuid && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <FileUploadField
-                            uuid={uuid}
-                            categoryId={17}
-                            label="مدرک تحصیلی"
-                            multiple
-                            maxFiles={5}
-                        />
-                        <FileUploadField
-                            uuid={uuid}
-                            categoryId={19}
-                            label="ریز نمرات"
-                            multiple
-                            maxFiles={5}
-                        />
-                    </div>
-                )}
 
                 <div className="rounded-lg border p-4 space-y-4">
                     <span className="text-sm font-medium">وضعیت دانشجویی</span>

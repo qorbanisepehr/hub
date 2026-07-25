@@ -23,6 +23,7 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { ConfirmAction } from "@/components/shared/confirm-action";
 
 type TableColumn = {
     key: string;
@@ -277,18 +278,21 @@ function TableRepeaterInner({
                                                 >
                                                     <IconPencil className="size-4" />
                                                 </Button>
-                                                <Button
-                                                    type="button"
-                                                    variant="ghost"
-                                                    size="icon-sm"
-                                                    className="text-destructive"
-                                                    onClick={() =>
-                                                        handleDelete(index)
+                                                <ConfirmAction
+                                                    trigger={
+                                                        <Button
+                                                            type="button"
+                                                            variant="ghost"
+                                                            size="icon-sm"
+                                                            className="text-destructive"
+                                                            disabled={isFormOpen}
+                                                        >
+                                                            <IconTrash className="size-4" />
+                                                        </Button>
                                                     }
-                                                    disabled={isFormOpen}
-                                                >
-                                                    <IconTrash className="size-4" />
-                                                </Button>
+                                                    stopPropagation
+                                                    onConfirm={() => handleDelete(index)}
+                                                />
                                             </div>
                                         </TableCell>
                                     </TableRow>
@@ -453,18 +457,20 @@ function CardRepeaterInner({
                                 )}
                                 {renderHeader(item, index)}
                             </CardTitle>
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon-sm"
-                                className="text-destructive shrink-0"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleDelete(index);
-                                }}
-                            >
-                                <IconTrash className="size-4" />
-                            </Button>
+                            <ConfirmAction
+                                trigger={
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon-sm"
+                                        className="text-destructive shrink-0"
+                                    >
+                                        <IconTrash className="size-4" />
+                                    </Button>
+                                }
+                                stopPropagation
+                                onConfirm={() => handleDelete(index)}
+                            />
                         </CardHeader>
                         {isExpanded && (
                             <CardContent className="pt-0">

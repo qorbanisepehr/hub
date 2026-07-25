@@ -1,10 +1,12 @@
 import type { ReactFormExtendedApi } from "@tanstack/react-form";
-
-import { IconPencil } from "@tabler/icons-react";
+import { useState } from "react";
+import { IconPencil, IconPaperclip } from "@tabler/icons-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { FileUploadField } from "@/components/shared/file-upload-field";
+import { useQuestionnaireDocuments } from "@/features/recruitment/hooks/use-questionnaire-documents";
+import { DocumentPreviewLightbox } from "@/features/documents/components/document-preview-lightbox";
+import type { Document } from "@/features/documents/types";
 import type { Questionnaire } from "@/features/recruitment/types";
 
 type SectionProps = {
@@ -40,6 +42,47 @@ function SectionHeader({ title, onEdit }: { title: string; onEdit?: () => void }
     );
 }
 
+const DOCUMENT_SECTIONS = [
+    { categoryId: 7, label: "کارت ملی — رو" },
+    { categoryId: 8, label: "کارت ملی — پشت" },
+    { categoryId: 17, label: "مدرک تحصیلی" },
+    { categoryId: 20, label: "گواهینامه زبان" },
+    { categoryId: 18, label: "گواهینامه دوره" },
+    { categoryId: 45, label: "رزومه" },
+    { categoryId: 46, label: "نامه پوششی" },
+    { categoryId: 48, label: "سایر مدارک" },
+];
+
+function DocumentRow({
+    label,
+    docs,
+    onPreview,
+}: {
+    label: string;
+    docs: Document[];
+    onPreview: (doc: Document) => void;
+}) {
+    if (docs.length === 0) return null;
+    return (
+        <div className="flex items-center gap-2">
+            <IconPaperclip className="size-3.5 text-muted-foreground" />
+            <span className="text-xs text-muted-foreground w-28 shrink-0">{label}</span>
+            <div className="flex flex-wrap gap-1">
+                {docs.map((doc) => (
+                    <button
+                        key={doc.id}
+                        type="button"
+                        className="inline-flex items-center gap-1 rounded border bg-background px-2 py-0.5 text-xs font-medium hover:bg-muted transition-colors cursor-pointer"
+                        onClick={() => onPreview(doc)}
+                    >
+                        {doc.original_name}
+                    </button>
+                ))}
+            </div>
+        </div>
+    );
+}
+
 export function ReviewSection({ form, questionnaire, onNavigateToStep }: SectionProps) {
     const v = form.state.values;
     const pi = v.personal_info ?? {};
@@ -50,6 +93,17 @@ export function ReviewSection({ form, questionnaire, onNavigateToStep }: Section
     const training = v.training ?? {};
     const additional = v.additional_info ?? {};
     const job = v.job_request ?? {};
+
+    const { getDocuments } = useQuestionnaireDocuments(questionnaire?.uuid);
+    const [lightboxDocs, setLightboxDocs] = useState<Document[]>([]);
+    const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+
+    function handlePreview(doc: Document) {
+        const allDocs = DOCUMENT_SECTIONS.flatMap((s) => getDocuments(s.categoryId));
+        const idx = allDocs.findIndex((d) => d.id === doc.id);
+        setLightboxDocs(allDocs);
+        setLightboxIndex(idx >= 0 ? idx : 0);
+    }
 
     return (
         <div className="space-y-4">
@@ -129,19 +183,39 @@ export function ReviewSection({ form, questionnaire, onNavigateToStep }: Section
                 <SectionHeader title="سوابق تحصیلی" onEdit={() => onNavigateToStep?.(2)} />
                 <CardContent className="space-y-4">
                     {edu.education_records?.length > 0 ? (
-                        edu.education_records.map((rec: any, i: number) => (
-                            <div key={i} className="grid grid-cols-1 md:grid-cols-3 gap-4 p-3 rounded-lg bg-muted/50">
-                                <DataRow label="مدرک" value={rec.degree} />
-                                <DataRow label="رشته" value={rec.field} />
-                                <DataRow label="دانشگاه" value={rec.institution} />
-                                <DataRow label="محل" value={rec.location} />
-                                <DataRow label="از تاریخ" value={rec.from} />
-                                <DataRow label="تا تاریخ" value={rec.to} />
-                                <DataRow label="معدل" value={rec.gpa} />
-                                <DataRow label="تاریخ فارغ‌التحصیلی" value={rec.graduation_date} />
-                                <DataRow label="پایان‌نامه" value={rec.thesis_title} />
-                            </div>
-                        ))
+                        edu.education_records.map((rec: any, i: number) => {
+                            const eduDocs = getDocuments(17, `edu-${i}`);
+                            return (
+                                <div key={i} className="space-y-2">
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-3 rounded-lg bg-muted/50">
+                                        <DataRow label="مدرک" value={rec.degree} />
+                                        <DataRow label="رشته" value={rec.field} />
+                                        <DataRow label="دانشگاه" value={rec.institution} />
+                                        <DataRow label="محل" value={rec.location} />
+                                        <DataRow label="از تاریخ" value={rec.from} />
+                                        <DataRow label="تا تاریخ" value={rec.to} />
+                                        <DataRow label="معدل" value={rec.gpa} />
+                                        <DataRow label="تاریخ فارغ‌التحصیلی" value={rec.graduation_date} />
+                                        <DataRow label="پایان‌نامه" value={rec.thesis_title} />
+                                    </div>
+                                    {eduDocs.length > 0 && (
+                                        <div className="flex flex-wrap gap-1 ps-3">
+                                            {eduDocs.map((doc) => (
+                                                <button
+                                                    key={doc.id}
+                                                    type="button"
+                                                    className="inline-flex items-center gap-1 rounded border bg-background px-2 py-0.5 text-xs font-medium hover:bg-muted transition-colors cursor-pointer"
+                                                    onClick={() => handlePreview(doc)}
+                                                >
+                                                    <IconPaperclip className="size-3" />
+                                                    {doc.original_name}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })
                     ) : (
                         <p className="text-sm text-muted-foreground">سابقه تحصیلی ثبت نشده</p>
                     )}
@@ -194,12 +268,32 @@ export function ReviewSection({ form, questionnaire, onNavigateToStep }: Section
                     {skills.languages?.length > 0 && (
                         <div>
                             <p className="text-sm font-medium mb-2">زبان‌ها</p>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                                {skills.languages.map((lang: any, i: number) => (
-                                    <div key={i} className="text-sm p-2 rounded bg-muted/50">
-                                        {lang.language}: خواندن {lang.reading}، نوشتن {lang.writing}، صحبت {lang.speaking}، درک مطلب {lang.comprehension}
-                                    </div>
-                                ))}
+                            <div className="space-y-2">
+                                {skills.languages.map((lang: any, i: number) => {
+                                    const langDocs = getDocuments(20, `lang-${i}`);
+                                    return (
+                                        <div key={i} className="space-y-1">
+                                            <div className="text-sm p-2 rounded bg-muted/50">
+                                                {lang.language}: خواندن {lang.reading}، نوشتن {lang.writing}، صحبت {lang.speaking}، درک مطلب {lang.comprehension}
+                                            </div>
+                                            {langDocs.length > 0 && (
+                                                <div className="flex flex-wrap gap-1 ps-2">
+                                                    {langDocs.map((doc) => (
+                                                        <button
+                                                            key={doc.id}
+                                                            type="button"
+                                                            className="inline-flex items-center gap-1 rounded border bg-background px-2 py-0.5 text-xs font-medium hover:bg-muted transition-colors cursor-pointer"
+                                                            onClick={() => handlePreview(doc)}
+                                                        >
+                                                            <IconPaperclip className="size-3" />
+                                                            {doc.original_name}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
                             </div>
                         </div>
                     )}
@@ -241,12 +335,32 @@ export function ReviewSection({ form, questionnaire, onNavigateToStep }: Section
                 <SectionHeader title="آموزشی و تحقیقاتی" onEdit={() => onNavigateToStep?.(5)} />
                 <CardContent className="space-y-4">
                     {training.training_courses?.length > 0 ? (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                            {training.training_courses.map((c: any, i: number) => (
-                                <div key={i} className="text-sm p-2 rounded bg-muted/50">
-                                    {c.course_name} — {c.institution} ({c.duration})
-                                </div>
-                            ))}
+                        <div className="space-y-2">
+                            {training.training_courses.map((c: any, i: number) => {
+                                const trainDocs = getDocuments(18, `train-${i}`);
+                                return (
+                                    <div key={i} className="space-y-1">
+                                        <div className="text-sm p-2 rounded bg-muted/50">
+                                            {c.course_name} — {c.institution} ({c.duration})
+                                        </div>
+                                        {trainDocs.length > 0 && (
+                                            <div className="flex flex-wrap gap-1 ps-2">
+                                                {trainDocs.map((doc) => (
+                                                    <button
+                                                        key={doc.id}
+                                                        type="button"
+                                                        className="inline-flex items-center gap-1 rounded border bg-background px-2 py-0.5 text-xs font-medium hover:bg-muted transition-colors cursor-pointer"
+                                                        onClick={() => handlePreview(doc)}
+                                                    >
+                                                        <IconPaperclip className="size-3" />
+                                                        {doc.original_name}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
                         </div>
                     ) : (
                         <p className="text-sm text-muted-foreground">دوره آموزشی ثبت نشده</p>
@@ -311,24 +425,34 @@ export function ReviewSection({ form, questionnaire, onNavigateToStep }: Section
                 </CardContent>
             </Card>
 
-            {/* ── بارگذاری مدارک ── */}
+            {/* ── مدارک بارگذاری شده ── */}
             <Card>
-                <SectionHeader title="بارگذاری مدارک" />
-                <CardContent>
-                    <p className="text-sm text-muted-foreground mb-4">
-                        مدارک بارگذاری شده در بخش قبلی در اینجا قابل مشاهده هستند.
-                    </p>
-                    {questionnaire?.uuid && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <FileUploadField uuid={questionnaire.uuid} categoryId={7} label="کارت ملی — رو" />
-                            <FileUploadField uuid={questionnaire.uuid} categoryId={8} label="کارت ملی — پشت" />
-                            <FileUploadField uuid={questionnaire.uuid} categoryId={45} label="رزومه" multiple maxFiles={5} />
-                            <FileUploadField uuid={questionnaire.uuid} categoryId={46} label="نامه پوششی" />
-                            <FileUploadField uuid={questionnaire.uuid} categoryId={48} label="سایر مدارک" multiple maxFiles={10} />
-                        </div>
+                <SectionHeader title="مدارک بارگذاری شده" />
+                <CardContent className="space-y-3">
+                    {DOCUMENT_SECTIONS.map((section) => {
+                        const docs = getDocuments(section.categoryId);
+                        return (
+                            <DocumentRow
+                                key={section.categoryId}
+                                label={section.label}
+                                docs={docs}
+                                onPreview={handlePreview}
+                            />
+                        );
+                    })}
+                    {DOCUMENT_SECTIONS.every((s) => getDocuments(s.categoryId).length === 0) && (
+                        <p className="text-sm text-muted-foreground">مدرکی بارگذاری نشده است.</p>
                     )}
                 </CardContent>
             </Card>
+
+            <DocumentPreviewLightbox
+                open={lightboxIndex !== null}
+                documents={lightboxDocs}
+                currentIndex={lightboxIndex ?? 0}
+                onClose={() => setLightboxIndex(null)}
+                onNavigate={setLightboxIndex}
+            />
 
             {/* ── وضعیت تأیید ── */}
             <Card>
