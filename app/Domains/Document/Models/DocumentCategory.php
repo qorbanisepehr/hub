@@ -3,6 +3,7 @@
 namespace App\Domains\Document\Models;
 
 use App\Domains\Employee\Models\Employee;
+use App\Domains\Recruitment\Models\Questionnaire;
 use Database\Factories\DocumentCategoryFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\UseFactory;
@@ -30,6 +31,7 @@ class DocumentCategory extends Model
     {
         return [
             'employee' => Employee::class,
+            'questionnaire' => Questionnaire::class,
         ];
     }
 

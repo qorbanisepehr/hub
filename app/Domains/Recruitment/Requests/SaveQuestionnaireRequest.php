@@ -43,7 +43,6 @@ class SaveQuestionnaireRequest extends FormRequest
             'personal_info.military_status.from' => ['sometimes', 'string', 'max:255'],
             'personal_info.military_status.to' => ['sometimes', 'string', 'max:255'],
             'personal_info.military_status.reason' => ['sometimes', 'string', 'max:255'],
-            'personal_info.photo' => ['sometimes', 'nullable', 'string', 'max:500'],
             'personal_info.national_id' => ['sometimes', 'string', 'max:10'],
 
             // ── Contact Info (step 1) ──

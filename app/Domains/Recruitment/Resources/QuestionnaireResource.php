@@ -35,6 +35,7 @@ class QuestionnaireResource extends JsonResource
             'email' => $this->email,
             'mobile' => $this->mobile,
             'personal_info' => $this->personal_info,
+            'contact_info' => $this->contact_info,
             'education' => $this->education,
             'work_experience' => $this->work_experience,
             'skills' => $this->skills,

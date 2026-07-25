@@ -43,7 +43,6 @@ class SubmitQuestionnaireRequest extends FormRequest
             'personal_info.military_status.from' => ['required_with:personal_info.military_status', 'string', 'max:255'],
             'personal_info.military_status.to' => ['required_with:personal_info.military_status', 'string', 'max:255'],
             'personal_info.military_status.reason' => ['required_with:personal_info.military_status', 'string', 'max:255'],
-            'personal_info.photo' => ['nullable', 'string', 'max:500'],
             'personal_info.national_id' => ['required', 'string', 'size:10'],
 
             // ── Contact Info ──

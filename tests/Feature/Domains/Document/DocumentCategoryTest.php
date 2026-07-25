@@ -32,7 +32,7 @@ describe('document category CRUD', function () {
             DocumentCategory::factory()->create(['name' => 'First', 'sort_order' => 1]);
 
             $this->actingAs($user)
-                ->getJson('/api/document-categories')
+                ->getJson('/api/document-categories?type=employee')
                 ->assertStatus(200)
                 ->assertJsonCount(2, 'data')
                 ->assertJsonPath('data.0.name', 'First')
@@ -53,13 +53,16 @@ describe('document category CRUD', function () {
 
         it('returns all categories for unknown type', function () {
             $user = createUserWithPermissions(['document-category.view', 'document-category.manage']);
-            DocumentCategory::factory()->create();
-            DocumentCategory::factory()->create();
+            DocumentCategory::factory()->create(['name' => 'Custom A']);
+            DocumentCategory::factory()->create(['name' => 'Custom B']);
 
-            $this->actingAs($user)
+            $response = $this->actingAs($user)
                 ->getJson('/api/document-categories?type=nonexistent')
-                ->assertStatus(200)
-                ->assertJsonCount(2, 'data');
+                ->assertStatus(200);
+
+            $names = collect($response->json('data'))->pluck('name')->toArray();
+            $this->assertContains('Custom A', $names);
+            $this->assertContains('Custom B', $names);
         });
 
         it('includes documents_count', function () {
