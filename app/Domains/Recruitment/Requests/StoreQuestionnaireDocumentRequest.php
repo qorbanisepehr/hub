@@ -35,6 +35,12 @@ class StoreQuestionnaireDocumentRequest extends FormRequest
                     ->max(config('documents.recruitment.max_file_size', 10 * 1024)),
             ],
             'notes' => ['nullable', 'string', 'max:1000'],
+            'meta' => ['nullable', 'string', 'max:5000', function (string $attribute, mixed $value, \Closure $fail): void {
+                $decoded = json_decode($value, true);
+                if (json_last_error() !== JSON_ERROR_NONE) {
+                    $fail('meta باید یک JSON معتبر باشد.');
+                }
+            }],
         ];
     }
 

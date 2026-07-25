@@ -19,6 +19,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     'mime_type',
     'file_size',
     'notes',
+    'meta',
     'uploaded_by',
     'thumbnail_path',
 ])]
@@ -50,6 +51,7 @@ class Document extends Model
     {
         return [
             'file_size' => 'integer',
+            'meta' => 'array',
         ];
     }
 }

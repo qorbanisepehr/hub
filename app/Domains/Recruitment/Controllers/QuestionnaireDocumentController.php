@@ -5,7 +5,7 @@ namespace App\Domains\Recruitment\Controllers;
 use App\Domains\Document\Jobs\GenerateDocumentThumbnail;
 use App\Domains\Document\Models\Document;
 use App\Domains\Document\Models\DocumentCategory;
-use App\Domains\Document\Resources\DocumentResource;
+use App\Domains\Document\Resources\QuestionnaireDocumentResource;
 use App\Domains\Recruitment\Models\Questionnaire;
 use App\Domains\Recruitment\Requests\StoreQuestionnaireDocumentRequest;
 use Illuminate\Http\JsonResponse;
@@ -26,10 +26,10 @@ class QuestionnaireDocumentController extends Controller
             ->latest()
             ->get();
 
-        return DocumentResource::collection($documents);
+        return QuestionnaireDocumentResource::collection($documents);
     }
 
-    public function store(StoreQuestionnaireDocumentRequest $request, string $uuid): DocumentResource
+    public function store(StoreQuestionnaireDocumentRequest $request, string $uuid): QuestionnaireDocumentResource
     {
         $questionnaire = Questionnaire::where('uuid', $uuid)->where('status', 'draft')->firstOrFail();
 
@@ -48,13 +48,14 @@ class QuestionnaireDocumentController extends Controller
             'mime_type' => $file->getMimeType(),
             'file_size' => $file->getSize(),
             'notes' => $request->notes,
+            'meta' => $request->meta ? json_decode($request->meta, true) : null,
         ]);
 
         GenerateDocumentThumbnail::dispatch($document);
 
         $document->load(['category']);
 
-        return new DocumentResource($document);
+        return new QuestionnaireDocumentResource($document);
     }
 
     public function destroy(string $uuid, int $documentId): JsonResponse
@@ -71,16 +72,19 @@ class QuestionnaireDocumentController extends Controller
         return response()->json(['message' => 'فایل حذف شد.']);
     }
 
-    public function serve(int $documentId): StreamedResponse
+    public function serve(int $documentId, Request $request): StreamedResponse
     {
         $document = Document::where('id', $documentId)->firstOrFail();
 
         $disk = config('documents.storage_disk');
 
-        if (! Storage::disk($disk)->exists($document->stored_path)) {
+        $useThumbnail = $request->boolean('thumbnail') && $document->thumbnail_path;
+        $path = $useThumbnail ? $document->thumbnail_path : $document->stored_path;
+
+        if (! Storage::disk($disk)->exists($path)) {
             abort(404);
         }
 
-        return Storage::disk($disk)->response($document->stored_path);
+        return Storage::disk($disk)->response($path);
     }
 }
