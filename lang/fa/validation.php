@@ -214,14 +214,24 @@ return [
             'required' => 'کد ملی الزامی است.',
             'size' => 'کد ملی باید ۱۰ رقم باشد.',
         ],
-        'personal_info.address' => [
-            'required' => 'آدرس الزامی است.',
-        ],
-        'personal_info.phone' => [
+        // ── Contact Info ──
+        'contact_info.phone' => [
             'required' => 'تلفن ثابت الزامی است.',
         ],
-        'personal_info.emergency_phone' => [
+        'contact_info.emergency_phone' => [
             'required' => 'تلفن اضطراری الزامی است.',
+        ],
+        'contact_info.address.postal_code' => [
+            'required' => 'کد پستی الزامی است.',
+        ],
+        'contact_info.address.province' => [
+            'required' => 'استان الزامی است.',
+        ],
+        'contact_info.address.city' => [
+            'required' => 'شهر الزامی است.',
+        ],
+        'contact_info.address.address' => [
+            'required' => 'آدرس الزامی است.',
         ],
         'personal_info.military_status.status' => [
             'required_with' => 'وضعیت نظام وظیفه الزامی است.',
@@ -383,9 +393,15 @@ return [
         'personal_info.military_status.reason' => 'دلیل',
         'personal_info.photo' => 'تصویر',
         'personal_info.national_id' => 'کد ملی',
-        'personal_info.address' => 'آدرس',
-        'personal_info.phone' => 'تلفن ثابت',
-        'personal_info.emergency_phone' => 'تلفن اضطراری',
+        'contact_info.phone' => 'تلفن ثابت',
+        'contact_info.emergency_phone' => 'تلفن اضطراری',
+        'contact_info.address.postal_code' => 'کد پستی',
+        'contact_info.address.province' => 'استان',
+        'contact_info.address.city' => 'شهر',
+        'contact_info.address.address' => 'آدرس',
+        'contact_info.address.plaque' => 'پلاک',
+        'contact_info.address.floor' => 'طبقه',
+        'contact_info.address.unit' => 'واحد',
         'education' => 'سوابق تحصیلی',
         'education.education_records' => 'سوابق تحصیلی',
         'education.education_records.*.degree' => 'مدرک',

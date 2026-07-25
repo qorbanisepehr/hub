@@ -238,14 +238,24 @@ return [
             'required' => 'National ID is required.',
             'size' => 'National ID must be 10 digits.',
         ],
-        'personal_info.address' => [
-            'required' => 'Address is required.',
-        ],
-        'personal_info.phone' => [
+        // ── Contact Info ──
+        'contact_info.phone' => [
             'required' => 'Phone number is required.',
         ],
-        'personal_info.emergency_phone' => [
+        'contact_info.emergency_phone' => [
             'required' => 'Emergency phone is required.',
+        ],
+        'contact_info.address.postal_code' => [
+            'required' => 'Postal code is required.',
+        ],
+        'contact_info.address.province' => [
+            'required' => 'Province is required.',
+        ],
+        'contact_info.address.city' => [
+            'required' => 'City is required.',
+        ],
+        'contact_info.address.address' => [
+            'required' => 'Address is required.',
         ],
         'personal_info.military_status.status' => [
             'required_with' => 'Military status is required.',
@@ -407,9 +417,15 @@ return [
         'personal_info.military_status.reason' => 'reason',
         'personal_info.photo' => 'photo',
         'personal_info.national_id' => 'national ID',
-        'personal_info.address' => 'address',
-        'personal_info.phone' => 'phone',
-        'personal_info.emergency_phone' => 'emergency phone',
+        'contact_info.phone' => 'phone',
+        'contact_info.emergency_phone' => 'emergency phone',
+        'contact_info.address.postal_code' => 'postal code',
+        'contact_info.address.province' => 'province',
+        'contact_info.address.city' => 'city',
+        'contact_info.address.address' => 'address',
+        'contact_info.address.plaque' => 'plaque',
+        'contact_info.address.floor' => 'floor',
+        'contact_info.address.unit' => 'unit',
         'education' => 'education',
         'education.education_records' => 'education records',
         'education.education_records.*.degree' => 'degree',

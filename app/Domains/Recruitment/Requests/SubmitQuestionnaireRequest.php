@@ -45,9 +45,19 @@ class SubmitQuestionnaireRequest extends FormRequest
             'personal_info.military_status.reason' => ['required_with:personal_info.military_status', 'string', 'max:255'],
             'personal_info.photo' => ['nullable', 'string', 'max:500'],
             'personal_info.national_id' => ['required', 'string', 'size:10'],
-            'personal_info.address' => ['required', 'string', 'max:500'],
-            'personal_info.phone' => ['required', 'string', 'max:15'],
-            'personal_info.emergency_phone' => ['required', 'string', 'max:15'],
+
+            // ── Contact Info ──
+            'contact_info' => ['required', 'array'],
+            'contact_info.phone' => ['required', 'string', 'max:15'],
+            'contact_info.emergency_phone' => ['required', 'string', 'max:15'],
+            'contact_info.address' => ['required', 'array'],
+            'contact_info.address.postal_code' => ['required', 'string', 'max:10'],
+            'contact_info.address.province' => ['required', 'string', 'max:50'],
+            'contact_info.address.city' => ['required', 'string', 'max:50'],
+            'contact_info.address.address' => ['required', 'string', 'max:500'],
+            'contact_info.address.plaque' => ['sometimes', 'nullable', 'string', 'max:10'],
+            'contact_info.address.floor' => ['sometimes', 'nullable', 'string', 'max:10'],
+            'contact_info.address.unit' => ['sometimes', 'nullable', 'string', 'max:10'],
 
             // ── Education ──
             'education' => ['required', 'array'],
