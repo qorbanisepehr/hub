@@ -19,15 +19,22 @@ type ShareDialogProps = {
     onOpenChange: (open: boolean) => void;
     url: string;
     title?: string;
+    shareTitle?: string;
+    shareText?: string;
 };
 
 export function ShareDialog({
     open,
     onOpenChange,
     url,
-    title = "اشتراک‌گذاری لینک",
+    title = "اشتراک‌گذاری",
+    shareTitle,
+    shareText,
 }: ShareDialogProps) {
     const qrRef = useRef<QrCodeRef>(null);
+
+    const shareLabel = shareTitle ?? title;
+    const text = shareText ?? "";
 
     const handleCopyLink = async () => {
         await navigator.clipboard.writeText(url);
@@ -37,8 +44,8 @@ export function ShareDialog({
     const handleSystemShare = async () => {
         try {
             await navigator.share({
-                title: "پرسشنامه استخدامی",
-                text: "لطفاً فرم پرسشنامه را تکمیل کنید.",
+                title: shareLabel,
+                text,
                 url,
             });
         } catch {
@@ -47,17 +54,17 @@ export function ShareDialog({
         }
     };
 
-    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent("پرسشنامه استخدامی\n" + url)}`;
-    const telegramUrl = `https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent("پرسشنامه استخدامی")}`;
-    const smsUrl = `sms:?body=${encodeURIComponent("پرسشنامه استخدامی " + url)}`;
-    const emailUrl = `mailto:?subject=${encodeURIComponent("پرسشنامه استخدامی")}&body=${encodeURIComponent(url)}`;
+    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent((text ? text + "\n" : "") + url)}`;
+    const telegramUrl = `https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(shareLabel)}`;
+    const smsUrl = `sms:?body=${encodeURIComponent((shareLabel + " " + url).trim())}`;
+    const emailUrl = `mailto:?subject=${encodeURIComponent(shareLabel)}&body=${encodeURIComponent(url)}`;
 
     return (
         <ResponsiveDialog
             open={open}
             onOpenChange={onOpenChange}
             title={title}
-            description="لینک پرسشنامه را با نامزد به اشتراک بگذارید"
+            description=""
             footer={
                 <>
                     <Button

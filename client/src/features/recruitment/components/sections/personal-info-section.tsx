@@ -3,7 +3,6 @@ import type { ReactFormExtendedApi } from "@tanstack/react-form";
 import { useStore } from "@tanstack/react-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { z } from "zod";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -30,10 +29,9 @@ import {
 import { getApiError } from "@/lib/error-utils";
 import { zodFieldValidator } from "@/lib/validation-helpers";
 import type { Questionnaire } from "@/features/recruitment/types";
+import { fieldSchemas } from "@/features/recruitment/schemas/personal-info.schema";
 
 import { OtpVerificationBlock } from "./otp-verification-block";
-
-const requiredString = z.string().min(1, "این فیلد الزامی است.");
 
 type SectionProps = {
     form: ReactFormExtendedApi<any, any, any, any, any, any, any, any, any, any, any, any>;
@@ -112,7 +110,7 @@ export function PersonalInfoSection({ form, questionnaire }: SectionProps) {
                     </form.Field>
                     <form.Field
                         name="personal_info.gender"
-                        validators={{ onBlur: zodFieldValidator(requiredString) }}
+                        validators={{ onBlur: zodFieldValidator(fieldSchemas.gender) }}
                     >
                         {(field) => (
                             <FormRadioGroup field={field} label="جنسیت" options={GENDER_OPTIONS} />
@@ -175,7 +173,7 @@ export function PersonalInfoSection({ form, questionnaire }: SectionProps) {
                     </form.Field>
                     <form.Field
                         name="personal_info.birth_date"
-                        validators={{ onBlur: zodFieldValidator(requiredString) }}
+                        validators={{ onBlur: zodFieldValidator(fieldSchemas.birth_date) }}
                     >
                         {(field) => <FormDatePicker field={field} label="تاریخ تولد" />}
                     </form.Field>
@@ -199,7 +197,7 @@ export function PersonalInfoSection({ form, questionnaire }: SectionProps) {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <form.Field
                         name="personal_info.marital_status"
-                        validators={{ onBlur: zodFieldValidator(requiredString) }}
+                        validators={{ onBlur: zodFieldValidator(fieldSchemas.marital_status) }}
                     >
                         {(field) => (
                             <FormRadioGroup
@@ -237,7 +235,7 @@ export function PersonalInfoSection({ form, questionnaire }: SectionProps) {
                     </form.Field>
                     <form.Field
                         name="personal_info.national_id"
-                        validators={{ onBlur: zodFieldValidator(z.string().min(1, "کد ملی الزامی است.")) }}
+                        validators={{ onBlur: zodFieldValidator(fieldSchemas.national_id) }}
                     >
                         {(field) => <FormTextField field={field} label="کد ملی" dir="ltr" />}
                     </form.Field>

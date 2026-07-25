@@ -191,6 +191,16 @@ export function QuestionnaireWizard({ questionnaire }: QuestionnaireWizardProps)
         }
     }, [isDirty]);
 
+    useEffect(() => {
+        if (!isDirty) return;
+
+        const handler = (e: BeforeUnloadEvent) => {
+            e.preventDefault();
+        };
+        window.addEventListener("beforeunload", handler);
+        return () => window.removeEventListener("beforeunload", handler);
+    }, [isDirty]);
+
     const canSubmit = (() => {
         const validation = validateSubmitData(form.state.values);
         const verified = questionnaire.email_verified && questionnaire.mobile_verified;

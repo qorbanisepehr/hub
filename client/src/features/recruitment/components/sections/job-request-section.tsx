@@ -1,5 +1,4 @@
 import type { ReactFormExtendedApi } from "@tanstack/react-form";
-import { z } from "zod";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -20,6 +19,7 @@ import {
     parseBoolean,
 } from "@/features/recruitment/constants";
 import { zodFieldValidator } from "@/lib/validation-helpers";
+import { fieldSchemas } from "@/features/recruitment/schemas/job-request.schema";
 
 type SectionProps = {
     form: ReactFormExtendedApi<any, any, any, any, any, any, any, any, any, any, any, any>;
@@ -35,7 +35,7 @@ export function JobRequestSection({ form }: SectionProps) {
                 <form.Field
                     name="job_request.employment_type"
                     validators={{
-                        onBlur: zodFieldValidator(z.string().min(1, "نوع استخدام الزامی است.")),
+                        onBlur: zodFieldValidator(fieldSchemas.employment_type),
                     }}
                 >
                     {(field) => (
@@ -91,9 +91,7 @@ export function JobRequestSection({ form }: SectionProps) {
                 <form.Field
                     name="job_request.accept_information"
                     validators={{
-                        onBlur: zodFieldValidator(
-                            z.literal(true, { message: "باید اطلاعات را تأیید کنید." })
-                        ),
+                        onBlur: zodFieldValidator(fieldSchemas.accept_information),
                     }}
                 >
                     {(field) => (

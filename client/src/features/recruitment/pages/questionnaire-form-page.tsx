@@ -33,18 +33,8 @@ export function QuestionnaireFormPage() {
             <div className="mx-auto max-w-4xl px-4 py-8">
                 {/* Header */}
                 <div className="mb-8 rounded-xl border bg-card p-4 shadow-sm">
-                    <div className="flex items-center gap-4">
-                        {/* Share button — right side (start in RTL) */}
-                        <Button
-                            variant="outline"
-                            size="icon-sm"
-                            onClick={() => setShareOpen(true)}
-                        >
-                            <IconShare className="size-4" />
-                        </Button>
-
-                        {/* Title — center */}
-                        <div className="flex-1 text-center">
+                    <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1 text-start">
                             <h1 className="text-xl font-bold">
                                 پرسشنامه استخدامی
                             </h1>
@@ -56,12 +46,17 @@ export function QuestionnaireFormPage() {
                             )}
                         </div>
 
-                        {/* QR code — left side (end in RTL) */}
-                        {questionnaire && (
-                            <div className="rounded-lg border bg-background">
-                                <QrCode value={shareUrl} size={90} />
-                            </div>
-                        )}
+                        <div className="">
+                            {questionnaire && (
+                                <Button
+                                    variant="outline"
+                                    onClick={() => setShareOpen(true)}
+                                    className="h-24 w-24 p-0 cursor-pointer"
+                                >
+                                    <QrCode value={shareUrl} size={90} />
+                                </Button>
+                            )}
+                        </div>
                     </div>
                 </div>
 
@@ -89,6 +84,8 @@ export function QuestionnaireFormPage() {
                 open={shareOpen}
                 onOpenChange={setShareOpen}
                 url={shareUrl}
+                shareTitle="پرسشنامه استخدامی"
+                shareText="لطفاً فرم پرسشنامه را تکمیل کنید."
             />
         </div>
     );
