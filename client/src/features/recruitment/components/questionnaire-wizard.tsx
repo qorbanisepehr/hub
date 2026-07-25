@@ -386,11 +386,25 @@ export function QuestionnaireWizard({
                         <EducationSection form={form as never} uuid={questionnaire.uuid} />
                     </StepperContent>
 
-                    {SECTION_COMPONENTS.slice(3).map((Section, index) => (
-                        <StepperContent key={index + 3} index={index + 3}>
-                            <Section form={form as never} />
-                        </StepperContent>
-                    ))}
+                    <StepperContent index={3}>
+                        <WorkExperienceSection form={form as never} />
+                    </StepperContent>
+
+                    <StepperContent index={4}>
+                        <SkillsSection form={form as never} uuid={questionnaire.uuid} />
+                    </StepperContent>
+
+                    <StepperContent index={5}>
+                        <TrainingSection form={form as never} uuid={questionnaire.uuid} />
+                    </StepperContent>
+
+                    <StepperContent index={6}>
+                        <AdditionalInfoSection form={form as never} />
+                    </StepperContent>
+
+                    <StepperContent index={7}>
+                        <JobRequestSection form={form as never} />
+                    </StepperContent>
 
                     <StepperContent index={8}>
                         <DocumentsSection uuid={questionnaire.uuid} />

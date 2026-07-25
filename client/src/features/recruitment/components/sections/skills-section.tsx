@@ -1,24 +1,44 @@
 import type { ReactFormExtendedApi } from "@tanstack/react-form";
+import { IconPaperclip } from "@tabler/icons-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { FormTextField, FormSelectField, FormDatePicker } from "@/components/shared/form-fields";
+import { FileUploadField } from "@/components/shared/file-upload-field";
 import { FormRepeater } from "@/components/shared/form-repeater";
 import {
     LANGUAGE_LEVEL_OPTIONS,
     SOFTWARE_LEVEL_OPTIONS,
 } from "@/features/recruitment/constants";
+import { useQuestionnaireDocuments } from "@/features/recruitment/hooks/use-questionnaire-documents";
 
 type SectionProps = {
     form: ReactFormExtendedApi<any, any, any, any, any, any, any, any, any, any, any, any>;
+    uuid?: string;
 };
 
-const LANGUAGE_COLUMNS = [
+const LANGUAGE_COLUMNS_FN = (hasDoc: (index: number) => boolean) => [
     { key: "language", label: "زبان" },
     { key: "reading", label: "خواندن" },
     { key: "writing", label: "نوشتن" },
     { key: "speaking", label: "صحبت کردن" },
     { key: "comprehension", label: "درک مطلب" },
+    {
+        key: "_attachment",
+        label: "پیوست",
+        render: (_value: unknown, _item: unknown, index: number) => {
+            const has = hasDoc(index);
+            return has ? (
+                <span className="inline-flex items-center gap-1 text-primary">
+                    <IconPaperclip className="size-3.5" />
+                </span>
+            ) : (
+                <span className="text-muted-foreground/40">
+                    <IconPaperclip className="size-3.5" />
+                </span>
+            );
+        },
+    },
 ];
 
 const SOFTWARE_COLUMNS = [
@@ -61,7 +81,10 @@ function SoftwareItem({
     );
 }
 
-export function SkillsSection({ form }: SectionProps) {
+export function SkillsSection({ form, uuid }: SectionProps) {
+    const { hasDocument } = useQuestionnaireDocuments(uuid);
+    const languageColumns = LANGUAGE_COLUMNS_FN((index) => hasDocument(20, `lang-${index}`));
+
     return (
         <Card>
             <CardHeader>
@@ -74,7 +97,7 @@ export function SkillsSection({ form }: SectionProps) {
                         <FormRepeater
                             field={field}
                             label="زبان‌ها"
-                            columns={LANGUAGE_COLUMNS}
+                            columns={languageColumns}
                             getSummary={(item) => ({
                                 language: item.language,
                                 reading: item.reading,
@@ -83,52 +106,62 @@ export function SkillsSection({ form }: SectionProps) {
                                 comprehension: item.comprehension,
                             })}
                             renderItem={(index) => (
-                                <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-                                    <form.Field name={`skills.languages.${index}.language`}>
-                                        {(f) => (
-                                            <FormTextField
-                                                field={f}
-                                                label="زبان"
-                                                placeholder="انگلیسی"
-                                            />
-                                        )}
-                                    </form.Field>
-                                    <form.Field name={`skills.languages.${index}.reading`}>
-                                        {(f) => (
-                                            <FormSelectField
-                                                field={f}
-                                                label="خواندن"
-                                                options={LANGUAGE_LEVEL_OPTIONS}
-                                            />
-                                        )}
-                                    </form.Field>
-                                    <form.Field name={`skills.languages.${index}.writing`}>
-                                        {(f) => (
-                                            <FormSelectField
-                                                field={f}
-                                                label="نوشتن"
-                                                options={LANGUAGE_LEVEL_OPTIONS}
-                                            />
-                                        )}
-                                    </form.Field>
-                                    <form.Field name={`skills.languages.${index}.speaking`}>
-                                        {(f) => (
-                                            <FormSelectField
-                                                field={f}
-                                                label="صحبت کردن"
-                                                options={LANGUAGE_LEVEL_OPTIONS}
-                                            />
-                                        )}
-                                    </form.Field>
-                                    <form.Field name={`skills.languages.${index}.comprehension`}>
-                                        {(f) => (
-                                            <FormSelectField
-                                                field={f}
-                                                label="درک مطلب"
-                                                options={LANGUAGE_LEVEL_OPTIONS}
-                                            />
-                                        )}
-                                    </form.Field>
+                                <div className="space-y-4">
+                                    <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                                        <form.Field name={`skills.languages.${index}.language`}>
+                                            {(f) => (
+                                                <FormTextField
+                                                    field={f}
+                                                    label="زبان"
+                                                    placeholder="انگلیسی"
+                                                />
+                                            )}
+                                        </form.Field>
+                                        <form.Field name={`skills.languages.${index}.reading`}>
+                                            {(f) => (
+                                                <FormSelectField
+                                                    field={f}
+                                                    label="خواندن"
+                                                    options={LANGUAGE_LEVEL_OPTIONS}
+                                                />
+                                            )}
+                                        </form.Field>
+                                        <form.Field name={`skills.languages.${index}.writing`}>
+                                            {(f) => (
+                                                <FormSelectField
+                                                    field={f}
+                                                    label="نوشتن"
+                                                    options={LANGUAGE_LEVEL_OPTIONS}
+                                                />
+                                            )}
+                                        </form.Field>
+                                        <form.Field name={`skills.languages.${index}.speaking`}>
+                                            {(f) => (
+                                                <FormSelectField
+                                                    field={f}
+                                                    label="صحبت کردن"
+                                                    options={LANGUAGE_LEVEL_OPTIONS}
+                                                />
+                                            )}
+                                        </form.Field>
+                                        <form.Field name={`skills.languages.${index}.comprehension`}>
+                                            {(f) => (
+                                                <FormSelectField
+                                                    field={f}
+                                                    label="درک مطلب"
+                                                    options={LANGUAGE_LEVEL_OPTIONS}
+                                                />
+                                            )}
+                                        </form.Field>
+                                    </div>
+                                    {uuid && (
+                                        <FileUploadField
+                                            uuid={uuid}
+                                            categoryId={20}
+                                            label="گواهینامه زبان"
+                                            recordKey={`lang-${index}`}
+                                        />
+                                    )}
                                 </div>
                             )}
                         />
