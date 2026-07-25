@@ -24,6 +24,7 @@ export function saveQuestionnaire(
         email?: string;
         mobile?: string;
         personal_info?: Questionnaire["personal_info"];
+        contact_info?: Questionnaire["contact_info"];
         education?: Questionnaire["education"];
         work_experience?: Questionnaire["work_experience"];
         skills?: Questionnaire["skills"];

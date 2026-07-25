@@ -11,6 +11,7 @@ import {
     FormRadioGroup,
     FormDatePicker,
 } from "@/components/shared/form-fields";
+import { FileUploadField } from "@/components/shared/file-upload-field";
 import { FormRepeater } from "@/components/shared/form-repeater";
 import { DEGREE_OPTIONS, YES_NO_OPTIONS, parseBoolean } from "@/features/recruitment/constants";
 import { zodFieldValidator } from "@/lib/validation-helpers";
@@ -18,6 +19,7 @@ import { fieldSchemas } from "@/features/recruitment/schemas/education.schema";
 
 type SectionProps = {
     form: ReactFormExtendedApi<any, any, any, any, any, any, any, any, any, any, any, any>;
+    uuid?: string;
 };
 
 const EDUCATION_COLUMNS = [
@@ -29,7 +31,7 @@ const EDUCATION_COLUMNS = [
     { key: "gpa", label: "معدل" },
 ];
 
-export function EducationSection({ form }: SectionProps) {
+export function EducationSection({ form, uuid }: SectionProps) {
     return (
         <Card>
             <CardHeader>
@@ -102,6 +104,25 @@ export function EducationSection({ form }: SectionProps) {
                         />
                     )}
                 </form.Field>
+
+                {uuid && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <FileUploadField
+                            uuid={uuid}
+                            categoryId={17}
+                            label="مدرک تحصیلی"
+                            multiple
+                            maxFiles={5}
+                        />
+                        <FileUploadField
+                            uuid={uuid}
+                            categoryId={19}
+                            label="ریز نمرات"
+                            multiple
+                            maxFiles={5}
+                        />
+                    </div>
+                )}
 
                 <div className="rounded-lg border p-4 space-y-4">
                     <span className="text-sm font-medium">وضعیت دانشجویی</span>

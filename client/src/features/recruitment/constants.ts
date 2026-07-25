@@ -90,5 +90,6 @@ export const WIZARD_STEPS = [
     { id: 5, label: "آموزشی و تحقیقاتی", description: "دوره‌ها و پژوهش‌ها", key: "training" },
     { id: 6, label: "اطلاعات تکمیلی", description: "جزئیات اضافی", key: "additional_info" },
     { id: 7, label: "نوع درخواست همکاری", description: "شرایط و انتظارات شغلی", key: "job_request" },
-    { id: 8, label: "خلاصه و تأیید", description: "بررسی و ارسال نهایی", key: "summary" },
+    { id: 8, label: "بارگذاری مدارک", description: "آپلود فایل‌ها و مدارک", key: "documents" },
+    { id: 9, label: "خلاصه و تأیید", description: "بررسی و ارسال نهایی", key: "summary" },
 ] as const;

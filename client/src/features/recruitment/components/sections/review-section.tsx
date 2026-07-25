@@ -4,6 +4,7 @@ import { IconPencil } from "@tabler/icons-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { FileUploadField } from "@/components/shared/file-upload-field";
 import type { Questionnaire } from "@/features/recruitment/types";
 
 type SectionProps = {
@@ -307,6 +308,25 @@ export function ReviewSection({ form, questionnaire, onNavigateToStep }: Section
                     <div className="mt-4 pt-4 border-t">
                         <DataRow label="سایر اطلاعات" value={job.other_information} />
                     </div>
+                </CardContent>
+            </Card>
+
+            {/* ── بارگذاری مدارک ── */}
+            <Card>
+                <SectionHeader title="بارگذاری مدارک" />
+                <CardContent>
+                    <p className="text-sm text-muted-foreground mb-4">
+                        مدارک بارگذاری شده در بخش قبلی در اینجا قابل مشاهده هستند.
+                    </p>
+                    {questionnaire?.uuid && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <FileUploadField uuid={questionnaire.uuid} categoryId={7} label="کارت ملی — رو" />
+                            <FileUploadField uuid={questionnaire.uuid} categoryId={8} label="کارت ملی — پشت" />
+                            <FileUploadField uuid={questionnaire.uuid} categoryId={45} label="رزومه" multiple maxFiles={5} />
+                            <FileUploadField uuid={questionnaire.uuid} categoryId={46} label="نامه پوششی" />
+                            <FileUploadField uuid={questionnaire.uuid} categoryId={48} label="سایر مدارک" multiple maxFiles={10} />
+                        </div>
+                    )}
                 </CardContent>
             </Card>
 

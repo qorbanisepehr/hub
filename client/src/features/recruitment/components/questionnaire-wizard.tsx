@@ -43,6 +43,7 @@ import { SkillsSection } from "./sections/skills-section";
 import { TrainingSection } from "./sections/training-section";
 import { AdditionalInfoSection } from "./sections/additional-info-section";
 import { JobRequestSection } from "./sections/job-request-section";
+import { DocumentsSection } from "./sections/documents-section";
 import { ReviewSection } from "./sections/review-section";
 
 type QuestionnaireWizardProps = {
@@ -157,7 +158,6 @@ export function QuestionnaireWizard({
                     to: "",
                     reason: "",
                 },
-                photo: "",
                 national_id: "",
             },
             contact_info: questionnaire.contact_info ?? {
@@ -374,16 +374,29 @@ export function QuestionnaireWizard({
                         <PersonalInfoSection
                             form={form as never}
                             questionnaire={questionnaire}
+                            uuid={questionnaire.uuid}
                         />
                     </StepperContent>
 
-                    {SECTION_COMPONENTS.slice(1).map((Section, index) => (
-                        <StepperContent key={index + 1} index={index + 1}>
+                    <StepperContent index={1}>
+                        <ContactInfoSection form={form as never} questionnaire={questionnaire} />
+                    </StepperContent>
+
+                    <StepperContent index={2}>
+                        <EducationSection form={form as never} uuid={questionnaire.uuid} />
+                    </StepperContent>
+
+                    {SECTION_COMPONENTS.slice(3).map((Section, index) => (
+                        <StepperContent key={index + 3} index={index + 3}>
                             <Section form={form as never} />
                         </StepperContent>
                     ))}
 
                     <StepperContent index={8}>
+                        <DocumentsSection uuid={questionnaire.uuid} />
+                    </StepperContent>
+
+                    <StepperContent index={9}>
                         <ReviewSection
                             form={form as never}
                             questionnaire={questionnaire}
