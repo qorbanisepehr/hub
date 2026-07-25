@@ -6,9 +6,9 @@ use App\Domains\Recruitment\Models\Questionnaire;
 use App\Domains\Recruitment\Requests\InitQuestionnaireRequest;
 use App\Domains\Recruitment\Requests\SaveQuestionnaireRequest;
 use App\Domains\Recruitment\Requests\SubmitQuestionnaireRequest;
+use App\Domains\Recruitment\Requests\VerifyQuestionnaireRequest;
 use App\Domains\Recruitment\Resources\QuestionnaireResource;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 
 class QuestionnaireController extends Controller
@@ -94,15 +94,11 @@ class QuestionnaireController extends Controller
         ]);
     }
 
-    public function verifyMobileOtp(Request $request, string $uuid): JsonResponse
+    public function verifyMobileOtp(VerifyQuestionnaireRequest $request, string $uuid): JsonResponse
     {
-        $request->validate([
-            'otp' => ['required', 'string', 'size:6'],
-        ]);
-
         $questionnaire = Questionnaire::where('uuid', $uuid)->where('status', 'draft')->firstOrFail();
 
-        if ($request->input('otp') !== $questionnaire->mobile_otp) {
+        if ($request->validated('otp') !== $questionnaire->mobile_otp) {
             return response()->json([
                 'message' => __('recruitment.questionnaire.otp_invalid'),
             ], 422);
@@ -119,15 +115,11 @@ class QuestionnaireController extends Controller
         ]);
     }
 
-    public function verifyEmailOtp(Request $request, string $uuid): JsonResponse
+    public function verifyEmailOtp(VerifyQuestionnaireRequest $request, string $uuid): JsonResponse
     {
-        $request->validate([
-            'otp' => ['required', 'string', 'size:6'],
-        ]);
-
         $questionnaire = Questionnaire::where('uuid', $uuid)->where('status', 'draft')->firstOrFail();
 
-        if ($request->input('otp') !== $questionnaire->email_otp) {
+        if ($request->validated('otp') !== $questionnaire->email_otp) {
             return response()->json([
                 'message' => __('recruitment.questionnaire.otp_invalid'),
             ], 422);
