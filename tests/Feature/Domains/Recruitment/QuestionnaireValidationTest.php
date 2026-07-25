@@ -367,9 +367,6 @@ describe('Questionnaire validation', function () {
                     'religion' => 'Islam',
                     'marital_status' => 'single',
                     'national_id' => '1234567890',
-                    'address' => 'Tehran, Iran',
-                    'phone' => '02112345678',
-                    'emergency_phone' => '09121234567',
                 ],
             ])->assertOk();
         });
@@ -386,7 +383,7 @@ describe('Questionnaire validation', function () {
                 ->assertUnprocessable()
                 ->assertJsonValidationErrors([
                     'first_name', 'last_name', 'email', 'mobile',
-                    'personal_info', 'education', 'work_experience',
+                    'personal_info', 'contact_info', 'education', 'work_experience',
                     'skills', 'training', 'additional_info', 'job_request',
                 ]);
         });
@@ -402,7 +399,37 @@ describe('Questionnaire validation', function () {
                     'personal_info.blood_group',
                     'personal_info.birth_date',
                     'personal_info.national_id',
-                    'personal_info.address',
+                ]);
+        });
+
+        it('requires contact_info sub-fields', function () {
+            $uuid = createDraft();
+
+            $this->postJson("/api/questionnaire/{$uuid}/submit", validSubmitData([
+                'contact_info' => [],
+            ]))->assertUnprocessable()
+                ->assertJsonValidationErrors([
+                    'contact_info.phone',
+                    'contact_info.emergency_phone',
+                    'contact_info.address',
+                ]);
+        });
+
+        it('requires contact_info.address sub-fields', function () {
+            $uuid = createDraft();
+
+            $this->postJson("/api/questionnaire/{$uuid}/submit", validSubmitData([
+                'contact_info' => [
+                    'phone' => '02112345678',
+                    'emergency_phone' => '09121234567',
+                    'address' => [],
+                ],
+            ]))->assertUnprocessable()
+                ->assertJsonValidationErrors([
+                    'contact_info.address.postal_code',
+                    'contact_info.address.province',
+                    'contact_info.address.city',
+                    'contact_info.address.address',
                 ]);
         });
 
@@ -643,15 +670,29 @@ function validPersonalInfo(): array
         'religion' => 'Islam',
         'marital_status' => 'single',
         'national_id' => '1234567890',
-        'address' => 'Tehran, Iran',
-        'phone' => '02112345678',
-        'emergency_phone' => '09121234567',
         'military_status' => [
             'status' => 'completed',
             'organization' => 'Army',
             'from' => '1390/01/01',
             'to' => '1392/01/01',
             'reason' => 'Completed',
+        ],
+    ];
+}
+
+function validContactInfo(): array
+{
+    return [
+        'phone' => '02112345678',
+        'emergency_phone' => '09121234567',
+        'address' => [
+            'postal_code' => '1234567890',
+            'province' => 'Tehran',
+            'city' => 'Tehran',
+            'address' => 'Test address',
+            'plaque' => '12',
+            'floor' => '3',
+            'unit' => '2',
         ],
     ];
 }
@@ -749,6 +790,7 @@ function validSubmitData(array $overrides = []): array
         'email' => 'ali@example.com',
         'mobile' => '09121234567',
         'personal_info' => validPersonalInfo(),
+        'contact_info' => validContactInfo(),
         'education' => [
             'education_records' => validEducationRecord(),
         ],

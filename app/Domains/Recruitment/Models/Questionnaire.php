@@ -20,6 +20,7 @@ class Questionnaire extends Model
         'email',
         'mobile',
         'personal_info',
+        'contact_info',
         'education',
         'work_experience',
         'skills',
@@ -36,6 +37,7 @@ class Questionnaire extends Model
 
     protected $casts = [
         'personal_info' => 'array',
+        'contact_info' => 'array',
         'education' => 'array',
         'work_experience' => 'array',
         'skills' => 'array',

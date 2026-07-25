@@ -45,11 +45,21 @@ class SaveQuestionnaireRequest extends FormRequest
             'personal_info.military_status.reason' => ['sometimes', 'string', 'max:255'],
             'personal_info.photo' => ['sometimes', 'nullable', 'string', 'max:500'],
             'personal_info.national_id' => ['sometimes', 'string', 'max:10'],
-            'personal_info.address' => ['sometimes', 'string', 'max:500'],
-            'personal_info.phone' => ['sometimes', 'string', 'max:15'],
-            'personal_info.emergency_phone' => ['sometimes', 'string', 'max:15'],
 
-            // ── Education (step 1) ──
+            // ── Contact Info (step 1) ──
+            'contact_info' => ['sometimes', 'nullable', 'array'],
+            'contact_info.phone' => ['sometimes', 'nullable', 'string', 'max:15'],
+            'contact_info.emergency_phone' => ['sometimes', 'nullable', 'string', 'max:15'],
+            'contact_info.address' => ['sometimes', 'nullable', 'array'],
+            'contact_info.address.postal_code' => ['sometimes', 'nullable', 'string', 'max:10'],
+            'contact_info.address.province' => ['sometimes', 'nullable', 'string', 'max:50'],
+            'contact_info.address.city' => ['sometimes', 'nullable', 'string', 'max:50'],
+            'contact_info.address.address' => ['sometimes', 'nullable', 'string', 'max:500'],
+            'contact_info.address.plaque' => ['sometimes', 'nullable', 'string', 'max:10'],
+            'contact_info.address.floor' => ['sometimes', 'nullable', 'string', 'max:10'],
+            'contact_info.address.unit' => ['sometimes', 'nullable', 'string', 'max:10'],
+
+            // ── Education (step 2) ──
             'education' => ['sometimes', 'nullable', 'array'],
             'education.education_records' => ['sometimes', 'array'],
             'education.education_records.*.degree' => ['sometimes', 'string', 'max:50'],
