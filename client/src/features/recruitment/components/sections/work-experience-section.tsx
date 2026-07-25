@@ -9,7 +9,7 @@ import {
     FormDatePicker,
 } from "@/components/shared/form-fields";
 import { FormRepeater } from "@/components/shared/form-repeater";
-import { YES_NO_OPTIONS } from "@/features/recruitment/constants";
+import { YES_NO_OPTIONS, parseBoolean } from "@/features/recruitment/constants";
 
 type SectionProps = {
     form: ReactFormExtendedApi<any, any, any, any, any, any, any, any, any, any, any, any>;
@@ -116,6 +116,7 @@ export function WorkExperienceSection({ form }: SectionProps) {
                                 field={field}
                                 label="اجازه تماس با مدیران قبلی"
                                 options={YES_NO_OPTIONS}
+                                parseValue={parseBoolean}
                             />
                         )}
                     </form.Field>

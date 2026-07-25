@@ -1,13 +1,10 @@
 import type { ReactFormExtendedApi } from "@tanstack/react-form";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-    FormTextField,
-    FormTextarea,
-    FormRadioGroup,
-} from "@/components/shared/form-fields";
+import { FormTextarea, FormTextField } from "@/components/shared/form-fields";
 import { FormRepeater } from "@/components/shared/form-repeater";
-import { YES_NO_OPTIONS } from "@/features/recruitment/constants";
+
+import { YesNoWithDescription } from "./yes-no-with-description";
 
 type SectionProps = {
     form: ReactFormExtendedApi<any, any, any, any, any, any, any, any, any, any, any, any>;
@@ -20,21 +17,13 @@ export function AdditionalInfoSection({ form }: SectionProps) {
                 <CardTitle>اطلاعات تکمیلی</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <form.Field name="additional_info.has_chronic_disease">
-                        {(field) => (
-                            <FormRadioGroup
-                                field={field}
-                                label="آیا بیماری مزمن دارید؟"
-                                options={YES_NO_OPTIONS}
-                            />
-                        )}
-                    </form.Field>
-                </div>
-
-                <form.Field name="additional_info.chronic_disease_description">
-                    {(field) => <FormTextarea field={field} label="توضیحات بیماری مزمن" />}
-                </form.Field>
+                <YesNoWithDescription
+                    form={form}
+                    booleanField="additional_info.has_chronic_disease"
+                    descriptionField="additional_info.chronic_disease_description"
+                    booleanLabel="آیا بیماری مزمن دارید؟"
+                    descriptionLabel="توضیحات بیماری مزمن"
+                />
 
                 <form.Field name="additional_info.company_introduction_method">
                     {(field) => (
@@ -42,73 +31,41 @@ export function AdditionalInfoSection({ form }: SectionProps) {
                     )}
                 </form.Field>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <form.Field name="additional_info.has_major_surgery">
-                        {(field) => (
-                            <FormRadioGroup
-                                field={field}
-                                label="آیا عمل جراحی سنگین داشته‌اید؟"
-                                options={YES_NO_OPTIONS}
-                            />
-                        )}
-                    </form.Field>
-                </div>
-
-                <form.Field name="additional_info.major_surgery_description">
-                    {(field) => <FormTextarea field={field} label="توضیحات عمل جراحی" />}
-                </form.Field>
+                <YesNoWithDescription
+                    form={form}
+                    booleanField="additional_info.has_major_surgery"
+                    descriptionField="additional_info.major_surgery_description"
+                    booleanLabel="آیا عمل جراحی سنگین داشته‌اید؟"
+                    descriptionLabel="توضیحات عمل جراحی"
+                />
 
                 <form.Field name="additional_info.reason_for_joining">
                     {(field) => <FormTextarea field={field} label="دلیل تمایل به همکاری" />}
                 </form.Field>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <form.Field name="additional_info.has_disability">
-                        {(field) => (
-                            <FormRadioGroup
-                                field={field}
-                                label="آیا معلولیت دارید؟"
-                                options={YES_NO_OPTIONS}
-                            />
-                        )}
-                    </form.Field>
-                </div>
+                <YesNoWithDescription
+                    form={form}
+                    booleanField="additional_info.has_disability"
+                    descriptionField="additional_info.disability_description"
+                    booleanLabel="آیا معلولیت دارید؟"
+                    descriptionLabel="توضیحات معلولیت"
+                />
 
-                <form.Field name="additional_info.disability_description">
-                    {(field) => <FormTextarea field={field} label="توضیحات معلولیت" />}
-                </form.Field>
+                <YesNoWithDescription
+                    form={form}
+                    booleanField="additional_info.can_travel"
+                    descriptionField="additional_info.travel_description"
+                    booleanLabel="آیا امکان سفر دارید؟"
+                    descriptionLabel="توضیحات سفر"
+                />
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <form.Field name="additional_info.can_travel">
-                        {(field) => (
-                            <FormRadioGroup
-                                field={field}
-                                label="آیا امکان سفر دارید؟"
-                                options={YES_NO_OPTIONS}
-                            />
-                        )}
-                    </form.Field>
-                </div>
-
-                <form.Field name="additional_info.travel_description">
-                    {(field) => <FormTextarea field={field} label="توضیحات سفر" />}
-                </form.Field>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <form.Field name="additional_info.has_criminal_record">
-                        {(field) => (
-                            <FormRadioGroup
-                                field={field}
-                                label="آیا سوءسابقه کیفری دارید؟"
-                                options={YES_NO_OPTIONS}
-                            />
-                        )}
-                    </form.Field>
-                </div>
-
-                <form.Field name="additional_info.criminal_record_description">
-                    {(field) => <FormTextarea field={field} label="توضیحات سوءسابقه" />}
-                </form.Field>
+                <YesNoWithDescription
+                    form={form}
+                    booleanField="additional_info.has_criminal_record"
+                    descriptionField="additional_info.criminal_record_description"
+                    booleanLabel="آیا سوءسابقه کیفری دارید؟"
+                    descriptionLabel="توضیحات سوءسابقه"
+                />
 
                 <form.Field name="additional_info.hobbies">
                     {(field) => <FormTextarea field={field} label="علاقه‌مندی‌ها و سرگرمی‌ها" />}

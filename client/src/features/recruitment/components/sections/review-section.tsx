@@ -1,11 +1,15 @@
 import type { ReactFormExtendedApi } from "@tanstack/react-form";
 
+import { IconPencil } from "@tabler/icons-react";
+
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { Questionnaire } from "@/features/recruitment/types";
 
 type SectionProps = {
     form: ReactFormExtendedApi<any, any, any, any, any, any, any, any, any, any, any, any>;
     questionnaire?: Questionnaire | null;
+    onNavigateToStep?: (step: number) => void;
 };
 
 function DataRow({ label, value }: { label: string; value: React.ReactNode }) {
@@ -21,7 +25,21 @@ function YesNo({ value }: { value: boolean | undefined }) {
     return <span>{value ? "بلی" : "خیر"}</span>;
 }
 
-export function ReviewSection({ form, questionnaire }: SectionProps) {
+function SectionHeader({ title, onEdit }: { title: string; onEdit?: () => void }) {
+    return (
+        <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle>{title}</CardTitle>
+            {onEdit && (
+                <Button variant="ghost" size="sm" onClick={onEdit}>
+                    <IconPencil className="size-3.5 ms-1" />
+                    ویرایش
+                </Button>
+            )}
+        </CardHeader>
+    );
+}
+
+export function ReviewSection({ form, questionnaire, onNavigateToStep }: SectionProps) {
     const v = form.state.values;
     const pi = v.personal_info ?? {};
     const edu = v.education ?? {};
@@ -46,9 +64,7 @@ export function ReviewSection({ form, questionnaire }: SectionProps) {
 
             {/* ── مشخصات فردی ── */}
             <Card>
-                <CardHeader>
-                    <CardTitle>مشخصات فردی</CardTitle>
-                </CardHeader>
+                <SectionHeader title="مشخصات فردی" onEdit={() => onNavigateToStep?.(0)} />
                 <CardContent>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <DataRow label="نام" value={v.first_name} />
@@ -64,6 +80,7 @@ export function ReviewSection({ form, questionnaire }: SectionProps) {
                         <DataRow label="وضعیت تأهل" value={pi.marital_status === "single" ? "مجرد" : pi.marital_status === "married" ? "متاهل" : pi.marital_status} />
                         <DataRow label="تعداد افراد تحت تکفل" value={pi.dependents_count} />
                         <DataRow label="تعداد فرزندان" value={pi.children_count} />
+                        <DataRow label="وضعیت اشتغال همسر" value={pi.spouse_employment_status === "employed" ? "شاغل" : pi.spouse_employment_status === "housewife" ? "خانه دار" : pi.spouse_employment_status} />
                         <DataRow label="کد ملی" value={pi.national_id} />
                         <DataRow label="تلفن ثابت" value={pi.phone} />
                         <DataRow label="تلفن اضطراری" value={pi.emergency_phone} />
@@ -86,9 +103,7 @@ export function ReviewSection({ form, questionnaire }: SectionProps) {
 
             {/* ── سوابق تحصیلی ── */}
             <Card>
-                <CardHeader>
-                    <CardTitle>سوابق تحصیلی</CardTitle>
-                </CardHeader>
+                <SectionHeader title="سوابق تحصیلی" onEdit={() => onNavigateToStep?.(1)} />
                 <CardContent className="space-y-4">
                     {edu.education_records?.length > 0 ? (
                         edu.education_records.map((rec: any, i: number) => (
@@ -123,9 +138,7 @@ export function ReviewSection({ form, questionnaire }: SectionProps) {
 
             {/* ── سوابق شغلی ── */}
             <Card>
-                <CardHeader>
-                    <CardTitle>سوابق شغلی</CardTitle>
-                </CardHeader>
+                <SectionHeader title="سوابق شغلی" onEdit={() => onNavigateToStep?.(2)} />
                 <CardContent className="space-y-4">
                     {work.work_experiences?.length > 0 ? (
                         work.work_experiences.map((exp: any, i: number) => (
@@ -153,9 +166,7 @@ export function ReviewSection({ form, questionnaire }: SectionProps) {
 
             {/* ── مهارت‌ها ── */}
             <Card>
-                <CardHeader>
-                    <CardTitle>مهارت‌ها</CardTitle>
-                </CardHeader>
+                <SectionHeader title="مهارت‌ها" onEdit={() => onNavigateToStep?.(3)} />
                 <CardContent className="space-y-4">
                     {skills.languages?.length > 0 && (
                         <div>
@@ -204,9 +215,7 @@ export function ReviewSection({ form, questionnaire }: SectionProps) {
 
             {/* ── آموزشی و تحقیقاتی ── */}
             <Card>
-                <CardHeader>
-                    <CardTitle>آموزشی و تحقیقاتی</CardTitle>
-                </CardHeader>
+                <SectionHeader title="آموزشی و تحقیقاتی" onEdit={() => onNavigateToStep?.(4)} />
                 <CardContent className="space-y-4">
                     {training.training_courses?.length > 0 ? (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
@@ -233,9 +242,7 @@ export function ReviewSection({ form, questionnaire }: SectionProps) {
 
             {/* ── اطلاعات تکمیلی ── */}
             <Card>
-                <CardHeader>
-                    <CardTitle>اطلاعات تکمیلی</CardTitle>
-                </CardHeader>
+                <SectionHeader title="اطلاعات تکمیلی" onEdit={() => onNavigateToStep?.(5)} />
                 <CardContent>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <DataRow label="بیماری مزمن" value={<YesNo value={additional.has_chronic_disease} />} />
@@ -260,9 +267,7 @@ export function ReviewSection({ form, questionnaire }: SectionProps) {
 
             {/* ── نوع درخواست همکاری ── */}
             <Card>
-                <CardHeader>
-                    <CardTitle>نوع درخواست همکاری</CardTitle>
-                </CardHeader>
+                <SectionHeader title="نوع درخواست همکاری" onEdit={() => onNavigateToStep?.(6)} />
                 <CardContent>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <DataRow label="نوع اشتغال" value={job.employment_type === "full_time" ? "تمام وقت" : job.employment_type === "part_time" ? "پاره وقت" : job.employment_type} />

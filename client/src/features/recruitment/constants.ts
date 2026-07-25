@@ -62,6 +62,8 @@ export const YES_NO_OPTIONS = [
     { value: "false", label: "خیر" },
 ];
 
+export const parseBoolean = (val: string): boolean => val === "true";
+
 export const EMPLOYMENT_TYPE_OPTIONS = [
     { value: "full_time", label: "تمام وقت" },
     { value: "part_time", label: "پاره وقت" },
