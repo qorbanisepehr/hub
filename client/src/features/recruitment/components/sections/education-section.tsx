@@ -1,5 +1,4 @@
 import type { ReactFormExtendedApi } from "@tanstack/react-form";
-import { z } from "zod";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -15,6 +14,7 @@ import {
 import { FormRepeater } from "@/components/shared/form-repeater";
 import { DEGREE_OPTIONS, YES_NO_OPTIONS, parseBoolean } from "@/features/recruitment/constants";
 import { zodFieldValidator } from "@/lib/validation-helpers";
+import { fieldSchemas } from "@/features/recruitment/schemas/education.schema";
 
 type SectionProps = {
     form: ReactFormExtendedApi<any, any, any, any, any, any, any, any, any, any, any, any>;
@@ -39,9 +39,7 @@ export function EducationSection({ form }: SectionProps) {
                 <form.Field
                     name="education.education_records"
                     validators={{
-                        onBlur: zodFieldValidator(
-                            z.array(z.object({})).min(1, "حداقل یک سوابق تحصیلی الزامی است.")
-                        ),
+                        onBlur: zodFieldValidator(fieldSchemas.education_records),
                     }}
                 >
                     {(field) => (

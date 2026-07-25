@@ -35,8 +35,14 @@ type FormRepeaterProps = {
     label: string;
     columns?: TableColumn[];
     renderItem: (index: number) => React.ReactNode;
-    getSummary?: (item: Record<string, unknown>, index: number) => Record<string, unknown>;
-    renderHeader?: (item: Record<string, unknown>, index: number) => React.ReactNode;
+    getSummary?: (
+        item: Record<string, unknown>,
+        index: number,
+    ) => Record<string, unknown>;
+    renderHeader?: (
+        item: Record<string, unknown>,
+        index: number,
+    ) => React.ReactNode;
     maxItems?: number;
     emptyMessage?: string;
     defaultMode?: "table" | "card";
@@ -59,7 +65,8 @@ export function FormRepeater({
     const hasSummary = typeof getSummary === "function";
     const canToggle = hasColumns && hasSummary;
 
-    const items: Record<string, unknown>[] = (field.state.value ?? []) as Record<string, unknown>[];
+    const items: Record<string, unknown>[] = (field.state.value ??
+        []) as Record<string, unknown>[];
     const effectiveMode = canToggle ? mode : "card";
 
     const handleToggle = useCallback(() => {
@@ -126,14 +133,21 @@ function TableRepeaterInner({
     label: string;
     columns: TableColumn[];
     renderItem: (index: number) => React.ReactNode;
-    getSummary: (item: Record<string, unknown>, index: number) => Record<string, unknown>;
+    getSummary: (
+        item: Record<string, unknown>,
+        index: number,
+    ) => Record<string, unknown>;
     maxItems?: number;
     emptyMessage: string;
     toggleButton: React.ReactNode;
 }) {
-    const items: Record<string, unknown>[] = (field.state.value ?? []) as Record<string, unknown>[];
+    const items: Record<string, unknown>[] = (field.state.value ??
+        []) as Record<string, unknown>[];
     const [activeIndex, setActiveIndex] = useState<number | null>(null);
-    const [originalSnapshot, setOriginalSnapshot] = useState<Record<string, unknown> | null>(null);
+    const [originalSnapshot, setOriginalSnapshot] = useState<Record<
+        string,
+        unknown
+    > | null>(null);
 
     const canAdd = !maxItems || items.length < maxItems;
     const isFormOpen = activeIndex !== null;
@@ -149,7 +163,7 @@ function TableRepeaterInner({
             setOriginalSnapshot({ ...items[index] });
             setActiveIndex(index);
         },
-        [items]
+        [items],
     );
 
     const handleConfirm = useCallback(() => {
@@ -180,7 +194,7 @@ function TableRepeaterInner({
                 setActiveIndex(activeIndex - 1);
             }
         },
-        [items, field, activeIndex]
+        [items, field, activeIndex],
     );
 
     const isAddMode = activeIndex !== null && originalSnapshot === null;
@@ -193,7 +207,12 @@ function TableRepeaterInner({
                 <div className="flex items-center gap-1">
                     {toggleButton}
                     {canAdd && !isFormOpen && (
-                        <Button type="button" variant="outline" size="sm" onClick={handleStartAdd}>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={handleStartAdd}
+                        >
                             <IconPlus className="size-4 ms-1" />
                             افزودن
                         </Button>
@@ -208,9 +227,13 @@ function TableRepeaterInner({
                             <TableRow>
                                 <TableHead className="w-10">#</TableHead>
                                 {columns.map((col) => (
-                                    <TableHead key={col.key}>{col.label}</TableHead>
+                                    <TableHead key={col.key}>
+                                        {col.label}
+                                    </TableHead>
                                 ))}
-                                <TableHead className="w-24 text-center">عملیات</TableHead>
+                                <TableHead className="w-24 text-center">
+                                    عملیات
+                                </TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -219,14 +242,26 @@ function TableRepeaterInner({
                                 return (
                                     <TableRow
                                         key={index}
-                                        className={cn(activeIndex === index && "bg-muted/50")}
+                                        className={cn(
+                                            activeIndex === index &&
+                                                "bg-muted/50",
+                                        )}
                                     >
-                                        <TableCell className="font-medium">{index + 1}</TableCell>
+                                        <TableCell className="font-medium">
+                                            {index + 1}
+                                        </TableCell>
                                         {columns.map((col) => (
                                             <TableCell key={col.key}>
                                                 {col.render
-                                                    ? col.render(summary[col.key], item, index)
-                                                    : String(summary[col.key] ?? "—")}
+                                                    ? col.render(
+                                                          summary[col.key],
+                                                          item,
+                                                          index,
+                                                      )
+                                                    : String(
+                                                          summary[col.key] ??
+                                                              "—",
+                                                      )}
                                             </TableCell>
                                         ))}
                                         <TableCell>
@@ -235,7 +270,9 @@ function TableRepeaterInner({
                                                     type="button"
                                                     variant="ghost"
                                                     size="icon-sm"
-                                                    onClick={() => handleStartEdit(index)}
+                                                    onClick={() =>
+                                                        handleStartEdit(index)
+                                                    }
                                                     disabled={isFormOpen}
                                                 >
                                                     <IconPencil className="size-4" />
@@ -245,7 +282,9 @@ function TableRepeaterInner({
                                                     variant="ghost"
                                                     size="icon-sm"
                                                     className="text-destructive"
-                                                    onClick={() => handleDelete(index)}
+                                                    onClick={() =>
+                                                        handleDelete(index)
+                                                    }
                                                     disabled={isFormOpen}
                                                 >
                                                     <IconTrash className="size-4" />
@@ -261,19 +300,28 @@ function TableRepeaterInner({
             )}
 
             {items.length === 0 && !isFormOpen && (
-                <p className="text-sm text-muted-foreground text-center py-4">{emptyMessage}</p>
+                <p className="text-sm text-muted-foreground text-center py-4">
+                    {emptyMessage}
+                </p>
             )}
 
             {isAddMode && activeIndex !== null && (
-                <div className="rounded-lg border border-primary/30 bg-primary/5 p-4 space-y-4">
-                    <span className="text-sm font-medium text-primary">آیتم جدید</span>
+                <div className="rounded-lg border border-primary/30 p-4 space-y-4">
+                    <span className="text-sm font-medium text-primary">
+                        آیتم جدید
+                    </span>
                     {renderItem(activeIndex)}
                     <div className="flex items-center gap-2 pt-2 border-t">
                         <Button type="button" size="sm" onClick={handleConfirm}>
                             <IconCheck className="size-4 ms-1" />
                             تایید
                         </Button>
-                        <Button type="button" variant="ghost" size="sm" onClick={handleCancel}>
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={handleCancel}
+                        >
                             <IconX className="size-4 ms-1" />
                             انصراف
                         </Button>
@@ -282,7 +330,7 @@ function TableRepeaterInner({
             )}
 
             {isEditMode && activeIndex !== null && (
-                <div className="rounded-lg border border-orange-300 bg-orange-50 p-4 space-y-4 dark:border-orange-700 dark:bg-orange-950/30">
+                <div className="rounded-lg border border-orange-300 p-4 space-y-4 dark:border-orange-700">
                     <span className="text-sm font-medium text-orange-600 dark:text-orange-400">
                         ویرایش آیتم {activeIndex + 1}
                     </span>
@@ -292,7 +340,12 @@ function TableRepeaterInner({
                             <IconCheck className="size-4 ms-1" />
                             ذخیره
                         </Button>
-                        <Button type="button" variant="ghost" size="sm" onClick={handleCancel}>
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={handleCancel}
+                        >
                             <IconX className="size-4 ms-1" />
                             انصراف
                         </Button>
@@ -317,12 +370,16 @@ function CardRepeaterInner({
     field: AnyFieldApi;
     label: string;
     renderItem: (index: number) => React.ReactNode;
-    renderHeader: (item: Record<string, unknown>, index: number) => React.ReactNode;
+    renderHeader: (
+        item: Record<string, unknown>,
+        index: number,
+    ) => React.ReactNode;
     maxItems?: number;
     emptyMessage: string;
     toggleButton: React.ReactNode;
 }) {
-    const items: Record<string, unknown>[] = (field.state.value ?? []) as Record<string, unknown>[];
+    const items: Record<string, unknown>[] = (field.state.value ??
+        []) as Record<string, unknown>[];
     const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
 
     const canAdd = !maxItems || items.length < maxItems;
@@ -341,14 +398,14 @@ function CardRepeaterInner({
                 setExpandedIndex(expandedIndex - 1);
             }
         },
-        [items, field, expandedIndex]
+        [items, field, expandedIndex],
     );
 
     const toggleExpand = useCallback(
         (index: number) => {
             setExpandedIndex(expandedIndex === index ? null : index);
         },
-        [expandedIndex]
+        [expandedIndex],
     );
 
     return (
@@ -358,7 +415,12 @@ function CardRepeaterInner({
                 <div className="flex items-center gap-1">
                     {toggleButton}
                     {canAdd && (
-                        <Button type="button" variant="outline" size="sm" onClick={handleAdd}>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={handleAdd}
+                        >
                             <IconPlus className="size-4 ms-1" />
                             افزودن
                         </Button>
@@ -367,13 +429,18 @@ function CardRepeaterInner({
             </div>
 
             {items.length === 0 && (
-                <p className="text-sm text-muted-foreground text-center py-4">{emptyMessage}</p>
+                <p className="text-sm text-muted-foreground text-center py-4">
+                    {emptyMessage}
+                </p>
             )}
 
             {items.map((item, index) => {
                 const isExpanded = expandedIndex === index;
                 return (
-                    <Card key={index} className={cn(isExpanded && "border-primary/30")}>
+                    <Card
+                        key={index}
+                        className={cn(isExpanded && "border-primary/30")}
+                    >
                         <CardHeader
                             className="flex flex-row items-center justify-between cursor-pointer py-3"
                             onClick={() => toggleExpand(index)}
@@ -400,7 +467,9 @@ function CardRepeaterInner({
                             </Button>
                         </CardHeader>
                         {isExpanded && (
-                            <CardContent className="pt-0">{renderItem(index)}</CardContent>
+                            <CardContent className="pt-0">
+                                {renderItem(index)}
+                            </CardContent>
                         )}
                     </Card>
                 );

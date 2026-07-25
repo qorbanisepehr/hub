@@ -7,6 +7,7 @@ import {
 } from "react";
 import QRCodeStyling from "qr-code-styling";
 
+import { cn } from "@/lib/utils";
 import { LOGO_PATH, LOGO_VIEWBOX } from "./logo";
 
 const generateLogoSVG = (color: string): string => {
@@ -22,6 +23,7 @@ type QrCodeProps = {
     value: string;
     size?: number;
     color?: string;
+    className?: string;
 };
 
 export type QrCodeRef = {
@@ -29,7 +31,7 @@ export type QrCodeRef = {
 };
 
 export const QrCode = forwardRef<QrCodeRef, QrCodeProps>(function QrCode(
-    { value, size = 256, color = "hsl(222.2 84% 4.9%)" },
+    { value, size = 256, color = "hsl(222.2 84% 4.9%)", className },
     ref,
 ) {
     const containerRef = useRef<HTMLDivElement>(null);
@@ -94,5 +96,14 @@ export const QrCode = forwardRef<QrCodeRef, QrCodeProps>(function QrCode(
         },
     }));
 
-    return <div ref={containerRef} style={{ width: size, height: size }} />;
+    return (
+        <div
+            ref={containerRef}
+            className={cn(
+                "shrink-0 [&>svg]:w-full! [&>svg]:h-full!",
+                className,
+            )}
+            style={{ width: size, height: size }}
+        />
+    );
 });
