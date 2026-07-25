@@ -3,7 +3,6 @@
 namespace App\Domains\Recruitment\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
 
 class SaveQuestionnaireRequest extends FormRequest
 {
@@ -16,7 +15,8 @@ class SaveQuestionnaireRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'current_step' => ['sometimes', 'integer', 'min:0', 'max:8'],
+            'first_name' => ['sometimes', 'string', 'max:100'],
+            'last_name' => ['sometimes', 'string', 'max:100'],
             'email' => ['sometimes', 'email', 'max:255'],
             'mobile' => ['sometimes', 'string', 'max:15'],
             'personal_info' => ['sometimes', 'nullable', 'array'],

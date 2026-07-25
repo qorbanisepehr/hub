@@ -15,8 +15,7 @@ class VerifyQuestionnaireRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'mobile_otp' => ['required', 'string', 'size:6'],
-            'email_otp' => ['required', 'string', 'size:6'],
+            'otp' => ['required', 'string', 'size:6'],
         ];
     }
 }
