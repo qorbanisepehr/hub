@@ -42,7 +42,6 @@ export interface PersonalInfo {
         to: string;
         reason: string;
     };
-    photo: string;
     national_id: string;
 }
 

@@ -10,6 +10,7 @@ import {
     FormRadioGroup,
     FormDatePicker,
 } from "@/components/shared/form-fields";
+import { FileUploadField } from "@/components/shared/file-upload-field";
 import {
     GENDER_OPTIONS,
     BLOOD_GROUPS,
@@ -24,9 +25,10 @@ import { fieldSchemas } from "@/features/recruitment/schemas/personal-info.schem
 type SectionProps = {
     form: ReactFormExtendedApi<any, any, any, any, any, any, any, any, any, any, any, any>;
     questionnaire?: Questionnaire | null;
+    uuid?: string;
 };
 
-export function PersonalInfoSection({ form, questionnaire }: SectionProps) {
+export function PersonalInfoSection({ form, questionnaire, uuid }: SectionProps) {
     const maritalStatus = useStore(form.store, (s) => s.values.personal_info?.marital_status);
     const gender = useStore(form.store, (s) => s.values.personal_info?.gender);
 
@@ -149,9 +151,14 @@ export function PersonalInfoSection({ form, questionnaire }: SectionProps) {
                     >
                         {(field) => <FormTextField field={field} label="کد ملی" dir="ltr" />}
                     </form.Field>
-                    <form.Field name="personal_info.photo">
-                        {(field) => <FormTextField field={field} label="تصویر پروفایل" />}
-                    </form.Field>
+                    {uuid && (
+                        <FileUploadField
+                            uuid={uuid}
+                            categoryId={9}
+                            label="عکس پرسنلی"
+                            accept="image/jpeg,image/png,image/webp"
+                        />
+                    )}
                 </div>
 
                 {isMale && (

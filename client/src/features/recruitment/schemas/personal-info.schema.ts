@@ -43,7 +43,6 @@ export const personalInfoFieldSchema = z
             .enum(SPOUSE_EMPLOYMENT_VALUES, { message: "وضعیت اشتغال همسر الزامی است." })
             .optional(),
         military_status: militaryStatusSchema.optional(),
-        photo: z.string().max(500).optional().nullable(),
         national_id: z.string().length(10, "کد ملی باید ۱۰ رقم باشد."),
     })
     .superRefine((data, ctx) => {
@@ -84,5 +83,4 @@ export const fieldSchemas = {
     children_count: z.number().min(0).nullable().optional(),
     spouse_employment_status: z.enum(SPOUSE_EMPLOYMENT_VALUES, { message: "وضعیت اشتغال همسر الزامی است." }),
     military_status: militaryStatusSchema,
-    photo: z.string().max(500).optional().nullable(),
 } as const;
