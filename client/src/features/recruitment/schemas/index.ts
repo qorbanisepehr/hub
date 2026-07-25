@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { personalInfoFieldSchema } from "./personal-info.schema";
+import { contactInfoFieldSchema } from "./contact-info.schema";
 import { educationFieldSchema } from "./education.schema";
 import { workExperienceFieldSchema } from "./work-experience.schema";
 import { skillsFieldSchema } from "./skills.schema";
@@ -14,6 +15,7 @@ export const submitSchema = z.object({
     email: z.string().min(1, "ایمیل الزامی است.").email("فرمت ایمیل نادرست است.").max(255),
     mobile: z.string().min(1, "شماره موبایل الزامی است.").max(15),
     personal_info: personalInfoFieldSchema,
+    contact_info: contactInfoFieldSchema,
     education: educationFieldSchema,
     work_experience: workExperienceFieldSchema,
     skills: skillsFieldSchema,
@@ -35,6 +37,7 @@ export function validateSubmitData(data: unknown): { success: boolean; errors: s
 
 // Re-export section schemas and field schemas
 export { personalInfoFieldSchema, fieldSchemas as personalInfoFieldSchemas } from "./personal-info.schema";
+export { contactInfoFieldSchema, fieldSchemas as contactInfoFieldSchemas } from "./contact-info.schema";
 export { educationFieldSchema, fieldSchemas as educationFieldSchemas } from "./education.schema";
 export { workExperienceFieldSchema, fieldSchemas as workExperienceFieldSchemas } from "./work-experience.schema";
 export { skillsFieldSchema, fieldSchemas as skillsFieldSchemas } from "./skills.schema";
@@ -48,4 +51,5 @@ export { workExperienceRecordSchema } from "./work-experience.schema";
 export { languageSkillSchema, softwareSkillSchema, certificateSchema } from "./skills.schema";
 export { trainingCourseSchema, researchSchema } from "./training.schema";
 export { referenceSchema } from "./additional-info.schema";
+export { addressSchema } from "./contact-info.schema";
 export { militaryStatusSchema } from "./personal-info.schema";

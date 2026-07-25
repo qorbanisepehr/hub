@@ -1,14 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import type { ReactFormExtendedApi } from "@tanstack/react-form";
 import { useStore } from "@tanstack/react-form";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
     FormTextField,
     FormNumberField,
-    FormTextarea,
     FormSelectField,
     FormRadioGroup,
     FormDatePicker,
@@ -20,18 +17,9 @@ import {
     SPOUSE_EMPLOYMENT_OPTIONS,
     MILITARY_STATUS_OPTIONS,
 } from "@/features/recruitment/constants";
-import {
-    sendMobileOtp,
-    sendEmailOtp,
-    verifyMobileOtp,
-    verifyEmailOtp,
-} from "@/features/recruitment/api";
-import { getApiError } from "@/lib/error-utils";
 import { zodFieldValidator } from "@/lib/validation-helpers";
 import type { Questionnaire } from "@/features/recruitment/types";
 import { fieldSchemas } from "@/features/recruitment/schemas/personal-info.schema";
-
-import { OtpVerificationBlock } from "./otp-verification-block";
 
 type SectionProps = {
     form: ReactFormExtendedApi<any, any, any, any, any, any, any, any, any, any, any, any>;
@@ -39,14 +27,6 @@ type SectionProps = {
 };
 
 export function PersonalInfoSection({ form, questionnaire }: SectionProps) {
-    const queryClient = useQueryClient();
-    const [mobileOtp, setMobileOtp] = useState("");
-    const [emailOtp, setEmailOtp] = useState("");
-
-    const uuid = questionnaire?.uuid;
-    const emailVerified = questionnaire?.email_verified ?? false;
-    const mobileVerified = questionnaire?.mobile_verified ?? false;
-
     const maritalStatus = useStore(form.store, (s) => s.values.personal_info?.marital_status);
     const gender = useStore(form.store, (s) => s.values.personal_info?.gender);
 
@@ -62,38 +42,6 @@ export function PersonalInfoSection({ form, questionnaire }: SectionProps) {
             form.setFieldValue("personal_info.spouse_employment_status", "housewife");
         }
     }, [isSingle, spouseField, form]);
-
-    const sendMobileOtpMutation = useMutation({
-        mutationFn: () => sendMobileOtp(uuid!),
-        onSuccess: () => toast.success("کد تأیید موبایل ارسال شد."),
-        onError: (err) => toast.error(getApiError(err)),
-    });
-
-    const sendEmailOtpMutation = useMutation({
-        mutationFn: () => sendEmailOtp(uuid!),
-        onSuccess: () => toast.success("کد تأیید ایمیل ارسال شد."),
-        onError: (err) => toast.error(getApiError(err)),
-    });
-
-    const verifyMobileOtpMutation = useMutation({
-        mutationFn: (otp: string) => verifyMobileOtp(uuid!, otp),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["questionnaire", uuid] });
-            toast.success("موبایل تأیید شد.");
-            setMobileOtp("");
-        },
-        onError: (err) => toast.error(getApiError(err)),
-    });
-
-    const verifyEmailOtpMutation = useMutation({
-        mutationFn: (otp: string) => verifyEmailOtp(uuid!, otp),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["questionnaire", uuid] });
-            toast.success("ایمیل تأیید شد.");
-            setEmailOtp("");
-        },
-        onError: (err) => toast.error(getApiError(err)),
-    });
 
     return (
         <Card>
@@ -126,44 +74,6 @@ export function PersonalInfoSection({ form, questionnaire }: SectionProps) {
                         {(field) => <FormTextField field={field} label="Last Name" dir="ltr" />}
                     </form.Field>
                 </div>
-
-                <form.Field name="email">
-                    {(field) => (
-                        <>
-                            <FormTextField field={field} label="ایمیل" dir="ltr" />
-                            <OtpVerificationBlock
-                                uuid={uuid!}
-                                label="ایمیل"
-                                value={field.state.value}
-                                isVerified={emailVerified}
-                                sendMutation={sendEmailOtpMutation}
-                                verifyMutation={verifyEmailOtpMutation}
-                                otp={emailOtp}
-                                onOtpChange={setEmailOtp}
-                                onVerify={() => verifyEmailOtpMutation.mutate(emailOtp)}
-                            />
-                        </>
-                    )}
-                </form.Field>
-
-                <form.Field name="mobile">
-                    {(field) => (
-                        <>
-                            <FormTextField field={field} label="شماره موبایل" dir="ltr" />
-                            <OtpVerificationBlock
-                                uuid={uuid!}
-                                label="شماره موبایل"
-                                value={field.state.value}
-                                isVerified={mobileVerified}
-                                sendMutation={sendMobileOtpMutation}
-                                verifyMutation={verifyMobileOtpMutation}
-                                otp={mobileOtp}
-                                onOtpChange={setMobileOtp}
-                                onVerify={() => verifyMobileOtpMutation.mutate(mobileOtp)}
-                            />
-                        </>
-                    )}
-                </form.Field>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <form.Field name="personal_info.blood_group">
@@ -239,25 +149,10 @@ export function PersonalInfoSection({ form, questionnaire }: SectionProps) {
                     >
                         {(field) => <FormTextField field={field} label="کد ملی" dir="ltr" />}
                     </form.Field>
-                    <form.Field name="personal_info.phone">
-                        {(field) => <FormTextField field={field} label="تلفن ثابت" dir="ltr" />}
-                    </form.Field>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <form.Field name="personal_info.emergency_phone">
-                        {(field) => (
-                            <FormTextField field={field} label="تلفن اضطراری" dir="ltr" />
-                        )}
-                    </form.Field>
                     <form.Field name="personal_info.photo">
                         {(field) => <FormTextField field={field} label="تصویر پروفایل" />}
                     </form.Field>
                 </div>
-
-                <form.Field name="personal_info.address">
-                    {(field) => <FormTextarea field={field} label="آدرس" />}
-                </form.Field>
 
                 {isMale && (
                     <div className="rounded-lg border p-4 space-y-4">

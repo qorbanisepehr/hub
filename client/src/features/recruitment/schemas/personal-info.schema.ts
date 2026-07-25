@@ -45,9 +45,6 @@ export const personalInfoFieldSchema = z
         military_status: militaryStatusSchema.optional(),
         photo: z.string().max(500).optional().nullable(),
         national_id: z.string().length(10, "کد ملی باید ۱۰ رقم باشد."),
-        address: requiredString.max(500, "حداکثر ۵۰۰ کاراکتر."),
-        phone: requiredString.max(15, "حداکثر ۱۵ کاراکتر."),
-        emergency_phone: requiredString.max(15, "حداکثر ۱۵ کاراکتر."),
     })
     .superRefine((data, ctx) => {
         if (data.marital_status === "married" && !data.spouse_employment_status) {
@@ -87,8 +84,5 @@ export const fieldSchemas = {
     children_count: z.number().min(0).nullable().optional(),
     spouse_employment_status: z.enum(SPOUSE_EMPLOYMENT_VALUES, { message: "وضعیت اشتغال همسر الزامی است." }),
     military_status: militaryStatusSchema,
-    phone: requiredString,
-    emergency_phone: requiredString,
-    address: requiredString,
     photo: z.string().max(500).optional().nullable(),
 } as const;

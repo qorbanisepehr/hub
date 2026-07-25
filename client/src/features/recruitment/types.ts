@@ -7,6 +7,7 @@ export interface Questionnaire {
     email: string;
     mobile: string;
     personal_info: PersonalInfo | null;
+    contact_info: ContactInfo | null;
     education: Education | null;
     work_experience: WorkExperience | null;
     skills: Skills | null;
@@ -43,9 +44,22 @@ export interface PersonalInfo {
     };
     photo: string;
     national_id: string;
+}
+
+export interface Address {
+    postal_code: string;
+    province: string;
+    city: string;
     address: string;
+    plaque: string;
+    floor: string;
+    unit: string;
+}
+
+export interface ContactInfo {
     phone: string;
     emergency_phone: string;
+    address: Address;
 }
 
 export interface EducationRecord {
