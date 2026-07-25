@@ -42,6 +42,7 @@ function SectionHeader({ title, onEdit }: { title: string; onEdit?: () => void }
 export function ReviewSection({ form, questionnaire, onNavigateToStep }: SectionProps) {
     const v = form.state.values;
     const pi = v.personal_info ?? {};
+    const ci = v.contact_info ?? {};
     const edu = v.education ?? {};
     const work = v.work_experience ?? {};
     const skills = v.skills ?? {};
@@ -82,9 +83,6 @@ export function ReviewSection({ form, questionnaire, onNavigateToStep }: Section
                         <DataRow label="تعداد فرزندان" value={pi.children_count} />
                         <DataRow label="وضعیت اشتغال همسر" value={pi.spouse_employment_status === "employed" ? "شاغل" : pi.spouse_employment_status === "housewife" ? "خانه دار" : pi.spouse_employment_status} />
                         <DataRow label="کد ملی" value={pi.national_id} />
-                        <DataRow label="تلفن ثابت" value={pi.phone} />
-                        <DataRow label="تلفن اضطراری" value={pi.emergency_phone} />
-                        <DataRow label="آدرس" value={pi.address} />
                     </div>
                     {pi.military_status && (
                         <div className="mt-4 pt-4 border-t">
@@ -101,9 +99,33 @@ export function ReviewSection({ form, questionnaire, onNavigateToStep }: Section
                 </CardContent>
             </Card>
 
+            {/* ── اطلاعات تماس ── */}
+            <Card>
+                <SectionHeader title="اطلاعات تماس" onEdit={() => onNavigateToStep?.(1)} />
+                <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <DataRow label="ایمیل" value={v.email} />
+                        <DataRow label="موبایل" value={v.mobile} />
+                        <DataRow label="تلفن ثابت" value={ci.phone} />
+                        <DataRow label="تلفن اضطراری" value={ci.emergency_phone} />
+                        {ci.address && (
+                            <>
+                                <DataRow label="استان" value={ci.address.province} />
+                                <DataRow label="شهر" value={ci.address.city} />
+                                <DataRow label="کد پستی" value={ci.address.postal_code} />
+                                <DataRow label="آدرس" value={ci.address.address} />
+                                <DataRow label="پلاک" value={ci.address.plaque} />
+                                <DataRow label="طبقه" value={ci.address.floor} />
+                                <DataRow label="واحد" value={ci.address.unit} />
+                            </>
+                        )}
+                    </div>
+                </CardContent>
+            </Card>
+
             {/* ── سوابق تحصیلی ── */}
             <Card>
-                <SectionHeader title="سوابق تحصیلی" onEdit={() => onNavigateToStep?.(1)} />
+                <SectionHeader title="سوابق تحصیلی" onEdit={() => onNavigateToStep?.(2)} />
                 <CardContent className="space-y-4">
                     {edu.education_records?.length > 0 ? (
                         edu.education_records.map((rec: any, i: number) => (
@@ -138,7 +160,7 @@ export function ReviewSection({ form, questionnaire, onNavigateToStep }: Section
 
             {/* ── سوابق شغلی ── */}
             <Card>
-                <SectionHeader title="سوابق شغلی" onEdit={() => onNavigateToStep?.(2)} />
+                <SectionHeader title="سوابق شغلی" onEdit={() => onNavigateToStep?.(3)} />
                 <CardContent className="space-y-4">
                     {work.work_experiences?.length > 0 ? (
                         work.work_experiences.map((exp: any, i: number) => (
@@ -166,7 +188,7 @@ export function ReviewSection({ form, questionnaire, onNavigateToStep }: Section
 
             {/* ── مهارت‌ها ── */}
             <Card>
-                <SectionHeader title="مهارت‌ها" onEdit={() => onNavigateToStep?.(3)} />
+                <SectionHeader title="مهارت‌ها" onEdit={() => onNavigateToStep?.(4)} />
                 <CardContent className="space-y-4">
                     {skills.languages?.length > 0 && (
                         <div>
@@ -215,7 +237,7 @@ export function ReviewSection({ form, questionnaire, onNavigateToStep }: Section
 
             {/* ── آموزشی و تحقیقاتی ── */}
             <Card>
-                <SectionHeader title="آموزشی و تحقیقاتی" onEdit={() => onNavigateToStep?.(4)} />
+                <SectionHeader title="آموزشی و تحقیقاتی" onEdit={() => onNavigateToStep?.(5)} />
                 <CardContent className="space-y-4">
                     {training.training_courses?.length > 0 ? (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
@@ -242,7 +264,7 @@ export function ReviewSection({ form, questionnaire, onNavigateToStep }: Section
 
             {/* ── اطلاعات تکمیلی ── */}
             <Card>
-                <SectionHeader title="اطلاعات تکمیلی" onEdit={() => onNavigateToStep?.(5)} />
+                <SectionHeader title="اطلاعات تکمیلی" onEdit={() => onNavigateToStep?.(6)} />
                 <CardContent>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <DataRow label="بیماری مزمن" value={<YesNo value={additional.has_chronic_disease} />} />
@@ -267,7 +289,7 @@ export function ReviewSection({ form, questionnaire, onNavigateToStep }: Section
 
             {/* ── نوع درخواست همکاری ── */}
             <Card>
-                <SectionHeader title="نوع درخواست همکاری" onEdit={() => onNavigateToStep?.(6)} />
+                <SectionHeader title="نوع درخواست همکاری" onEdit={() => onNavigateToStep?.(7)} />
                 <CardContent>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <DataRow label="نوع اشتغال" value={job.employment_type === "full_time" ? "تمام وقت" : job.employment_type === "part_time" ? "پاره وقت" : job.employment_type} />

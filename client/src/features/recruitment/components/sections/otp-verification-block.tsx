@@ -30,16 +30,21 @@ export function OtpVerificationBlock({
     onVerify,
 }: OtpVerificationBlockProps) {
     return (
-        <div className="rounded-lg border p-4 space-y-3">
-            <div className="flex items-center gap-2">
+        <div className="px-4 pb-4 space-y-3">
+            {/* <div className="flex items-center gap-2">
                 <span className="text-sm font-medium">{label}</span>
                 <Badge variant={isVerified ? "default" : "secondary"}>
                     {isVerified ? "تأیید شده" : "تأیید نشده"}
                 </Badge>
-            </div>
+            </div> */}
             <div className="flex items-end gap-2">
                 <Field className="flex-1">
-                    <FieldLabel htmlFor={`otp_${label}`}>کد تأیید {label}</FieldLabel>
+                    <FieldLabel htmlFor={`otp_${label}`}>
+                        <span>کد تأیید {label}</span>
+                        <Badge variant={isVerified ? "default" : "secondary"}>
+                            {isVerified ? "تأیید شده" : "تأیید نشده"}
+                        </Badge>
+                    </FieldLabel>
                     <Input
                         id={`otp_${label}`}
                         value={otp}
@@ -54,7 +59,6 @@ export function OtpVerificationBlock({
                 <Button
                     type="button"
                     variant="outline"
-                    size="sm"
                     onClick={() => sendMutation.mutate()}
                     disabled={sendMutation.isPending || isVerified}
                 >
@@ -68,9 +72,12 @@ export function OtpVerificationBlock({
                 <Button
                     type="button"
                     variant="outline"
-                    size="sm"
                     onClick={onVerify}
-                    disabled={verifyMutation.isPending || otp.length !== 6 || isVerified}
+                    disabled={
+                        verifyMutation.isPending ||
+                        otp.length !== 6 ||
+                        isVerified
+                    }
                 >
                     {verifyMutation.isPending ? (
                         <IconLoader2 className="size-4 animate-spin" />

@@ -26,13 +26,17 @@ import {
     StepperPanel,
     StepperContent,
 } from "@/components/reui/stepper";
-import { saveQuestionnaire, submitQuestionnaire } from "@/features/recruitment/api";
+import {
+    saveQuestionnaire,
+    submitQuestionnaire,
+} from "@/features/recruitment/api";
 import { getApiError } from "@/lib/error-utils";
 import { WIZARD_STEPS } from "@/features/recruitment/constants";
 import { validateSubmitData } from "@/features/recruitment/validation";
 import type { Questionnaire } from "@/features/recruitment/types";
 
 import { PersonalInfoSection } from "./sections/personal-info-section";
+import { ContactInfoSection } from "./sections/contact-info-section";
 import { EducationSection } from "./sections/education-section";
 import { WorkExperienceSection } from "./sections/work-experience-section";
 import { SkillsSection } from "./sections/skills-section";
@@ -47,6 +51,7 @@ type QuestionnaireWizardProps = {
 
 const SECTION_COMPONENTS = [
     PersonalInfoSection,
+    ContactInfoSection,
     EducationSection,
     WorkExperienceSection,
     SkillsSection,
@@ -68,7 +73,9 @@ function setStepHash(step: number) {
     window.location.hash = `#${step}`;
 }
 
-export function QuestionnaireWizard({ questionnaire }: QuestionnaireWizardProps) {
+export function QuestionnaireWizard({
+    questionnaire,
+}: QuestionnaireWizardProps) {
     const queryClient = useQueryClient();
     const [currentStep, setCurrentStep] = useState(getStepFromHash);
     const [submitErrors, setSubmitErrors] = useState<string[]>([]);
@@ -88,7 +95,9 @@ export function QuestionnaireWizard({ questionnaire }: QuestionnaireWizardProps)
         mutationFn: (data: Parameters<typeof saveQuestionnaire>[1]) =>
             saveQuestionnaire(questionnaire.uuid, data),
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["questionnaire", questionnaire.uuid] });
+            queryClient.invalidateQueries({
+                queryKey: ["questionnaire", questionnaire.uuid],
+            });
         },
         onError: () => {
             toast.error("خطا در ذخیره‌سازی");
@@ -99,7 +108,9 @@ export function QuestionnaireWizard({ questionnaire }: QuestionnaireWizardProps)
         mutationFn: (data: Record<string, unknown>) =>
             submitQuestionnaire(questionnaire.uuid, data),
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["questionnaire", questionnaire.uuid] });
+            queryClient.invalidateQueries({
+                queryKey: ["questionnaire", questionnaire.uuid],
+            });
             toast.success("پرسشنامه با موفقیت ثبت شد.");
         },
         onError: (error: Error) => {
@@ -108,7 +119,11 @@ export function QuestionnaireWizard({ questionnaire }: QuestionnaireWizardProps)
                     .filter(Array.isArray)
                     .flat()
                     .filter((m): m is string => typeof m === "string");
-                setSubmitErrors(serverErrors.length > 0 ? serverErrors : [getApiError(error) ?? "خطای ناشناخته"]);
+                setSubmitErrors(
+                    serverErrors.length > 0
+                        ? serverErrors
+                        : [getApiError(error) ?? "خطای ناشناخته"],
+                );
             } else {
                 setSubmitErrors([getApiError(error) ?? "خطا در ثبت پرسشنامه"]);
             }
@@ -122,49 +137,109 @@ export function QuestionnaireWizard({ questionnaire }: QuestionnaireWizardProps)
             email: questionnaire.email ?? "",
             mobile: questionnaire.mobile ?? "",
             personal_info: questionnaire.personal_info ?? {
-                gender: "", blood_group: "", birth_date: "", birth_place: "",
-                birth_certificate_number: "", father_name: "", religion: "",
-                marital_status: "", first_name_en: "", last_name_en: "",
-                dependents_count: null, children_count: null,
+                gender: "",
+                blood_group: "",
+                birth_date: "",
+                birth_place: "",
+                birth_certificate_number: "",
+                father_name: "",
+                religion: "",
+                marital_status: "",
+                first_name_en: "",
+                last_name_en: "",
+                dependents_count: null,
+                children_count: null,
                 spouse_employment_status: "",
-                military_status: { status: "", organization: "", from: "", to: "", reason: "" },
-                photo: "", national_id: "", address: "", phone: "", emergency_phone: "",
+                military_status: {
+                    status: "",
+                    organization: "",
+                    from: "",
+                    to: "",
+                    reason: "",
+                },
+                photo: "",
+                national_id: "",
+            },
+            contact_info: questionnaire.contact_info ?? {
+                phone: "",
+                emergency_phone: "",
+                address: {
+                    postal_code: "",
+                    province: "",
+                    city: "",
+                    address: "",
+                    plaque: "",
+                    floor: "",
+                    unit: "",
+                },
             },
             education: questionnaire.education ?? {
-                education_records: [], is_student: false,
-                student_degree: "", student_field: "", student_university: "",
-                student_country: "", student_city: "", student_semester: null,
-                passed_units: null, remaining_units: null, student_gpa: "",
-                study_start: "", expected_graduation: "", thesis_submitted: false,
-                student_thesis_title: "", free_days_per_week: null, education_description: "",
+                education_records: [],
+                is_student: false,
+                student_degree: "",
+                student_field: "",
+                student_university: "",
+                student_country: "",
+                student_city: "",
+                student_semester: null,
+                passed_units: null,
+                remaining_units: null,
+                student_gpa: "",
+                study_start: "",
+                expected_graduation: "",
+                thesis_submitted: false,
+                student_thesis_title: "",
+                free_days_per_week: null,
+                education_description: "",
             },
             work_experience: questionnaire.work_experience ?? {
-                work_experiences: [], achievements: "",
-                allow_contact_previous_managers: false, contact_restriction_description: "",
+                work_experiences: [],
+                achievements: "",
+                allow_contact_previous_managers: false,
+                contact_restriction_description: "",
             },
             skills: questionnaire.skills ?? {
-                languages: [], certificates: [], special_skills: [],
+                languages: [],
+                certificates: [],
+                special_skills: [],
                 software_skills: { specialized: [], general: [] },
             },
             training: questionnaire.training ?? {
-                training_courses: [], professional_memberships: "", researches: [],
+                training_courses: [],
+                professional_memberships: "",
+                researches: [],
             },
             additional_info: questionnaire.additional_info ?? {
-                has_chronic_disease: false, chronic_disease_description: "",
-                company_introduction_method: "", has_major_surgery: false,
-                major_surgery_description: "", reason_for_joining: "",
-                has_disability: false, disability_description: "",
-                can_travel: false, travel_description: "",
-                has_criminal_record: false, criminal_record_description: "",
-                hobbies: "", references: [], strengths_and_improvements: "",
+                has_chronic_disease: false,
+                chronic_disease_description: "",
+                company_introduction_method: "",
+                has_major_surgery: false,
+                major_surgery_description: "",
+                reason_for_joining: "",
+                has_disability: false,
+                disability_description: "",
+                can_travel: false,
+                travel_description: "",
+                has_criminal_record: false,
+                criminal_record_description: "",
+                hobbies: "",
+                references: [],
+                strengths_and_improvements: "",
             },
             job_request: questionnaire.job_request ?? {
-                employment_type: "", expected_monthly_salary: null,
-                minimum_hours_per_month: null, expected_hourly_salary: null,
-                submitted_resume_before: false, interviewed_before: false,
-                other_information: "", accept_information: false,
-                preferred_workplace: [], job_priority_1: "", job_priority_2: "",
-                currently_employed: false, available_start_date: "",
+                employment_type: "",
+                expected_monthly_salary: null,
+                minimum_hours_per_month: null,
+                expected_hourly_salary: null,
+                submitted_resume_before: false,
+                interviewed_before: false,
+                other_information: "",
+                accept_information: false,
+                preferred_workplace: [],
+                job_priority_1: "",
+                job_priority_2: "",
+                currently_employed: false,
+                available_start_date: "",
             },
         },
         onSubmit: async ({ value }) => {
@@ -173,11 +248,18 @@ export function QuestionnaireWizard({ questionnaire }: QuestionnaireWizardProps)
             if (sectionKey === "personal_info") {
                 sectionData.first_name = value.first_name;
                 sectionData.last_name = value.last_name;
+                sectionData.personal_info = value.personal_info;
+            } else if (sectionKey === "contact_info") {
                 sectionData.email = value.email;
                 sectionData.mobile = value.mobile;
-                sectionData.personal_info = value.personal_info;
-            } else if (sectionKey && sectionKey !== "summary" && sectionKey in value) {
-                sectionData[sectionKey] = value[sectionKey as keyof typeof value];
+                sectionData.contact_info = value.contact_info;
+            } else if (
+                sectionKey &&
+                sectionKey !== "summary" &&
+                sectionKey in value
+            ) {
+                sectionData[sectionKey] =
+                    value[sectionKey as keyof typeof value];
             }
             saveMutation.mutate(sectionData);
         },
@@ -203,8 +285,11 @@ export function QuestionnaireWizard({ questionnaire }: QuestionnaireWizardProps)
 
     const canSubmit = (() => {
         const validation = validateSubmitData(form.state.values);
-        const verified = questionnaire.email_verified && questionnaire.mobile_verified;
-        return validation.success && verified && questionnaire.status === "draft";
+        const verified =
+            questionnaire.email_verified && questionnaire.mobile_verified;
+        return (
+            validation.success && verified && questionnaire.status === "draft"
+        );
     })();
 
     const handleSubmit = () => {
@@ -233,11 +318,20 @@ export function QuestionnaireWizard({ questionnaire }: QuestionnaireWizardProps)
             if (sectionKey === "personal_info") {
                 sectionData.first_name = form.state.values.first_name;
                 sectionData.last_name = form.state.values.last_name;
+                sectionData.personal_info = form.state.values.personal_info;
+            } else if (sectionKey === "contact_info") {
                 sectionData.email = form.state.values.email;
                 sectionData.mobile = form.state.values.mobile;
-                sectionData.personal_info = form.state.values.personal_info;
-            } else if (sectionKey && sectionKey !== "summary" && sectionKey in form.state.values) {
-                sectionData[sectionKey] = form.state.values[sectionKey as keyof typeof form.state.values];
+                sectionData.contact_info = form.state.values.contact_info;
+            } else if (
+                sectionKey &&
+                sectionKey !== "summary" &&
+                sectionKey in form.state.values
+            ) {
+                sectionData[sectionKey] =
+                    form.state.values[
+                        sectionKey as keyof typeof form.state.values
+                    ];
             }
             await saveMutation.mutateAsync(sectionData);
         }
@@ -252,14 +346,15 @@ export function QuestionnaireWizard({ questionnaire }: QuestionnaireWizardProps)
 
     return (
         <div className="space-y-6" dir="rtl">
-            <Stepper
-                value={currentStep}
-                onValueChange={handleStepChange}
-            >
+            <Stepper value={currentStep} onValueChange={handleStepChange}>
                 <StepperNav className="mb-4 gap-5">
                     {WIZARD_STEPS.map((step, index) => (
-                        <StepperItem key={step.id} index={index} className="relative flex-1 items-start">
-                            <StepperTrigger className="flex w-full grow flex-col items-start justify-center gap-3.5">
+                        <StepperItem
+                            key={step.id}
+                            index={index}
+                            className="relative flex-1 items-start"
+                        >
+                            <StepperTrigger className="flex w-full grow flex-col items-start justify-center gap-3.5 cursor-pointer">
                                 <StepperIndicator className="bg-border data-[state=active]:bg-primary data-[state=completed]:bg-primary h-1 w-full rounded-full" />
                                 <div className="flex flex-col items-start text-start">
                                     <StepperTitle className="group-data-[state=inactive]/step:text-muted-foreground text-start font-semibold">
@@ -276,7 +371,10 @@ export function QuestionnaireWizard({ questionnaire }: QuestionnaireWizardProps)
 
                 <StepperPanel>
                     <StepperContent index={0}>
-                        <PersonalInfoSection form={form as never} questionnaire={questionnaire} />
+                        <PersonalInfoSection
+                            form={form as never}
+                            questionnaire={questionnaire}
+                        />
                     </StepperContent>
 
                     {SECTION_COMPONENTS.slice(1).map((Section, index) => (
@@ -285,14 +383,20 @@ export function QuestionnaireWizard({ questionnaire }: QuestionnaireWizardProps)
                         </StepperContent>
                     ))}
 
-                    <StepperContent index={7}>
-                        <ReviewSection form={form as never} questionnaire={questionnaire} onNavigateToStep={goToStep} />
+                    <StepperContent index={8}>
+                        <ReviewSection
+                            form={form as never}
+                            questionnaire={questionnaire}
+                            onNavigateToStep={goToStep}
+                        />
                     </StepperContent>
                 </StepperPanel>
             </Stepper>
 
             {saveMutation.error && (
-                <ErrorBanner message={getApiError(saveMutation.error) ?? "خطای ناشناخته"} />
+                <ErrorBanner
+                    message={getApiError(saveMutation.error) ?? "خطای ناشناخته"}
+                />
             )}
             {submitErrors.length > 0 && (
                 <div className="flex items-start gap-3 rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
@@ -319,7 +423,10 @@ export function QuestionnaireWizard({ questionnaire }: QuestionnaireWizardProps)
                             type="button"
                             variant="outline"
                             onClick={() => goToStep(currentStep - 1)}
-                            disabled={saveMutation.isPending || submitMutation.isPending}
+                            disabled={
+                                saveMutation.isPending ||
+                                submitMutation.isPending
+                            }
                         >
                             <IconArrowRight className="size-4 ms-1" />
                             مرحله قبل
@@ -335,7 +442,11 @@ export function QuestionnaireWizard({ questionnaire }: QuestionnaireWizardProps)
                             onClick={() => {
                                 form.handleSubmit();
                             }}
-                            disabled={saveMutation.isPending || submitMutation.isPending || !isDirty}
+                            disabled={
+                                saveMutation.isPending ||
+                                submitMutation.isPending ||
+                                !isDirty
+                            }
                         >
                             {saveMutation.isPending ? (
                                 <IconLoader2 className="size-4 animate-spin" />
@@ -350,7 +461,10 @@ export function QuestionnaireWizard({ questionnaire }: QuestionnaireWizardProps)
                         <Button
                             type="button"
                             onClick={() => goToStep(currentStep + 1)}
-                            disabled={saveMutation.isPending || submitMutation.isPending}
+                            disabled={
+                                saveMutation.isPending ||
+                                submitMutation.isPending
+                            }
                         >
                             مرحله بعد
                             <IconArrowLeft className="size-4 me-1" />
@@ -362,7 +476,9 @@ export function QuestionnaireWizard({ questionnaire }: QuestionnaireWizardProps)
                             <Button
                                 type="button"
                                 onClick={handleSubmit}
-                                disabled={submitMutation.isPending || !canSubmit}
+                                disabled={
+                                    submitMutation.isPending || !canSubmit
+                                }
                             >
                                 {submitMutation.isPending ? (
                                     <IconLoader2 className="size-4 animate-spin" />
@@ -373,9 +489,12 @@ export function QuestionnaireWizard({ questionnaire }: QuestionnaireWizardProps)
                             </Button>
                             {!canSubmit && (
                                 <p className="text-xs text-muted-foreground">
-                                    {!questionnaire.mobile_verified && "موبایل تأیید نشده • "}
-                                    {!questionnaire.email_verified && "ایمیل تأیید نشده • "}
-                                    {!validateSubmitData(form.state.values).success &&
+                                    {!questionnaire.mobile_verified &&
+                                        "موبایل تأیید نشده • "}
+                                    {!questionnaire.email_verified &&
+                                        "ایمیل تأیید نشده • "}
+                                    {!validateSubmitData(form.state.values)
+                                        .success &&
                                         "همه فیلدهای الزامی باید تکمیل شوند"}
                                 </p>
                             )}
