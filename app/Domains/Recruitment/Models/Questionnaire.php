@@ -2,13 +2,16 @@
 
 namespace App\Domains\Recruitment\Models;
 
+use App\Contracts\Documentable;
+use App\Domains\Document\Models\Document;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
 
-class Questionnaire extends Model
+class Questionnaire extends Model implements Documentable
 {
     use SoftDeletes;
 
@@ -64,6 +67,17 @@ class Questionnaire extends Model
     public function reviewer(): BelongsTo
     {
         return $this->belongsTo(User::class, 'reviewed_by');
+    }
+
+    /** @return MorphMany<Document, $this> */
+    public function documents(): MorphMany
+    {
+        return $this->morphMany(Document::class, 'documentable');
+    }
+
+    public function getDocumentIdentifier(): string
+    {
+        return $this->uuid;
     }
 
     public function isDraft(): bool

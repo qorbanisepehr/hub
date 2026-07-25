@@ -1,6 +1,7 @@
 <?php
 
 use App\Domains\Recruitment\Controllers\QuestionnaireController;
+use App\Domains\Recruitment\Controllers\QuestionnaireDocumentController;
 use App\Domains\Recruitment\Controllers\RecruitmentController;
 use Illuminate\Support\Facades\Route;
 
@@ -16,6 +17,15 @@ Route::post('questionnaire/{uuid}/send-email-otp', [QuestionnaireController::cla
 Route::post('questionnaire/{uuid}/verify-mobile-otp', [QuestionnaireController::class, 'verifyMobileOtp']);
 Route::post('questionnaire/{uuid}/verify-email-otp', [QuestionnaireController::class, 'verifyEmailOtp']);
 Route::post('questionnaire/{uuid}/submit', [QuestionnaireController::class, 'submit']);
+
+// Questionnaire document routes (public, throttled)
+Route::get('questionnaire/{uuid}/documents', [QuestionnaireDocumentController::class, 'index']);
+Route::post('questionnaire/{uuid}/documents', [QuestionnaireDocumentController::class, 'store'])
+    ->middleware('throttle:20,1');
+Route::delete('questionnaire/{uuid}/documents/{documentId}', [QuestionnaireDocumentController::class, 'destroy']);
+Route::get('questionnaire/documents/{documentId}/serve', [QuestionnaireDocumentController::class, 'serve'])
+    ->name('questionnaire.documents.serve')
+    ->middleware('signed');
 
 // Protected routes (HR management)
 Route::middleware('auth:sanctum')->group(function () {
