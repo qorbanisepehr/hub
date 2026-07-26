@@ -2,6 +2,9 @@
 
 namespace App\Domains\Recruitment\Requests;
 
+use App\Rules\NationalIdRule;
+use Carbon\Carbon;
+use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -12,7 +15,7 @@ class SubmitQuestionnaireRequest extends FormRequest
         return true;
     }
 
-    /** @return array<string, array<int, string|callable|int|array>> */
+    /** @return array<string, array<int, string|callable|int|array>|ValidationRule> */
     public function rules(): array
     {
         return [
@@ -26,24 +29,37 @@ class SubmitQuestionnaireRequest extends FormRequest
             'personal_info' => ['required', 'array'],
             'personal_info.gender' => ['required', 'string', 'in:male,female'],
             'personal_info.blood_group' => ['required', 'string', 'in:A+,A-,B+,B-,AB+,AB-,O+,O-'],
-            'personal_info.birth_date' => ['required', 'string', 'max:255'],
+            'personal_info.birth_date' => ['required', 'string', 'date_format:Y-m-d', function ($attribute, $value, $fail) {
+                $age = Carbon::parse($value)->age;
+                if ($age < 18) {
+                    $fail('حداقل سن الزامی ۱۸ سال است.');
+                }
+            }],
             'personal_info.birth_place' => ['required', 'string', 'max:100'],
-            'personal_info.birth_certificate_number' => ['required', 'string', 'max:20'],
+            'personal_info.birth_certificate_number' => ['required', 'string', 'regex:/^\d+$/'],
             'personal_info.father_name' => ['required', 'string', 'max:100'],
             'personal_info.religion' => ['required', 'string', 'max:50'],
             'personal_info.marital_status' => ['required', 'string', 'in:single,married'],
-            'personal_info.first_name_en' => ['sometimes', 'string', 'max:100'],
-            'personal_info.last_name_en' => ['sometimes', 'string', 'max:100'],
+            'personal_info.first_name_en' => ['sometimes', 'nullable', 'string', 'max:100'],
+            'personal_info.last_name_en' => ['sometimes', 'nullable', 'string', 'max:100'],
             'personal_info.dependents_count' => ['nullable', 'integer', 'min:0'],
             'personal_info.children_count' => ['nullable', 'integer', 'min:0'],
             'personal_info.spouse_employment_status' => ['required_if:personal_info.marital_status,married', 'string', 'in:employed,housewife'],
             'personal_info.military_status' => ['required_if:personal_info.gender,male', 'array'],
             'personal_info.military_status.status' => ['required_with:personal_info.military_status', 'string', 'in:completed,amrieh,guardian_exemption,medical_exemption,education_exemption,leader_pardon,service_purchase,other'],
             'personal_info.military_status.organization' => ['required_with:personal_info.military_status', 'string', 'max:100'],
-            'personal_info.military_status.from' => ['required_with:personal_info.military_status', 'string', 'max:255'],
-            'personal_info.military_status.to' => ['required_with:personal_info.military_status', 'string', 'max:255'],
+            'personal_info.military_status.from' => ['required_with:personal_info.military_status', 'string', 'date_format:Y-m-d'],
+            'personal_info.military_status.to' => ['required_with:personal_info.military_status', 'string', 'date_format:Y-m-d', function ($attribute, $value, $fail) {
+                if ($value === null) {
+                    return;
+                }
+                $from = $this->input('personal_info.military_status.from');
+                if ($from && $value < $from) {
+                    $fail('تاریخ پایان نباید قبل از تاریخ شروع باشد.');
+                }
+            }],
             'personal_info.military_status.reason' => ['required_with:personal_info.military_status', 'string', 'max:255'],
-            'personal_info.national_id' => ['required', 'string', 'size:10'],
+            'personal_info.national_id' => ['required', 'string', new NationalIdRule],
 
             // ── Contact Info ──
             'contact_info' => ['required', 'array'],
@@ -64,11 +80,23 @@ class SubmitQuestionnaireRequest extends FormRequest
             'education.education_records.*.degree' => ['required', 'string', 'max:50'],
             'education.education_records.*.field' => ['required', 'string', 'max:100'],
             'education.education_records.*.institution' => ['required', 'string', 'max:100'],
-            'education.education_records.*.location' => ['sometimes', 'string', 'max:100'],
-            'education.education_records.*.from' => ['required', 'string', 'max:255'],
-            'education.education_records.*.to' => ['required', 'string', 'max:255'],
+            'education.education_records.*.location' => ['sometimes', 'nullable', 'string', 'max:100'],
+            'education.education_records.*.from' => ['required', 'string', 'date_format:Y-m-d'],
+            'education.education_records.*.to' => ['required', 'string', 'date_format:Y-m-d', function ($attribute, $value, $fail) {
+                if ($value === null) {
+                    return;
+                }
+                $index = explode('.', $attribute)[2] ?? null;
+                if ($index === null) {
+                    return;
+                }
+                $from = $this->input("education.education_records.{$index}.from");
+                if ($from && $value < $from) {
+                    $fail('تاریخ پایان نباید قبل از تاریخ شروع تحصیل باشد.');
+                }
+            }],
             'education.education_records.*.thesis_title' => ['sometimes', 'nullable', 'string', 'max:255'],
-            'education.education_records.*.graduation_date' => ['required', 'string', 'max:255'],
+            'education.education_records.*.graduation_date' => ['required', 'string', 'date_format:Y-m-d'],
             'education.education_records.*.gpa' => ['required', 'string', 'max:10'],
             'education.is_student' => ['sometimes', 'boolean'],
             'education.student_degree' => ['required_if:education.is_student,true', 'string', 'max:50'],
@@ -80,8 +108,8 @@ class SubmitQuestionnaireRequest extends FormRequest
             'education.passed_units' => ['nullable', 'integer', 'min:0'],
             'education.remaining_units' => ['nullable', 'integer', 'min:0'],
             'education.student_gpa' => ['required_if:education.is_student,true', 'string', 'max:10'],
-            'education.study_start' => ['required_if:education.is_student,true', 'string', 'max:255'],
-            'education.expected_graduation' => ['required_if:education.is_student,true', 'string', 'max:255'],
+            'education.study_start' => ['required_if:education.is_student,true', 'string', 'date_format:Y-m-d'],
+            'education.expected_graduation' => ['required_if:education.is_student,true', 'string', 'date_format:Y-m-d'],
             'education.thesis_submitted' => ['sometimes', 'boolean'],
             'education.student_thesis_title' => ['required_if:education.thesis_submitted,true', 'string', 'max:255'],
             'education.free_days_per_week' => ['nullable', 'integer', 'min:0', 'max:7'],
@@ -89,53 +117,65 @@ class SubmitQuestionnaireRequest extends FormRequest
 
             // ── Work Experience ──
             'work_experience' => ['required', 'array'],
-            'work_experience.work_experiences' => ['sometimes', 'array'],
+            'work_experience.work_experiences' => ['sometimes', 'nullable', 'array'],
             'work_experience.work_experiences.*.company' => ['required', 'string', 'max:100'],
-            'work_experience.work_experiences.*.location' => ['sometimes', 'string', 'max:100'],
-            'work_experience.work_experiences.*.industry' => ['sometimes', 'string', 'max:100'],
+            'work_experience.work_experiences.*.location' => ['sometimes', 'nullable', 'string', 'max:100'],
+            'work_experience.work_experiences.*.industry' => ['sometimes', 'nullable', 'string', 'max:100'],
             'work_experience.work_experiences.*.position' => ['required', 'string', 'max:100'],
-            'work_experience.work_experiences.*.from' => ['required', 'string', 'max:255'],
-            'work_experience.work_experiences.*.to' => ['required', 'string', 'max:255'],
-            'work_experience.work_experiences.*.contract_type' => ['sometimes', 'string', 'max:50'],
-            'work_experience.work_experiences.*.phone' => ['sometimes', 'string', 'max:15'],
-            'work_experience.work_experiences.*.manager_name' => ['sometimes', 'string', 'max:100'],
+            'work_experience.work_experiences.*.from' => ['required', 'string', 'date_format:Y-m-d'],
+            'work_experience.work_experiences.*.to' => ['required', 'string', 'date_format:Y-m-d', function ($attribute, $value, $fail) {
+                if ($value === null) {
+                    return;
+                }
+                $index = explode('.', $attribute)[2] ?? null;
+                if ($index === null) {
+                    return;
+                }
+                $from = $this->input("work_experience.work_experiences.{$index}.from");
+                if ($from && $value < $from) {
+                    $fail('تاریخ پایان نباید قبل از تاریخ شروع باشد.');
+                }
+            }],
+            'work_experience.work_experiences.*.contract_type' => ['sometimes', 'nullable', 'string', 'max:50'],
+            'work_experience.work_experiences.*.phone' => ['sometimes', 'nullable', 'string', 'max:15'],
+            'work_experience.work_experiences.*.manager_name' => ['sometimes', 'nullable', 'string', 'max:100'],
             'work_experience.work_experiences.*.last_salary' => ['nullable', 'integer', 'min:0'],
-            'work_experience.work_experiences.*.leave_reason' => ['sometimes', 'string', 'max:255'],
+            'work_experience.work_experiences.*.leave_reason' => ['sometimes', 'nullable', 'string', 'max:255'],
             'work_experience.achievements' => ['sometimes', 'nullable', 'string', 'max:2000'],
             'work_experience.allow_contact_previous_managers' => ['sometimes', 'boolean'],
             'work_experience.contact_restriction_description' => ['sometimes', 'nullable', 'string', 'max:500'],
 
             // ── Skills ──
             'skills' => ['required', 'array'],
-            'skills.languages' => ['sometimes', 'array'],
+            'skills.languages' => ['sometimes', 'nullable', 'array'],
             'skills.languages.*.language' => ['required', 'string', 'max:50'],
             'skills.languages.*.reading' => ['nullable', 'integer', 'min:1', 'max:4'],
             'skills.languages.*.writing' => ['nullable', 'integer', 'min:1', 'max:4'],
             'skills.languages.*.speaking' => ['nullable', 'integer', 'min:1', 'max:4'],
             'skills.languages.*.comprehension' => ['nullable', 'integer', 'min:1', 'max:4'],
-            'skills.software_skills' => ['sometimes', 'array'],
-            'skills.software_skills.specialized' => ['sometimes', 'array'],
+            'skills.software_skills' => ['sometimes', 'nullable', 'array'],
+            'skills.software_skills.specialized' => ['sometimes', 'nullable', 'array'],
             'skills.software_skills.specialized.*.name' => ['required', 'string', 'max:100'],
             'skills.software_skills.specialized.*.level' => ['nullable', 'integer', 'min:1', 'max:4'],
-            'skills.software_skills.general' => ['sometimes', 'array'],
+            'skills.software_skills.general' => ['sometimes', 'nullable', 'array'],
             'skills.software_skills.general.*.name' => ['required', 'string', 'max:100'],
             'skills.software_skills.general.*.level' => ['nullable', 'integer', 'min:1', 'max:4'],
-            'skills.certificates' => ['sometimes', 'array'],
+            'skills.certificates' => ['sometimes', 'nullable', 'array'],
             'skills.certificates.*.title' => ['required', 'string', 'max:100'],
             'skills.certificates.*.expire_at' => ['nullable', 'string', 'max:255'],
-            'skills.special_skills' => ['sometimes', 'array'],
-            'skills.special_skills.*' => ['sometimes', 'string', 'max:100'],
+            'skills.special_skills' => ['sometimes', 'nullable', 'array'],
+            'skills.special_skills.*' => ['sometimes', 'nullable', 'string', 'max:100'],
 
             // ── Training ──
             'training' => ['required', 'array'],
-            'training.training_courses' => ['sometimes', 'array'],
+            'training.training_courses' => ['sometimes', 'nullable', 'array'],
             'training.training_courses.*.course_name' => ['required', 'string', 'max:100'],
-            'training.training_courses.*.duration' => ['sometimes', 'string', 'max:50'],
-            'training.training_courses.*.institution' => ['sometimes', 'string', 'max:100'],
-            'training.training_courses.*.held_at' => ['sometimes', 'string', 'max:255'],
+            'training.training_courses.*.duration' => ['sometimes', 'nullable', 'string', 'max:50'],
+            'training.training_courses.*.institution' => ['sometimes', 'nullable', 'string', 'max:100'],
+            'training.training_courses.*.held_at' => ['sometimes', 'nullable', 'string', 'max:255'],
             'training.training_courses.*.certificate' => ['sometimes', 'nullable', 'string', 'max:100'],
             'training.professional_memberships' => ['sometimes', 'nullable', 'string', 'max:1000'],
-            'training.researches' => ['sometimes', 'array'],
+            'training.researches' => ['sometimes', 'nullable', 'array'],
             'training.researches.*.title' => ['required', 'string', 'max:255'],
 
             // ── Additional Info ──
@@ -173,7 +213,7 @@ class SubmitQuestionnaireRequest extends FormRequest
                 ['sometimes', 'nullable', 'string', 'max:500']
             ),
             'additional_info.hobbies' => ['sometimes', 'nullable', 'string', 'max:1000'],
-            'additional_info.references' => ['sometimes', 'array'],
+            'additional_info.references' => ['sometimes', 'nullable', 'array'],
             'additional_info.references.*.full_name' => ['required', 'string', 'max:100'],
             'additional_info.references.*.relationship' => ['required', 'string', 'max:50'],
             'additional_info.references.*.workplace_phone' => ['required', 'string', 'max:15'],
@@ -189,12 +229,12 @@ class SubmitQuestionnaireRequest extends FormRequest
             'job_request.interviewed_before' => ['sometimes', 'boolean'],
             'job_request.other_information' => ['sometimes', 'nullable', 'string', 'max:2000'],
             'job_request.accept_information' => ['required', 'accepted'],
-            'job_request.preferred_workplace' => ['sometimes', 'array'],
-            'job_request.preferred_workplace.*' => ['sometimes', 'string', 'in:tehran,kerman,site,other'],
+            'job_request.preferred_workplace' => ['sometimes', 'nullable', 'array'],
+            'job_request.preferred_workplace.*' => ['sometimes', 'nullable', 'string', 'in:tehran,kerman,site,other'],
             'job_request.job_priority_1' => ['required', 'string', 'max:100'],
-            'job_request.job_priority_2' => ['sometimes', 'string', 'max:100'],
+            'job_request.job_priority_2' => ['sometimes', 'nullable', 'string', 'max:100'],
             'job_request.currently_employed' => ['sometimes', 'boolean'],
-            'job_request.available_start_date' => ['required', 'string', 'max:255'],
+            'job_request.available_start_date' => ['required', 'string', 'date_format:Y-m-d'],
         ];
     }
 }

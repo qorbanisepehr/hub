@@ -189,12 +189,14 @@ return [
         ],
         'personal_info.birth_date' => [
             'required' => 'تاریخ تولد الزامی است.',
+            'date_format' => 'فرمت تاریخ تولد نامعتبر است.',
         ],
         'personal_info.birth_place' => [
             'required' => 'محل تولد الزامی است.',
         ],
         'personal_info.birth_certificate_number' => [
             'required' => 'شماره شناسنامه الزامی است.',
+            'regex' => 'شماره شناسنامه باید فقط شامل اعداد باشد.',
         ],
         'personal_info.father_name' => [
             'required' => 'نام پدر الزامی است.',
@@ -212,7 +214,6 @@ return [
         ],
         'personal_info.national_id' => [
             'required' => 'کد ملی الزامی است.',
-            'size' => 'کد ملی باید ۱۰ رقم باشد.',
         ],
         // ── Contact Info ──
         'contact_info.phone' => [
@@ -242,9 +243,11 @@ return [
         ],
         'personal_info.military_status.from' => [
             'required_with' => 'تاریخ شروع الزامی است.',
+            'date_format' => 'فرمت تاریخ شروع نامعتبر است.',
         ],
         'personal_info.military_status.to' => [
             'required_with' => 'تاریخ پایان الزامی است.',
+            'date_format' => 'فرمت تاریخ پایان نامعتبر است.',
         ],
         'personal_info.military_status.reason' => [
             'required_with' => 'دلیل الزامی است.',
@@ -265,9 +268,11 @@ return [
         ],
         'education.education_records.*.from' => [
             'required' => 'تاریخ شروع الزامی است.',
+            'date_format' => 'فرمت تاریخ شروع نامعتبر است.',
         ],
         'education.education_records.*.to' => [
             'required' => 'تاریخ پایان الزامی است.',
+            'date_format' => 'فرمت تاریخ پایان نامعتبر است.',
         ],
         'education.education_records.*.graduation_date' => [
             'required' => 'تاریخ فارغ‌التحصیلی الزامی است.',
@@ -311,9 +316,11 @@ return [
         ],
         'work_experience.work_experiences.*.from' => [
             'required' => 'تاریخ شروع الزامی است.',
+            'date_format' => 'فرمت تاریخ شروع نامعتبر است.',
         ],
         'work_experience.work_experiences.*.to' => [
             'required' => 'تاریخ پایان الزامی است.',
+            'date_format' => 'فرمت تاریخ پایان نامعتبر است.',
         ],
         // ── Skills ──
         'skills.languages.*.language' => [

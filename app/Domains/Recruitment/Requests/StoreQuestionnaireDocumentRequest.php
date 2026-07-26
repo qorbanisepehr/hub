@@ -2,8 +2,6 @@
 
 namespace App\Domains\Recruitment\Requests;
 
-use App\Domains\Document\Models\DocumentCategory;
-use App\Domains\Recruitment\Models\Questionnaire;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rules\File;
 
@@ -18,16 +16,7 @@ class StoreQuestionnaireDocumentRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'document_category_id' => [
-                'required',
-                'exists:document_categories,id',
-                function (string $attribute, mixed $value, \Closure $fail): void {
-                    $category = DocumentCategory::find($value);
-                    if ($category && $category->documentable_type !== null && $category->documentable_type !== Questionnaire::class) {
-                        $fail('دسته‌بندی متعلق به پرسشنامه نیست.');
-                    }
-                },
-            ],
+            'document_category_id' => ['required', 'exists:document_categories,id'],
             'file' => [
                 'required',
                 File::default()
