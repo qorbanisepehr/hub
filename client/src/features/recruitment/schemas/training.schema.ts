@@ -3,17 +3,17 @@ import { z } from "zod";
 export const requiredString = z.string().min(1, "این فیلد الزامی است.");
 
 export const trainingCourseSchema = z.object({
-    course_name: requiredString.max(100, "حداکثر ۱۰۰ کاراکتر."),
-    duration: z.string().max(50).optional(),
-    institution: z.string().max(100).optional(),
+    course_name: z.string().min(1, "نام دوره الزامی است.").max(100, "حداکثر ۱۰۰ کاراکتر."),
+    duration: z.string().max(50, "حداکثر ۵۰ کاراکتر.").optional(),
+    institution: z.string().max(100, "حداکثر ۱۰۰ کاراکتر.").optional(),
     held_at: z.string().optional(),
-    certificate: z.string().max(100).optional().nullable(),
+    certificate: z.string().max(100, "حداکثر ۱۰۰ کاراکتر.").optional().nullable(),
 });
 
 export type TrainingCourseFormData = z.infer<typeof trainingCourseSchema>;
 
 export const researchSchema = z.object({
-    title: requiredString.max(255, "حداکثر ۲۵۵ کاراکتر."),
+    title: z.string().min(1, "عنوان تحقیق الزامی است.").max(255, "حداکثر ۲۵۵ کاراکتر."),
 });
 
 export type ResearchFormData = z.infer<typeof researchSchema>;
@@ -32,7 +32,13 @@ export type TrainingFormData = z.infer<typeof trainingFieldSchema>;
 export const fieldSchemas = {
     training_courses: z.array(trainingCourseSchema).optional(),
     training_course_item: trainingCourseSchema,
+    course_name: z.string().min(1, "نام دوره الزامی است.").max(100, "حداکثر ۱۰۰ کاراکتر."),
+    duration: z.string().max(50, "حداکثر ۵۰ کاراکتر.").optional(),
+    institution: z.string().max(100, "حداکثر ۱۰۰ کاراکتر.").optional(),
+    held_at: z.string().optional(),
+    certificate: z.string().max(100, "حداکثر ۱۰۰ کاراکتر.").optional().nullable(),
     researches: z.array(researchSchema).optional(),
     research_item: researchSchema,
-    professional_memberships: z.string().max(1000).optional(),
+    research_title: z.string().min(1, "عنوان تحقیق الزامی است.").max(255, "حداکثر ۲۵۵ کاراکتر."),
+    professional_memberships: z.string().max(1000, "حداکثر ۱۰۰۰ کاراکتر.").optional(),
 } as const;

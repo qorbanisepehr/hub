@@ -4,6 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { FormTextarea, FormTextField } from "@/components/shared/form-fields";
 import { FormRepeater } from "@/components/shared/form-repeater";
+import { zodFieldValidators } from "@/lib/validation-helpers";
+import { fieldSchemas } from "@/features/recruitment/schemas/additional-info.schema";
 
 import { YesNoWithDescription } from "./yes-no-with-description";
 
@@ -50,13 +52,19 @@ export function AdditionalInfoSection({ form }: SectionProps) {
                 {/* ── Background ── */}
                 <span className="text-sm font-medium">سابقه و انگیزه</span>
 
-                <form.Field name="additional_info.company_introduction_method">
+                <form.Field
+                    name="additional_info.company_introduction_method"
+                    validators={zodFieldValidators(fieldSchemas.company_introduction_method)}
+                >
                     {(field) => (
                         <FormTextarea field={field} label="نحوه آشنایی با شرکت" />
                     )}
                 </form.Field>
 
-                <form.Field name="additional_info.reason_for_joining">
+                <form.Field
+                    name="additional_info.reason_for_joining"
+                    validators={zodFieldValidators(fieldSchemas.reason_for_joining)}
+                >
                     {(field) => <FormTextarea field={field} label="دلیل تمایل به همکاری" />}
                 </form.Field>
 
@@ -81,11 +89,17 @@ export function AdditionalInfoSection({ form }: SectionProps) {
                     descriptionLabel="توضیحات سفر"
                 />
 
-                <form.Field name="additional_info.hobbies">
+                <form.Field
+                    name="additional_info.hobbies"
+                    validators={zodFieldValidators(fieldSchemas.hobbies)}
+                >
                     {(field) => <FormTextarea field={field} label="علاقه‌مندی‌ها و سرگرمی‌ها" />}
                 </form.Field>
 
-                <form.Field name="additional_info.strengths_and_improvements">
+                <form.Field
+                    name="additional_info.strengths_and_improvements"
+                    validators={zodFieldValidators(fieldSchemas.strengths_and_improvements)}
+                >
                     {(field) => (
                         <FormTextarea
                             field={field}
@@ -116,16 +130,19 @@ export function AdditionalInfoSection({ form }: SectionProps) {
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     <form.Field
                                         name={`additional_info.references.${index}.full_name`}
+                                        validators={zodFieldValidators(fieldSchemas.reference_item.shape.full_name)}
                                     >
                                         {(f) => <FormTextField field={f} label="نام و نام خانوادگی" />}
                                     </form.Field>
                                     <form.Field
                                         name={`additional_info.references.${index}.relationship`}
+                                        validators={zodFieldValidators(fieldSchemas.reference_item.shape.relationship)}
                                     >
                                         {(f) => <FormTextField field={f} label="رابطه" />}
                                     </form.Field>
                                     <form.Field
                                         name={`additional_info.references.${index}.workplace_phone`}
+                                        validators={zodFieldValidators(fieldSchemas.reference_item.shape.workplace_phone)}
                                     >
                                         {(f) => (
                                             <FormTextField

@@ -10,6 +10,8 @@ import {
 } from "@/components/shared/form-fields";
 import { FormRepeater } from "@/components/shared/form-repeater";
 import { YES_NO_OPTIONS, parseBoolean } from "@/features/recruitment/constants";
+import { zodFieldValidators } from "@/lib/validation-helpers";
+import { fieldSchemas } from "@/features/recruitment/schemas/work-experience.schema";
 
 type SectionProps = {
     form: ReactFormExtendedApi<any, any, any, any, any, any, any, any, any, any, any, any>;
@@ -50,6 +52,7 @@ export function WorkExperienceSection({ form }: SectionProps) {
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     <form.Field
                                         name={`work_experience.work_experiences.${index}.company`}
+                                        validators={zodFieldValidators(fieldSchemas.company)}
                                     >
                                         {(f) => <FormTextField field={f} label="شرکت" />}
                                     </form.Field>
@@ -65,13 +68,20 @@ export function WorkExperienceSection({ form }: SectionProps) {
                                     </form.Field>
                                     <form.Field
                                         name={`work_experience.work_experiences.${index}.position`}
+                                        validators={zodFieldValidators(fieldSchemas.position)}
                                     >
                                         {(f) => <FormTextField field={f} label="سمت شغلی" />}
                                     </form.Field>
-                                    <form.Field name={`work_experience.work_experiences.${index}.from`}>
+                                    <form.Field
+                                        name={`work_experience.work_experiences.${index}.from`}
+                                        validators={zodFieldValidators(fieldSchemas.from)}
+                                    >
                                         {(f) => <FormDatePicker field={f} label="از تاریخ" />}
                                     </form.Field>
-                                    <form.Field name={`work_experience.work_experiences.${index}.to`}>
+                                    <form.Field
+                                        name={`work_experience.work_experiences.${index}.to`}
+                                        validators={zodFieldValidators(fieldSchemas.to)}
+                                    >
                                         {(f) => <FormDatePicker field={f} label="تا تاریخ" />}
                                     </form.Field>
                                     <form.Field

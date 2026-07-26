@@ -17,13 +17,46 @@ export const MILITARY_STATUS_VALUES = [
 
 export const requiredString = z.string().min(1, "این فیلد الزامی است.");
 
-export const militaryStatusSchema = z.object({
-    status: z.enum(MILITARY_STATUS_VALUES, { message: "وضعیت خدمت الزامی است." }),
-    organization: requiredString.max(100, "حداکثر ۱۰۰ کاراکتر."),
-    from: requiredString.max(255, "حداکثر ۲۵۵ کاراکتر."),
-    to: requiredString.max(255, "حداکثر ۲۵۵ کاراکتر."),
-    reason: requiredString.max(255, "حداکثر ۲۵۵ کاراکتر."),
-});
+function isValidNationalId(val: string): boolean {
+    if (!/^\d{10}$/.test(val)) return true;
+    if (/^(\d)\1{9}$/.test(val)) return false;
+    let sum = 0;
+    for (let i = 0; i < 9; i++) {
+        sum += parseInt(val[i]) * (10 - i);
+    }
+    const remainder = sum % 11;
+    const control = remainder < 2 ? remainder : 11 - remainder;
+    return parseInt(val[9]) === control;
+}
+
+function getAge(birthDate: string): number {
+    const today = new Date();
+    const birth = new Date(birthDate);
+    let age = today.getFullYear() - birth.getFullYear();
+    const monthDiff = today.getMonth() - birth.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+        age--;
+    }
+    return age;
+}
+
+export const militaryStatusSchema = z
+    .object({
+        status: z.enum(MILITARY_STATUS_VALUES, { message: "وضعیت خدمت الزامی است." }),
+        organization: z.string().min(1, "سازمان الزامی است.").max(100, "حداکثر ۱۰۰ کاراکتر."),
+        from: z.string().min(1, "تاریخ شروع الزامی است."),
+        to: z.string().min(1, "تاریخ پایان الزامی است."),
+        reason: z.string().min(1, "دلیل الزامی است.").max(255, "حداکثر ۲۵۵ کاراکتر."),
+    })
+    .superRefine((data, ctx) => {
+        if (data.from && data.to && data.to < data.from) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: "تاریخ پایان نباید قبل از تاریخ شروع باشد.",
+                path: ["to"],
+            });
+        }
+    });
 
 export const personalInfoFieldSchema = z
     .object({
@@ -68,19 +101,38 @@ export type PersonalInfoFormData = z.infer<typeof personalInfoFieldSchema>;
  * Per-field schemas for use with TanStack Form validators.
  */
 export const fieldSchemas = {
+    first_name: z.string().min(1, "نام الزامی است.").max(100, "حداکثر ۱۰۰ کاراکتر."),
+    last_name: z.string().min(1, "نام خانوادگی الزامی است.").max(100, "حداکثر ۱۰۰ کاراکتر."),
     gender: z.enum(GENDER_VALUES, { message: "جنسیت الزامی است." }),
-    birth_date: requiredString,
+    birth_date: z
+        .string()
+        .min(1, "تاریخ تولد الزامی است.")
+        .refine(
+            (val) => {
+                if (!val) return true;
+                return getAge(val) >= 18;
+            },
+            "حداقل سن الزامی ۱۸ سال است.",
+        ),
     marital_status: z.enum(MARITAL_STATUS_VALUES, { message: "وضعیت تأهل الزامی است." }),
-    national_id: z.string().min(1, "کد ملی الزامی است."),
+    national_id: z
+        .string()
+        .min(1, "کد ملی الزامی است.")
+        .regex(/^\d{10}$/, "کد ملی باید دقیقاً ۱۰ رقم باشد.")
+        .refine(isValidNationalId, "کد ملی معتبر نیست."),
     blood_group: z.enum(BLOOD_GROUP_VALUES, { message: "گروه خونی الزامی است." }),
-    birth_place: requiredString,
-    birth_certificate_number: requiredString,
-    father_name: requiredString,
-    religion: requiredString,
-    first_name_en: z.string().max(100).optional().or(z.literal("")),
-    last_name_en: z.string().max(100).optional().or(z.literal("")),
-    dependents_count: z.number().min(0).nullable().optional(),
-    children_count: z.number().min(0).nullable().optional(),
+    birth_place: z.string().min(1, "محل تولد الزامی است.").max(100, "حداکثر ۱۰۰ کاراکتر."),
+    birth_certificate_number: z
+        .string()
+        .min(1, "شماره شناسنامه الزامی است.")
+        .regex(/^\d+$/, "شماره شناسنامه باید فقط شامل اعداد باشد.")
+        .max(20, "حداکثر ۲۰ کاراکتر."),
+    father_name: z.string().min(1, "نام پدر الزامی است.").max(100, "حداکثر ۱۰۰ کاراکتر."),
+    religion: z.string().min(1, "مذهب الزامی است.").max(50, "حداکثر ۵۰ کاراکتر."),
+    first_name_en: z.string().max(100, "حداکثر ۱۰۰ کاراکتر.").optional().or(z.literal("")),
+    last_name_en: z.string().max(100, "حداکثر ۱۰۰ کاراکتر.").optional().or(z.literal("")),
+    dependents_count: z.number().min(0, "تعداد افراد تحت تکفل نمی‌تواند منفی باشد.").nullable().optional(),
+    children_count: z.number().min(0, "تعداد فرزندان نمی‌تواند منفی باشد.").nullable().optional(),
     spouse_employment_status: z.enum(SPOUSE_EMPLOYMENT_VALUES, { message: "وضعیت اشتغال همسر الزامی است." }),
     military_status: militaryStatusSchema,
 } as const;

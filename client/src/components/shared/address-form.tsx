@@ -1,6 +1,8 @@
 import type { ReactFormExtendedApi } from "@tanstack/react-form";
 
 import { FormTextField, FormTextarea } from "@/components/shared/form-fields";
+import { zodFieldValidators } from "@/lib/validation-helpers";
+import { fieldSchemas } from "@/features/recruitment/schemas/contact-info.schema";
 
 type AddressFormProps = {
     form: ReactFormExtendedApi<any, any, any, any, any, any, any, any, any, any, any, any>;
@@ -11,18 +13,30 @@ export function AddressForm({ form, prefix }: AddressFormProps) {
     return (
         <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <form.Field name={`${prefix}.postal_code`}>
+                <form.Field
+                    name={`${prefix}.postal_code`}
+                    validators={zodFieldValidators(fieldSchemas.address_postal_code)}
+                >
                     {(field) => <FormTextField field={field} label="کد پستی" dir="ltr" />}
                 </form.Field>
-                <form.Field name={`${prefix}.province`}>
+                <form.Field
+                    name={`${prefix}.province`}
+                    validators={zodFieldValidators(fieldSchemas.address_province)}
+                >
                     {(field) => <FormTextField field={field} label="استان" />}
                 </form.Field>
-                <form.Field name={`${prefix}.city`}>
+                <form.Field
+                    name={`${prefix}.city`}
+                    validators={zodFieldValidators(fieldSchemas.address_city)}
+                >
                     {(field) => <FormTextField field={field} label="شهر" />}
                 </form.Field>
             </div>
 
-            <form.Field name={`${prefix}.address`}>
+            <form.Field
+                name={`${prefix}.address`}
+                validators={zodFieldValidators(fieldSchemas.address_address)}
+            >
                 {(field) => <FormTextarea field={field} label="آدرس" />}
             </form.Field>
 
