@@ -16,7 +16,7 @@ import { FileUploadField } from "@/components/shared/file-upload-field";
 import { FormRepeater } from "@/components/shared/form-repeater";
 import { DEGREE_OPTIONS, YES_NO_OPTIONS, parseBoolean } from "@/features/recruitment/constants";
 import { useQuestionnaireDocuments } from "@/features/recruitment/hooks/use-questionnaire-documents";
-import { zodFieldValidator } from "@/lib/validation-helpers";
+import { zodFieldValidators } from "@/lib/validation-helpers";
 import { fieldSchemas } from "@/features/recruitment/schemas/education.schema";
 
 type SectionProps = {
@@ -59,9 +59,7 @@ export function EducationSection({ form, uuid }: SectionProps) {
             <CardContent className="space-y-6">
                 <form.Field
                     name="education.education_records"
-                    validators={{
-                        onBlur: zodFieldValidator(fieldSchemas.education_records),
-                    }}
+                    validators={zodFieldValidators(fieldSchemas.education_records)}
                 >
                     {(field) => (
                         <FormRepeater
@@ -80,7 +78,10 @@ export function EducationSection({ form, uuid }: SectionProps) {
                             renderItem={(index) => (
                                 <div className="space-y-4">
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                        <form.Field name={`education.education_records.${index}.degree`}>
+                                        <form.Field
+                                            name={`education.education_records.${index}.degree`}
+                                            validators={zodFieldValidators(fieldSchemas.education_records_item.shape.degree)}
+                                        >
                                             {(f) => (
                                                 <FormSelectField
                                                     field={f}
@@ -89,21 +90,31 @@ export function EducationSection({ form, uuid }: SectionProps) {
                                                 />
                                             )}
                                         </form.Field>
-                                        <form.Field name={`education.education_records.${index}.field`}>
+                                        <form.Field
+                                            name={`education.education_records.${index}.field`}
+                                            validators={zodFieldValidators(fieldSchemas.education_records_item.shape.field)}
+                                        >
                                             {(f) => <FormTextField field={f} label="رشته تحصیلی" />}
                                         </form.Field>
                                         <form.Field
                                             name={`education.education_records.${index}.institution`}
+                                            validators={zodFieldValidators(fieldSchemas.education_records_item.shape.institution)}
                                         >
                                             {(f) => <FormTextField field={f} label="دانشگاه" />}
                                         </form.Field>
                                         <form.Field name={`education.education_records.${index}.location`}>
                                             {(f) => <FormTextField field={f} label="محل" />}
                                         </form.Field>
-                                        <form.Field name={`education.education_records.${index}.from`}>
+                                        <form.Field
+                                            name={`education.education_records.${index}.from`}
+                                            validators={zodFieldValidators(fieldSchemas.education_records_item.shape.from)}
+                                        >
                                             {(f) => <FormDatePicker field={f} label="از تاریخ" />}
                                         </form.Field>
-                                        <form.Field name={`education.education_records.${index}.to`}>
+                                        <form.Field
+                                            name={`education.education_records.${index}.to`}
+                                            validators={zodFieldValidators(fieldSchemas.education_records_item.shape.to)}
+                                        >
                                             {(f) => <FormDatePicker field={f} label="تا تاریخ" />}
                                         </form.Field>
                                         <form.Field
@@ -113,10 +124,14 @@ export function EducationSection({ form, uuid }: SectionProps) {
                                         </form.Field>
                                         <form.Field
                                             name={`education.education_records.${index}.graduation_date`}
+                                            validators={zodFieldValidators(fieldSchemas.education_records_item.shape.graduation_date)}
                                         >
                                             {(f) => <FormDatePicker field={f} label="تاریخ فارغ‌التحصیلی" />}
                                         </form.Field>
-                                        <form.Field name={`education.education_records.${index}.gpa`}>
+                                        <form.Field
+                                            name={`education.education_records.${index}.gpa`}
+                                            validators={zodFieldValidators(fieldSchemas.education_records_item.shape.gpa)}
+                                        >
                                             {(f) => <FormTextField field={f} label="معدل" />}
                                         </form.Field>
                                     </div>
@@ -160,25 +175,40 @@ export function EducationSection({ form, uuid }: SectionProps) {
                                 field.state.value ? (
                                     <div className="space-y-4">
                                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                            <form.Field name="education.student_degree">
+                                            <form.Field
+                                                name="education.student_degree"
+                                                validators={zodFieldValidators(fieldSchemas.student_degree)}
+                                            >
                                                 {(f) => (
                                                     <FormTextField field={f} label="مقطع تحصیلی" />
                                                 )}
                                             </form.Field>
-                                            <form.Field name="education.student_field">
+                                            <form.Field
+                                                name="education.student_field"
+                                                validators={zodFieldValidators(fieldSchemas.student_field)}
+                                            >
                                                 {(f) => (
                                                     <FormTextField field={f} label="رشته تحصیلی" />
                                                 )}
                                             </form.Field>
-                                            <form.Field name="education.student_university">
+                                            <form.Field
+                                                name="education.student_university"
+                                                validators={zodFieldValidators(fieldSchemas.student_university)}
+                                            >
                                                 {(f) => <FormTextField field={f} label="دانشگاه" />}
                                             </form.Field>
                                         </div>
                                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                            <form.Field name="education.student_country">
+                                            <form.Field
+                                                name="education.student_country"
+                                                validators={zodFieldValidators(fieldSchemas.student_country)}
+                                            >
                                                 {(f) => <FormTextField field={f} label="کشور" />}
                                             </form.Field>
-                                            <form.Field name="education.student_city">
+                                            <form.Field
+                                                name="education.student_city"
+                                                validators={zodFieldValidators(fieldSchemas.student_city)}
+                                            >
                                                 {(f) => <FormTextField field={f} label="شهر" />}
                                             </form.Field>
                                             <form.Field name="education.student_semester">
@@ -199,15 +229,24 @@ export function EducationSection({ form, uuid }: SectionProps) {
                                                     />
                                                 )}
                                             </form.Field>
-                                            <form.Field name="education.student_gpa">
+                                            <form.Field
+                                                name="education.student_gpa"
+                                                validators={zodFieldValidators(fieldSchemas.student_gpa)}
+                                            >
                                                 {(f) => <FormTextField field={f} label="معدل" />}
                                             </form.Field>
                                         </div>
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                            <form.Field name="education.study_start">
+                                            <form.Field
+                                                name="education.study_start"
+                                                validators={zodFieldValidators(fieldSchemas.study_start)}
+                                            >
                                                 {(f) => <FormDatePicker field={f} label="تاریخ شروع تحصیل" />}
                                             </form.Field>
-                                            <form.Field name="education.expected_graduation">
+                                            <form.Field
+                                                name="education.expected_graduation"
+                                                validators={zodFieldValidators(fieldSchemas.expected_graduation)}
+                                            >
                                                 {(f) => (
                                                     <FormDatePicker
                                                         field={f}
@@ -227,7 +266,10 @@ export function EducationSection({ form, uuid }: SectionProps) {
                                                     />
                                                 )}
                                             </form.Field>
-                                            <form.Field name="education.student_thesis_title">
+                                            <form.Field
+                                                name="education.student_thesis_title"
+                                                validators={zodFieldValidators(fieldSchemas.student_thesis_title)}
+                                            >
                                                 {(f) => (
                                                     <FormTextField
                                                         field={f}

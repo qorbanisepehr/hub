@@ -11,6 +11,8 @@ import {
     SOFTWARE_LEVEL_OPTIONS,
 } from "@/features/recruitment/constants";
 import { useQuestionnaireDocuments } from "@/features/recruitment/hooks/use-questionnaire-documents";
+import { zodFieldValidators } from "@/lib/validation-helpers";
+import { fieldSchemas } from "@/features/recruitment/schemas/skills.schema";
 
 type SectionProps = {
     form: ReactFormExtendedApi<any, any, any, any, any, any, any, any, any, any, any, any>;
@@ -65,7 +67,10 @@ function SoftwareItem({
 }) {
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <form.Field name={`${prefix}.${index}.name`}>
+            <form.Field
+                name={`${prefix}.${index}.name`}
+                validators={zodFieldValidators(fieldSchemas.software_skill_name)}
+            >
                 {(f) => <FormTextField field={f} label="نام نرم‌افزار" />}
             </form.Field>
             <form.Field name={`${prefix}.${index}.level`}>
@@ -108,7 +113,10 @@ export function SkillsSection({ form, uuid }: SectionProps) {
                             renderItem={(index) => (
                                 <div className="space-y-4">
                                     <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-                                        <form.Field name={`skills.languages.${index}.language`}>
+                                        <form.Field
+                                            name={`skills.languages.${index}.language`}
+                                            validators={zodFieldValidators(fieldSchemas.language)}
+                                        >
                                             {(f) => (
                                                 <FormTextField
                                                     field={f}
@@ -234,7 +242,10 @@ export function SkillsSection({ form, uuid }: SectionProps) {
                             })}
                             renderItem={(index) => (
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <form.Field name={`skills.certificates.${index}.title`}>
+                                    <form.Field
+                                        name={`skills.certificates.${index}.title`}
+                                        validators={zodFieldValidators(fieldSchemas.certificate_title)}
+                                    >
                                         {(f) => <FormTextField field={f} label="عنوان" />}
                                     </form.Field>
                                     <form.Field name={`skills.certificates.${index}.expire_at`}>
@@ -259,7 +270,10 @@ export function SkillsSection({ form, uuid }: SectionProps) {
                                 value: typeof item === "string" ? item : "",
                             })}
                             renderItem={(index) => (
-                                <form.Field name={`skills.special_skills.${index}`}>
+                                <form.Field
+                                    name={`skills.special_skills.${index}`}
+                                    validators={zodFieldValidators(fieldSchemas.special_skill_item)}
+                                >
                                     {(f) => (
                                         <FormTextField
                                             field={f}

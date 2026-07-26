@@ -18,7 +18,7 @@ import {
     PREFERRED_WORKPLACE_OPTIONS,
     parseBoolean,
 } from "@/features/recruitment/constants";
-import { zodFieldValidator } from "@/lib/validation-helpers";
+import { zodFieldValidators } from "@/lib/validation-helpers";
 import { fieldSchemas } from "@/features/recruitment/schemas/job-request.schema";
 
 type SectionProps = {
@@ -34,9 +34,7 @@ export function JobRequestSection({ form }: SectionProps) {
             <CardContent className="space-y-6">
                 <form.Field
                     name="job_request.employment_type"
-                    validators={{
-                        onBlur: zodFieldValidator(fieldSchemas.employment_type),
-                    }}
+                    validators={zodFieldValidators(fieldSchemas.employment_type)}
                 >
                     {(field) => (
                         <FormRadioGroup
@@ -90,9 +88,7 @@ export function JobRequestSection({ form }: SectionProps) {
 
                 <form.Field
                     name="job_request.accept_information"
-                    validators={{
-                        onBlur: zodFieldValidator(fieldSchemas.accept_information),
-                    }}
+                    validators={zodFieldValidators(fieldSchemas.accept_information)}
                 >
                     {(field) => (
                         <Field>
@@ -121,7 +117,10 @@ export function JobRequestSection({ form }: SectionProps) {
                 </form.Field>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <form.Field name="job_request.job_priority_1">
+                    <form.Field
+                        name="job_request.job_priority_1"
+                        validators={zodFieldValidators(fieldSchemas.job_priority_1)}
+                    >
                         {(field) => <FormTextField field={field} label="اولویت شغلی ۱" />}
                     </form.Field>
                     <form.Field name="job_request.job_priority_2">
@@ -140,7 +139,10 @@ export function JobRequestSection({ form }: SectionProps) {
                             />
                         )}
                     </form.Field>
-                    <form.Field name="job_request.available_start_date">
+                    <form.Field
+                        name="job_request.available_start_date"
+                        validators={zodFieldValidators(fieldSchemas.available_start_date)}
+                    >
                         {(field) => <FormDatePicker field={field} label="تاریخ شروع به کار" />}
                     </form.Field>
                 </div>

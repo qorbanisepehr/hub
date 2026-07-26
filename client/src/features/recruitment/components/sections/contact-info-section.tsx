@@ -13,6 +13,8 @@ import {
     verifyEmailOtp,
 } from "@/features/recruitment/api";
 import { getApiError } from "@/lib/error-utils";
+import { zodFieldValidators } from "@/lib/validation-helpers";
+import { fieldSchemas } from "@/features/recruitment/schemas/contact-info.schema";
 import type { Questionnaire } from "@/features/recruitment/types";
 
 import { OtpVerificationBlock } from "./otp-verification-block";
@@ -69,7 +71,10 @@ export function ContactInfoSection({ form, questionnaire }: SectionProps) {
                 <CardTitle>اطلاعات تماس</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
-                <form.Field name="email">
+                <form.Field
+                    name="email"
+                    validators={zodFieldValidators(fieldSchemas.email)}
+                >
                     {(field) => (
                         <>
                             <FormTextField field={field} label="ایمیل" dir="ltr" />
@@ -88,7 +93,10 @@ export function ContactInfoSection({ form, questionnaire }: SectionProps) {
                     )}
                 </form.Field>
 
-                <form.Field name="mobile">
+                <form.Field
+                    name="mobile"
+                    validators={zodFieldValidators(fieldSchemas.mobile)}
+                >
                     {(field) => (
                         <>
                             <FormTextField field={field} label="شماره موبایل" dir="ltr" />
@@ -108,10 +116,16 @@ export function ContactInfoSection({ form, questionnaire }: SectionProps) {
                 </form.Field>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <form.Field name="contact_info.phone">
+                    <form.Field
+                        name="contact_info.phone"
+                        validators={zodFieldValidators(fieldSchemas.phone)}
+                    >
                         {(field) => <FormTextField field={field} label="تلفن ثابت" dir="ltr" />}
                     </form.Field>
-                    <form.Field name="contact_info.emergency_phone">
+                    <form.Field
+                        name="contact_info.emergency_phone"
+                        validators={zodFieldValidators(fieldSchemas.emergency_phone)}
+                    >
                         {(field) => <FormTextField field={field} label="تلفن اضطراری" dir="ltr" />}
                     </form.Field>
                 </div>

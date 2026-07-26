@@ -6,6 +6,8 @@ import { FormTextField, FormTextarea, FormDatePicker } from "@/components/shared
 import { FileUploadField } from "@/components/shared/file-upload-field";
 import { FormRepeater } from "@/components/shared/form-repeater";
 import { useQuestionnaireDocuments } from "@/features/recruitment/hooks/use-questionnaire-documents";
+import { zodFieldValidators } from "@/lib/validation-helpers";
+import { fieldSchemas } from "@/features/recruitment/schemas/training.schema";
 
 type SectionProps = {
     form: ReactFormExtendedApi<any, any, any, any, any, any, any, any, any, any, any, any>;
@@ -63,6 +65,7 @@ export function TrainingSection({ form, uuid }: SectionProps) {
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                         <form.Field
                                             name={`training.training_courses.${index}.course_name`}
+                                            validators={zodFieldValidators(fieldSchemas.course_name)}
                                         >
                                             {(f) => <FormTextField field={f} label="نام دوره" />}
                                         </form.Field>
@@ -114,7 +117,10 @@ export function TrainingSection({ form, uuid }: SectionProps) {
                             )}
                             renderItem={(index) => (
                                 <div className="grid grid-cols-1 gap-4">
-                                    <form.Field name={`training.researches.${index}.title`}>
+                                    <form.Field
+                                        name={`training.researches.${index}.title`}
+                                        validators={zodFieldValidators(fieldSchemas.research_title)}
+                                    >
                                         {(f) => <FormTextField field={f} label="عنوان" />}
                                     </form.Field>
                                 </div>

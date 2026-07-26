@@ -1,9 +1,13 @@
 import { useEffect, useRef } from "react";
 import type { ReactFormExtendedApi } from "@tanstack/react-form";
 import { useStore } from "@tanstack/react-form";
+import { z } from "zod";
 
 import { FormTextarea, FormRadioGroup } from "@/components/shared/form-fields";
 import { YES_NO_OPTIONS, parseBoolean } from "@/features/recruitment/constants";
+import { zodFieldValidators } from "@/lib/validation-helpers";
+
+const requiredDescription = z.string().min(1, "این فیلد الزامی است.").max(500);
 
 type YesNoWithDescriptionProps = {
     form: ReactFormExtendedApi<any, any, any, any, any, any, any, any, any, any, any, any>;
@@ -53,7 +57,10 @@ export function YesNoWithDescription({
                 )}
             </form.Field>
             {isYes && (
-                <form.Field name={descriptionField}>
+                <form.Field
+                    name={descriptionField}
+                    validators={zodFieldValidators(requiredDescription)}
+                >
                     {(field) => <FormTextarea field={field} label={descriptionLabel} />}
                 </form.Field>
             )}
