@@ -266,7 +266,7 @@ describe('Questionnaire validation', function () {
                 ]);
         });
 
-        it('requires description when boolean is true and allows null when false', function () {
+        it('allows null descriptions on save even when booleans are true (required only on submit)', function () {
             $uuid = createDraft();
 
             $this->putJson("/api/questionnaire/{$uuid}", [
@@ -282,14 +282,7 @@ describe('Questionnaire validation', function () {
                     'has_criminal_record' => true,
                     'criminal_record_description' => null,
                 ],
-            ])->assertUnprocessable()
-                ->assertJsonValidationErrors([
-                    'additional_info.chronic_disease_description',
-                    'additional_info.major_surgery_description',
-                    'additional_info.disability_description',
-                    'additional_info.travel_description',
-                    'additional_info.criminal_record_description',
-                ]);
+            ])->assertOk();
         });
 
         it('allows null descriptions when booleans are false', function () {
@@ -361,12 +354,12 @@ describe('Questionnaire validation', function () {
                 'personal_info' => [
                     'gender' => 'male',
                     'blood_group' => 'A+',
-                    'birth_date' => '1370/01/01',
+                    'birth_date' => '1990-01-15',
                     'birth_place' => 'Tehran',
                     'father_name' => 'Ahmad',
                     'religion' => 'Islam',
                     'marital_status' => 'single',
-                    'national_id' => '1234567890',
+                    'national_id' => '0123456789',
                 ],
             ])->assertOk();
         });
@@ -566,7 +559,7 @@ describe('Questionnaire validation', function () {
                     'employment_type' => 'invalid',
                     'accept_information' => true,
                     'job_priority_1' => 'Developer',
-                    'available_start_date' => '1404/01/01',
+                    'available_start_date' => '2025-03-21',
                 ],
             ]))->assertUnprocessable()
                 ->assertJsonValidationErrors(['job_request.employment_type']);
@@ -580,7 +573,7 @@ describe('Questionnaire validation', function () {
                     'employment_type' => 'full_time',
                     'accept_information' => false,
                     'job_priority_1' => 'Developer',
-                    'available_start_date' => '1404/01/01',
+                    'available_start_date' => '2025-03-21',
                 ],
             ]))->assertUnprocessable()
                 ->assertJsonValidationErrors(['job_request.accept_information']);
@@ -663,18 +656,18 @@ function validPersonalInfo(): array
     return [
         'gender' => 'male',
         'blood_group' => 'A+',
-        'birth_date' => '1370/01/01',
+        'birth_date' => '1990-01-15',
         'birth_place' => 'Tehran',
         'birth_certificate_number' => '12345',
         'father_name' => 'Ahmad',
         'religion' => 'Islam',
         'marital_status' => 'single',
-        'national_id' => '1234567890',
+        'national_id' => '0123456789',
         'military_status' => [
             'status' => 'completed',
             'organization' => 'Army',
-            'from' => '1390/01/01',
-            'to' => '1392/01/01',
+            'from' => '2011-03-21',
+            'to' => '2013-03-21',
             'reason' => 'Completed',
         ],
     ];
@@ -704,9 +697,9 @@ function validEducationRecord(): array
             'degree' => 'BSc',
             'field' => 'Computer Science',
             'institution' => 'University of Tehran',
-            'from' => '1388',
-            'to' => '1392',
-            'graduation_date' => '1392/06/01',
+            'from' => '2009-09-01',
+            'to' => '2013-06-15',
+            'graduation_date' => '2013-06-15',
             'gpa' => '17.5',
         ],
     ];
@@ -719,8 +712,8 @@ function validWorkExperience(): array
             [
                 'company' => 'Acme Corp',
                 'position' => 'Developer',
-                'from' => '1395',
-                'to' => '1400',
+                'from' => '2016-03-21',
+                'to' => '2021-03-20',
             ],
         ],
     ];
@@ -777,7 +770,7 @@ function validJobRequest(): array
         'employment_type' => 'full_time',
         'accept_information' => true,
         'job_priority_1' => 'Developer',
-        'available_start_date' => '1404/01/01',
+        'available_start_date' => '2025-03-21',
         'preferred_workplace' => ['tehran'],
     ];
 }
