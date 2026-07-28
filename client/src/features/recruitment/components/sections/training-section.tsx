@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FormTextField, FormTextarea, FormDatePicker } from "@/components/shared/form-fields";
 import { FileUploadField } from "@/components/shared/file-upload-field";
 import { FormRepeater } from "@/components/shared/form-repeater";
+import { DOC_CATEGORY_SLUGS } from "@/features/recruitment/constants";
 import { useQuestionnaireDocuments } from "@/features/recruitment/hooks/use-questionnaire-documents";
 import { zodFieldValidators } from "@/lib/validation-helpers";
 import { fieldSchemas } from "@/features/recruitment/schemas/training.schema";
@@ -12,6 +13,7 @@ import { fieldSchemas } from "@/features/recruitment/schemas/training.schema";
 type SectionProps = {
     form: ReactFormExtendedApi<any, any, any, any, any, any, any, any, any, any, any, any>;
     uuid?: string;
+    onPersist?: () => void;
 };
 
 const COURSE_COLUMNS_FN = (hasDoc: (index: number) => boolean) => [
@@ -37,9 +39,9 @@ const COURSE_COLUMNS_FN = (hasDoc: (index: number) => boolean) => [
     },
 ];
 
-export function TrainingSection({ form, uuid }: SectionProps) {
-    const { hasDocument } = useQuestionnaireDocuments(uuid);
-    const courseColumns = COURSE_COLUMNS_FN((index) => hasDocument(18, `train-${index}`));
+export function TrainingSection({ form, uuid, onPersist }: SectionProps) {
+    const { hasDocumentBySlug } = useQuestionnaireDocuments(uuid);
+    const courseColumns = COURSE_COLUMNS_FN((index) => hasDocumentBySlug(DOC_CATEGORY_SLUGS.COURSE_CERTIFICATES, `train-${index}`));
 
     return (
         <Card>
@@ -54,6 +56,7 @@ export function TrainingSection({ form, uuid }: SectionProps) {
                             field={field}
                             label="دوره‌های آموزشی"
                             columns={courseColumns}
+                            onPersist={onPersist}
                             getSummary={(item) => ({
                                 course_name: item.course_name,
                                 institution: item.institution,
@@ -91,7 +94,7 @@ export function TrainingSection({ form, uuid }: SectionProps) {
                                     {uuid && (
                                         <FileUploadField
                                             uuid={uuid}
-                                            categoryId={18}
+                                            categorySlug={DOC_CATEGORY_SLUGS.COURSE_CERTIFICATES}
                                             label="گواهینامه دوره"
                                             recordKey={`train-${index}`}
                                         />
@@ -112,6 +115,7 @@ export function TrainingSection({ form, uuid }: SectionProps) {
                             defaultMode="card"
                             field={field}
                             label="تحقیقات و پژوهش‌ها"
+                            onPersist={onPersist}
                             renderHeader={(item, index) => (
                                 <span>{String(item.title || `پژوهش ${index + 1}`)}</span>
                             )}

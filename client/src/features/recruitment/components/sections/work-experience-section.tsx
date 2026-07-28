@@ -15,6 +15,7 @@ import { fieldSchemas } from "@/features/recruitment/schemas/work-experience.sch
 
 type SectionProps = {
     form: ReactFormExtendedApi<any, any, any, any, any, any, any, any, any, any, any, any>;
+    onPersist?: () => void;
 };
 
 const WORK_COLUMNS = [
@@ -26,7 +27,7 @@ const WORK_COLUMNS = [
     { key: "contract_type", label: "نوع قرارداد" },
 ];
 
-export function WorkExperienceSection({ form }: SectionProps) {
+export function WorkExperienceSection({ form, onPersist }: SectionProps) {
     return (
         <Card>
             <CardHeader>
@@ -40,6 +41,7 @@ export function WorkExperienceSection({ form }: SectionProps) {
                             field={field}
                             label="سوابق شغلی"
                             columns={WORK_COLUMNS}
+                            onPersist={onPersist}
                             getSummary={(item) => ({
                                 company: item.company,
                                 position: item.position,

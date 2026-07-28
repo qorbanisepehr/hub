@@ -12,7 +12,7 @@ export function useQuestionnaireDocuments(uuid: string | undefined) {
     });
 
     function matchMeta(doc: Document, recordKey?: string): boolean {
-        const meta = (doc as any).meta as Record<string, unknown> | null | undefined;
+        const meta = doc.meta;
         if (recordKey) {
             return meta?.recordKey === recordKey;
         }
@@ -25,9 +25,31 @@ export function useQuestionnaireDocuments(uuid: string | undefined) {
         );
     }
 
+    function hasDocumentBySlug(slug: string, recordKey?: string): boolean {
+        return documents.some(
+            (d) => d.category?.slug === slug && matchMeta(d, recordKey),
+        );
+    }
+
     function getDocuments(categoryId: number, recordKey?: string): Document[] {
         return documents.filter(
             (d) => d.document_category_id === categoryId && matchMeta(d, recordKey),
+        );
+    }
+
+    function getDocumentsBySlug(slug: string, recordKey?: string): Document[] {
+        return documents.filter(
+            (d) => d.category?.slug === slug && matchMeta(d, recordKey),
+        );
+    }
+
+    function getAllDocumentsBySlug(slug: string): Document[] {
+        return documents.filter((d) => d.category?.slug === slug);
+    }
+
+    function getDocumentsBySlugExcept(slug: string, excludedKeys: string[]): Document[] {
+        return documents.filter(
+            (d) => d.category?.slug === slug && d.record_key && !excludedKeys.includes(d.record_key),
         );
     }
 
@@ -35,13 +57,12 @@ export function useQuestionnaireDocuments(uuid: string | undefined) {
         const map = new Map<string, number>();
         for (const doc of documents) {
             if (doc.document_category_id === categoryId) {
-                const meta = (doc as any).meta as Record<string, unknown> | null | undefined;
-                const key = (meta?.recordKey as string) ?? "_none";
+                const key = (doc.meta?.recordKey as string) ?? "_none";
                 map.set(key, (map.get(key) ?? 0) + 1);
             }
         }
         return map;
     }
 
-    return { documents, isLoading, hasDocument, getDocuments, countByRecordKey };
+    return { documents, isLoading, hasDocument, hasDocumentBySlug, getDocuments, getDocumentsBySlug, getAllDocumentsBySlug, getDocumentsBySlugExcept, countByRecordKey };
 }

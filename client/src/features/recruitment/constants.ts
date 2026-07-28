@@ -93,3 +93,25 @@ export const WIZARD_STEPS = [
     { id: 8, label: "بارگذاری مدارک", description: "آپلود فایل‌ها و مدارک", key: "documents" },
     { id: 9, label: "خلاصه و تأیید", description: "بررسی و ارسال نهایی", key: "summary" },
 ] as const;
+
+export const DOC_CATEGORY_SLUGS = {
+    NATIONAL_CARD: "national-card",
+    BIRTH_CERTIFICATE: "birth-certificate",
+    PERSONNEL_PHOTO: "personnel-photo",
+    ACADEMIC_DEGREE: "academic-degree",
+    LANGUAGE_CERTIFICATE: "language-certificate",
+    COURSE_CERTIFICATES: "course-certificates",
+    RESUME: "resume",
+    COVER_LETTER: "cover-letter",
+    OTHER_DOCUMENTS: "other-documents",
+} as const;
+
+export const RECORD_KEY_LABELS: Record<string, string> = {
+    front: "رو",
+    back: "پشت",
+};
+
+export function getRecordKeyLabel(recordKey?: string | null): string | null {
+    if (!recordKey) return null;
+    return RECORD_KEY_LABELS[recordKey] ?? recordKey;
+}

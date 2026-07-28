@@ -15,27 +15,11 @@ import { getFileIcon } from "@/lib/file-icon";
 import { getFileColorClasses } from "@/lib/file-colors";
 import { getFileTypeLabel } from "@/lib/file-type-label";
 import { toPersianDate } from "@/lib/date-format";
+import { DocumentThumbnail } from "@/components/shared/document-thumbnail";
 import { Button } from "@/components/ui/button";
 import { ConfirmDeleteActions } from "./confirm-delete-actions";
 import type { Document, DocumentCategory } from "@/features/documents/types";
-
-function collectDocs(
-    cat: DocumentCategory,
-    docs: Document[],
-): { doc: Document; exactCategory: string }[] {
-    const result: { doc: Document; exactCategory: string }[] = [];
-    for (const doc of docs) {
-        if (doc.document_category_id === cat.id) {
-            result.push({ doc, exactCategory: cat.name });
-        }
-    }
-    for (const child of cat.children ?? []) {
-        for (const item of collectDocs(child, docs)) {
-            result.push(item);
-        }
-    }
-    return result;
-}
+import { getDocOriginalName, getDocMimeType, getDocFileSizeFormatted, collectDocs } from "@/features/documents/types";
 
 function TopLevelFolder({
     category,
@@ -240,24 +224,25 @@ function TreeFileItem({
             onClick={() => onPreview(doc)}
         >
             <div
-                className={cn(
-                    "flex size-6 shrink-0 items-center justify-center rounded border",
-                    getFileColorClasses(doc.mime_type),
-                )}
+                className="flex items-center gap-2 min-w-0 flex-1"
             >
-                {getFileIcon(doc.mime_type, "size-3 stroke-[1.5]")}
-            </div>
-            <div className="min-w-0 flex-1">
-                <p className="truncate text-sm">{doc.original_name}</p>
-                <p className="text-xs text-muted-foreground truncate">
-                    {exactCategory}
-                </p>
+                <DocumentThumbnail
+                    document={doc}
+                    variant="icon"
+                    size="xs"
+                />
+                <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm">{getDocOriginalName(doc)}</p>
+                    <p className="text-xs text-muted-foreground truncate">
+                        {exactCategory}
+                    </p>
+                </div>
             </div>
             <span className="text-xs text-muted-foreground whitespace-nowrap">
-                {getFileTypeLabel(doc.mime_type)}
+                {getFileTypeLabel(getDocMimeType(doc))}
             </span>
             <span className="text-xs text-muted-foreground whitespace-nowrap">
-                {doc.file_size_formatted}
+                {getDocFileSizeFormatted(doc)}
             </span>
             <span className="text-xs text-muted-foreground whitespace-nowrap">
                 {toPersianDate(doc.created_at)}
@@ -270,7 +255,7 @@ function TreeFileItem({
                         e.stopPropagation();
                         onDownload(doc);
                     }}
-                    disabled={!doc.url}
+                    disabled={!doc.current_revision}
                 >
                     <IconDownload className="size-3.5" />
                 </Button>

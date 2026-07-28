@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { IconLoader2, IconTrash, IconX } from "@tabler/icons-react";
+import { IconCheck, IconLoader2, IconTrash, IconX } from "@tabler/icons-react";
 
 import { Button } from "@/components/ui/button";
 
@@ -16,6 +16,11 @@ type Props = {
     size?: React.ComponentProps<typeof Button>["size"];
     /** Render confirmation UI as an absolute overlay instead of inline expansion */
     overlay?: boolean;
+    /** Render as icon-only (no text). Confirmation renders inline ✓/✕ icons. */
+    iconOnly?: boolean;
+    disabled?: boolean;
+    className?: string;
+    stopPropagation?: boolean;
 };
 
 export function ConfirmDeleteButton({
@@ -28,17 +33,56 @@ export function ConfirmDeleteButton({
     confirmVariant = "default",
     size,
     overlay = false,
+    iconOnly = false,
+    disabled = false,
+    className,
+    stopPropagation = false,
 }: Props) {
     const [confirming, setConfirming] = React.useState(false);
 
     if (confirming) {
+        if (iconOnly) {
+            return (
+                <div className="flex items-center gap-1">
+                    <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        disabled={isPending}
+                        onClick={(e) => {
+                            if (stopPropagation) e.stopPropagation();
+                            setConfirming(false);
+                            onConfirm();
+                        }}
+                    >
+                        {isPending ? (
+                            <IconLoader2 className="size-4 animate-spin" />
+                        ) : (
+                            <IconCheck className="size-4 text-green-600" />
+                        )}
+                    </Button>
+                    <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        disabled={isPending}
+                        onClick={(e) => {
+                            if (stopPropagation) e.stopPropagation();
+                            setConfirming(false);
+                        }}
+                    >
+                        <IconX className="size-4" />
+                    </Button>
+                </div>
+            );
+        }
+
         const content = (
             <div className="flex items-center gap-2">
                 <Button
                     variant={confirmVariant}
                     size={size}
                     disabled={isPending}
-                    onClick={() => {
+                    onClick={(e) => {
+                        if (stopPropagation) e.stopPropagation();
                         setConfirming(false);
                         onConfirm();
                     }}
@@ -54,7 +98,10 @@ export function ConfirmDeleteButton({
                     variant="outline"
                     size={size}
                     disabled={isPending}
-                    onClick={() => setConfirming(false)}
+                    onClick={(e) => {
+                        if (stopPropagation) e.stopPropagation();
+                        setConfirming(false);
+                    }}
                 >
                     <IconX className="size-4" />
                     {cancelLabel}
@@ -73,11 +120,33 @@ export function ConfirmDeleteButton({
         return content;
     }
 
+    if (iconOnly) {
+        return (
+            <Button
+                variant="ghost"
+                size={size ?? "icon-sm"}
+                disabled={disabled}
+                className={className}
+                onClick={(e) => {
+                    if (stopPropagation) e.stopPropagation();
+                    setConfirming(true);
+                }}
+            >
+                <IconTrash className="size-4" />
+            </Button>
+        );
+    }
+
     return (
         <Button
             variant={variant}
             size={size}
-            onClick={() => setConfirming(true)}
+            disabled={disabled}
+            className={className}
+            onClick={(e) => {
+                if (stopPropagation) e.stopPropagation();
+                setConfirming(true);
+            }}
         >
             <IconTrash className="size-4" />
             {label}

@@ -4,7 +4,7 @@ import { IconTrashOff } from "@tabler/icons-react";
 import { toast } from "sonner";
 
 import { getApiError } from "@/lib/error-utils";
-import { employeeKeys } from "@/lib/query-keys";
+import { documentKeys } from "@/lib/query-keys";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ResponsiveDialog } from "@/components/ui/responsive-dialog";
 import {
@@ -12,18 +12,21 @@ import {
     restoreDocument,
     forceDeleteDocument,
 } from "@/features/documents/api";
+import type { Document } from "@/features/documents/types";
 import { DocumentTrashTable } from "./document-trash-table";
 
 type DocumentTrashModalProps = {
-    employeeId: number;
     open: boolean;
     onOpenChange: (open: boolean) => void;
+    documentableType?: string;
+    documentableId?: number;
 };
 
 export function DocumentTrashModal({
-    employeeId,
     open,
     onOpenChange,
+    documentableType,
+    documentableId,
 }: DocumentTrashModalProps) {
     const queryClient = useQueryClient();
     const [confirmingDeleteId, setConfirmingDeleteId] = React.useState<
@@ -37,10 +40,13 @@ export function DocumentTrashModal({
     );
 
     const { data: trashedDocuments, isLoading } = useQuery({
-        queryKey: employeeKeys.documentTrash(employeeId),
+        queryKey: documentKeys.trashed(documentableType, documentableId),
         enabled: open,
         queryFn: async () => {
-            const { data } = await fetchTrashedDocuments(employeeId);
+            const { data } = await fetchTrashedDocuments(
+                documentableType,
+                documentableId ? String(documentableId) : undefined,
+            );
             return data.data;
         },
     });
@@ -49,13 +55,15 @@ export function DocumentTrashModal({
         mutationFn: (documentId: number) => restoreDocument(documentId),
         onSuccess: (response, documentId) => {
             queryClient.setQueryData(
-                employeeKeys.documents(employeeId),
-                (old: any) => [response.data.data, ...(old ?? [])],
+                documentKeys.trashed(documentableType, documentableId),
+                (old: Document[] | undefined) =>
+                    old?.filter((d) => d.id !== documentId),
             );
             queryClient.invalidateQueries({
-                queryKey: employeeKeys.documentTrash(employeeId),
+                queryKey: documentKeys.lists(),
             });
             setRestoringIds(new Set());
+            toast.success("مدرک بازیابی شد");
         },
         onError: (err: unknown) => {
             setRestoringIds(new Set());
@@ -67,10 +75,12 @@ export function DocumentTrashModal({
         mutationFn: (documentId: number) => forceDeleteDocument(documentId),
         onSuccess: (_, documentId) => {
             queryClient.setQueryData(
-                employeeKeys.documentTrash(employeeId),
-                (old: any) => old?.filter((d: any) => d.id !== documentId),
+                documentKeys.trashed(documentableType, documentableId),
+                (old: Document[] | undefined) =>
+                    old?.filter((d) => d.id !== documentId),
             );
             setForceDeletingIds(new Set());
+            toast.success("مدرک برای همیشه حذف شد");
         },
         onError: (err: unknown) => {
             setForceDeletingIds(new Set());

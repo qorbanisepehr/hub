@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm, useStore } from "@tanstack/react-form";
 import { isAxiosError } from "axios";
@@ -99,6 +99,7 @@ export function QuestionnaireWizard({
             queryClient.invalidateQueries({
                 queryKey: ["questionnaire", questionnaire.uuid],
             });
+            form.reset(form.state.values);
         },
         onError: () => {
             toast.error("خطا در ذخیره‌سازی");
@@ -243,27 +244,35 @@ export function QuestionnaireWizard({
             },
         },
         onSubmit: async ({ value }) => {
-            const sectionKey = WIZARD_STEPS[currentStep]?.key;
-            const sectionData: Record<string, unknown> = {};
-            if (sectionKey === "personal_info") {
-                sectionData.first_name = value.first_name;
-                sectionData.last_name = value.last_name;
-                sectionData.personal_info = value.personal_info;
-            } else if (sectionKey === "contact_info") {
-                sectionData.email = value.email;
-                sectionData.mobile = value.mobile;
-                sectionData.contact_info = value.contact_info;
-            } else if (
-                sectionKey &&
-                sectionKey !== "summary" &&
-                sectionKey in value
-            ) {
-                sectionData[sectionKey] =
-                    value[sectionKey as keyof typeof value];
-            }
-            saveMutation.mutate(sectionData);
+            saveCurrentSection(value);
         },
     });
+
+    function saveCurrentSection(value: typeof form.state.values) {
+        const sectionKey = WIZARD_STEPS[currentStep]?.key;
+        const sectionData: Record<string, unknown> = {};
+        if (sectionKey === "personal_info") {
+            sectionData.first_name = value.first_name;
+            sectionData.last_name = value.last_name;
+            sectionData.personal_info = value.personal_info;
+        } else if (sectionKey === "contact_info") {
+            sectionData.email = value.email;
+            sectionData.mobile = value.mobile;
+            sectionData.contact_info = value.contact_info;
+        } else if (
+            sectionKey &&
+            sectionKey !== "summary" &&
+            sectionKey in value
+        ) {
+            sectionData[sectionKey] =
+                value[sectionKey as keyof typeof value];
+        }
+        saveMutation.mutate(sectionData);
+    }
+
+    const handlePersist = useCallback(() => {
+        saveCurrentSection(form.state.values);
+    }, [currentStep]);
 
     const isDirty = useStore(form.store, (s) => s.isDirty);
 
@@ -383,23 +392,23 @@ export function QuestionnaireWizard({
                     </StepperContent>
 
                     <StepperContent index={2}>
-                        <EducationSection form={form as never} uuid={questionnaire.uuid} />
+                        <EducationSection form={form as never} uuid={questionnaire.uuid} onPersist={handlePersist} />
                     </StepperContent>
 
                     <StepperContent index={3}>
-                        <WorkExperienceSection form={form as never} />
+                        <WorkExperienceSection form={form as never} onPersist={handlePersist} />
                     </StepperContent>
 
                     <StepperContent index={4}>
-                        <SkillsSection form={form as never} uuid={questionnaire.uuid} />
+                        <SkillsSection form={form as never} uuid={questionnaire.uuid} onPersist={handlePersist} />
                     </StepperContent>
 
                     <StepperContent index={5}>
-                        <TrainingSection form={form as never} uuid={questionnaire.uuid} />
+                        <TrainingSection form={form as never} uuid={questionnaire.uuid} onPersist={handlePersist} />
                     </StepperContent>
 
                     <StepperContent index={6}>
-                        <AdditionalInfoSection form={form as never} />
+                        <AdditionalInfoSection form={form as never} onPersist={handlePersist} />
                     </StepperContent>
 
                     <StepperContent index={7}>

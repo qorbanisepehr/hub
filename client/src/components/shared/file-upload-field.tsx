@@ -1,29 +1,31 @@
 "use client";
 
 import * as React from "react";
-import { IconLoader2, IconUpload, IconX, IconTrash } from "@tabler/icons-react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { IconLoader2, IconUpload } from "@tabler/icons-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
-import { getFileIcon } from "@/lib/file-icon";
-import { getFileColorClasses } from "@/lib/file-colors";
-import { FileThumbnail } from "@/components/ui/file-thumbnail";
-import { Button } from "@/components/ui/button";
-import { ConfirmAction } from "@/components/shared/confirm-action";
+import { ConfirmDeleteButton } from "@/components/ui/confirm-delete-button";
+import { DocumentThumbnail } from "@/components/shared/document-thumbnail";
+import { documentKeys } from "@/lib/query-keys";
 import { useQuestionnaireDocuments } from "@/features/recruitment/hooks/use-questionnaire-documents";
-import type { Document } from "@/features/documents/types";
+import { fetchDocumentCategories } from "@/features/documents/api";
+import type { Document, DocumentCategory } from "@/features/documents/types";
+import { getDocOriginalName, getDocMimeType, getDocFileSizeFormatted, getDocServeUrl, getDocDownloadUrl } from "@/features/documents/types";
 
 type FileUploadFieldProps = {
     uuid: string;
-    categoryId: number;
+    categorySlug: string;
     label: string;
     accept?: string;
     multiple?: boolean;
     maxFiles?: number;
     notes?: string;
     recordKey?: string;
+    categoryType?: string;
+    aspectRatio?: number;
     className?: string;
     onUploadComplete?: (doc: Document) => void;
 };
@@ -45,13 +47,15 @@ const DEFAULT_ACCEPT = [
 
 export function FileUploadField({
     uuid,
-    categoryId,
+    categorySlug,
     label,
     accept = DEFAULT_ACCEPT,
     multiple = false,
     maxFiles = 1,
     notes,
     recordKey,
+    categoryType = "personnel",
+    aspectRatio,
     className,
     onUploadComplete,
 }: FileUploadFieldProps) {
@@ -60,8 +64,30 @@ export function FileUploadField({
     const [isDragging, setIsDragging] = React.useState(false);
     const dragDepthRef = React.useRef(0);
 
-    const { getDocuments } = useQuestionnaireDocuments(uuid);
-    const categoryDocs = getDocuments(categoryId, recordKey);
+    const { getDocumentsBySlug } = useQuestionnaireDocuments(uuid);
+    const categoryDocs = getDocumentsBySlug(categorySlug, recordKey);
+
+    const { data: categories } = useQuery({
+        queryKey: documentKeys.categories(categoryType),
+        queryFn: async () => {
+            const { data } = await fetchDocumentCategories(categoryType);
+            return data.data;
+        },
+    });
+
+    const categoryId = React.useMemo(() => {
+        function findCategoryId(cats: DocumentCategory[]): number | undefined {
+            for (const cat of cats) {
+                if (cat.slug === categorySlug) return cat.id;
+                if (cat.children) {
+                    const found = findCategoryId(cat.children);
+                    if (found !== undefined) return found;
+                }
+            }
+            return undefined;
+        }
+        return categories ? findCategoryId(categories) : undefined;
+    }, [categories, categorySlug]);
 
     const uploadMutation = useMutation({
         mutationFn: (file: File) => {
@@ -178,42 +204,17 @@ export function FileUploadField({
                             key={doc.id}
                             className="flex items-center gap-3 border-b px-3 py-2 last:border-b-0"
                         >
-                            {doc.mime_type.startsWith("image/") && doc.thumbnail_url ? (
-                                <FileThumbnail
-                                    file={{ name: doc.original_name, type: doc.mime_type }}
-                                    previewImageUrl={doc.thumbnail_url}
-                                    className="size-8 shrink-0 rounded"
-                                />
-                            ) : (
-                                <div
-                                    className={cn(
-                                        "flex size-8 shrink-0 items-center justify-center rounded border",
-                                        getFileColorClasses(doc.mime_type),
-                                    )}
-                                >
-                                    {getFileIcon(doc.mime_type, "size-4 stroke-[1.5]")}
-                                </div>
-                            )}
-                            <div className="min-w-0 flex-1">
-                                <div className="truncate text-xs font-medium">
-                                    {doc.original_name}
-                                </div>
-                                <div className="truncate text-[10px] text-muted-foreground">
-                                    {doc.file_size_formatted}
-                                </div>
-                            </div>
-                            <ConfirmAction
-                                trigger={
-                                    <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="sm"
-                                        className="size-7 p-0 text-muted-foreground hover:text-destructive"
-                                        disabled={deleteMutation.isPending}
-                                    >
-                                        <IconTrash className="size-3.5" />
-                                    </Button>
-                                }
+                            <DocumentThumbnail
+                                document={doc}
+                                variant="compact"
+                                size="sm"
+                                aspectRatio={aspectRatio}
+                                showName
+                                showSize
+                            />
+                            <div className="flex-1" />
+                            <ConfirmDeleteButton
+                                iconOnly
                                 isPending={deleteMutation.isPending}
                                 onConfirm={() => deleteMutation.mutate(doc.id)}
                             />

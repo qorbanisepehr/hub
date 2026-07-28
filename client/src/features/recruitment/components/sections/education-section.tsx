@@ -1,5 +1,4 @@
 import type { ReactFormExtendedApi } from "@tanstack/react-form";
-import { IconPaperclip } from "@tabler/icons-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -13,8 +12,10 @@ import {
     FormDatePicker,
 } from "@/components/shared/form-fields";
 import { FileUploadField } from "@/components/shared/file-upload-field";
+import { DocumentThumbnail } from "@/components/shared/document-thumbnail";
 import { FormRepeater } from "@/components/shared/form-repeater";
 import { DEGREE_OPTIONS, YES_NO_OPTIONS, parseBoolean } from "@/features/recruitment/constants";
+import { DOC_CATEGORY_SLUGS } from "@/features/recruitment/constants";
 import { useQuestionnaireDocuments } from "@/features/recruitment/hooks/use-questionnaire-documents";
 import { zodFieldValidators } from "@/lib/validation-helpers";
 import { fieldSchemas } from "@/features/recruitment/schemas/education.schema";
@@ -22,10 +23,11 @@ import { fieldSchemas } from "@/features/recruitment/schemas/education.schema";
 type SectionProps = {
     form: ReactFormExtendedApi<any, any, any, any, any, any, any, any, any, any, any, any>;
     uuid?: string;
+    onPersist?: () => void;
 };
 
-export function EducationSection({ form, uuid }: SectionProps) {
-    const { hasDocument } = useQuestionnaireDocuments(uuid);
+export function EducationSection({ form, uuid, onPersist }: SectionProps) {
+    const { hasDocumentBySlug, getDocumentsBySlug } = useQuestionnaireDocuments(uuid);
 
     const educationColumns = [
         { key: "degree", label: "مدرک" },
@@ -38,16 +40,11 @@ export function EducationSection({ form, uuid }: SectionProps) {
             key: "_attachment",
             label: "پیوست",
             render: (_value: unknown, _item: unknown, index: number) => {
-                const has = hasDocument(17, `edu-${index}`);
-                return has ? (
-                    <span className="inline-flex items-center gap-1 text-primary">
-                        <IconPaperclip className="size-3.5" />
-                    </span>
-                ) : (
-                    <span className="text-muted-foreground/40">
-                        <IconPaperclip className="size-3.5" />
-                    </span>
-                );
+                const docs = getDocumentsBySlug(DOC_CATEGORY_SLUGS.ACADEMIC_DEGREE, `edu-${index}`);
+                if (docs.length > 0) {
+                    return <DocumentThumbnail document={docs[0]} variant="icon" size="xs" />;
+                }
+                return <span className="text-muted-foreground/40">—</span>;
             },
         },
     ];
@@ -67,6 +64,7 @@ export function EducationSection({ form, uuid }: SectionProps) {
                             field={field}
                             label="سوابق تحصیلی"
                             columns={educationColumns}
+                            onPersist={onPersist}
                             getSummary={(item) => ({
                                 degree: DEGREE_OPTIONS.find((d) => d.value === item.degree)?.label ?? item.degree,
                                 field: item.field,
@@ -138,7 +136,7 @@ export function EducationSection({ form, uuid }: SectionProps) {
                                     {uuid && (
                                         <FileUploadField
                                             uuid={uuid}
-                                            categoryId={17}
+                                            categorySlug={DOC_CATEGORY_SLUGS.ACADEMIC_DEGREE}
                                             label="مدرک تحصیلی"
                                             recordKey={`edu-${index}`}
                                         />

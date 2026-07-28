@@ -14,6 +14,8 @@ import { getFileColorClasses } from "@/lib/file-colors";
 import { getFileTypeLabel } from "@/lib/file-type-label";
 import { renderPdfThumbnailUrl } from "@/lib/pdf-thumbnail-utils";
 import type { Document } from "@/features/documents/types";
+import { getDocOriginalName, getDocMimeType, getDocFileSizeFormatted, getDocServeUrl, getDocDownloadUrl } from "@/features/documents/types";
+import { getRecordKeyLabel } from "@/features/recruitment/constants";
 
 type DocumentPreviewLightboxProps = {
     documents: Document[];
@@ -31,12 +33,12 @@ function PreviewContent({ doc }: { doc: Document }) {
     const [imageLoaded, setImageLoaded] = React.useState(false);
 
     React.useEffect(() => {
-        if (doc.mime_type !== "application/pdf" || !doc.thumbnail_url) return;
+        if (getDocMimeType(doc) !== "application/pdf" || !getDocServeUrl(doc, true)) return;
 
         let isCurrent = true;
         renderPdfThumbnailUrl({
             pageIndex: 0,
-            url: doc.thumbnail_url,
+            url: getDocServeUrl(doc, true),
             width: 800,
         }).then((url) => {
             if (isCurrent) setPdfImageUrl(url);
@@ -45,26 +47,26 @@ function PreviewContent({ doc }: { doc: Document }) {
         return () => {
             isCurrent = false;
         };
-    }, [doc.mime_type, doc.thumbnail_url]);
+    }, [doc]);
 
     React.useEffect(() => {
         setImageLoaded(false);
     }, [doc.id]);
 
-    if (doc.mime_type.startsWith("image/")) {
+    if (getDocMimeType(doc).startsWith("image/")) {
         return (
             <div className="relative flex items-center justify-center">
                 {!imageLoaded && (
                     <div className="flex flex-col items-center gap-3">
-                        {getFileIcon(doc.mime_type, "size-12 text-white/70")}
+                        {getFileIcon(getDocMimeType(doc), "size-12 text-white/70")}
                         <span className="text-sm text-white/70">
                             در حال بارگذاری...
                         </span>
                     </div>
                 )}
                 <img
-                    src={doc.thumbnail_url ?? doc.url ?? ""}
-                    alt={doc.original_name}
+                    src={getDocServeUrl(doc)}
+                    alt={getDocOriginalName(doc)}
                     className={cn(
                         "max-h-[80dvh] max-w-[90dvw] object-contain",
                         imageLoaded ? "block" : "hidden",
@@ -76,7 +78,7 @@ function PreviewContent({ doc }: { doc: Document }) {
         );
     }
 
-    if (doc.mime_type === "application/pdf") {
+    if (getDocMimeType(doc) === "application/pdf") {
         return (
             <div
                 className={cn(
@@ -87,7 +89,7 @@ function PreviewContent({ doc }: { doc: Document }) {
                 {pdfImageUrl ? (
                     <img
                         src={pdfImageUrl}
-                        alt={doc.original_name}
+                        alt={getDocOriginalName(doc)}
                         className="size-full object-contain"
                     />
                 ) : (
@@ -106,12 +108,12 @@ function PreviewContent({ doc }: { doc: Document }) {
         <div
             className={cn(
                 "flex aspect-video w-full max-w-md flex-col items-center justify-center gap-3 rounded-lg",
-                getFileColorClasses(doc.mime_type),
+                getFileColorClasses(getDocMimeType(doc)),
             )}
         >
-            {getFileIcon(doc.mime_type, "size-16")}
+            {getFileIcon(getDocMimeType(doc), "size-16")}
             <span className="text-xs opacity-70">
-                {getFileTypeLabel(doc.mime_type)}
+                {getFileTypeLabel(getDocMimeType(doc))}
             </span>
         </div>
     );
@@ -202,10 +204,10 @@ export function DocumentPreviewLightbox({
     }
 
     function handleDownload() {
-        if (!doc?.url) return;
+        if (!doc?.current_revision) return;
         const a = document.createElement("a");
-        a.href = doc.url;
-        a.download = doc.original_name;
+        a.href = getDocDownloadUrl(doc);
+        a.download = getDocOriginalName(doc);
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -232,11 +234,11 @@ export function DocumentPreviewLightbox({
             >
                 <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-white">
-                        {doc.original_name}
+                        {getDocOriginalName(doc)}
                     </p>
-                    {doc.category && (
+                    {(getRecordKeyLabel(doc.record_key) || doc.category?.name || doc.notes) && (
                         <p className="truncate text-xs text-white/60">
-                            {doc.category.name}
+                            {getRecordKeyLabel(doc.record_key) ?? doc.notes ?? doc.category?.name}
                         </p>
                     )}
                 </div>
@@ -252,7 +254,7 @@ export function DocumentPreviewLightbox({
                     <button
                         type="button"
                         onClick={handleDownload}
-                        disabled={!doc.url}
+                        disabled={!doc.current_revision}
                         className="rounded-full p-2 text-white/80 hover:bg-white/10 hover:text-white disabled:opacity-40"
                         aria-label="Download"
                     >
@@ -281,9 +283,9 @@ export function DocumentPreviewLightbox({
                 <div className="flex flex-col gap-2">
                     <InfoRow
                         label="نوع"
-                        value={getFileTypeLabel(doc.mime_type)}
+                        value={getFileTypeLabel(getDocMimeType(doc))}
                     />
-                    <InfoRow label="اندازه" value={doc.file_size_formatted} />
+                    <InfoRow label="اندازه" value={getDocFileSizeFormatted(doc)} />
                     {doc.uploaded_by && (
                         <InfoRow label="آپلود توسط" value={doc.uploaded_by} />
                     )}

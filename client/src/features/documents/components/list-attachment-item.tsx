@@ -1,10 +1,8 @@
 import {
     IconDownload,
-    IconLoader2,
     IconTrash,
 } from "@tabler/icons-react";
 
-import { cn } from "@/lib/utils";
 import {
     Attachment,
     AttachmentAction,
@@ -14,10 +12,9 @@ import {
     AttachmentTitle,
     AttachmentTrigger,
 } from "@/components/ui/attachment";
-import { getFileIcon } from "@/lib/file-icon";
-import { getFileColorClasses } from "@/lib/file-colors";
+import { DocumentThumbnail } from "@/components/shared/document-thumbnail";
 import { ConfirmDeleteActions } from "./confirm-delete-actions";
-import { buildParentPath, getExactCategoryName } from "@/features/documents/types";
+import { buildParentPath, getExactCategoryName, getDocOriginalName } from "@/features/documents/types";
 import type { Document, DocumentCategory } from "@/features/documents/types";
 
 export function ListAttachmentItem({
@@ -44,13 +41,16 @@ export function ListAttachmentItem({
     return (
         <Attachment size="sm">
             <AttachmentTrigger onClick={() => onPreview(doc)} />
-            <AttachmentMedia
-                className={cn(getFileColorClasses(doc.mime_type))}
-            >
-                {getFileIcon(doc.mime_type)}
+            <AttachmentMedia>
+                <DocumentThumbnail
+                    document={doc}
+                    variant="icon"
+                    size="sm"
+                    className="size-full rounded-none border-0"
+                />
             </AttachmentMedia>
             <AttachmentContent>
-                <AttachmentTitle>{doc.original_name}</AttachmentTitle>
+                <AttachmentTitle>{getDocOriginalName(doc)}</AttachmentTitle>
                 {categories && (
                     <div className="text-xs text-muted-foreground truncate">
                         <span>{getExactCategoryName(categories, doc.document_category_id)}</span>
@@ -68,7 +68,7 @@ export function ListAttachmentItem({
                         e.stopPropagation();
                         onDownload(doc);
                     }}
-                    aria-label={`دانلود ${doc.original_name}`}
+                    aria-label={`دانلود ${getDocOriginalName(doc)}`}
                 >
                     <IconDownload className="size-3.5" />
                 </AttachmentAction>
@@ -81,7 +81,7 @@ export function ListAttachmentItem({
                     />
                 ) : (
                     <AttachmentAction
-                        aria-label={`حذف ${doc.original_name}`}
+                        aria-label={`حذف ${getDocOriginalName(doc)}`}
                         onClick={(e) => {
                             e.stopPropagation();
                             onStartDelete(doc.id);
