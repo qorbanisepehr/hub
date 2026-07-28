@@ -14,39 +14,50 @@ class GenerateDocumentThumbnail implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, SerializesModels;
 
-    private const int THUMB_MAX_WIDTH = 400;
-
-    private const int THUMB_QUALITY = 80;
-
     public function __construct(
         public Document $document,
     ) {}
 
     public function handle(): void
     {
-        $mimeType = $this->document->mime_type;
+        $this->document->load('currentRevision');
 
-        if (str_starts_with($mimeType, 'image/')) {
-            $this->generateImageThumbnail();
-        }
-    }
+        $revision = $this->document->currentRevision;
 
-    private function generateImageThumbnail(): void
-    {
-        $disk = Storage::disk(config('documents.storage_disk'));
-        $sourcePath = $disk->path($this->document->stored_path);
-
-        if (! file_exists($sourcePath)) {
-            Log::warning('Thumbnail generation skipped: source file not found', [
+        if ($revision === null) {
+            Log::warning('Thumbnail generation skipped: no current revision', [
                 'document_id' => $this->document->id,
-                'stored_path' => $this->document->stored_path,
             ]);
 
             return;
         }
 
-        $docDir = dirname($this->document->stored_path);
-        $storedBasename = pathinfo($this->document->stored_path, PATHINFO_FILENAME);
+        $mimeType = $revision->mime_type;
+
+        if (str_starts_with($mimeType, 'image/')) {
+            $this->generateImageThumbnail($revision);
+        }
+    }
+
+    private function generateImageThumbnail($revision): void
+    {
+        $disk = Storage::disk(config('documents.storage_disk'));
+        $sourcePath = $disk->path($revision->stored_path);
+
+        if (! file_exists($sourcePath)) {
+            Log::warning('Thumbnail generation skipped: source file not found', [
+                'document_id' => $this->document->id,
+                'stored_path' => $revision->stored_path,
+            ]);
+
+            return;
+        }
+
+        $maxWidth = config('documents.thumbnail.max_width', 300);
+        $quality = config('documents.thumbnail.quality', 80);
+
+        $docDir = dirname($revision->stored_path);
+        $storedBasename = pathinfo($revision->stored_path, PATHINFO_FILENAME);
         $thumbRelPath = $docDir.'/thumbnail/'.$storedBasename.'.webp';
         $thumbAbsPath = $disk->path($thumbRelPath);
 
@@ -67,12 +78,12 @@ class GenerateDocumentThumbnail implements ShouldQueue
 
         [$origWidth, $origHeight, $type] = $imageInfo;
 
-        if ($origWidth <= self::THUMB_MAX_WIDTH) {
+        if ($origWidth <= $maxWidth) {
             $newWidth = $origWidth;
             $newHeight = $origHeight;
         } else {
-            $newWidth = self::THUMB_MAX_WIDTH;
-            $newHeight = (int) round($origHeight * (self::THUMB_MAX_WIDTH / $origWidth));
+            $newWidth = $maxWidth;
+            $newHeight = (int) round($origHeight * ($maxWidth / $origWidth));
         }
 
         $srcImage = match ($type) {
@@ -107,9 +118,9 @@ class GenerateDocumentThumbnail implements ShouldQueue
                 imagesx($srcImage), imagesy($srcImage),
             );
 
-            imagewebp($thumbImage, $thumbAbsPath, self::THUMB_QUALITY);
+            imagewebp($thumbImage, $thumbAbsPath, $quality);
 
-            $this->document->updateQuietly(['thumbnail_path' => $thumbRelPath]);
+            $revision->updateQuietly(['thumbnail_path' => $thumbRelPath]);
         } catch (\Throwable $e) {
             Log::error('Thumbnail generation failed', [
                 'document_id' => $this->document->id,

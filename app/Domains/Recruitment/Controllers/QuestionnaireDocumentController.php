@@ -7,7 +7,7 @@ use App\Domains\Document\Models\Document;
 use App\Domains\Document\Models\DocumentCategory;
 use App\Domains\Document\Resources\QuestionnaireDocumentResource;
 use App\Domains\Recruitment\Models\Questionnaire;
-use App\Domains\Recruitment\Requests\StoreQuestionnaireDocumentRequest;
+use App\Domains\Recruitment\Requests\PublicStoreDocumentRequest;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -22,20 +22,19 @@ class QuestionnaireDocumentController extends Controller
         $questionnaire = Questionnaire::where('uuid', $uuid)->firstOrFail();
 
         $documents = $questionnaire->documents()
-            ->with(['category'])
+            ->with(['category', 'currentRevision'])
             ->latest()
             ->get();
 
         return QuestionnaireDocumentResource::collection($documents);
     }
 
-    public function store(StoreQuestionnaireDocumentRequest $request, string $uuid): QuestionnaireDocumentResource
+    public function store(PublicStoreDocumentRequest $request, string $uuid): QuestionnaireDocumentResource
     {
         $questionnaire = Questionnaire::where('uuid', $uuid)->where('status', 'draft')->firstOrFail();
-
         $file = $request->file('file');
-        $categorySlug = DocumentCategory::where('id', $request->document_category_id)->value('slug');
 
+        $categorySlug = DocumentCategory::where('id', $request->document_category_id)->value('slug');
         $path = $file->store(
             'questionnaires/'.$questionnaire->uuid.'/documents/'.$categorySlug,
             config('documents.storage_disk'),
@@ -43,17 +42,25 @@ class QuestionnaireDocumentController extends Controller
 
         $document = $questionnaire->documents()->create([
             'document_category_id' => $request->document_category_id,
-            'original_name' => $file->getClientOriginalName(),
+            'status' => Document::STATUS_PENDING,
+            'record_key' => $request->record_key,
+            'notes' => $request->notes,
+            'meta' => $request->filled('meta') ? json_decode($request->meta, true) : null,
+        ]);
+
+        $revision = $document->revisions()->create([
             'stored_path' => $path,
+            'original_name' => $file->getClientOriginalName(),
             'mime_type' => $file->getMimeType(),
             'file_size' => $file->getSize(),
-            'notes' => $request->notes,
-            'meta' => $request->meta ? json_decode($request->meta, true) : null,
+            'form_data' => $request->filled('form_data') ? json_decode($request->form_data, true) : null,
         ]);
+
+        $document->updateQuietly(['current_revision_id' => $revision->id]);
 
         GenerateDocumentThumbnail::dispatch($document);
 
-        $document->load(['category']);
+        $document->load(['category', 'currentRevision']);
 
         return new QuestionnaireDocumentResource($document);
     }
@@ -65,7 +72,9 @@ class QuestionnaireDocumentController extends Controller
         $document = $questionnaire->documents()->where('id', $documentId)->firstOrFail();
 
         $disk = config('documents.storage_disk');
-        Storage::disk($disk)->delete(array_filter([$document->stored_path, $document->thumbnail_path]));
+        foreach ($document->revisions as $revision) {
+            Storage::disk($disk)->delete(array_filter([$revision->stored_path, $revision->thumbnail_path]));
+        }
 
         $document->forceDelete();
 
@@ -74,12 +83,17 @@ class QuestionnaireDocumentController extends Controller
 
     public function serve(int $documentId, Request $request): StreamedResponse
     {
-        $document = Document::where('id', $documentId)->firstOrFail();
+        $document = Document::with('currentRevision')->where('id', $documentId)->firstOrFail();
+        $revision = $document->currentRevision;
+
+        if ($revision === null) {
+            abort(404);
+        }
 
         $disk = config('documents.storage_disk');
 
-        $useThumbnail = $request->boolean('thumbnail') && $document->thumbnail_path;
-        $path = $useThumbnail ? $document->thumbnail_path : $document->stored_path;
+        $useThumbnail = $request->boolean('thumbnail') && $revision->thumbnail_path;
+        $path = $useThumbnail ? $revision->thumbnail_path : $revision->stored_path;
 
         if (! Storage::disk($disk)->exists($path)) {
             abort(404);

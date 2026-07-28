@@ -12,15 +12,17 @@ return new class extends Migration
             $table->id();
             $table->morphs('documentable');
             $table->foreignId('document_category_id')->constrained()->nullOnDelete();
-            $table->string('original_name');
-            $table->string('stored_path');
-            $table->string('thumbnail_path')->nullable();
-            $table->string('mime_type');
-            $table->unsignedBigInteger('file_size');
+            $table->string('status')->default('pending')->after('document_category_id');
+            $table->foreignId('current_revision_id')->nullable()->after('status');
+            $table->string('record_key')->nullable()->after('current_revision_id');
             $table->text('notes')->nullable();
+            $table->json('meta')->nullable()->after('notes');
             $table->foreignId('uploaded_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamps();
             $table->softDeletes();
+
+            $table->index('status');
+            $table->index('record_key');
         });
     }
 
