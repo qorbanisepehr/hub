@@ -12,11 +12,17 @@ export const employeeKeys = {
     detail: (id: number) => [...employeeKeys.details(), id] as const,
     select: (search: string) =>
         [...employeeKeys.all, "select", search] as const,
-    documents: (id: number) => ["employee-documents", id] as const,
-    documentTrash: (id: number) =>
-        ["employee-documents", id, "trash"] as const,
-    documentCategories: (type: string) =>
-        ["document-categories", type] as const,
+};
+
+export const documentKeys = {
+    all: ["documents"] as const,
+    lists: () => [...documentKeys.all, "list"] as const,
+    list: (params?: Record<string, string>) =>
+        [...documentKeys.lists(), params] as const,
+    trashed: (type?: string, recordKey?: string) =>
+        [...documentKeys.all, "trashed", type, recordKey] as const,
+    categories: (type?: string) =>
+        [...documentKeys.all, "categories", type] as const,
 };
 
 export const roleKeys = {

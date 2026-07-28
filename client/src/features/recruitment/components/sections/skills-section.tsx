@@ -9,6 +9,7 @@ import { FormRepeater } from "@/components/shared/form-repeater";
 import {
     LANGUAGE_LEVEL_OPTIONS,
     SOFTWARE_LEVEL_OPTIONS,
+    DOC_CATEGORY_SLUGS,
 } from "@/features/recruitment/constants";
 import { useQuestionnaireDocuments } from "@/features/recruitment/hooks/use-questionnaire-documents";
 import { zodFieldValidators } from "@/lib/validation-helpers";
@@ -17,6 +18,7 @@ import { fieldSchemas } from "@/features/recruitment/schemas/skills.schema";
 type SectionProps = {
     form: ReactFormExtendedApi<any, any, any, any, any, any, any, any, any, any, any, any>;
     uuid?: string;
+    onPersist?: () => void;
 };
 
 const LANGUAGE_COLUMNS_FN = (hasDoc: (index: number) => boolean) => [
@@ -86,9 +88,9 @@ function SoftwareItem({
     );
 }
 
-export function SkillsSection({ form, uuid }: SectionProps) {
-    const { hasDocument } = useQuestionnaireDocuments(uuid);
-    const languageColumns = LANGUAGE_COLUMNS_FN((index) => hasDocument(20, `lang-${index}`));
+export function SkillsSection({ form, uuid, onPersist }: SectionProps) {
+    const { hasDocumentBySlug } = useQuestionnaireDocuments(uuid);
+    const languageColumns = LANGUAGE_COLUMNS_FN((index) => hasDocumentBySlug(DOC_CATEGORY_SLUGS.LANGUAGE_CERTIFICATE, `lang-${index}`));
 
     return (
         <Card>
@@ -103,6 +105,7 @@ export function SkillsSection({ form, uuid }: SectionProps) {
                             field={field}
                             label="زبان‌ها"
                             columns={languageColumns}
+                            onPersist={onPersist}
                             getSummary={(item) => ({
                                 language: item.language,
                                 reading: item.reading,
@@ -165,7 +168,7 @@ export function SkillsSection({ form, uuid }: SectionProps) {
                                     {uuid && (
                                         <FileUploadField
                                             uuid={uuid}
-                                            categoryId={20}
+                                            categorySlug={DOC_CATEGORY_SLUGS.LANGUAGE_CERTIFICATE}
                                             label="گواهینامه زبان"
                                             recordKey={`lang-${index}`}
                                         />
@@ -189,6 +192,7 @@ export function SkillsSection({ form, uuid }: SectionProps) {
                                 label="تخصصی"
                                 columns={SOFTWARE_COLUMNS}
                                 maxItems={8}
+                                onPersist={onPersist}
                                 getSummary={(item) => ({
                                     name: item.name,
                                     level: item.level,
@@ -211,6 +215,7 @@ export function SkillsSection({ form, uuid }: SectionProps) {
                                 label="عمومی"
                                 columns={SOFTWARE_COLUMNS}
                                 maxItems={4}
+                                onPersist={onPersist}
                                 getSummary={(item) => ({
                                     name: item.name,
                                     level: item.level,
@@ -236,6 +241,7 @@ export function SkillsSection({ form, uuid }: SectionProps) {
                             field={field}
                             label="گواهینامه‌ها"
                             columns={CERTIFICATE_COLUMNS}
+                            onPersist={onPersist}
                             getSummary={(item) => ({
                                 title: item.title,
                                 expire_at: item.expire_at,
@@ -266,6 +272,7 @@ export function SkillsSection({ form, uuid }: SectionProps) {
                             field={field}
                             label="مهارت‌های خاص"
                             columns={[{ key: "value", label: "مهارت" }]}
+                            onPersist={onPersist}
                             getSummary={(item) => ({
                                 value: typeof item === "string" ? item : "",
                             })}

@@ -2,8 +2,6 @@ import { useState, useCallback } from "react";
 import type { AnyFieldApi } from "@tanstack/react-form";
 import {
     IconPlus,
-    IconTrash,
-    IconPencil,
     IconChevronDown,
     IconChevronUp,
     IconCheck,
@@ -23,7 +21,7 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-import { ConfirmAction } from "@/components/shared/confirm-action";
+import { ConfirmDeleteButton } from "@/components/ui/confirm-delete-button";
 
 type TableColumn = {
     key: string;
@@ -47,6 +45,8 @@ type FormRepeaterProps = {
     maxItems?: number;
     emptyMessage?: string;
     defaultMode?: "table" | "card";
+    /** Called after add/edit/delete to persist the updated list to the server */
+    onPersist?: (items: Record<string, unknown>[]) => void;
 };
 
 export function FormRepeater({
@@ -59,6 +59,7 @@ export function FormRepeater({
     maxItems,
     emptyMessage = "آیتمی اضافه نشده است.",
     defaultMode = "table",
+    onPersist,
 }: FormRepeaterProps) {
     const [mode, setMode] = useState<"table" | "card">(defaultMode);
 
@@ -101,6 +102,7 @@ export function FormRepeater({
                 maxItems={maxItems}
                 emptyMessage={emptyMessage}
                 toggleButton={toggleButton}
+                onPersist={onPersist}
             />
         );
     }
@@ -114,6 +116,7 @@ export function FormRepeater({
             maxItems={maxItems}
             emptyMessage={emptyMessage}
             toggleButton={toggleButton}
+            onPersist={onPersist}
         />
     );
 }
@@ -129,6 +132,7 @@ function TableRepeaterInner({
     maxItems,
     emptyMessage,
     toggleButton,
+    onPersist,
 }: {
     field: AnyFieldApi;
     label: string;
@@ -141,65 +145,74 @@ function TableRepeaterInner({
     maxItems?: number;
     emptyMessage: string;
     toggleButton: React.ReactNode;
+    onPersist?: (items: Record<string, unknown>[]) => void;
 }) {
     const items: Record<string, unknown>[] = (field.state.value ??
         []) as Record<string, unknown>[];
-    const [activeIndex, setActiveIndex] = useState<number | null>(null);
+    const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
     const [originalSnapshot, setOriginalSnapshot] = useState<Record<
         string,
         unknown
     > | null>(null);
 
     const canAdd = !maxItems || items.length < maxItems;
-    const isFormOpen = activeIndex !== null;
+    const isFormOpen = expandedIndex !== null;
 
     const handleStartAdd = useCallback(() => {
         field.handleChange([...items, {}]);
-        setActiveIndex(items.length);
+        setExpandedIndex(items.length);
         setOriginalSnapshot(null);
     }, [items, field]);
 
-    const handleStartEdit = useCallback(
+    const handleToggleExpand = useCallback(
         (index: number) => {
+            if (expandedIndex === index) {
+                handleCancel();
+                return;
+            }
+            if (isFormOpen) return;
             setOriginalSnapshot({ ...items[index] });
-            setActiveIndex(index);
+            setExpandedIndex(index);
         },
-        [items],
+        [expandedIndex, isFormOpen, items],
     );
 
     const handleConfirm = useCallback(() => {
-        setActiveIndex(null);
+        setExpandedIndex(null);
         setOriginalSnapshot(null);
-    }, []);
+        onPersist?.(field.state.value as Record<string, unknown>[]);
+    }, [field, onPersist]);
 
     const handleCancel = useCallback(() => {
-        if (activeIndex === null) return;
+        if (expandedIndex === null) return;
         if (originalSnapshot !== null) {
             const newItems = [...items];
-            newItems[activeIndex] = originalSnapshot;
+            newItems[expandedIndex] = originalSnapshot;
             field.handleChange(newItems);
         } else {
-            field.handleChange(items.filter((_, i) => i !== activeIndex));
+            field.handleChange(items.filter((_, i) => i !== expandedIndex));
         }
-        setActiveIndex(null);
+        setExpandedIndex(null);
         setOriginalSnapshot(null);
-    }, [activeIndex, originalSnapshot, items, field]);
+    }, [expandedIndex, originalSnapshot, items, field]);
 
     const handleDelete = useCallback(
         (index: number) => {
-            field.handleChange(items.filter((_, i) => i !== index));
-            if (activeIndex === index) {
-                setActiveIndex(null);
+            const newItems = items.filter((_, i) => i !== index);
+            field.handleChange(newItems);
+            if (expandedIndex === index) {
+                setExpandedIndex(null);
                 setOriginalSnapshot(null);
-            } else if (activeIndex !== null && activeIndex > index) {
-                setActiveIndex(activeIndex - 1);
+            } else if (expandedIndex !== null && expandedIndex > index) {
+                setExpandedIndex(expandedIndex - 1);
             }
+            onPersist?.(newItems as Record<string, unknown>[]);
         },
-        [items, field, activeIndex],
+        [items, field, expandedIndex, onPersist],
     );
 
-    const isAddMode = activeIndex !== null && originalSnapshot === null;
-    const isEditMode = activeIndex !== null && originalSnapshot !== null;
+    const isAddMode = expandedIndex !== null && originalSnapshot === null;
+    const isEditMode = expandedIndex !== null && originalSnapshot !== null;
 
     return (
         <div className="space-y-3">
@@ -226,76 +239,118 @@ function TableRepeaterInner({
                     <Table>
                         <TableHeader>
                             <TableRow>
+                                <TableHead className="w-10" />
                                 <TableHead className="w-10">#</TableHead>
                                 {columns.map((col) => (
                                     <TableHead key={col.key}>
                                         {col.label}
                                     </TableHead>
                                 ))}
-                                <TableHead className="w-24 text-center">
-                                    عملیات
-                                </TableHead>
+                                <TableHead className="w-10 text-center" />
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {items.map((item, index) => {
                                 const summary = getSummary(item, index);
+                                const isExpanded = expandedIndex === index;
                                 return (
-                                    <TableRow
-                                        key={index}
-                                        className={cn(
-                                            activeIndex === index &&
-                                                "bg-muted/50",
-                                        )}
-                                    >
-                                        <TableCell className="font-medium">
-                                            {index + 1}
-                                        </TableCell>
-                                        {columns.map((col) => (
-                                            <TableCell key={col.key}>
-                                                {col.render
-                                                    ? col.render(
-                                                          summary[col.key],
-                                                          item,
-                                                          index,
-                                                      )
-                                                    : String(
-                                                          summary[col.key] ??
-                                                              "—",
-                                                      )}
-                                            </TableCell>
-                                        ))}
-                                        <TableCell>
-                                            <div className="flex items-center justify-center gap-1">
+                                    <>
+                                        <TableRow
+                                            key={`row-${index}`}
+                                            className={cn(
+                                                isExpanded &&
+                                                    "bg-muted/50",
+                                            )}
+                                        >
+                                            <TableCell>
                                                 <Button
                                                     type="button"
                                                     variant="ghost"
                                                     size="icon-sm"
                                                     onClick={() =>
-                                                        handleStartEdit(index)
+                                                        handleToggleExpand(index)
                                                     }
-                                                    disabled={isFormOpen}
+                                                    disabled={
+                                                        isFormOpen &&
+                                                        !isExpanded
+                                                    }
                                                 >
-                                                    <IconPencil className="size-4" />
+                                                    {isExpanded ? (
+                                                        <IconChevronUp className="size-4" />
+                                                    ) : (
+                                                        <IconChevronDown className="size-4" />
+                                                    )}
                                                 </Button>
-                                                <ConfirmAction
-                                                    trigger={
-                                                        <Button
-                                                            type="button"
-                                                            variant="ghost"
-                                                            size="icon-sm"
-                                                            className="text-destructive"
-                                                            disabled={isFormOpen}
-                                                        >
-                                                            <IconTrash className="size-4" />
-                                                        </Button>
-                                                    }
-                                                    stopPropagation
-                                                    onConfirm={() => handleDelete(index)}
-                                                />
-                                            </div>
-                                        </TableCell>
-                                    </TableRow>
+                                            </TableCell>
+                                            <TableCell className="font-medium">
+                                                {index + 1}
+                                            </TableCell>
+                                            {columns.map((col) => (
+                                                <TableCell key={col.key}>
+                                                    {col.render
+                                                        ? col.render(
+                                                              summary[col.key],
+                                                              item,
+                                                              index,
+                                                          )
+                                                        : String(
+                                                              summary[col.key] ??
+                                                                  "—",
+                                                          )}
+                                                </TableCell>
+                                            ))}
+                                            <TableCell>
+                                                <div className="flex items-center justify-center">
+                                                    <ConfirmDeleteButton
+                                                        iconOnly
+                                                        disabled={isFormOpen}
+                                                        stopPropagation
+                                                        onConfirm={() =>
+                                                            handleDelete(index)
+                                                        }
+                                                    />
+                                                </div>
+                                            </TableCell>
+                                        </TableRow>
+                                        {isExpanded && (
+                                            <TableRow
+                                                key={`detail-${index}`}
+                                                className="bg-muted/30"
+                                            >
+                                                <TableCell colSpan={columns.length + 3}>
+                                                    <div className="p-4 space-y-4">
+                                                        <span className="text-sm font-medium text-muted-foreground">
+                                                            {isAddMode
+                                                                ? "آیتم جدید"
+                                                                : `جزئیات آیتم ${index + 1}`}
+                                                        </span>
+                                                        {renderItem(index)}
+                                                        <div className="flex items-center gap-2 pt-2 border-t">
+                                                            <Button
+                                                                type="button"
+                                                                size="sm"
+                                                                onClick={handleConfirm}
+                                                            >
+                                                                <IconCheck className="size-4 ms-1" />
+                                                                {isAddMode
+                                                                    ? "تایید"
+                                                                    : "ذخیره"}
+                                                            </Button>
+                                                            <Button
+                                                                type="button"
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                onClick={handleCancel}
+                                                            >
+                                                                <IconX className="size-4 ms-1" />
+                                                                انصراف
+                                                            </Button>
+                                                        </div>
+                                                    </div>
+                                                </TableCell>
+                                            </TableRow>
+                                        )}
+                                    </>
                                 );
                             })}
                         </TableBody>
@@ -307,54 +362,6 @@ function TableRepeaterInner({
                 <p className="text-sm text-muted-foreground text-center py-4">
                     {emptyMessage}
                 </p>
-            )}
-
-            {isAddMode && activeIndex !== null && (
-                <div className="rounded-lg border border-primary/30 p-4 space-y-4">
-                    <span className="text-sm font-medium text-primary">
-                        آیتم جدید
-                    </span>
-                    {renderItem(activeIndex)}
-                    <div className="flex items-center gap-2 pt-2 border-t">
-                        <Button type="button" size="sm" onClick={handleConfirm}>
-                            <IconCheck className="size-4 ms-1" />
-                            تایید
-                        </Button>
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={handleCancel}
-                        >
-                            <IconX className="size-4 ms-1" />
-                            انصراف
-                        </Button>
-                    </div>
-                </div>
-            )}
-
-            {isEditMode && activeIndex !== null && (
-                <div className="rounded-lg border border-orange-300 p-4 space-y-4 dark:border-orange-700">
-                    <span className="text-sm font-medium text-orange-600 dark:text-orange-400">
-                        ویرایش آیتم {activeIndex + 1}
-                    </span>
-                    {renderItem(activeIndex)}
-                    <div className="flex items-center gap-2 pt-2 border-t">
-                        <Button type="button" size="sm" onClick={handleConfirm}>
-                            <IconCheck className="size-4 ms-1" />
-                            ذخیره
-                        </Button>
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={handleCancel}
-                        >
-                            <IconX className="size-4 ms-1" />
-                            انصراف
-                        </Button>
-                    </div>
-                </div>
             )}
         </div>
     );
@@ -370,6 +377,7 @@ function CardRepeaterInner({
     maxItems,
     emptyMessage,
     toggleButton,
+    onPersist,
 }: {
     field: AnyFieldApi;
     label: string;
@@ -381,6 +389,7 @@ function CardRepeaterInner({
     maxItems?: number;
     emptyMessage: string;
     toggleButton: React.ReactNode;
+    onPersist?: (items: Record<string, unknown>[]) => void;
 }) {
     const items: Record<string, unknown>[] = (field.state.value ??
         []) as Record<string, unknown>[];
@@ -395,21 +404,27 @@ function CardRepeaterInner({
 
     const handleDelete = useCallback(
         (index: number) => {
-            field.handleChange(items.filter((_, i) => i !== index));
+            const newItems = items.filter((_, i) => i !== index);
+            field.handleChange(newItems);
             if (expandedIndex === index) {
                 setExpandedIndex(null);
             } else if (expandedIndex !== null && expandedIndex > index) {
                 setExpandedIndex(expandedIndex - 1);
             }
+            onPersist?.(newItems as Record<string, unknown>[]);
         },
-        [items, field, expandedIndex],
+        [items, field, expandedIndex, onPersist],
     );
 
     const toggleExpand = useCallback(
         (index: number) => {
-            setExpandedIndex(expandedIndex === index ? null : index);
+            const isCollapsing = expandedIndex === index;
+            setExpandedIndex(isCollapsing ? null : index);
+            if (isCollapsing) {
+                onPersist?.(field.state.value as Record<string, unknown>[]);
+            }
         },
-        [expandedIndex],
+        [expandedIndex, field, onPersist],
     );
 
     return (
@@ -457,17 +472,8 @@ function CardRepeaterInner({
                                 )}
                                 {renderHeader(item, index)}
                             </CardTitle>
-                            <ConfirmAction
-                                trigger={
-                                    <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="icon-sm"
-                                        className="text-destructive shrink-0"
-                                    >
-                                        <IconTrash className="size-4" />
-                                    </Button>
-                                }
+                            <ConfirmDeleteButton
+                                iconOnly
                                 stopPropagation
                                 onConfirm={() => handleDelete(index)}
                             />

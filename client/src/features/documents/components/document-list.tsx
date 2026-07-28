@@ -13,11 +13,12 @@ import { toast } from "sonner";
 
 import { cn } from "@/lib/utils";
 import { getApiError } from "@/lib/error-utils";
-import { employeeKeys } from "@/lib/query-keys";
+import { documentKeys } from "@/lib/query-keys";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { fetchDocuments, deleteDocument, fetchDocumentCategories } from "@/features/documents/api";
+import { getDocServeUrl, getDocDownloadUrl, collectDocs } from "@/features/documents/types";
 import type { Document, DocumentCategory } from "@/features/documents/types";
 import { DocumentPreviewLightbox } from "./document-preview-lightbox";
 import { DocumentTable } from "./document-table";
@@ -25,24 +26,6 @@ import { DocumentGroupedTable } from "./document-grouped-table";
 import { DocumentTreeView } from "./document-tree-view";
 import { ListAttachmentItem } from "./list-attachment-item";
 import { CardAttachmentItem } from "./card-attachment-item";
-
-function collectDocs(
-    cat: DocumentCategory,
-    docs: Document[],
-): { doc: Document; exactCategory: string }[] {
-    const result: { doc: Document; exactCategory: string }[] = [];
-    for (const doc of docs) {
-        if (doc.document_category_id === cat.id) {
-            result.push({ doc, exactCategory: cat.name });
-        }
-    }
-    for (const child of cat.children ?? []) {
-        for (const item of collectDocs(child, docs)) {
-            result.push(item);
-        }
-    }
-    return result;
-}
 
 type FilterOption = {
     key: string;
@@ -218,16 +201,18 @@ function NestedCategoryCards({
 type ViewMode = "table" | "grouped" | "tree" | "card" | "list";
 
 type DocumentListProps = {
-    employeeId: number;
+    documentableType: string;
+    documentableId: number;
     selectedIds: number[];
     onSelectionChange: (ids: number[]) => void;
 };
 
 function handleDownload(doc: Document) {
-    if (!doc.url) return;
+    if (!doc.current_revision) return;
 
     const a = document.createElement("a");
-    a.href = doc.url;
+    a.href = getDocDownloadUrl(doc);
+    a.download = doc.current_revision?.original_name ?? "";
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -242,7 +227,8 @@ const VIEW_BUTTONS: { mode: ViewMode; icon: typeof IconTable; label: string }[] 
 ];
 
 export function DocumentList({
-    employeeId,
+    documentableType,
+    documentableId,
     selectedIds,
     onSelectionChange,
 }: DocumentListProps) {
@@ -262,24 +248,24 @@ export function DocumentList({
     >(null);
 
     const { data: documents, isLoading, error } = useQuery({
-        queryKey: employeeKeys.documents(employeeId),
+        queryKey: documentKeys.list({ type: documentableType, record_key: String(documentableId) }),
         queryFn: async () => {
-            const { data } = await fetchDocuments(employeeId);
+            const { data } = await fetchDocuments(documentableType, String(documentableId));
             return data.data;
         },
     });
 
     const { data: categories } = useQuery({
-        queryKey: employeeKeys.documentCategories("employee"),
+        queryKey: documentKeys.categories(documentableType),
         queryFn: async () => {
-            const { data } = await fetchDocumentCategories("employee");
+            const { data } = await fetchDocumentCategories();
             return data.data;
         },
     });
 
     function removeFromCache(documentId: number) {
         queryClient.setQueryData<Document[]>(
-            employeeKeys.documents(employeeId),
+            documentKeys.list({ type: documentableType, record_key: String(documentableId) }),
             (old) => old?.filter((d) => d.id !== documentId),
         );
     }
@@ -289,7 +275,7 @@ export function DocumentList({
         onSuccess: (_, documentId) => {
             removeFromCache(documentId);
             queryClient.invalidateQueries({
-                queryKey: employeeKeys.documentTrash(employeeId),
+                queryKey: documentKeys.trashed(documentableType, String(documentableId)),
             });
             setDeletingIds(new Set());
             setLightboxIndex(null);

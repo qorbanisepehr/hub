@@ -12,6 +12,7 @@ import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@
 import { ConfirmDeleteActions } from "./confirm-delete-actions";
 import { DocumentFileCell } from "./document-file-cell";
 import { toPersianDate } from "@/lib/date-format";
+import { getDocOriginalName, getDocFileSizeFormatted } from "@/features/documents/types";
 import type { Document } from "@/features/documents/types";
 
 type DocumentTrashTableProps = {
@@ -47,23 +48,23 @@ export function DocumentTrashTable({
                 ),
             },
             {
-                accessorKey: "original_name",
+                accessorKey: "current_revision.original_name",
                 header: "فایل",
                 cell: ({ row }) => <DocumentFileCell doc={row.original} />,
             },
             {
-                accessorKey: "file_size_formatted",
+                id: "file_size",
                 header: "اندازه",
                 cell: ({ row }) => {
-                    const fileSize =
-                        row.original.file_size_formatted.split(" ");
+                    const formatted = getDocFileSizeFormatted(row.original);
+                    const parts = formatted.split(" ");
                     return (
                         <>
                             <span className="text-sm text-muted-foreground whitespace-nowrap">
-                                {fileSize[0]}
+                                {parts[0]}
                             </span>
                             <span className="text-[10px] text-muted-foreground/60 px-1 whitespace-nowrap">
-                                {fileSize[1]}
+                                {parts[1]}
                             </span>
                         </>
                     );
@@ -97,7 +98,7 @@ export function DocumentTrashTable({
                                     onRestore(doc.id);
                                 }}
                                 disabled={isRestoring}
-                                aria-label={`Restore ${doc.original_name}`}
+                                aria-label={`Restore ${getDocOriginalName(doc)}`}
                             >
                                 {isRestoring ? (
                                     <IconLoader2 className="size-3.5 animate-spin" />
@@ -121,7 +122,7 @@ export function DocumentTrashTable({
                                         onStartForceDelete(doc.id);
                                     }}
                                     disabled={isForceDeleting}
-                                    aria-label={`Permanently delete ${doc.original_name}`}
+                                    aria-label={`Permanently delete ${getDocOriginalName(doc)}`}
                                 >
                                     {isForceDeleting ? (
                                         <IconLoader2 className="size-3.5 animate-spin" />

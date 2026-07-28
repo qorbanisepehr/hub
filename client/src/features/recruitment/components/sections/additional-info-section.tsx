@@ -11,9 +11,10 @@ import { YesNoWithDescription } from "./yes-no-with-description";
 
 type SectionProps = {
     form: ReactFormExtendedApi<any, any, any, any, any, any, any, any, any, any, any, any>;
+    onPersist?: () => void;
 };
 
-export function AdditionalInfoSection({ form }: SectionProps) {
+export function AdditionalInfoSection({ form, onPersist }: SectionProps) {
     return (
         <Card>
             <CardHeader>
@@ -116,6 +117,7 @@ export function AdditionalInfoSection({ form }: SectionProps) {
                         <FormRepeater
                             field={field}
                             label="ارجاعات"
+                            onPersist={onPersist}
                             columns={[
                                 { key: "full_name", label: "نام" },
                                 { key: "relationship", label: "رابطه" },

@@ -17,7 +17,7 @@ import { zodFieldValidators } from "@/lib/validation-helpers";
 import { fieldSchemas } from "@/features/recruitment/schemas/contact-info.schema";
 import type { Questionnaire } from "@/features/recruitment/types";
 
-import { OtpVerificationBlock } from "./otp-verification-block";
+import { SourceInputWithOtp } from "./otp-verification-block";
 
 type SectionProps = {
     form: ReactFormExtendedApi<any, any, any, any, any, any, any, any, any, any, any, any>;
@@ -35,13 +35,11 @@ export function ContactInfoSection({ form, questionnaire }: SectionProps) {
 
     const sendMobileOtpMutation = useMutation({
         mutationFn: () => sendMobileOtp(uuid!),
-        onSuccess: () => toast.success("کد تأیید موبایل ارسال شد."),
         onError: (err) => toast.error(getApiError(err)),
     });
 
     const sendEmailOtpMutation = useMutation({
         mutationFn: () => sendEmailOtp(uuid!),
-        onSuccess: () => toast.success("کد تأیید ایمیل ارسال شد."),
         onError: (err) => toast.error(getApiError(err)),
     });
 
@@ -76,20 +74,17 @@ export function ContactInfoSection({ form, questionnaire }: SectionProps) {
                     validators={zodFieldValidators(fieldSchemas.email)}
                 >
                     {(field) => (
-                        <>
-                            <FormTextField field={field} label="ایمیل" dir="ltr" />
-                            <OtpVerificationBlock
-                                uuid={uuid!}
-                                label="ایمیل"
-                                value={field.state.value}
-                                isVerified={emailVerified}
-                                sendMutation={sendEmailOtpMutation}
-                                verifyMutation={verifyEmailOtpMutation}
-                                otp={emailOtp}
-                                onOtpChange={setEmailOtp}
-                                onVerify={() => verifyEmailOtpMutation.mutate(emailOtp)}
-                            />
-                        </>
+                        <SourceInputWithOtp
+                            label="ایمیل"
+                            sourceField={field}
+                            sourcePlaceholder="email@example.com"
+                            isVerified={emailVerified}
+                            sendMutation={sendEmailOtpMutation}
+                            verifyMutation={verifyEmailOtpMutation}
+                            otp={emailOtp}
+                            onOtpChange={setEmailOtp}
+                            onVerify={() => verifyEmailOtpMutation.mutate(emailOtp)}
+                        />
                     )}
                 </form.Field>
 
@@ -98,20 +93,17 @@ export function ContactInfoSection({ form, questionnaire }: SectionProps) {
                     validators={zodFieldValidators(fieldSchemas.mobile)}
                 >
                     {(field) => (
-                        <>
-                            <FormTextField field={field} label="شماره موبایل" dir="ltr" />
-                            <OtpVerificationBlock
-                                uuid={uuid!}
-                                label="شماره موبایل"
-                                value={field.state.value}
-                                isVerified={mobileVerified}
-                                sendMutation={sendMobileOtpMutation}
-                                verifyMutation={verifyMobileOtpMutation}
-                                otp={mobileOtp}
-                                onOtpChange={setMobileOtp}
-                                onVerify={() => verifyMobileOtpMutation.mutate(mobileOtp)}
-                            />
-                        </>
+                        <SourceInputWithOtp
+                            label="شماره موبایل"
+                            sourceField={field}
+                            sourcePlaceholder="09121234567"
+                            isVerified={mobileVerified}
+                            sendMutation={sendMobileOtpMutation}
+                            verifyMutation={verifyMobileOtpMutation}
+                            otp={mobileOtp}
+                            onOtpChange={setMobileOtp}
+                            onVerify={() => verifyMobileOtpMutation.mutate(mobileOtp)}
+                        />
                     )}
                 </form.Field>
 

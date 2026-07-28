@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 import { getFileIcon } from "@/lib/file-icon";
 import { getFileColorClasses } from "@/lib/file-colors";
 import { getFileTypeLabel } from "@/lib/file-type-label";
+import { DocumentThumbnail } from "@/components/shared/document-thumbnail";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,24 +26,7 @@ import {
 import { ConfirmDeleteActions } from "./confirm-delete-actions";
 import { toPersianDate } from "@/lib/date-format";
 import type { Document, DocumentCategory } from "@/features/documents/types";
-
-function collectDocs(
-    cat: DocumentCategory,
-    docs: Document[],
-): { doc: Document; exactCategory: string }[] {
-    const result: { doc: Document; exactCategory: string }[] = [];
-    for (const doc of docs) {
-        if (doc.document_category_id === cat.id) {
-            result.push({ doc, exactCategory: cat.name });
-        }
-    }
-    for (const child of cat.children ?? []) {
-        for (const item of collectDocs(child, docs)) {
-            result.push(item);
-        }
-    }
-    return result;
-}
+import { getDocOriginalName, getDocMimeType, getDocFileSizeFormatted, collectDocs } from "@/features/documents/types";
 
 function TopLevelGroup({
     category,
@@ -260,36 +244,33 @@ function FileRow({
                 />
             </TableCell>
             <TableCell className="ps-8">
-                <div
-                    className="flex items-center gap-2.5"
-                    style={{ paddingInlineStart: "32px" }}
-                >
-                    <div
-                        className={cn(
-                            "flex size-8 shrink-0 items-center justify-center rounded-md border",
-                            getFileColorClasses(doc.mime_type),
-                        )}
-                    >
-                        {getFileIcon(doc.mime_type, "size-4 stroke-[1.5]")}
-                    </div>
-                    <div className="min-w-0">
-                        <p className="truncate text-sm font-medium">
-                            {doc.original_name}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                            {exactCategory}
-                        </p>
-                    </div>
-                </div>
+                        <div
+                            className="flex items-center gap-2.5"
+                            style={{ paddingInlineStart: "32px" }}
+                        >
+                            <DocumentThumbnail
+                                document={doc}
+                                variant="icon"
+                                size="sm"
+                            />
+                            <div className="min-w-0">
+                                <p className="truncate text-sm font-medium">
+                                    {getDocOriginalName(doc)}
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                    {exactCategory}
+                                </p>
+                            </div>
+                        </div>
             </TableCell>
             <TableCell>
                 <span className="text-sm text-muted-foreground whitespace-nowrap">
-                    {getFileTypeLabel(doc.mime_type)}
+                    {getFileTypeLabel(getDocMimeType(doc))}
                 </span>
             </TableCell>
             <TableCell>
                 <span className="text-sm text-muted-foreground whitespace-nowrap">
-                    {doc.file_size_formatted}
+                    {getDocFileSizeFormatted(doc)}
                 </span>
             </TableCell>
             <TableCell>
@@ -311,7 +292,7 @@ function FileRow({
                         variant="ghost"
                         size="icon-xs"
                         onClick={() => onDownload(doc)}
-                        disabled={!doc.url}
+                        disabled={!doc.current_revision}
                     >
                         <IconDownload className="size-3.5" />
                     </Button>

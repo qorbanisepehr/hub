@@ -13,13 +13,15 @@ import { Button } from "@/components/ui/button";
 import { DocumentUploadForm } from "./document-upload-form";
 
 type DocumentUploadModalProps = {
-    employeeId: number;
+    documentableType: string;
+    documentableId: number;
     open: boolean;
     onOpenChange: (open: boolean) => void;
 };
 
 export function DocumentUploadModal({
-    employeeId,
+    documentableType,
+    documentableId,
     open,
     onOpenChange,
 }: DocumentUploadModalProps) {
@@ -48,7 +50,8 @@ export function DocumentUploadModal({
                 description="فایل را انتخاب و اطلاعات را تکمیل کنید"
             >
                 <DocumentUploadForm
-                    employeeId={employeeId}
+                    documentableType={documentableType}
+                    documentableId={documentableId}
                     onSuccess={() => onOpenChange(false)}
                     onDirtyChange={setIsDirty}
                 />

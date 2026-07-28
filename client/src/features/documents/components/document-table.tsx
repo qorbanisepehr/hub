@@ -14,7 +14,7 @@ import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@
 import { ConfirmDeleteActions } from "./confirm-delete-actions";
 import { DocumentFileCell } from "./document-file-cell";
 import { toPersianDate } from "@/lib/date-format";
-import { buildParentPath, getExactCategoryName } from "@/features/documents/types";
+import { buildParentPath, getExactCategoryName, getDocFileSizeFormatted, getDocServeUrl, getDocOriginalName } from "@/features/documents/types";
 import type { Document, DocumentCategory } from "@/features/documents/types";
 
 type DocumentTableProps = {
@@ -128,23 +128,23 @@ export function DocumentTable({
                 },
             },
             {
-                accessorKey: "original_name",
+                accessorKey: "current_revision.original_name",
                 header: "فایل",
                 cell: ({ row }) => <DocumentFileCell doc={row.original} />,
             },
             {
-                accessorKey: "file_size_formatted",
+                id: "file_size",
                 header: "اندازه",
                 cell: ({ row }) => {
-                    const fileSize =
-                        row.original.file_size_formatted.split(" ");
+                    const formatted = getDocFileSizeFormatted(row.original);
+                    const parts = formatted.split(" ");
                     return (
                         <>
                             <span className="text-sm text-muted-foreground whitespace-nowrap">
-                                {fileSize[0]}
+                                {parts[0]}
                             </span>
                             <span className="text-[10px] text-muted-foreground/60 px-1 whitespace-nowrap">
-                                {fileSize[1]}
+                                {parts[1]}
                             </span>
                         </>
                     );
@@ -185,8 +185,8 @@ export function DocumentTable({
                                     e.stopPropagation();
                                     onDownload(doc);
                                 }}
-                                disabled={!doc.url}
-                                aria-label={`Download ${doc.original_name}`}
+                                disabled={!doc.current_revision}
+                                aria-label={`Download ${getDocOriginalName(doc)}`}
                             >
                                 <IconDownload className="size-3.5" />
                             </Button>
@@ -206,7 +206,7 @@ export function DocumentTable({
                                         onStartDelete(doc.id);
                                     }}
                                     disabled={isDeleting}
-                                    aria-label={`Delete ${doc.original_name}`}
+                                    aria-label={`Delete ${getDocOriginalName(doc)}`}
                                 >
                                     {isDeleting ? (
                                         <IconLoader2 className="size-3.5 animate-spin" />

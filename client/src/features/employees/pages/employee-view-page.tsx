@@ -1,9 +1,7 @@
 import * as React from "react";
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { saveAs } from "file-saver";
 import {
-    IconDownload,
     IconFile,
     IconFileUpload,
     IconLoader2,
@@ -25,7 +23,6 @@ import {
     CardDescription,
 } from "@/components/ui/card";
 import { fetchEmployee, deleteEmployee } from "@/features/employees/api";
-import { fetchTrashedDocuments, bulkDownloadDocuments } from "@/features/documents/api";
 import { getApiError } from "@/lib/error-utils";
 import { DocumentSection } from "@/features/documents/components/document-section";
 import { DocumentUploadModal } from "@/features/documents/components/document-upload-modal";
@@ -37,7 +34,7 @@ import { InfoRow } from "@/components/shared/info-row";
 import { PageLayout } from "@/components/shared/page-layout";
 import { ErrorPage } from "@/components/shared/error-page";
 import { PageHeader } from "@/components/shared/page-header";
-import { employeeKeys } from "@/lib/query-keys";
+import { employeeKeys, documentKeys } from "@/lib/query-keys";
 
 import {
     genderLabels,
@@ -55,8 +52,6 @@ export function EmployeeViewPage() {
     const [uploadOpen, setUploadOpen] = React.useState(false);
     const [trashOpen, setTrashOpen] = React.useState(false);
     const [selectedIds, setSelectedIds] = React.useState<number[]>([]);
-    const [isDownloading, setIsDownloading] = React.useState(false);
-    const [downloadError, setDownloadError] = React.useState<string | null>(null);
     const employeeId = Number(id);
 
     const { data: employee, isLoading } = useQuery({
@@ -80,31 +75,15 @@ export function EmployeeViewPage() {
     });
 
     const { data: trashedDocuments } = useQuery({
-        queryKey: employeeKeys.documentTrash(employeeId),
+        queryKey: documentKeys.trashed("employee", String(employeeId)),
         queryFn: async () => {
-            const { data } = await fetchTrashedDocuments(employeeId);
+            const { fetchTrashedDocuments } = await import("@/features/documents/api");
+            const { data } = await fetchTrashedDocuments("employee", String(employeeId));
             return data.data;
         },
     });
 
     const trashCount = trashedDocuments?.length ?? 0;
-
-    async function handleBulkDownload() {
-        setIsDownloading(true);
-        setDownloadError(null);
-        try {
-            const response = await bulkDownloadDocuments(
-                employeeId,
-                selectedIds.length > 0 ? selectedIds : undefined,
-            );
-            const blob = new Blob([response.data as BlobPart], { type: "application/zip" });
-            saveAs(blob, `${employee?.personnel_code ?? id}.zip`);
-        } catch (error) {
-            setDownloadError(getApiError(error));
-        } finally {
-            setIsDownloading(false);
-        }
-    }
 
     if (isLoading) {
         return <ViewSkeleton leftRows={6} rightRows={6} />;
@@ -386,29 +365,6 @@ export function EmployeeViewPage() {
                                     )}
                                 </Button>
                             </PermissionGuard>
-                            <PermissionGuard permission={[PERMISSIONS.DOCUMENT_DOWNLOAD_OWN, PERMISSIONS.DOCUMENT_DOWNLOAD_ALL]}>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={handleBulkDownload}
-                                    disabled={isDownloading}
-                                >
-                                    {isDownloading ? (
-                                        <IconLoader2 className="size-4 animate-spin" />
-                                    ) : (
-                                        <IconDownload className="size-4" />
-                                    )}
-                                    دانلود
-                                    {selectedIds.length > 0 && (
-                                        <Badge
-                                            variant="secondary"
-                                            className="ml-1 px-1.5 py-0 text-xs"
-                                        >
-                                            {selectedIds.length}
-                                        </Badge>
-                                    )}
-                                </Button>
-                            </PermissionGuard>
                             <PermissionGuard permission={[PERMISSIONS.DOCUMENT_UPLOAD_OWN, PERMISSIONS.DOCUMENT_UPLOAD_ALL]}>
                                 <Button
                                     size="sm"
@@ -421,15 +377,10 @@ export function EmployeeViewPage() {
                         </div>
                     </div>
                 </CardHeader>
-                {downloadError && (
-                    <div className="px-6">
-                        <p className="text-sm text-destructive">{downloadError}</p>
-                    </div>
-                )}
                 <CardContent>
                     <DocumentSection
-                        employeeId={employee.id}
-                        personnelCode={employee.personnel_code}
+                        documentableType="employee"
+                        documentableId={employee.id}
                         showActions={false}
                         selectedIds={selectedIds}
                         onSelectionChange={setSelectedIds}
@@ -438,14 +389,16 @@ export function EmployeeViewPage() {
             </Card>
 
             <DocumentUploadModal
-                employeeId={employeeId}
+                documentableType="employee"
+                documentableId={employeeId}
                 open={uploadOpen}
                 onOpenChange={setUploadOpen}
             />
             <DocumentTrashModal
-                employeeId={employeeId}
                 open={trashOpen}
                 onOpenChange={setTrashOpen}
+                documentableType="employee"
+                documentableId={employeeId}
             />
         </PageLayout>
     );
