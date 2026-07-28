@@ -15,14 +15,20 @@ class DocumentCategoryController extends ApiController
 {
     protected ?string $model = DocumentCategory::class;
 
+    public function callAction($method, $parameters): mixed
+    {
+        if ($method === 'index' && request()->user() === null) {
+            return $this->index(request());
+        }
+
+        return parent::callAction($method, $parameters);
+    }
+
     public function index(Request $request): AnonymousResourceCollection
     {
         $categories = DocumentCategory::query()
-            ->when($type = $request->input('type'), function ($query) use ($type) {
-                $resolved = DocumentCategory::resolveType($type);
-                if ($resolved) {
-                    $query->byType($resolved);
-                }
+            ->when($request->filled('type'), function ($query) use ($request) {
+                $query->where('type', $request->input('type'));
             })
             ->when(! $request->boolean('all'), function ($query) {
                 $query->whereNull('parent_id');
@@ -42,16 +48,7 @@ class DocumentCategoryController extends ApiController
 
     public function store(StoreDocumentCategoryRequest $request): DocumentCategoryResource
     {
-        $data = $request->validated();
-
-        $data['documentable_type'] = DocumentCategory::resolveType($data['documentable_type']);
-
-        if (! empty($data['parent_id'])) {
-            $parent = DocumentCategory::findOrFail($data['parent_id']);
-            $data['documentable_type'] = $parent->documentable_type;
-        }
-
-        $category = DocumentCategory::create($data);
+        $category = DocumentCategory::create($request->validated());
 
         return new DocumentCategoryResource($category);
     }

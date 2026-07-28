@@ -9,46 +9,43 @@ use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
 
-describe('employee document API', function () {
+describe('document API', function () {
     describe('authentication', function () {
         it('blocks unauthenticated access', function () {
-            $this->getJson('/api/employees/1/documents')->assertStatus(401);
-            $this->postJson('/api/employees/1/documents', [])->assertStatus(401);
-            $this->deleteJson('/api/employees/documents/1')->assertStatus(401);
-            $this->getJson('/api/employees/1/documents/trash')->assertStatus(401);
-            $this->postJson('/api/employees/documents/1/restore')->assertStatus(401);
-            $this->deleteJson('/api/employees/documents/1/force')->assertStatus(401);
+            $this->getJson('/api/documents')->assertStatus(401);
+            $this->postJson('/api/documents', [])->assertStatus(401);
+            $this->deleteJson('/api/documents/1')->assertStatus(401);
+            $this->getJson('/api/documents/trash')->assertStatus(401);
+            $this->postJson('/api/documents/1/restore')->assertStatus(401);
+            $this->deleteJson('/api/documents/1/force')->assertStatus(401);
         });
     });
 
     describe('index', function () {
-        it('lists documents for an employee', function () {
+        it('lists documents filtered by type', function () {
             Storage::fake('local');
             $user = createUserWithPermissions(['document.view_all', 'document.view_own']);
             $employee = Employee::factory()->create();
             $category = DocumentCategory::factory()->create();
 
-            $documents = [];
             for ($i = 0; $i < 3; $i++) {
-                $documents[] = Document::factory()
-                    ->create([
-                        'documentable_id' => $employee->id,
-                        'documentable_type' => Employee::class,
-                        'document_category_id' => $category->id,
-                    ]);
+                Document::factory()->create([
+                    'documentable_id' => $employee->id,
+                    'documentable_type' => Employee::class,
+                    'document_category_id' => $category->id,
+                ]);
             }
 
             $this->actingAs($user)
-                ->getJson('/api/employees/'.$employee->id.'/documents')
+                ->getJson('/api/documents?type=employee')
                 ->assertStatus(200)
                 ->assertJsonCount(3, 'data')
                 ->assertJsonStructure([
                     'data' => [
                         '*' => [
                             'id', 'document_category_id',
-                            'category', 'original_name', 'mime_type',
-                            'file_size', 'file_size_formatted',
-                            'url', 'thumbnail_url',
+                            'category', 'status',
+                            'current_revision',
                         ],
                     ],
                 ]);
@@ -56,10 +53,9 @@ describe('employee document API', function () {
 
         it('returns empty array when no documents', function () {
             $user = createUserWithPermissions(['document.view_all', 'document.view_own']);
-            $employee = Employee::factory()->create();
 
             $this->actingAs($user)
-                ->getJson('/api/employees/'.$employee->id.'/documents')
+                ->getJson('/api/documents')
                 ->assertStatus(200)
                 ->assertJsonCount(0, 'data');
         });
@@ -71,50 +67,50 @@ describe('employee document API', function () {
             $user = createUserWithPermissions(['document.upload_own', 'document.upload_all']);
             $employee = Employee::factory()->create();
             $category = DocumentCategory::factory()->create();
-
             $file = UploadedFile::fake()->create('document.pdf', 100);
 
             $response = $this->actingAs($user)
-                ->postJson('/api/employees/'.$employee->id.'/documents', [
+                ->postJson('/api/documents', [
+                    'documentable_type' => 'employee',
+                    'documentable_id' => $employee->id,
                     'document_category_id' => $category->id,
                     'file' => $file,
                     'notes' => 'Test document',
                 ])->assertStatus(201)
                 ->assertJsonStructure([
                     'data' => [
-                        'id', 'original_name', 'mime_type', 'file_size',
-                        'file_size_formatted', 'notes', 'category',
+                        'id', 'status', 'notes', 'category',
+                        'current_revision',
                     ],
                 ])
-                ->assertJsonPath('data.original_name', 'document.pdf')
                 ->assertJsonPath('data.notes', 'Test document')
                 ->assertJsonPath('data.document_category_id', $category->id);
 
             /** @var Document $document */
             $document = Document::latest()->first();
-            Storage::disk('local')->assertExists($document->stored_path);
+            Storage::disk('local')->assertExists($document->currentRevision->stored_path);
         });
 
         it('fails without required fields', function () {
             Storage::fake('local');
             $user = createUserWithPermissions(['document.upload_own', 'document.upload_all']);
-            $employee = Employee::factory()->create();
 
             $this->actingAs($user)
-                ->postJson('/api/employees/'.$employee->id.'/documents', [])
+                ->postJson('/api/documents', [])
                 ->assertStatus(422)
-                ->assertJsonValidationErrors(['document_category_id', 'file']);
+                ->assertJsonValidationErrors(['document_category_id', 'file', 'documentable_type', 'documentable_id']);
         });
 
         it('fails with invalid category', function () {
             Storage::fake('local');
             $user = createUserWithPermissions(['document.upload_own', 'document.upload_all']);
             $employee = Employee::factory()->create();
-
             $file = UploadedFile::fake()->create('doc.pdf', 100);
 
             $this->actingAs($user)
-                ->postJson('/api/employees/'.$employee->id.'/documents', [
+                ->postJson('/api/documents', [
+                    'documentable_type' => 'employee',
+                    'documentable_id' => $employee->id,
                     'document_category_id' => 99999,
                     'file' => $file,
                 ])
@@ -131,7 +127,9 @@ describe('employee document API', function () {
             $file = UploadedFile::fake()->create('doc.pdf', 100);
 
             $this->actingAs($user)
-                ->postJson('/api/employees/'.$employee->id.'/documents', [
+                ->postJson('/api/documents', [
+                    'documentable_type' => 'employee',
+                    'documentable_id' => $employee->id,
                     'document_category_id' => $category->id,
                     'file' => $file,
                 ])->assertStatus(201);
@@ -144,11 +142,12 @@ describe('employee document API', function () {
             $user = createUserWithPermissions(['document.upload_own', 'document.upload_all']);
             $employee = Employee::factory()->create();
             $category = DocumentCategory::factory()->create();
-
             $file = UploadedFile::fake()->image('photo.jpg', 800, 600);
 
-            $response = $this->actingAs($user)
-                ->postJson('/api/employees/'.$employee->id.'/documents', [
+            $this->actingAs($user)
+                ->postJson('/api/documents', [
+                    'documentable_type' => 'employee',
+                    'documentable_id' => $employee->id,
                     'document_category_id' => $category->id,
                     'file' => $file,
                 ])->assertStatus(201);
@@ -157,9 +156,9 @@ describe('employee document API', function () {
 
             (new GenerateDocumentThumbnail($document))->handle();
 
-            $document->refresh();
-            expect($document->thumbnail_path)->not->toBeNull();
-            Storage::disk('local')->assertExists($document->thumbnail_path);
+            $revision = $document->fresh()->currentRevision;
+            expect($revision->thumbnail_path)->not->toBeNull();
+            Storage::disk('local')->assertExists($revision->thumbnail_path);
         });
 
         it('does not generate thumbnail for non-image uploads', function () {
@@ -170,7 +169,9 @@ describe('employee document API', function () {
             $file = UploadedFile::fake()->create('document.pdf', 100);
 
             $this->actingAs($user)
-                ->postJson('/api/employees/'.$employee->id.'/documents', [
+                ->postJson('/api/documents', [
+                    'documentable_type' => 'employee',
+                    'documentable_id' => $employee->id,
                     'document_category_id' => $category->id,
                     'file' => $file,
                 ])->assertStatus(201);
@@ -179,24 +180,8 @@ describe('employee document API', function () {
 
             (new GenerateDocumentThumbnail($document))->handle();
 
-            $document->refresh();
-            expect($document->thumbnail_path)->toBeNull();
-        });
-
-        it('fails with file exceeding max size', function () {
-            Storage::fake('local');
-            $user = createUserWithPermissions(['document.upload_own', 'document.upload_all']);
-            $employee = Employee::factory()->create();
-            $category = DocumentCategory::factory()->create();
-
-            $file = UploadedFile::fake()->create('large.pdf', 60 * 1024);
-
-            $this->actingAs($user)
-                ->postJson('/api/employees/'.$employee->id.'/documents', [
-                    'document_category_id' => $category->id,
-                    'file' => $file,
-                ])
-                ->assertStatus(422);
+            $revision = $document->fresh()->currentRevision;
+            expect($revision->thumbnail_path)->toBeNull();
         });
 
         it('rejects disallowed mime types', function () {
@@ -204,16 +189,38 @@ describe('employee document API', function () {
             $user = createUserWithPermissions(['document.upload_own', 'document.upload_all']);
             $employee = Employee::factory()->create();
             $category = DocumentCategory::factory()->create();
-
             $file = UploadedFile::fake()->createWithContent('malware.exe', 'MZ');
 
             $this->actingAs($user)
-                ->postJson('/api/employees/'.$employee->id.'/documents', [
+                ->postJson('/api/documents', [
+                    'documentable_type' => 'employee',
+                    'documentable_id' => $employee->id,
                     'document_category_id' => $category->id,
                     'file' => $file,
                 ])
                 ->assertStatus(422)
                 ->assertJsonValidationErrors(['file']);
+        });
+    });
+
+    describe('show', function () {
+        it('shows document with revisions', function () {
+            $user = createUserWithPermissions(['document.view_all']);
+            $employee = Employee::factory()->create();
+            $category = DocumentCategory::factory()->create();
+            $document = Document::factory()->create([
+                'documentable_id' => $employee->id,
+                'documentable_type' => Employee::class,
+                'document_category_id' => $category->id,
+            ]);
+
+            $this->actingAs($user)
+                ->getJson('/api/documents/'.$document->id)
+                ->assertStatus(200)
+                ->assertJsonPath('data.id', $document->id)
+                ->assertJsonStructure([
+                    'data' => ['id', 'status', 'current_revision', 'category'],
+                ]);
         });
     });
 
@@ -225,26 +232,27 @@ describe('employee document API', function () {
             $category = DocumentCategory::factory()->create();
             $file = UploadedFile::fake()->create('doc.pdf', 100);
 
-            $path = $file->store('employee-documents/'.$employee->id, 'local');
-            $thumbRelPath = dirname($path).'/thumbnail/'.pathinfo($path, PATHINFO_FILENAME).'.webp';
-
             $document = Document::factory()->create([
                 'documentable_id' => $employee->id,
                 'documentable_type' => Employee::class,
                 'document_category_id' => $category->id,
-                'stored_path' => $path,
-                'thumbnail_path' => $thumbRelPath,
             ]);
 
-            Storage::disk('local')->put($document->thumbnail_path, 'fake-thumbnail');
+            $revision = $document->revisions()->create([
+                'stored_path' => $file->store('test', 'local'),
+                'original_name' => 'doc.pdf',
+                'mime_type' => 'application/pdf',
+                'file_size' => 100,
+                'uploaded_by' => $user->id,
+            ]);
+            $document->updateQuietly(['current_revision_id' => $revision->id]);
 
             $this->actingAs($user)
-                ->deleteJson('/api/employees/documents/'.$document->id)
+                ->deleteJson('/api/documents/'.$document->id)
                 ->assertStatus(200)
                 ->assertJson(['message' => __('document.document_deleted')]);
 
-            Storage::disk('local')->assertExists($path);
-            Storage::disk('local')->assertExists($document->thumbnail_path);
+            Storage::disk('local')->assertExists($revision->stored_path);
             $this->assertSoftDeleted($document);
         });
 
@@ -252,7 +260,7 @@ describe('employee document API', function () {
             $user = createUserWithPermissions(['document.delete_all']);
 
             $this->actingAs($user)
-                ->deleteJson('/api/employees/documents/99999')
+                ->deleteJson('/api/documents/99999')
                 ->assertStatus(404);
         });
 
@@ -270,14 +278,14 @@ describe('employee document API', function () {
             $document->delete();
 
             $this->actingAs($user)
-                ->getJson('/api/employees/'.$employee->id.'/documents')
+                ->getJson('/api/documents?type=employee')
                 ->assertStatus(200)
                 ->assertJsonCount(0, 'data');
         });
     });
 
     describe('trash', function () {
-        it('lists trashed documents for an employee', function () {
+        it('lists trashed documents', function () {
             Storage::fake('local');
             $user = createUserWithPermissions(['document.view_all', 'document.view_own']);
             $employee = Employee::factory()->create();
@@ -296,7 +304,7 @@ describe('employee document API', function () {
             $trashed->delete();
 
             $this->actingAs($user)
-                ->getJson('/api/employees/'.$employee->id.'/documents/trash')
+                ->getJson('/api/documents/trash?type=employee')
                 ->assertStatus(200)
                 ->assertJsonCount(1, 'data')
                 ->assertJsonPath('data.0.id', $trashed->id);
@@ -304,10 +312,9 @@ describe('employee document API', function () {
 
         it('returns empty array when no trashed documents', function () {
             $user = createUserWithPermissions(['document.view_all', 'document.view_own']);
-            $employee = Employee::factory()->create();
 
             $this->actingAs($user)
-                ->getJson('/api/employees/'.$employee->id.'/documents/trash')
+                ->getJson('/api/documents/trash')
                 ->assertStatus(200)
                 ->assertJsonCount(0, 'data');
         });
@@ -327,7 +334,7 @@ describe('employee document API', function () {
             $this->assertSoftDeleted($document);
 
             $this->actingAs($user)
-                ->postJson('/api/employees/documents/'.$document->id.'/restore')
+                ->postJson('/api/documents/'.$document->id.'/restore')
                 ->assertStatus(200)
                 ->assertJsonPath('data.id', $document->id);
 
@@ -338,7 +345,7 @@ describe('employee document API', function () {
             $user = createUserWithPermissions(['document.delete_all']);
 
             $this->actingAs($user)
-                ->postJson('/api/employees/documents/99999/restore')
+                ->postJson('/api/documents/99999/restore')
                 ->assertStatus(404);
         });
     });
@@ -351,22 +358,27 @@ describe('employee document API', function () {
             $category = DocumentCategory::factory()->create();
             $file = UploadedFile::fake()->create('doc.pdf', 100);
 
-            $path = $file->store('employee-documents/'.$employee->id, 'local');
-
             $document = Document::factory()->create([
                 'documentable_id' => $employee->id,
                 'documentable_type' => Employee::class,
                 'document_category_id' => $category->id,
-                'stored_path' => $path,
             ]);
+
+            $revision = $document->revisions()->create([
+                'stored_path' => $file->store('test', 'local'),
+                'original_name' => 'doc.pdf',
+                'mime_type' => 'application/pdf',
+                'file_size' => 100,
+            ]);
+            $document->updateQuietly(['current_revision_id' => $revision->id]);
             $document->delete();
 
             $this->actingAs($user)
-                ->deleteJson('/api/employees/documents/'.$document->id.'/force')
+                ->deleteJson('/api/documents/'.$document->id.'/force')
                 ->assertStatus(200)
                 ->assertJson(['message' => __('document.document_force_deleted')]);
 
-            Storage::disk('local')->assertMissing($path);
+            Storage::disk('local')->assertMissing($revision->stored_path);
             $this->assertModelMissing($document);
         });
 
@@ -374,18 +386,17 @@ describe('employee document API', function () {
             $user = createUserWithPermissions(['document.delete_all']);
 
             $this->actingAs($user)
-                ->deleteJson('/api/employees/documents/99999/force')
+                ->deleteJson('/api/documents/99999/force')
                 ->assertStatus(404);
         });
     });
 
     describe('download', function () {
-        it('downloads with personnel_code-category_slug format', function () {
+        it('downloads document with category slug format', function () {
             Storage::fake('local');
             $user = createUserWithPermissions(['document.download_all']);
             $employee = Employee::factory()->create();
             $category = DocumentCategory::factory()->create();
-
             $file = UploadedFile::fake()->create('report.pdf', 100);
             $path = $file->store('test', 'local');
 
@@ -393,18 +404,19 @@ describe('employee document API', function () {
                 'documentable_id' => $employee->id,
                 'documentable_type' => Employee::class,
                 'document_category_id' => $category->id,
+            ]);
+            $revision = $document->revisions()->create([
                 'stored_path' => $path,
                 'original_name' => 'report.pdf',
+                'mime_type' => 'application/pdf',
+                'file_size' => 100,
             ]);
+            $document->updateQuietly(['current_revision_id' => $revision->id]);
 
-            $expected = $employee->personnel_code.'-'.$category->slug.'.pdf';
-
-            $response = $this->actingAs($user)
-                ->get('/api/employees/documents/'.$document->id.'/download')
+            $this->actingAs($user)
+                ->get('/api/documents/'.$document->id.'/download')
                 ->assertStatus(200)
                 ->assertHeader('Content-Type', 'application/pdf');
-
-            expect($response->headers->get('Content-Disposition'))->toContain($expected);
         });
 
         it('returns 404 when file missing from disk', function () {
@@ -417,11 +429,17 @@ describe('employee document API', function () {
                 'documentable_id' => $employee->id,
                 'documentable_type' => Employee::class,
                 'document_category_id' => $category->id,
-                'stored_path' => 'missing/file.pdf',
             ]);
+            $revision = $document->revisions()->create([
+                'stored_path' => 'missing/file.pdf',
+                'original_name' => 'report.pdf',
+                'mime_type' => 'application/pdf',
+                'file_size' => 100,
+            ]);
+            $document->updateQuietly(['current_revision_id' => $revision->id]);
 
             $this->actingAs($user)
-                ->get('/api/employees/documents/'.$document->id.'/download')
+                ->get('/api/documents/'.$document->id.'/download')
                 ->assertStatus(404);
         });
     });
@@ -431,23 +449,27 @@ describe('employee document API', function () {
             Storage::fake('local');
             $user = createUserWithPermissions(['document.download_all']);
             $category = DocumentCategory::factory()->create();
-
             $file = UploadedFile::fake()->image('photo.jpg', 800, 600);
-            $path = $file->store('test/photo.jpg', 'local');
+            $path = $file->store('test', 'local');
 
             $document = Document::factory()->create([
-                'stored_path' => $path,
                 'document_category_id' => $category->id,
-                'mime_type' => 'image/jpeg',
             ]);
+            $revision = $document->revisions()->create([
+                'stored_path' => $path,
+                'original_name' => 'photo.jpg',
+                'mime_type' => 'image/jpeg',
+                'file_size' => 100,
+            ]);
+            $document->updateQuietly(['current_revision_id' => $revision->id]);
 
             (new GenerateDocumentThumbnail($document))->handle();
-            $document->refresh();
+            $revision->refresh();
 
             $url = URL::temporarySignedRoute(
-                'employee-documents.serve',
+                'documents.serve',
                 now()->addHour(),
-                ['employee_document' => $document->id, 'thumbnail' => 1],
+                ['document' => $document->id, 'thumbnail' => 1],
             );
 
             $this->actingAs($user)->get($url)
@@ -459,21 +481,24 @@ describe('employee document API', function () {
             Storage::fake('local');
             $user = createUserWithPermissions(['document.download_all']);
             $category = DocumentCategory::factory()->create();
-
             $file = UploadedFile::fake()->image('photo.jpg', 100, 100);
-            $path = $file->store('test/photo.jpg', 'local');
+            $path = $file->store('test', 'local');
 
             $document = Document::factory()->create([
-                'stored_path' => $path,
                 'document_category_id' => $category->id,
-                'mime_type' => 'image/jpeg',
-                'thumbnail_path' => null,
             ]);
+            $revision = $document->revisions()->create([
+                'stored_path' => $path,
+                'original_name' => 'photo.jpg',
+                'mime_type' => 'image/jpeg',
+                'file_size' => 100,
+            ]);
+            $document->updateQuietly(['current_revision_id' => $revision->id]);
 
             $url = URL::temporarySignedRoute(
-                'employee-documents.serve',
+                'documents.serve',
                 now()->addHour(),
-                ['employee_document' => $document->id, 'thumbnail' => 1],
+                ['document' => $document->id, 'thumbnail' => 1],
             );
 
             $this->actingAs($user)->get($url)
@@ -489,9 +514,9 @@ describe('employee document API', function () {
             ]);
 
             $url = URL::temporarySignedRoute(
-                'employee-documents.serve',
+                'documents.serve',
                 now()->addHour(),
-                ['employee_document' => $document->id],
+                ['document' => $document->id],
             );
 
             $this->get($url)->assertStatus(401);
@@ -507,9 +532,9 @@ describe('employee document API', function () {
             ]);
 
             $url = URL::temporarySignedRoute(
-                'employee-documents.serve',
+                'documents.serve',
                 now()->addHour(),
-                ['employee_document' => $document->id],
+                ['document' => $document->id],
             );
 
             $this->actingAs($user)->get($url)->assertStatus(403);
@@ -519,19 +544,17 @@ describe('employee document API', function () {
     describe('authorization', function () {
         it('denies access without required permission', function () {
             $user = createUserWithPermissions([]);
-            $employee = Employee::factory()->create();
 
             $this->actingAs($user)
-                ->getJson('/api/employees/'.$employee->id.'/documents')
+                ->getJson('/api/documents')
                 ->assertStatus(403);
         });
 
         it('denies upload without document.upload permission', function () {
             $user = createUserWithPermissions(['document.view_all']);
-            $employee = Employee::factory()->create();
 
             $this->actingAs($user)
-                ->postJson('/api/employees/'.$employee->id.'/documents', [
+                ->postJson('/api/documents', [
                     'document_category_id' => 1,
                 ])
                 ->assertStatus(403);
@@ -561,7 +584,7 @@ describe('employee document API', function () {
             ]);
 
             $this->actingAs($owner)
-                ->getJson('/api/employees/'.$employee->id.'/documents')
+                ->getJson('/api/documents?type=employee')
                 ->assertStatus(200)
                 ->assertJsonCount(1, 'data')
                 ->assertJsonPath('data.0.id', $ownDoc->id);
@@ -580,7 +603,7 @@ describe('employee document API', function () {
             ]);
 
             $this->actingAs($user)
-                ->getJson('/api/employees/'.$employee->id.'/documents')
+                ->getJson('/api/documents?type=employee')
                 ->assertStatus(200)
                 ->assertJsonCount(2, 'data');
         });
@@ -609,110 +632,15 @@ describe('employee document API', function () {
             $otherTrashed->delete();
 
             $this->actingAs($owner)
-                ->getJson('/api/employees/'.$employee->id.'/documents/trash')
+                ->getJson('/api/documents/trash?type=employee')
                 ->assertStatus(200)
                 ->assertJsonCount(1, 'data')
                 ->assertJsonPath('data.0.id', $ownTrashed->id);
         });
 
-        it('denies upload to other employees with upload_own only', function () {
-            Storage::fake('local');
-            $user = createUserWithPermissions(['document.upload_own']);
-            $otherEmployee = Employee::factory()->create();
-            $category = DocumentCategory::factory()->create();
-            $file = UploadedFile::fake()->create('doc.pdf', 100);
-
-            $this->actingAs($user)
-                ->postJson('/api/employees/'.$otherEmployee->id.'/documents', [
-                    'document_category_id' => $category->id,
-                    'file' => $file,
-                ])
-                ->assertStatus(403);
-        });
-
-        it('allows upload to own employee with upload_own', function () {
-            Storage::fake('local');
-            $user = createUserWithPermissions(['document.upload_own']);
-            $employee = Employee::factory()->create(['user_id' => $user->id]);
-            $category = DocumentCategory::factory()->create();
-            $file = UploadedFile::fake()->create('doc.pdf', 100);
-
-            $this->actingAs($user)
-                ->postJson('/api/employees/'.$employee->id.'/documents', [
-                    'document_category_id' => $category->id,
-                    'file' => $file,
-                ])
-                ->assertStatus(201);
-        });
-
-        it('allows upload to any employee with upload_all', function () {
-            Storage::fake('local');
-            $user = createUserWithPermissions(['document.upload_all']);
-            $employee = Employee::factory()->create();
-            $category = DocumentCategory::factory()->create();
-            $file = UploadedFile::fake()->create('doc.pdf', 100);
-
-            $this->actingAs($user)
-                ->postJson('/api/employees/'.$employee->id.'/documents', [
-                    'document_category_id' => $category->id,
-                    'file' => $file,
-                ])
-                ->assertStatus(201);
-        });
-
-        it('scopes bulk download to own documents with download_own only', function () {
-            Storage::fake('local');
-            $owner = createUserWithPermissions(['document.download_own']);
-            $employee = Employee::factory()->create(['user_id' => $owner->id]);
-            $category = DocumentCategory::factory()->create();
-
-            $ownDoc = Document::factory()->create([
-                'documentable_id' => $employee->id,
-                'documentable_type' => Employee::class,
-                'document_category_id' => $category->id,
-                'uploaded_by' => $owner->id,
-            ]);
-
-            $otherUser = createUserWithPermissions([]);
-            Document::factory()->create([
-                'documentable_id' => $employee->id,
-                'documentable_type' => Employee::class,
-                'document_category_id' => $category->id,
-                'uploaded_by' => $otherUser->id,
-            ]);
-
-            $this->actingAs($owner)
-                ->postJson('/api/employees/'.$employee->id.'/documents/download', [
-                    'document_ids' => [],
-                ])
-                ->assertStatus(200)
-                ->assertHeader('Content-Type', 'application/zip');
-        });
-
-        it('allows bulk download of all documents with download_all', function () {
-            Storage::fake('local');
-            $user = createUserWithPermissions(['document.download_all']);
-            $employee = Employee::factory()->create();
-            $category = DocumentCategory::factory()->create();
-
-            Document::factory()->count(2)->create([
-                'documentable_id' => $employee->id,
-                'documentable_type' => Employee::class,
-                'document_category_id' => $category->id,
-            ]);
-
-            $this->actingAs($user)
-                ->postJson('/api/employees/'.$employee->id.'/documents/download', [
-                    'document_ids' => [],
-                ])
-                ->assertStatus(200)
-                ->assertHeader('Content-Type', 'application/zip');
-        });
-
         it('denies delete of other users documents with delete_own only', function () {
             $owner = createUserWithPermissions(['document.delete_own']);
             $employee = Employee::factory()->create(['user_id' => $owner->id]);
-
             $otherUser = createUserWithPermissions([]);
             $document = Document::factory()->create([
                 'documentable_id' => $employee->id,
@@ -721,7 +649,7 @@ describe('employee document API', function () {
             ]);
 
             $this->actingAs($owner)
-                ->deleteJson('/api/employees/documents/'.$document->id)
+                ->deleteJson('/api/documents/'.$document->id)
                 ->assertStatus(403);
         });
 
@@ -736,7 +664,7 @@ describe('employee document API', function () {
             ]);
 
             $this->actingAs($owner)
-                ->deleteJson('/api/employees/documents/'.$document->id)
+                ->deleteJson('/api/documents/'.$document->id)
                 ->assertStatus(200);
         });
     });

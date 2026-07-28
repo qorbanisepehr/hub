@@ -1,7 +1,6 @@
 <?php
 
 use App\Domains\Document\Models\DocumentCategory;
-use App\Domains\Employee\Models\Employee;
 
 function categoryData(array $overrides = []): array
 {
@@ -10,14 +9,13 @@ function categoryData(array $overrides = []): array
         'slug' => 'personal-docs',
         'description' => 'مدارک شناسایی',
         'sort_order' => 1,
-        'documentable_type' => 'employee',
     ], $overrides);
 }
 
 describe('document category CRUD', function () {
     describe('authentication', function () {
-        it('blocks unauthenticated access', function () {
-            $this->getJson('/api/document-categories')->assertStatus(401);
+        it('allows public access to index but blocks unauthenticated access to management endpoints', function () {
+            $this->getJson('/api/document-categories')->assertOk();
             $this->postJson('/api/document-categories', [])->assertStatus(401);
             $this->getJson('/api/document-categories/1')->assertStatus(401);
             $this->putJson('/api/document-categories/1', [])->assertStatus(401);
@@ -32,32 +30,43 @@ describe('document category CRUD', function () {
             DocumentCategory::factory()->create(['name' => 'First', 'sort_order' => 1]);
 
             $this->actingAs($user)
-                ->getJson('/api/document-categories?type=employee')
+                ->getJson('/api/document-categories')
                 ->assertStatus(200)
                 ->assertJsonCount(2, 'data')
                 ->assertJsonPath('data.0.name', 'First')
                 ->assertJsonPath('data.1.name', 'Second');
         });
 
-        it('filters by type', function () {
+        it('includes only parent categories by default', function () {
             $user = createUserWithPermissions(['document-category.view', 'document-category.manage']);
-            DocumentCategory::factory()->create(['name' => 'Employee Cat', 'sort_order' => 1, 'documentable_type' => Employee::class]);
-            DocumentCategory::factory()->create(['name' => 'Other Cat', 'sort_order' => 2, 'documentable_type' => 'App\Domains\SomeOther\Models\Something']);
+            $parent = DocumentCategory::factory()->create(['name' => 'Parent']);
+            $child = DocumentCategory::factory()->create(['name' => 'Child', 'parent_id' => $parent->id]);
 
             $this->actingAs($user)
-                ->getJson('/api/document-categories?type=employee')
+                ->getJson('/api/document-categories')
                 ->assertStatus(200)
                 ->assertJsonCount(1, 'data')
-                ->assertJsonPath('data.0.name', 'Employee Cat');
+                ->assertJsonPath('data.0.name', 'Parent');
         });
 
-        it('returns all categories for unknown type', function () {
+        it('includes all categories when all param is true', function () {
+            $user = createUserWithPermissions(['document-category.view', 'document-category.manage']);
+            $parent = DocumentCategory::factory()->create(['name' => 'Parent']);
+            DocumentCategory::factory()->create(['name' => 'Child', 'parent_id' => $parent->id]);
+
+            $this->actingAs($user)
+                ->getJson('/api/document-categories?all=1')
+                ->assertStatus(200)
+                ->assertJsonCount(2, 'data');
+        });
+
+        it('returns all categories with all param', function () {
             $user = createUserWithPermissions(['document-category.view', 'document-category.manage']);
             DocumentCategory::factory()->create(['name' => 'Custom A']);
             DocumentCategory::factory()->create(['name' => 'Custom B']);
 
             $response = $this->actingAs($user)
-                ->getJson('/api/document-categories?type=nonexistent')
+                ->getJson('/api/document-categories?all=1')
                 ->assertStatus(200);
 
             $names = collect($response->json('data'))->pluck('name')->toArray();
@@ -74,7 +83,7 @@ describe('document category CRUD', function () {
                 ->assertStatus(200)
                 ->assertJsonStructure([
                     'data' => [
-                        '*' => ['id', 'name', 'slug', 'sort_order', 'documentable_type', 'documents_count'],
+                        '*' => ['id', 'name', 'slug', 'sort_order', 'documents_count'],
                     ],
                 ]);
         });
@@ -117,7 +126,7 @@ describe('document category CRUD', function () {
             $this->actingAs($user)
                 ->postJson('/api/document-categories', [])
                 ->assertStatus(422)
-                ->assertJsonValidationErrors(['name', 'slug', 'documentable_type']);
+                ->assertJsonValidationErrors(['name', 'slug']);
         });
     });
 

@@ -21,10 +21,7 @@ class DocumentFactory extends Factory
             'documentable_id' => Employee::factory(),
             'documentable_type' => Employee::class,
             'document_category_id' => DocumentCategory::factory(),
-            'original_name' => fake()->word().'.pdf',
-            'stored_path' => 'employee-documents/'.fake()->uuid().'.pdf',
-            'mime_type' => 'application/pdf',
-            'file_size' => fake()->numberBetween(1024, 5_242_880),
+            'status' => Document::STATUS_PENDING,
             'uploaded_by' => User::factory(),
         ];
     }

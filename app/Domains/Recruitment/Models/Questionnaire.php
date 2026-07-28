@@ -3,16 +3,16 @@
 namespace App\Domains\Recruitment\Models;
 
 use App\Contracts\Documentable;
-use App\Domains\Document\Models\Document;
+use App\Contracts\DocumentableTrait;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
 
 class Questionnaire extends Model implements Documentable
 {
+    use DocumentableTrait;
     use SoftDeletes;
 
     protected $fillable = [
@@ -69,15 +69,9 @@ class Questionnaire extends Model implements Documentable
         return $this->belongsTo(User::class, 'reviewed_by');
     }
 
-    /** @return MorphMany<Document, $this> */
-    public function documents(): MorphMany
+    public function getDocumentConfigKey(): ?string
     {
-        return $this->morphMany(Document::class, 'documentable');
-    }
-
-    public function getDocumentIdentifier(): string
-    {
-        return $this->uuid;
+        return 'recruitment';
     }
 
     public function isDraft(): bool

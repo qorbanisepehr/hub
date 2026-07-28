@@ -60,8 +60,9 @@ return [
             'permissions' => [
                 'viewAny' => ['document.view_own', 'document.view_all'],
                 'view' => ['own' => 'document.view_own', 'all' => 'document.view_all'],
-                'upload' => ['document.upload_own', 'document.upload_all'],
+                'create' => ['document.upload_own', 'document.upload_all'],
                 'download' => ['own' => 'document.download_own', 'all' => 'document.download_all'],
+                'update' => ['own' => 'document.update_own', 'all' => 'document.update_all'],
                 'delete' => ['own' => 'document.delete_own', 'all' => 'document.delete_all'],
                 'scopeOwn' => ['own' => 'document.view_own', 'all' => 'document.view_all'],
             ],
