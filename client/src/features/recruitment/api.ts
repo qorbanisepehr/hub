@@ -18,22 +18,15 @@ export function getQuestionnaire(uuid: string) {
     return api.get<{ data: Questionnaire }>(`/questionnaire/${uuid}`);
 }
 
-export function saveQuestionnaire(
+export function saveQuestionnaireSection(
     uuid: string,
-    data: {
-        email?: string;
-        mobile?: string;
-        personal_info?: Questionnaire["personal_info"];
-        contact_info?: Questionnaire["contact_info"];
-        education?: Questionnaire["education"];
-        work_experience?: Questionnaire["work_experience"];
-        skills?: Questionnaire["skills"];
-        training?: Questionnaire["training"];
-        additional_info?: Questionnaire["additional_info"];
-        job_request?: Questionnaire["job_request"];
-    }
+    section: string,
+    data: Record<string, unknown>,
 ) {
-    return api.put<SaveQuestionnaireResponse>(`/questionnaire/${uuid}`, data);
+    return api.put<SaveQuestionnaireResponse>(
+        `/questionnaire/${uuid}/sections/${section}`,
+        data,
+    );
 }
 
 export function sendMobileOtp(uuid: string) {
@@ -58,10 +51,9 @@ export function verifyEmailOtp(uuid: string, otp: string) {
     );
 }
 
-export function submitQuestionnaire(uuid: string, data: Record<string, unknown>) {
+export function submitQuestionnaire(uuid: string) {
     return api.post<{ data: Questionnaire; message: string }>(
         `/questionnaire/${uuid}/submit`,
-        data
     );
 }
 

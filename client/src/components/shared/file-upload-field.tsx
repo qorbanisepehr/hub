@@ -1,19 +1,19 @@
 "use client";
 
 import * as React from "react";
-import { IconLoader2, IconUpload } from "@tabler/icons-react";
+import { IconLoader2, IconUpload, IconFile } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
 import { ConfirmDeleteButton } from "@/components/ui/confirm-delete-button";
-import { DocumentThumbnail } from "@/components/shared/document-thumbnail";
+import { FileThumbnail } from "@/components/ui/file-thumbnail";
 import { documentKeys } from "@/lib/query-keys";
 import { useQuestionnaireDocuments } from "@/features/recruitment/hooks/use-questionnaire-documents";
+import type { QuestionnaireDocument } from "@/features/recruitment/hooks/use-questionnaire-documents";
 import { fetchDocumentCategories } from "@/features/documents/api";
-import type { Document, DocumentCategory } from "@/features/documents/types";
-import { getDocOriginalName, getDocMimeType, getDocFileSizeFormatted, getDocServeUrl, getDocDownloadUrl } from "@/features/documents/types";
+import type { DocumentCategory } from "@/features/documents/types";
 
 type FileUploadFieldProps = {
     uuid: string;
@@ -27,8 +27,13 @@ type FileUploadFieldProps = {
     categoryType?: string;
     aspectRatio?: number;
     className?: string;
-    onUploadComplete?: (doc: Document) => void;
+    onUploadComplete?: (doc: QuestionnaireDocument) => void;
 };
+
+const DEFAULT_ACCEPT = [
+    ".pdf", ".jpg", ".jpeg", ".png", ".webp",
+    "application/pdf", "image/jpeg", "image/png", "image/webp",
+].join(",");
 
 function formatBytes(bytes: number) {
     if (bytes === 0) return "0 بایت";
@@ -40,10 +45,9 @@ function formatBytes(bytes: number) {
     return `${(bytes / 1024 ** index).toFixed(index === 0 ? 0 : 1)} ${units[index]}`;
 }
 
-const DEFAULT_ACCEPT = [
-    ".pdf", ".jpg", ".jpeg", ".png", ".webp",
-    "application/pdf", "image/jpeg", "image/png", "image/webp",
-].join(",");
+function isImageMime(mime: string): boolean {
+    return mime.startsWith("image/");
+}
 
 export function FileUploadField({
     uuid,
@@ -95,18 +99,22 @@ export function FileUploadField({
             formData.append("document_category_id", String(categoryId));
             formData.append("file", file);
             if (recordKey) {
-                formData.append("meta", JSON.stringify({ recordKey }));
+                formData.append("record_key", recordKey);
             } else if (notes) {
                 formData.append("notes", notes);
             }
             return api
-                .post<{ data: Document }>(`/questionnaire/${uuid}/documents`, formData, {
-                    headers: { "Content-Type": "multipart/form-data" },
-                })
+                .post<{ data: QuestionnaireDocument }>(
+                    `/questionnaire/${uuid}/documents`,
+                    formData,
+                    { headers: { "Content-Type": "multipart/form-data" } },
+                )
                 .then((r) => r.data.data);
         },
         onSuccess: (doc) => {
-            queryClient.invalidateQueries({ queryKey: ["questionnaire-documents", uuid] });
+            queryClient.invalidateQueries({
+                queryKey: ["questionnaire-documents", uuid],
+            });
             onUploadComplete?.(doc);
         },
         onError: () => {
@@ -118,7 +126,9 @@ export function FileUploadField({
         mutationFn: (docId: number) =>
             api.delete(`/questionnaire/${uuid}/documents/${docId}`),
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["questionnaire-documents", uuid] });
+            queryClient.invalidateQueries({
+                queryKey: ["questionnaire-documents", uuid],
+            });
             toast.success("فایل حذف شد");
         },
         onError: () => {
@@ -136,7 +146,9 @@ export function FileUploadField({
         [uploadMutation],
     );
 
-    const canUpload = multiple ? categoryDocs.length < maxFiles : categoryDocs.length === 0;
+    const canUpload = multiple
+        ? categoryDocs.length < maxFiles
+        : categoryDocs.length === 0;
 
     return (
         <div className={cn("space-y-2", className)}>
@@ -160,7 +172,10 @@ export function FileUploadField({
                     }}
                     onDragLeave={(e) => {
                         e.preventDefault();
-                        dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
+                        dragDepthRef.current = Math.max(
+                            0,
+                            dragDepthRef.current - 1,
+                        );
                         if (dragDepthRef.current === 0) setIsDragging(false);
                     }}
                     onDragOver={(e) => e.preventDefault()}
@@ -204,19 +219,32 @@ export function FileUploadField({
                             key={doc.id}
                             className="flex items-center gap-3 border-b px-3 py-2 last:border-b-0"
                         >
-                            <DocumentThumbnail
-                                document={doc}
-                                variant="compact"
-                                size="sm"
-                                aspectRatio={aspectRatio}
-                                showName
-                                showSize
-                            />
-                            <div className="flex-1" />
+                            {isImageMime(doc.mime_type) ? (
+                                <FileThumbnail
+                                    file={{ name: doc.original_name, type: doc.mime_type }}
+                                    previewImageUrl={doc.url}
+                                    className="size-10 rounded-none border-0 shrink-0"
+                                    previewClassName="aspect-square"
+                                />
+                            ) : (
+                                <div className="flex size-10 items-center justify-center rounded bg-muted shrink-0">
+                                    <IconFile className="size-5 text-muted-foreground" />
+                                </div>
+                            )}
+                            <div className="flex-1 min-w-0">
+                                <p className="truncate text-sm">
+                                    {doc.original_name}
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                    {formatBytes(doc.size)}
+                                </p>
+                            </div>
                             <ConfirmDeleteButton
                                 iconOnly
                                 isPending={deleteMutation.isPending}
-                                onConfirm={() => deleteMutation.mutate(doc.id)}
+                                onConfirm={() =>
+                                    deleteMutation.mutate(doc.id)
+                                }
                             />
                         </div>
                     ))}
