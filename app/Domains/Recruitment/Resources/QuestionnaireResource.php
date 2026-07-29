@@ -12,16 +12,15 @@ use Illuminate\Http\Resources\Json\JsonResource;
 /** @property-read string $last_name */
 /** @property-read string $email */
 /** @property-read string $mobile */
-/** @property-read array|null $personal_info */
-/** @property-read array|null $education */
-/** @property-read array|null $work_experience */
-/** @property-read array|null $skills */
-/** @property-read array|null $training */
-/** @property-read array|null $additional_info */
-/** @property-read array|null $job_request */
-/** @property-read array|null $review */
-/** @property-read bool $mobile_verified */
-/** @property-read bool $email_verified */
+/** @property-read int $version */
+/** @property-read array|null $section_personal */
+/** @property-read array|null $section_contact_address */
+/** @property-read array|null $section_education */
+/** @property-read array|null $section_work_experience */
+/** @property-read array|null $section_skills */
+/** @property-read array|null $section_training */
+/** @property-read array|null $section_additional_info */
+/** @property-read array|null $section_job_request */
 class QuestionnaireResource extends JsonResource
 {
     public function toArray(Request $request): array
@@ -30,19 +29,19 @@ class QuestionnaireResource extends JsonResource
             'id' => $this->id,
             'uuid' => $this->uuid,
             'status' => $this->status,
+            'version' => $this->version,
             'first_name' => $this->first_name,
             'last_name' => $this->last_name,
             'email' => $this->email,
             'mobile' => $this->mobile,
-            'personal_info' => $this->personal_info,
-            'contact_info' => $this->contact_info,
-            'education' => $this->education,
-            'work_experience' => $this->work_experience,
-            'skills' => $this->skills,
-            'training' => $this->training,
-            'additional_info' => $this->additional_info,
-            'job_request' => $this->job_request,
-            'review' => $this->review,
+            'personal_info' => $this->section_personal,
+            'contact_info' => $this->section_contact_address,
+            'education' => $this->section_education,
+            'work_experience' => $this->section_work_experience,
+            'skills' => $this->section_skills,
+            'training' => $this->section_training,
+            'additional_info' => $this->section_additional_info,
+            'job_request' => $this->section_job_request,
             'mobile_verified' => $this->isMobileVerified(),
             'email_verified' => $this->isEmailVerified(),
             'created_at' => $this->created_at?->toISOString(),

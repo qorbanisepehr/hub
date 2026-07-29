@@ -2,14 +2,14 @@
 
 namespace App\Contracts;
 
-use App\Domains\Document\Models\Document;
+use App\Domains\Document\Models\DocumentUsage;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\MorphMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 interface Documentable
 {
-    /** @return MorphMany<Document, $this> */
-    public function documents(): MorphMany;
+    /** @return HasMany<DocumentUsage, $this> */
+    public function documentUsages(): HasMany;
 
     public function getDocumentRouteType(): string;
 

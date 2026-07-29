@@ -39,7 +39,6 @@ class DocumentCategoryController extends ApiController
                     $q2->orderBy('sort_order');
                 }]);
             }])
-            ->withCount('documents')
             ->orderBy('sort_order')
             ->get();
 
@@ -55,8 +54,6 @@ class DocumentCategoryController extends ApiController
 
     public function show(DocumentCategory $documentCategory): DocumentCategoryResource
     {
-        $documentCategory->loadCount('documents');
-
         return new DocumentCategoryResource($documentCategory);
     }
 

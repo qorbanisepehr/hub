@@ -3,19 +3,26 @@
 namespace App\Domains\Document\Controllers;
 
 use App\Domains\Document\Models\Document;
+use App\Domains\Document\Models\DocumentCategory;
 use App\Domains\Document\Requests\StoreDocumentRequest;
 use App\Domains\Document\Resources\DocumentResource;
 use App\Domains\Document\Services\DocumentService;
+use App\Domains\Employee\Models\Employee;
+use App\Domains\Recruitment\Models\Questionnaire;
 use App\Http\Controllers\ApiController;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
-use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class DocumentController extends ApiController
 {
+    private const ROUTE_TYPE_MAP = [
+        'employee' => Employee::class,
+        'questionnaire' => Questionnaire::class,
+    ];
+
     public function __construct(
         private readonly DocumentService $documentService,
     ) {
@@ -24,24 +31,20 @@ class DocumentController extends ApiController
 
     public function index(Request $request): AnonymousResourceCollection
     {
-        $query = Document::with(['category', 'currentRevision', 'uploader']);
+        $query = Document::query()
+            ->with(['usages', 'usages.document'])
+            ->whereHas('usages', function ($q) use ($request) {
+                if ($type = $request->input('type')) {
+                    $class = self::ROUTE_TYPE_MAP[$type] ?? null;
+                    if ($class) {
+                        $q->where('entity_type', $class);
+                    }
+                }
 
-        if ($type = $request->input('type')) {
-            $class = Document::routeTypeMap()[$type] ?? null;
-            if ($class) {
-                $query->where('documentable_type', $class);
-            }
-        }
-
-        if ($recordKey = $request->input('record_key')) {
-            $query->where('record_key', $recordKey);
-        }
-
-        if ($status = $request->input('status')) {
-            $query->where('status', $status);
-        }
-
-        $this->scopeQuery($query, $request, 'uploaded_by');
+                if ($recordKey = $request->input('record_key')) {
+                    $q->where('record_key', $recordKey);
+                }
+            });
 
         $documents = $query->latest()->paginate($request->input('per_page', 50));
 
@@ -52,30 +55,31 @@ class DocumentController extends ApiController
     {
         $type = $request->input('documentable_type');
         $id = $request->input('documentable_id');
-        $class = Document::routeTypeMap()[$type] ?? null;
+        $class = self::ROUTE_TYPE_MAP[$type] ?? null;
 
         if ($class === null) {
-            abort(422, __('document.invalid_documentable_type'));
+            abort(422, 'Invalid documentable type.');
         }
 
         $owner = $class::query()->findOrFail($id);
 
-        $document = $this->documentService->upload($owner, $request->file('file'), [
-            'document_category_id' => $request->document_category_id,
-            'notes' => $request->notes,
-            'meta' => $request->filled('meta') ? json_decode($request->meta, true) : null,
-            'record_key' => $request->record_key,
-            'form_data' => $request->filled('form_data') ? json_decode($request->form_data, true) : null,
-        ]);
+        $category = DocumentCategory::find(
+            $request->input('document_category_id'),
+        );
 
-        $document->load(['category', 'currentRevision', 'uploader']);
+        $document = $this->documentService->upload(
+            $owner,
+            $request->file('file'),
+            $category?->slug ?? 'general',
+            $request->input('record_key'),
+        );
 
         return new DocumentResource($document);
     }
 
     public function show(Document $document): DocumentResource
     {
-        $document->load(['category', 'currentRevision', 'uploader', 'revisions']);
+        $document->load('usages');
 
         return new DocumentResource($document);
     }
@@ -84,85 +88,42 @@ class DocumentController extends ApiController
     {
         $this->documentService->delete($document);
 
-        return response()->json(['message' => __('document.document_deleted')]);
+        return response()->json(['message' => 'Document deleted permanently.']);
     }
 
     public function trashed(Request $request): AnonymousResourceCollection
     {
-        $query = Document::onlyTrashed()
-            ->with(['category', 'currentRevision', 'uploader']);
-
-        if ($type = $request->input('type')) {
-            $class = Document::routeTypeMap()[$type] ?? null;
-            if ($class) {
-                $query->where('documentable_type', $class);
-            }
-        }
-
-        $this->scopeQuery($query, $request, 'uploaded_by');
-
-        $documents = $query->latest('deleted_at')->paginate($request->input('per_page', 50));
-
-        return DocumentResource::collection($documents);
+        return DocumentResource::collection(
+            Document::query()->whereRaw('1 = 0')->paginate(),
+        );
     }
 
-    public function restore(int $id): DocumentResource
+    public function restore(int $id): JsonResponse
     {
-        $document = Document::onlyTrashed()->findOrFail($id);
-
-        $document->restore();
-
-        $document->load(['category', 'currentRevision', 'uploader']);
-
-        return new DocumentResource($document);
+        abort(404, 'Restore is not supported. Documents are permanently deleted.');
     }
 
     public function forceDestroy(int $id): JsonResponse
     {
-        $document = Document::onlyTrashed()->findOrFail($id);
+        $document = Document::findOrFail($id);
 
-        $this->documentService->forceDelete($document);
+        $this->documentService->delete($document);
 
-        return response()->json(['message' => __('document.document_force_deleted')]);
-    }
-
-    public function download(Document $document, Request $request): StreamedResponse
-    {
-        Gate::forUser($request->user())->authorize('download', $document);
-
-        $revision = $document->currentRevision;
-
-        if ($revision === null) {
-            abort(404);
-        }
-
-        $disk = config('documents.storage_disk');
-
-        if (! Storage::disk($disk)->exists($revision->stored_path)) {
-            abort(404);
-        }
-
-        $extension = pathinfo($revision->original_name, PATHINFO_EXTENSION);
-        $filename = $document->category?->slug
-            .($extension ? '.'.$extension : '');
-
-        return Storage::disk($disk)->download($revision->stored_path, $filename);
+        return response()->json(['message' => 'Document deleted permanently.']);
     }
 
     public function serve(Document $document, Request $request): StreamedResponse
     {
-        Gate::forUser($request->user())->authorize('download', $document);
+        $disk = $document->disk;
+        $path = $document->path;
 
-        $revision = $document->currentRevision;
+        if ($request->boolean('thumbnail')) {
+            $thumbPath = $this->getThumbnailPath($path);
 
-        if ($revision === null) {
-            abort(404);
+            if (Storage::disk($disk)->exists($thumbPath)) {
+                return Storage::disk($disk)->response($thumbPath);
+            }
         }
-
-        $disk = config('documents.storage_disk');
-
-        $useThumbnail = $request->boolean('thumbnail') && $revision->thumbnail_path;
-        $path = $useThumbnail ? $revision->thumbnail_path : $revision->stored_path;
 
         if (! Storage::disk($disk)->exists($path)) {
             abort(404);
@@ -171,29 +132,27 @@ class DocumentController extends ApiController
         return Storage::disk($disk)->response($path);
     }
 
-    public function confirm(Document $document, Request $request): DocumentResource
+    public function download(Document $document, Request $request): StreamedResponse
     {
-        $document = $this->documentService->confirm(
-            $document,
-            $request->input('notes'),
-        );
+        $disk = $document->disk;
+        $path = $document->path;
 
-        $document->load(['category', 'currentRevision', 'uploader']);
+        if (! Storage::disk($disk)->exists($path)) {
+            abort(404);
+        }
 
-        return new DocumentResource($document);
+        $extension = pathinfo($document->original_name, PATHINFO_EXTENSION);
+        $filename = $document->original_name;
+
+        return Storage::disk($disk)->download($path, $filename);
     }
 
-    public function reject(Document $document, Request $request): DocumentResource
+    private function getThumbnailPath(string $originalPath): string
     {
-        $request->validate(['reason' => ['required', 'string', 'max:1000']]);
+        $dir = pathinfo($originalPath, PATHINFO_DIRNAME);
+        $name = pathinfo($originalPath, PATHINFO_FILENAME);
+        $ext = pathinfo($originalPath, PATHINFO_EXTENSION);
 
-        $document = $this->documentService->reject(
-            $document,
-            $request->reason,
-        );
-
-        $document->load(['category', 'currentRevision', 'uploader']);
-
-        return new DocumentResource($document);
+        return "{$dir}/{$name}_thumb.{$ext}";
     }
 }

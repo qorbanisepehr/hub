@@ -5,96 +5,108 @@ namespace App\Domains\Document\Services;
 use App\Contracts\Documentable;
 use App\Domains\Document\Jobs\GenerateDocumentThumbnail;
 use App\Domains\Document\Models\Document;
-use App\Domains\Document\Models\DocumentCategory;
-use App\Domains\Recruitment\Models\Questionnaire;
+use App\Domains\Document\Repositories\DocumentRepositoryInterface;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Hash;
 
 class DocumentService
 {
-    public function upload(Documentable $owner, UploadedFile $file, array $data = []): Document
-    {
-        $categoryId = $data['document_category_id'];
-        $category = DocumentCategory::findOrFail($categoryId);
-        $categorySlug = $category->slug;
-        $disk = config('documents.storage_disk');
+    public function __construct(
+        private DocumentRepositoryInterface $repository,
+    ) {}
 
-        $prefix = $owner->getDocumentRouteType();
-        $identifier = $this->getIdentifier($owner);
-        $storedPath = $file->store(
-            "$prefix/$identifier/documents/$categorySlug",
-            $disk,
-        );
+    /**
+     * Upload and attach a document to an entity.
+     */
+    public function upload(
+        Documentable $entity,
+        UploadedFile $file,
+        string $categorySlug,
+        ?string $recordKey = null,
+        ?string $slot = null,
+    ): Document {
+        $disk = config('documents.storage_disk', 'local');
+        $hash = hash_file('sha256', $file->getRealPath());
 
-        $document = $owner->documents()->create([
-            'document_category_id' => $categoryId,
-            'status' => Document::STATUS_PENDING,
-            'notes' => $data['notes'] ?? null,
-            'meta' => $data['meta'] ?? null,
-            'uploaded_by' => $data['uploaded_by'] ?? auth()->id(),
-        ]);
+        // Check for duplicate by hash
+        $existing = $this->repository->findByHash($hash);
 
-        $revision = $document->revisions()->create([
-            'stored_path' => $storedPath,
-            'original_name' => $file->getClientOriginalName(),
-            'mime_type' => $file->getMimeType(),
-            'file_size' => $file->getSize(),
-            'form_data' => $data['form_data'] ?? null,
-            'uploaded_by' => $data['uploaded_by'] ?? auth()->id(),
-        ]);
+        if ($existing) {
+            $document = $existing;
+        } else {
+            $prefix = $entity->getDocumentRouteType();
+            $identifier = $this->getIdentifier($entity);
+            $storedPath = $file->store(
+                "{$prefix}/{$identifier}/documents/{$categorySlug}",
+                $disk,
+            );
 
-        $document->updateQuietly(['current_revision_id' => $revision->id]);
+            $document = $this->repository->create([
+                'original_name' => $file->getClientOriginalName(),
+                'mime_type' => $file->getMimeType(),
+                'size' => $file->getSize(),
+                'disk' => $disk,
+                'path' => $storedPath,
+                'hash' => $hash,
+            ]);
 
-        GenerateDocumentThumbnail::dispatch($document);
-
-        return $document->load(['category', 'currentRevision', 'uploader']);
-    }
-
-    public function delete(Document $document): void
-    {
-        $document->delete();
-    }
-
-    public function forceDelete(Document $document): void
-    {
-        $disk = config('documents.storage_disk');
-
-        foreach ($document->revisions as $revision) {
-            Storage::disk($disk)->delete(array_filter([
-                $revision->stored_path,
-                $revision->thumbnail_path,
-            ]));
+            // Generate thumbnail for images in the background
+            if (str_starts_with($document->mime_type, 'image/')) {
+                GenerateDocumentThumbnail::dispatch($document);
+            }
         }
 
-        $document->forceDelete();
+        // Attach usage
+        $this->repository->attachUsage($document, $entity, $categorySlug, $recordKey, $slot);
+
+        return $document->load('usages');
     }
 
-    public function confirm(Document $document, ?string $notes = null): Document
+    /**
+     * Remove document usage (unlink from entity, but keep the file if shared).
+     */
+    public function detach(Document $document, Documentable $entity): bool
     {
-        $document->update([
-            'status' => Document::STATUS_CONFIRMED,
-            'notes' => $notes ?? $document->notes,
-        ]);
-
-        return $document->fresh()->load(['currentRevision', 'category']);
+        return $this->repository->detachUsage($document, $entity);
     }
 
-    public function reject(Document $document, string $reason): Document
+    /**
+     * Delete document completely (file + usages + record).
+     */
+    public function delete(Document $document): bool
     {
-        $document->update([
-            'status' => Document::STATUS_REJECTED,
-            'notes' => $reason,
-        ]);
-
-        return $document->fresh()->load(['currentRevision', 'category']);
+        return $this->repository->deleteDocument($document);
     }
 
-    private function getIdentifier(Documentable $owner): string
+    /**
+     * Get all documents for an entity, optionally filtered by category.
+     *
+     * @return Collection
+     */
+    public function getForEntity(Documentable $entity, ?string $categorySlug = null)
     {
-        if ($owner instanceof Questionnaire) {
-            return $owner->uuid;
+        return $this->repository->getForEntity($entity, $categorySlug);
+    }
+
+    /**
+     * Clean up orphaned documents (no usages).
+     *
+     * @return Collection
+     */
+    public function cleanupOrphans()
+    {
+        $orphans = $this->repository->getOrphans();
+
+        foreach ($orphans as $document) {
+            $this->repository->deleteDocument($document);
         }
 
-        return (string) $owner->getKey();
+        return $orphans;
+    }
+
+    private function getIdentifier(Documentable $entity): string
+    {
+        return $entity->uuid ?? (string) $entity->getKey();
     }
 }

@@ -1,6 +1,7 @@
 <?php
 
 use App\Domains\Recruitment\Models\Questionnaire;
+use App\Domains\Recruitment\Services\QuestionnaireService;
 
 /**
  * Helper: create a draft questionnaire and return its UUID.
@@ -18,6 +19,17 @@ function createDraft(): string
         'mobile_verified_at' => now(),
         'email_verified_at' => now(),
     ])->uuid;
+}
+
+/**
+ * Helper: save a section directly to DB for submit testing.
+ */
+function saveSectionToDb(string $uuid, string $sectionKey, array $data): void
+{
+    $questionnaire = Questionnaire::where('uuid', $uuid)->first();
+    $service = app(QuestionnaireService::class);
+    $section = $service->getSection($sectionKey);
+    $questionnaire->update([$section->storage()['jsonb'] => $data]);
 }
 
 describe('Questionnaire validation', function () {
@@ -97,20 +109,18 @@ describe('Questionnaire validation', function () {
     });
 
     // ────────────────────────────────────────
-    //  SaveQuestionnaireRequest (step-by-step)
+    //  Section-based save (structural validation)
     // ────────────────────────────────────────
     describe('save', function () {
         it('validates personal_info fields', function () {
             $uuid = createDraft();
 
-            $this->putJson("/api/questionnaire/{$uuid}", [
-                'personal_info' => [
-                    'gender' => 'invalid',
-                    'blood_group' => 'X+',
-                    'marital_status' => 'unknown',
-                    'national_id' => str_repeat('1', 11),
-                    'spouse_employment_status' => 'invalid',
-                ],
+            $this->putJson("/api/questionnaire/{$uuid}/sections/personal_info", [
+                'gender' => 'invalid',
+                'blood_group' => 'X+',
+                'marital_status' => 'unknown',
+                'national_id' => str_repeat('1', 11),
+                'spouse_employment_status' => 'invalid',
             ])->assertUnprocessable()
                 ->assertJsonValidationErrors([
                     'personal_info.gender',
@@ -124,11 +134,9 @@ describe('Questionnaire validation', function () {
         it('validates military_status sub-fields', function () {
             $uuid = createDraft();
 
-            $this->putJson("/api/questionnaire/{$uuid}", [
-                'personal_info' => [
-                    'military_status' => [
-                        'status' => 'invalid_status',
-                    ],
+            $this->putJson("/api/questionnaire/{$uuid}/sections/personal_info", [
+                'military_status' => [
+                    'status' => 'invalid_status',
                 ],
             ])->assertUnprocessable()
                 ->assertJsonValidationErrors(['personal_info.military_status.status']);
@@ -137,14 +145,12 @@ describe('Questionnaire validation', function () {
         it('validates education records wildcard rules', function () {
             $uuid = createDraft();
 
-            $this->putJson("/api/questionnaire/{$uuid}", [
-                'education' => [
-                    'education_records' => [
-                        [
-                            'degree' => str_repeat('D', 51),
-                            'field' => str_repeat('F', 101),
-                            'institution' => str_repeat('I', 101),
-                        ],
+            $this->putJson("/api/questionnaire/{$uuid}/sections/education", [
+                'education_records' => [
+                    [
+                        'degree' => str_repeat('D', 51),
+                        'field' => str_repeat('F', 101),
+                        'institution' => str_repeat('I', 101),
                     ],
                 ],
             ])->assertUnprocessable()
@@ -158,11 +164,9 @@ describe('Questionnaire validation', function () {
         it('validates education student conditional fields', function () {
             $uuid = createDraft();
 
-            $this->putJson("/api/questionnaire/{$uuid}", [
-                'education' => [
-                    'is_student' => true,
-                    'student_degree' => str_repeat('D', 51),
-                ],
+            $this->putJson("/api/questionnaire/{$uuid}/sections/education", [
+                'is_student' => true,
+                'student_degree' => str_repeat('D', 51),
             ])->assertUnprocessable()
                 ->assertJsonValidationErrors(['education.student_degree']);
         });
@@ -170,14 +174,12 @@ describe('Questionnaire validation', function () {
         it('validates work experience wildcard rules', function () {
             $uuid = createDraft();
 
-            $this->putJson("/api/questionnaire/{$uuid}", [
-                'work_experience' => [
-                    'work_experiences' => [
-                        [
-                            'company' => str_repeat('C', 101),
-                            'position' => str_repeat('P', 101),
-                            'last_salary' => -1,
-                        ],
+            $this->putJson("/api/questionnaire/{$uuid}/sections/work_experience", [
+                'work_experiences' => [
+                    [
+                        'company' => str_repeat('C', 101),
+                        'position' => str_repeat('P', 101),
+                        'last_salary' => -1,
                     ],
                 ],
             ])->assertUnprocessable()
@@ -191,26 +193,24 @@ describe('Questionnaire validation', function () {
         it('validates skills wildcard rules', function () {
             $uuid = createDraft();
 
-            $this->putJson("/api/questionnaire/{$uuid}", [
-                'skills' => [
-                    'languages' => [
-                        [
-                            'language' => str_repeat('L', 51),
-                            'reading' => 5,
-                            'writing' => 0,
-                        ],
+            $this->putJson("/api/questionnaire/{$uuid}/sections/skills", [
+                'languages' => [
+                    [
+                        'language' => str_repeat('L', 51),
+                        'reading' => 5,
+                        'writing' => 0,
                     ],
-                    'software_skills' => [
-                        'specialized' => [
-                            ['name' => str_repeat('S', 101), 'level' => 5],
-                        ],
-                        'general' => [
-                            ['name' => str_repeat('G', 101), 'level' => 0],
-                        ],
+                ],
+                'software_skills' => [
+                    'specialized' => [
+                        ['name' => str_repeat('S', 101), 'level' => 5],
                     ],
-                    'certificates' => [
-                        ['title' => str_repeat('T', 101)],
+                    'general' => [
+                        ['name' => str_repeat('G', 101), 'level' => 0],
                     ],
+                ],
+                'certificates' => [
+                    ['title' => str_repeat('T', 101)],
                 ],
             ])->assertUnprocessable()
                 ->assertJsonValidationErrors([
@@ -228,14 +228,12 @@ describe('Questionnaire validation', function () {
         it('validates training wildcard rules', function () {
             $uuid = createDraft();
 
-            $this->putJson("/api/questionnaire/{$uuid}", [
-                'training' => [
-                    'training_courses' => [
-                        ['course_name' => str_repeat('C', 101), 'duration' => str_repeat('D', 51)],
-                    ],
-                    'researches' => [
-                        ['title' => str_repeat('T', 256)],
-                    ],
+            $this->putJson("/api/questionnaire/{$uuid}/sections/training", [
+                'training_courses' => [
+                    ['course_name' => str_repeat('C', 101), 'duration' => str_repeat('D', 51)],
+                ],
+                'researches' => [
+                    ['title' => str_repeat('T', 256)],
                 ],
             ])->assertUnprocessable()
                 ->assertJsonValidationErrors([
@@ -248,14 +246,12 @@ describe('Questionnaire validation', function () {
         it('validates additional_info wildcard rules', function () {
             $uuid = createDraft();
 
-            $this->putJson("/api/questionnaire/{$uuid}", [
-                'additional_info' => [
-                    'references' => [
-                        [
-                            'full_name' => str_repeat('N', 101),
-                            'relationship' => str_repeat('R', 51),
-                            'workplace_phone' => str_repeat('P', 16),
-                        ],
+            $this->putJson("/api/questionnaire/{$uuid}/sections/additional_info", [
+                'references' => [
+                    [
+                        'full_name' => str_repeat('N', 101),
+                        'relationship' => str_repeat('R', 51),
+                        'workplace_phone' => str_repeat('P', 16),
                     ],
                 ],
             ])->assertUnprocessable()
@@ -269,49 +265,43 @@ describe('Questionnaire validation', function () {
         it('allows null descriptions on save even when booleans are true (required only on submit)', function () {
             $uuid = createDraft();
 
-            $this->putJson("/api/questionnaire/{$uuid}", [
-                'additional_info' => [
-                    'has_chronic_disease' => true,
-                    'chronic_disease_description' => null,
-                    'has_major_surgery' => true,
-                    'major_surgery_description' => null,
-                    'has_disability' => true,
-                    'disability_description' => null,
-                    'can_travel' => true,
-                    'travel_description' => null,
-                    'has_criminal_record' => true,
-                    'criminal_record_description' => null,
-                ],
+            $this->putJson("/api/questionnaire/{$uuid}/sections/additional_info", [
+                'has_chronic_disease' => true,
+                'chronic_disease_description' => null,
+                'has_major_surgery' => true,
+                'major_surgery_description' => null,
+                'has_disability' => true,
+                'disability_description' => null,
+                'can_travel' => true,
+                'travel_description' => null,
+                'has_criminal_record' => true,
+                'criminal_record_description' => null,
             ])->assertOk();
         });
 
         it('allows null descriptions when booleans are false', function () {
             $uuid = createDraft();
 
-            $this->putJson("/api/questionnaire/{$uuid}", [
-                'additional_info' => [
-                    'has_chronic_disease' => false,
-                    'chronic_disease_description' => null,
-                    'has_major_surgery' => false,
-                    'major_surgery_description' => null,
-                    'has_disability' => false,
-                    'disability_description' => null,
-                    'can_travel' => false,
-                    'travel_description' => null,
-                    'has_criminal_record' => false,
-                    'criminal_record_description' => null,
-                ],
+            $this->putJson("/api/questionnaire/{$uuid}/sections/additional_info", [
+                'has_chronic_disease' => false,
+                'chronic_disease_description' => null,
+                'has_major_surgery' => false,
+                'major_surgery_description' => null,
+                'has_disability' => false,
+                'disability_description' => null,
+                'can_travel' => false,
+                'travel_description' => null,
+                'has_criminal_record' => false,
+                'criminal_record_description' => null,
             ])->assertOk();
         });
 
         it('validates job_request in-rules', function () {
             $uuid = createDraft();
 
-            $this->putJson("/api/questionnaire/{$uuid}", [
-                'job_request' => [
-                    'employment_type' => 'invalid',
-                    'preferred_workplace' => ['invalid_place'],
-                ],
+            $this->putJson("/api/questionnaire/{$uuid}/sections/job_request", [
+                'employment_type' => 'invalid',
+                'preferred_workplace' => ['invalid_place'],
             ])->assertUnprocessable()
                 ->assertJsonValidationErrors([
                     'job_request.employment_type',
@@ -322,19 +312,24 @@ describe('Questionnaire validation', function () {
         it('validates integer min rules', function () {
             $uuid = createDraft();
 
-            $this->putJson("/api/questionnaire/{$uuid}", [
-                'personal_info' => [
-                    'dependents_count' => -1,
-                    'children_count' => -1,
-                ],
-                'education' => [
-                    'student_semester' => 0,
-                    'free_days_per_week' => 8,
-                ],
+            $this->putJson("/api/questionnaire/{$uuid}/sections/personal_info", [
+                'dependents_count' => -1,
+                'children_count' => -1,
             ])->assertUnprocessable()
                 ->assertJsonValidationErrors([
                     'personal_info.dependents_count',
                     'personal_info.children_count',
+                ]);
+        });
+
+        it('validates education integer min rules', function () {
+            $uuid = createDraft();
+
+            $this->putJson("/api/questionnaire/{$uuid}/sections/education", [
+                'student_semester' => 0,
+                'free_days_per_week' => 8,
+            ])->assertUnprocessable()
+                ->assertJsonValidationErrors([
                     'education.student_semester',
                     'education.free_days_per_week',
                 ]);
@@ -343,50 +338,36 @@ describe('Questionnaire validation', function () {
         it('accepts empty body (all fields are sometimes)', function () {
             $uuid = createDraft();
 
-            $this->putJson("/api/questionnaire/{$uuid}", [])
+            $this->putJson("/api/questionnaire/{$uuid}/sections/personal_info", [])
                 ->assertOk();
         });
 
         it('accepts valid personal_info data', function () {
             $uuid = createDraft();
 
-            $this->putJson("/api/questionnaire/{$uuid}", [
-                'personal_info' => [
-                    'gender' => 'male',
-                    'blood_group' => 'A+',
-                    'birth_date' => '1990-01-15',
-                    'birth_place' => 'Tehran',
-                    'father_name' => 'Ahmad',
-                    'religion' => 'Islam',
-                    'marital_status' => 'single',
-                    'national_id' => '0123456789',
-                ],
+            $this->putJson("/api/questionnaire/{$uuid}/sections/personal_info", [
+                'gender' => 'male',
+                'blood_group' => 'A+',
+                'birth_date' => '1990-01-15',
+                'birth_place' => 'Tehran',
+                'father_name' => 'Ahmad',
+                'religion' => 'Islam',
+                'marital_status' => 'single',
+                'national_id' => '0123456789',
             ])->assertOk();
         });
     });
 
     // ────────────────────────────────────────
-    //  SubmitQuestionnaireRequest
+    //  SubmitQuestionnaireRequest (completion validation — reads from DB)
     // ────────────────────────────────────────
     describe('submit', function () {
-        it('requires all top-level fields', function () {
-            $uuid = createDraft();
-
-            $this->postJson("/api/questionnaire/{$uuid}/submit", [])
-                ->assertUnprocessable()
-                ->assertJsonValidationErrors([
-                    'first_name', 'last_name', 'email', 'mobile',
-                    'personal_info', 'contact_info', 'education', 'work_experience',
-                    'skills', 'training', 'additional_info', 'job_request',
-                ]);
-        });
-
         it('requires personal_info sub-fields', function () {
             $uuid = createDraft();
+            saveSectionToDb($uuid, 'personal_info', []);
 
-            $this->postJson("/api/questionnaire/{$uuid}/submit", validSubmitData([
-                'personal_info' => [],
-            ]))->assertUnprocessable()
+            $this->postJson("/api/questionnaire/{$uuid}/submit")
+                ->assertUnprocessable()
                 ->assertJsonValidationErrors([
                     'personal_info.gender',
                     'personal_info.blood_group',
@@ -397,10 +378,11 @@ describe('Questionnaire validation', function () {
 
         it('requires contact_info sub-fields', function () {
             $uuid = createDraft();
+            saveSectionToDb($uuid, 'personal_info', validPersonalInfo());
+            saveSectionToDb($uuid, 'contact_info', []);
 
-            $this->postJson("/api/questionnaire/{$uuid}/submit", validSubmitData([
-                'contact_info' => [],
-            ]))->assertUnprocessable()
+            $this->postJson("/api/questionnaire/{$uuid}/submit")
+                ->assertUnprocessable()
                 ->assertJsonValidationErrors([
                     'contact_info.phone',
                     'contact_info.emergency_phone',
@@ -410,14 +392,15 @@ describe('Questionnaire validation', function () {
 
         it('requires contact_info.address sub-fields', function () {
             $uuid = createDraft();
+            saveSectionToDb($uuid, 'personal_info', validPersonalInfo());
+            saveSectionToDb($uuid, 'contact_info', [
+                'phone' => '02112345678',
+                'emergency_phone' => '09121234567',
+                'address' => [],
+            ]);
 
-            $this->postJson("/api/questionnaire/{$uuid}/submit", validSubmitData([
-                'contact_info' => [
-                    'phone' => '02112345678',
-                    'emergency_phone' => '09121234567',
-                    'address' => [],
-                ],
-            ]))->assertUnprocessable()
+            $this->postJson("/api/questionnaire/{$uuid}/submit")
+                ->assertUnprocessable()
                 ->assertJsonValidationErrors([
                     'contact_info.address.postal_code',
                     'contact_info.address.province',
@@ -428,23 +411,27 @@ describe('Questionnaire validation', function () {
 
         it('requires education records', function () {
             $uuid = createDraft();
+            saveSectionToDb($uuid, 'personal_info', validPersonalInfo());
+            saveSectionToDb($uuid, 'contact_info', validContactInfo());
+            saveSectionToDb($uuid, 'education', ['education_records' => []]);
 
-            $this->postJson("/api/questionnaire/{$uuid}/submit", validSubmitData([
-                'education' => ['education_records' => []],
-            ]))->assertUnprocessable()
+            $this->postJson("/api/questionnaire/{$uuid}/submit")
+                ->assertUnprocessable()
                 ->assertJsonValidationErrors(['education.education_records']);
         });
 
         it('requires education record sub-fields', function () {
             $uuid = createDraft();
-
-            $this->postJson("/api/questionnaire/{$uuid}/submit", validSubmitData([
-                'education' => [
-                    'education_records' => [
-                        ['degree' => ''],
-                    ],
+            saveSectionToDb($uuid, 'personal_info', validPersonalInfo());
+            saveSectionToDb($uuid, 'contact_info', validContactInfo());
+            saveSectionToDb($uuid, 'education', [
+                'education_records' => [
+                    ['degree' => ''],
                 ],
-            ]))->assertUnprocessable()
+            ]);
+
+            $this->postJson("/api/questionnaire/{$uuid}/submit")
+                ->assertUnprocessable()
                 ->assertJsonValidationErrors([
                     'education.education_records.0.degree',
                     'education.education_records.0.field',
@@ -458,13 +445,20 @@ describe('Questionnaire validation', function () {
 
         it('requires student fields when is_student is true', function () {
             $uuid = createDraft();
+            saveSectionToDb($uuid, 'personal_info', validPersonalInfo());
+            saveSectionToDb($uuid, 'contact_info', validContactInfo());
+            saveSectionToDb($uuid, 'education', [
+                'education_records' => validEducationRecord(),
+                'is_student' => true,
+            ]);
+            saveSectionToDb($uuid, 'work_experience', validWorkExperience());
+            saveSectionToDb($uuid, 'skills', validSkills());
+            saveSectionToDb($uuid, 'training', validTraining());
+            saveSectionToDb($uuid, 'additional_info', validAdditionalInfo());
+            saveSectionToDb($uuid, 'job_request', validJobRequest());
 
-            $this->postJson("/api/questionnaire/{$uuid}/submit", validSubmitData([
-                'education' => [
-                    'education_records' => validEducationRecord(),
-                    'is_student' => true,
-                ],
-            ]))->assertUnprocessable()
+            $this->postJson("/api/questionnaire/{$uuid}/submit")
+                ->assertUnprocessable()
                 ->assertJsonValidationErrors([
                     'education.student_degree',
                     'education.student_field',
@@ -479,26 +473,40 @@ describe('Questionnaire validation', function () {
 
         it('requires thesis title when thesis_submitted is true', function () {
             $uuid = createDraft();
+            saveSectionToDb($uuid, 'personal_info', validPersonalInfo());
+            saveSectionToDb($uuid, 'contact_info', validContactInfo());
+            saveSectionToDb($uuid, 'education', [
+                'education_records' => validEducationRecord(),
+                'thesis_submitted' => true,
+            ]);
+            saveSectionToDb($uuid, 'work_experience', validWorkExperience());
+            saveSectionToDb($uuid, 'skills', validSkills());
+            saveSectionToDb($uuid, 'training', validTraining());
+            saveSectionToDb($uuid, 'additional_info', validAdditionalInfo());
+            saveSectionToDb($uuid, 'job_request', validJobRequest());
 
-            $this->postJson("/api/questionnaire/{$uuid}/submit", validSubmitData([
-                'education' => [
-                    'education_records' => validEducationRecord(),
-                    'thesis_submitted' => true,
-                ],
-            ]))->assertUnprocessable()
+            $this->postJson("/api/questionnaire/{$uuid}/submit")
+                ->assertUnprocessable()
                 ->assertJsonValidationErrors(['education.student_thesis_title']);
         });
 
         it('requires work experience sub-fields', function () {
             $uuid = createDraft();
-
-            $this->postJson("/api/questionnaire/{$uuid}/submit", validSubmitData([
-                'work_experience' => [
-                    'work_experiences' => [
-                        ['company' => ''],
-                    ],
+            saveSectionToDb($uuid, 'personal_info', validPersonalInfo());
+            saveSectionToDb($uuid, 'contact_info', validContactInfo());
+            saveSectionToDb($uuid, 'education', ['education_records' => validEducationRecord()]);
+            saveSectionToDb($uuid, 'work_experience', [
+                'work_experiences' => [
+                    ['company' => ''],
                 ],
-            ]))->assertUnprocessable()
+            ]);
+            saveSectionToDb($uuid, 'skills', validSkills());
+            saveSectionToDb($uuid, 'training', validTraining());
+            saveSectionToDb($uuid, 'additional_info', validAdditionalInfo());
+            saveSectionToDb($uuid, 'job_request', validJobRequest());
+
+            $this->postJson("/api/questionnaire/{$uuid}/submit")
+                ->assertUnprocessable()
                 ->assertJsonValidationErrors([
                     'work_experience.work_experiences.0.company',
                     'work_experience.work_experiences.0.position',
@@ -509,27 +517,41 @@ describe('Questionnaire validation', function () {
 
         it('requires language name when languages provided', function () {
             $uuid = createDraft();
-
-            $this->postJson("/api/questionnaire/{$uuid}/submit", validSubmitData([
-                'skills' => [
-                    'languages' => [
-                        ['language' => ''],
-                    ],
+            saveSectionToDb($uuid, 'personal_info', validPersonalInfo());
+            saveSectionToDb($uuid, 'contact_info', validContactInfo());
+            saveSectionToDb($uuid, 'education', ['education_records' => validEducationRecord()]);
+            saveSectionToDb($uuid, 'work_experience', validWorkExperience());
+            saveSectionToDb($uuid, 'skills', [
+                'languages' => [
+                    ['language' => ''],
                 ],
-            ]))->assertUnprocessable()
+            ]);
+            saveSectionToDb($uuid, 'training', validTraining());
+            saveSectionToDb($uuid, 'additional_info', validAdditionalInfo());
+            saveSectionToDb($uuid, 'job_request', validJobRequest());
+
+            $this->postJson("/api/questionnaire/{$uuid}/submit")
+                ->assertUnprocessable()
                 ->assertJsonValidationErrors(['skills.languages.0.language']);
         });
 
         it('requires reference sub-fields', function () {
             $uuid = createDraft();
-
-            $this->postJson("/api/questionnaire/{$uuid}/submit", validSubmitData([
-                'additional_info' => [
-                    'references' => [
-                        ['full_name' => ''],
-                    ],
+            saveSectionToDb($uuid, 'personal_info', validPersonalInfo());
+            saveSectionToDb($uuid, 'contact_info', validContactInfo());
+            saveSectionToDb($uuid, 'education', ['education_records' => validEducationRecord()]);
+            saveSectionToDb($uuid, 'work_experience', validWorkExperience());
+            saveSectionToDb($uuid, 'skills', validSkills());
+            saveSectionToDb($uuid, 'training', validTraining());
+            saveSectionToDb($uuid, 'additional_info', [
+                'references' => [
+                    ['full_name' => ''],
                 ],
-            ]))->assertUnprocessable()
+            ]);
+            saveSectionToDb($uuid, 'job_request', validJobRequest());
+
+            $this->postJson("/api/questionnaire/{$uuid}/submit")
+                ->assertUnprocessable()
                 ->assertJsonValidationErrors([
                     'additional_info.references.0.full_name',
                     'additional_info.references.0.relationship',
@@ -539,10 +561,17 @@ describe('Questionnaire validation', function () {
 
         it('requires job_request sub-fields', function () {
             $uuid = createDraft();
+            saveSectionToDb($uuid, 'personal_info', validPersonalInfo());
+            saveSectionToDb($uuid, 'contact_info', validContactInfo());
+            saveSectionToDb($uuid, 'education', ['education_records' => validEducationRecord()]);
+            saveSectionToDb($uuid, 'work_experience', validWorkExperience());
+            saveSectionToDb($uuid, 'skills', validSkills());
+            saveSectionToDb($uuid, 'training', validTraining());
+            saveSectionToDb($uuid, 'additional_info', validAdditionalInfo());
+            saveSectionToDb($uuid, 'job_request', []);
 
-            $this->postJson("/api/questionnaire/{$uuid}/submit", validSubmitData([
-                'job_request' => [],
-            ]))->assertUnprocessable()
+            $this->postJson("/api/questionnaire/{$uuid}/submit")
+                ->assertUnprocessable()
                 ->assertJsonValidationErrors([
                     'job_request.employment_type',
                     'job_request.accept_information',
@@ -553,97 +582,150 @@ describe('Questionnaire validation', function () {
 
         it('validates employment_type in-rule', function () {
             $uuid = createDraft();
+            saveSectionToDb($uuid, 'personal_info', validPersonalInfo());
+            saveSectionToDb($uuid, 'contact_info', validContactInfo());
+            saveSectionToDb($uuid, 'education', ['education_records' => validEducationRecord()]);
+            saveSectionToDb($uuid, 'work_experience', validWorkExperience());
+            saveSectionToDb($uuid, 'skills', validSkills());
+            saveSectionToDb($uuid, 'training', validTraining());
+            saveSectionToDb($uuid, 'additional_info', validAdditionalInfo());
+            saveSectionToDb($uuid, 'job_request', [
+                'employment_type' => 'invalid',
+                'accept_information' => true,
+                'job_priority_1' => 'Developer',
+                'available_start_date' => '2025-03-21',
+            ]);
 
-            $this->postJson("/api/questionnaire/{$uuid}/submit", validSubmitData([
-                'job_request' => [
-                    'employment_type' => 'invalid',
-                    'accept_information' => true,
-                    'job_priority_1' => 'Developer',
-                    'available_start_date' => '2025-03-21',
-                ],
-            ]))->assertUnprocessable()
+            $this->postJson("/api/questionnaire/{$uuid}/submit")
+                ->assertUnprocessable()
                 ->assertJsonValidationErrors(['job_request.employment_type']);
         });
 
         it('requires accept_information to be accepted (truthy)', function () {
             $uuid = createDraft();
+            saveSectionToDb($uuid, 'personal_info', validPersonalInfo());
+            saveSectionToDb($uuid, 'contact_info', validContactInfo());
+            saveSectionToDb($uuid, 'education', ['education_records' => validEducationRecord()]);
+            saveSectionToDb($uuid, 'work_experience', validWorkExperience());
+            saveSectionToDb($uuid, 'skills', validSkills());
+            saveSectionToDb($uuid, 'training', validTraining());
+            saveSectionToDb($uuid, 'additional_info', validAdditionalInfo());
+            saveSectionToDb($uuid, 'job_request', [
+                'employment_type' => 'full_time',
+                'accept_information' => false,
+                'job_priority_1' => 'Developer',
+                'available_start_date' => '2025-03-21',
+            ]);
 
-            $this->postJson("/api/questionnaire/{$uuid}/submit", validSubmitData([
-                'job_request' => [
-                    'employment_type' => 'full_time',
-                    'accept_information' => false,
-                    'job_priority_1' => 'Developer',
-                    'available_start_date' => '2025-03-21',
-                ],
-            ]))->assertUnprocessable()
+            $this->postJson("/api/questionnaire/{$uuid}/submit")
+                ->assertUnprocessable()
                 ->assertJsonValidationErrors(['job_request.accept_information']);
         });
 
         it('requires spouse_employment_status when married', function () {
             $uuid = createDraft();
-
-            $data = validSubmitData([
-                'personal_info' => array_merge(validPersonalInfo(), [
-                    'marital_status' => 'married',
-                ]),
+            $personalInfo = array_merge(validPersonalInfo(), [
+                'marital_status' => 'married',
             ]);
-            unset($data['personal_info']['spouse_employment_status']);
+            unset($personalInfo['spouse_employment_status']);
+            saveSectionToDb($uuid, 'personal_info', $personalInfo);
+            saveSectionToDb($uuid, 'contact_info', validContactInfo());
+            saveSectionToDb($uuid, 'education', ['education_records' => validEducationRecord()]);
+            saveSectionToDb($uuid, 'work_experience', validWorkExperience());
+            saveSectionToDb($uuid, 'skills', validSkills());
+            saveSectionToDb($uuid, 'training', validTraining());
+            saveSectionToDb($uuid, 'additional_info', validAdditionalInfo());
+            saveSectionToDb($uuid, 'job_request', validJobRequest());
 
-            $this->postJson("/api/questionnaire/{$uuid}/submit", $data)
+            $this->postJson("/api/questionnaire/{$uuid}/submit")
                 ->assertUnprocessable()
                 ->assertJsonValidationErrors(['personal_info.spouse_employment_status']);
         });
 
         it('does not require spouse_employment_status when single', function () {
             $uuid = createDraft();
+            saveSectionToDb($uuid, 'personal_info', array_merge(validPersonalInfo(), [
+                'marital_status' => 'single',
+            ]));
+            saveSectionToDb($uuid, 'contact_info', validContactInfo());
+            saveSectionToDb($uuid, 'education', ['education_records' => validEducationRecord()]);
+            saveSectionToDb($uuid, 'work_experience', validWorkExperience());
+            saveSectionToDb($uuid, 'skills', validSkills());
+            saveSectionToDb($uuid, 'training', validTraining());
+            saveSectionToDb($uuid, 'additional_info', validAdditionalInfo());
+            saveSectionToDb($uuid, 'job_request', validJobRequest());
 
-            $this->postJson("/api/questionnaire/{$uuid}/submit", validSubmitData([
-                'personal_info' => array_merge(validPersonalInfo(), [
-                    'marital_status' => 'single',
-                ]),
-            ]))->assertOk();
+            $this->postJson("/api/questionnaire/{$uuid}/submit")
+                ->assertOk();
         });
 
         it('requires military_status when gender is male', function () {
             $uuid = createDraft();
-
-            $data = validSubmitData([
-                'personal_info' => array_merge(validPersonalInfo(), [
-                    'gender' => 'male',
-                ]),
+            $personalInfo = array_merge(validPersonalInfo(), [
+                'gender' => 'male',
             ]);
-            unset($data['personal_info']['military_status']);
+            unset($personalInfo['military_status']);
+            saveSectionToDb($uuid, 'personal_info', $personalInfo);
+            saveSectionToDb($uuid, 'contact_info', validContactInfo());
+            saveSectionToDb($uuid, 'education', ['education_records' => validEducationRecord()]);
+            saveSectionToDb($uuid, 'work_experience', validWorkExperience());
+            saveSectionToDb($uuid, 'skills', validSkills());
+            saveSectionToDb($uuid, 'training', validTraining());
+            saveSectionToDb($uuid, 'additional_info', validAdditionalInfo());
+            saveSectionToDb($uuid, 'job_request', validJobRequest());
 
-            $this->postJson("/api/questionnaire/{$uuid}/submit", $data)
+            $this->postJson("/api/questionnaire/{$uuid}/submit")
                 ->assertUnprocessable()
                 ->assertJsonValidationErrors(['personal_info.military_status']);
         });
 
         it('does not require military_status when gender is female', function () {
             $uuid = createDraft();
+            saveSectionToDb($uuid, 'personal_info', array_merge(validPersonalInfo(), [
+                'gender' => 'female',
+            ]));
+            saveSectionToDb($uuid, 'contact_info', validContactInfo());
+            saveSectionToDb($uuid, 'education', ['education_records' => validEducationRecord()]);
+            saveSectionToDb($uuid, 'work_experience', validWorkExperience());
+            saveSectionToDb($uuid, 'skills', validSkills());
+            saveSectionToDb($uuid, 'training', validTraining());
+            saveSectionToDb($uuid, 'additional_info', validAdditionalInfo());
+            saveSectionToDb($uuid, 'job_request', validJobRequest());
 
-            $this->postJson("/api/questionnaire/{$uuid}/submit", validSubmitData([
-                'personal_info' => array_merge(validPersonalInfo(), [
-                    'gender' => 'female',
-                ]),
-            ]))->assertOk();
+            $this->postJson("/api/questionnaire/{$uuid}/submit")
+                ->assertOk();
         });
 
         it('validates national_id size is exactly 10', function () {
             $uuid = createDraft();
+            saveSectionToDb($uuid, 'personal_info', array_merge(validPersonalInfo(), [
+                'national_id' => '123456789',
+            ]));
+            saveSectionToDb($uuid, 'contact_info', validContactInfo());
+            saveSectionToDb($uuid, 'education', ['education_records' => validEducationRecord()]);
+            saveSectionToDb($uuid, 'work_experience', validWorkExperience());
+            saveSectionToDb($uuid, 'skills', validSkills());
+            saveSectionToDb($uuid, 'training', validTraining());
+            saveSectionToDb($uuid, 'additional_info', validAdditionalInfo());
+            saveSectionToDb($uuid, 'job_request', validJobRequest());
 
-            $this->postJson("/api/questionnaire/{$uuid}/submit", validSubmitData([
-                'personal_info' => array_merge(validPersonalInfo(), [
-                    'national_id' => '123456789',
-                ]),
-            ]))->assertUnprocessable()
+            $this->postJson("/api/questionnaire/{$uuid}/submit")
+                ->assertUnprocessable()
                 ->assertJsonValidationErrors(['personal_info.national_id']);
         });
 
         it('accepts valid complete submit data', function () {
             $uuid = createDraft();
+            saveSectionToDb($uuid, 'personal_info', validPersonalInfo());
+            saveSectionToDb($uuid, 'contact_info', validContactInfo());
+            saveSectionToDb($uuid, 'education', ['education_records' => validEducationRecord()]);
+            saveSectionToDb($uuid, 'work_experience', validWorkExperience());
+            saveSectionToDb($uuid, 'skills', validSkills());
+            saveSectionToDb($uuid, 'training', validTraining());
+            saveSectionToDb($uuid, 'additional_info', validAdditionalInfo());
+            saveSectionToDb($uuid, 'job_request', validJobRequest());
 
-            $this->postJson("/api/questionnaire/{$uuid}/submit", validSubmitData())
+            $this->postJson("/api/questionnaire/{$uuid}/submit")
                 ->assertOk();
         });
     });
@@ -773,24 +855,4 @@ function validJobRequest(): array
         'available_start_date' => '2025-03-21',
         'preferred_workplace' => ['tehran'],
     ];
-}
-
-function validSubmitData(array $overrides = []): array
-{
-    return array_merge([
-        'first_name' => 'Ali',
-        'last_name' => 'Rezaei',
-        'email' => 'ali@example.com',
-        'mobile' => '09121234567',
-        'personal_info' => validPersonalInfo(),
-        'contact_info' => validContactInfo(),
-        'education' => [
-            'education_records' => validEducationRecord(),
-        ],
-        'work_experience' => validWorkExperience(),
-        'skills' => validSkills(),
-        'training' => validTraining(),
-        'additional_info' => validAdditionalInfo(),
-        'job_request' => validJobRequest(),
-    ], $overrides);
 }

@@ -10,19 +10,15 @@ return new class extends Migration
     {
         Schema::create('documents', function (Blueprint $table) {
             $table->id();
-            $table->morphs('documentable');
-            $table->foreignId('document_category_id')->constrained()->nullOnDelete();
-            $table->string('status')->default('pending')->after('document_category_id');
-            $table->foreignId('current_revision_id')->nullable()->after('status');
-            $table->string('record_key')->nullable()->after('current_revision_id');
-            $table->text('notes')->nullable();
-            $table->json('meta')->nullable()->after('notes');
-            $table->foreignId('uploaded_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->uuid('uuid')->unique();
+            $table->string('original_name');
+            $table->string('mime_type', 100);
+            $table->unsignedBigInteger('size');
+            $table->string('disk', 50)->default('local');
+            $table->string('path');
+            $table->string('hash', 64)->nullable();
             $table->timestamps();
             $table->softDeletes();
-
-            $table->index('status');
-            $table->index('record_key');
         });
     }
 

@@ -21,7 +21,6 @@ class DocumentCategoryResource extends JsonResource
             'parent_id' => $this->parent_id,
             'type' => $this->type,
             'children' => DocumentCategoryResource::collection($this->whenLoaded('children')),
-            'documents_count' => $this->whenCounted('documents'),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];

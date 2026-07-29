@@ -40,10 +40,14 @@ class RecruitmentController extends Controller
         return QuestionnaireResource::collection($questionnaires);
     }
 
-    public function show(Questionnaire $questionnaire): JsonResponse
+    public function show(string $questionnaire): JsonResponse
     {
+        $model = Questionnaire::where('uuid', $questionnaire)
+            ->orWhere('id', $questionnaire)
+            ->firstOrFail();
+
         return response()->json([
-            'data' => new QuestionnaireResource($questionnaire),
+            'data' => new QuestionnaireResource($model),
         ]);
     }
 }

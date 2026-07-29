@@ -25,10 +25,7 @@ class StoreDocumentRequest extends FormRequest
                     ->types(config('documents.allowed_mime_types'))
                     ->max(config('documents.max_file_size')),
             ],
-            'notes' => ['nullable', 'string', 'max:1000'],
-            'meta' => ['nullable', 'json', 'max:5000'],
             'record_key' => ['nullable', 'string', 'max:255'],
-            'form_data' => ['nullable', 'json'],
         ];
     }
 }

@@ -2,21 +2,27 @@
 
 namespace App\Contracts;
 
-use App\Domains\Document\Models\Document;
+use App\Domains\Document\Models\DocumentUsage;
+use App\Domains\Employee\Models\Employee;
+use App\Domains\Recruitment\Models\Questionnaire;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\MorphMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 trait DocumentableTrait
 {
-    /** @return MorphMany<Document, $this> */
-    public function documents(): MorphMany
+    /** @return HasMany<DocumentUsage, $this> */
+    public function documentUsages(): HasMany
     {
-        return $this->morphMany(Document::class, 'documentable');
+        return $this->hasMany(DocumentUsage::class, 'entity_id')
+            ->where('entity_type', static::class);
     }
 
     public function getDocumentRouteType(): string
     {
-        $map = Document::routeTypeMap();
+        $map = [
+            'employee' => Employee::class,
+            'questionnaire' => Questionnaire::class,
+        ];
 
         return array_search(static::class, $map, true) ?: 'unknown';
     }

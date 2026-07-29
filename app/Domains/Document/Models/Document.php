@@ -2,30 +2,23 @@
 
 namespace App\Domains\Document\Models;
 
-use App\Domains\Employee\Models\Employee;
-use App\Domains\Recruitment\Models\Questionnaire;
-use App\Models\User;
 use Database\Factories\DocumentFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\UseFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Str;
 
 #[Fillable([
-    'document_category_id',
-    'documentable_type',
-    'documentable_id',
-    'status',
-    'current_revision_id',
-    'record_key',
-    'notes',
-    'meta',
-    'uploaded_by',
+    'original_name',
+    'mime_type',
+    'size',
+    'disk',
+    'path',
+    'hash',
 ])]
 #[UseFactory(DocumentFactory::class)]
 class Document extends Model
@@ -35,37 +28,21 @@ class Document extends Model
 
     use SoftDeletes;
 
-    public const string STATUS_PENDING = 'pending';
-
-    public const string STATUS_CONFIRMED = 'confirmed';
-
-    public const string STATUS_REJECTED = 'rejected';
-
-    /** @return array<string, class-string> */
-    public static function routeTypeMap(): array
+    protected static function boot(): void
     {
-        return [
-            'employee' => Employee::class,
-            'questionnaire' => Questionnaire::class,
-        ];
+        parent::boot();
+
+        static::creating(function (Document $model): void {
+            if (empty($model->uuid)) {
+                $model->uuid = (string) Str::uuid();
+            }
+        });
     }
 
-    /** @return MorphTo<Model, $this> */
-    public function documentable(): MorphTo
+    /** @return HasMany<DocumentUsage, $this> */
+    public function usages(): HasMany
     {
-        return $this->morphTo();
-    }
-
-    /** @return BelongsTo<DocumentCategory, $this> */
-    public function category(): BelongsTo
-    {
-        return $this->belongsTo(DocumentCategory::class, 'document_category_id');
-    }
-
-    /** @return BelongsTo<User, $this> */
-    public function uploader(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'uploaded_by');
+        return $this->hasMany(DocumentUsage::class);
     }
 
     /** @return HasMany<Revision, $this> */
@@ -74,21 +51,30 @@ class Document extends Model
         return $this->hasMany(Revision::class);
     }
 
-    /** @return BelongsTo<Revision, $this> */
-    public function currentRevision(): BelongsTo
+    public function scopeForEntity(Builder $query, string $entityType, int $entityId): Builder
     {
-        return $this->belongsTo(Revision::class, 'current_revision_id');
+        return $query->whereHas('usages', function ($q) use ($entityType, $entityId) {
+            $q->where('entity_type', $entityType)
+                ->where('entity_id', $entityId);
+        });
     }
 
-    public function scopePending(Builder $query): Builder
+    public function scopeByCategory(Builder $query, string $categorySlug): Builder
     {
-        return $query->where('status', self::STATUS_PENDING);
+        return $query->whereHas('usages', function ($q) use ($categorySlug) {
+            $q->where('category_slug', $categorySlug);
+        });
     }
 
-    protected function casts(): array
+    public function scopeByRecordKey(Builder $query, string $recordKey): Builder
     {
-        return [
-            'meta' => 'array',
-        ];
+        return $query->whereHas('usages', function ($q) use ($recordKey) {
+            $q->where('record_key', $recordKey);
+        });
+    }
+
+    public function getFullUrl(): string
+    {
+        return \Storage::disk($this->disk)->url($this->path);
     }
 }

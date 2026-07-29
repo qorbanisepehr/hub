@@ -31,11 +31,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('documents/{document}', [DocumentController::class, 'destroy'])
         ->middleware('permission:document.delete_own,document.delete_all');
 
-    Route::post('documents/{document}/restore', [DocumentController::class, 'restore'])
-        ->withTrashed()
-        ->middleware('permission:document.delete_own,document.delete_all');
     Route::delete('documents/{document}/force', [DocumentController::class, 'forceDestroy'])
-        ->withTrashed()
         ->middleware('permission:document.delete_own,document.delete_all');
 
     Route::get('documents/{document}/download', [DocumentController::class, 'download'])
@@ -44,9 +40,4 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('documents/{document}/serve', [DocumentController::class, 'serve'])
         ->name('documents.serve')
         ->middleware('permission:document.download_own,document.download_all');
-
-    Route::post('documents/{document}/confirm', [DocumentController::class, 'confirm'])
-        ->middleware('permission:document.confirm');
-    Route::post('documents/{document}/reject', [DocumentController::class, 'reject'])
-        ->middleware('permission:document.reject');
 });

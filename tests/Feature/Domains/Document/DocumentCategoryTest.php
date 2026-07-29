@@ -74,16 +74,16 @@ describe('document category CRUD', function () {
             $this->assertContains('Custom B', $names);
         });
 
-        it('includes documents_count', function () {
+        it('includes expected fields', function () {
             $user = createUserWithPermissions(['document-category.view', 'document-category.manage']);
-            $category = DocumentCategory::factory()->create();
+            DocumentCategory::factory()->create();
 
             $this->actingAs($user)
                 ->getJson('/api/document-categories')
                 ->assertStatus(200)
                 ->assertJsonStructure([
                     'data' => [
-                        '*' => ['id', 'name', 'slug', 'sort_order', 'documents_count'],
+                        '*' => ['id', 'name', 'slug', 'sort_order'],
                     ],
                 ]);
         });

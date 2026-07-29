@@ -22,18 +22,10 @@ return new class extends Migration
 
             $table->index('document_id');
         });
-
-        Schema::table('documents', function (Blueprint $table) {
-            $table->foreign('current_revision_id')->references('id')->on('revisions')->nullOnDelete();
-        });
     }
 
     public function down(): void
     {
-        Schema::table('documents', function (Blueprint $table) {
-            $table->dropForeign(['current_revision_id']);
-        });
-
         Schema::dropIfExists('revisions');
     }
 };
