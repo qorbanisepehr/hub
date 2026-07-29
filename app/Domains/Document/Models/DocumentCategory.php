@@ -31,12 +31,6 @@ class DocumentCategory extends Model
         return $this->hasMany(DocumentCategory::class, 'parent_id');
     }
 
-    /** @return HasMany<Document, $this> */
-    public function documents(): HasMany
-    {
-        return $this->hasMany(Document::class);
-    }
-
     public function isChild(): bool
     {
         return $this->parent_id !== null;

@@ -9,14 +9,22 @@ use Illuminate\Support\Facades\Route;
 Route::post('questionnaire/init', [QuestionnaireController::class, 'init'])
     ->middleware('throttle:10,1');
 Route::get('questionnaire/{uuid}', [QuestionnaireController::class, 'show']);
-Route::put('questionnaire/{uuid}', [QuestionnaireController::class, 'save']);
+
+// Section-based save (new API)
+Route::put('questionnaire/{uuid}/sections/{section}', [QuestionnaireController::class, 'saveSection']);
+
+// OTP endpoints
 Route::post('questionnaire/{uuid}/send-mobile-otp', [QuestionnaireController::class, 'sendMobileOtp'])
     ->middleware('throttle:5,1');
 Route::post('questionnaire/{uuid}/send-email-otp', [QuestionnaireController::class, 'sendEmailOtp'])
     ->middleware('throttle:5,1');
 Route::post('questionnaire/{uuid}/verify-mobile-otp', [QuestionnaireController::class, 'verifyMobileOtp']);
 Route::post('questionnaire/{uuid}/verify-email-otp', [QuestionnaireController::class, 'verifyEmailOtp']);
+
+// Submit + admin review actions
 Route::post('questionnaire/{uuid}/submit', [QuestionnaireController::class, 'submit']);
+Route::post('questionnaire/{uuid}/review', [QuestionnaireController::class, 'review']);
+Route::post('questionnaire/{uuid}/reject', [QuestionnaireController::class, 'reject']);
 
 // Questionnaire document routes (public, throttled)
 Route::get('questionnaire/{uuid}/documents', [QuestionnaireDocumentController::class, 'index']);
