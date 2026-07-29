@@ -1,15 +1,14 @@
 import type { ReactFormExtendedApi } from "@tanstack/react-form";
-import { useState } from "react";
-import { IconPencil } from "@tabler/icons-react";
 
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useQuestionnaireDocuments } from "@/features/recruitment/hooks/use-questionnaire-documents";
-import { DocumentPreviewLightbox } from "@/features/documents/components/document-preview-lightbox";
-import { DocumentThumbnail } from "@/components/shared/document-thumbnail";
-import type { Document } from "@/features/documents/types";
+import type { QuestionnaireDocument } from "@/features/recruitment/hooks/use-questionnaire-documents";
 import type { Questionnaire } from "@/features/recruitment/types";
-import { DOC_CATEGORY_SLUGS, getRecordKeyLabel } from "@/features/recruitment/constants";
+import { DOC_CATEGORY_SLUGS } from "@/features/recruitment/constants";
+import {
+    QuestionnaireDocumentPreview,
+    QuestionnaireDocumentGrouped,
+} from "@/components/shared/questionnaire-document-preview";
 
 type SectionProps = {
     form: ReactFormExtendedApi<any, any, any, any, any, any, any, any, any, any, any, any>;
@@ -35,65 +34,36 @@ function SectionHeader({ title, onEdit }: { title: string; onEdit?: () => void }
         <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>{title}</CardTitle>
             {onEdit && (
-                <Button variant="ghost" size="sm" onClick={onEdit}>
-                    <IconPencil className="size-3.5 ms-1" />
+                <button
+                    type="button"
+                    className="text-sm text-primary hover:underline"
+                    onClick={onEdit}
+                >
                     ویرایش
-                </Button>
+                </button>
             )}
         </CardHeader>
     );
 }
 
-const DOCUMENT_SECTIONS = [
-    { categorySlug: DOC_CATEGORY_SLUGS.PERSONNEL_PHOTO, label: "تصویر پرسنلی" },
-    { categorySlug: DOC_CATEGORY_SLUGS.NATIONAL_CARD, label: "کارت ملی" },
-    { categorySlug: DOC_CATEGORY_SLUGS.BIRTH_CERTIFICATE, label: "شناسنامه" },
-    { categorySlug: DOC_CATEGORY_SLUGS.ACADEMIC_DEGREE, label: "مدرک تحصیلی" },
-    { categorySlug: DOC_CATEGORY_SLUGS.LANGUAGE_CERTIFICATE, label: "گواهینامه زبان" },
-    { categorySlug: DOC_CATEGORY_SLUGS.COURSE_CERTIFICATES, label: "گواهینامه دوره" },
-    { categorySlug: DOC_CATEGORY_SLUGS.RESUME, label: "رزومه" },
-    { categorySlug: DOC_CATEGORY_SLUGS.COVER_LETTER, label: "نامه پوششی" },
-    { categorySlug: DOC_CATEGORY_SLUGS.OTHER_DOCUMENTS, label: "سایر مدارک" },
+const SECTION_DOCS: { step: number; label: string; slugs: string[] }[] = [
+    { step: 0, label: "مدارک هویتی", slugs: [DOC_CATEGORY_SLUGS.PERSONNEL_PHOTO, DOC_CATEGORY_SLUGS.NATIONAL_CARD, DOC_CATEGORY_SLUGS.BIRTH_CERTIFICATE] },
+    { step: 2, label: "مدارک تحصیلی", slugs: [DOC_CATEGORY_SLUGS.ACADEMIC_DEGREE] },
+    { step: 4, label: "مدارک مهارتی", slugs: [DOC_CATEGORY_SLUGS.LANGUAGE_CERTIFICATE, DOC_CATEGORY_SLUGS.COURSE_CERTIFICATES] },
+    { step: 7, label: "مدارک شغلی", slugs: [DOC_CATEGORY_SLUGS.RESUME, DOC_CATEGORY_SLUGS.COVER_LETTER] },
 ];
 
-function DocumentRow({
-    label,
-    docs,
-    onPreview,
-}: {
-    label: string;
-    docs: Document[];
-    onPreview: (doc: Document) => void;
-}) {
-    if (docs.length === 0) return null;
-    return (
-        <div className="space-y-1">
-            <span className="text-xs text-muted-foreground">{label}</span>
-            <div className="flex flex-wrap gap-3">
-                {docs.map((doc) => {
-                    const desc = getRecordKeyLabel(doc.record_key) ?? doc.notes;
-                    return (
-                        <div key={doc.id} className="flex flex-col items-start gap-0.5">
-                            <DocumentThumbnail
-                                document={doc}
-                                variant="compact"
-                                size="sm"
-                                showName
-                                clickable
-                                onPreview={() => onPreview(doc)}
-                            />
-                            {desc && (
-                                <span className="text-[10px] text-muted-foreground px-1">
-                                    {desc}
-                                </span>
-                            )}
-                        </div>
-                    );
-                })}
-            </div>
-        </div>
-    );
-}
+const TREE_GROUPS = [
+    { label: "تصویر پرسنلی", slug: DOC_CATEGORY_SLUGS.PERSONNEL_PHOTO },
+    { label: "کارت ملی", slug: DOC_CATEGORY_SLUGS.NATIONAL_CARD },
+    { label: "شناسنامه", slug: DOC_CATEGORY_SLUGS.BIRTH_CERTIFICATE },
+    { label: "مدرک تحصیلی", slug: DOC_CATEGORY_SLUGS.ACADEMIC_DEGREE },
+    { label: "گواهینامه زبان", slug: DOC_CATEGORY_SLUGS.LANGUAGE_CERTIFICATE },
+    { label: "گواهینامه دوره", slug: DOC_CATEGORY_SLUGS.COURSE_CERTIFICATES },
+    { label: "رزومه", slug: DOC_CATEGORY_SLUGS.RESUME },
+    { label: "نامه پوششی", slug: DOC_CATEGORY_SLUGS.COVER_LETTER },
+    { label: "سایر مدارک", slug: DOC_CATEGORY_SLUGS.OTHER_DOCUMENTS },
+];
 
 export function ReviewSection({ form, questionnaire, onNavigateToStep }: SectionProps) {
     const v = form.state.values;
@@ -106,16 +76,18 @@ export function ReviewSection({ form, questionnaire, onNavigateToStep }: Section
     const additional = v.additional_info ?? {};
     const job = v.job_request ?? {};
 
-    const { getDocumentsBySlug, getAllDocumentsBySlug } = useQuestionnaireDocuments(questionnaire?.uuid);
-    const [lightboxDocs, setLightboxDocs] = useState<Document[]>([]);
-    const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+    const { getDocumentsBySlug } = useQuestionnaireDocuments(questionnaire?.uuid);
 
-    function handlePreview(doc: Document) {
-        const allDocs = DOCUMENT_SECTIONS.flatMap((s) => getAllDocumentsBySlug(s.categorySlug));
-        const idx = allDocs.findIndex((d) => d.id === doc.id);
-        setLightboxDocs(allDocs);
-        setLightboxIndex(idx >= 0 ? idx : 0);
+    function docsFor(slugs: string[]): QuestionnaireDocument[] {
+        return slugs.flatMap((slug) => getDocumentsBySlug(slug));
     }
+
+    const treeGroups = TREE_GROUPS.map((g) => ({
+        label: g.label,
+        docs: getDocumentsBySlug(g.slug),
+    }));
+
+    const hasAnyDoc = TREE_GROUPS.some((g) => getDocumentsBySlug(g.slug).length > 0);
 
     return (
         <div className="space-y-4">
@@ -134,24 +106,6 @@ export function ReviewSection({ form, questionnaire, onNavigateToStep }: Section
             <Card>
                 <SectionHeader title="مشخصات فردی" onEdit={() => onNavigateToStep?.(0)} />
                 <CardContent>
-                    {(() => {
-                        const photoDocs = getDocumentsBySlug(DOC_CATEGORY_SLUGS.PERSONNEL_PHOTO);
-                        if (photoDocs.length > 0) {
-                            return (
-                                <div className="mb-4">
-                                    <DocumentThumbnail
-                                        document={photoDocs[0]}
-                                        variant="default"
-                                        size="lg"
-                                        aspectRatio={3/4}
-                                        clickable
-                                        onPreview={() => handlePreview(photoDocs[0])}
-                                    />
-                                </div>
-                            );
-                        }
-                        return null;
-                    })()}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <DataRow label="نام" value={v.first_name} />
                         <DataRow label="نام خانوادگی" value={v.last_name} />
@@ -181,6 +135,11 @@ export function ReviewSection({ form, questionnaire, onNavigateToStep }: Section
                             </div>
                         </div>
                     )}
+                    <QuestionnaireDocumentPreview
+                        documents={docsFor(SECTION_DOCS[0].slugs)}
+                        variant="compact"
+                        className="mt-4 pt-4 border-t"
+                    />
                 </CardContent>
             </Card>
 
@@ -213,39 +172,19 @@ export function ReviewSection({ form, questionnaire, onNavigateToStep }: Section
                 <SectionHeader title="سوابق تحصیلی" onEdit={() => onNavigateToStep?.(2)} />
                 <CardContent className="space-y-4">
                     {edu.education_records?.length > 0 ? (
-                        edu.education_records.map((rec: any, i: number) => {
-                            const eduDocs = getDocumentsBySlug(DOC_CATEGORY_SLUGS.ACADEMIC_DEGREE, `edu-${i}`);
-                            return (
-                                <div key={i} className="space-y-2">
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-3 rounded-lg bg-muted/50">
-                                        <DataRow label="مدرک" value={rec.degree} />
-                                        <DataRow label="رشته" value={rec.field} />
-                                        <DataRow label="دانشگاه" value={rec.institution} />
-                                        <DataRow label="محل" value={rec.location} />
-                                        <DataRow label="از تاریخ" value={rec.from} />
-                                        <DataRow label="تا تاریخ" value={rec.to} />
-                                        <DataRow label="معدل" value={rec.gpa} />
-                                        <DataRow label="تاریخ فارغ‌التحصیلی" value={rec.graduation_date} />
-                                        <DataRow label="پایان‌نامه" value={rec.thesis_title} />
-                                    </div>
-                                    {eduDocs.length > 0 && (
-                                        <div className="flex flex-wrap gap-2 ps-3">
-                                            {eduDocs.map((doc) => (
-                                                <DocumentThumbnail
-                                                    key={doc.id}
-                                                    document={doc}
-                                                    variant="compact"
-                                                    size="xs"
-                                                    showName
-                                                    clickable
-                                                    onPreview={() => handlePreview(doc)}
-                                                />
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-                            );
-                        })
+                        edu.education_records.map((rec: any, i: number) => (
+                            <div key={i} className="grid grid-cols-1 md:grid-cols-3 gap-4 p-3 rounded-lg bg-muted/50">
+                                <DataRow label="مدرک" value={rec.degree} />
+                                <DataRow label="رشته" value={rec.field} />
+                                <DataRow label="دانشگاه" value={rec.institution} />
+                                <DataRow label="محل" value={rec.location} />
+                                <DataRow label="از تاریخ" value={rec.from} />
+                                <DataRow label="تا تاریخ" value={rec.to} />
+                                <DataRow label="معدل" value={rec.gpa} />
+                                <DataRow label="تاریخ فارغ‌التحصیلی" value={rec.graduation_date} />
+                                <DataRow label="پایان‌نامه" value={rec.thesis_title} />
+                            </div>
+                        ))
                     ) : (
                         <p className="text-sm text-muted-foreground">سابقه تحصیلی ثبت نشده</p>
                     )}
@@ -260,6 +199,11 @@ export function ReviewSection({ form, questionnaire, onNavigateToStep }: Section
                             </>
                         )}
                     </div>
+                    <QuestionnaireDocumentPreview
+                        documents={docsFor(SECTION_DOCS[1].slugs)}
+                        variant="compact"
+                        className="pt-2"
+                    />
                 </CardContent>
             </Card>
 
@@ -299,31 +243,11 @@ export function ReviewSection({ form, questionnaire, onNavigateToStep }: Section
                         <div>
                             <p className="text-sm font-medium mb-2">زبان‌ها</p>
                             <div className="space-y-2">
-                                {skills.languages.map((lang: any, i: number) => {
-                                    const langDocs = getDocumentsBySlug(DOC_CATEGORY_SLUGS.LANGUAGE_CERTIFICATE, `lang-${i}`);
-                                    return (
-                                        <div key={i} className="space-y-1">
-                                            <div className="text-sm p-2 rounded bg-muted/50">
-                                                {lang.language}: خواندن {lang.reading}، نوشتن {lang.writing}، صحبت {lang.speaking}، درک مطلب {lang.comprehension}
-                                            </div>
-                                            {langDocs.length > 0 && (
-                                                <div className="flex flex-wrap gap-2 ps-2">
-                                                    {langDocs.map((doc) => (
-                                                        <DocumentThumbnail
-                                                            key={doc.id}
-                                                            document={doc}
-                                                            variant="compact"
-                                                            size="xs"
-                                                            showName
-                                                            clickable
-                                                            onPreview={() => handlePreview(doc)}
-                                                        />
-                                                    ))}
-                                                </div>
-                                            )}
-                                        </div>
-                                    );
-                                })}
+                                {skills.languages.map((lang: any, i: number) => (
+                                    <div key={i} className="text-sm p-2 rounded bg-muted/50">
+                                        {lang.language}: خواندن {lang.reading}، نوشتن {lang.writing}، صحبت {lang.speaking}، درک مطلب {lang.comprehension}
+                                    </div>
+                                ))}
                             </div>
                         </div>
                     )}
@@ -357,6 +281,11 @@ export function ReviewSection({ form, questionnaire, onNavigateToStep }: Section
                             </div>
                         </div>
                     )}
+                    <QuestionnaireDocumentPreview
+                        documents={docsFor(SECTION_DOCS[2].slugs)}
+                        variant="compact"
+                        className="pt-2"
+                    />
                 </CardContent>
             </Card>
 
@@ -366,31 +295,11 @@ export function ReviewSection({ form, questionnaire, onNavigateToStep }: Section
                 <CardContent className="space-y-4">
                     {training.training_courses?.length > 0 ? (
                         <div className="space-y-2">
-                            {training.training_courses.map((c: any, i: number) => {
-                                const trainDocs = getDocumentsBySlug(DOC_CATEGORY_SLUGS.COURSE_CERTIFICATES, `train-${i}`);
-                                return (
-                                    <div key={i} className="space-y-1">
-                                        <div className="text-sm p-2 rounded bg-muted/50">
-                                            {c.course_name} — {c.institution} ({c.duration})
-                                        </div>
-                                        {trainDocs.length > 0 && (
-                                            <div className="flex flex-wrap gap-2 ps-2">
-                                                {trainDocs.map((doc) => (
-                                                    <DocumentThumbnail
-                                                        key={doc.id}
-                                                        document={doc}
-                                                        variant="compact"
-                                                        size="xs"
-                                                        showName
-                                                        clickable
-                                                        onPreview={() => handlePreview(doc)}
-                                                    />
-                                                ))}
-                                            </div>
-                                        )}
-                                    </div>
-                                );
-                            })}
+                            {training.training_courses.map((c: any, i: number) => (
+                                <div key={i} className="text-sm p-2 rounded bg-muted/50">
+                                    {c.course_name} — {c.institution} ({c.duration})
+                                </div>
+                            ))}
                         </div>
                     ) : (
                         <p className="text-sm text-muted-foreground">دوره آموزشی ثبت نشده</p>
@@ -452,37 +361,26 @@ export function ReviewSection({ form, questionnaire, onNavigateToStep }: Section
                     <div className="mt-4 pt-4 border-t">
                         <DataRow label="سایر اطلاعات" value={job.other_information} />
                     </div>
+                    <QuestionnaireDocumentPreview
+                        documents={docsFor(SECTION_DOCS[3].slugs)}
+                        variant="compact"
+                        className="mt-4 pt-4 border-t"
+                    />
                 </CardContent>
             </Card>
 
-            {/* ── مدارک بارگذاری شده ── */}
-            <Card>
-                <SectionHeader title="مدارک بارگذاری شده" />
-                <CardContent className="space-y-3">
-                    {DOCUMENT_SECTIONS.map((section) => {
-                        const docs = getAllDocumentsBySlug(section.categorySlug);
-                        return (
-                            <DocumentRow
-                                key={section.categorySlug}
-                                label={section.label}
-                                docs={docs}
-                                onPreview={handlePreview}
-                            />
-                        );
-                    })}
-                    {DOCUMENT_SECTIONS.every((s) => getAllDocumentsBySlug(s.categorySlug).length === 0) && (
-                        <p className="text-sm text-muted-foreground">مدرکی بارگذاری نشده است.</p>
-                    )}
-                </CardContent>
-            </Card>
-
-            <DocumentPreviewLightbox
-                open={lightboxIndex !== null}
-                documents={lightboxDocs}
-                currentIndex={lightboxIndex ?? 0}
-                onClose={() => setLightboxIndex(null)}
-                onNavigate={setLightboxIndex}
-            />
+            {/* ── نمای درختی مدارک ── */}
+            {hasAnyDoc && (
+                <Card>
+                    <SectionHeader title="همه مدارک بارگذاری شده" />
+                    <CardContent>
+                        <p className="text-sm text-muted-foreground mb-4">
+                            برای مشاهده جزئیات و پیش‌نمایش، روی هر مدرک کلیک کنید
+                        </p>
+                        <QuestionnaireDocumentGrouped groups={treeGroups} />
+                    </CardContent>
+                </Card>
+            )}
 
             {/* ── وضعیت تأیید ── */}
             <Card>

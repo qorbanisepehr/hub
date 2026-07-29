@@ -10,10 +10,10 @@ import {
     IconArrowLeft,
     IconSend,
     IconAlertTriangle,
+    IconClipboardCheck,
 } from "@tabler/icons-react";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { ErrorBanner } from "@/components/shared/error-banner";
 import {
     Stepper,
@@ -27,7 +27,7 @@ import {
     StepperContent,
 } from "@/components/reui/stepper";
 import {
-    saveQuestionnaire,
+    saveQuestionnaireSection,
     submitQuestionnaire,
 } from "@/features/recruitment/api";
 import { getApiError } from "@/lib/error-utils";
@@ -61,6 +61,34 @@ const SECTION_COMPONENTS = [
     JobRequestSection,
 ];
 
+/**
+ * Extract the data payload for a given wizard step key from the full form values.
+ */
+function extractSectionData(
+    values: ReturnType<typeof useForm>["state"]["values"],
+    sectionKey: string,
+): Record<string, unknown> {
+    switch (sectionKey) {
+        case "personal_info":
+            return {
+                first_name: values.first_name,
+                last_name: values.last_name,
+                ...(values.personal_info as Record<string, unknown> ?? {}),
+            };
+        case "contact_info":
+            return {
+                email: values.email,
+                mobile: values.mobile,
+                ...(values.contact_info as Record<string, unknown> ?? {}),
+            };
+        default:
+            if (sectionKey in values) {
+                return (values[sectionKey as keyof typeof values] as Record<string, unknown>) ?? {};
+            }
+            return {};
+    }
+}
+
 function getStepFromHash(): number {
     const hash = window.location.hash.replace("#", "");
     const step = parseInt(hash, 10);
@@ -93,8 +121,13 @@ export function QuestionnaireWizard({
     }, [currentStep]);
 
     const saveMutation = useMutation({
-        mutationFn: (data: Parameters<typeof saveQuestionnaire>[1]) =>
-            saveQuestionnaire(questionnaire.uuid, data),
+        mutationFn: ({
+            section,
+            data,
+        }: {
+            section: string;
+            data: Record<string, unknown>;
+        }) => saveQuestionnaireSection(questionnaire.uuid, section, data),
         onSuccess: () => {
             queryClient.invalidateQueries({
                 queryKey: ["questionnaire", questionnaire.uuid],
@@ -107,8 +140,7 @@ export function QuestionnaireWizard({
     });
 
     const submitMutation = useMutation({
-        mutationFn: (data: Record<string, unknown>) =>
-            submitQuestionnaire(questionnaire.uuid, data),
+        mutationFn: () => submitQuestionnaire(questionnaire.uuid),
         onSuccess: () => {
             queryClient.invalidateQueries({
                 queryKey: ["questionnaire", questionnaire.uuid],
@@ -244,35 +276,23 @@ export function QuestionnaireWizard({
             },
         },
         onSubmit: async ({ value }) => {
-            saveCurrentSection(value);
+            const sectionKey = WIZARD_STEPS[currentStep]?.key;
+            if (!sectionKey || sectionKey === "summary" || sectionKey === "documents") {
+                return;
+            }
+            const data = extractSectionData(value, sectionKey);
+            saveMutation.mutate({ section: sectionKey, data });
         },
     });
 
-    function saveCurrentSection(value: typeof form.state.values) {
-        const sectionKey = WIZARD_STEPS[currentStep]?.key;
-        const sectionData: Record<string, unknown> = {};
-        if (sectionKey === "personal_info") {
-            sectionData.first_name = value.first_name;
-            sectionData.last_name = value.last_name;
-            sectionData.personal_info = value.personal_info;
-        } else if (sectionKey === "contact_info") {
-            sectionData.email = value.email;
-            sectionData.mobile = value.mobile;
-            sectionData.contact_info = value.contact_info;
-        } else if (
-            sectionKey &&
-            sectionKey !== "summary" &&
-            sectionKey in value
-        ) {
-            sectionData[sectionKey] =
-                value[sectionKey as keyof typeof value];
-        }
-        saveMutation.mutate(sectionData);
-    }
-
     const handlePersist = useCallback(() => {
-        saveCurrentSection(form.state.values);
-    }, [currentStep]);
+        const sectionKey = WIZARD_STEPS[currentStep]?.key;
+        if (!sectionKey || sectionKey === "summary" || sectionKey === "documents") {
+            return;
+        }
+        const data = extractSectionData(form.state.values, sectionKey);
+        saveMutation.mutate({ section: sectionKey, data });
+    }, [currentStep, form, saveMutation]);
 
     const isDirty = useStore(form.store, (s) => s.isDirty);
 
@@ -317,32 +337,16 @@ export function QuestionnaireWizard({
             return;
         }
         setSubmitErrors([]);
-        submitMutation.mutate(form.state.values);
+        submitMutation.mutate();
     };
 
     const goToStep = async (step: number) => {
         if (isDirty) {
             const sectionKey = WIZARD_STEPS[currentStep]?.key;
-            const sectionData: Record<string, unknown> = {};
-            if (sectionKey === "personal_info") {
-                sectionData.first_name = form.state.values.first_name;
-                sectionData.last_name = form.state.values.last_name;
-                sectionData.personal_info = form.state.values.personal_info;
-            } else if (sectionKey === "contact_info") {
-                sectionData.email = form.state.values.email;
-                sectionData.mobile = form.state.values.mobile;
-                sectionData.contact_info = form.state.values.contact_info;
-            } else if (
-                sectionKey &&
-                sectionKey !== "summary" &&
-                sectionKey in form.state.values
-            ) {
-                sectionData[sectionKey] =
-                    form.state.values[
-                        sectionKey as keyof typeof form.state.values
-                    ];
+            if (sectionKey && sectionKey !== "summary" && sectionKey !== "documents") {
+                const data = extractSectionData(form.state.values, sectionKey);
+                await saveMutation.mutateAsync({ section: sectionKey, data });
             }
-            await saveMutation.mutateAsync(sectionData);
         }
         setCurrentStep(step);
         setStepHash(step);
@@ -475,9 +479,7 @@ export function QuestionnaireWizard({
                         <Button
                             type="button"
                             variant="outline"
-                            onClick={() => {
-                                form.handleSubmit();
-                            }}
+                            onClick={handlePersist}
                             disabled={
                                 saveMutation.isPending ||
                                 submitMutation.isPending ||
@@ -490,6 +492,27 @@ export function QuestionnaireWizard({
                                 <IconChecks className="size-4" />
                             )}
                             ذخیره
+                        </Button>
+                    )}
+
+                    {currentStep < WIZARD_STEPS.length - 1 && (
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => {
+                                const result = validateSubmitData(form.state.values);
+                                if (result.success) {
+                                    toast.success("همه فیلدهای الزامی تکمیل شده‌اند.");
+                                } else {
+                                    toast.error("فیلدهای الزامی خالی هستند", {
+                                        description: `${result.errors.length} مورد یافت شد. به صفحه «بررسی نهایی» بروید.`,
+                                        duration: 5000,
+                                    });
+                                }
+                            }}
+                        >
+                            <IconClipboardCheck className="size-4" />
+                            بررسی اعتبار
                         </Button>
                     )}
 

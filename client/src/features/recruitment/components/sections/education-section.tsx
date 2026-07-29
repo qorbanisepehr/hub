@@ -12,7 +12,6 @@ import {
     FormDatePicker,
 } from "@/components/shared/form-fields";
 import { FileUploadField } from "@/components/shared/file-upload-field";
-import { DocumentThumbnail } from "@/components/shared/document-thumbnail";
 import { FormRepeater } from "@/components/shared/form-repeater";
 import { DEGREE_OPTIONS, YES_NO_OPTIONS, parseBoolean } from "@/features/recruitment/constants";
 import { DOC_CATEGORY_SLUGS } from "@/features/recruitment/constants";
@@ -27,7 +26,7 @@ type SectionProps = {
 };
 
 export function EducationSection({ form, uuid, onPersist }: SectionProps) {
-    const { hasDocumentBySlug, getDocumentsBySlug } = useQuestionnaireDocuments(uuid);
+    const { getDocumentsBySlug } = useQuestionnaireDocuments(uuid);
 
     const educationColumns = [
         { key: "degree", label: "مدرک" },
@@ -42,7 +41,7 @@ export function EducationSection({ form, uuid, onPersist }: SectionProps) {
             render: (_value: unknown, _item: unknown, index: number) => {
                 const docs = getDocumentsBySlug(DOC_CATEGORY_SLUGS.ACADEMIC_DEGREE, `edu-${index}`);
                 if (docs.length > 0) {
-                    return <DocumentThumbnail document={docs[0]} variant="icon" size="xs" />;
+                    return <span className="text-xs text-green-600">✓</span>;
                 }
                 return <span className="text-muted-foreground/40">—</span>;
             },

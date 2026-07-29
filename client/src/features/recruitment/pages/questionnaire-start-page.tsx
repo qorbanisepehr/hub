@@ -10,8 +10,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FormTextField } from "@/components/shared/form-fields";
 import { ErrorBanner } from "@/components/shared/error-banner";
-import { initQuestionnaire } from "@/features/recruitment/api";
+import { initQuestionnaire, verifyMobileOtp, sendMobileOtp } from "@/features/recruitment/api";
 import { getApiError } from "@/lib/error-utils";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 const initSchema = z.object({
     first_name: z
@@ -42,6 +44,11 @@ const initSchema = z.object({
 
 export function QuestionnaireStartPage() {
     const navigate = useNavigate();
+    const [otpUuid, setOtpUuid] = useState<string | null>(null);
+    const [otpValue, setOtpValue] = useState("");
+    const [otpError, setOtpError] = useState<string | null>(null);
+    const [isVerifying, setIsVerifying] = useState(false);
+    const [isResending, setIsResending] = useState(false);
 
     const mutation = useMutation({
         mutationFn: initQuestionnaire,
@@ -52,7 +59,18 @@ export function QuestionnaireStartPage() {
                 params: { uuid: response.data.data.uuid },
             });
         },
-        onError: (err) => {
+        onError: (err: any) => {
+            // Check if this is a 409 (duplicate mobile) response
+            const status = err?.response?.status;
+            const data = err?.response?.data;
+
+            if (status === 409 && data?.requires_otp && data?.data?.uuid) {
+                setOtpUuid(data.data.uuid);
+                setOtpError(null);
+                toast.info(data.message || "کد تأیید به شماره موبایل شما ارسال شد.");
+                return;
+            }
+
             toast.error(getApiError(err));
         },
     });
@@ -70,6 +88,41 @@ export function QuestionnaireStartPage() {
         },
     });
 
+    const handleVerifyOtp = async () => {
+        if (!otpUuid || !otpValue.trim()) return;
+
+        setIsVerifying(true);
+        setOtpError(null);
+
+        try {
+            const response = await verifyMobileOtp(otpUuid, otpValue.trim());
+            toast.success("شماره موبایل تأیید شد.");
+            navigate({
+                to: "/questionnaire/$uuid",
+                params: { uuid: otpUuid },
+            });
+        } catch (err: any) {
+            const message = err?.response?.data?.message || "کد تأیید نامعتبر است.";
+            setOtpError(message);
+        } finally {
+            setIsVerifying(false);
+        }
+    };
+
+    const handleResendOtp = async () => {
+        if (!otpUuid) return;
+
+        setIsResending(true);
+        try {
+            await sendMobileOtp(otpUuid);
+            toast.success("کد تأیید جدید ارسال شد.");
+        } catch (err: any) {
+            toast.error("خطا در ارسال کد تأیید.");
+        } finally {
+            setIsResending(false);
+        }
+    };
+
     return (
         <div className="min-h-screen bg-background pt-16">
             <div className="mx-auto max-w-2xl px-4 py-12">
@@ -83,79 +136,159 @@ export function QuestionnaireStartPage() {
 
                 <Card>
                     <CardHeader>
-                        <CardTitle>اطلاعات تماس</CardTitle>
+                        <CardTitle>
+                            {otpUuid ? "تأیید شماره موبایل" : "اطلاعات تماس"}
+                        </CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <form
-                            onSubmit={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                form.handleSubmit();
-                            }}
-                            className="space-y-4"
-                        >
-                            {mutation.error && (
-                                <ErrorBanner
-                                    message={
-                                        getApiError(mutation.error) ??
-                                        "خطای ناشناخته"
-                                    }
-                                />
-                            )}
+                        {otpUuid ? (
+                            /* OTP verification form */
+                            <div className="space-y-4">
+                                <p className="text-sm text-muted-foreground">
+                                    کد تأیید ۶ رقمی به شماره موبایل شما ارسال شد.
+                                    لطفاً کد را وارد کنید.
+                                </p>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <form.Field name="first_name">
-                                    {(field) => (
-                                        <FormTextField
-                                            field={field}
-                                            label="نام"
-                                        />
-                                    )}
-                                </form.Field>
+                                {otpError && (
+                                    <ErrorBanner message={otpError} />
+                                )}
 
-                                <form.Field name="last_name">
-                                    {(field) => (
-                                        <FormTextField
-                                            field={field}
-                                            label="نام خانوادگی"
-                                        />
-                                    )}
-                                </form.Field>
+                                <div className="space-y-2">
+                                    <Label htmlFor="otp">کد تأیید</Label>
+                                    <Input
+                                        id="otp"
+                                        type="text"
+                                        inputMode="numeric"
+                                        maxLength={6}
+                                        placeholder="۱۲۳۴۵۶"
+                                        dir="ltr"
+                                        className="text-center text-lg tracking-[0.3em]"
+                                        value={otpValue}
+                                        onChange={(e) => {
+                                            setOtpValue(e.target.value.replace(/\D/g, ""));
+                                            setOtpError(null);
+                                        }}
+                                        onKeyDown={(e) => {
+                                            if (e.key === "Enter") {
+                                                handleVerifyOtp();
+                                            }
+                                        }}
+                                        autoFocus
+                                    />
+                                </div>
+
+                                <div className="flex gap-2">
+                                    <Button
+                                        type="button"
+                                        className="flex-1"
+                                        disabled={isVerifying || otpValue.length !== 6}
+                                        onClick={handleVerifyOtp}
+                                    >
+                                        {isVerifying && (
+                                            <IconLoader2 className="size-4 animate-spin ms-2" />
+                                        )}
+                                        تأیید
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        disabled={isResending}
+                                        onClick={handleResendOtp}
+                                    >
+                                        {isResending ? (
+                                            <IconLoader2 className="size-4 animate-spin" />
+                                        ) : (
+                                            "ارسال مجدد"
+                                        )}
+                                    </Button>
+                                </div>
+
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    className="w-full"
+                                    onClick={() => {
+                                        setOtpUuid(null);
+                                        setOtpValue("");
+                                        setOtpError(null);
+                                    }}
+                                >
+                                    بازگشت
+                                </Button>
                             </div>
-
-                            <form.Field name="email">
-                                {(field) => (
-                                    <FormTextField
-                                        field={field}
-                                        label="ایمیل"
-                                        dir="ltr"
-                                    />
-                                )}
-                            </form.Field>
-
-                            <form.Field name="mobile">
-                                {(field) => (
-                                    <FormTextField
-                                        field={field}
-                                        label="شماره موبایل"
-                                        dir="ltr"
-                                    />
-                                )}
-                            </form.Field>
-
-                            <Button
-                                type="submit"
-                                className="w-full"
-                                disabled={mutation.isPending}
+                        ) : (
+                            /* Init form */
+                            <form
+                                onSubmit={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    form.handleSubmit();
+                                }}
+                                className="space-y-4"
                             >
-                                {mutation.isPending ? (
-                                    <IconLoader2 className="size-4 animate-spin ms-2" />
-                                ) : (
-                                    <IconSend className="size-4 ms-2" />
+                                {mutation.error && (
+                                    <ErrorBanner
+                                        message={
+                                            getApiError(mutation.error) ??
+                                            "خطای ناشناخته"
+                                        }
+                                    />
                                 )}
-                                شروع پرسشنامه
-                            </Button>
-                        </form>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <form.Field name="first_name">
+                                        {(field) => (
+                                            <FormTextField
+                                                field={field}
+                                                label="نام"
+                                            />
+                                        )}
+                                    </form.Field>
+
+                                    <form.Field name="last_name">
+                                        {(field) => (
+                                            <FormTextField
+                                                field={field}
+                                                label="نام خانوادگی"
+                                            />
+                                        )}
+                                    </form.Field>
+                                </div>
+
+                                <form.Field name="email">
+                                    {(field) => (
+                                        <FormTextField
+                                            field={field}
+                                            label="ایمیل"
+                                            dir="ltr"
+                                        />
+                                    )}
+                                </form.Field>
+
+                                <form.Field name="mobile">
+                                    {(field) => (
+                                        <FormTextField
+                                            field={field}
+                                            label="شماره موبایل"
+                                            dir="ltr"
+                                        />
+                                    )}
+                                </form.Field>
+
+                                <Button
+                                    type="submit"
+                                    className="w-full"
+                                    disabled={mutation.isPending}
+                                >
+                                    {mutation.isPending ? (
+                                        <IconLoader2 className="size-4 animate-spin ms-2" />
+                                    ) : (
+                                        <IconSend className="size-4 ms-2" />
+                                    )}
+                                    شروع پرسشنامه
+                                </Button>
+                            </form>
+                        )}
                     </CardContent>
                 </Card>
             </div>

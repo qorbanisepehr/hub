@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { IconPlus } from "@tabler/icons-react";
+import { IconFile, IconPlus } from "@tabler/icons-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -14,12 +15,13 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { FileUploadField } from "@/components/shared/file-upload-field";
-import { DocumentThumbnail } from "@/components/shared/document-thumbnail";
+import { FileThumbnail } from "@/components/ui/file-thumbnail";
 import { ConfirmDeleteButton } from "@/components/ui/confirm-delete-button";
 import { useQuestionnaireDocuments } from "@/features/recruitment/hooks/use-questionnaire-documents";
+import { getFileIcon } from "@/lib/file-icon";
+import { getFileColorClasses } from "@/lib/file-colors";
 import { DOC_CATEGORY_SLUGS, getRecordKeyLabel } from "@/features/recruitment/constants";
 import { api } from "@/lib/api";
-import type { Document } from "@/features/documents/types";
 
 const CATEGORY_LABELS: Record<string, string> = {
     [DOC_CATEGORY_SLUGS.NATIONAL_CARD]: "کارت ملی",
@@ -58,7 +60,8 @@ export function DocumentsSection({ uuid }: SectionProps) {
     const queryClient = useQueryClient();
 
     const deleteMutation = useMutation({
-        mutationFn: (doc: Document) => api.delete(`/documents/${doc.id}`),
+        mutationFn: (docId: number) =>
+            api.delete(`/questionnaire/${uuid}/documents/${docId}`),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["questionnaire-documents", uuid] });
             toast.success("مدرک حذف شد.");
@@ -141,19 +144,25 @@ export function DocumentsSection({ uuid }: SectionProps) {
                             <div className="flex flex-wrap gap-3">
                                 {orphans.map((doc) => (
                                     <div key={doc.id} className="flex flex-col items-start gap-0.5">
-                                        <DocumentThumbnail
-                                            document={doc}
-                                            variant="compact"
-                                            size="sm"
-                                            showName
-                                        />
+                                        {doc.mime_type.startsWith("image/") ? (
+                                            <FileThumbnail
+                                                file={{ name: doc.original_name, type: doc.mime_type }}
+                                                previewImageUrl={doc.url}
+                                                className="size-16 rounded-none border-0"
+                                                previewClassName="aspect-square"
+                                            />
+                                        ) : (
+                                            <div className={cn("flex size-16 items-center justify-center rounded", getFileColorClasses(doc.mime_type))}>
+                                                {getFileIcon(doc.mime_type, "size-6")}
+                                            </div>
+                                        )}
                                         <div className="flex items-center gap-1 px-1">
                                             <span className="text-[10px] text-muted-foreground">
                                                 {getRecordKeyLabel(doc.record_key) ?? doc.record_key}
                                             </span>
                                             <ConfirmDeleteButton
                                                 iconOnly
-                                                onConfirm={() => deleteMutation.mutate(doc)}
+                                                onConfirm={() => deleteMutation.mutate(doc.id)}
                                                 label="حذف"
                                             />
                                         </div>

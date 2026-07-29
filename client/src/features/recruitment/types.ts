@@ -2,6 +2,7 @@ export interface Questionnaire {
     id: number;
     uuid: string;
     status: "draft" | "submitted" | "reviewed";
+    version: number;
     first_name: string;
     last_name: string;
     email: string;
@@ -14,7 +15,6 @@ export interface Questionnaire {
     training: Training | null;
     additional_info: AdditionalInfo | null;
     job_request: JobRequestData | null;
-    review: ReviewData | null;
     mobile_verified: boolean;
     email_verified: boolean;
     created_at: string;
@@ -211,6 +211,16 @@ export interface ReviewData {
 export interface InitQuestionnaireResponse {
     data: Questionnaire;
     message: string;
+    requires_otp?: boolean;
+}
+
+export interface InitQuestionnaireErrorResponse {
+    data: {
+        uuid: string;
+        status: string;
+    };
+    message: string;
+    requires_otp: true;
 }
 
 export interface SaveQuestionnaireResponse {
