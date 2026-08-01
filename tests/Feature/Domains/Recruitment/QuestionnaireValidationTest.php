@@ -1341,7 +1341,10 @@ describe('section definitions', function () {
             ->and($requirements['personnel-photo']['required'])->toBeTrue()
             ->and($requirements['resume']['required'])->toBeTrue()
             ->and($requirements['other-documents']['max_files'])->toBe(3)
-            ->and($requirements['course-certificates'])->not->toHaveKey('max_files');
+            ->and($requirements['course-certificates'])->not->toHaveKey('max_files')
+            ->and($requirements['skill-certificate']['max_files'])->toBe(1)
+            ->and($requirements['employment-certificate']['max_files'])->toBe(1)
+            ->and($requirements['research-documents']['max_files'])->toBe(1);
     });
 
     it('removes per-category requirements from config/documents.php', function () {

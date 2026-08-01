@@ -45,12 +45,23 @@ class DocumentCategorySeeder extends Seeder
                     ['name' => 'گواهینامه دوره‌ها', 'slug' => 'course-certificates', 'sort_order' => 2],
                     ['name' => 'ریز نمرات', 'slug' => 'transcript', 'sort_order' => 3],
                     ['name' => 'گواهی زبان', 'slug' => 'language-certificate', 'sort_order' => 4],
+                    ['name' => 'گواهی مهارت', 'slug' => 'skill-certificate', 'sort_order' => 5],
+                    ['name' => 'مدارک پژوهشی', 'slug' => 'research-documents', 'sort_order' => 6],
+                ],
+            ],
+            [
+                'name' => 'سوابق شغلی',
+                'slug' => 'work-experience',
+                'sort_order' => 4,
+                'type' => DocumentCategory::TYPE_PERSONNEL,
+                'children' => [
+                    ['name' => 'گواهی اشتغال به کار', 'slug' => 'employment-certificate', 'sort_order' => 1],
                 ],
             ],
             [
                 'name' => 'نامه‌های اداری',
                 'slug' => 'official-letters',
-                'sort_order' => 4,
+                'sort_order' => 5,
                 'type' => DocumentCategory::TYPE_PERSONNEL,
                 'children' => [
                     ['name' => 'نامه مرخصی', 'slug' => 'leave-letter', 'sort_order' => 1],
@@ -62,7 +73,7 @@ class DocumentCategorySeeder extends Seeder
             [
                 'name' => 'نامه‌های مالی',
                 'slug' => 'financial-letters',
-                'sort_order' => 5,
+                'sort_order' => 6,
                 'type' => DocumentCategory::TYPE_PERSONNEL,
                 'children' => [
                     ['name' => 'فیش حقوقی', 'slug' => 'payslip', 'sort_order' => 1],
@@ -73,7 +84,7 @@ class DocumentCategorySeeder extends Seeder
             [
                 'name' => 'تامین اجتماعی',
                 'slug' => 'social-security',
-                'sort_order' => 6,
+                'sort_order' => 7,
                 'type' => DocumentCategory::TYPE_PERSONNEL,
                 'children' => [
                     ['name' => 'سابقه بیمه', 'slug' => 'insurance-history', 'sort_order' => 1],
@@ -84,7 +95,7 @@ class DocumentCategorySeeder extends Seeder
             [
                 'name' => 'طب کار',
                 'slug' => 'occupational-medicine',
-                'sort_order' => 7,
+                'sort_order' => 8,
                 'type' => DocumentCategory::TYPE_PERSONNEL,
                 'children' => [
                     ['name' => 'گواهی سلامت', 'slug' => 'health-certificate', 'sort_order' => 1],
@@ -95,7 +106,7 @@ class DocumentCategorySeeder extends Seeder
             [
                 'name' => 'طبقه‌بندی مشاغل',
                 'slug' => 'job-classification',
-                'sort_order' => 8,
+                'sort_order' => 9,
                 'type' => DocumentCategory::TYPE_PERSONNEL,
                 'children' => [
                     ['name' => 'ارزیابی شغلی', 'slug' => 'job-evaluation', 'sort_order' => 1],
@@ -105,7 +116,7 @@ class DocumentCategorySeeder extends Seeder
             [
                 'name' => 'رزومه',
                 'slug' => 'cv',
-                'sort_order' => 9,
+                'sort_order' => 10,
                 'type' => DocumentCategory::TYPE_PERSONNEL,
                 'children' => [
                     ['name' => 'رزومه', 'slug' => 'resume', 'sort_order' => 1],
@@ -115,7 +126,7 @@ class DocumentCategorySeeder extends Seeder
             [
                 'name' => 'سایر مدارک',
                 'slug' => 'other',
-                'sort_order' => 10,
+                'sort_order' => 11,
                 'type' => DocumentCategory::TYPE_PERSONNEL,
                 'children' => [
                     ['name' => 'سایر مدارک', 'slug' => 'other-documents', 'sort_order' => 1],

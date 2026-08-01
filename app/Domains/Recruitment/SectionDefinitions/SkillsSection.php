@@ -14,6 +14,16 @@ class SkillsSection extends BaseSection
         return __('recruitment.sections.skills');
     }
 
+    public function documentRequirements(): array
+    {
+        return [
+            'skill-certificate' => [
+                'required' => false,
+                'max_files' => 1,
+            ],
+        ];
+    }
+
     public function fields(): array
     {
         return [

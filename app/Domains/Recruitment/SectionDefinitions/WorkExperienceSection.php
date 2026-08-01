@@ -16,6 +16,16 @@ class WorkExperienceSection extends BaseSection
         return __('recruitment.sections.work_experience');
     }
 
+    public function documentRequirements(): array
+    {
+        return [
+            'employment-certificate' => [
+                'required' => false,
+                'max_files' => 1,
+            ],
+        ];
+    }
+
     public function fields(): array
     {
         return [
