@@ -47,7 +47,9 @@ function SectionHeader({ title, onEdit }: { title: string; onEdit?: () => void }
 const SECTION_DOCS: { step: number; label: string; slugs: string[] }[] = [
     { step: 0, label: "مدارک هویتی", slugs: [DOC_CATEGORY_SLUGS.PERSONNEL_PHOTO, DOC_CATEGORY_SLUGS.NATIONAL_CARD, DOC_CATEGORY_SLUGS.BIRTH_CERTIFICATE] },
     { step: 2, label: "مدارک تحصیلی", slugs: [DOC_CATEGORY_SLUGS.ACADEMIC_DEGREE] },
-    { step: 4, label: "مدارک مهارتی", slugs: [DOC_CATEGORY_SLUGS.LANGUAGE_CERTIFICATE, DOC_CATEGORY_SLUGS.COURSE_CERTIFICATES] },
+    { step: 3, label: "مدارک سوابق شغلی", slugs: [DOC_CATEGORY_SLUGS.EMPLOYMENT_CERTIFICATE] },
+    { step: 4, label: "مدارک مهارتی", slugs: [DOC_CATEGORY_SLUGS.LANGUAGE_CERTIFICATE, DOC_CATEGORY_SLUGS.COURSE_CERTIFICATES, DOC_CATEGORY_SLUGS.SKILL_CERTIFICATE] },
+    { step: 5, label: "مدارک آموزشی و پژوهشی", slugs: [DOC_CATEGORY_SLUGS.COURSE_CERTIFICATES, DOC_CATEGORY_SLUGS.RESEARCH_DOCUMENTS] },
     { step: 7, label: "مدارک شغلی", slugs: [DOC_CATEGORY_SLUGS.RESUME, DOC_CATEGORY_SLUGS.COVER_LETTER] },
 ];
 
@@ -57,7 +59,10 @@ const TREE_GROUPS = [
     { label: "شناسنامه", slug: DOC_CATEGORY_SLUGS.BIRTH_CERTIFICATE },
     { label: "مدرک تحصیلی", slug: DOC_CATEGORY_SLUGS.ACADEMIC_DEGREE },
     { label: "گواهینامه زبان", slug: DOC_CATEGORY_SLUGS.LANGUAGE_CERTIFICATE },
+    { label: "گواهی مهارت", slug: DOC_CATEGORY_SLUGS.SKILL_CERTIFICATE },
     { label: "گواهینامه دوره", slug: DOC_CATEGORY_SLUGS.COURSE_CERTIFICATES },
+    { label: "مدارک پژوهشی", slug: DOC_CATEGORY_SLUGS.RESEARCH_DOCUMENTS },
+    { label: "گواهی اشتغال به کار", slug: DOC_CATEGORY_SLUGS.EMPLOYMENT_CERTIFICATE },
     { label: "رزومه", slug: DOC_CATEGORY_SLUGS.RESUME },
     { label: "نامه پوششی", slug: DOC_CATEGORY_SLUGS.COVER_LETTER },
     { label: "سایر مدارک", slug: DOC_CATEGORY_SLUGS.OTHER_DOCUMENTS },
@@ -78,6 +83,10 @@ export function ReviewSection({ form, questionnaire, onNavigateToStep }: Section
 
     function docsFor(slugs: string[]): QuestionnaireDocument[] {
         return slugs.flatMap((slug) => getDocumentsBySlug(slug));
+    }
+
+    function docsForStep(step: number): QuestionnaireDocument[] {
+        return docsFor(SECTION_DOCS.find((s) => s.step === step)?.slugs ?? []);
     }
 
     const treeGroups = TREE_GROUPS.map((g) => ({
@@ -137,7 +146,7 @@ export function ReviewSection({ form, questionnaire, onNavigateToStep }: Section
                         </div>
                     )}
                     <QuestionnaireDocumentPreview
-                        documents={docsFor(SECTION_DOCS[0].slugs)}
+                        documents={docsForStep(0)}
                         variant="compact"
                         className="mt-4 pt-4 border-t"
                     />
@@ -201,7 +210,7 @@ export function ReviewSection({ form, questionnaire, onNavigateToStep }: Section
                         )}
                     </div>
                     <QuestionnaireDocumentPreview
-                        documents={docsFor(SECTION_DOCS[1].slugs)}
+                        documents={docsForStep(2)}
                         variant="compact"
                         className="pt-2"
                     />
@@ -233,6 +242,11 @@ export function ReviewSection({ form, questionnaire, onNavigateToStep }: Section
                         <DataRow label="دستاوردها" value={work.achievements} />
                         <DataRow label="اجازه تماس با مدیران قبلی" value={<YesNo value={work.allow_contact_previous_managers} />} />
                     </div>
+                    <QuestionnaireDocumentPreview
+                        documents={docsForStep(3)}
+                        variant="compact"
+                        className="pt-2"
+                    />
                 </CardContent>
             </Card>
 
@@ -283,7 +297,7 @@ export function ReviewSection({ form, questionnaire, onNavigateToStep }: Section
                         </div>
                     )}
                     <QuestionnaireDocumentPreview
-                        documents={docsFor(SECTION_DOCS[2].slugs)}
+                        documents={docsForStep(4)}
                         variant="compact"
                         className="pt-2"
                     />
@@ -314,6 +328,11 @@ export function ReviewSection({ form, questionnaire, onNavigateToStep }: Section
                             ))}
                         </div>
                     )}
+                    <QuestionnaireDocumentPreview
+                        documents={docsForStep(5)}
+                        variant="compact"
+                        className="pt-2"
+                    />
                 </CardContent>
             </Card>
 
@@ -363,7 +382,7 @@ export function ReviewSection({ form, questionnaire, onNavigateToStep }: Section
                         <DataRow label="سایر اطلاعات" value={job.other_information} />
                     </div>
                     <QuestionnaireDocumentPreview
-                        documents={docsFor(SECTION_DOCS[3].slugs)}
+                        documents={docsForStep(7)}
                         variant="compact"
                         className="mt-4 pt-4 border-t"
                     />

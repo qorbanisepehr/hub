@@ -6,15 +6,23 @@ import {
     FormRadioGroup,
     FormDatePicker,
 } from "@/components/shared/form-fields";
+import { FileUploadField } from "@/components/shared/file-upload-field";
+import { repeaterAttachmentColumn } from "@/components/shared/repeater-attachment-cell";
 import { FormRepeater } from "@/components/shared/form-repeater";
 import type { TableColumn } from "@/components/shared/form-repeater";
-import { YES_NO_OPTIONS, parseBoolean } from "@/features/recruitment/constants";
+import {
+    YES_NO_OPTIONS,
+    parseBoolean,
+    DOC_CATEGORY_SLUGS,
+} from "@/features/recruitment/constants";
+import { useQuestionnaireDocuments } from "@/features/recruitment/hooks/use-questionnaire-documents";
 import { zodFieldValidators } from "@/lib/validation-helpers";
 import { fieldSchemas } from "@/features/recruitment/schemas/work-experience.schema";
 import type { QuestionnaireFormApi } from "@/features/recruitment/types";
 
 type SectionProps = {
     form: QuestionnaireFormApi;
+    uuid?: string;
     onPersist?: () => void;
 };
 
@@ -27,7 +35,16 @@ const WORK_COLUMNS: TableColumn[] = [
     { key: "contract_type", label: "نوع قرارداد" },
 ];
 
-export function WorkExperienceSection({ form, onPersist }: SectionProps) {
+export function WorkExperienceSection({ form, uuid, onPersist }: SectionProps) {
+    const { getDocumentsBySlug } = useQuestionnaireDocuments(uuid);
+    const workColumns: TableColumn[] = [
+        ...WORK_COLUMNS,
+        repeaterAttachmentColumn({
+            categorySlug: DOC_CATEGORY_SLUGS.EMPLOYMENT_CERTIFICATE,
+            recordKeyPrefix: "work-",
+            getDocumentsBySlug,
+        }),
+    ];
     return (
         <Card>
             <CardHeader>
@@ -40,7 +57,7 @@ export function WorkExperienceSection({ form, onPersist }: SectionProps) {
                             defaultMode="table"
                             field={field}
                             label="سوابق شغلی"
-                            columns={WORK_COLUMNS}
+                            columns={workColumns}
                             onPersist={onPersist}
                             getSummary={(item) => ({
                                 company: item.company,
@@ -51,66 +68,78 @@ export function WorkExperienceSection({ form, onPersist }: SectionProps) {
                                 contract_type: item.contract_type,
                             })}
                             renderItem={(index) => (
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                    <form.Field
-                                        name={`work_experience.work_experiences.${index}.company`}
-                                        validators={zodFieldValidators(fieldSchemas.company)}
-                                    >
-                                        {(f) => <FormTextField field={f} label="شرکت" />}
-                                    </form.Field>
-                                    <form.Field
-                                        name={`work_experience.work_experiences.${index}.location`}
-                                    >
-                                        {(f) => <FormTextField field={f} label="محل کار" />}
-                                    </form.Field>
-                                    <form.Field
-                                        name={`work_experience.work_experiences.${index}.industry`}
-                                    >
-                                        {(f) => <FormTextField field={f} label="صنعت" />}
-                                    </form.Field>
-                                    <form.Field
-                                        name={`work_experience.work_experiences.${index}.position`}
-                                        validators={zodFieldValidators(fieldSchemas.position)}
-                                    >
-                                        {(f) => <FormTextField field={f} label="سمت شغلی" />}
-                                    </form.Field>
-                                    <form.Field
-                                        name={`work_experience.work_experiences.${index}.from`}
-                                        validators={zodFieldValidators(fieldSchemas.from)}
-                                    >
-                                        {(f) => <FormDatePicker field={f} label="از تاریخ" />}
-                                    </form.Field>
-                                    <form.Field
-                                        name={`work_experience.work_experiences.${index}.to`}
-                                        validators={zodFieldValidators(fieldSchemas.to)}
-                                    >
-                                        {(f) => <FormDatePicker field={f} label="تا تاریخ" />}
-                                    </form.Field>
-                                    <form.Field
-                                        name={`work_experience.work_experiences.${index}.contract_type`}
-                                    >
-                                        {(f) => <FormTextField field={f} label="نوع قرارداد" />}
-                                    </form.Field>
-                                    <form.Field name={`work_experience.work_experiences.${index}.phone`}>
-                                        {(f) => <FormTextField field={f} label="تلفن" dir="ltr" />}
-                                    </form.Field>
-                                    <form.Field
-                                        name={`work_experience.work_experiences.${index}.manager_name`}
-                                    >
-                                        {(f) => <FormTextField field={f} label="نام مدیر" />}
-                                    </form.Field>
-                                    <form.Field
-                                        name={`work_experience.work_experiences.${index}.last_salary`}
-                                    >
-                                        {(f) => <FormNumberField field={f} label="آخرین حقوق" />}
-                                    </form.Field>
-                                    <div className="md:col-span-3">
+                                <div className="space-y-4">
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                         <form.Field
-                                            name={`work_experience.work_experiences.${index}.leave_reason`}
+                                            name={`work_experience.work_experiences.${index}.company`}
+                                            validators={zodFieldValidators(fieldSchemas.company)}
                                         >
-                                            {(f) => <FormTextarea field={f} label="دلیل ترک" />}
+                                            {(f) => <FormTextField field={f} label="شرکت" />}
                                         </form.Field>
+                                        <form.Field
+                                            name={`work_experience.work_experiences.${index}.location`}
+                                        >
+                                            {(f) => <FormTextField field={f} label="محل کار" />}
+                                        </form.Field>
+                                        <form.Field
+                                            name={`work_experience.work_experiences.${index}.industry`}
+                                        >
+                                            {(f) => <FormTextField field={f} label="صنعت" />}
+                                        </form.Field>
+                                        <form.Field
+                                            name={`work_experience.work_experiences.${index}.position`}
+                                            validators={zodFieldValidators(fieldSchemas.position)}
+                                        >
+                                            {(f) => <FormTextField field={f} label="سمت شغلی" />}
+                                        </form.Field>
+                                        <form.Field
+                                            name={`work_experience.work_experiences.${index}.from`}
+                                            validators={zodFieldValidators(fieldSchemas.from)}
+                                        >
+                                            {(f) => <FormDatePicker field={f} label="از تاریخ" />}
+                                        </form.Field>
+                                        <form.Field
+                                            name={`work_experience.work_experiences.${index}.to`}
+                                            validators={zodFieldValidators(fieldSchemas.to)}
+                                        >
+                                            {(f) => <FormDatePicker field={f} label="تا تاریخ" />}
+                                        </form.Field>
+                                        <form.Field
+                                            name={`work_experience.work_experiences.${index}.contract_type`}
+                                        >
+                                            {(f) => <FormTextField field={f} label="نوع قرارداد" />}
+                                        </form.Field>
+                                        <form.Field name={`work_experience.work_experiences.${index}.phone`}>
+                                            {(f) => <FormTextField field={f} label="تلفن" dir="ltr" />}
+                                        </form.Field>
+                                        <form.Field
+                                            name={`work_experience.work_experiences.${index}.manager_name`}
+                                        >
+                                            {(f) => <FormTextField field={f} label="نام مدیر" />}
+                                        </form.Field>
+                                        <form.Field
+                                            name={`work_experience.work_experiences.${index}.last_salary`}
+                                        >
+                                            {(f) => <FormNumberField field={f} label="آخرین حقوق" />}
+                                        </form.Field>
+                                        <div className="md:col-span-3">
+                                            <form.Field
+                                                name={`work_experience.work_experiences.${index}.leave_reason`}
+                                            >
+                                                {(f) => <FormTextarea field={f} label="دلیل ترک" />}
+                                            </form.Field>
+                                        </div>
                                     </div>
+                                    {uuid && (
+                                        <FileUploadField
+                                            uuid={uuid}
+                                            categorySlug={
+                                                DOC_CATEGORY_SLUGS.EMPLOYMENT_CERTIFICATE
+                                            }
+                                            label="گواهی اشتغال به کار"
+                                            recordKey={`work-${index}`}
+                                        />
+                                    )}
                                 </div>
                             )}
                         />
