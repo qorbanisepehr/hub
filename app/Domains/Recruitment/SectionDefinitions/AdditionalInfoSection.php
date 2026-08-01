@@ -2,7 +2,7 @@
 
 namespace App\Domains\Recruitment\SectionDefinitions;
 
-class AdditionalInfoSection implements SectionDefinition
+class AdditionalInfoSection extends BaseSection
 {
     public function key(): string
     {
@@ -11,7 +11,21 @@ class AdditionalInfoSection implements SectionDefinition
 
     public function label(): string
     {
-        return 'اطلاعات تکمیلی';
+        return __('recruitment.sections.additional_info');
+    }
+
+    public function documentRequirements(): array
+    {
+        return [
+            'cover-letter' => [
+                'required' => false,
+                'max_files' => 1,
+            ],
+            'other-documents' => [
+                'required' => false,
+                'max_files' => 3,
+            ],
+        ];
     }
 
     public function fields(): array

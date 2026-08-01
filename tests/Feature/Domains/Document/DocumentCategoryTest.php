@@ -192,11 +192,17 @@ describe('document category CRUD', function () {
     });
 
     describe('authorization', function () {
-        it('denies access without required permission', function () {
+        it('allows index for any authenticated user but denies management access without permission', function () {
             $user = createUserWithPermissions([]);
+            $category = DocumentCategory::factory()->create();
 
             $this->actingAs($user)
                 ->getJson('/api/document-categories')
+                ->assertStatus(200)
+                ->assertJsonCount(1, 'data');
+
+            $this->actingAs($user)
+                ->getJson('/api/document-categories/'.$category->id)
                 ->assertStatus(403);
         });
 

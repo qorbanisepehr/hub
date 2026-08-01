@@ -17,7 +17,7 @@ class DocumentCategoryController extends ApiController
 
     public function callAction($method, $parameters): mixed
     {
-        if ($method === 'index' && request()->user() === null) {
+        if ($method === 'index') {
             return $this->index(request());
         }
 

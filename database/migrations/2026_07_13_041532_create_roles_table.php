@@ -15,7 +15,7 @@ return new class extends Migration
             $table->text('description')->nullable();
             $table->foreignId('parent_id')->nullable()->constrained('roles')->nullOnDelete();
             $table->boolean('is_active')->default(true);
-            $table->boolean('inherits_permissions')->default(false)->after('is_active');
+            $table->boolean('inherits_permissions')->default(false);
             $table->timestamps();
         });
     }

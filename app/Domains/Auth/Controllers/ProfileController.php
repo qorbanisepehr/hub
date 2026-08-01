@@ -70,7 +70,7 @@ class ProfileController
         ]);
 
         return response()->json([
-            'message' => 'رمز عبور با موفقیت تغییر کرد.',
+            'message' => __('auth.password_changed'),
         ]);
     }
 

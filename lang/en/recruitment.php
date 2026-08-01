@@ -1,16 +1,41 @@
 <?php
 
 return [
+    'sections' => [
+        'personal_info' => 'Personal Information',
+        'contact_info' => 'Contact Information',
+        'education' => 'Education',
+        'work_experience' => 'Work Experience',
+        'skills' => 'Skills',
+        'training' => 'Training & Research',
+        'additional_info' => 'Additional Information',
+        'job_request' => 'Job Request',
+    ],
     'questionnaire' => [
         'created' => 'Questionnaire created successfully.',
         'saved' => 'Questionnaire saved.',
         'submitted' => 'Questionnaire submitted successfully.',
         'otp_sent' => 'Verification code sent.',
+        'otp_already_sent' => 'Verification code already sent for this number.',
         'otp_invalid' => 'Invalid verification code.',
+        'otp_expired' => 'Verification code has expired. Request a new one.',
+        'otp_locked' => 'Too many failed attempts. Try again in :seconds seconds.',
         'verified' => 'Verification successful.',
         'not_found' => 'Questionnaire not found.',
         'not_draft' => 'Questionnaire is no longer in draft status.',
         'mobile_not_verified' => 'Mobile number is not verified.',
         'email_not_verified' => 'Email is not verified.',
+        'already_verified' => 'This request has already been verified.',
+        'only_draft_editable' => 'Only draft questionnaires can be edited.',
+        'only_draft_submittable' => 'Only draft questionnaires can be submitted.',
+        'only_submitted_reviewable' => 'Only submitted questionnaires can be reviewed.',
+        'only_submitted_rejectable' => 'Only submitted questionnaires can be rejected.',
+        'reviewed' => 'Questionnaire reviewed successfully.',
+        'rejected' => 'Questionnaire sent back to draft.',
+    ],
+    'documents' => [
+        'missing' => 'Uploading :document is required.',
+        'max_files_reached' => 'Maximum :count files allowed for this category.',
+        'total_max_files_reached' => 'Maximum :count files allowed.',
     ],
 ];

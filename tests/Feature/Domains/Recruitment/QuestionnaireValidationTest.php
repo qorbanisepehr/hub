@@ -1,7 +1,20 @@
 <?php
 
+use App\Domains\Document\Models\Document;
+use App\Domains\Document\Models\DocumentCategory;
+use App\Domains\Document\Models\DocumentUsage;
+use App\Domains\Document\Services\DocumentService;
 use App\Domains\Recruitment\Models\Questionnaire;
 use App\Domains\Recruitment\Services\QuestionnaireService;
+use App\Models\PendingVerification;
+use App\Services\OtpService;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\URL;
+use Illuminate\Support\Str;
 
 /**
  * Helper: create a draft questionnaire and return its UUID.
@@ -14,8 +27,6 @@ function createDraft(): string
         'email' => 'test@example.com',
         'mobile' => '09121234567',
         'status' => 'draft',
-        'mobile_otp' => '123456',
-        'email_otp' => '654321',
         'mobile_verified_at' => now(),
         'email_verified_at' => now(),
     ])->uuid;
@@ -30,6 +41,24 @@ function saveSectionToDb(string $uuid, string $sectionKey, array $data): void
     $service = app(QuestionnaireService::class);
     $section = $service->getSection($sectionKey);
     $questionnaire->update([$section->storage()['jsonb'] => $data]);
+}
+
+/**
+ * Helper: attach all required documents so submit can pass.
+ */
+function attachRequiredDocuments(string $uuid): void
+{
+    $questionnaire = Questionnaire::where('uuid', $uuid)->first();
+
+    foreach (['national-card', 'birth-certificate', 'resume', 'personnel-photo'] as $slug) {
+        $document = Document::factory()->create();
+        DocumentUsage::create([
+            'document_id' => $document->id,
+            'entity_type' => Questionnaire::class,
+            'entity_id' => $questionnaire->id,
+            'category_slug' => $slug,
+        ]);
+    }
 }
 
 describe('Questionnaire validation', function () {
@@ -63,18 +92,148 @@ describe('Questionnaire validation', function () {
                 ->assertJsonValidationErrors(['first_name', 'last_name', 'email', 'mobile']);
         });
 
-        it('accepts valid data', function () {
+        it('accepts valid data and returns pending verification uuid', function () {
             $this->postJson('/api/questionnaire/init', [
                 'first_name' => 'Ali',
                 'last_name' => 'Rezaei',
                 'email' => 'ali@example.com',
                 'mobile' => '09121234567',
-            ])->assertCreated();
+            ])->assertCreated()
+                ->assertJson([
+                    'requires_otp' => true,
+                ])
+                ->assertJsonStructure([
+                    'data' => ['uuid'],
+                    'message',
+                    'requires_otp',
+                ]);
         });
     });
 
     // ────────────────────────────────────────
-    //  VerifyQuestionnaireRequest
+    //  VerifyInitOtpRequest
+    // ────────────────────────────────────────
+    describe('verifyInitOtp', function () {
+        it('requires uuid and otp', function () {
+            $this->postJson('/api/questionnaire/verify-init-otp', [])
+                ->assertUnprocessable()
+                ->assertJsonValidationErrors(['uuid', 'otp']);
+        });
+
+        it('validates otp size is exactly 6', function () {
+            $pending = PendingVerification::create([
+                'type' => 'questionnaire',
+                'mobile' => '09121234567',
+                'payload' => ['first_name' => 'Ali', 'last_name' => 'Rezaei', 'email' => 'ali@example.com', 'mobile' => '09121234567'],
+            ]);
+
+            $this->postJson('/api/questionnaire/verify-init-otp', [
+                'uuid' => $pending->uuid,
+                'otp' => '12345',
+            ])->assertUnprocessable()
+                ->assertJsonValidationErrors(['otp']);
+
+            $this->postJson('/api/questionnaire/verify-init-otp', [
+                'uuid' => $pending->uuid,
+                'otp' => '1234567',
+            ])->assertUnprocessable()
+                ->assertJsonValidationErrors(['otp']);
+        });
+
+        it('returns 404 for invalid uuid', function () {
+            $this->postJson('/api/questionnaire/verify-init-otp', [
+                'uuid' => '00000000-0000-0000-0000-000000000000',
+                'otp' => '123456',
+            ])->assertNotFound();
+        });
+
+        it('accepts valid otp and creates questionnaire for new mobile', function () {
+            $pending = PendingVerification::create([
+                'type' => 'questionnaire',
+                'mobile' => '09121234567',
+                'payload' => ['first_name' => 'Ali', 'last_name' => 'Rezaei', 'email' => 'ali@example.com', 'mobile' => '09121234567'],
+            ]);
+
+            Cache::put("otp:pending-verification:{$pending->uuid}:mobile", ['hash' => Hash::make('123456')], now()->addMinutes(5));
+
+            $this->postJson('/api/questionnaire/verify-init-otp', [
+                'uuid' => $pending->uuid,
+                'otp' => '123456',
+            ])->assertOk()
+                ->assertJsonStructure([
+                    'data' => ['uuid', 'first_name', 'last_name'],
+                    'message',
+                ]);
+
+            $this->assertDatabaseHas('questionnaires', [
+                'mobile' => '09121234567',
+                'first_name' => 'Ali',
+            ]);
+
+            $this->assertDatabaseMissing('pending_verifications', [
+                'uuid' => $pending->uuid,
+            ]);
+        });
+
+        it('returns existing questionnaire when mobile already exists', function () {
+            Questionnaire::create([
+                'first_name' => 'Existing',
+                'last_name' => 'User',
+                'email' => 'existing@example.com',
+                'mobile' => '09121234567',
+                'status' => 'draft',
+                'mobile_verified_at' => now(),
+                'email_verified_at' => now(),
+            ]);
+
+            $pending = PendingVerification::create([
+                'type' => 'questionnaire',
+                'mobile' => '09121234567',
+                'payload' => ['first_name' => 'Ali', 'last_name' => 'Rezaei', 'email' => 'ali@example.com', 'mobile' => '09121234567'],
+            ]);
+
+            Cache::put("otp:pending-verification:{$pending->uuid}:mobile", ['hash' => Hash::make('123456')], now()->addMinutes(5));
+
+            $this->postJson('/api/questionnaire/verify-init-otp', [
+                'uuid' => $pending->uuid,
+                'otp' => '123456',
+            ])->assertOk()
+                ->assertJsonPath('data.first_name', 'Ali');
+        });
+
+        it('returns 422 for expired otp', function () {
+            $pending = PendingVerification::create([
+                'type' => 'questionnaire',
+                'mobile' => '09121234567',
+                'payload' => ['first_name' => 'Ali', 'last_name' => 'Rezaei', 'email' => 'ali@example.com', 'mobile' => '09121234567'],
+            ]);
+
+            Cache::put("otp:pending-verification:{$pending->uuid}:mobile", ['hash' => Hash::make('123456')], now()->subMinute());
+
+            $this->postJson('/api/questionnaire/verify-init-otp', [
+                'uuid' => $pending->uuid,
+                'otp' => '123456',
+            ])->assertUnprocessable();
+        });
+
+        it('returns 422 for invalid otp', function () {
+            $pending = PendingVerification::create([
+                'type' => 'questionnaire',
+                'mobile' => '09121234567',
+                'payload' => ['first_name' => 'Ali', 'last_name' => 'Rezaei', 'email' => 'ali@example.com', 'mobile' => '09121234567'],
+            ]);
+
+            Cache::put("otp:pending-verification:{$pending->uuid}:mobile", ['hash' => Hash::make('123456')], now()->addMinutes(5));
+
+            $this->postJson('/api/questionnaire/verify-init-otp', [
+                'uuid' => $pending->uuid,
+                'otp' => '000000',
+            ])->assertUnprocessable();
+        });
+    });
+
+    // ────────────────────────────────────────
+    //  VerifyQuestionnaireRequest (existing questionnaire OTP)
     // ────────────────────────────────────────
     describe('verify', function () {
         it('requires otp', function () {
@@ -101,6 +260,8 @@ describe('Questionnaire validation', function () {
 
         it('accepts valid 6-digit otp', function () {
             $uuid = createDraft();
+
+            Cache::put("otp:questionnaire:{$uuid}:mobile", ['hash' => Hash::make('123456')], now()->addMinutes(5));
 
             $this->postJson("/api/questionnaire/{$uuid}/verify-mobile-otp", [
                 'otp' => '123456',
@@ -355,6 +516,42 @@ describe('Questionnaire validation', function () {
                 'marital_status' => 'single',
                 'national_id' => '0123456789',
             ])->assertOk();
+        });
+
+        it('resets verified timestamps when email or mobile changes', function () {
+            $uuid = createDraft();
+
+            $this->putJson("/api/questionnaire/{$uuid}/sections/contact_info", [
+                'email' => 'new@example.com',
+                'mobile' => '09999999999',
+                'phone' => '02112345678',
+                'emergency_phone' => '09121234567',
+            ])->assertOk();
+
+            $this->assertDatabaseHas('questionnaires', [
+                'uuid' => $uuid,
+                'email' => 'new@example.com',
+                'mobile' => '09999999999',
+                'email_verified_at' => null,
+                'mobile_verified_at' => null,
+            ]);
+        });
+
+        it('keeps verified timestamps when email and mobile are unchanged', function () {
+            $uuid = createDraft();
+
+            $this->putJson("/api/questionnaire/{$uuid}/sections/contact_info", [
+                'email' => 'test@example.com',
+                'mobile' => '09121234567',
+                'phone' => '02112345678',
+                'emergency_phone' => '09121234567',
+            ])->assertOk();
+
+            $this->assertDatabaseHas('questionnaires', [
+                'uuid' => $uuid,
+                'email_verified_at' => now(),
+                'mobile_verified_at' => now(),
+            ]);
         });
     });
 
@@ -654,6 +851,7 @@ describe('Questionnaire validation', function () {
             saveSectionToDb($uuid, 'training', validTraining());
             saveSectionToDb($uuid, 'additional_info', validAdditionalInfo());
             saveSectionToDb($uuid, 'job_request', validJobRequest());
+            attachRequiredDocuments($uuid);
 
             $this->postJson("/api/questionnaire/{$uuid}/submit")
                 ->assertOk();
@@ -691,9 +889,83 @@ describe('Questionnaire validation', function () {
             saveSectionToDb($uuid, 'training', validTraining());
             saveSectionToDb($uuid, 'additional_info', validAdditionalInfo());
             saveSectionToDb($uuid, 'job_request', validJobRequest());
+            attachRequiredDocuments($uuid);
 
             $this->postJson("/api/questionnaire/{$uuid}/submit")
                 ->assertOk();
+        });
+
+        it('requires spouse_job when the spouse is employed', function () {
+            $uuid = createDraft();
+            saveSectionToDb($uuid, 'personal_info', array_merge(validPersonalInfo(), [
+                'marital_status' => 'married',
+                'spouse_employment_status' => 'employed',
+            ]));
+            saveSectionToDb($uuid, 'contact_info', validContactInfo());
+            saveSectionToDb($uuid, 'education', ['education_records' => validEducationRecord()]);
+            saveSectionToDb($uuid, 'work_experience', validWorkExperience());
+            saveSectionToDb($uuid, 'skills', validSkills());
+            saveSectionToDb($uuid, 'training', validTraining());
+            saveSectionToDb($uuid, 'additional_info', validAdditionalInfo());
+            saveSectionToDb($uuid, 'job_request', validJobRequest());
+            attachRequiredDocuments($uuid);
+
+            $this->postJson("/api/questionnaire/{$uuid}/submit")
+                ->assertUnprocessable()
+                ->assertJsonValidationErrors(['personal_info.spouse_job']);
+        });
+
+        it('does not require spouse_job when the spouse is a housewife', function () {
+            $uuid = createDraft();
+            saveSectionToDb($uuid, 'personal_info', array_merge(validPersonalInfo(), [
+                'marital_status' => 'married',
+                'spouse_employment_status' => 'housewife',
+            ]));
+            saveSectionToDb($uuid, 'contact_info', validContactInfo());
+            saveSectionToDb($uuid, 'education', ['education_records' => validEducationRecord()]);
+            saveSectionToDb($uuid, 'work_experience', validWorkExperience());
+            saveSectionToDb($uuid, 'skills', validSkills());
+            saveSectionToDb($uuid, 'training', validTraining());
+            saveSectionToDb($uuid, 'additional_info', validAdditionalInfo());
+            saveSectionToDb($uuid, 'job_request', validJobRequest());
+            attachRequiredDocuments($uuid);
+
+            $this->postJson("/api/questionnaire/{$uuid}/submit")
+                ->assertOk();
+        });
+
+        it('clears military_status when gender changes from male to female', function () {
+            $uuid = createDraft();
+            saveSectionToDb($uuid, 'personal_info', validPersonalInfo());
+
+            $questionnaire = Questionnaire::where('uuid', $uuid)->first();
+            expect($questionnaire->section_personal)->toHaveKey('military_status');
+
+            $questionnaire->update(['gender' => 'female']);
+
+            expect($questionnaire->fresh()->section_personal)->not->toHaveKey('military_status');
+        });
+
+        it('keeps military_status when gender stays male', function () {
+            $uuid = createDraft();
+            saveSectionToDb($uuid, 'personal_info', validPersonalInfo());
+
+            $questionnaire = Questionnaire::where('uuid', $uuid)->first();
+            $questionnaire->update(['gender' => 'male']);
+
+            expect($questionnaire->fresh()->section_personal)->toHaveKey('military_status');
+        });
+
+        it('strips military_status when a personal-info save marks gender female', function () {
+            $uuid = createDraft();
+
+            $this->putJson("/api/questionnaire/{$uuid}/sections/personal_info", [
+                'gender' => 'female',
+                'military_status' => validPersonalInfo()['military_status'],
+            ])->assertOk();
+
+            $questionnaire = Questionnaire::where('uuid', $uuid)->first();
+            expect($questionnaire->section_personal)->not->toHaveKey('military_status');
         });
 
         it('validates national_id size is exactly 10', function () {
@@ -724,10 +996,432 @@ describe('Questionnaire validation', function () {
             saveSectionToDb($uuid, 'training', validTraining());
             saveSectionToDb($uuid, 'additional_info', validAdditionalInfo());
             saveSectionToDb($uuid, 'job_request', validJobRequest());
+            attachRequiredDocuments($uuid);
 
             $this->postJson("/api/questionnaire/{$uuid}/submit")
                 ->assertOk();
         });
+
+        it('requires required documents on submit', function () {
+            $uuid = createDraft();
+            saveSectionToDb($uuid, 'personal_info', validPersonalInfo());
+            saveSectionToDb($uuid, 'contact_info', validContactInfo());
+            saveSectionToDb($uuid, 'education', ['education_records' => validEducationRecord()]);
+            saveSectionToDb($uuid, 'work_experience', validWorkExperience());
+            saveSectionToDb($uuid, 'skills', validSkills());
+            saveSectionToDb($uuid, 'training', validTraining());
+            saveSectionToDb($uuid, 'additional_info', validAdditionalInfo());
+            saveSectionToDb($uuid, 'job_request', validJobRequest());
+
+            $this->postJson("/api/questionnaire/{$uuid}/submit")
+                ->assertUnprocessable()
+                ->assertJsonValidationErrors([
+                    'documents.national-card',
+                    'documents.birth-certificate',
+                    'documents.resume',
+                    'documents.personnel-photo',
+                ]);
+        });
+    });
+});
+
+describe('admin review/reject authorization', function () {
+    it('blocks unauthenticated access to review and reject', function () {
+        $uuid = createDraft();
+
+        $this->postJson("/api/questionnaire/{$uuid}/review")->assertUnauthorized();
+        $this->postJson("/api/questionnaire/{$uuid}/reject")->assertUnauthorized();
+    });
+
+    it('reviews a submitted questionnaire when authenticated', function () {
+        $user = createUserWithPermissions();
+        $uuid = createDraft();
+        Questionnaire::where('uuid', $uuid)->update(['status' => 'submitted']);
+
+        $this->actingAs($user)
+            ->postJson("/api/questionnaire/{$uuid}/review")
+            ->assertOk()
+            ->assertJsonPath('data.status', 'reviewed');
+    });
+
+    it('rejects a submitted questionnaire when authenticated', function () {
+        $user = createUserWithPermissions();
+        $uuid = createDraft();
+        Questionnaire::where('uuid', $uuid)->update(['status' => 'submitted']);
+
+        $this->actingAs($user)
+            ->postJson("/api/questionnaire/{$uuid}/reject")
+            ->assertOk()
+            ->assertJsonPath('data.status', 'draft');
+    });
+});
+
+describe('recruitment regression coverage', function () {
+    describe('OTP code_sent flag', function () {
+        it('returns code_sent=true on pending send-otp', function () {
+            $pending = PendingVerification::create([
+                'type' => 'questionnaire',
+                'mobile' => '09121234567',
+                'payload' => ['first_name' => 'Ali', 'last_name' => 'Rezaei', 'email' => 'ali@example.com', 'mobile' => '09121234567'],
+            ]);
+
+            $this->postJson("/api/questionnaire/pending/{$pending->uuid}/send-otp")
+                ->assertOk()
+                ->assertJsonPath('code_sent', true);
+        });
+
+        it('returns code_sent=false when otp was already sent', function () {
+            $pending = PendingVerification::create([
+                'type' => 'questionnaire',
+                'mobile' => '09121234567',
+                'payload' => ['first_name' => 'Ali', 'last_name' => 'Rezaei', 'email' => 'ali@example.com', 'mobile' => '09121234567'],
+            ]);
+
+            $this->postJson("/api/questionnaire/pending/{$pending->uuid}/send-otp")->assertOk();
+
+            $this->postJson("/api/questionnaire/pending/{$pending->uuid}/send-otp")
+                ->assertOk()
+                ->assertJsonPath('code_sent', false);
+        });
+
+        it('returns code_sent=true on send-mobile-otp', function () {
+            $uuid = createDraft();
+
+            $this->postJson("/api/questionnaire/{$uuid}/send-mobile-otp")
+                ->assertOk()
+                ->assertJsonPath('code_sent', true);
+        });
+
+        it('returns code_sent=true on send-email-otp', function () {
+            $uuid = createDraft();
+
+            $this->postJson("/api/questionnaire/{$uuid}/send-email-otp")
+                ->assertOk()
+                ->assertJsonPath('code_sent', true);
+        });
+    });
+
+    describe('rate limiting on OTP endpoints', function () {
+        it('429s with Retry-After after exceeding the send limit', function () {
+            $uuid = createDraft();
+
+            foreach (range(1, 5) as $i) {
+                $this->postJson("/api/questionnaire/{$uuid}/send-mobile-otp")->assertOk();
+            }
+
+            $this->postJson("/api/questionnaire/{$uuid}/send-mobile-otp")
+                ->assertStatus(429)
+                ->assertJsonStructure(['message', 'retry_after'])
+                ->assertHeader('Retry-After');
+        });
+
+        it('429s with Retry-After after exceeding the verify limit', function () {
+            $uuid = createDraft();
+            $questionnaire = Questionnaire::where('uuid', $uuid)->first();
+            $code = app(OtpService::class)->send($questionnaire, 'mobile');
+
+            foreach (range(1, 5) as $i) {
+                $this->postJson("/api/questionnaire/{$uuid}/verify-mobile-otp", ['otp' => $code]);
+            }
+
+            $this->postJson("/api/questionnaire/{$uuid}/verify-mobile-otp", ['otp' => $code])
+                ->assertStatus(429)
+                ->assertJsonStructure(['message', 'retry_after'])
+                ->assertHeader('Retry-After');
+        });
+    });
+
+    describe('document upload limits', function () {
+        it('rejects uploads beyond the per-category max_files', function () {
+            Storage::fake('local');
+            $uuid = createDraft();
+            $category = DocumentCategory::create([
+                'name' => 'سایر مدارک',
+                'slug' => 'other-documents',
+                'type' => DocumentCategory::TYPE_PERSONNEL,
+            ]);
+
+            foreach (range(1, 3) as $i) {
+                $this->postJson("/api/questionnaire/{$uuid}/documents", [
+                    'document_category_id' => $category->id,
+                    'file' => UploadedFile::fake()->createWithContent("doc-{$i}.pdf", "content-{$i}"),
+                ])->assertCreated();
+            }
+
+            $this->postJson("/api/questionnaire/{$uuid}/documents", [
+                'document_category_id' => $category->id,
+                'file' => UploadedFile::fake()->createWithContent('doc-4.pdf', 'content-4'),
+            ])->assertStatus(422);
+        });
+
+        it('rejects uploads beyond the global max_files', function () {
+            Storage::fake('local');
+            $uuid = createDraft();
+            $category = DocumentCategory::create([
+                'name' => 'تست',
+                'slug' => 'test-category',
+                'type' => DocumentCategory::TYPE_PERSONNEL,
+            ]);
+            $totalMax = config('documents.recruitment.max_files', 10);
+
+            foreach (range(1, $totalMax) as $i) {
+                $this->postJson("/api/questionnaire/{$uuid}/documents", [
+                    'document_category_id' => $category->id,
+                    'file' => UploadedFile::fake()->createWithContent("doc-{$i}.pdf", "content-{$i}"),
+                ])->assertCreated();
+            }
+
+            $this->postJson("/api/questionnaire/{$uuid}/documents", [
+                'document_category_id' => $category->id,
+                'file' => UploadedFile::fake()->createWithContent('doc-over.pdf', 'content-over'),
+            ])->assertStatus(422);
+        });
+
+        it('enforces the limit per record key slot', function () {
+            Storage::fake('local');
+            $uuid = createDraft();
+            $category = DocumentCategory::create([
+                'name' => 'کارت ملی',
+                'slug' => 'national-card',
+                'type' => DocumentCategory::TYPE_PERSONNEL,
+            ]);
+
+            $this->postJson("/api/questionnaire/{$uuid}/documents", [
+                'document_category_id' => $category->id,
+                'record_key' => 'front',
+                'file' => UploadedFile::fake()->createWithContent('front.pdf', 'front'),
+            ])->assertCreated();
+
+            $this->postJson("/api/questionnaire/{$uuid}/documents", [
+                'document_category_id' => $category->id,
+                'record_key' => 'back',
+                'file' => UploadedFile::fake()->createWithContent('back.pdf', 'back'),
+            ])->assertCreated();
+
+            $this->postJson("/api/questionnaire/{$uuid}/documents", [
+                'document_category_id' => $category->id,
+                'record_key' => 'front',
+                'file' => UploadedFile::fake()->createWithContent('front-2.pdf', 'front-2'),
+            ])->assertStatus(422);
+        });
+
+        it('allows a new notes group for multi-document categories', function () {
+            Storage::fake('local');
+            $uuid = createDraft();
+            $category = DocumentCategory::create([
+                'name' => 'گواهینامه دوره‌ها',
+                'slug' => 'course-certificates',
+                'type' => DocumentCategory::TYPE_PERSONNEL,
+            ]);
+
+            foreach (range(1, 5) as $i) {
+                $this->postJson("/api/questionnaire/{$uuid}/documents", [
+                    'document_category_id' => $category->id,
+                    'notes' => 'دوره PHP',
+                    'file' => UploadedFile::fake()->createWithContent("php-{$i}.pdf", "php-{$i}"),
+                ])->assertCreated();
+            }
+
+            $this->postJson("/api/questionnaire/{$uuid}/documents", [
+                'document_category_id' => $category->id,
+                'notes' => 'دوره Laravel',
+                'file' => UploadedFile::fake()->createWithContent('laravel-1.pdf', 'laravel-1'),
+            ])->assertCreated();
+
+            $this->postJson("/api/questionnaire/{$uuid}/documents", [
+                'document_category_id' => $category->id,
+                'notes' => 'دوره PHP',
+                'file' => UploadedFile::fake()->createWithContent('php-6.pdf', 'php-6'),
+            ])->assertCreated();
+        });
+
+        it('counts the limit per usage slot, not across a document reused for another category', function () {
+            Storage::fake('local');
+            $uuid = createDraft();
+            $birthCertificate = DocumentCategory::create([
+                'name' => 'شناسنامه',
+                'slug' => 'birth-certificate',
+                'type' => DocumentCategory::TYPE_PERSONNEL,
+            ]);
+            $languageCertificate = DocumentCategory::create([
+                'name' => 'گواهینامه زبان',
+                'slug' => 'language-certificate',
+                'type' => DocumentCategory::TYPE_PERSONNEL,
+            ]);
+
+            $shared = UploadedFile::fake()->createWithContent('scan.pdf', 'same-content');
+
+            $this->postJson("/api/questionnaire/{$uuid}/documents", [
+                'document_category_id' => $birthCertificate->id,
+                'record_key' => 'front',
+                'file' => $shared,
+            ])->assertCreated();
+
+            $this->postJson("/api/questionnaire/{$uuid}/documents", [
+                'document_category_id' => $languageCertificate->id,
+                'record_key' => 'back',
+                'file' => $shared,
+            ])->assertCreated();
+
+            $this->postJson("/api/questionnaire/{$uuid}/documents", [
+                'document_category_id' => $birthCertificate->id,
+                'record_key' => 'back',
+                'file' => UploadedFile::fake()->createWithContent('back.pdf', 'back-content'),
+            ])->assertCreated();
+        });
+    });
+
+    describe('document storage naming', function () {
+        it('stores uploads under a category-slug name with a content fingerprint', function () {
+            Storage::fake('local');
+            $uuid = createDraft();
+            $category = DocumentCategory::create([
+                'name' => 'سایر مدارک',
+                'slug' => 'other-documents',
+                'type' => DocumentCategory::TYPE_PERSONNEL,
+            ]);
+
+            $response = $this->postJson("/api/questionnaire/{$uuid}/documents", [
+                'document_category_id' => $category->id,
+                'file' => UploadedFile::fake()->createWithContent('My Resume (Final).pdf', 'resume-content'),
+            ])->assertCreated();
+
+            $document = Document::where('uuid', $response->json('data.uuid'))->firstOrFail();
+
+            expect($document->original_name)->toBe('My Resume (Final).pdf');
+            expect($document->path)->toMatch('#questionnaire/.*/documents/other-documents/other-documents-[a-f0-9]{8}\.pdf#');
+            Storage::disk('local')->assertExists($document->path);
+        });
+
+        it('names files after the category and record key', function () {
+            Storage::fake('local');
+            $questionnaire = Questionnaire::where('uuid', createDraft())->firstOrFail();
+
+            $document = app(DocumentService::class)->upload(
+                $questionnaire,
+                UploadedFile::fake()->image('scan.jpg', 10, 10),
+                'national-card',
+                'front',
+            );
+
+            expect($document->original_name)->toBe('scan.jpg');
+            expect($document->path)->toMatch('#documents/national-card/national-card-front-[a-f0-9]{8}\.jpg$#');
+            Storage::disk('local')->assertExists($document->path);
+        });
+    });
+
+    describe('dropped questionnaire columns', function () {
+        it('does not create the unused questionnaire section columns', function () {
+            expect(Schema::hasColumn('questionnaires', 'military_status'))->toBeFalse();
+            expect(Schema::hasColumn('questionnaires', 'section_military_details'))->toBeFalse();
+            expect(Schema::hasColumn('questionnaires', 'section_spouse'))->toBeFalse();
+            expect(Schema::hasColumn('questionnaires', 'section_documents_metadata'))->toBeFalse();
+        });
+    });
+});
+
+describe('section definitions', function () {
+    it('provides labels from the language files', function () {
+        $service = app(QuestionnaireService::class);
+
+        foreach ($service->getSectionKeys() as $key) {
+            expect($service->getSection($key)->label())->toBe(__("recruitment.sections.{$key}"));
+        }
+    });
+
+    it('provides document requirements from the section definitions', function () {
+        $requirements = app(QuestionnaireService::class)->getDocumentRequirements();
+
+        expect($requirements)->toHaveKey('national-card')
+            ->and($requirements['national-card']['required'])->toBeTrue()
+            ->and($requirements['national-card']['max_files'])->toBe(1)
+            ->and($requirements['national-card']['record_keys'])->toBe(['front', 'back'])
+            ->and($requirements['birth-certificate']['required'])->toBeTrue()
+            ->and($requirements['birth-certificate']['record_keys'])->toBe(['page-1', 'page-2', 'page-3'])
+            ->and($requirements['personnel-photo']['required'])->toBeTrue()
+            ->and($requirements['resume']['required'])->toBeTrue()
+            ->and($requirements['other-documents']['max_files'])->toBe(3)
+            ->and($requirements['course-certificates'])->not->toHaveKey('max_files');
+    });
+
+    it('removes per-category requirements from config/documents.php', function () {
+        expect(config('documents.recruitment.requirements'))->toBeNull();
+    });
+});
+
+describe('document serve via uuid', function () {
+    it('serves an attached document through a signed url keyed by uuid', function () {
+        Storage::fake('local');
+        $uuid = createDraft();
+        $category = DocumentCategory::create([
+            'name' => 'تصویر پرسنلی',
+            'slug' => 'personnel-photo',
+            'type' => DocumentCategory::TYPE_PERSONNEL,
+        ]);
+
+        $response = $this->postJson("/api/questionnaire/{$uuid}/documents", [
+            'document_category_id' => $category->id,
+            'file' => fakePhotoUpload(),
+        ])->assertCreated();
+
+        $docUuid = $response->json('data.uuid');
+        $url = $response->json('data.url');
+
+        expect($url)->toContain($docUuid)
+            ->and($url)->not->toContain("/documents/{$response->json('data.id')}/");
+
+        $this->get($url)->assertOk();
+    });
+
+    it('serves a stable signed url across document fetches', function () {
+        Storage::fake('local');
+        $uuid = createDraft();
+        $category = DocumentCategory::create([
+            'name' => 'تصویر پرسنلی',
+            'slug' => 'personnel-photo',
+            'type' => DocumentCategory::TYPE_PERSONNEL,
+        ]);
+
+        $this->postJson("/api/questionnaire/{$uuid}/documents", [
+            'document_category_id' => $category->id,
+            'file' => fakePhotoUpload(),
+        ])->assertCreated();
+
+        $first = $this->getJson("/api/questionnaire/{$uuid}/documents")->json('data.0.url');
+        $second = $this->getJson("/api/questionnaire/{$uuid}/documents")->json('data.0.url');
+
+        expect($first)->toBe($second)
+            ->and($first)->not->toContain('expires=');
+
+        $this->get($first)->assertOk();
+    });
+
+    it('serves the thumbnail variant when requested', function () {
+        Storage::fake('local');
+        $uuid = createDraft();
+        $category = DocumentCategory::create([
+            'name' => 'تصویر پرسنلی',
+            'slug' => 'personnel-photo',
+            'type' => DocumentCategory::TYPE_PERSONNEL,
+        ]);
+
+        $response = $this->postJson("/api/questionnaire/{$uuid}/documents", [
+            'document_category_id' => $category->id,
+            'file' => fakePhotoUpload(),
+        ])->assertCreated();
+
+        $this->get($response->json('data.url').'&thumbnail=1')->assertOk();
+    });
+
+    it('returns 404 for an unknown or unattached document uuid', function () {
+        Storage::fake('local');
+        $url = URL::temporarySignedRoute(
+            'questionnaire.documents.serve',
+            now()->addHours(2),
+            ['uuid' => Str::uuid()->toString()],
+        );
+
+        $this->get($url)->assertStatus(404);
     });
 });
 
@@ -736,6 +1430,8 @@ describe('Questionnaire validation', function () {
 function validPersonalInfo(): array
 {
     return [
+        'first_name' => 'Ali',
+        'last_name' => 'Rezaei',
         'gender' => 'male',
         'blood_group' => 'A+',
         'birth_date' => '1990-01-15',
@@ -755,9 +1451,22 @@ function validPersonalInfo(): array
     ];
 }
 
+function fakePhotoUpload(string $name = 'photo.jpg', int $width = 600, int $height = 800): UploadedFile
+{
+    $fake = UploadedFile::fake()->image($name, $width, $height);
+
+    // Laravel's fake images compress far below the 20KB minimum, so append
+    // random bytes after the JPEG EOI marker to make the file realistic in size.
+    file_put_contents($fake->getRealPath(), random_bytes(32 * 1024), FILE_APPEND);
+
+    return $fake;
+}
+
 function validContactInfo(): array
 {
     return [
+        'email' => 'test@example.com',
+        'mobile' => '09121234567',
         'phone' => '02112345678',
         'emergency_phone' => '09121234567',
         'address' => [

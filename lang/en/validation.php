@@ -234,6 +234,9 @@ return [
             'required_if' => 'Spouse employment status is required.',
             'in' => 'Invalid spouse employment status.',
         ],
+        'personal_info.spouse_job' => [
+            'required_if' => 'Spouse job is required.',
+        ],
         'personal_info.national_id' => [
             'required' => 'National ID is required.',
             'size' => 'National ID must be 10 digits.',
@@ -387,6 +390,14 @@ return [
         'job_request.preferred_workplace.*' => [
             'in' => 'Invalid workplace.',
         ],
+        // ── Public document upload ──
+        'document_category_id' => [
+            'required' => 'A category is required.',
+            'exists' => 'The selected category is invalid.',
+        ],
+        'file' => [
+            'required' => 'A file is required.',
+        ],
     ],
 
     'attributes' => [
@@ -409,6 +420,7 @@ return [
         'personal_info.dependents_count' => 'dependents count',
         'personal_info.children_count' => 'children count',
         'personal_info.spouse_employment_status' => 'spouse employment status',
+        'personal_info.spouse_job' => 'spouse job',
         'personal_info.military_status' => 'military status',
         'personal_info.military_status.status' => 'status',
         'personal_info.military_status.organization' => 'organization',

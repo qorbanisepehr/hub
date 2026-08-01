@@ -2,7 +2,7 @@
 
 namespace App\Domains\Recruitment\SectionDefinitions;
 
-class ContactInfoSection implements SectionDefinition
+class ContactInfoSection extends BaseSection
 {
     public function key(): string
     {
@@ -11,7 +11,7 @@ class ContactInfoSection implements SectionDefinition
 
     public function label(): string
     {
-        return 'اطلاعات تماس';
+        return __('recruitment.sections.contact_info');
     }
 
     public function fields(): array
@@ -26,8 +26,10 @@ class ContactInfoSection implements SectionDefinition
     public function structuralRules(): array
     {
         return [
-            'phone' => 'nullable|string|max:15',
-            'emergency_phone' => 'nullable|string|max:15',
+            'email' => 'nullable|email|max:255',
+            'mobile' => 'nullable|string|max:15|regex:/^09\d{9}$/',
+            'phone' => 'nullable|string|max:15|regex:/^0\d{10}$/',
+            'emergency_phone' => 'nullable|string|max:15|regex:/^0\d{10}$/',
             'address' => 'nullable|array',
             'address.postal_code' => 'nullable|string|max:10',
             'address.province' => 'nullable|string|max:50',
@@ -42,8 +44,10 @@ class ContactInfoSection implements SectionDefinition
     public function completionRules(): array
     {
         return [
-            'phone' => 'required|string|max:15',
-            'emergency_phone' => 'required|string|max:15',
+            'email' => 'required|email|max:255',
+            'mobile' => 'required|string|max:15|regex:/^09\d{9}$/',
+            'phone' => 'required|string|max:15|regex:/^0\d{10}$/',
+            'emergency_phone' => 'required|string|max:15|regex:/^0\d{10}$/',
             'address' => 'required|array',
             'address.postal_code' => 'required|string|max:10',
             'address.province' => 'required|string|max:50',

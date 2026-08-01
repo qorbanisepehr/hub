@@ -80,7 +80,7 @@ class RoleController
             $role->delete();
         });
 
-        return response()->json(['message' => 'Role deleted']);
+        return response()->json(['message' => __('rbac.role_deleted')]);
     }
 
     public function batchAssignPermissions(Request $request): JsonResponse
@@ -107,7 +107,7 @@ class RoleController
             $this->flushRoleUsersCaches($role);
         }
 
-        return response()->json(['message' => 'Permissions assigned to roles']);
+        return response()->json(['message' => __('rbac.permissions_assigned')]);
     }
 
     public function toggle(Role $role): RoleResource

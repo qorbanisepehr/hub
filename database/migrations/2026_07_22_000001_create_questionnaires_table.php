@@ -28,7 +28,6 @@ return new class extends Migration
 
             // ── Real columns: marital ──
             $table->string('marital_status', 20)->nullable();
-            $table->string('military_status', 30)->nullable();
 
             // ── Real columns: boolean filters ──
             $table->boolean('has_chronic_disease')->nullable();
@@ -50,20 +49,15 @@ return new class extends Migration
             // ── JSONB sections ──
             $table->json('section_personal')->nullable();
             $table->json('section_contact_address')->nullable();
-            $table->json('section_military_details')->nullable();
-            $table->json('section_spouse')->nullable();
             $table->json('section_education')->nullable();
             $table->json('section_work_experience')->nullable();
             $table->json('section_skills')->nullable();
             $table->json('section_training')->nullable();
             $table->json('section_additional_info')->nullable();
             $table->json('section_job_request')->nullable();
-            $table->json('section_documents_metadata')->nullable();
 
-            // ── OTP ──
-            $table->string('mobile_otp', 6)->nullable();
+            // ── OTP verification status ──
             $table->timestamp('mobile_verified_at')->nullable();
-            $table->string('email_otp', 6)->nullable();
             $table->timestamp('email_verified_at')->nullable();
 
             // ── Meta ──
