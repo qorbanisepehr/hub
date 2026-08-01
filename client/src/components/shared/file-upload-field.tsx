@@ -33,6 +33,8 @@ export type FileUploadFieldVariant =
     | "thumbnail"
     | "card";
 
+export type FileUploadActionsPlacement = "overlay" | "row" | "column";
+
 type FileUploadFieldProps = {
     uuid: string;
     categorySlug: string;
@@ -47,6 +49,10 @@ type FileUploadFieldProps = {
     aspectRatio?: number;
     description?: string;
     className?: string;
+    /** Whether to show the delete action button. Defaults to true. */
+    actionsEnabled?: boolean;
+    /** Where the delete action button is rendered. Defaults to "overlay". */
+    actionsPlacement?: FileUploadActionsPlacement;
     onUploadComplete?: (doc: QuestionnaireDocument) => void;
 };
 
@@ -66,7 +72,7 @@ const VARIANT_CONTAINER: Record<
     Exclude<FileUploadFieldVariant, "default">,
     string
 > = {
-    avatar: "size-28 rounded-full",
+    avatar: "w-28 rounded-xl overflow-hidden",
     thumbnail: "size-24 overflow-hidden rounded-lg",
     card: "",
 };
@@ -85,6 +91,8 @@ export function FileUploadField({
     aspectRatio,
     description,
     className,
+    actionsEnabled = true,
+    actionsPlacement = "column",
     onUploadComplete,
 }: FileUploadFieldProps) {
     const queryClient = useQueryClient();
@@ -203,7 +211,18 @@ export function FileUploadField({
         variant !== "default" && VARIANT_CONTAINER[variant],
     );
 
-    // ── Variant: avatar (round photo with hover delete) ──
+    const renderDelete = (doc: QuestionnaireDocument) =>
+        actionsEnabled ? (
+            <ConfirmDeleteButton
+                iconOnly
+                size="icon-xs"
+                onConfirm={() => handleDelete(doc.usage_id)}
+                isPending={isDeleting}
+                stopPropagation
+            />
+        ) : null;
+
+    // ── Variant: avatar (photo with configurable aspect ratio) ──
     if (variant === "avatar") {
         return (
             <div className={cn("flex flex-col items-center gap-2", className)}>
@@ -211,12 +230,14 @@ export function FileUploadField({
                 <BaseDropzone
                     accept={effectiveAccept}
                     onFilesSelected={handleFiles}
-                    disabled={isPending || !!currentDoc}
-                    className={cn(containerClass, "rounded-full")}
+                    disabled={isPending}
+                    disablePick={!canUpload}
+                    className={containerClass}
+                    style={{ aspectRatio: String(aspectRatio ?? 1) }}
                 >
                     <div
                         className={cn(
-                            "group relative flex size-full items-center justify-center overflow-hidden rounded-full transition-all duration-200",
+                            "group relative flex size-full items-center justify-center overflow-hidden rounded-xl transition-all duration-200",
                             currentDoc
                                 ? "ring-2 ring-border hover:ring-ring"
                                 : "border-2 border-dashed border-border hover:border-ring hover:bg-muted/50",
@@ -233,7 +254,12 @@ export function FileUploadField({
                                         }}
                                         previewImageUrl={currentDoc.url}
                                         className="size-full rounded-none border-0"
-                                        previewClassName="aspect-square"
+                                        previewClassName={
+                                            aspectRatio
+                                                ? undefined
+                                                : "aspect-square"
+                                        }
+                                        previewAspectRatio={aspectRatio}
                                     />
                                 ) : (
                                     <div className="flex size-full flex-col items-center justify-center gap-1 bg-muted p-2">
@@ -243,17 +269,12 @@ export function FileUploadField({
                                         </span>
                                     </div>
                                 )}
-                                <div className="absolute inset-0 flex items-center justify-center gap-1 rounded-full bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
-                                    <ConfirmDeleteButton
-                                        iconOnly
-                                        size="icon-xs"
-                                        onConfirm={() =>
-                                            handleDelete(currentDoc.usage_id)
-                                        }
-                                        isPending={isDeleting}
-                                        stopPropagation
-                                    />
-                                </div>
+                                {actionsEnabled &&
+                                    actionsPlacement === "overlay" && (
+                                        <div className="absolute inset-0 flex items-center justify-center gap-1 rounded-xl bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
+                                            {renderDelete(currentDoc)}
+                                        </div>
+                                    )}
                             </>
                         ) : (
                             <div className="flex flex-col items-center gap-1 text-muted-foreground">
@@ -271,8 +292,22 @@ export function FileUploadField({
                         )}
                     </div>
                 </BaseDropzone>
+                {currentDoc &&
+                    actionsEnabled &&
+                    actionsPlacement !== "overlay" && (
+                        <div
+                            className={cn(
+                                "flex",
+                                actionsPlacement === "column"
+                                    ? "flex-col items-center"
+                                    : "flex-row items-center gap-1",
+                            )}
+                        >
+                            {renderDelete(currentDoc)}
+                        </div>
+                    )}
                 {description && (
-                    <p className="max-w-[180px] text-center text-xs text-muted-foreground">
+                    <p className="max-w-45 text-center text-xs text-muted-foreground">
                         {description}
                     </p>
                 )}
@@ -288,7 +323,8 @@ export function FileUploadField({
                 <BaseDropzone
                     accept={effectiveAccept}
                     onFilesSelected={handleFiles}
-                    disabled={isPending || !!currentDoc}
+                    disabled={isPending}
+                    disablePick={!canUpload}
                     className={cn(
                         containerClass,
                         "border border-dashed border-border hover:border-ring hover:bg-muted/30",
@@ -316,6 +352,7 @@ export function FileUploadField({
                                                 ? undefined
                                                 : "aspect-square"
                                         }
+                                        previewAspectRatio={aspectRatio}
                                     />
                                 ) : (
                                     <div
@@ -335,17 +372,12 @@ export function FileUploadField({
                                         </span>
                                     </div>
                                 )}
-                                <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
-                                    <ConfirmDeleteButton
-                                        iconOnly
-                                        size="icon-xs"
-                                        onConfirm={() =>
-                                            handleDelete(currentDoc.usage_id)
-                                        }
-                                        isPending={isDeleting}
-                                        stopPropagation
-                                    />
-                                </div>
+                                {actionsEnabled &&
+                                    actionsPlacement === "overlay" && (
+                                        <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
+                                            {renderDelete(currentDoc)}
+                                        </div>
+                                    )}
                             </>
                         ) : (
                             <div className="flex size-full flex-col items-center justify-center gap-1.5 text-muted-foreground">
@@ -363,6 +395,20 @@ export function FileUploadField({
                         )}
                     </div>
                 </BaseDropzone>
+                {currentDoc &&
+                    actionsEnabled &&
+                    actionsPlacement !== "overlay" && (
+                        <div
+                            className={cn(
+                                "flex",
+                                actionsPlacement === "column"
+                                    ? "flex-col items-center"
+                                    : "flex-row items-center gap-1",
+                            )}
+                        >
+                            {renderDelete(currentDoc)}
+                        </div>
+                    )}
                 {description && (
                     <p className="text-xs text-muted-foreground">
                         {description}
@@ -381,7 +427,8 @@ export function FileUploadField({
                     accept={effectiveAccept}
                     multiple={multiple}
                     onFilesSelected={handleFiles}
-                    disabled={isPending || categoryDocs.length === 0}
+                    disabled={isPending}
+                    disablePick={!canUpload}
                     className={cn(
                         "rounded-lg border border-dashed border-border hover:border-ring hover:bg-muted/30 transition-colors",
                         categoryDocs.length > 0 && "border-solid",
@@ -420,17 +467,12 @@ export function FileUploadField({
                                                 )}
                                             </div>
                                         )}
-                                        <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
-                                            <ConfirmDeleteButton
-                                                iconOnly
-                                                size="icon-xs"
-                                                onConfirm={() =>
-                                                    handleDelete(doc.usage_id)
-                                                }
-                                                isPending={isDeleting}
-                                                stopPropagation
-                                            />
-                                        </div>
+                                        {actionsEnabled &&
+                                            actionsPlacement === "overlay" && (
+                                                <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
+                                                    {renderDelete(doc)}
+                                                </div>
+                                            )}
                                     </div>
                                     <div className="flex flex-col gap-0.5 p-2">
                                         <span className="truncate text-xs font-medium">
@@ -439,6 +481,20 @@ export function FileUploadField({
                                         <span className="text-[10px] text-muted-foreground">
                                             {formatBytes(doc.size)}
                                         </span>
+                                        {actionsEnabled &&
+                                            actionsPlacement !== "overlay" && (
+                                                <div
+                                                    className={cn(
+                                                        "flex",
+                                                        actionsPlacement ===
+                                                            "column"
+                                                            ? "flex-col items-center gap-1"
+                                                            : "flex-row items-center gap-1",
+                                                    )}
+                                                >
+                                                    {renderDelete(doc)}
+                                                </div>
+                                            )}
                                     </div>
                                 </div>
                             ))}
@@ -508,6 +564,7 @@ export function FileUploadField({
                             uuid={uuid}
                             doc={doc}
                             subtitle={formatBytes(doc.size)}
+                            actionsEnabled={actionsEnabled}
                             className="border-b px-3 py-2 last:border-b-0"
                         />
                     ))}

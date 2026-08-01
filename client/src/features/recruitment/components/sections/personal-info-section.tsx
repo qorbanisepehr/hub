@@ -124,7 +124,8 @@ export function PersonalInfoSection({
                             recordKey="photo"
                             variant="avatar"
                             aspectRatio={3 / 4}
-                            description="فرمت‌های مجاز: JPG، PNG، WebP"
+                            actionsPlacement="overlay"
+                            // description="فرمت‌های مجاز: JPG، PNG، WebP"
                         />
                     )}
                 </div>
