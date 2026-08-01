@@ -29,14 +29,4 @@ class PublicStoreDocumentRequest extends FormRequest
             'form_data' => ['nullable', 'json'],
         ];
     }
-
-    /** @return array<string, string> */
-    public function messages(): array
-    {
-        return [
-            'document_category_id.required' => 'دسته‌بندی الزامی است.',
-            'document_category_id.exists' => 'دسته‌بندی معتبر نیست.',
-            'file.required' => 'فایل الزامی است.',
-        ];
-    }
 }

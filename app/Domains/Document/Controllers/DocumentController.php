@@ -58,7 +58,7 @@ class DocumentController extends ApiController
         $class = self::ROUTE_TYPE_MAP[$type] ?? null;
 
         if ($class === null) {
-            abort(422, 'Invalid documentable type.');
+            abort(422, __('document.invalid_documentable_type'));
         }
 
         $owner = $class::query()->findOrFail($id);
@@ -88,7 +88,7 @@ class DocumentController extends ApiController
     {
         $this->documentService->delete($document);
 
-        return response()->json(['message' => 'Document deleted permanently.']);
+        return response()->json(['message' => __('document.document_force_deleted')]);
     }
 
     public function trashed(Request $request): AnonymousResourceCollection
@@ -100,7 +100,7 @@ class DocumentController extends ApiController
 
     public function restore(int $id): JsonResponse
     {
-        abort(404, 'Restore is not supported. Documents are permanently deleted.');
+        abort(404, __('document.restore_not_supported'));
     }
 
     public function forceDestroy(int $id): JsonResponse
@@ -109,7 +109,7 @@ class DocumentController extends ApiController
 
         $this->documentService->delete($document);
 
-        return response()->json(['message' => 'Document deleted permanently.']);
+        return response()->json(['message' => __('document.document_force_deleted')]);
     }
 
     public function serve(Document $document, Request $request): StreamedResponse

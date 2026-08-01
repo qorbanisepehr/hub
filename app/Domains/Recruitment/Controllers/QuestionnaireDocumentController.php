@@ -4,10 +4,12 @@ namespace App\Domains\Recruitment\Controllers;
 
 use App\Domains\Document\Models\Document;
 use App\Domains\Document\Models\DocumentCategory;
+use App\Domains\Document\Models\DocumentUsage;
 use App\Domains\Document\Repositories\DocumentRepositoryInterface;
 use App\Domains\Document\Services\DocumentService;
 use App\Domains\Recruitment\Models\Questionnaire;
 use App\Domains\Recruitment\Requests\PublicStoreDocumentRequest;
+use App\Domains\Recruitment\Services\QuestionnaireService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
@@ -20,6 +22,7 @@ class QuestionnaireDocumentController extends Controller
     public function __construct(
         private DocumentService $documentService,
         private DocumentRepositoryInterface $documentRepository,
+        private QuestionnaireService $questionnaireService,
     ) {}
 
     public function index(string $uuid): JsonResponse
@@ -29,21 +32,11 @@ class QuestionnaireDocumentController extends Controller
         $documents = $this->documentService->getForEntity($questionnaire);
 
         return response()->json([
-            'data' => $documents->map(fn (Document $doc) => [
-                'id' => $doc->id,
-                'uuid' => $doc->uuid,
-                'original_name' => $doc->original_name,
-                'mime_type' => $doc->mime_type,
-                'size' => $doc->size,
-                'category_slug' => $doc->usages->first()?->category_slug,
-                'record_key' => $doc->usages->first()?->record_key,
-                'slot' => $doc->usages->first()?->slot,
-                'url' => URL::temporarySignedRoute(
-                    'questionnaire.documents.serve',
-                    now()->addHours(2),
-                    ['documentId' => $doc->id],
-                ),
-            ]),
+            'data' => $documents
+                ->flatMap(fn (Document $document) => $document->usages->map(
+                    fn (DocumentUsage $usage) => $this->documentPayload($document, $usage),
+                ))
+                ->values(),
         ]);
     }
 
@@ -54,52 +47,97 @@ class QuestionnaireDocumentController extends Controller
         $file = $request->file('file');
         $category = DocumentCategory::where('id', $request->document_category_id)->firstOrFail();
 
+        $requirements = $this->questionnaireService->getDocumentRequirements();
+        $requirement = $requirements[$category->slug] ?? null;
+
+        // ── Validate document constraints ──
+        $validationErrors = $this->documentService->validateDocument($file, $requirement ?? []);
+
+        if (! empty($validationErrors)) {
+            return response()->json([
+                'message' => $validationErrors[0],
+                'errors' => $validationErrors,
+            ], 422);
+        }
+
+        $recordKey = $request->input('record_key');
+        $notes = $request->input('notes');
+
+        $usageCount = DocumentUsage::query()
+            ->where('entity_type', Questionnaire::class)
+            ->where('entity_id', $questionnaire->getKey())
+            ->where('category_slug', $category->slug)
+            ->when($recordKey !== null, fn ($query) => $query->where('record_key', $recordKey))
+            ->when($notes !== null, fn ($query) => $query->where('custom_properties->notes', $notes))
+            ->count();
+
+        if ($requirement && ($max = $requirement['max_files'] ?? null) !== null && $usageCount >= $max) {
+            return response()->json([
+                'message' => __('recruitment.documents.max_files_reached', ['count' => $max]),
+            ], 422);
+        }
+
+        $totalMax = config('documents.recruitment.max_files', 10);
+        $totalCount = DocumentUsage::query()
+            ->where('entity_type', Questionnaire::class)
+            ->where('entity_id', $questionnaire->getKey())
+            ->count();
+        if ($totalCount >= $totalMax) {
+            return response()->json([
+                'message' => __('recruitment.documents.total_max_files_reached', ['count' => $totalMax]),
+            ], 422);
+        }
+
+        $customProperties = array_filter([
+            'notes' => $request->input('notes'),
+            'meta' => $this->decodeJson($request->input('meta')),
+            'form_data' => $this->decodeJson($request->input('form_data')),
+        ], fn ($value) => $value !== null);
+
         $document = $this->documentService->upload(
             $questionnaire,
             $file,
             $category->slug,
             $request->input('record_key'),
             $request->input('slot'),
+            $customProperties,
         );
 
+        $usage = DocumentUsage::query()
+            ->where('document_id', $document->id)
+            ->where('entity_type', Questionnaire::class)
+            ->where('entity_id', $questionnaire->id)
+            ->where('category_slug', $category->slug)
+            ->when($recordKey !== null, fn ($query) => $query->where('record_key', $recordKey))
+            ->when($notes !== null, fn ($query) => $query->where('custom_properties->notes', $notes))
+            ->latest('id')
+            ->firstOrFail();
+
         return response()->json([
-            'data' => [
-                'id' => $document->id,
-                'uuid' => $document->uuid,
-                'original_name' => $document->original_name,
-                'mime_type' => $document->mime_type,
-                'size' => $document->size,
-                'category_slug' => $document->usages->first()?->category_slug,
-                'record_key' => $document->usages->first()?->record_key,
-                'url' => URL::temporarySignedRoute(
-                    'questionnaire.documents.serve',
-                    now()->addHours(2),
-                    ['documentId' => $document->id],
-                ),
-            ],
-            'message' => 'Document uploaded successfully.',
+            'data' => $this->documentPayload($document, $usage),
+            'message' => __('document.document_uploaded'),
         ], 201);
     }
 
-    public function destroy(string $uuid, int $documentId): JsonResponse
+    public function destroy(string $uuid, int $usageId): JsonResponse
     {
         $questionnaire = Questionnaire::where('uuid', $uuid)->firstOrFail();
 
-        $document = Document::where('id', $documentId)
-            ->whereHas('usages', function ($q) use ($questionnaire) {
-                $q->where('entity_type', Questionnaire::class)
-                    ->where('entity_id', $questionnaire->id);
-            })
-            ->firstOrFail();
+        $deleted = $this->documentService->deleteUsage($usageId, $questionnaire);
 
-        $this->documentService->delete($document);
+        if (! $deleted) {
+            abort(404);
+        }
 
-        return response()->json(['message' => 'فایل حذف شد.']);
+        return response()->json(['message' => __('document.file_deleted')]);
     }
 
-    public function serve(int $documentId, Request $request): StreamedResponse
+    public function serve(string $uuid, Request $request): StreamedResponse
     {
-        $document = Document::findOrFail($documentId);
+        $document = Document::query()
+            ->where('uuid', $uuid)
+            ->whereHas('usages')
+            ->firstOrFail();
 
         $disk = $document->disk;
         $path = $document->path;
@@ -118,5 +156,43 @@ class QuestionnaireDocumentController extends Controller
         }
 
         return Storage::disk($disk)->response($path);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function documentPayload(Document $document, DocumentUsage $usage): array
+    {
+        return [
+            'id' => $document->id,
+            'usage_id' => $usage->id,
+            'uuid' => $document->uuid,
+            'original_name' => $document->original_name,
+            'mime_type' => $document->mime_type,
+            'size' => $document->size,
+            'category_slug' => $usage->category_slug,
+            'record_key' => $usage->record_key,
+            'notes' => $usage->custom_properties['notes'] ?? null,
+            'url' => URL::signedRoute(
+                'questionnaire.documents.serve',
+                ['uuid' => $document->uuid],
+            ),
+        ];
+    }
+
+    /**
+     * Decode a JSON request field into an array (null-safe).
+     *
+     * @return array<string, mixed>|null
+     */
+    private function decodeJson(?string $value): ?array
+    {
+        if (! $value) {
+            return null;
+        }
+
+        $decoded = json_decode($value, true);
+
+        return is_array($decoded) ? $decoded : null;
     }
 }

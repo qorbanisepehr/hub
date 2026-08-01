@@ -13,9 +13,11 @@ interface DocumentRepositoryInterface
 
     public function create(array $data): Document;
 
-    public function attachUsage(Document $document, Model $entity, string $categorySlug, ?string $recordKey = null, ?string $slot = null): DocumentUsage;
+    public function attachUsage(Document $document, Model $entity, string $categorySlug, ?string $recordKey = null, ?string $slot = null, ?array $customProperties = null): DocumentUsage;
 
     public function detachUsage(Document $document, Model $entity): bool;
+
+    public function deleteUsageById(int $usageId, string $entityType, int $entityId): bool;
 
     public function getForEntity(Model $entity, ?string $categorySlug = null): Collection;
 

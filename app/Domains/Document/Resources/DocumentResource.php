@@ -32,10 +32,9 @@ class DocumentResource extends JsonResource
             'serve_url' => route('documents.serve', $this->id),
             'thumbnail_url' => route('documents.serve', ['document' => $this->id, 'thumbnail' => 1]),
             'download_url' => route('documents.download', $this->id),
-            'url' => URL::temporarySignedRoute(
+            'url' => URL::signedRoute(
                 'questionnaire.documents.serve',
-                now()->addHours(2),
-                ['documentId' => $this->id],
+                ['uuid' => $this->uuid],
             ),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
