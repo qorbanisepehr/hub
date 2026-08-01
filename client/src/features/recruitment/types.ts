@@ -1,3 +1,5 @@
+import type { ReactFormExtendedApi } from "@tanstack/react-form";
+
 export interface Questionnaire {
     id: number;
     uuid: string;
@@ -35,6 +37,7 @@ export interface PersonalInfo {
     dependents_count: number | null;
     children_count: number | null;
     spouse_employment_status: string;
+    spouse_job: string;
     military_status: {
         status: string;
         organization: string;
@@ -209,18 +212,13 @@ export interface ReviewData {
 }
 
 export interface InitQuestionnaireResponse {
-    data: Questionnaire;
-    message: string;
-    requires_otp?: boolean;
-}
-
-export interface InitQuestionnaireErrorResponse {
     data: {
         uuid: string;
-        status: string;
     };
     message: string;
     requires_otp: true;
+    code_sent: boolean;
+    expires_in: number;
 }
 
 export interface SaveQuestionnaireResponse {
@@ -232,3 +230,18 @@ export interface VerifyQuestionnaireResponse {
     data: Questionnaire;
     message: string;
 }
+
+export type QuestionnaireFormApi = ReactFormExtendedApi<
+    any,
+    any,
+    any,
+    any,
+    any,
+    any,
+    any,
+    any,
+    any,
+    any,
+    any,
+    any
+>;

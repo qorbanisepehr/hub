@@ -1,3 +1,21 @@
+export type DocumentDimensions = {
+    min_width?: number;
+    min_height?: number;
+    max_width?: number;
+    max_height?: number;
+    aspect_ratio?: number;
+};
+
+export type DocumentRequirement = {
+    required: boolean;
+    max_files: number | null;
+    record_keys: string[] | null;
+    min_file_size: number | null;
+    max_file_size: number | null;
+    mime_types: string[] | null;
+    dimensions: DocumentDimensions | null;
+};
+
 export type DocumentCategory = {
     id: number;
     name: string;
@@ -6,10 +24,11 @@ export type DocumentCategory = {
     sort_order: number;
     parent_id: number | null;
     type: string;
+    requirement: DocumentRequirement | null;
     children?: DocumentCategory[];
     documents_count?: number;
-    created_at: string;
-    updated_at: string;
+    created_at?: string;
+    updated_at?: string;
 };
 
 export type Revision = {
@@ -52,10 +71,7 @@ export function buildCategoryPath(
 ): string {
     const path: string[] = [];
 
-    function find(
-        cats: DocumentCategory[],
-        targetId: number,
-    ): boolean {
+    function find(cats: DocumentCategory[], targetId: number): boolean {
         for (const cat of cats) {
             if (cat.id === targetId) {
                 path.unshift(cat.name);
@@ -79,10 +95,7 @@ export function buildParentPath(
 ): string {
     const path: string[] = [];
 
-    function find(
-        cats: DocumentCategory[],
-        targetId: number,
-    ): boolean {
+    function find(cats: DocumentCategory[], targetId: number): boolean {
         for (const cat of cats) {
             if (cat.id === targetId) {
                 return true;

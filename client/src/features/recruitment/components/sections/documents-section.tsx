@@ -1,9 +1,7 @@
-import { useState } from "react";
-import { IconFile, IconPlus } from "@tabler/icons-react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
+import { useMemo, useState } from "react";
+import { IconPlus } from "@tabler/icons-react";
+import { useQuery } from "@tanstack/react-query";
 
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -15,30 +13,28 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { FileUploadField } from "@/components/shared/file-upload-field";
-import { FileThumbnail } from "@/components/ui/file-thumbnail";
-import { ConfirmDeleteButton } from "@/components/ui/confirm-delete-button";
+import { DocumentFileItem } from "@/components/shared/document-file-item";
 import { useQuestionnaireDocuments } from "@/features/recruitment/hooks/use-questionnaire-documents";
-import { getFileIcon } from "@/lib/file-icon";
-import { getFileColorClasses } from "@/lib/file-colors";
-import { DOC_CATEGORY_SLUGS, getRecordKeyLabel } from "@/features/recruitment/constants";
-import { api } from "@/lib/api";
-
-const CATEGORY_LABELS: Record<string, string> = {
-    [DOC_CATEGORY_SLUGS.NATIONAL_CARD]: "کارت ملی",
-    [DOC_CATEGORY_SLUGS.BIRTH_CERTIFICATE]: "شناسنامه",
-};
+import type { QuestionnaireDocument } from "@/features/recruitment/hooks/use-questionnaire-documents";
+import {
+    getRecordKeyLabel,
+    DOC_CATEGORY_SLUGS,
+} from "@/features/recruitment/constants";
+import { fetchDocumentCategories } from "@/features/documents/api";
+import type { DocumentCategory } from "@/features/documents/types";
+import { documentKeys } from "@/lib/query-keys";
 
 type SectionProps = {
     uuid?: string;
 };
 
-const EXTRA_DOC_OPTIONS = [
-    { slug: DOC_CATEGORY_SLUGS.OTHER_DOCUMENTS, label: "سایر مدارک" },
-    { slug: DOC_CATEGORY_SLUGS.ACADEMIC_DEGREE, label: "مدرک تحصیلی" },
-    { slug: DOC_CATEGORY_SLUGS.LANGUAGE_CERTIFICATE, label: "گواهینامه زبان" },
-    { slug: DOC_CATEGORY_SLUGS.COURSE_CERTIFICATES, label: "گواهینامه دوره" },
-    { slug: DOC_CATEGORY_SLUGS.COVER_LETTER, label: "نامه پوششی" },
-];
+const EXTRA_DOC_SLUGS = new Set<string>([
+    DOC_CATEGORY_SLUGS.ACADEMIC_DEGREE,
+    DOC_CATEGORY_SLUGS.LANGUAGE_CERTIFICATE,
+    DOC_CATEGORY_SLUGS.COURSE_CERTIFICATES,
+    DOC_CATEGORY_SLUGS.COVER_LETTER,
+    DOC_CATEGORY_SLUGS.OTHER_DOCUMENTS,
+]);
 
 const CATEGORY_KNOWN_KEYS: Record<string, string[]> = {
     [DOC_CATEGORY_SLUGS.NATIONAL_CARD]: ["front", "back"],
@@ -46,45 +42,123 @@ const CATEGORY_KNOWN_KEYS: Record<string, string[]> = {
 };
 
 type ExtraDocEntry = {
+    key: string;
     slug: string;
     label: string;
     notes: string;
 };
 
+function flattenCategoryMap(cats: DocumentCategory[]): Map<string, string> {
+    const map = new Map<string, string>();
+    for (const cat of cats) {
+        map.set(cat.slug, cat.name);
+        for (const [slug, name] of flattenCategoryMap(cat.children ?? [])) {
+            map.set(slug, name);
+        }
+    }
+    return map;
+}
+
+function deriveExtraEntries(
+    documents: QuestionnaireDocument[],
+    labels: Map<string, string>,
+): ExtraDocEntry[] {
+    const entries = new Map<string, ExtraDocEntry>();
+    for (const doc of documents) {
+        if (!doc.category_slug || !EXTRA_DOC_SLUGS.has(doc.category_slug))
+            continue;
+        const notes = doc.notes ?? "";
+        const key = `${doc.category_slug}::${notes}`;
+        if (entries.has(key)) continue;
+        entries.set(key, {
+            key,
+            slug: doc.category_slug,
+            label: labels.get(doc.category_slug) ?? doc.category_slug,
+            notes,
+        });
+    }
+    return [...entries.values()];
+}
+
 export function DocumentsSection({ uuid }: SectionProps) {
-    const [extraDocs, setExtraDocs] = useState<ExtraDocEntry[]>([]);
-    const [pickSlug, setPickSlug] = useState<string>(DOC_CATEGORY_SLUGS.OTHER_DOCUMENTS);
+    const [addedEntries, setAddedEntries] = useState<ExtraDocEntry[]>([]);
+    const [pickSlug, setPickSlug] = useState<string>(
+        DOC_CATEGORY_SLUGS.OTHER_DOCUMENTS,
+    );
     const [pickNotes, setPickNotes] = useState("");
 
-    const { getDocumentsBySlugExcept } = useQuestionnaireDocuments(uuid);
-    const queryClient = useQueryClient();
+    const { documents, getDocumentsBySlugExcept } =
+        useQuestionnaireDocuments(uuid);
 
-    const deleteMutation = useMutation({
-        mutationFn: (docId: number) =>
-            api.delete(`/questionnaire/${uuid}/documents/${docId}`),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["questionnaire-documents", uuid] });
-            toast.success("مدرک حذف شد.");
+    const { data: categories } = useQuery({
+        queryKey: documentKeys.categories("personnel"),
+        queryFn: async () => {
+            const { data } = await fetchDocumentCategories("personnel");
+            return data.data;
         },
-        onError: () => toast.error("خطا در حذف مدرک."),
     });
+
+    const categoryLabels = useMemo(
+        () => flattenCategoryMap(categories ?? []),
+        [categories],
+    );
+
+    const extraDocOptions = useMemo(
+        () =>
+            (categories ?? [])
+                .flatMap((c) => [c, ...(c.children ?? [])])
+                .filter((c) => EXTRA_DOC_SLUGS.has(c.slug))
+                .map((c) => ({ slug: c.slug, label: c.name })),
+        [categories],
+    );
+
+    const serverExtraEntries = useMemo(
+        () => deriveExtraEntries(documents, categoryLabels),
+        [documents, categoryLabels],
+    );
+
+    const extraDocs = useMemo(() => {
+        const merged = [...serverExtraEntries];
+        const seen = new Set(merged.map((e) => e.key));
+        for (const entry of addedEntries) {
+            if (seen.has(entry.key)) continue;
+            merged.push(entry);
+            seen.add(entry.key);
+        }
+        return merged;
+    }, [serverExtraEntries, addedEntries]);
+
+    if (!uuid) return null;
+
+    const pickLabel =
+        extraDocOptions.find((o) => o.slug === pickSlug)?.label ?? pickSlug;
+
+    function handleAddExtra() {
+        if (!extraDocOptions.some((o) => o.slug === pickSlug)) return;
+        const key = `${pickSlug}::${pickNotes}`;
+        setAddedEntries((prev) =>
+            prev.some((e) => e.key === key)
+                ? prev
+                : [
+                      ...prev,
+                      {
+                          key,
+                          slug: pickSlug,
+                          label: pickLabel,
+                          notes: pickNotes,
+                      },
+                  ],
+        );
+        setPickSlug(DOC_CATEGORY_SLUGS.OTHER_DOCUMENTS);
+        setPickNotes("");
+    }
 
     const orphanedEntries = Object.entries(CATEGORY_KNOWN_KEYS)
         .map(([slug, knownKeys]) => {
             const orphans = getDocumentsBySlugExcept(slug, knownKeys);
-            return { slug, label: CATEGORY_LABELS[slug] ?? slug, orphans };
+            return { slug, label: categoryLabels.get(slug) ?? slug, orphans };
         })
         .filter((e) => e.orphans.length > 0);
-
-    if (!uuid) return null;
-
-    function handleAddExtra() {
-        const opt = EXTRA_DOC_OPTIONS.find((o) => o.slug === pickSlug);
-        if (!opt) return;
-        setExtraDocs((prev) => [...prev, { slug: opt.slug, label: opt.label, notes: pickNotes }]);
-        setPickSlug(DOC_CATEGORY_SLUGS.OTHER_DOCUMENTS);
-        setPickNotes("");
-    }
 
     return (
         <Card>
@@ -93,47 +167,88 @@ export function DocumentsSection({ uuid }: SectionProps) {
             </CardHeader>
             <CardContent className="space-y-6">
                 <p className="text-sm text-muted-foreground">
-                    مدارک مورد نیاز را بارگذاری کنید. فرمت‌های مجاز: PDF، JPEG، PNG، WebP.
+                    مدارک مورد نیاز را بارگذاری کنید. فرمت‌های مجاز: PDF، JPEG،
+                    PNG، WebP.
                 </p>
 
                 {/* ── مدارک ثابت ── */}
                 <div className="space-y-4">
                     <span className="text-sm font-medium">مدارک هویتی</span>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <FileUploadField
-                            uuid={uuid}
-                            categorySlug={DOC_CATEGORY_SLUGS.NATIONAL_CARD}
-                            label="کارت ملی — رو"
-                            accept="image/jpeg,image/png,image/webp,.pdf"
-                            recordKey="front"
-                        />
-                        <FileUploadField
-                            uuid={uuid}
-                            categorySlug={DOC_CATEGORY_SLUGS.NATIONAL_CARD}
-                            label="کارت ملی — پشت"
-                            accept="image/jpeg,image/png,image/webp,.pdf"
-                            recordKey="back"
-                        />
-                        <FileUploadField
-                            uuid={uuid}
-                            categorySlug={DOC_CATEGORY_SLUGS.BIRTH_CERTIFICATE}
-                            label="شناسنامه — صفحه اول"
-                            accept="image/jpeg,image/png,image/webp,.pdf"
-                            recordKey="front"
-                        />
-                        <FileUploadField
-                            uuid={uuid}
-                            categorySlug={DOC_CATEGORY_SLUGS.BIRTH_CERTIFICATE}
-                            label="شناسنامه — صفحه دوم"
-                            accept="image/jpeg,image/png,image/webp,.pdf"
-                            recordKey="back"
-                        />
-                        <FileUploadField
-                            uuid={uuid}
-                            categorySlug={DOC_CATEGORY_SLUGS.RESUME}
-                            label="رزومه"
-                            accept=".pdf,image/jpeg,image/png,image/webp"
-                        />
+                    <div>
+                        <span className="text-sm font-medium">کارت ملی</span>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <FileUploadField
+                                uuid={uuid}
+                                categorySlug={DOC_CATEGORY_SLUGS.NATIONAL_CARD}
+                                label="کارت ملی — رو"
+                                accept="image/jpeg,image/png,image/webp,.pdf"
+                                recordKey="front"
+                            />
+                            <FileUploadField
+                                uuid={uuid}
+                                categorySlug={DOC_CATEGORY_SLUGS.NATIONAL_CARD}
+                                label="کارت ملی — پشت"
+                                accept="image/jpeg,image/png,image/webp,.pdf"
+                                recordKey="back"
+                            />
+                        </div>
+                    </div>
+                    <div>
+                        <span className="text-sm font-medium">شناسنامه</span>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <FileUploadField
+                                uuid={uuid}
+                                categorySlug={
+                                    DOC_CATEGORY_SLUGS.BIRTH_CERTIFICATE
+                                }
+                                label="شناسنامه — صفحه اول"
+                                accept="image/jpeg,image/png,image/webp,.pdf"
+                                recordKey="page-1"
+                            />
+                            <FileUploadField
+                                uuid={uuid}
+                                categorySlug={
+                                    DOC_CATEGORY_SLUGS.BIRTH_CERTIFICATE
+                                }
+                                label="شناسنامه — صفحه دوم"
+                                accept="image/jpeg,image/png,image/webp,.pdf"
+                                recordKey="page-2"
+                            />
+                            <FileUploadField
+                                uuid={uuid}
+                                categorySlug={
+                                    DOC_CATEGORY_SLUGS.BIRTH_CERTIFICATE
+                                }
+                                label="شناسنامه — صفحه آخر"
+                                accept="image/jpeg,image/png,image/webp,.pdf"
+                                recordKey="page-3"
+                            />
+                        </div>
+                    </div>
+                    <div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <FileUploadField
+                                uuid={uuid}
+                                categorySlug={DOC_CATEGORY_SLUGS.RESUME}
+                                label="رزومه"
+                                multiple
+                                maxFiles={5}
+                                accept=".pdf,image/jpeg,image/png,image/webp"
+                            />
+                            {/* <FileUploadField
+                                    key={entry.key}
+                                    uuid={uuid}
+                                    categorySlug={entry.slug}
+                                    label={
+                                        entry.label +
+                                        (entry.notes ? ` — ${entry.notes}` : "")
+                                    }
+                                    accept=".pdf,image/jpeg,image/png,image/webp"
+                                    multiple
+                                    maxFiles={5}
+                                    notes={entry.notes}
+                                /> */}
+                        </div>
                     </div>
 
                     {orphanedEntries.map(({ slug, label, orphans }) => (
@@ -143,30 +258,17 @@ export function DocumentsSection({ uuid }: SectionProps) {
                             </span>
                             <div className="flex flex-wrap gap-3">
                                 {orphans.map((doc) => (
-                                    <div key={doc.id} className="flex flex-col items-start gap-0.5">
-                                        {doc.mime_type.startsWith("image/") ? (
-                                            <FileThumbnail
-                                                file={{ name: doc.original_name, type: doc.mime_type }}
-                                                previewImageUrl={doc.url}
-                                                className="size-16 rounded-none border-0"
-                                                previewClassName="aspect-square"
-                                            />
-                                        ) : (
-                                            <div className={cn("flex size-16 items-center justify-center rounded", getFileColorClasses(doc.mime_type))}>
-                                                {getFileIcon(doc.mime_type, "size-6")}
-                                            </div>
-                                        )}
-                                        <div className="flex items-center gap-1 px-1">
-                                            <span className="text-[10px] text-muted-foreground">
-                                                {getRecordKeyLabel(doc.record_key) ?? doc.record_key}
-                                            </span>
-                                            <ConfirmDeleteButton
-                                                iconOnly
-                                                onConfirm={() => deleteMutation.mutate(doc.id)}
-                                                label="حذف"
-                                            />
-                                        </div>
-                                    </div>
+                                    <DocumentFileItem
+                                        key={doc.usage_id}
+                                        uuid={uuid}
+                                        doc={doc}
+                                        layout="compact"
+                                        thumbnailSize="size-16"
+                                        label={
+                                            getRecordKeyLabel(doc.record_key) ??
+                                            doc.record_key
+                                        }
+                                    />
                                 ))}
                             </div>
                         </div>
@@ -176,21 +278,29 @@ export function DocumentsSection({ uuid }: SectionProps) {
                 {/* ── مدارک تکمیلی ── */}
                 <div className="space-y-4">
                     <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium">مدارک تکمیلی</span>
+                        <span className="text-sm font-medium">
+                            مدارک تکمیلی
+                        </span>
                         <div className="flex items-center gap-2">
                             <Select
                                 value={pickSlug}
-                                onValueChange={(v) => v != null && setPickSlug(v)}
+                                onValueChange={(v) =>
+                                    v != null && setPickSlug(v)
+                                }
                                 itemToStringLabel={(val) =>
-                                    EXTRA_DOC_OPTIONS.find((o) => o.slug === val)?.label ?? val
+                                    extraDocOptions.find((o) => o.slug === val)
+                                        ?.label ?? val
                                 }
                             >
                                 <SelectTrigger className="w-48 h-8 text-xs">
                                     <SelectValue placeholder="نوع مدرک" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {EXTRA_DOC_OPTIONS.map((opt) => (
-                                        <SelectItem key={opt.slug} value={opt.slug}>
+                                    {extraDocOptions.map((opt) => (
+                                        <SelectItem
+                                            key={opt.slug}
+                                            value={opt.slug}
+                                        >
                                             {opt.label}
                                         </SelectItem>
                                     ))}
@@ -216,15 +326,19 @@ export function DocumentsSection({ uuid }: SectionProps) {
 
                     {extraDocs.length > 0 && (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            {extraDocs.map((entry, i) => (
+                            {extraDocs.map((entry) => (
                                 <FileUploadField
-                                    key={`${entry.slug}-${i}`}
+                                    key={entry.key}
                                     uuid={uuid}
                                     categorySlug={entry.slug}
-                                    label={entry.label + (entry.notes ? ` — ${entry.notes}` : "")}
+                                    label={
+                                        entry.label +
+                                        (entry.notes ? ` — ${entry.notes}` : "")
+                                    }
                                     accept=".pdf,image/jpeg,image/png,image/webp"
                                     multiple
                                     maxFiles={5}
+                                    notes={entry.notes}
                                 />
                             ))}
                         </div>

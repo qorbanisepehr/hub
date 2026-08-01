@@ -58,6 +58,9 @@ export function FileThumbnail({
     const [failedPreviewImageUrl, setFailedPreviewImageUrl] = React.useState<
         string | null
     >(null);
+    const previousPreviewImageUrl = React.useRef<string | null>(
+        previewImageUrl,
+    );
     const imageFailed = Boolean(
         previewImageUrl && failedPreviewImageUrl === previewImageUrl,
     );
@@ -104,6 +107,14 @@ export function FileThumbnail({
     React.useEffect(() => {
         cancelImageReveal();
     }, [cancelImageReveal, previewImageUrl]);
+
+    React.useEffect(() => {
+        if (previousPreviewImageUrl.current === previewImageUrl) return;
+
+        previousPreviewImageUrl.current = previewImageUrl;
+        setLoadedPreviewImageUrl(null);
+        setFailedPreviewImageUrl(null);
+    }, [previewImageUrl]);
 
     React.useEffect(() => cancelImageReveal, [cancelImageReveal]);
 

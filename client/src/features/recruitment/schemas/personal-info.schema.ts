@@ -75,6 +75,7 @@ export const personalInfoFieldSchema = z
         spouse_employment_status: z
             .enum(SPOUSE_EMPLOYMENT_VALUES, { message: "وضعیت اشتغال همسر الزامی است." })
             .optional(),
+        spouse_job: z.string().max(100, "حداکثر ۱۰۰ کاراکتر.").optional(),
         military_status: militaryStatusSchema.optional(),
         national_id: z.string().length(10, "کد ملی باید ۱۰ رقم باشد."),
     })
@@ -84,6 +85,13 @@ export const personalInfoFieldSchema = z
                 code: z.ZodIssueCode.custom,
                 message: "وضعیت اشتغال همسر الزامی است.",
                 path: ["spouse_employment_status"],
+            });
+        }
+        if (data.spouse_employment_status === "employed" && !data.spouse_job?.trim()) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: "شغل همسر الزامی است.",
+                path: ["spouse_job"],
             });
         }
         if (data.gender === "male" && !data.military_status) {
@@ -134,5 +142,6 @@ export const fieldSchemas = {
     dependents_count: z.number().min(0, "تعداد افراد تحت تکفل نمی‌تواند منفی باشد.").nullable().optional(),
     children_count: z.number().min(0, "تعداد فرزندان نمی‌تواند منفی باشد.").nullable().optional(),
     spouse_employment_status: z.enum(SPOUSE_EMPLOYMENT_VALUES, { message: "وضعیت اشتغال همسر الزامی است." }),
+    spouse_job: z.string().min(1, "شغل همسر الزامی است.").max(100, "حداکثر ۱۰۰ کاراکتر."),
     military_status: militaryStatusSchema,
 } as const;

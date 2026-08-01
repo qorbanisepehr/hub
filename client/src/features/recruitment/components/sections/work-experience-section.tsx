@@ -1,5 +1,3 @@
-import type { ReactFormExtendedApi } from "@tanstack/react-form";
-
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
     FormTextField,
@@ -9,21 +7,23 @@ import {
     FormDatePicker,
 } from "@/components/shared/form-fields";
 import { FormRepeater } from "@/components/shared/form-repeater";
+import type { TableColumn } from "@/components/shared/form-repeater";
 import { YES_NO_OPTIONS, parseBoolean } from "@/features/recruitment/constants";
 import { zodFieldValidators } from "@/lib/validation-helpers";
 import { fieldSchemas } from "@/features/recruitment/schemas/work-experience.schema";
+import type { QuestionnaireFormApi } from "@/features/recruitment/types";
 
 type SectionProps = {
-    form: ReactFormExtendedApi<any, any, any, any, any, any, any, any, any, any, any, any>;
+    form: QuestionnaireFormApi;
     onPersist?: () => void;
 };
 
-const WORK_COLUMNS = [
+const WORK_COLUMNS: TableColumn[] = [
     { key: "company", label: "شرکت" },
     { key: "position", label: "سمت" },
     { key: "industry", label: "صنعت" },
-    { key: "from", label: "از تاریخ" },
-    { key: "to", label: "تا تاریخ" },
+    { key: "from", label: "از تاریخ", type: "date" },
+    { key: "to", label: "تا تاریخ", type: "date" },
     { key: "contract_type", label: "نوع قرارداد" },
 ];
 

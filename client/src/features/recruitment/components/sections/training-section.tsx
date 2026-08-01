@@ -1,47 +1,38 @@
-import type { ReactFormExtendedApi } from "@tanstack/react-form";
-import { IconPaperclip } from "@tabler/icons-react";
-
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FormTextField, FormTextarea, FormDatePicker } from "@/components/shared/form-fields";
 import { FileUploadField } from "@/components/shared/file-upload-field";
+import { repeaterAttachmentColumn } from "@/components/shared/repeater-attachment-cell";
 import { FormRepeater } from "@/components/shared/form-repeater";
+import type { TableColumn } from "@/components/shared/form-repeater";
 import { DOC_CATEGORY_SLUGS } from "@/features/recruitment/constants";
 import { useQuestionnaireDocuments } from "@/features/recruitment/hooks/use-questionnaire-documents";
 import { zodFieldValidators } from "@/lib/validation-helpers";
 import { fieldSchemas } from "@/features/recruitment/schemas/training.schema";
+import type { QuestionnaireFormApi } from "@/features/recruitment/types";
 
 type SectionProps = {
-    form: ReactFormExtendedApi<any, any, any, any, any, any, any, any, any, any, any, any>;
+    form: QuestionnaireFormApi;
     uuid?: string;
     onPersist?: () => void;
 };
 
-const COURSE_COLUMNS_FN = (hasDoc: (index: number) => boolean) => [
+const COURSE_COLUMNS: TableColumn[] = [
     { key: "course_name", label: "نام دوره" },
     { key: "institution", label: "سازمان" },
     { key: "duration", label: "مدت زمان" },
-    { key: "held_at", label: "تاریخ برگزاری" },
-    {
-        key: "_attachment",
-        label: "پیوست",
-        render: (_value: unknown, _item: unknown, index: number) => {
-            const has = hasDoc(index);
-            return has ? (
-                <span className="inline-flex items-center gap-1 text-primary">
-                    <IconPaperclip className="size-3.5" />
-                </span>
-            ) : (
-                <span className="text-muted-foreground/40">
-                    <IconPaperclip className="size-3.5" />
-                </span>
-            );
-        },
-    },
+    { key: "held_at", label: "تاریخ برگزاری", type: "date" },
 ];
 
 export function TrainingSection({ form, uuid, onPersist }: SectionProps) {
-    const { hasDocumentBySlug } = useQuestionnaireDocuments(uuid);
-    const courseColumns = COURSE_COLUMNS_FN((index) => hasDocumentBySlug(DOC_CATEGORY_SLUGS.COURSE_CERTIFICATES, `train-${index}`));
+    const { getDocumentsBySlug } = useQuestionnaireDocuments(uuid);
+    const courseColumns: TableColumn[] = [
+        ...COURSE_COLUMNS,
+        repeaterAttachmentColumn({
+            categorySlug: DOC_CATEGORY_SLUGS.COURSE_CERTIFICATES,
+            recordKeyPrefix: "train-",
+            getDocumentsBySlug,
+        }),
+    ];
 
     return (
         <Card>
@@ -97,6 +88,7 @@ export function TrainingSection({ form, uuid, onPersist }: SectionProps) {
                                             categorySlug={DOC_CATEGORY_SLUGS.COURSE_CERTIFICATES}
                                             label="گواهینامه دوره"
                                             recordKey={`train-${index}`}
+                                            variant="thumbnail"
                                         />
                                     )}
                                 </div>

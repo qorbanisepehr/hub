@@ -5,6 +5,7 @@ import { IconCalendarMonth } from "@tabler/icons-react";
 import { format, parse } from "date-fns";
 
 import { cn } from "@/lib/utils";
+import { toPersianDate } from "@/lib/date-format";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -20,14 +21,6 @@ type Props = {
     disabled?: boolean;
     className?: string;
 };
-
-function toPersianDate(date: Date): string {
-    return new Intl.DateTimeFormat("fa-IR", {
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-    }).format(date);
-}
 
 export function DatePicker({
     value,

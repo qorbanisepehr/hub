@@ -1,5 +1,4 @@
 import { useEffect } from "react";
-import type { ReactFormExtendedApi } from "@tanstack/react-form";
 import { useStore } from "@tanstack/react-form";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,35 +15,73 @@ import {
     BLOOD_GROUPS,
     MARITAL_STATUS_OPTIONS,
     SPOUSE_EMPLOYMENT_OPTIONS,
-    MILITARY_STATUS_OPTIONS,
     DOC_CATEGORY_SLUGS,
 } from "@/features/recruitment/constants";
 import { zodFieldValidators } from "@/lib/validation-helpers";
-import type { Questionnaire } from "@/features/recruitment/types";
+import type {
+    Questionnaire,
+    QuestionnaireFormApi,
+} from "@/features/recruitment/types";
 import { fieldSchemas } from "@/features/recruitment/schemas/personal-info.schema";
+import { MilitaryServiceFields } from "./military-service-fields";
 
 type SectionProps = {
-    form: ReactFormExtendedApi<any, any, any, any, any, any, any, any, any, any, any, any>;
+    form: QuestionnaireFormApi;
     questionnaire?: Questionnaire | null;
     uuid?: string;
 };
 
-export function PersonalInfoSection({ form, questionnaire, uuid }: SectionProps) {
-    const maritalStatus = useStore(form.store, (s) => s.values.personal_info?.marital_status);
+export function PersonalInfoSection({
+    form,
+    questionnaire,
+    uuid,
+}: SectionProps) {
+    const maritalStatus = useStore(
+        form.store,
+        (s) => s.values.personal_info?.marital_status,
+    );
     const gender = useStore(form.store, (s) => s.values.personal_info?.gender);
 
     const isSingle = maritalStatus === "single";
     const isMale = gender === "male";
 
-    const spouseField = useStore(form.store, (s) => s.values.personal_info?.spouse_employment_status);
+    const spouseField = useStore(
+        form.store,
+        (s) => s.values.personal_info?.spouse_employment_status,
+    );
 
     useEffect(() => {
         if (isSingle && spouseField) {
             form.setFieldValue("personal_info.spouse_employment_status", "");
         } else if (!isSingle && !spouseField) {
-            form.setFieldValue("personal_info.spouse_employment_status", "housewife");
+            form.setFieldValue(
+                "personal_info.spouse_employment_status",
+                "housewife",
+            );
         }
     }, [isSingle, spouseField, form]);
+
+    useEffect(() => {
+        if (
+            gender === "female" &&
+            form.state.values.personal_info?.military_status
+        ) {
+            form.setFieldValue("personal_info.military_status", undefined);
+        } else if (
+            gender === "male" &&
+            !form.state.values.personal_info?.military_status
+        ) {
+            form.setFieldValue("personal_info.military_status", {
+                status: "",
+                organization: "",
+                from: "",
+                to: "",
+                reason: "",
+            });
+        }
+    }, [gender, form]);
+
+    const spouseIsEmployed = spouseField === "employed";
 
     return (
         <Card>
@@ -55,16 +92,28 @@ export function PersonalInfoSection({ form, questionnaire, uuid }: SectionProps)
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <form.Field
                         name="personal_info.national_id"
-                        validators={zodFieldValidators(fieldSchemas.national_id)}
+                        validators={zodFieldValidators(
+                            fieldSchemas.national_id,
+                        )}
                     >
-                        {(field) => <FormTextField field={field} label="کد ملی" dir="ltr" />}
+                        {(field) => (
+                            <FormTextField
+                                field={field}
+                                label="کد ملی"
+                                dir="ltr"
+                            />
+                        )}
                     </form.Field>
                     <form.Field
                         name="personal_info.gender"
                         validators={zodFieldValidators(fieldSchemas.gender)}
                     >
                         {(field) => (
-                            <FormRadioGroup field={field} label="جنسیت" options={GENDER_OPTIONS} />
+                            <FormRadioGroup
+                                field={field}
+                                label="جنسیت"
+                                options={GENDER_OPTIONS}
+                            />
                         )}
                     </form.Field>
                     {uuid && (
@@ -73,7 +122,9 @@ export function PersonalInfoSection({ form, questionnaire, uuid }: SectionProps)
                             categorySlug={DOC_CATEGORY_SLUGS.PERSONNEL_PHOTO}
                             label="تصویر پرسنلی"
                             recordKey="photo"
-                            aspectRatio={3/4}
+                            variant="avatar"
+                            aspectRatio={3 / 4}
+                            description="فرمت‌های مجاز: JPG، PNG، WebP"
                         />
                     )}
                 </div>
@@ -89,16 +140,30 @@ export function PersonalInfoSection({ form, questionnaire, uuid }: SectionProps)
                         name="last_name"
                         validators={zodFieldValidators(fieldSchemas.last_name)}
                     >
-                        {(field) => <FormTextField field={field} label="نام خانوادگی" />}
+                        {(field) => (
+                            <FormTextField field={field} label="نام خانوادگی" />
+                        )}
                     </form.Field>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <form.Field name="personal_info.first_name_en">
-                        {(field) => <FormTextField field={field} label="First Name" dir="ltr" />}
+                        {(field) => (
+                            <FormTextField
+                                field={field}
+                                label="First Name"
+                                dir="ltr"
+                            />
+                        )}
                     </form.Field>
                     <form.Field name="personal_info.last_name_en">
-                        {(field) => <FormTextField field={field} label="Last Name" dir="ltr" />}
+                        {(field) => (
+                            <FormTextField
+                                field={field}
+                                label="Last Name"
+                                dir="ltr"
+                            />
+                        )}
                     </form.Field>
                 </div>
 
@@ -107,41 +172,66 @@ export function PersonalInfoSection({ form, questionnaire, uuid }: SectionProps)
                         name="personal_info.birth_date"
                         validators={zodFieldValidators(fieldSchemas.birth_date)}
                     >
-                        {(field) => <FormDatePicker field={field} label="تاریخ تولد" />}
+                        {(field) => (
+                            <FormDatePicker field={field} label="تاریخ تولد" />
+                        )}
                     </form.Field>
                     <form.Field
                         name="personal_info.birth_place"
-                        validators={zodFieldValidators(fieldSchemas.birth_place)}
+                        validators={zodFieldValidators(
+                            fieldSchemas.birth_place,
+                        )}
                     >
-                        {(field) => <FormTextField field={field} label="محل تولد" />}
+                        {(field) => (
+                            <FormTextField field={field} label="محل تولد" />
+                        )}
                     </form.Field>
                     <form.Field
                         name="personal_info.birth_certificate_number"
-                        validators={zodFieldValidators(fieldSchemas.birth_certificate_number)}
+                        validators={zodFieldValidators(
+                            fieldSchemas.birth_certificate_number,
+                        )}
                     >
-                        {(field) => <FormTextField field={field} label="شماره شناسنامه" />}
+                        {(field) => (
+                            <FormTextField
+                                field={field}
+                                label="شماره شناسنامه"
+                            />
+                        )}
                     </form.Field>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <form.Field
                         name="personal_info.father_name"
-                        validators={zodFieldValidators(fieldSchemas.father_name)}
+                        validators={zodFieldValidators(
+                            fieldSchemas.father_name,
+                        )}
                     >
-                        {(field) => <FormTextField field={field} label="نام پدر" />}
+                        {(field) => (
+                            <FormTextField field={field} label="نام پدر" />
+                        )}
                     </form.Field>
                     <form.Field
                         name="personal_info.religion"
                         validators={zodFieldValidators(fieldSchemas.religion)}
                     >
-                        {(field) => <FormTextField field={field} label="مذهب" />}
+                        {(field) => (
+                            <FormTextField field={field} label="مذهب" />
+                        )}
                     </form.Field>
                     <form.Field
                         name="personal_info.blood_group"
-                        validators={zodFieldValidators(fieldSchemas.blood_group)}
+                        validators={zodFieldValidators(
+                            fieldSchemas.blood_group,
+                        )}
                     >
                         {(field) => (
-                            <FormSelectField field={field} label="گروه خونی" options={BLOOD_GROUPS} />
+                            <FormSelectField
+                                field={field}
+                                label="گروه خونی"
+                                options={BLOOD_GROUPS}
+                            />
                         )}
                     </form.Field>
                 </div>
@@ -149,7 +239,9 @@ export function PersonalInfoSection({ form, questionnaire, uuid }: SectionProps)
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <form.Field
                         name="personal_info.marital_status"
-                        validators={zodFieldValidators(fieldSchemas.marital_status)}
+                        validators={zodFieldValidators(
+                            fieldSchemas.marital_status,
+                        )}
                     >
                         {(field) => (
                             <FormRadioGroup
@@ -160,10 +252,20 @@ export function PersonalInfoSection({ form, questionnaire, uuid }: SectionProps)
                         )}
                     </form.Field>
                     <form.Field name="personal_info.dependents_count">
-                        {(field) => <FormNumberField field={field} label="تعداد افراد تحت تکفل" />}
+                        {(field) => (
+                            <FormNumberField
+                                field={field}
+                                label="تعداد افراد تحت تکفل"
+                            />
+                        )}
                     </form.Field>
                     <form.Field name="personal_info.children_count">
-                        {(field) => <FormNumberField field={field} label="تعداد فرزندان" />}
+                        {(field) => (
+                            <FormNumberField
+                                field={field}
+                                label="تعداد فرزندان"
+                            />
+                        )}
                     </form.Field>
                 </div>
 
@@ -171,70 +273,32 @@ export function PersonalInfoSection({ form, questionnaire, uuid }: SectionProps)
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <form.Field name="personal_info.spouse_employment_status">
                             {(field) => (
-                                <>
-                                    <FormRadioGroup
-                                        field={field}
-                                        label="وضعیت اشتغال همسر"
-                                        options={SPOUSE_EMPLOYMENT_OPTIONS}
-                                    />
-                                    <p className="text-xs text-muted-foreground mt-1">
-                                        {spouseField ? "تأیید شده" : "انتخاب کنید"}
-                                    </p>
-                                </>
+                                <FormRadioGroup
+                                    field={field}
+                                    label="وضعیت اشتغال همسر"
+                                    options={SPOUSE_EMPLOYMENT_OPTIONS}
+                                />
                             )}
                         </form.Field>
-                    </div>
-                )}
-
-                {isMale && (
-                    <div className="rounded-lg border p-4 space-y-4">
-                        <span className="text-sm font-medium">وضعیت نظام وظیفه</span>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {spouseIsEmployed && (
                             <form.Field
-                                name="personal_info.military_status.status"
-                                validators={zodFieldValidators(fieldSchemas.military_status.shape.status)}
+                                name="personal_info.spouse_job"
+                                validators={zodFieldValidators(
+                                    fieldSchemas.spouse_job,
+                                )}
                             >
-                                {(f) => (
-                                    <FormSelectField
-                                        field={f}
-                                        label="وضعیت"
-                                        options={MILITARY_STATUS_OPTIONS}
+                                {(field) => (
+                                    <FormTextField
+                                        field={field}
+                                        label="شغل همسر"
                                     />
                                 )}
                             </form.Field>
-                            <form.Field
-                                name="personal_info.military_status.organization"
-                                validators={zodFieldValidators(
-                                        fieldSchemas.military_status.shape.organization,
-                                    )}
-                            >
-                                {(f) => <FormTextField field={f} label="سازمان" />}
-                            </form.Field>
-                            <form.Field
-                                name="personal_info.military_status.from"
-                                validators={zodFieldValidators(fieldSchemas.military_status.shape.from)}
-                            >
-                                {(f) => <FormDatePicker field={f} label="تاریخ شروع" />}
-                            </form.Field>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <form.Field
-                                name="personal_info.military_status.to"
-                                validators={zodFieldValidators(fieldSchemas.military_status.shape.to)}
-                            >
-                                {(f) => <FormDatePicker field={f} label="تاریخ پایان" />}
-                            </form.Field>
-                            <form.Field
-                                name="personal_info.military_status.reason"
-                                validators={zodFieldValidators(
-                                        fieldSchemas.military_status.shape.reason,
-                                    )}
-                            >
-                                {(f) => <FormTextField field={f} label="دلیل" />}
-                            </form.Field>
-                        </div>
+                        )}
                     </div>
                 )}
+
+                {isMale && <MilitaryServiceFields form={form} />}
             </CardContent>
         </Card>
     );

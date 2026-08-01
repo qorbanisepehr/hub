@@ -1,5 +1,3 @@
-import { useState } from "react";
-import type { ReactFormExtendedApi } from "@tanstack/react-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -15,50 +13,46 @@ import {
 import { getApiError } from "@/lib/error-utils";
 import { zodFieldValidators } from "@/lib/validation-helpers";
 import { fieldSchemas } from "@/features/recruitment/schemas/contact-info.schema";
-import type { Questionnaire } from "@/features/recruitment/types";
+import type { Questionnaire, QuestionnaireFormApi } from "@/features/recruitment/types";
 
-import { SourceInputWithOtp } from "./otp-verification-block";
+import { OtpVerifiedInput } from "@/components/shared/otp-verified-input";
 
 type SectionProps = {
-    form: ReactFormExtendedApi<any, any, any, any, any, any, any, any, any, any, any, any>;
+    form: QuestionnaireFormApi;
     questionnaire?: Questionnaire | null;
 };
 
 export function ContactInfoSection({ form, questionnaire }: SectionProps) {
     const queryClient = useQueryClient();
-    const [mobileOtp, setMobileOtp] = useState("");
-    const [emailOtp, setEmailOtp] = useState("");
 
-    const uuid = questionnaire?.uuid;
+    const uuid = questionnaire?.uuid ?? "";
     const emailVerified = questionnaire?.email_verified ?? false;
     const mobileVerified = questionnaire?.mobile_verified ?? false;
 
     const sendMobileOtpMutation = useMutation({
-        mutationFn: () => sendMobileOtp(uuid!),
+        mutationFn: () => sendMobileOtp(uuid),
         onError: (err) => toast.error(getApiError(err)),
     });
 
     const sendEmailOtpMutation = useMutation({
-        mutationFn: () => sendEmailOtp(uuid!),
+        mutationFn: () => sendEmailOtp(uuid),
         onError: (err) => toast.error(getApiError(err)),
     });
 
     const verifyMobileOtpMutation = useMutation({
-        mutationFn: (otp: string) => verifyMobileOtp(uuid!, otp),
+        mutationFn: (otp: string) => verifyMobileOtp(uuid, otp),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["questionnaire", uuid] });
             toast.success("موبایل تأیید شد.");
-            setMobileOtp("");
         },
         onError: (err) => toast.error(getApiError(err)),
     });
 
     const verifyEmailOtpMutation = useMutation({
-        mutationFn: (otp: string) => verifyEmailOtp(uuid!, otp),
+        mutationFn: (otp: string) => verifyEmailOtp(uuid, otp),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["questionnaire", uuid] });
             toast.success("ایمیل تأیید شد.");
-            setEmailOtp("");
         },
         onError: (err) => toast.error(getApiError(err)),
     });
@@ -74,17 +68,17 @@ export function ContactInfoSection({ form, questionnaire }: SectionProps) {
                     validators={zodFieldValidators(fieldSchemas.email)}
                 >
                     {(field) => (
-                        <SourceInputWithOtp
-                            label="ایمیل"
-                            sourceField={field}
-                            sourcePlaceholder="email@example.com"
-                            isVerified={emailVerified}
-                            sendMutation={sendEmailOtpMutation}
-                            verifyMutation={verifyEmailOtpMutation}
-                            otp={emailOtp}
-                            onOtpChange={setEmailOtp}
-                            onVerify={() => verifyEmailOtpMutation.mutate(emailOtp)}
-                        />
+                    <OtpVerifiedInput
+                        label="ایمیل"
+                        sourceField={field}
+                        placeholder="email@example.com"
+                        isVerified={emailVerified}
+                        sendOtp={() => sendEmailOtpMutation.mutateAsync()}
+                        verifyOtp={(code) => verifyEmailOtpMutation.mutateAsync(code)}
+                        onVerifiedChange={() => {
+                            queryClient.invalidateQueries({ queryKey: ["questionnaire", uuid] });
+                        }}
+                    />
                     )}
                 </form.Field>
 
@@ -93,17 +87,17 @@ export function ContactInfoSection({ form, questionnaire }: SectionProps) {
                     validators={zodFieldValidators(fieldSchemas.mobile)}
                 >
                     {(field) => (
-                        <SourceInputWithOtp
-                            label="شماره موبایل"
-                            sourceField={field}
-                            sourcePlaceholder="09121234567"
-                            isVerified={mobileVerified}
-                            sendMutation={sendMobileOtpMutation}
-                            verifyMutation={verifyMobileOtpMutation}
-                            otp={mobileOtp}
-                            onOtpChange={setMobileOtp}
-                            onVerify={() => verifyMobileOtpMutation.mutate(mobileOtp)}
-                        />
+                    <OtpVerifiedInput
+                        label="شماره موبایل"
+                        sourceField={field}
+                        placeholder="09121234567"
+                        isVerified={mobileVerified}
+                        sendOtp={() => sendMobileOtpMutation.mutateAsync()}
+                        verifyOtp={(code) => verifyMobileOtpMutation.mutateAsync(code)}
+                        onVerifiedChange={() => {
+                            queryClient.invalidateQueries({ queryKey: ["questionnaire", uuid] });
+                        }}
+                    />
                     )}
                 </form.Field>
 

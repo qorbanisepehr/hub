@@ -1,5 +1,3 @@
-import type { ReactFormExtendedApi } from "@tanstack/react-form";
-
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldLabel } from "@/components/ui/field";
@@ -12,15 +10,18 @@ import {
     FormDatePicker,
 } from "@/components/shared/form-fields";
 import { FileUploadField } from "@/components/shared/file-upload-field";
+import { repeaterAttachmentColumn } from "@/components/shared/repeater-attachment-cell";
 import { FormRepeater } from "@/components/shared/form-repeater";
+import type { TableColumn } from "@/components/shared/form-repeater";
 import { DEGREE_OPTIONS, YES_NO_OPTIONS, parseBoolean } from "@/features/recruitment/constants";
 import { DOC_CATEGORY_SLUGS } from "@/features/recruitment/constants";
 import { useQuestionnaireDocuments } from "@/features/recruitment/hooks/use-questionnaire-documents";
 import { zodFieldValidators } from "@/lib/validation-helpers";
 import { fieldSchemas } from "@/features/recruitment/schemas/education.schema";
+import type { QuestionnaireFormApi } from "@/features/recruitment/types";
 
 type SectionProps = {
-    form: ReactFormExtendedApi<any, any, any, any, any, any, any, any, any, any, any, any>;
+    form: QuestionnaireFormApi;
     uuid?: string;
     onPersist?: () => void;
 };
@@ -28,24 +29,18 @@ type SectionProps = {
 export function EducationSection({ form, uuid, onPersist }: SectionProps) {
     const { getDocumentsBySlug } = useQuestionnaireDocuments(uuid);
 
-    const educationColumns = [
+    const educationColumns: TableColumn[] = [
         { key: "degree", label: "مدرک" },
         { key: "field", label: "رشته" },
         { key: "institution", label: "دانشگاه" },
-        { key: "from", label: "از تاریخ" },
-        { key: "to", label: "تا تاریخ" },
+        { key: "from", label: "از تاریخ", type: "date" },
+        { key: "to", label: "تا تاریخ", type: "date" },
         { key: "gpa", label: "معدل" },
-        {
-            key: "_attachment",
-            label: "پیوست",
-            render: (_value: unknown, _item: unknown, index: number) => {
-                const docs = getDocumentsBySlug(DOC_CATEGORY_SLUGS.ACADEMIC_DEGREE, `edu-${index}`);
-                if (docs.length > 0) {
-                    return <span className="text-xs text-green-600">✓</span>;
-                }
-                return <span className="text-muted-foreground/40">—</span>;
-            },
-        },
+        repeaterAttachmentColumn({
+            categorySlug: DOC_CATEGORY_SLUGS.ACADEMIC_DEGREE,
+            recordKeyPrefix: "edu-",
+            getDocumentsBySlug,
+        }),
     ];
     return (
         <Card>
@@ -138,6 +133,7 @@ export function EducationSection({ form, uuid, onPersist }: SectionProps) {
                                             categorySlug={DOC_CATEGORY_SLUGS.ACADEMIC_DEGREE}
                                             label="مدرک تحصیلی"
                                             recordKey={`edu-${index}`}
+                                            variant="thumbnail"
                                         />
                                     )}
                                 </div>
