@@ -2,17 +2,49 @@
 
 namespace App\Domains\Recruitment\SectionDefinitions;
 
+use Illuminate\Contracts\Validation\Validator;
+
 interface SectionDefinition
 {
+    /**
+     * Draft save — structural validation (nullable, format only).
+     */
+    public const MODE_STRUCTURAL = 'structural';
+
+    /**
+     * Submit — completion validation (required).
+     */
+    public const MODE_COMPLETION = 'completion';
+
     /**
      * Section key matching the JSONB column suffix (e.g. 'personal' → 'section_personal').
      */
     public function key(): string;
 
     /**
-     * Human-readable label (Persian).
+     * Validate section data for the given mode and return the validator.
+     */
+    public function validateData(array $data, string $mode = self::MODE_STRUCTURAL): Validator;
+
+    /**
+     * Rules for the given mode.
+     */
+    public function rulesFor(string $mode): array;
+
+    /**
+     * Human-readable label, resolved from the language files (recruitment.sections.{key}).
      */
     public function label(): string;
+
+    /**
+     * Per-category document requirements owned by this definition.
+     * Keyed by document category slug: ['required' => bool, 'max_files' => ?int,
+     * 'record_keys' => string[], ...]. A null or missing 'max_files' means the
+     * category accepts an unlimited number of files per notes/record-key group.
+     *
+     * @return array<string, array<string, mixed>>
+     */
+    public function documentRequirements(): array;
 
     /**
      * Field definitions: name => type.

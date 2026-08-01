@@ -2,7 +2,9 @@
 
 namespace App\Domains\Recruitment\SectionDefinitions;
 
-class WorkExperienceSection implements SectionDefinition
+use Illuminate\Contracts\Validation\Validator;
+
+class WorkExperienceSection extends BaseSection
 {
     public function key(): string
     {
@@ -11,7 +13,7 @@ class WorkExperienceSection implements SectionDefinition
 
     public function label(): string
     {
-        return 'سوابق شغلی';
+        return __('recruitment.sections.work_experience');
     }
 
     public function fields(): array
@@ -73,5 +75,15 @@ class WorkExperienceSection implements SectionDefinition
         return [
             'work_experiences' => [],
         ];
+    }
+
+    protected function afterValidation(Validator $validator, array $data, string $mode): void
+    {
+        $this->assertDateRangeOrder(
+            $validator,
+            $data['work_experiences'] ?? [],
+            'work_experiences',
+            'messages.validation.work_date_order',
+        );
     }
 }

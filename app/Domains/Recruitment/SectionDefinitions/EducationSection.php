@@ -2,7 +2,9 @@
 
 namespace App\Domains\Recruitment\SectionDefinitions;
 
-class EducationSection implements SectionDefinition
+use Illuminate\Contracts\Validation\Validator;
+
+class EducationSection extends BaseSection
 {
     public function key(): string
     {
@@ -11,7 +13,25 @@ class EducationSection implements SectionDefinition
 
     public function label(): string
     {
-        return 'سوابق تحصیلی';
+        return __('recruitment.sections.education');
+    }
+
+    public function documentRequirements(): array
+    {
+        return [
+            'academic-degree' => [
+                'required' => false,
+                // 'max_files' => ,
+            ],
+            'language-certificate' => [
+                'required' => false,
+                // 'max_files' => 1,
+            ],
+            'course-certificates' => [
+                'required' => false,
+                // 'max_files' => 5,
+            ],
+        ];
     }
 
     public function fields(): array
@@ -112,5 +132,15 @@ class EducationSection implements SectionDefinition
             'education_records' => [],
             'is_student' => false,
         ];
+    }
+
+    protected function afterValidation(Validator $validator, array $data, string $mode): void
+    {
+        $this->assertDateRangeOrder(
+            $validator,
+            $data['education_records'] ?? [],
+            'education_records',
+            'messages.validation.education_date_order',
+        );
     }
 }

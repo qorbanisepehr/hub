@@ -143,6 +143,16 @@ return [
     'ulid' => ':attribute باید یک ULID معتبر باشد.',
     'uuid' => ':attribute باید یک UUID معتبر باشد.',
 
+    'min_file_size' => 'حجم فایل نباید کمتر از :size باشد.',
+    'max_file_size' => 'حجم فایل نباید بیشتر از :size باشد.',
+    'invalid_mime_type' => 'فرمت فایل مجاز نیست. فرمت‌های مجاز: :allowed',
+    'invalid_image' => 'فایل تصویری معتبر نیست.',
+    'min_width' => 'عرض تصویر باید حداقل :width پیکسل باشد.',
+    'min_height' => 'ارتفاع تصویر باید حداقل :height پیکسل باشد.',
+    'max_width' => 'عرض تصویر نباید بیشتر از :width پیکسل باشد.',
+    'max_height' => 'ارتفاع تصویر نباید بیشتر از :height پیکسل باشد.',
+    'aspect_ratio' => 'نسبت ابعاد تصویر باید :ratio باشد.',
+
     /*
     |--------------------------------------------------------------------------
     | Custom Validation Language Lines
@@ -211,6 +221,9 @@ return [
         'personal_info.spouse_employment_status' => [
             'required_if' => 'وضعیت اشتغال همسر الزامی است.',
             'in' => 'وضعیت اشتغال همسر معتبر نیست.',
+        ],
+        'personal_info.spouse_job' => [
+            'required_if' => 'شغل همسر الزامی است.',
         ],
         'personal_info.national_id' => [
             'required' => 'کد ملی الزامی است.',
@@ -370,6 +383,14 @@ return [
         'job_request.preferred_workplace.*' => [
             'in' => 'محل کار معتبر نیست.',
         ],
+        // ── Public document upload ──
+        'document_category_id' => [
+            'required' => 'دسته‌بندی الزامی است.',
+            'exists' => 'دسته‌بندی معتبر نیست.',
+        ],
+        'file' => [
+            'required' => 'فایل الزامی است.',
+        ],
     ],
 
     'attributes' => [
@@ -392,6 +413,7 @@ return [
         'personal_info.dependents_count' => 'تعداد افراد تحت تکفل',
         'personal_info.children_count' => 'تعداد فرزندان',
         'personal_info.spouse_employment_status' => 'وضعیت اشتغال همسر',
+        'personal_info.spouse_job' => 'شغل همسر',
         'personal_info.military_status' => 'وضعیت نظام وظیفه',
         'personal_info.military_status.status' => 'وضعیت',
         'personal_info.military_status.organization' => 'سازمان',

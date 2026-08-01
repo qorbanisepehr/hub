@@ -2,7 +2,7 @@
 
 namespace App\Domains\Recruitment\SectionDefinitions;
 
-class JobRequestSection implements SectionDefinition
+class JobRequestSection extends BaseSection
 {
     public function key(): string
     {
@@ -11,7 +11,19 @@ class JobRequestSection implements SectionDefinition
 
     public function label(): string
     {
-        return 'نوع درخواست همکاری';
+        return __('recruitment.sections.job_request');
+    }
+
+    public function documentRequirements(): array
+    {
+        return [
+            'resume' => [
+                'required' => true,
+                // 'max_files' => 1,
+                // 'min_file_size' => 1000 * 1024,        // 1000KB
+                // 'max_file_size' => 1 * 1024,             //1KB
+            ],
+        ];
     }
 
     public function fields(): array

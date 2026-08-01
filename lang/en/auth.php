@@ -9,4 +9,5 @@ return [
     'invalid_otp' => 'The verification code is invalid or expired.',
     'locked' => 'Account locked due to too many failed attempts. Try again in :seconds seconds.',
     'inactive' => 'Your account is inactive. Please contact the administrator.',
+    'password_changed' => 'Password changed successfully.',
 ];

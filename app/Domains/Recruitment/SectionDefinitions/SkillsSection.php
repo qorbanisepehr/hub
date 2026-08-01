@@ -2,7 +2,7 @@
 
 namespace App\Domains\Recruitment\SectionDefinitions;
 
-class SkillsSection implements SectionDefinition
+class SkillsSection extends BaseSection
 {
     public function key(): string
     {
@@ -11,7 +11,7 @@ class SkillsSection implements SectionDefinition
 
     public function label(): string
     {
-        return 'مهارت‌ها';
+        return __('recruitment.sections.skills');
     }
 
     public function fields(): array
