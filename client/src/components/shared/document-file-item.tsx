@@ -22,6 +22,8 @@ type DocumentFileItemProps = {
     /** Compact layout: text shown under the thumbnail */
     label?: string | null;
     thumbnailSize?: string;
+    /** Whether to show the delete action button. Defaults to true. */
+    actionsEnabled?: boolean;
     className?: string;
 };
 
@@ -32,6 +34,7 @@ export function DocumentFileItem({
     subtitle,
     label,
     thumbnailSize = "size-10",
+    actionsEnabled = true,
     className,
 }: DocumentFileItemProps) {
     const queryClient = useQueryClient();
@@ -79,11 +82,13 @@ export function DocumentFileItem({
                             {label}
                         </span>
                     )}
-                    <ConfirmDeleteButton
-                        iconOnly
-                        isPending={deleteMutation.isPending}
-                        onConfirm={() => deleteMutation.mutate(doc.usage_id)}
-                    />
+                    {actionsEnabled && (
+                        <ConfirmDeleteButton
+                            iconOnly
+                            isPending={deleteMutation.isPending}
+                            onConfirm={() => deleteMutation.mutate(doc.usage_id)}
+                        />
+                    )}
                 </div>
             </div>
         );
@@ -98,11 +103,13 @@ export function DocumentFileItem({
                     <p className="text-xs text-muted-foreground">{subtitle}</p>
                 )}
             </div>
-            <ConfirmDeleteButton
-                iconOnly
-                isPending={deleteMutation.isPending}
-                onConfirm={() => deleteMutation.mutate(doc.usage_id)}
-            />
+            {actionsEnabled && (
+                <ConfirmDeleteButton
+                    iconOnly
+                    isPending={deleteMutation.isPending}
+                    onConfirm={() => deleteMutation.mutate(doc.usage_id)}
+                />
+            )}
         </div>
     );
 }

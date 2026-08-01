@@ -57,7 +57,7 @@ export function ConfirmDeleteButton({
                         {isPending ? (
                             <IconLoader2 className="size-4 animate-spin" />
                         ) : (
-                            <IconCheck className="size-4 text-green-600" />
+                            <IconCheck className="size-4 text-primary" />
                         )}
                     </Button>
                     <Button
