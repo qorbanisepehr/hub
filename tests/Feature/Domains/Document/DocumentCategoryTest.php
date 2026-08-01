@@ -1,6 +1,7 @@
 <?php
 
 use App\Domains\Document\Models\DocumentCategory;
+use Database\Seeders\DocumentCategorySeeder;
 
 function categoryData(array $overrides = []): array
 {
@@ -213,5 +214,21 @@ describe('document category CRUD', function () {
                 ->postJson('/api/document-categories', categoryData())
                 ->assertStatus(403);
         });
+    });
+});
+
+describe('document category seeder', function () {
+    it('seeds questionnaire attachment categories idempotently', function () {
+        $this->seed(DocumentCategorySeeder::class);
+
+        expect(DocumentCategory::where('slug', 'skill-certificate')->exists())->toBeTrue()
+            ->and(DocumentCategory::where('slug', 'employment-certificate')->exists())->toBeTrue()
+            ->and(DocumentCategory::where('slug', 'research-documents')->exists())->toBeTrue()
+            ->and(DocumentCategory::where('slug', 'language-certificate')->exists())->toBeTrue()
+            ->and(DocumentCategory::where('slug', 'course-certificates')->exists())->toBeTrue();
+
+        $this->seed(DocumentCategorySeeder::class);
+
+        expect(DocumentCategory::where('slug', 'skill-certificate')->count())->toBe(1);
     });
 });

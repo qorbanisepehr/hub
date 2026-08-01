@@ -14,6 +14,16 @@ class TrainingSection extends BaseSection
         return __('recruitment.sections.training');
     }
 
+    public function documentRequirements(): array
+    {
+        return [
+            'research-documents' => [
+                'required' => false,
+                'max_files' => 1,
+            ],
+        ];
+    }
+
     public function fields(): array
     {
         return [
