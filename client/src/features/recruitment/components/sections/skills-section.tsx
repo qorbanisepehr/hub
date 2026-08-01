@@ -1,6 +1,10 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { FormTextField, FormSelectField, FormDatePicker } from "@/components/shared/form-fields";
+import {
+    FormTextField,
+    FormSelectField,
+    FormDatePicker,
+} from "@/components/shared/form-fields";
 import { FileUploadField } from "@/components/shared/file-upload-field";
 import { repeaterAttachmentColumn } from "@/components/shared/repeater-attachment-cell";
 import { FormRepeater } from "@/components/shared/form-repeater";
@@ -31,10 +35,19 @@ const LANGUAGE_COLUMNS: TableColumn[] = [
 
 const SOFTWARE_COLUMNS: TableColumn[] = [
     { key: "name", label: "نرم‌افزار" },
-    { key: "level", label: "سطح مهارت", render: (v: unknown) => {
-        const labels: Record<string, string> = { "1": "مبتدی", "2": "متوسط", "3": "خوب", "4": "عالی" };
-        return labels[String(v)] ?? String(v ?? "—");
-    }},
+    {
+        key: "level",
+        label: "سطح مهارت",
+        render: (v: unknown) => {
+            const labels: Record<string, string> = {
+                "1": "مبتدی",
+                "2": "متوسط",
+                "3": "خوب",
+                "4": "عالی",
+            };
+            return labels[String(v)] ?? String(v ?? "—");
+        },
+    },
 ];
 
 const CERTIFICATE_COLUMNS: TableColumn[] = [
@@ -55,7 +68,9 @@ function SoftwareItem({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <form.Field
                 name={`${prefix}.${index}.name`}
-                validators={zodFieldValidators(fieldSchemas.software_skill_name)}
+                validators={zodFieldValidators(
+                    fieldSchemas.software_skill_name,
+                )}
             >
                 {(f) => <FormTextField field={f} label="نام نرم‌افزار" />}
             </form.Field>
@@ -79,6 +94,38 @@ export function SkillsSection({ form, uuid, onPersist }: SectionProps) {
         repeaterAttachmentColumn({
             categorySlug: DOC_CATEGORY_SLUGS.LANGUAGE_CERTIFICATE,
             recordKeyPrefix: "lang-",
+            getDocumentsBySlug,
+        }),
+    ];
+    const specializedColumns: TableColumn[] = [
+        ...SOFTWARE_COLUMNS,
+        repeaterAttachmentColumn({
+            categorySlug: DOC_CATEGORY_SLUGS.SKILL_CERTIFICATE,
+            recordKeyPrefix: "sw-spec-",
+            getDocumentsBySlug,
+        }),
+    ];
+    const generalColumns: TableColumn[] = [
+        ...SOFTWARE_COLUMNS,
+        repeaterAttachmentColumn({
+            categorySlug: DOC_CATEGORY_SLUGS.SKILL_CERTIFICATE,
+            recordKeyPrefix: "sw-gen-",
+            getDocumentsBySlug,
+        }),
+    ];
+    const certificateColumns: TableColumn[] = [
+        ...CERTIFICATE_COLUMNS,
+        repeaterAttachmentColumn({
+            categorySlug: DOC_CATEGORY_SLUGS.COURSE_CERTIFICATES,
+            recordKeyPrefix: "cert-",
+            getDocumentsBySlug,
+        }),
+    ];
+    const specialSkillColumns: TableColumn[] = [
+        { key: "value", label: "مهارت" },
+        repeaterAttachmentColumn({
+            categorySlug: DOC_CATEGORY_SLUGS.SKILL_CERTIFICATE,
+            recordKeyPrefix: "spc-",
             getDocumentsBySlug,
         }),
     ];
@@ -109,7 +156,9 @@ export function SkillsSection({ form, uuid, onPersist }: SectionProps) {
                                     <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                                         <form.Field
                                             name={`skills.languages.${index}.language`}
-                                            validators={zodFieldValidators(fieldSchemas.language)}
+                                            validators={zodFieldValidators(
+                                                fieldSchemas.language,
+                                            )}
                                         >
                                             {(f) => (
                                                 <FormTextField
@@ -119,39 +168,55 @@ export function SkillsSection({ form, uuid, onPersist }: SectionProps) {
                                                 />
                                             )}
                                         </form.Field>
-                                        <form.Field name={`skills.languages.${index}.reading`}>
+                                        <form.Field
+                                            name={`skills.languages.${index}.reading`}
+                                        >
                                             {(f) => (
                                                 <FormSelectField
                                                     field={f}
                                                     label="خواندن"
-                                                    options={LANGUAGE_LEVEL_OPTIONS}
+                                                    options={
+                                                        LANGUAGE_LEVEL_OPTIONS
+                                                    }
                                                 />
                                             )}
                                         </form.Field>
-                                        <form.Field name={`skills.languages.${index}.writing`}>
+                                        <form.Field
+                                            name={`skills.languages.${index}.writing`}
+                                        >
                                             {(f) => (
                                                 <FormSelectField
                                                     field={f}
                                                     label="نوشتن"
-                                                    options={LANGUAGE_LEVEL_OPTIONS}
+                                                    options={
+                                                        LANGUAGE_LEVEL_OPTIONS
+                                                    }
                                                 />
                                             )}
                                         </form.Field>
-                                        <form.Field name={`skills.languages.${index}.speaking`}>
+                                        <form.Field
+                                            name={`skills.languages.${index}.speaking`}
+                                        >
                                             {(f) => (
                                                 <FormSelectField
                                                     field={f}
                                                     label="صحبت کردن"
-                                                    options={LANGUAGE_LEVEL_OPTIONS}
+                                                    options={
+                                                        LANGUAGE_LEVEL_OPTIONS
+                                                    }
                                                 />
                                             )}
                                         </form.Field>
-                                        <form.Field name={`skills.languages.${index}.comprehension`}>
+                                        <form.Field
+                                            name={`skills.languages.${index}.comprehension`}
+                                        >
                                             {(f) => (
                                                 <FormSelectField
                                                     field={f}
                                                     label="درک مطلب"
-                                                    options={LANGUAGE_LEVEL_OPTIONS}
+                                                    options={
+                                                        LANGUAGE_LEVEL_OPTIONS
+                                                    }
                                                 />
                                             )}
                                         </form.Field>
@@ -159,10 +224,11 @@ export function SkillsSection({ form, uuid, onPersist }: SectionProps) {
                                     {uuid && (
                                         <FileUploadField
                                             uuid={uuid}
-                                            categorySlug={DOC_CATEGORY_SLUGS.LANGUAGE_CERTIFICATE}
+                                            categorySlug={
+                                                DOC_CATEGORY_SLUGS.LANGUAGE_CERTIFICATE
+                                            }
                                             label="گواهینامه زبان"
                                             recordKey={`lang-${index}`}
-                                            variant="thumbnail"
                                         />
                                     )}
                                 </div>
@@ -175,14 +241,16 @@ export function SkillsSection({ form, uuid, onPersist }: SectionProps) {
 
                 {/* Software Skills — grouped under one heading */}
                 <div className="space-y-4">
-                    <span className="text-sm font-medium">مهارت‌های نرم‌افزاری</span>
+                    <span className="text-sm font-medium">
+                        مهارت‌های نرم‌افزاری
+                    </span>
 
                     <form.Field name="skills.software_skills.specialized">
                         {(field) => (
                             <FormRepeater
                                 field={field}
                                 label="تخصصی"
-                                columns={SOFTWARE_COLUMNS}
+                                columns={specializedColumns}
                                 maxItems={8}
                                 onPersist={onPersist}
                                 getSummary={(item) => ({
@@ -190,11 +258,23 @@ export function SkillsSection({ form, uuid, onPersist }: SectionProps) {
                                     level: item.level,
                                 })}
                                 renderItem={(index) => (
-                                    <SoftwareItem
-                                        form={form}
-                                        index={index}
-                                        prefix="skills.software_skills.specialized"
-                                    />
+                                    <div className="space-y-4">
+                                        <SoftwareItem
+                                            form={form}
+                                            index={index}
+                                            prefix="skills.software_skills.specialized"
+                                        />
+                                        {uuid && (
+                                            <FileUploadField
+                                                uuid={uuid}
+                                                categorySlug={
+                                                    DOC_CATEGORY_SLUGS.SKILL_CERTIFICATE
+                                                }
+                                                label="گواهی مهارت نرم‌افزاری"
+                                                recordKey={`sw-spec-${index}`}
+                                            />
+                                        )}
+                                    </div>
                                 )}
                             />
                         )}
@@ -205,7 +285,7 @@ export function SkillsSection({ form, uuid, onPersist }: SectionProps) {
                             <FormRepeater
                                 field={field}
                                 label="عمومی"
-                                columns={SOFTWARE_COLUMNS}
+                                columns={generalColumns}
                                 maxItems={4}
                                 onPersist={onPersist}
                                 getSummary={(item) => ({
@@ -213,11 +293,23 @@ export function SkillsSection({ form, uuid, onPersist }: SectionProps) {
                                     level: item.level,
                                 })}
                                 renderItem={(index) => (
-                                    <SoftwareItem
-                                        form={form}
-                                        index={index}
-                                        prefix="skills.software_skills.general"
-                                    />
+                                    <div className="space-y-4">
+                                        <SoftwareItem
+                                            form={form}
+                                            index={index}
+                                            prefix="skills.software_skills.general"
+                                        />
+                                        {uuid && (
+                                            <FileUploadField
+                                                uuid={uuid}
+                                                categorySlug={
+                                                    DOC_CATEGORY_SLUGS.SKILL_CERTIFICATE
+                                                }
+                                                label="گواهی مهارت نرم‌افزاری"
+                                                recordKey={`sw-gen-${index}`}
+                                            />
+                                        )}
+                                    </div>
                                 )}
                             />
                         )}
@@ -232,23 +324,49 @@ export function SkillsSection({ form, uuid, onPersist }: SectionProps) {
                         <FormRepeater
                             field={field}
                             label="گواهینامه‌ها"
-                            columns={CERTIFICATE_COLUMNS}
+                            columns={certificateColumns}
                             onPersist={onPersist}
                             getSummary={(item) => ({
                                 title: item.title,
                                 expire_at: item.expire_at,
                             })}
                             renderItem={(index) => (
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <form.Field
-                                        name={`skills.certificates.${index}.title`}
-                                        validators={zodFieldValidators(fieldSchemas.certificate_title)}
-                                    >
-                                        {(f) => <FormTextField field={f} label="عنوان" />}
-                                    </form.Field>
-                                    <form.Field name={`skills.certificates.${index}.expire_at`}>
-                                        {(f) => <FormDatePicker field={f} label="تاریخ انقضا" />}
-                                    </form.Field>
+                                <div className="space-y-4">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <form.Field
+                                            name={`skills.certificates.${index}.title`}
+                                            validators={zodFieldValidators(
+                                                fieldSchemas.certificate_title,
+                                            )}
+                                        >
+                                            {(f) => (
+                                                <FormTextField
+                                                    field={f}
+                                                    label="عنوان"
+                                                />
+                                            )}
+                                        </form.Field>
+                                        <form.Field
+                                            name={`skills.certificates.${index}.expire_at`}
+                                        >
+                                            {(f) => (
+                                                <FormDatePicker
+                                                    field={f}
+                                                    label="تاریخ انقضا"
+                                                />
+                                            )}
+                                        </form.Field>
+                                    </div>
+                                    {uuid && (
+                                        <FileUploadField
+                                            uuid={uuid}
+                                            categorySlug={
+                                                DOC_CATEGORY_SLUGS.COURSE_CERTIFICATES
+                                            }
+                                            label="فایل گواهینامه"
+                                            recordKey={`cert-${index}`}
+                                        />
+                                    )}
                                 </div>
                             )}
                         />
@@ -263,24 +381,38 @@ export function SkillsSection({ form, uuid, onPersist }: SectionProps) {
                         <FormRepeater
                             field={field}
                             label="مهارت‌های خاص"
-                            columns={[{ key: "value", label: "مهارت" }]}
+                            columns={specialSkillColumns}
                             onPersist={onPersist}
                             getSummary={(item) => ({
                                 value: typeof item === "string" ? item : "",
                             })}
                             renderItem={(index) => (
-                                <form.Field
-                                    name={`skills.special_skills.${index}`}
-                                    validators={zodFieldValidators(fieldSchemas.special_skill_item)}
-                                >
-                                    {(f) => (
-                                        <FormTextField
-                                            field={f}
-                                            label={`مهارت ${index + 1}`}
-                                            placeholder="نام مهارت"
+                                <div className="space-y-4">
+                                    <form.Field
+                                        name={`skills.special_skills.${index}`}
+                                        validators={zodFieldValidators(
+                                            fieldSchemas.special_skill_item,
+                                        )}
+                                    >
+                                        {(f) => (
+                                            <FormTextField
+                                                field={f}
+                                                label={`مهارت ${index + 1}`}
+                                                placeholder="نام مهارت"
+                                            />
+                                        )}
+                                    </form.Field>
+                                    {uuid && (
+                                        <FileUploadField
+                                            uuid={uuid}
+                                            categorySlug={
+                                                DOC_CATEGORY_SLUGS.SKILL_CERTIFICATE
+                                            }
+                                            label="گواهی مهارت"
+                                            recordKey={`spc-${index}`}
                                         />
                                     )}
-                                </form.Field>
+                                </div>
                             )}
                         />
                     )}

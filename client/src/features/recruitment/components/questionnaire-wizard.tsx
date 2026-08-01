@@ -398,7 +398,7 @@ export function QuestionnaireWizard({
                     </StepperContent>
 
                     <StepperContent index={3}>
-                        <WorkExperienceSection form={form as never} onPersist={handlePersist} />
+                        <WorkExperienceSection form={form as never} uuid={questionnaire.uuid} onPersist={handlePersist} />
                     </StepperContent>
 
                     <StepperContent index={4}>
