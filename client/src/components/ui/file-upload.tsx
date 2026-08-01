@@ -11,6 +11,7 @@ import {
 import { cn } from "@/lib/utils";
 import { getFileIcon } from "@/lib/file-icon";
 import { getFileColorClasses } from "@/lib/file-colors";
+import { formatBytes } from "@/lib/file-size";
 import { Card } from "@/components/ui/card";
 import { FileThumbnail } from "@/components/ui/file-thumbnail";
 
@@ -77,20 +78,6 @@ const ICON_TRANSFORMS = [
         active: "translate(14%, -50%) rotate(12deg) scale(1.08)",
     },
 ];
-
-function formatBytes(bytes: number) {
-    if (bytes === 0) return "0 بایت";
-
-    const units = ["بایت", "کیلوبایت", "مگابایت", "گیگابایت"];
-    const index = Math.min(
-        Math.floor(Math.log(bytes) / Math.log(1024)),
-        units.length - 1,
-    );
-
-    return `${(bytes / 1024 ** index).toFixed(index === 0 ? 0 : 1)} ${
-        units[index]
-    }`;
-}
 
 function matchesAccept(file: File, accept?: string) {
     if (!accept) return true;

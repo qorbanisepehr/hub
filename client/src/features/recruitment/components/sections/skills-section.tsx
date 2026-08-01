@@ -1,11 +1,10 @@
-import type { ReactFormExtendedApi } from "@tanstack/react-form";
-import { IconPaperclip } from "@tabler/icons-react";
-
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { FormTextField, FormSelectField, FormDatePicker } from "@/components/shared/form-fields";
 import { FileUploadField } from "@/components/shared/file-upload-field";
+import { repeaterAttachmentColumn } from "@/components/shared/repeater-attachment-cell";
 import { FormRepeater } from "@/components/shared/form-repeater";
+import type { TableColumn } from "@/components/shared/form-repeater";
 import {
     LANGUAGE_LEVEL_OPTIONS,
     SOFTWARE_LEVEL_OPTIONS,
@@ -14,38 +13,23 @@ import {
 import { useQuestionnaireDocuments } from "@/features/recruitment/hooks/use-questionnaire-documents";
 import { zodFieldValidators } from "@/lib/validation-helpers";
 import { fieldSchemas } from "@/features/recruitment/schemas/skills.schema";
+import type { QuestionnaireFormApi } from "@/features/recruitment/types";
 
 type SectionProps = {
-    form: ReactFormExtendedApi<any, any, any, any, any, any, any, any, any, any, any, any>;
+    form: QuestionnaireFormApi;
     uuid?: string;
     onPersist?: () => void;
 };
 
-const LANGUAGE_COLUMNS_FN = (hasDoc: (index: number) => boolean) => [
+const LANGUAGE_COLUMNS: TableColumn[] = [
     { key: "language", label: "زبان" },
     { key: "reading", label: "خواندن" },
     { key: "writing", label: "نوشتن" },
     { key: "speaking", label: "صحبت کردن" },
     { key: "comprehension", label: "درک مطلب" },
-    {
-        key: "_attachment",
-        label: "پیوست",
-        render: (_value: unknown, _item: unknown, index: number) => {
-            const has = hasDoc(index);
-            return has ? (
-                <span className="inline-flex items-center gap-1 text-primary">
-                    <IconPaperclip className="size-3.5" />
-                </span>
-            ) : (
-                <span className="text-muted-foreground/40">
-                    <IconPaperclip className="size-3.5" />
-                </span>
-            );
-        },
-    },
 ];
 
-const SOFTWARE_COLUMNS = [
+const SOFTWARE_COLUMNS: TableColumn[] = [
     { key: "name", label: "نرم‌افزار" },
     { key: "level", label: "سطح مهارت", render: (v: unknown) => {
         const labels: Record<string, string> = { "1": "مبتدی", "2": "متوسط", "3": "خوب", "4": "عالی" };
@@ -53,9 +37,9 @@ const SOFTWARE_COLUMNS = [
     }},
 ];
 
-const CERTIFICATE_COLUMNS = [
+const CERTIFICATE_COLUMNS: TableColumn[] = [
     { key: "title", label: "عنوان" },
-    { key: "expire_at", label: "تاریخ انقضا" },
+    { key: "expire_at", label: "تاریخ انقضا", type: "date" },
 ];
 
 function SoftwareItem({
@@ -63,7 +47,7 @@ function SoftwareItem({
     index,
     prefix,
 }: {
-    form: ReactFormExtendedApi<any, any, any, any, any, any, any, any, any, any, any, any>;
+    form: QuestionnaireFormApi;
     index: number;
     prefix: string;
 }) {
@@ -89,8 +73,15 @@ function SoftwareItem({
 }
 
 export function SkillsSection({ form, uuid, onPersist }: SectionProps) {
-    const { hasDocumentBySlug } = useQuestionnaireDocuments(uuid);
-    const languageColumns = LANGUAGE_COLUMNS_FN((index) => hasDocumentBySlug(DOC_CATEGORY_SLUGS.LANGUAGE_CERTIFICATE, `lang-${index}`));
+    const { getDocumentsBySlug } = useQuestionnaireDocuments(uuid);
+    const languageColumns: TableColumn[] = [
+        ...LANGUAGE_COLUMNS,
+        repeaterAttachmentColumn({
+            categorySlug: DOC_CATEGORY_SLUGS.LANGUAGE_CERTIFICATE,
+            recordKeyPrefix: "lang-",
+            getDocumentsBySlug,
+        }),
+    ];
 
     return (
         <Card>
@@ -171,6 +162,7 @@ export function SkillsSection({ form, uuid, onPersist }: SectionProps) {
                                             categorySlug={DOC_CATEGORY_SLUGS.LANGUAGE_CERTIFICATE}
                                             label="گواهینامه زبان"
                                             recordKey={`lang-${index}`}
+                                            variant="thumbnail"
                                         />
                                     )}
                                 </div>

@@ -1,16 +1,15 @@
-import type { ReactFormExtendedApi } from "@tanstack/react-form";
-
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { FormTextarea, FormTextField } from "@/components/shared/form-fields";
 import { FormRepeater } from "@/components/shared/form-repeater";
 import { zodFieldValidators } from "@/lib/validation-helpers";
 import { fieldSchemas } from "@/features/recruitment/schemas/additional-info.schema";
+import type { QuestionnaireFormApi } from "@/features/recruitment/types";
 
 import { YesNoWithDescription } from "./yes-no-with-description";
 
 type SectionProps = {
-    form: ReactFormExtendedApi<any, any, any, any, any, any, any, any, any, any, any, any>;
+    form: QuestionnaireFormApi;
     onPersist?: () => void;
 };
 

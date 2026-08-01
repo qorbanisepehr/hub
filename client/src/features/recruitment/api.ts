@@ -14,6 +14,19 @@ export function initQuestionnaire(data: {
     return api.post<InitQuestionnaireResponse>("/questionnaire/init", data);
 }
 
+export function verifyInitOtp(uuid: string, otp: string) {
+    return api.post<{ data: Questionnaire; message: string }>(
+        "/questionnaire/verify-init-otp",
+        { uuid, otp },
+    );
+}
+
+export function resendInitOtp(uuid: string) {
+    return api.post<{ message: string; expires_in: number; code_sent?: boolean }>(
+        `/questionnaire/pending/${uuid}/send-otp`,
+    );
+}
+
 export function getQuestionnaire(uuid: string) {
     return api.get<{ data: Questionnaire }>(`/questionnaire/${uuid}`);
 }
@@ -30,11 +43,15 @@ export function saveQuestionnaireSection(
 }
 
 export function sendMobileOtp(uuid: string) {
-    return api.post<{ message: string }>(`/questionnaire/${uuid}/send-mobile-otp`);
+    return api.post<{ message: string; expires_in: number; code_sent?: boolean }>(
+        `/questionnaire/${uuid}/send-mobile-otp`,
+    );
 }
 
 export function sendEmailOtp(uuid: string) {
-    return api.post<{ message: string }>(`/questionnaire/${uuid}/send-email-otp`);
+    return api.post<{ message: string; expires_in: number; code_sent?: boolean }>(
+        `/questionnaire/${uuid}/send-email-otp`,
+    );
 }
 
 export function verifyMobileOtp(uuid: string, otp: string) {

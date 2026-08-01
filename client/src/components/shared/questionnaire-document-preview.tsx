@@ -8,6 +8,7 @@ import { DocumentPreviewLightbox } from "@/features/documents/components/documen
 import { FileThumbnail } from "@/components/ui/file-thumbnail";
 import { getFileIcon } from "@/lib/file-icon";
 import { getFileColorClasses } from "@/lib/file-colors";
+import { formatBytes } from "@/lib/file-size";
 import type { QuestionnaireDocument } from "@/features/recruitment/hooks/use-questionnaire-documents";
 
 type QuestionnaireDocPreviewProps = {
@@ -22,16 +23,6 @@ type QuestionnaireDocPreviewProps = {
 
 function isImageMime(mime: string): boolean {
     return mime.startsWith("image/");
-}
-
-function formatBytes(bytes: number) {
-    if (bytes === 0) return "0 بایت";
-    const units = ["بایت", "کیلوبایت", "مگابایت", "گیگابایت"];
-    const index = Math.min(
-        Math.floor(Math.log(bytes) / Math.log(1024)),
-        units.length - 1,
-    );
-    return `${(bytes / 1024 ** index).toFixed(index === 0 ? 0 : 1)} ${units[index]}`;
 }
 
 export function QuestionnaireDocThumbnail({
@@ -117,7 +108,7 @@ export function QuestionnaireDocumentPreview({
     // Convert QuestionnaireDocument to the shape DocumentPreviewLightbox expects
     const lightboxDocs = React.useMemo(() => {
         return documents.map((d) => ({
-            id: d.id,
+            id: d.usage_id,
             uuid: d.uuid,
             original_name: d.original_name,
             mime_type: d.mime_type,
@@ -148,7 +139,6 @@ export function QuestionnaireDocumentPreview({
             serve_url: d.url,
             thumbnail_url: "",
             download_url: d.url,
-            slot: null,
             entity_type: null,
             entity_id: null,
             disk: "local",
@@ -174,7 +164,7 @@ export function QuestionnaireDocumentPreview({
                 <div className={cn("flex flex-wrap gap-2", className)}>
                     {documents.map((doc, i) => (
                         <div
-                            key={doc.id}
+                            key={doc.usage_id}
                             role="button"
                             tabIndex={0}
                             onClick={() => openLightbox(i)}
@@ -221,7 +211,7 @@ export function QuestionnaireDocumentPreview({
                 <div className={cn("divide-y rounded-lg border", className)}>
                     {documents.map((doc, i) => (
                         <div
-                            key={doc.id}
+                            key={doc.usage_id}
                             className="flex items-center gap-3 px-3 py-2 group"
                         >
                             <div
@@ -292,7 +282,7 @@ export function QuestionnaireDocumentPreview({
             <div className={cn("flex flex-wrap gap-3", className)}>
                 {documents.map((doc, i) => (
                     <QuestionnaireDocThumbnail
-                        key={doc.id}
+                        key={doc.usage_id}
                         doc={doc}
                         size={size}
                         onClick={() => openLightbox(i)}

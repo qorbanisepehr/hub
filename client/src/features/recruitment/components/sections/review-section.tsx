@@ -1,9 +1,7 @@
-import type { ReactFormExtendedApi } from "@tanstack/react-form";
-
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useQuestionnaireDocuments } from "@/features/recruitment/hooks/use-questionnaire-documents";
 import type { QuestionnaireDocument } from "@/features/recruitment/hooks/use-questionnaire-documents";
-import type { Questionnaire } from "@/features/recruitment/types";
+import type { Questionnaire, QuestionnaireFormApi } from "@/features/recruitment/types";
 import { DOC_CATEGORY_SLUGS } from "@/features/recruitment/constants";
 import {
     QuestionnaireDocumentPreview,
@@ -11,7 +9,7 @@ import {
 } from "@/components/shared/questionnaire-document-preview";
 
 type SectionProps = {
-    form: ReactFormExtendedApi<any, any, any, any, any, any, any, any, any, any, any, any>;
+    form: QuestionnaireFormApi;
     questionnaire?: Questionnaire | null;
     onNavigateToStep?: (step: number) => void;
 };
@@ -121,6 +119,9 @@ export function ReviewSection({ form, questionnaire, onNavigateToStep }: Section
                         <DataRow label="تعداد افراد تحت تکفل" value={pi.dependents_count} />
                         <DataRow label="تعداد فرزندان" value={pi.children_count} />
                         <DataRow label="وضعیت اشتغال همسر" value={pi.spouse_employment_status === "employed" ? "شاغل" : pi.spouse_employment_status === "housewife" ? "خانه دار" : pi.spouse_employment_status} />
+                        {pi.spouse_employment_status === "employed" && (
+                            <DataRow label="شغل همسر" value={pi.spouse_job} />
+                        )}
                         <DataRow label="کد ملی" value={pi.national_id} />
                     </div>
                     {pi.military_status && pi.gender === "male" && (

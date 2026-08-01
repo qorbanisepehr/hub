@@ -1,5 +1,3 @@
-import type { ReactFormExtendedApi } from "@tanstack/react-form";
-
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldLabel } from "@/components/ui/field";
@@ -20,9 +18,10 @@ import {
 } from "@/features/recruitment/constants";
 import { zodFieldValidators } from "@/lib/validation-helpers";
 import { fieldSchemas } from "@/features/recruitment/schemas/job-request.schema";
+import type { QuestionnaireFormApi } from "@/features/recruitment/types";
 
 type SectionProps = {
-    form: ReactFormExtendedApi<any, any, any, any, any, any, any, any, any, any, any, any>;
+    form: QuestionnaireFormApi;
 };
 
 export function JobRequestSection({ form }: SectionProps) {

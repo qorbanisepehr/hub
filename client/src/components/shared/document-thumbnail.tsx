@@ -98,7 +98,7 @@ function ThumbnailPreview({
     aspectRatio,
 }: {
     document: Document;
-    size: string;
+    size: DocumentThumbnailProps["size"];
     aspectRatio?: number;
 }) {
     const mimeType = getDocMimeType(doc);

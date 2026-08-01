@@ -10,10 +10,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FormTextField } from "@/components/shared/form-fields";
 import { ErrorBanner } from "@/components/shared/error-banner";
-import { initQuestionnaire, verifyMobileOtp, sendMobileOtp } from "@/features/recruitment/api";
+import { OtpVerificationForm } from "@/components/shared/otp-verification-form";
+import {
+    initQuestionnaire,
+    verifyInitOtp,
+    resendInitOtp,
+} from "@/features/recruitment/api";
+import type { InitQuestionnaireResponse } from "@/features/recruitment/types";
 import { getApiError } from "@/lib/error-utils";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 
 const initSchema = z.object({
     first_name: z
@@ -45,32 +49,17 @@ const initSchema = z.object({
 export function QuestionnaireStartPage() {
     const navigate = useNavigate();
     const [otpUuid, setOtpUuid] = useState<string | null>(null);
-    const [otpValue, setOtpValue] = useState("");
-    const [otpError, setOtpError] = useState<string | null>(null);
-    const [isVerifying, setIsVerifying] = useState(false);
-    const [isResending, setIsResending] = useState(false);
+    const [otpExpiresIn, setOtpExpiresIn] = useState(0);
 
-    const mutation = useMutation({
+    const initMutation = useMutation({
         mutationFn: initQuestionnaire,
         onSuccess: (response) => {
-            toast.success("پرسشنامه ایجاد شد.");
-            navigate({
-                to: "/questionnaire/$uuid",
-                params: { uuid: response.data.data.uuid },
-            });
+            const initData = response.data as InitQuestionnaireResponse;
+            setOtpUuid(initData.data.uuid);
+            setOtpExpiresIn(initData.expires_in);
+            toast.success(initData.message);
         },
         onError: (err: any) => {
-            // Check if this is a 409 (duplicate mobile) response
-            const status = err?.response?.status;
-            const data = err?.response?.data;
-
-            if (status === 409 && data?.requires_otp && data?.data?.uuid) {
-                setOtpUuid(data.data.uuid);
-                setOtpError(null);
-                toast.info(data.message || "کد تأیید به شماره موبایل شما ارسال شد.");
-                return;
-            }
-
             toast.error(getApiError(err));
         },
     });
@@ -84,44 +73,9 @@ export function QuestionnaireStartPage() {
         },
         validators: { onSubmit: initSchema },
         onSubmit: async ({ value }) => {
-            mutation.mutate(value);
+            initMutation.mutate(value);
         },
     });
-
-    const handleVerifyOtp = async () => {
-        if (!otpUuid || !otpValue.trim()) return;
-
-        setIsVerifying(true);
-        setOtpError(null);
-
-        try {
-            const response = await verifyMobileOtp(otpUuid, otpValue.trim());
-            toast.success("شماره موبایل تأیید شد.");
-            navigate({
-                to: "/questionnaire/$uuid",
-                params: { uuid: otpUuid },
-            });
-        } catch (err: any) {
-            const message = err?.response?.data?.message || "کد تأیید نامعتبر است.";
-            setOtpError(message);
-        } finally {
-            setIsVerifying(false);
-        }
-    };
-
-    const handleResendOtp = async () => {
-        if (!otpUuid) return;
-
-        setIsResending(true);
-        try {
-            await sendMobileOtp(otpUuid);
-            toast.success("کد تأیید جدید ارسال شد.");
-        } catch (err: any) {
-            toast.error("خطا در ارسال کد تأیید.");
-        } finally {
-            setIsResending(false);
-        }
-    };
 
     return (
         <div className="min-h-screen bg-background pt-16">
@@ -142,82 +96,37 @@ export function QuestionnaireStartPage() {
                     </CardHeader>
                     <CardContent>
                         {otpUuid ? (
-                            /* OTP verification form */
                             <div className="space-y-4">
-                                <p className="text-sm text-muted-foreground">
-                                    کد تأیید ۶ رقمی به شماره موبایل شما ارسال شد.
-                                    لطفاً کد را وارد کنید.
-                                </p>
-
-                                {otpError && (
-                                    <ErrorBanner message={otpError} />
-                                )}
-
-                                <div className="space-y-2">
-                                    <Label htmlFor="otp">کد تأیید</Label>
-                                    <Input
-                                        id="otp"
-                                        type="text"
-                                        inputMode="numeric"
-                                        maxLength={6}
-                                        placeholder="۱۲۳۴۵۶"
-                                        dir="ltr"
-                                        className="text-center text-lg tracking-[0.3em]"
-                                        value={otpValue}
-                                        onChange={(e) => {
-                                            setOtpValue(e.target.value.replace(/\D/g, ""));
-                                            setOtpError(null);
-                                        }}
-                                        onKeyDown={(e) => {
-                                            if (e.key === "Enter") {
-                                                handleVerifyOtp();
-                                            }
-                                        }}
-                                        autoFocus
-                                    />
-                                </div>
-
-                                <div className="flex gap-2">
-                                    <Button
-                                        type="button"
-                                        className="flex-1"
-                                        disabled={isVerifying || otpValue.length !== 6}
-                                        onClick={handleVerifyOtp}
-                                    >
-                                        {isVerifying && (
-                                            <IconLoader2 className="size-4 animate-spin ms-2" />
-                                        )}
-                                        تأیید
-                                    </Button>
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        disabled={isResending}
-                                        onClick={handleResendOtp}
-                                    >
-                                        {isResending ? (
-                                            <IconLoader2 className="size-4 animate-spin" />
-                                        ) : (
-                                            "ارسال مجدد"
-                                        )}
-                                    </Button>
-                                </div>
-
+                                <OtpVerificationForm
+                                    sendOtp={() => resendInitOtp(otpUuid)}
+                                    verifyOtp={(otp) =>
+                                        verifyInitOtp(otpUuid, otp)
+                                    }
+                                    onVerified={(data) => {
+                                        toast.success("شماره موبایل تأیید شد.");
+                                        navigate({
+                                            to: "/questionnaire/$uuid",
+                                            params: { uuid: data.data.uuid },
+                                        });
+                                    }}
+                                    description="کد تأیید ۶ رقمی به شماره موبایل شما ارسال شد. لطفاً کد را وارد کنید."
+                                    label="کد تأیید"
+                                    initialCountdown={otpExpiresIn}
+                                />
                                 <Button
                                     type="button"
                                     variant="ghost"
                                     className="w-full"
                                     onClick={() => {
                                         setOtpUuid(null);
-                                        setOtpValue("");
-                                        setOtpError(null);
+                                        setOtpExpiresIn(0);
+                                        initMutation.reset();
                                     }}
                                 >
                                     بازگشت
                                 </Button>
                             </div>
                         ) : (
-                            /* Init form */
                             <form
                                 onSubmit={(e) => {
                                     e.preventDefault();
@@ -226,10 +135,10 @@ export function QuestionnaireStartPage() {
                                 }}
                                 className="space-y-4"
                             >
-                                {mutation.error && (
+                                {initMutation.error && (
                                     <ErrorBanner
                                         message={
-                                            getApiError(mutation.error) ??
+                                            getApiError(initMutation.error) ??
                                             "خطای ناشناخته"
                                         }
                                     />
@@ -278,9 +187,9 @@ export function QuestionnaireStartPage() {
                                 <Button
                                     type="submit"
                                     className="w-full"
-                                    disabled={mutation.isPending}
+                                    disabled={initMutation.isPending}
                                 >
-                                    {mutation.isPending ? (
+                                    {initMutation.isPending ? (
                                         <IconLoader2 className="size-4 animate-spin ms-2" />
                                     ) : (
                                         <IconSend className="size-4 ms-2" />

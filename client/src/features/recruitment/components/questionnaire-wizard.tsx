@@ -184,6 +184,7 @@ export function QuestionnaireWizard({
                 dependents_count: null,
                 children_count: null,
                 spouse_employment_status: "",
+                spouse_job: "",
                 military_status: {
                     status: "",
                     organization: "",
@@ -312,17 +313,14 @@ export function QuestionnaireWizard({
         return () => window.removeEventListener("beforeunload", handler);
     }, [isDirty]);
 
-    const canSubmit = (() => {
-        const validation = validateSubmitData(form.state.values);
-        const verified =
-            questionnaire.email_verified && questionnaire.mobile_verified;
-        return (
-            validation.success && verified && questionnaire.status === "draft"
-        );
-    })();
+    const validation = validateSubmitData(form.state.values);
+    const canSubmit =
+        validation.success &&
+        questionnaire.email_verified &&
+        questionnaire.mobile_verified &&
+        questionnaire.status === "draft";
 
     const handleSubmit = () => {
-        const validation = validateSubmitData(form.state.values);
         if (!validation.success) {
             setSubmitErrors(validation.errors);
             toast.error("لطفاً خطاهای زیر را اصلاح کنید.");
@@ -552,8 +550,7 @@ export function QuestionnaireWizard({
                                         "موبایل تأیید نشده • "}
                                     {!questionnaire.email_verified &&
                                         "ایمیل تأیید نشده • "}
-                                    {!validateSubmitData(form.state.values)
-                                        .success &&
+                                    {!validation.success &&
                                         "همه فیلدهای الزامی باید تکمیل شوند"}
                                 </p>
                             )}

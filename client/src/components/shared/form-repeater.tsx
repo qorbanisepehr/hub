@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, Fragment } from "react";
 import type { AnyFieldApi } from "@tanstack/react-form";
 import {
     IconPlus,
@@ -22,10 +22,13 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { ConfirmDeleteButton } from "@/components/ui/confirm-delete-button";
+import { toPersianDate } from "@/lib/date-format";
 
-type TableColumn = {
+export type TableColumn = {
     key: string;
     label: string;
+    /** Render the cell value as a Persian (Jalali) date */
+    type?: "date";
     render?: (value: unknown, item: unknown, index: number) => React.ReactNode;
 };
 
@@ -254,9 +257,8 @@ function TableRepeaterInner({
                                 const summary = getSummary(item, index);
                                 const isExpanded = expandedIndex === index;
                                 return (
-                                    <>
+                                    <Fragment key={`item-${index}`}>
                                         <TableRow
-                                            key={`row-${index}`}
                                             className={cn(
                                                 isExpanded &&
                                                     "bg-muted/50",
@@ -293,10 +295,17 @@ function TableRepeaterInner({
                                                               item,
                                                               index,
                                                           )
-                                                        : String(
-                                                              summary[col.key] ??
-                                                                  "—",
-                                                          )}
+                                                        : col.type === "date"
+                                                          ? toPersianDate(
+                                                                summary[col.key] as
+                                                                    | string
+                                                                    | null
+                                                                    | undefined,
+                                                            )
+                                                          : String(
+                                                                summary[col.key] ??
+                                                                    "—",
+                                                            )}
                                                 </TableCell>
                                             ))}
                                             <TableCell>
@@ -313,10 +322,7 @@ function TableRepeaterInner({
                                             </TableCell>
                                         </TableRow>
                                         {isExpanded && (
-                                            <TableRow
-                                                key={`detail-${index}`}
-                                                className="bg-muted/30"
-                                            >
+                                            <TableRow className="bg-muted/30">
                                                 <TableCell colSpan={columns.length + 3}>
                                                     <div className="p-4 space-y-4">
                                                         <span className="text-sm font-medium text-muted-foreground">
@@ -350,7 +356,7 @@ function TableRepeaterInner({
                                                 </TableCell>
                                             </TableRow>
                                         )}
-                                    </>
+                                    </Fragment>
                                 );
                             })}
                         </TableBody>
