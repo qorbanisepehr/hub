@@ -19,7 +19,7 @@ class DocumentRepository implements DocumentRepositoryInterface
         return Document::create($data);
     }
 
-    public function attachUsage(Document $document, Model $entity, string $categorySlug, ?string $recordKey = null, ?string $slot = null): DocumentUsage
+    public function attachUsage(Document $document, Model $entity, string $categorySlug, ?string $recordKey = null, ?string $slot = null, ?array $customProperties = null): DocumentUsage
     {
         return DocumentUsage::updateOrCreate(
             [
@@ -31,6 +31,7 @@ class DocumentRepository implements DocumentRepositoryInterface
             ],
             [
                 'slot' => $slot,
+                'custom_properties' => $customProperties,
             ]
         );
     }
@@ -43,9 +44,18 @@ class DocumentRepository implements DocumentRepositoryInterface
             ->delete() > 0;
     }
 
+    public function deleteUsageById(int $usageId, string $entityType, int $entityId): bool
+    {
+        return DocumentUsage::query()
+            ->whereKey($usageId)
+            ->where('entity_type', $entityType)
+            ->where('entity_id', $entityId)
+            ->delete() > 0;
+    }
+
     public function getForEntity(Model $entity, ?string $categorySlug = null): Collection
     {
-        $query = Document::whereHas('usages', function ($q) use ($entity) {
+        $query = Document::with('usages')->whereHas('usages', function ($q) use ($entity) {
             $q->where('entity_type', get_class($entity))
                 ->where('entity_id', $entity->getKey());
         });
