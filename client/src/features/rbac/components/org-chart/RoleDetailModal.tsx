@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import { ResponsiveDialog } from "@/components/ui/responsive-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
@@ -6,14 +8,25 @@ import { cn } from "@/lib/utils";
 import {
     IconBuilding,
     IconInfoCircle,
+    IconLoader2,
     IconMasksTheater,
     IconNetwork,
+    IconPencil,
+    IconPlus,
     IconSchool,
     IconUserCheck,
     IconUsers,
 } from "@tabler/icons-react";
+import { toast } from "sonner";
 import type { RoleChartRole } from "@/features/rbac/types";
 import { MATRIX_MANAGER_TYPES } from "@/features/rbac/constants";
+import { assignUserRole } from "@/features/rbac/api";
+import { UserSearchSelect } from "@/features/rbac/components/user-search-select";
+import { Button } from "@/components/ui/button";
+import { PermissionGuard } from "@/features/auth/components/permission-guard";
+import { PERMISSIONS } from "@/lib/permissions";
+import { getApiError } from "@/lib/error-utils";
+import { roleKeys, userKeys } from "@/lib/query-keys";
 
 function getInitials(name: string): string {
     const parts = name.trim().split(/\s+/);
@@ -47,13 +60,30 @@ export function RoleDetailModal({
     open: boolean;
     onOpenChange: (open: boolean) => void;
 }) {
+    const queryClient = useQueryClient();
     const [tab, setTab] = useState("info");
+    const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
 
     useEffect(() => {
         if (open) {
             setTab("info");
+            setSelectedUserId(null);
         }
     }, [open]);
+
+    const assignUserMutation = useMutation({
+        mutationFn: (userId: number) => assignUserRole(userId, role!.id),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: roleKeys.chart() });
+            queryClient.invalidateQueries({ queryKey: roleKeys.all });
+            queryClient.invalidateQueries({ queryKey: userKeys.all });
+            setSelectedUserId(null);
+            toast.success("کاربر به نقش اضافه شد");
+        },
+        onError: (err) => {
+            toast.error(getApiError(err));
+        },
+    });
 
     if (!role) {
         return null;
@@ -72,7 +102,23 @@ export function RoleDetailModal({
             description={role.name}
         >
             <div dir="rtl" className="space-y-4">
-                <div className="flex items-center justify-end">
+                <div className="flex items-center justify-between gap-2">
+                    <PermissionGuard permission={PERMISSIONS.ROLE_UPDATE}>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            nativeButton={false}
+                            render={
+                                <Link
+                                    to="/roles/$roleId"
+                                    params={{ roleId: String(role.id) }}
+                                />
+                            }
+                        >
+                            <IconPencil className="size-3.5" />
+                            ویرایش نقش
+                        </Button>
+                    </PermissionGuard>
                     <span
                         className={cn(
                             "inline-flex items-center rounded-md border px-2.5 py-0.5 text-[11px] font-semibold",
@@ -153,6 +199,22 @@ export function RoleDetailModal({
                                                                 {user.name}
                                                             </p>
                                                         </div>
+                                                        <PermissionGuard permission={PERMISSIONS.USER_UPDATE}>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon-sm"
+                                                                nativeButton={false}
+                                                                render={
+                                                                    <Link
+                                                                        to="/users/$userId/edit"
+                                                                        params={{ userId: String(user.id) }}
+                                                                    />
+                                                                }
+                                                                title="ویرایش کاربر"
+                                                            >
+                                                                <IconPencil className="size-3.5" />
+                                                            </Button>
+                                                        </PermissionGuard>
                                                     </div>
                                                 ))}
                                                 {role.users.length > 6 && (
@@ -163,6 +225,36 @@ export function RoleDetailModal({
                                             </div>
                                         </>
                                     )}
+
+                                    <Separator />
+                                    <PermissionGuard permission={PERMISSIONS.USER_ASSIGN_ROLES}>
+                                        <div className="flex items-center gap-2">
+                                            <UserSearchSelect
+                                                value={selectedUserId}
+                                                onChange={(user) => setSelectedUserId(user?.id ?? null)}
+                                                excludeIds={role.users.map((u) => u.id)}
+                                                placeholder="افزودن کاربر به این نقش..."
+                                                className="w-full"
+                                            />
+                                            <Button
+                                                onClick={() => {
+                                                    if (selectedUserId != null) {
+                                                        assignUserMutation.mutate(selectedUserId);
+                                                    }
+                                                }}
+                                                disabled={selectedUserId == null || assignUserMutation.isPending}
+                                                size="sm"
+                                                className="shrink-0"
+                                            >
+                                                {assignUserMutation.isPending ? (
+                                                    <IconLoader2 className="size-4 animate-spin" />
+                                                ) : (
+                                                    <IconPlus className="size-4" />
+                                                )}
+                                                افزودن
+                                            </Button>
+                                        </div>
+                                    </PermissionGuard>
                                 </div>
                             </TabsContent>
 
