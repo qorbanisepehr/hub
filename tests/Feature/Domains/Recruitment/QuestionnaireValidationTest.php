@@ -6,6 +6,7 @@ use App\Domains\Document\Models\DocumentUsage;
 use App\Domains\Document\Services\DocumentService;
 use App\Domains\Recruitment\Models\Questionnaire;
 use App\Domains\Recruitment\Services\QuestionnaireService;
+use App\Enums\OtpContext;
 use App\Models\PendingVerification;
 use App\Services\OtpService;
 use Illuminate\Http\UploadedFile;
@@ -154,7 +155,7 @@ describe('Questionnaire validation', function () {
                 'payload' => ['first_name' => 'Ali', 'last_name' => 'Rezaei', 'email' => 'ali@example.com', 'mobile' => '09121234567'],
             ]);
 
-            Cache::put("otp:pending-verification:{$pending->uuid}:mobile", ['hash' => Hash::make('123456')], now()->addMinutes(5));
+            Cache::put("otp:register:pending-verification:{$pending->uuid}:mobile", ['hash' => Hash::make('123456')], now()->addMinutes(5));
 
             $this->postJson('/api/questionnaire/verify-init-otp', [
                 'uuid' => $pending->uuid,
@@ -175,7 +176,7 @@ describe('Questionnaire validation', function () {
             ]);
         });
 
-        it('returns existing questionnaire when mobile already exists', function () {
+        it('keeps wizard-edited names but reapplies contact info when mobile already exists', function () {
             Questionnaire::create([
                 'first_name' => 'Existing',
                 'last_name' => 'User',
@@ -192,13 +193,23 @@ describe('Questionnaire validation', function () {
                 'payload' => ['first_name' => 'Ali', 'last_name' => 'Rezaei', 'email' => 'ali@example.com', 'mobile' => '09121234567'],
             ]);
 
-            Cache::put("otp:pending-verification:{$pending->uuid}:mobile", ['hash' => Hash::make('123456')], now()->addMinutes(5));
+            Cache::put("otp:register:pending-verification:{$pending->uuid}:mobile", ['hash' => Hash::make('123456')], now()->addMinutes(5));
 
             $this->postJson('/api/questionnaire/verify-init-otp', [
                 'uuid' => $pending->uuid,
                 'otp' => '123456',
             ])->assertOk()
-                ->assertJsonPath('data.first_name', 'Ali');
+                ->assertJsonPath('data.first_name', 'Existing')
+                ->assertJsonPath('data.last_name', 'User')
+                ->assertJsonPath('data.email', 'ali@example.com');
+
+            $this->assertDatabaseHas('questionnaires', [
+                'mobile' => '09121234567',
+                'first_name' => 'Existing',
+                'last_name' => 'User',
+                'email' => 'ali@example.com',
+                'email_verified_at' => null,
+            ]);
         });
 
         it('returns 422 for expired otp', function () {
@@ -208,7 +219,7 @@ describe('Questionnaire validation', function () {
                 'payload' => ['first_name' => 'Ali', 'last_name' => 'Rezaei', 'email' => 'ali@example.com', 'mobile' => '09121234567'],
             ]);
 
-            Cache::put("otp:pending-verification:{$pending->uuid}:mobile", ['hash' => Hash::make('123456')], now()->subMinute());
+            Cache::put("otp:register:pending-verification:{$pending->uuid}:mobile", ['hash' => Hash::make('123456')], now()->subMinute());
 
             $this->postJson('/api/questionnaire/verify-init-otp', [
                 'uuid' => $pending->uuid,
@@ -223,7 +234,7 @@ describe('Questionnaire validation', function () {
                 'payload' => ['first_name' => 'Ali', 'last_name' => 'Rezaei', 'email' => 'ali@example.com', 'mobile' => '09121234567'],
             ]);
 
-            Cache::put("otp:pending-verification:{$pending->uuid}:mobile", ['hash' => Hash::make('123456')], now()->addMinutes(5));
+            Cache::put("otp:register:pending-verification:{$pending->uuid}:mobile", ['hash' => Hash::make('123456')], now()->addMinutes(5));
 
             $this->postJson('/api/questionnaire/verify-init-otp', [
                 'uuid' => $pending->uuid,
@@ -261,11 +272,100 @@ describe('Questionnaire validation', function () {
         it('accepts valid 6-digit otp', function () {
             $uuid = createDraft();
 
-            Cache::put("otp:questionnaire:{$uuid}:mobile", ['hash' => Hash::make('123456')], now()->addMinutes(5));
+            Cache::put("otp:verify_mobile:questionnaire:{$uuid}:mobile", ['hash' => Hash::make('123456')], now()->addMinutes(5));
 
             $this->postJson("/api/questionnaire/{$uuid}/verify-mobile-otp", [
                 'otp' => '123456',
             ])->assertOk();
+        });
+
+        it('validates the staged mobile on send', function () {
+            $uuid = createDraft();
+
+            $this->postJson("/api/questionnaire/{$uuid}/send-mobile-otp", [
+                'mobile' => 'not-a-phone',
+            ])->assertUnprocessable()
+                ->assertJsonValidationErrors(['mobile']);
+        });
+
+        it('validates the staged email on send', function () {
+            $uuid = createDraft();
+
+            $this->postJson("/api/questionnaire/{$uuid}/send-email-otp", [
+                'email' => 'not-an-email',
+            ])->assertUnprocessable()
+                ->assertJsonValidationErrors(['email']);
+        });
+
+        it('commits the staged mobile to the db only after verification', function () {
+            $uuid = createDraft();
+
+            $this->postJson("/api/questionnaire/{$uuid}/send-mobile-otp", [
+                'mobile' => '09999999999',
+            ])->assertOk()
+                ->assertJsonPath('code_sent', true);
+
+            $this->assertDatabaseHas('questionnaires', [
+                'uuid' => $uuid,
+                'mobile' => '09121234567',
+            ]);
+
+            Cache::put("otp:verify_mobile:questionnaire:{$uuid}:mobile", ['hash' => Hash::make('123456')], now()->addMinutes(5));
+
+            $this->postJson("/api/questionnaire/{$uuid}/verify-mobile-otp", [
+                'otp' => '123456',
+            ])->assertOk();
+
+            $this->assertDatabaseHas('questionnaires', [
+                'uuid' => $uuid,
+                'mobile' => '09999999999',
+            ]);
+
+            $this->assertNotNull(Questionnaire::where('uuid', $uuid)->value('mobile_verified_at'));
+        });
+
+        it('commits the staged email to the db only after verification', function () {
+            $uuid = createDraft();
+
+            $this->postJson("/api/questionnaire/{$uuid}/send-email-otp", [
+                'email' => 'new@example.com',
+            ])->assertOk()
+                ->assertJsonPath('code_sent', true);
+
+            $this->assertDatabaseHas('questionnaires', [
+                'uuid' => $uuid,
+                'email' => 'test@example.com',
+            ]);
+
+            Cache::put("otp:verify_email:questionnaire:{$uuid}:email", ['hash' => Hash::make('123456')], now()->addMinutes(5));
+
+            $this->postJson("/api/questionnaire/{$uuid}/verify-email-otp", [
+                'otp' => '123456',
+            ])->assertOk();
+
+            $this->assertDatabaseHas('questionnaires', [
+                'uuid' => $uuid,
+                'email' => 'new@example.com',
+            ]);
+
+            $this->assertNotNull(Questionnaire::where('uuid', $uuid)->value('email_verified_at'));
+        });
+
+        it('keeps the stored mobile when verifying without a staged change', function () {
+            $uuid = createDraft();
+
+            Cache::put("otp:verify_mobile:questionnaire:{$uuid}:mobile", ['hash' => Hash::make('123456')], now()->addMinutes(5));
+
+            $this->postJson("/api/questionnaire/{$uuid}/verify-mobile-otp", [
+                'otp' => '123456',
+            ])->assertOk();
+
+            $this->assertDatabaseHas('questionnaires', [
+                'uuid' => $uuid,
+                'mobile' => '09121234567',
+            ]);
+
+            $this->assertNotNull(Questionnaire::where('uuid', $uuid)->value('mobile_verified_at'));
         });
     });
 
@@ -518,8 +618,35 @@ describe('Questionnaire validation', function () {
             ])->assertOk();
         });
 
-        it('resets verified timestamps when email or mobile changes', function () {
+        it('persists first_name and last_name on personal_info save', function () {
             $uuid = createDraft();
+
+            $this->putJson("/api/questionnaire/{$uuid}/sections/personal_info", [
+                'first_name' => 'NewName',
+                'last_name' => 'NewFamily',
+                'gender' => 'male',
+                'blood_group' => 'A+',
+                'birth_date' => '1990-01-15',
+                'birth_place' => 'Tehran',
+                'father_name' => 'Ahmad',
+                'religion' => 'Islam',
+                'marital_status' => 'single',
+                'national_id' => '0123456789',
+            ])
+                ->assertOk()
+                ->assertJsonPath('data.first_name', 'NewName')
+                ->assertJsonPath('data.last_name', 'NewFamily');
+
+            $this->assertDatabaseHas('questionnaires', [
+                'uuid' => $uuid,
+                'first_name' => 'NewName',
+                'last_name' => 'NewFamily',
+            ]);
+        });
+
+        it('does not persist email or mobile on section save (staged until OTP verification)', function () {
+            $uuid = createDraft();
+            $questionnaire = Questionnaire::where('uuid', $uuid)->firstOrFail();
 
             $this->putJson("/api/questionnaire/{$uuid}/sections/contact_info", [
                 'email' => 'new@example.com',
@@ -530,10 +657,10 @@ describe('Questionnaire validation', function () {
 
             $this->assertDatabaseHas('questionnaires', [
                 'uuid' => $uuid,
-                'email' => 'new@example.com',
-                'mobile' => '09999999999',
-                'email_verified_at' => null,
-                'mobile_verified_at' => null,
+                'email' => 'test@example.com',
+                'mobile' => '09121234567',
+                'email_verified_at' => $questionnaire->email_verified_at,
+                'mobile_verified_at' => $questionnaire->mobile_verified_at,
             ]);
         });
 
@@ -1118,7 +1245,7 @@ describe('recruitment regression coverage', function () {
         it('429s with Retry-After after exceeding the verify limit', function () {
             $uuid = createDraft();
             $questionnaire = Questionnaire::where('uuid', $uuid)->first();
-            $code = app(OtpService::class)->send($questionnaire, 'mobile');
+            $code = app(OtpService::class)->send($questionnaire, 'mobile', OtpContext::VerifyMobile);
 
             foreach (range(1, 5) as $i) {
                 $this->postJson("/api/questionnaire/{$uuid}/verify-mobile-otp", ['otp' => $code]);

@@ -59,7 +59,9 @@ class ContactInfoSection extends BaseSection
     public function storage(): array
     {
         return [
-            'real' => ['email', 'mobile', 'phone', 'emergency_phone'],
+            // email/mobile are intentionally excluded: they are staged on save
+            // and only committed to the real columns after OTP verification.
+            'real' => ['phone', 'emergency_phone'],
             'jsonb' => 'section_contact_address',
         ];
     }
