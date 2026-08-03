@@ -3,7 +3,11 @@
 use App\Domains\Rbac\Models\Permission;
 use App\Domains\Rbac\Models\PermissionGroup;
 use App\Domains\Rbac\Models\Role;
+use App\Domains\Recruitment\Models\Questionnaire;
+use App\Enums\GrantPurpose;
+use App\Enums\OtpContext;
 use App\Models\User;
+use App\Services\OtpService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -74,4 +78,21 @@ function createUserWithPermissions(array $permissionNames = []): User
     $user->assignRole($role->id, true);
 
     return $user;
+}
+
+/**
+ * Issue (and cache) an access grant token for the given entity by uuid.
+ */
+function grantToken(string $uuid, GrantPurpose $purpose = GrantPurpose::Edit): string
+{
+    static $tokens = [];
+
+    $tokens[$uuid][$purpose->value] ??= app(OtpService::class)->issueGrant(
+        Questionnaire::where('uuid', $uuid)->firstOrFail(),
+        'mobile',
+        OtpContext::AccessProtected,
+        $purpose,
+    );
+
+    return $tokens[$uuid][$purpose->value];
 }

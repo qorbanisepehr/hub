@@ -1,6 +1,7 @@
 <?php
 
 return [
+    'not_found' => 'Record not found.',
     'permission_denied' => 'You do not have permission to perform this action.',
     'too_many_attempts' => 'Too many attempts. Please try again later.',
     'validation' => [

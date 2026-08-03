@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Contracts\OtpVerifiable;
+use App\Enums\GrantPurpose;
 use App\Enums\OtpContext;
 use App\Enums\OtpSendStatus;
 use App\Enums\OtpVerifyStatus;
@@ -165,6 +166,56 @@ class OtpService
         return max(0, (int) round($data['expires_at'] - now()->timestamp));
     }
 
+    /**
+     * Issue a short-lived, reusable access grant for the given entity.
+     */
+    public function issueGrant(
+        OtpVerifiable $entity,
+        string $channel,
+        OtpContext $context,
+        GrantPurpose $purpose,
+        ?int $ttl = null,
+    ): string {
+        $ttl ??= $this->grantTtl($purpose);
+        $token = Str::random(64);
+        $expiresAt = now()->addSeconds($ttl);
+
+        Cache::put(
+            $this->grantKey($entity, $channel, $context, $token),
+            [
+                'purpose' => $purpose->value,
+                'expires_at' => $expiresAt->timestamp,
+            ],
+            $expiresAt,
+        );
+
+        return $token;
+    }
+
+    /**
+     * Redeem an access grant. Grants are reusable until they expire.
+     *
+     * A grant only satisfies the request when its purpose covers the requested
+     * one (see GrantPurpose::covers).
+     */
+    public function redeemGrant(
+        OtpVerifiable $entity,
+        string $channel,
+        OtpContext $context,
+        string $token,
+        GrantPurpose $purpose,
+    ): bool {
+        $data = Cache::get($this->grantKey($entity, $channel, $context, $token));
+
+        if (! is_array($data) || (int) ($data['expires_at'] ?? 0) < now()->timestamp) {
+            return false;
+        }
+
+        $granted = GrantPurpose::tryFrom((string) ($data['purpose'] ?? ''));
+
+        return $granted !== null && GrantPurpose::covers($granted, $purpose);
+    }
+
     private function generateCode(): string
     {
         $length = config('otp.code_length', 6);
@@ -177,6 +228,22 @@ class OtpService
     private function ttl(): int
     {
         return (int) config('otp.ttl', 120);
+    }
+
+    private function grantTtl(GrantPurpose $purpose): int
+    {
+        return (int) config(
+            "otp.grants.purpose_ttl.{$purpose->value}",
+            config('otp.grants.ttl', 600),
+        );
+    }
+
+    /**
+     * The lifetime in seconds a newly issued grant for the given purpose gets.
+     */
+    public function getGrantExpiresIn(GrantPurpose $purpose): int
+    {
+        return $this->grantTtl($purpose);
     }
 
     private function cacheKey(OtpVerifiable $entity, string $channel, OtpContext $context): string
@@ -192,5 +259,10 @@ class OtpService
     private function pendingValueKey(OtpVerifiable $entity, string $channel, OtpContext $context): string
     {
         return "otp-pending:{$context->value}:{$entity->getOtpIdentifier()}:{$channel}";
+    }
+
+    private function grantKey(OtpVerifiable $entity, string $channel, OtpContext $context, string $token): string
+    {
+        return "grant:{$context->value}:{$entity->getOtpIdentifier()}:{$channel}:{$token}";
     }
 }

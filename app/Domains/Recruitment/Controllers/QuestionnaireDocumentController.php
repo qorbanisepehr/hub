@@ -25,9 +25,9 @@ class QuestionnaireDocumentController extends Controller
         private QuestionnaireService $questionnaireService,
     ) {}
 
-    public function index(string $uuid): JsonResponse
+    public function index(Request $request, string $uuid): JsonResponse
     {
-        $questionnaire = Questionnaire::where('uuid', $uuid)->firstOrFail();
+        $questionnaire = $request->attributes->get('granted_resource');
 
         $documents = $this->documentService->getForEntity($questionnaire);
 
@@ -42,7 +42,13 @@ class QuestionnaireDocumentController extends Controller
 
     public function store(PublicStoreDocumentRequest $request, string $uuid): JsonResponse
     {
-        $questionnaire = Questionnaire::where('uuid', $uuid)->where('status', 'draft')->firstOrFail();
+        $questionnaire = $request->attributes->get('granted_resource');
+
+        if (! $questionnaire->isDraft()) {
+            return response()->json([
+                'message' => __('recruitment.questionnaire.not_draft'),
+            ], 422);
+        }
 
         $file = $request->file('file');
         $category = DocumentCategory::where('id', $request->document_category_id)->firstOrFail();
@@ -119,9 +125,9 @@ class QuestionnaireDocumentController extends Controller
         ], 201);
     }
 
-    public function destroy(string $uuid, int $usageId): JsonResponse
+    public function destroy(Request $request, string $uuid, int $usageId): JsonResponse
     {
-        $questionnaire = Questionnaire::where('uuid', $uuid)->firstOrFail();
+        $questionnaire = $request->attributes->get('granted_resource');
 
         $deleted = $this->documentService->deleteUsage($usageId, $questionnaire);
 
