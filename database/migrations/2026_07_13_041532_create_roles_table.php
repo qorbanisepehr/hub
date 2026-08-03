@@ -18,10 +18,18 @@ return new class extends Migration
             $table->boolean('inherits_permissions')->default(false);
             $table->timestamps();
         });
+
+        Schema::table('users', function (Blueprint $table) {
+            $table->foreignId('active_role_id')->nullable()->after('is_active')->constrained('roles')->nullOnDelete();
+        });
     }
 
     public function down(): void
     {
+        Schema::table('users', function (Blueprint $table) {
+            $table->dropConstrainedForeignId('active_role_id');
+        });
+
         Schema::dropIfExists('roles');
     }
 };
