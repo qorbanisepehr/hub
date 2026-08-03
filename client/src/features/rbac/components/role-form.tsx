@@ -100,18 +100,24 @@ export const roleSchema = z.object({
     is_active: z.boolean(),
     permission_ids: z.array(z.number()),
     permission_group_ids: z.array(z.number()),
-    matrix_managers: z.array(
-        z.object({
-            role_id: z.number().int().positive(),
-            manager_type: z.enum(MATRIX_MANAGER_TYPES_KEYS),
-        }),
-    ),
+    matrix_managers: z
+        .array(
+            z.object({
+                role_id: z.number().int().positive(),
+                manager_type: z.enum(MATRIX_MANAGER_TYPES_KEYS),
+            }),
+        )
+        .refine(
+            (items) =>
+                new Set(items.map((item) => item.role_id)).size === items.length,
+            "هر نقش فقط یک بار می‌تواند مدیر ماتریسی باشد",
+        ),
     requirements: z.object({
         min_education: z.enum(EDUCATION_LEVELS_KEYS).nullable(),
         min_experience_years: z.number().int().min(0).max(50).nullable(),
-        required_skills: z.array(z.string()),
-        preferred_skills: z.array(z.string()),
-        certifications: z.array(z.string()),
+        required_skills: z.array(z.string().max(100)),
+        preferred_skills: z.array(z.string().max(100)),
+        certifications: z.array(z.string().max(100)),
         languages: z.array(z.enum(LANGUAGE_LEVELS_KEYS)),
     }),
 });
@@ -242,15 +248,16 @@ export function RoleForm({
             is_active: true,
             permission_ids: [],
             permission_group_ids: [],
-            matrix_managers: defaultValues?.matrix_managers ?? [],
+            matrix_managers: [],
+            ...defaultValues,
             requirements: {
-                min_education: defaultValues?.requirements?.min_education ?? null,
-                min_experience_years:
-                    defaultValues?.requirements?.min_experience_years ?? null,
-                required_skills: defaultValues?.requirements?.required_skills ?? [],
-                preferred_skills: defaultValues?.requirements?.preferred_skills ?? [],
-                certifications: defaultValues?.requirements?.certifications ?? [],
-                languages: defaultValues?.requirements?.languages ?? [],
+                min_education: null,
+                min_experience_years: null,
+                required_skills: [],
+                preferred_skills: [],
+                certifications: [],
+                languages: [],
+                ...defaultValues?.requirements,
             },
         } as RoleFormValues,
         validators: {
@@ -304,7 +311,12 @@ export function RoleForm({
                         </div>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                        <form.Field name="name">
+                        <form.Field
+                            name="name"
+                            validators={zodFieldValidators(
+                                roleSchema.shape.name,
+                            )}
+                        >
                             {(field) => (
                                 <FormTextField
                                     field={field}
@@ -315,7 +327,12 @@ export function RoleForm({
                             )}
                         </form.Field>
 
-                        <form.Field name="display_name">
+                        <form.Field
+                            name="display_name"
+                            validators={zodFieldValidators(
+                                roleSchema.shape.display_name,
+                            )}
+                        >
                             {(field) => (
                                 <FormTextField
                                     field={field}
@@ -325,7 +342,12 @@ export function RoleForm({
                             )}
                         </form.Field>
 
-                        <form.Field name="description">
+                        <form.Field
+                            name="description"
+                            validators={zodFieldValidators(
+                                roleSchema.shape.description,
+                            )}
+                        >
                             {(field) => (
                                 <FormTextField
                                     field={field}
@@ -595,12 +617,7 @@ export function RoleForm({
                         <CardTitle className="text-base">مدیران ماتریسی</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <form.Field
-                            name="matrix_managers"
-                            validators={zodFieldValidators(
-                                roleSchema.shape.matrix_managers,
-                            )}
-                        >
+                        <form.Field name="matrix_managers">
                             {(field) => (
                                 <FormRepeater
                                     defaultMode="card"
