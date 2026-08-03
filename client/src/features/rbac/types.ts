@@ -79,6 +79,10 @@ export type RoleChartChild = {
     display_name: string;
 };
 
+export type ChartViewMode = "roles" | "users";
+export type ChartUserFilter = "all" | "with" | "without";
+export type ChartStatusFilter = "all" | "active" | "inactive";
+
 export type RoleChartRole = {
     id: number;
     name: string;

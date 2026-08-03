@@ -191,9 +191,9 @@ export function layoutNodes(
     nodes: RoleOrgNode[],
     edges: RoleOrgEdge[],
     direction: ChartDirection = "TB",
+    nodeHeight = 150,
 ): RoleOrgNode[] {
     const NODE_WIDTH = 210;
-    const NODE_HEIGHT = 150;
 
     const graph = new dagre.graphlib.Graph();
     graph.setDefaultEdgeLabel(() => ({}));
@@ -209,7 +209,7 @@ export function layoutNodes(
     });
 
     for (const node of nodes) {
-        graph.setNode(node.id, { width: NODE_WIDTH, height: NODE_HEIGHT });
+        graph.setNode(node.id, { width: NODE_WIDTH, height: nodeHeight });
     }
     for (const edge of edges) {
         graph.setEdge(edge.source, edge.target);
@@ -223,7 +223,7 @@ export function layoutNodes(
             ...node,
             position: {
                 x: layouted.x - NODE_WIDTH / 2,
-                y: layouted.y - NODE_HEIGHT / 2,
+                y: layouted.y - nodeHeight / 2,
             },
         };
     });

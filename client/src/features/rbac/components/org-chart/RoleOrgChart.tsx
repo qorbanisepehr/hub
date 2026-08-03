@@ -22,6 +22,7 @@ import {
     IconMaximize,
 } from "@tabler/icons-react";
 import CustomNode from "./CustomNode";
+import UsersNode from "./UsersNode";
 import { RoleDetailModal } from "./RoleDetailModal";
 import {
     buildNodesAndEdges,
@@ -32,32 +33,68 @@ import {
     layoutNodes,
     type ChartDirection,
 } from "./layoutUtils";
-import type { RoleChartRole } from "@/features/rbac/types";
+import type { ChartStatusFilter, ChartUserFilter, ChartViewMode, RoleChartRole } from "@/features/rbac/types";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ErrorSection } from "@/components/shared/error-section";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const nodeTypes = { customNode: CustomNode };
+const usersNodeTypes = { customNode: UsersNode };
 
 function RoleOrgChartInner({
     roles,
     isLoading,
     isError,
     onRetry,
+    viewMode,
+    userFilter,
+    statusFilter,
 }: {
     roles: RoleChartRole[];
     isLoading: boolean;
     isError: boolean;
     onRetry: () => void;
+    viewMode: ChartViewMode;
+    userFilter: ChartUserFilter;
+    statusFilter: ChartStatusFilter;
 }) {
     const [collapsedSet, setCollapsedSet] = useState<Set<number>>(new Set());
     const [subtreeRootId, setSubtreeRootId] = useState<number | null>(null);
     const [layoutDirection, setLayoutDirection] = useState<ChartDirection>("TB");
-    const [selectedRole, setSelectedRole] = useState<RoleChartRole | null>(null);
+    const [selectedRoleId, setSelectedRoleId] = useState<number | null>(null);
     const [modalOpen, setModalOpen] = useState(false);
     const { fitView } = useReactFlow();
     const togglingRef = useRef(false);
+
+    const filteredRoles = useMemo(() => {
+        const byUser = (role: RoleChartRole) => {
+            if (userFilter === "with") {
+                return role.user_count > 0;
+            }
+            if (userFilter === "without") {
+                return role.user_count === 0;
+            }
+            return true;
+        };
+        const byStatus = (role: RoleChartRole) => {
+            if (statusFilter === "active") {
+                return role.is_active;
+            }
+            if (statusFilter === "inactive") {
+                return !role.is_active;
+            }
+            return true;
+        };
+        return roles.filter((role) => byUser(role) && byStatus(role));
+    }, [roles, userFilter, statusFilter]);
+
+    const chartRoles = filteredRoles;
+
+    const selectedRole = useMemo(
+        () => roles.find((role) => role.id === selectedRoleId) ?? null,
+        [roles, selectedRoleId],
+    );
 
     const handleLayoutChange = useCallback((direction: ChartDirection) => {
         setLayoutDirection(direction);
@@ -73,7 +110,7 @@ function RoleOrgChartInner({
             if (next.has(roleId)) {
                 next.delete(roleId);
             } else {
-                const descendants = getDescendantIds(roleId, roles);
+                const descendants = getDescendantIds(roleId, chartRoles);
                 next.add(roleId);
                 for (const descendant of descendants) {
                     next.delete(descendant);
@@ -84,23 +121,23 @@ function RoleOrgChartInner({
         requestAnimationFrame(() => {
             togglingRef.current = false;
         });
-    }, [roles]);
+    }, [chartRoles]);
 
     const onToggleRef = useRef(onToggle);
     onToggleRef.current = onToggle;
 
     const onFocus = useCallback((roleId: number) => {
         setSubtreeRootId(null);
-        setCollapsedSet(getFocusCollapsedSet(roleId, roles));
-    }, [roles]);
+        setCollapsedSet(getFocusCollapsedSet(roleId, chartRoles));
+    }, [chartRoles]);
 
     const onFocusRef = useRef(onFocus);
     onFocusRef.current = onFocus;
 
     const onShowAncestors = useCallback((roleId: number) => {
         setSubtreeRootId(null);
-        setCollapsedSet(getAncestorCollapsedSet(roleId, roles));
-    }, [roles]);
+        setCollapsedSet(getAncestorCollapsedSet(roleId, chartRoles));
+    }, [chartRoles]);
 
     const onShowAncestorsRef = useRef(onShowAncestors);
     onShowAncestorsRef.current = onShowAncestors;
@@ -119,8 +156,8 @@ function RoleOrgChartInner({
 
     const onCollapseAll = useCallback(() => {
         setSubtreeRootId(null);
-        setCollapsedSet(getCollapseAllSet(roles));
-    }, [roles]);
+        setCollapsedSet(getCollapseAllSet(chartRoles));
+    }, [chartRoles]);
 
     const onResetView = useCallback(() => {
         setSubtreeRootId(null);
@@ -129,14 +166,14 @@ function RoleOrgChartInner({
     }, [fitView]);
 
     useEffect(() => {
-        if (subtreeRootId != null && !roles.some((role) => role.id === subtreeRootId)) {
+        if (subtreeRootId != null && !chartRoles.some((role) => role.id === subtreeRootId)) {
             setSubtreeRootId(null);
         }
-    }, [roles, subtreeRootId]);
+    }, [chartRoles, subtreeRootId]);
 
     const { nodes: rawNodes, edges: rawEdges } = useMemo(
-        () => buildNodesAndEdges(roles, collapsedSet, subtreeRootId),
-        [roles, collapsedSet, subtreeRootId],
+        () => buildNodesAndEdges(chartRoles, collapsedSet, subtreeRootId),
+        [chartRoles, collapsedSet, subtreeRootId],
     );
 
     const nodesWithToggle = useMemo(
@@ -155,8 +192,8 @@ function RoleOrgChartInner({
     );
 
     const layoutedNodes = useMemo(
-        () => layoutNodes(nodesWithToggle, rawEdges, layoutDirection),
-        [nodesWithToggle, rawEdges, layoutDirection],
+        () => layoutNodes(nodesWithToggle, rawEdges, layoutDirection, viewMode === "users" ? 180 : 150),
+        [nodesWithToggle, rawEdges, layoutDirection, viewMode],
     );
 
     const [nodes, setNodes, onNodesChange] = useNodesState(layoutedNodes);
@@ -172,13 +209,13 @@ function RoleOrgChartInner({
             const timer = setTimeout(() => fitView({ padding: 0.3, duration: 300 }), 100);
             return () => clearTimeout(timer);
         }
-    }, [nodes.length, fitView]);
+    }, [nodes.length, viewMode, userFilter, statusFilter, fitView]);
 
     const onNodeClick: NodeMouseHandler = useCallback(
         (_event, node) => {
             const role = roles.find((item) => item.id === Number(node.id));
             if (role) {
-                setSelectedRole(role);
+                setSelectedRoleId(role.id);
                 setModalOpen(true);
             }
         },
@@ -201,7 +238,7 @@ function RoleOrgChartInner({
         );
     }
 
-    if (roles.length === 0) {
+    if (chartRoles.length === 0) {
         return (
             <div className="flex size-full items-center justify-center">
                 <EmptyState icon={IconMasksTheater} message="نقشی برای نمایش وجود ندارد" />
@@ -217,7 +254,7 @@ function RoleOrgChartInner({
                 onNodesChange={onNodesChange}
                 onEdgesChange={onEdgesChange}
                 onNodeClick={onNodeClick}
-                nodeTypes={nodeTypes}
+                nodeTypes={viewMode === "users" ? usersNodeTypes : nodeTypes}
                 fitView={false}
                 selectionMode={SelectionMode.Partial}
                 minZoom={0.2}
@@ -329,15 +366,29 @@ export function RoleOrgChart({
     isLoading,
     isError,
     onRetry,
+    viewMode,
+    userFilter,
+    statusFilter,
 }: {
     roles: RoleChartRole[];
     isLoading: boolean;
     isError: boolean;
     onRetry: () => void;
+    viewMode: ChartViewMode;
+    userFilter: ChartUserFilter;
+    statusFilter: ChartStatusFilter;
 }) {
     return (
         <ReactFlowProvider>
-            <RoleOrgChartInner roles={roles} isLoading={isLoading} isError={isError} onRetry={onRetry} />
+            <RoleOrgChartInner
+                roles={roles}
+                isLoading={isLoading}
+                isError={isError}
+                onRetry={onRetry}
+                viewMode={viewMode}
+                userFilter={userFilter}
+                statusFilter={statusFilter}
+            />
         </ReactFlowProvider>
     );
 }
