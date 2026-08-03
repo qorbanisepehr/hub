@@ -12,6 +12,8 @@ Route::middleware('auth:sanctum')->group(function () {
         ->middleware('permission:role.view');
     Route::post('roles', [RoleController::class, 'store'])
         ->middleware('permission:role.create');
+    Route::get('roles/chart', [RoleController::class, 'chart'])
+        ->middleware('permission:role.view');
     Route::get('roles/{role}', [RoleController::class, 'show'])
         ->middleware('permission:role.view');
     Route::put('roles/{role}', [RoleController::class, 'update'])

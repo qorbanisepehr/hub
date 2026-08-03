@@ -49,6 +49,55 @@ class RoleController
         return RoleResource::collection($roles);
     }
 
+    public function chart(): JsonResponse
+    {
+        $roles = Role::withCount(['users', 'children'])
+            ->with('users:id,name,avatar_url')
+            ->orderBy('display_name')
+            ->get();
+
+        $rolesById = $roles->keyBy('id');
+
+        $data = $roles->map(fn (Role $role) => [
+            'id' => $role->id,
+            'name' => $role->name,
+            'display_name' => $role->display_name,
+            'description' => $role->description,
+            'is_active' => $role->is_active,
+            'parent_id' => $role->parent_id,
+            'matrix_managers' => $role->matrix_managers ?? [],
+            'matrix_manager_roles' => collect($role->matrix_managers ?? [])
+                ->map(fn (array $entry) => [
+                    'id' => $entry['role_id'],
+                    'display_name' => $rolesById->get($entry['role_id'])?->display_name,
+                    'manager_type' => $entry['manager_type'],
+                ])
+                ->filter(fn (array $entry) => $entry['display_name'] !== null)
+                ->values()
+                ->all(),
+            'children' => $roles
+                ->where('parent_id', $role->id)
+                ->map(fn (Role $child) => [
+                    'id' => $child->id,
+                    'display_name' => $child->display_name,
+                ])
+                ->values()
+                ->all(),
+            'users' => $role->users
+                ->map(fn (User $user) => [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'avatar_url' => $user->avatar_url,
+                ])
+                ->values()
+                ->all(),
+            'user_count' => $role->users_count,
+            'children_count' => $role->children_count,
+        ])->all();
+
+        return response()->json(['data' => $data]);
+    }
+
     public function store(StoreRoleRequest $request): RoleResource
     {
         $role = Role::create($this->withJsonFields($request, $request->validated()));

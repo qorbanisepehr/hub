@@ -1,6 +1,7 @@
 <?php
 
 use App\Domains\Rbac\Models\Role;
+use App\Models\User;
 
 describe('RBAC matrix managers & requirements', function () {
     describe('model', function () {
@@ -300,6 +301,69 @@ describe('RBAC matrix managers & requirements', function () {
                 ->getJson('/api/roles')
                 ->assertStatus(200)
                 ->assertJsonFragment(['matrix_managers' => [['role_id' => $manager->id, 'manager_type' => 'project']]]);
+        });
+    });
+
+    describe('API - roles chart', function () {
+        it('returns a flat list with hierarchy and matrix relations for the chart', function () {
+            $user = createUserWithPermissions(['role.view']);
+            $ceo = Role::create(['name' => 'ceo', 'display_name' => 'CEO', 'is_active' => true]);
+            $cto = Role::create(['name' => 'cto', 'display_name' => 'CTO', 'parent_id' => $ceo->id, 'is_active' => true]);
+            $dev = Role::create([
+                'name' => 'dev',
+                'display_name' => 'Developer',
+                'parent_id' => $cto->id,
+                'matrix_managers' => [['role_id' => $ceo->id, 'manager_type' => 'project']],
+                'is_active' => true,
+            ]);
+
+            $this->actingAs($user)
+                ->getJson('/api/roles/chart')
+                ->assertStatus(200)
+                ->assertJsonCount(4, 'data')
+                ->assertJsonPath('data.0.id', $ceo->id)
+                ->assertJsonPath('data.0.children.0.id', $cto->id)
+                ->assertJsonPath('data.0.children_count', 1)
+                ->assertJsonPath('data.1.parent_id', $ceo->id)
+                ->assertJsonPath('data.2.parent_id', $cto->id)
+                ->assertJsonPath('data.2.matrix_manager_roles.0.id', $ceo->id)
+                ->assertJsonPath('data.2.matrix_manager_roles.0.display_name', 'CEO')
+                ->assertJsonPath('data.2.matrix_manager_roles.0.manager_type', 'project')
+                ->assertJsonPath('data.3.matrix_managers', [])
+                ->assertJsonPath('data.3.children', [])
+                ->assertJsonPath('data.3.parent_id', null);
+        });
+
+        it('includes user summaries and counts per role', function () {
+            $user = createUserWithPermissions(['role.view']);
+            $role = Role::create(['name' => 'dev', 'display_name' => 'Developer', 'is_active' => true]);
+            $member = User::factory()->create(['name' => 'Alex Dev']);
+            $member->roles()->attach($role->id);
+
+            $this->actingAs($user)
+                ->getJson('/api/roles/chart')
+                ->assertStatus(200)
+                ->assertJsonPath('data.0.user_count', 1)
+                ->assertJsonPath('data.0.users.0.id', $member->id)
+                ->assertJsonPath('data.0.users.0.name', 'Alex Dev');
+        });
+
+        it('requires role.view permission', function () {
+            $user = createUserWithPermissions(['user.view']);
+
+            $this->actingAs($user)
+                ->getJson('/api/roles/chart')
+                ->assertStatus(403);
+        });
+
+        it('does not collide with the show route', function () {
+            $user = createUserWithPermissions(['role.view']);
+            $role = Role::create(['name' => 'dev', 'display_name' => 'Developer', 'is_active' => true]);
+
+            $this->actingAs($user)
+                ->getJson('/api/roles/'.$role->id)
+                ->assertStatus(200)
+                ->assertJsonPath('data.id', $role->id);
         });
     });
 });
