@@ -18,9 +18,11 @@ export function QuestionnaireSuccessPage() {
                             <p className="text-muted-foreground">
                                 پرسشنامه شما با موفقیت ثبت شد. کارشناسان ما پس از بررسی با شما تماس خواهند گرفت.
                             </p>
-                            <Button render={<Link to="/" />}>
-                                بازگشت به صفحه اصلی
-                            </Button>
+                            <div className="flex flex-col items-center justify-center gap-2 sm:flex-row">
+                                <Button render={<Link to="/" />}>
+                                    بازگشت به صفحه اصلی
+                                </Button>
+                            </div>
                         </div>
                     </CardContent>
                 </Card>

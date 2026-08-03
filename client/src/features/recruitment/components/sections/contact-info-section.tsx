@@ -30,12 +30,12 @@ export function ContactInfoSection({ form, questionnaire }: SectionProps) {
     const mobileVerified = questionnaire?.mobile_verified ?? false;
 
     const sendMobileOtpMutation = useMutation({
-        mutationFn: () => sendMobileOtp(uuid),
+        mutationFn: (value: string) => sendMobileOtp(uuid, value),
         onError: (err) => toast.error(getApiError(err)),
     });
 
     const sendEmailOtpMutation = useMutation({
-        mutationFn: () => sendEmailOtp(uuid),
+        mutationFn: (value: string) => sendEmailOtp(uuid, value),
         onError: (err) => toast.error(getApiError(err)),
     });
 
@@ -73,7 +73,7 @@ export function ContactInfoSection({ form, questionnaire }: SectionProps) {
                         sourceField={field}
                         placeholder="email@example.com"
                         isVerified={emailVerified}
-                        sendOtp={() => sendEmailOtpMutation.mutateAsync()}
+                        sendOtp={(value) => sendEmailOtpMutation.mutateAsync(value)}
                         verifyOtp={(code) => verifyEmailOtpMutation.mutateAsync(code)}
                         onVerifiedChange={() => {
                             queryClient.invalidateQueries({ queryKey: ["questionnaire", uuid] });
@@ -92,7 +92,7 @@ export function ContactInfoSection({ form, questionnaire }: SectionProps) {
                         sourceField={field}
                         placeholder="09121234567"
                         isVerified={mobileVerified}
-                        sendOtp={() => sendMobileOtpMutation.mutateAsync()}
+                        sendOtp={(value) => sendMobileOtpMutation.mutateAsync(value)}
                         verifyOtp={(code) => verifyMobileOtpMutation.mutateAsync(code)}
                         onVerifiedChange={() => {
                             queryClient.invalidateQueries({ queryKey: ["questionnaire", uuid] });

@@ -24,7 +24,7 @@ export type OtpVerifiedInputProps = {
     label: string;
     sourceField: AnyFieldApi;
     isVerified: boolean;
-    sendOtp: () => Promise<any>;
+    sendOtp: (value: string) => Promise<any>;
     verifyOtp: (otp: string) => Promise<any>;
     onVerifiedChange?: () => void;
     placeholder?: string;
@@ -75,7 +75,7 @@ export function OtpVerifiedInput({
         verifyOtp,
         reset: resetOtp,
     } = useOtpVerification({
-        sendOtp: sendOtpFn,
+        sendOtp: () => sendOtpFn(sourceValue),
         verifyOtp: verifyOtpFn,
         onVerified: () => {
             setOtpSent(false);

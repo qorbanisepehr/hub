@@ -1,5 +1,21 @@
 import type { ReactFormExtendedApi } from "@tanstack/react-form";
 
+import type { GrantPurpose } from "@/lib/grant";
+
+export type { GrantPurpose };
+
+export interface RequestAccessResponse {
+    message: string;
+    expires_in: number;
+    code_sent?: boolean;
+}
+
+export interface VerifyAccessResponse {
+    access_token: string;
+    expires_in: number;
+    message: string;
+}
+
 export interface Questionnaire {
     id: number;
     uuid: string;

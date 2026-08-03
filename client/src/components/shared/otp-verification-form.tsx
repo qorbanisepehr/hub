@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { IconLoader2, IconSend, IconCheck } from "@tabler/icons-react";
 
 import { Button } from "@/components/ui/button";
@@ -5,21 +6,25 @@ import { Field, FieldLabel } from "@/components/ui/field";
 import {
     InputOTP,
     InputOTPGroup,
-    InputOTPSeparator,
     InputOTPSlot,
 } from "@/components/ui/input-otp";
 import { ErrorBanner } from "@/components/shared/error-banner";
 import { useOtpVerification } from "@/hooks/use-otp-verification";
+import type {
+    OtpSendPayload,
+    OtpVerifyPayload,
+} from "@/hooks/use-otp-verification";
 
 type OtpVerificationFormProps = {
-    sendOtp: () => Promise<any>;
-    verifyOtp: (otp: string) => Promise<any>;
-    onVerified?: (data: any) => void;
+    sendOtp: () => Promise<{ data?: OtpSendPayload }>;
+    verifyOtp: (otp: string) => Promise<{ data: OtpVerifyPayload }>;
+    onVerified?: (data: OtpVerifyPayload) => void;
     label?: string;
     description?: string;
     cooldownSeconds?: number;
     otpLength?: number;
     initialCountdown?: number;
+    autoSend?: boolean;
     className?: string;
 };
 
@@ -32,6 +37,7 @@ export function OtpVerificationForm({
     cooldownSeconds = 120,
     otpLength = 6,
     initialCountdown,
+    autoSend = false,
     className,
 }: OtpVerificationFormProps) {
     const {
@@ -51,6 +57,16 @@ export function OtpVerificationForm({
         otpLength,
         initialCountdown,
     });
+
+    const autoSendStarted = useRef(false);
+
+    useEffect(() => {
+        if (autoSend && !autoSendStarted.current) {
+            autoSendStarted.current = true;
+            void handleSend();
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     return (
         <div className={className}>
@@ -94,8 +110,6 @@ export function OtpVerificationForm({
                 >
                     {isSending ? (
                         <IconLoader2 className="size-4 animate-spin ms-2" />
-                    ) : countdown > 0 ? (
-                        <IconSend className="size-4 ms-2" />
                     ) : (
                         <IconSend className="size-4 ms-2" />
                     )}

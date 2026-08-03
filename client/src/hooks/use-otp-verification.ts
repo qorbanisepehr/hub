@@ -2,12 +2,19 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { isAxiosError } from "axios";
 import { toast } from "sonner";
 
-type OtpSendPayload = {
+export type OtpSendPayload = {
     message?: string;
     expires_in?: number;
     code_sent?: boolean;
 };
-type OtpVerifyPayload = { message?: string; uuid?: string };
+
+export type OtpVerifyPayload = {
+    message?: string;
+    uuid?: string;
+    access_token?: string;
+    expires_in?: number;
+    data?: { uuid?: string };
+};
 
 function parseRetryAfterHeader(err: unknown): number | null {
     if (!isAxiosError(err) || !err.response?.headers) return null;
