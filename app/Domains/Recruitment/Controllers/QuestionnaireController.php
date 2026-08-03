@@ -2,7 +2,6 @@
 
 namespace App\Domains\Recruitment\Controllers;
 
-use App\Domains\Recruitment\Guards\OtpGuard;
 use App\Domains\Recruitment\Models\Questionnaire;
 use App\Domains\Recruitment\Requests\InitQuestionnaireRequest;
 use App\Domains\Recruitment\Requests\SectionSaveRequest;
@@ -10,26 +9,35 @@ use App\Domains\Recruitment\Requests\VerifyInitOtpRequest;
 use App\Domains\Recruitment\Requests\VerifyQuestionnaireRequest;
 use App\Domains\Recruitment\Resources\QuestionnaireResource;
 use App\Domains\Recruitment\Services\QuestionnaireService;
+use App\Enums\OtpContext;
+use App\Enums\OtpSendStatus;
+use App\Http\Responses\OtpResponder;
 use App\Models\PendingVerification;
 use App\Services\OtpService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Arr;
 
 class QuestionnaireController extends Controller
 {
-    use OtpGuard;
+    use OtpResponder;
 
     public function __construct(
         private QuestionnaireService $questionnaireService,
-        OtpService $otpService,
-    ) {
-        $this->otpService = $otpService;
-    }
+        private OtpService $otpService,
+    ) {}
 
     public function init(InitQuestionnaireRequest $request): JsonResponse
     {
         $data = $request->validated();
+
+        $payload = [
+            'first_name' => $data['first_name'],
+            'last_name' => $data['last_name'],
+            'email' => $data['email'],
+            'mobile' => $data['mobile'],
+        ];
 
         $existing = PendingVerification::query()
             ->where('type', 'questionnaire')
@@ -41,60 +49,32 @@ class QuestionnaireController extends Controller
         if ($existing) {
             $existing->update([
                 'email' => $data['email'],
-                'payload' => [
-                    'first_name' => $data['first_name'],
-                    'last_name' => $data['last_name'],
-                    'email' => $data['email'],
-                    'mobile' => $data['mobile'],
-                ],
-            ]);
-
-            if ($this->otpService->isExpired($existing, 'mobile')) {
-                if ($this->otpService->isLocked($existing, 'mobile')) {
-                    return $this->otpLockedResponse($existing, 'mobile');
-                }
-
-                $this->otpService->send($existing, 'mobile');
-
-                return response()->json([
-                    'data' => ['uuid' => $existing->uuid],
-                    'requires_otp' => true,
-                    'code_sent' => true,
-                    'expires_in' => $this->otpService->getExpiresIn($existing, 'mobile'),
-                    'message' => __('recruitment.questionnaire.otp_sent'),
-                ]);
-            }
-
-            return response()->json([
-                'data' => ['uuid' => $existing->uuid],
-                'requires_otp' => true,
-                'code_sent' => false,
-                'expires_in' => $this->otpService->getExpiresIn($existing, 'mobile'),
-                'message' => __('recruitment.questionnaire.otp_already_sent'),
+                'payload' => $payload,
             ]);
         }
 
-        $pending = PendingVerification::create([
+        $pending = $existing ?? PendingVerification::create([
             'type' => 'questionnaire',
             'mobile' => $data['mobile'],
             'email' => $data['email'],
-            'payload' => [
-                'first_name' => $data['first_name'],
-                'last_name' => $data['last_name'],
-                'email' => $data['email'],
-                'mobile' => $data['mobile'],
-            ],
+            'payload' => $payload,
         ]);
 
-        $this->otpService->send($pending, 'mobile');
+        $status = $this->otpService->sendWithCooldown($pending, 'mobile', OtpContext::Register);
+
+        if ($status === OtpSendStatus::Locked) {
+            return $this->otpLockedResponse($pending, 'mobile', OtpContext::Register);
+        }
 
         return response()->json([
             'data' => ['uuid' => $pending->uuid],
             'requires_otp' => true,
-            'code_sent' => true,
-            'expires_in' => $this->otpService->getExpiresIn($pending, 'mobile'),
-            'message' => __('recruitment.questionnaire.otp_sent'),
-        ], 201);
+            'code_sent' => $status === OtpSendStatus::Sent,
+            'expires_in' => $this->otpService->getExpiresIn($pending, 'mobile', OtpContext::Register),
+            'message' => $status === OtpSendStatus::Sent
+                ? __('recruitment.questionnaire.otp_sent')
+                : __('recruitment.questionnaire.otp_already_sent'),
+        ], $existing ? 200 : 201);
     }
 
     public function verifyInitOtp(VerifyInitOtpRequest $request): JsonResponse
@@ -105,11 +85,11 @@ class QuestionnaireController extends Controller
             return response()->json(['message' => __('recruitment.questionnaire.already_verified')], 422);
         }
 
-        if ($errorResponse = $this->attemptOtpVerification($pending, 'mobile', $request->validated('otp'))) {
-            return $errorResponse;
-        }
+        $status = $this->otpService->attemptVerification($pending, 'mobile', OtpContext::Register, $request->validated('otp'));
 
-        $this->otpService->clearFailedAttempts($pending, 'mobile');
+        if ($response = $this->respondToVerification($pending, 'mobile', OtpContext::Register, $status)) {
+            return $response;
+        }
 
         // Check for existing questionnaire with this mobile
         $existing = Questionnaire::where('mobile', $pending->mobile)->first();
@@ -118,12 +98,13 @@ class QuestionnaireController extends Controller
             $existing->update(['status' => 'draft']);
         }
 
-        // Only re-apply the start-form payload to questionnaires that are
-        // still editable. Reviewed records must not be silently mutated.
+        // For existing questionnaires only re-apply contact info so the user
+        // can re-access after changing email/mobile. Names are set at creation
+        // and edited inside the wizard, so they must not be overwritten here
+        // (which would silently revert wizard edits). Reviewed records must
+        // not be silently mutated at all.
         $updateData = $existing && ! $existing->isReviewed()
-            ? Arr::only($pending->payload, [
-                'first_name', 'last_name', 'email', 'mobile',
-            ])
+            ? Arr::only($pending->payload, ['email', 'mobile'])
             : [];
 
         if ($existing && $updateData) {
@@ -188,41 +169,63 @@ class QuestionnaireController extends Controller
             return response()->json(['message' => __('recruitment.questionnaire.already_verified')], 422);
         }
 
-        if ($response = $this->sendOtpWithLockoutCheck($pending, 'mobile')) {
-            return $response;
-        }
+        $status = $this->otpService->sendWithCooldown($pending, 'mobile', OtpContext::Register);
 
-        return $this->otpSentResponse($pending, 'mobile');
+        return $this->respondToSend($pending, 'mobile', OtpContext::Register, $status);
     }
 
-    public function sendMobileOtp(string $uuid): JsonResponse
+    public function sendMobileOtp(string $uuid, Request $request): JsonResponse
     {
         $questionnaire = $this->questionnaireService->findByUuidOrFail($uuid);
 
-        if ($response = $this->sendOtpWithLockoutCheck($questionnaire, 'mobile')) {
-            return $response;
+        $data = $request->validate([
+            'mobile' => 'nullable|string|max:15|regex:/^09\d{9}$/',
+        ]);
+
+        $pendingMobile = $data['mobile'] ?? null;
+
+        $status = $this->otpService->sendWithCooldown($questionnaire, 'mobile', OtpContext::VerifyMobile);
+
+        if ($pendingMobile !== null && $status === OtpSendStatus::Sent) {
+            $this->otpService->storePendingValue($questionnaire, 'mobile', OtpContext::VerifyMobile, $pendingMobile);
         }
 
-        return $this->otpSentResponse($questionnaire, 'mobile');
+        return $this->respondToSend($questionnaire, 'mobile', OtpContext::VerifyMobile, $status);
     }
 
-    public function sendEmailOtp(string $uuid): JsonResponse
+    public function sendEmailOtp(string $uuid, Request $request): JsonResponse
     {
         $questionnaire = $this->questionnaireService->findByUuidOrFail($uuid);
 
-        if ($response = $this->sendOtpWithLockoutCheck($questionnaire, 'email')) {
-            return $response;
+        $data = $request->validate([
+            'email' => 'nullable|email|max:255',
+        ]);
+
+        $pendingEmail = $data['email'] ?? null;
+
+        $status = $this->otpService->sendWithCooldown($questionnaire, 'email', OtpContext::VerifyEmail);
+
+        if ($pendingEmail !== null && $status === OtpSendStatus::Sent) {
+            $this->otpService->storePendingValue($questionnaire, 'email', OtpContext::VerifyEmail, $pendingEmail);
         }
 
-        return $this->otpSentResponse($questionnaire, 'email');
+        return $this->respondToSend($questionnaire, 'email', OtpContext::VerifyEmail, $status);
     }
 
     public function verifyMobileOtp(VerifyQuestionnaireRequest $request, string $uuid): JsonResponse
     {
         $questionnaire = $this->questionnaireService->findByUuidOrFail($uuid);
 
-        if ($errorResponse = $this->attemptOtpVerification($questionnaire, 'mobile', $request->validated('otp'))) {
-            return $errorResponse;
+        $status = $this->otpService->attemptVerification($questionnaire, 'mobile', OtpContext::VerifyMobile, $request->validated('otp'));
+
+        if ($response = $this->respondToVerification($questionnaire, 'mobile', OtpContext::VerifyMobile, $status)) {
+            return $response;
+        }
+
+        $pendingMobile = $this->otpService->pullPendingValue($questionnaire, 'mobile', OtpContext::VerifyMobile);
+
+        if ($pendingMobile !== null && $pendingMobile !== $questionnaire->mobile) {
+            $questionnaire->update(['mobile' => $pendingMobile]);
         }
 
         return $this->otpVerifiedResponse($questionnaire, 'mobile');
@@ -232,8 +235,16 @@ class QuestionnaireController extends Controller
     {
         $questionnaire = $this->questionnaireService->findByUuidOrFail($uuid);
 
-        if ($errorResponse = $this->attemptOtpVerification($questionnaire, 'email', $request->validated('otp'))) {
-            return $errorResponse;
+        $status = $this->otpService->attemptVerification($questionnaire, 'email', OtpContext::VerifyEmail, $request->validated('otp'));
+
+        if ($response = $this->respondToVerification($questionnaire, 'email', OtpContext::VerifyEmail, $status)) {
+            return $response;
+        }
+
+        $pendingEmail = $this->otpService->pullPendingValue($questionnaire, 'email', OtpContext::VerifyEmail);
+
+        if ($pendingEmail !== null && $pendingEmail !== $questionnaire->email) {
+            $questionnaire->update(['email' => $pendingEmail]);
         }
 
         return $this->otpVerifiedResponse($questionnaire, 'email');

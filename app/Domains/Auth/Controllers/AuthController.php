@@ -6,17 +6,23 @@ use App\Domains\Auth\Requests\LoginRequest;
 use App\Domains\Auth\Requests\LoginWithPasswordRequest;
 use App\Domains\Auth\Requests\VerifyOtpRequest;
 use App\Domains\Auth\Resources\UserResource;
+use App\Enums\OtpContext;
+use App\Http\Responses\OtpResponder;
 use App\Models\User;
+use App\Services\OtpService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 
 class AuthController
 {
-    private const int OTP_EXPIRY_MINUTES = 5;
+    use OtpResponder;
+
+    public function __construct(
+        private OtpService $otpService,
+    ) {}
 
     public function login(LoginRequest $request): JsonResponse
     {
@@ -28,70 +34,42 @@ class AuthController
             ], 401);
         }
 
-        $inactive = $this->checkInactive($user);
-        if ($inactive) {
+        if ($inactive = $this->checkInactive($user)) {
             return $inactive;
         }
 
-        $locked = $this->checkLocked($user);
-        if ($locked) {
-            return $locked;
-        }
+        $channel = $this->channelFor($request->identifier);
 
-        $code = (string) random_int(100000, 999999);
-        $isEmail = filter_var($request->identifier, FILTER_VALIDATE_EMAIL) !== false;
+        $status = $this->otpService->sendWithCooldown($user, $channel, OtpContext::Login);
 
-        $user->update([
-            'otp_code' => Hash::make($code),
-            'otp_expires_at' => now()->addMinutes(self::OTP_EXPIRY_MINUTES),
-        ]);
+        $response = $this->respondToSend($user, $channel, OtpContext::Login, $status);
 
-        if (app()->environment('local', 'testing')) {
-            Log::info('OTP for user {user}: {code}', ['user' => $user->email, 'code' => $code]);
-        }
+        $data = $response->getData(true);
+        $data['destination'] = $this->destination($request->identifier, $user);
 
-        return response()->json([
-            'message' => __('auth.otp_sent'),
-            'destination' => $isEmail
-                ? substr_replace($user->email, '***', 1, strpos($user->email, '@') - 2)
-                : substr_replace($user->phone, '***', 3, 4),
-        ]);
+        return response()->json($data, $response->getStatusCode());
     }
 
     public function verifyOtp(VerifyOtpRequest $request): JsonResponse
     {
         $user = $this->resolveUser($request->identifier);
 
-        if (! $user || ! $user->otp_code || $user->otp_expires_at?->isPast()) {
+        if (! $user) {
             return response()->json([
                 'message' => __('auth.invalid_otp'),
             ], 422);
         }
 
-        $inactive = $this->checkInactive($user);
-        if ($inactive) {
+        if ($inactive = $this->checkInactive($user)) {
             return $inactive;
         }
 
-        $locked = $this->checkLocked($user);
-        if ($locked) {
-            return $locked;
+        $channel = $this->channelFor($request->identifier);
+        $status = $this->otpService->attemptVerification($user, $channel, OtpContext::Login, $request->code);
+
+        if ($response = $this->respondToVerification($user, $channel, OtpContext::Login, $status)) {
+            return $response;
         }
-
-        if (! Hash::check($request->code, $user->otp_code)) {
-            RateLimiter::hit($this->rateLimiterKey($user), config('rate-limits.auth-attempts.period', 60));
-
-            return response()->json([
-                'message' => __('auth.invalid_otp'),
-            ], 422);
-        }
-
-        $user->update([
-            'otp_code' => null,
-            'otp_expires_at' => null,
-        ]);
-
-        RateLimiter::clear($this->rateLimiterKey($user));
 
         return $this->authenticate($request, $user);
     }
@@ -176,6 +154,40 @@ class AuthController
             'user' => new UserResource($user->load(['roles', 'activeRole'])),
             'token' => $token,
         ]);
+    }
+
+    /**
+     * Resolve OTP copy strings against the auth namespace.
+     *
+     * @param  array<string, int|string>  $replace
+     */
+    protected function otpLang(string $key, array $replace = []): string
+    {
+        return match ($key) {
+            'otp_locked' => __('auth.locked', $replace),
+            'otp_expired', 'otp_invalid' => __('auth.invalid_otp'),
+            default => __("auth.{$key}"),
+        };
+    }
+
+    private function channelFor(string $identifier): string
+    {
+        return filter_var($identifier, FILTER_VALIDATE_EMAIL) !== false ? 'email' : 'mobile';
+    }
+
+    private function destination(string $identifier, User $user): string
+    {
+        if (filter_var($identifier, FILTER_VALIDATE_EMAIL) !== false && $user->email) {
+            $at = strpos($user->email, '@');
+
+            return substr_replace($user->email, '***', 1, max(1, $at - 2));
+        }
+
+        if ($user->phone) {
+            return substr_replace($user->phone, '***', 3, 4);
+        }
+
+        return $user->email ?: $identifier;
     }
 
     private function rateLimiterKey(User $user): string

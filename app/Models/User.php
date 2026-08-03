@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Contracts\OtpVerifiable;
 use App\Domains\Employee\Models\Employee;
 use App\Models\Traits\HasRoles;
 use Database\Factories\UserFactory;
@@ -14,9 +15,9 @@ use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\HasApiTokens;
 
-#[Fillable(['name', 'avatar_url', 'email', 'phone', 'username', 'is_active', 'password', 'otp_code', 'otp_expires_at'])]
-#[Hidden(['password', 'remember_token', 'otp_code'])]
-class User extends Authenticatable
+#[Fillable(['name', 'avatar_url', 'email', 'phone', 'username', 'is_active', 'password'])]
+#[Hidden(['password', 'remember_token'])]
+class User extends Authenticatable implements OtpVerifiable
 {
     /** @use HasFactory<UserFactory> */
     use HasApiTokens, HasFactory, HasRoles, Notifiable;
@@ -25,10 +26,28 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
-            'otp_expires_at' => 'datetime',
             'password' => 'hashed',
             'is_active' => 'boolean',
         ];
+    }
+
+    public function getOtpIdentifier(): string
+    {
+        return "user:{$this->id}";
+    }
+
+    /**
+     * Login OTP is one-shot; the issued session/token is the verified state,
+     * so there is no persistent flag to set.
+     */
+    public function markOtpVerified(string $channel): void
+    {
+        // no-op for the login flow.
+    }
+
+    public function isOtpVerified(string $channel): bool
+    {
+        return false;
     }
 
     /** @return HasOne<Employee, $this> */

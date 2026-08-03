@@ -2,6 +2,7 @@
 
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Storage;
@@ -10,6 +11,20 @@ use Illuminate\Support\Facades\URL;
 function stateful(): array
 {
     return ['Referer' => 'http://localhost'];
+}
+
+function seedLoginOtp(User $user, string $code = '123456', bool $expired = false): void
+{
+    $expiresAt = $expired ? now()->subMinute() : now()->addMinutes(5);
+
+    Cache::put(
+        "otp:login:user:{$user->id}:email",
+        [
+            'hash' => Hash::make($code),
+            'expires_at' => $expiresAt->timestamp,
+        ],
+        $expiresAt,
+    );
 }
 
 describe('auth endpoints', function () {
@@ -24,7 +39,7 @@ describe('auth endpoints', function () {
             $response->assertStatus(200)
                 ->assertJsonStructure(['message', 'destination']);
 
-            expect($user->fresh()->otp_code)->not->toBeNull();
+            expect(Cache::has("otp:login:user:{$user->id}:email"))->toBeTrue();
         });
 
         it('sends OTP via SMS for phone identifier', function () {
@@ -62,7 +77,7 @@ describe('auth endpoints', function () {
             $user = User::factory()->create();
 
             foreach (range(1, 5) as $i) {
-                RateLimiter::hit('login-attempts:'.$user->id, 60);
+                RateLimiter::hit("otp-attempts:login:user:{$user->id}:email", 60);
             }
 
             $response = $this->postJson('/api/auth/login', [
@@ -72,14 +87,28 @@ describe('auth endpoints', function () {
             $response->assertStatus(429)
                 ->assertJsonStructure(['retry_after']);
         });
+
+        it('returns 429 for a locked user even when a code is still valid', function () {
+            $user = User::factory()->create();
+            seedLoginOtp($user);
+
+            foreach (range(1, 5) as $i) {
+                RateLimiter::hit("otp-attempts:login:user:{$user->id}:email", 60);
+            }
+
+            $response = $this->postJson('/api/auth/login', [
+                'identifier' => $user->email,
+            ]);
+
+            $response->assertStatus(429)
+                ->assertJsonPath('message', __('auth.locked', ['seconds' => $response->json('retry_after')]));
+        });
     });
 
     describe('verify OTP', function () {
         it('authenticates with valid OTP (stateful)', function () {
-            $user = User::factory()->create([
-                'otp_code' => Hash::make('123456'),
-                'otp_expires_at' => now()->addMinutes(5),
-            ]);
+            $user = User::factory()->create();
+            seedLoginOtp($user);
 
             $response = $this->withHeaders(stateful())
                 ->postJson('/api/auth/verify-otp', [
@@ -91,15 +120,13 @@ describe('auth endpoints', function () {
                 ->assertJsonStructure(['user' => ['id', 'name', 'email', 'phone', 'username']])
                 ->assertJsonMissing(['token' => true]);
 
-            expect($user->fresh()->otp_code)->toBeNull();
+            expect(Cache::has("otp:login:user:{$user->id}:email"))->toBeFalse();
             expect(auth()->check())->toBeTrue();
         });
 
         it('authenticates with valid OTP (stateless, returns token)', function () {
-            $user = User::factory()->create([
-                'otp_code' => Hash::make('123456'),
-                'otp_expires_at' => now()->addMinutes(5),
-            ]);
+            $user = User::factory()->create();
+            seedLoginOtp($user);
 
             $response = $this->postJson('/api/auth/verify-otp', [
                 'identifier' => $user->email,
@@ -109,28 +136,24 @@ describe('auth endpoints', function () {
             $response->assertStatus(200)
                 ->assertJsonStructure(['user', 'token']);
 
-            expect($user->fresh()->otp_code)->toBeNull();
+            expect(Cache::has("otp:login:user:{$user->id}:email"))->toBeFalse();
         });
 
         it('increments attempt count on invalid code', function () {
-            $user = User::factory()->create([
-                'otp_code' => Hash::make('123456'),
-                'otp_expires_at' => now()->addMinutes(5),
-            ]);
+            $user = User::factory()->create();
+            seedLoginOtp($user);
 
             $this->postJson('/api/auth/verify-otp', [
                 'identifier' => $user->email,
                 'code' => '000000',
             ]);
 
-            expect(RateLimiter::attempts('login-attempts:'.$user->id))->toBe(1);
+            expect(RateLimiter::attempts("otp-attempts:login:user:{$user->id}:email"))->toBe(1);
         });
 
         it('locks user after 5 failed attempts', function () {
-            $user = User::factory()->create([
-                'otp_code' => Hash::make('123456'),
-                'otp_expires_at' => now()->addMinutes(5),
-            ]);
+            $user = User::factory()->create();
+            seedLoginOtp($user);
 
             foreach (range(1, 5) as $i) {
                 $this->postJson('/api/auth/verify-otp', [
@@ -148,10 +171,8 @@ describe('auth endpoints', function () {
         });
 
         it('fails with invalid OTP', function () {
-            $user = User::factory()->create([
-                'otp_code' => Hash::make('123456'),
-                'otp_expires_at' => now()->addMinutes(5),
-            ]);
+            $user = User::factory()->create();
+            seedLoginOtp($user);
 
             $this->postJson('/api/auth/verify-otp', [
                 'identifier' => $user->email,
@@ -160,11 +181,8 @@ describe('auth endpoints', function () {
         });
 
         it('fails when user is inactive', function () {
-            $user = User::factory()->create([
-                'otp_code' => Hash::make('123456'),
-                'otp_expires_at' => now()->addMinutes(5),
-                'is_active' => false,
-            ]);
+            $user = User::factory()->create(['is_active' => false]);
+            seedLoginOtp($user);
 
             $this->postJson('/api/auth/verify-otp', [
                 'identifier' => $user->email,
@@ -174,10 +192,8 @@ describe('auth endpoints', function () {
         });
 
         it('fails with expired OTP', function () {
-            $user = User::factory()->create([
-                'otp_code' => Hash::make('123456'),
-                'otp_expires_at' => now()->subMinute(),
-            ]);
+            $user = User::factory()->create();
+            seedLoginOtp($user, expired: true);
 
             $this->postJson('/api/auth/verify-otp', [
                 'identifier' => $user->email,
@@ -186,20 +202,18 @@ describe('auth endpoints', function () {
         });
 
         it('clears attempts on successful verification', function () {
-            $user = User::factory()->create([
-                'otp_code' => Hash::make('123456'),
-                'otp_expires_at' => now()->addMinutes(5),
-            ]);
+            $user = User::factory()->create();
+            seedLoginOtp($user);
 
-            RateLimiter::hit('login-attempts:'.$user->id, 60);
-            RateLimiter::hit('login-attempts:'.$user->id, 60);
+            RateLimiter::hit("otp-attempts:login:user:{$user->id}:email", 60);
+            RateLimiter::hit("otp-attempts:login:user:{$user->id}:email", 60);
 
             $this->postJson('/api/auth/verify-otp', [
                 'identifier' => $user->email,
                 'code' => '123456',
             ]);
 
-            expect(RateLimiter::attempts('login-attempts:'.$user->id))->toBe(0);
+            expect(RateLimiter::attempts("otp-attempts:login:user:{$user->id}:email"))->toBe(0);
         });
     });
 
