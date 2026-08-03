@@ -91,6 +91,17 @@ export function RoleEditPage() {
                     is_active: role?.is_active ?? true,
                     permission_ids: role?.permissions?.map((p) => p.id) ?? [],
                     permission_group_ids: role?.permission_groups?.map((g) => g.id) ?? [],
+                    matrix_managers: role?.matrix_managers ?? [],
+                    requirements: {
+                        min_education: role?.requirements?.min_education ?? null,
+                        min_experience_years:
+                            role?.requirements?.min_experience_years ?? null,
+                        required_skills: role?.requirements?.required_skills ?? [],
+                        preferred_skills:
+                            role?.requirements?.preferred_skills ?? [],
+                        certifications: role?.requirements?.certifications ?? [],
+                        languages: role?.requirements?.languages ?? [],
+                    },
                 }}
                 onSubmit={(values) => updateMutation.mutate(values)}
                 isPending={updateMutation.isPending}

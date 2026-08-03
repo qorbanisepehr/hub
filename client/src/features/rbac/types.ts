@@ -1,3 +1,9 @@
+import type {
+    MatrixManagerType,
+    EducationLevel,
+    LanguageLevel,
+} from "@/features/rbac/constants";
+
 export type Permission = {
     id: number;
     name: string;
@@ -18,6 +24,26 @@ export type PermissionGroup = {
     updated_at: string;
 };
 
+export type MatrixManager = {
+    role_id: number;
+    manager_type: MatrixManagerType;
+};
+
+export type ResolvedMatrixManager = {
+    id: number;
+    display_name: string;
+    manager_type: MatrixManagerType;
+};
+
+export type RoleRequirements = {
+    min_education?: EducationLevel | null;
+    min_experience_years?: number | null;
+    required_skills?: string[];
+    preferred_skills?: string[];
+    certifications?: string[];
+    languages?: LanguageLevel[];
+};
+
 export type Role = {
     id: number;
     name: string;
@@ -26,6 +52,9 @@ export type Role = {
     is_active: boolean;
     inherits_permissions: boolean;
     parent_id: number | null;
+    matrix_managers?: MatrixManager[];
+    requirements?: RoleRequirements | null;
+    matrix_manager_roles?: ResolvedMatrixManager[];
     parent?: Role;
     permission_groups?: PermissionGroup[];
     permissions?: Permission[];
@@ -46,6 +75,8 @@ export type CreateRoleData = {
     parent_id?: number | null;
     inherits_permissions?: boolean;
     is_active?: boolean;
+    matrix_managers?: MatrixManager[];
+    requirements?: RoleRequirements | null;
     permission_ids?: number[];
     permission_group_ids?: number[];
 };
