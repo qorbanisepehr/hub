@@ -18,11 +18,12 @@ use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
 
 /**
- * Helper: create a draft questionnaire and return its UUID.
+ * Helper: create a draft questionnaire, issue an edit grant for it, and attach
+ * the token as the default request header for the current test.
  */
 function createDraft(): string
 {
-    return Questionnaire::create([
+    $questionnaire = Questionnaire::create([
         'first_name' => 'Test',
         'last_name' => 'User',
         'email' => 'test@example.com',
@@ -30,7 +31,11 @@ function createDraft(): string
         'status' => 'draft',
         'mobile_verified_at' => now(),
         'email_verified_at' => now(),
-    ])->uuid;
+    ]);
+
+    test()->withHeader('X-Access-Token', grantToken($questionnaire->uuid));
+
+    return $questionnaire->uuid;
 }
 
 /**
@@ -366,6 +371,67 @@ describe('Questionnaire validation', function () {
             ]);
 
             $this->assertNotNull(Questionnaire::where('uuid', $uuid)->value('mobile_verified_at'));
+        });
+    });
+
+    // ────────────────────────────────────────
+    //  Protected access (grant token flow)
+    // ────────────────────────────────────────
+    describe('protected access', function () {
+        it('request-access sends an OTP for the mobile channel', function () {
+            $uuid = createDraft();
+
+            $this->postJson("/api/questionnaire/{$uuid}/request-access")
+                ->assertOk()
+                ->assertJsonPath('code_sent', true)
+                ->assertJsonStructure(['message', 'expires_in']);
+        });
+
+        it('verify-access-otp issues a reusable grant token on valid code', function () {
+            $uuid = createDraft();
+
+            Cache::put("otp:access_protected:questionnaire:{$uuid}:mobile", ['hash' => Hash::make('123456')], now()->addMinutes(5));
+
+            $this->postJson("/api/questionnaire/{$uuid}/verify-access-otp", [
+                'otp' => '123456',
+            ])->assertOk()
+                ->assertJsonStructure(['access_token', 'expires_in', 'message']);
+        });
+
+        it('verify-access-otp rejects an invalid code', function () {
+            $uuid = createDraft();
+
+            Cache::put("otp:access_protected:questionnaire:{$uuid}:mobile", ['hash' => Hash::make('123456')], now()->addMinutes(5));
+
+            $this->postJson("/api/questionnaire/{$uuid}/verify-access-otp", [
+                'otp' => '000000',
+            ])->assertUnprocessable();
+        });
+
+        it('request-access returns a clean 404 for an unknown uuid', function () {
+            $this->postJson('/api/questionnaire/00000000-0000-0000-0000-000000000000/request-access')
+                ->assertNotFound()
+                ->assertJson(['message' => __('messages.not_found')]);
+        });
+
+        it('verify-access-otp returns a clean 404 for an unknown uuid', function () {
+            $this->postJson('/api/questionnaire/00000000-0000-0000-0000-000000000000/verify-access-otp', [
+                'otp' => '123456',
+            ])->assertNotFound()
+                ->assertJson(['message' => __('messages.not_found')]);
+        });
+
+        it('exists returns 204 for an existing questionnaire', function () {
+            $uuid = createDraft();
+
+            $this->getJson("/api/questionnaire/{$uuid}/exists")
+                ->assertNoContent();
+        });
+
+        it('exists returns a clean 404 for an unknown uuid', function () {
+            $this->getJson('/api/questionnaire/00000000-0000-0000-0000-000000000000/exists')
+                ->assertNotFound()
+                ->assertJson(['message' => __('messages.not_found')]);
         });
     });
 

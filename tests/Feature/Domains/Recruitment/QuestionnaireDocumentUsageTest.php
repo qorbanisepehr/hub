@@ -20,7 +20,7 @@ function createUsageDraft(): string
 {
     $suffix = str_pad(substr((string) hrtime(true), -7), 7, '0', STR_PAD_LEFT);
 
-    return Questionnaire::create([
+    $questionnaire = Questionnaire::create([
         'first_name' => 'Test',
         'last_name' => 'User',
         'email' => 'test'.$suffix.'@example.com',
@@ -28,7 +28,11 @@ function createUsageDraft(): string
         'status' => 'draft',
         'mobile_verified_at' => now(),
         'email_verified_at' => now(),
-    ])->uuid;
+    ]);
+
+    test()->withHeader('X-Access-Token', grantToken($questionnaire->uuid));
+
+    return $questionnaire->uuid;
 }
 
 describe('questionnaire document usages (shared files)', function () {
@@ -156,12 +160,12 @@ describe('questionnaire document usages (shared files)', function () {
         $doc = $this->postJson("/api/questionnaire/{$uuidA}/documents", [
             'document_category_id' => $skills->id,
             'file' => UploadedFile::fake()->createWithContent('cert.pdf', 'own-cert-content'),
-        ])->assertCreated()->json('data');
+        ], ['X-Access-Token' => grantToken($uuidA)])->assertCreated()->json('data');
 
         $this->deleteJson("/api/questionnaire/{$uuidB}/documents/{$doc['usage_id']}")
             ->assertNotFound();
 
-        $this->getJson("/api/questionnaire/{$uuidA}/documents")
+        $this->getJson("/api/questionnaire/{$uuidA}/documents", ['X-Access-Token' => grantToken($uuidA)])
             ->assertJsonCount(1, 'data');
     });
 });

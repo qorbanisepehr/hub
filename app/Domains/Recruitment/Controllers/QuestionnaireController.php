@@ -9,6 +9,7 @@ use App\Domains\Recruitment\Requests\VerifyInitOtpRequest;
 use App\Domains\Recruitment\Requests\VerifyQuestionnaireRequest;
 use App\Domains\Recruitment\Resources\QuestionnaireResource;
 use App\Domains\Recruitment\Services\QuestionnaireService;
+use App\Enums\GrantPurpose;
 use App\Enums\OtpContext;
 use App\Enums\OtpSendStatus;
 use App\Http\Responses\OtpResponder;
@@ -124,17 +125,21 @@ class QuestionnaireController extends Controller
 
         $pending->delete();
 
+        $token = $this->otpService->issueGrant($questionnaire, 'mobile', OtpContext::AccessProtected, GrantPurpose::Edit);
+
         return response()->json([
             'data' => new QuestionnaireResource($questionnaire->fresh()),
+            'access_token' => $token,
+            'expires_in' => $this->otpService->getGrantExpiresIn(GrantPurpose::Edit),
             'message' => $existing
                 ? __('recruitment.questionnaire.verified')
                 : __('recruitment.questionnaire.created'),
         ]);
     }
 
-    public function show(string $uuid): JsonResponse
+    public function show(Request $request, string $uuid): JsonResponse
     {
-        $questionnaire = $this->questionnaireService->findByUuidOrFail($uuid);
+        $questionnaire = $request->attributes->get('granted_resource');
 
         return response()->json([
             'data' => new QuestionnaireResource($questionnaire),
@@ -143,7 +148,7 @@ class QuestionnaireController extends Controller
 
     public function saveSection(string $uuid, string $section, SectionSaveRequest $request): JsonResponse
     {
-        $questionnaire = $this->questionnaireService->findByUuidOrFail($uuid);
+        $questionnaire = $request->attributes->get('granted_resource');
 
         if (! $questionnaire->isDraft()) {
             return response()->json([
@@ -250,9 +255,9 @@ class QuestionnaireController extends Controller
         return $this->otpVerifiedResponse($questionnaire, 'email');
     }
 
-    public function submit(string $uuid): JsonResponse
+    public function submit(Request $request, string $uuid): JsonResponse
     {
-        $questionnaire = $this->questionnaireService->findByUuidOrFail($uuid);
+        $questionnaire = $request->attributes->get('granted_resource');
 
         if (! $questionnaire->isDraft()) {
             return response()->json([

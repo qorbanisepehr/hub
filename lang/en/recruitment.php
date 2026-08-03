@@ -32,6 +32,8 @@ return [
         'only_submitted_rejectable' => 'Only submitted questionnaires can be rejected.',
         'reviewed' => 'Questionnaire reviewed successfully.',
         'rejected' => 'Questionnaire sent back to draft.',
+        'access_granted' => 'Access to the CV was granted successfully.',
+        'access_denied' => 'Unauthorized or expired access.',
     ],
     'documents' => [
         'missing' => 'Uploading :document is required.',
