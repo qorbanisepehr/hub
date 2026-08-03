@@ -51,7 +51,7 @@ class RoleController
 
     public function store(StoreRoleRequest $request): RoleResource
     {
-        $role = Role::create($request->validated());
+        $role = Role::create($this->withJsonFields($request, $request->validated()));
 
         $this->syncPermissions($role, $request);
 
@@ -65,7 +65,7 @@ class RoleController
 
     public function update(UpdateRoleRequest $request, Role $role): RoleResource
     {
-        $role->update($request->validated());
+        $role->update($this->withJsonFields($request, $request->validated()));
 
         $this->syncPermissions($role, $request);
 
@@ -121,6 +121,18 @@ class RoleController
     {
         $role->load(array_merge(['parent', 'permissionGroups'], $extra));
 
+        $managerRoles = $role->getMatrixManagersCollection();
+
+        $role->setRelation('matrixManagerRoles', collect($role->matrix_managers ?? [])
+            ->map(fn (array $entry) => [
+                'id' => $entry['role_id'],
+                'display_name' => $managerRoles->get($entry['role_id'])?->display_name,
+                'manager_type' => $entry['manager_type'],
+            ])
+            ->filter(fn (array $entry) => $entry['display_name'] !== null)
+            ->values()
+            ->all());
+
         return $role;
     }
 
@@ -135,6 +147,26 @@ class RoleController
         }
 
         $this->flushRoleUsersCaches($role);
+    }
+
+    /**
+     * Restore json fields whose empty values are omitted from validated data.
+     *
+     * Laravel's validator drops empty arrays for fields that have explicit
+     * nested rules, so re-attach them when the request actually sent them.
+     *
+     * @param  array<string, mixed>  $validated
+     * @return array<string, mixed>
+     */
+    private function withJsonFields(Request $request, array $validated): array
+    {
+        foreach (['matrix_managers', 'requirements'] as $field) {
+            if ($request->has($field)) {
+                $validated[$field] = $request->input($field);
+            }
+        }
+
+        return $validated;
     }
 
     private function flushRoleUsersCaches(Role $role): void

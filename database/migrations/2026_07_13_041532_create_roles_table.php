@@ -16,6 +16,8 @@ return new class extends Migration
             $table->foreignId('parent_id')->nullable()->constrained('roles')->nullOnDelete();
             $table->boolean('is_active')->default(true);
             $table->boolean('inherits_permissions')->default(false);
+            $table->json('matrix_managers')->nullable();
+            $table->json('requirements')->nullable();
             $table->timestamps();
         });
 
