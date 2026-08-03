@@ -142,7 +142,7 @@ export function buildNodesAndEdges(
                 target: String(role.id),
                 type: "smoothstep",
                 style: {
-                    stroke: "hsl(var(--foreground))",
+                    stroke: "var(--foreground)",
                     strokeWidth: 2,
                     strokeOpacity: 0.45,
                 },
@@ -156,7 +156,7 @@ export function buildNodesAndEdges(
                     target: String(role.id),
                     type: "smoothstep",
                     style: {
-                        stroke: "hsl(var(--primary))",
+                        stroke: "var(--primary)",
                         strokeWidth: 1.5,
                         strokeOpacity: 0.6,
                         strokeDasharray: "6 4",

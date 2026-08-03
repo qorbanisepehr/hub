@@ -1,11 +1,5 @@
 import { useEffect, useState } from "react";
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogHeader,
-    DialogTitle,
-} from "@/components/ui/dialog";
+import { ResponsiveDialog } from "@/components/ui/responsive-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
@@ -71,37 +65,28 @@ export function RoleDetailModal({
     const directChildren = role.children ?? [];
 
     return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-md">
-                <div dir="rtl" className="space-y-0">
-                    <DialogHeader className="pb-0">
-                        <div className="flex flex-col items-center gap-3 pt-2">
-                            <div className="flex size-16 items-center justify-center rounded-full bg-primary/10 text-primary ring-1 ring-border">
-                                <IconMasksTheater className="size-8" />
-                            </div>
-                            <div className="space-y-1 text-center">
-                                <DialogTitle className="text-lg font-bold">
-                                    {role.display_name}
-                                </DialogTitle>
-                                <DialogDescription dir="ltr" className="text-right text-center text-sm font-medium">
-                                    {role.name}
-                                </DialogDescription>
-                                <span
-                                    className={cn(
-                                        "mt-1 inline-flex items-center rounded-md border px-2.5 py-0.5 text-[11px] font-semibold",
-                                        role.is_active
-                                            ? "border-primary/20 bg-primary/10 text-primary"
-                                            : "border-border bg-muted text-muted-foreground",
-                                    )}
-                                >
-                                    {role.is_active ? "فعال" : "غیرفعال"}
-                                </span>
-                            </div>
-                        </div>
-                    </DialogHeader>
+        <ResponsiveDialog
+            open={open}
+            onOpenChange={onOpenChange}
+            title={role.display_name}
+            description={role.name}
+        >
+            <div dir="rtl" className="space-y-4">
+                <div className="flex items-center justify-end">
+                    <span
+                        className={cn(
+                            "inline-flex items-center rounded-md border px-2.5 py-0.5 text-[11px] font-semibold",
+                            role.is_active
+                                ? "border-primary/20 bg-primary/10 text-primary"
+                                : "border-border bg-muted text-muted-foreground",
+                        )}
+                    >
+                        {role.is_active ? "فعال" : "غیرفعال"}
+                    </span>
+                </div>
 
-                    <div className="mt-4">
-                        <Tabs value={tab} onValueChange={setTab}>
+                <div className="mt-4">
+                    <Tabs value={tab} onValueChange={setTab}>
                             <TabsList className="grid w-full grid-cols-3">
                                 <TabsTrigger value="info" className="gap-1.5 text-xs">
                                     <IconInfoCircle className="size-3.5" />
@@ -275,7 +260,6 @@ export function RoleDetailModal({
                         </Tabs>
                     </div>
                 </div>
-            </DialogContent>
-        </Dialog>
+        </ResponsiveDialog>
     );
 }

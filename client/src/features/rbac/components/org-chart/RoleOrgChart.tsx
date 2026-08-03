@@ -2,8 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
     Background,
     BackgroundVariant,
-    ControlButton,
-    Controls,
     MiniMap,
     ReactFlow,
     ReactFlowProvider,
@@ -35,6 +33,7 @@ import {
     type ChartDirection,
 } from "./layoutUtils";
 import type { RoleChartRole } from "@/features/rbac/types";
+import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ErrorSection } from "@/components/shared/error-section";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -232,66 +231,73 @@ function RoleOrgChartInner({
                     variant={BackgroundVariant.Dots}
                     gap={24}
                     size={1}
-                    color="hsl(var(--border))"
+                    color="var(--border)"
                 />
-                <Controls className="[&>button]:!rounded-md [&>button]:!border [&>button]:!bg-card [&>button]:!text-muted-foreground [&>button]:hover:!bg-accent [&>button]:hover:!text-accent-foreground [&>button]:!transition-colors !rounded-lg !border !border-border !bg-card !shadow-sm !overflow-hidden">
-                    <ControlButton
+                <div className="absolute bottom-4 left-2 z-10 flex flex-col gap-1.5">
+                    <Button
+                        variant="outline"
+                        size="icon"
                         onClick={() => handleLayoutChange("TB")}
-                        className="!rounded-md !border !bg-card !text-muted-foreground hover:!bg-accent hover:!text-accent-foreground !transition-colors"
                         title="چیدمان عمودی"
                     >
                         <IconArrowsVertical className="size-4" />
-                    </ControlButton>
-                    <ControlButton
+                    </Button>
+                    <Button
+                        variant="outline"
+                        size="icon"
                         onClick={() => handleLayoutChange("LR")}
-                        className="!rounded-md !border !bg-card !text-muted-foreground hover:!bg-accent hover:!text-accent-foreground !transition-colors"
                         title="چیدمان افقی"
                     >
                         <IconArrowsHorizontal className="size-4" />
-                    </ControlButton>
-                    <ControlButton
+                    </Button>
+                    <Button
+                        variant="outline"
+                        size="icon"
                         onClick={onExpandAll}
-                        className="!rounded-md !border !bg-card !text-muted-foreground hover:!bg-accent hover:!text-accent-foreground !transition-colors"
                         title="بازکردن همه"
                     >
                         <IconArrowsMaximize className="size-4" />
-                    </ControlButton>
-                    <ControlButton
+                    </Button>
+                    <Button
+                        variant="outline"
+                        size="icon"
                         onClick={onCollapseAll}
-                        className="!rounded-md !border !bg-card !text-muted-foreground hover:!bg-accent hover:!text-accent-foreground !transition-colors"
                         title="جمع‌کردن همه"
                     >
                         <IconFold className="size-4" />
-                    </ControlButton>
-                    <ControlButton
+                    </Button>
+                    <Button
+                        variant="outline"
+                        size="icon"
                         onClick={onResetView}
-                        className="!rounded-md !border !bg-card !text-muted-foreground hover:!bg-accent hover:!text-accent-foreground !transition-colors"
                         title="بازآرایی نمای کامل"
                     >
                         <IconMaximize className="size-4" />
-                    </ControlButton>
-                </Controls>
+                    </Button>
+                </div>
                 <MiniMap
-                    nodeStrokeColor="hsl(var(--border))"
-                    nodeColor="hsl(var(--muted))"
+                    nodeStrokeColor="var(--border)"
+                    nodeColor="var(--muted)"
                     nodeBorderRadius={4}
-                    maskColor="hsl(var(--background))"
+                    maskColor="var(--background)"
                     className="!rounded-lg !border !border-border !shadow-sm"
                 />
 
                 {subtreeRootId != null && (
                     <div className="absolute top-4 left-4 z-10">
-                        <button
+                        <Button
+                            variant="outline"
+                            size="sm"
                             onClick={onResetView}
-                            className="inline-flex items-center gap-1.5 rounded-lg border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground shadow-sm transition-colors hover:bg-accent hover:text-foreground"
+                            className="shadow-sm"
                         >
                             <IconArrowBackUp className="size-3.5" />
                             <span>بازگشت به نمای کامل</span>
-                        </button>
+                        </Button>
                     </div>
                 )}
 
-                <div className="absolute bottom-4 left-2 z-10 rounded-lg border bg-card p-2.5 text-xs shadow-sm">
+                <div className="absolute top-4 right-4 z-10 rounded-lg border bg-card/90 p-2.5 text-xs shadow-sm backdrop-blur">
                     <div className="space-y-1">
                         <div className="flex items-center gap-2">
                             <div className="h-0.5 w-6 rounded bg-foreground opacity-45" />
@@ -300,7 +306,7 @@ function RoleOrgChartInner({
                         <div className="flex items-center gap-2">
                             <div
                                 className="w-6 border-t border-dashed"
-                                style={{ borderColor: "hsl(var(--primary))" }}
+                                style={{ borderColor: "var(--primary)" }}
                             />
                             <span className="text-muted-foreground">مدیر ماتریسی</span>
                         </div>
