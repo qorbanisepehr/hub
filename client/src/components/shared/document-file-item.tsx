@@ -5,7 +5,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { cn } from "@/lib/utils";
-import { api } from "@/lib/api";
+import { publicApi } from "@/lib/public-api";
 import { ConfirmDeleteButton } from "@/components/ui/confirm-delete-button";
 import { FileThumbnail } from "@/components/ui/file-thumbnail";
 import { getFileIcon } from "@/lib/file-icon";
@@ -41,7 +41,9 @@ export function DocumentFileItem({
 
     const deleteMutation = useMutation({
         mutationFn: (usageId: number) =>
-            api.delete(`/questionnaire/${uuid}/documents/${usageId}`),
+            publicApi.delete(`/questionnaire/${uuid}/documents/${usageId}`, {
+                grant: { entity: "questionnaire", uuid, purpose: "edit" },
+            }),
         onSuccess: () => {
             queryClient.invalidateQueries({
                 queryKey: ["questionnaire-documents", uuid],

@@ -54,16 +54,18 @@ export function ErrorPage({
     title: customTitle,
     description: customDescription,
     homeTo = "/dashboard",
-    homeLabel = "بازگشت به داشبورد",
+    homeLabel = "بازگشت",
 }: ErrorPageProps) {
-    const config = status ? (STATUS_CONFIG[status] ?? DEFAULT_CONFIG) : DEFAULT_CONFIG;
+    const config = status
+        ? (STATUS_CONFIG[status] ?? DEFAULT_CONFIG)
+        : DEFAULT_CONFIG;
     const Icon = config.icon;
     const title = customTitle ?? config.title;
     const description = customDescription ?? config.description;
 
     return (
         <PageLayout>
-            <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center">
+            <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center py-16">
                 <Icon className="size-16 text-muted-foreground/30" />
                 <div className="space-y-2">
                     {status && (

@@ -18,6 +18,7 @@ import {
 } from "@/features/recruitment/api";
 import type { InitQuestionnaireResponse } from "@/features/recruitment/types";
 import { getApiError } from "@/lib/error-utils";
+import { setGrantToken } from "@/lib/grant";
 
 const initSchema = z.object({
     first_name: z
@@ -103,10 +104,23 @@ export function QuestionnaireStartPage() {
                                         verifyInitOtp(otpUuid, otp)
                                     }
                                     onVerified={(data) => {
+                                        const newUuid = data.data?.uuid;
+                                        if (!newUuid) return;
+
+                                        if (data.access_token) {
+                                            setGrantToken(
+                                                "questionnaire",
+                                                newUuid,
+                                                "edit",
+                                                data.access_token,
+                                                data.expires_in ?? 3600,
+                                            );
+                                        }
+
                                         toast.success("شماره موبایل تأیید شد.");
                                         navigate({
                                             to: "/questionnaire/$uuid",
-                                            params: { uuid: data.data.uuid },
+                                            params: { uuid: newUuid },
                                         });
                                     }}
                                     description="کد تأیید ۶ رقمی به شماره موبایل شما ارسال شد. لطفاً کد را وارد کنید."

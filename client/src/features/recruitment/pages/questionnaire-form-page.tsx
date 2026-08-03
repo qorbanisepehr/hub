@@ -4,6 +4,7 @@ import { useParams } from "@tanstack/react-router";
 import { IconLoader2, IconShare } from "@tabler/icons-react";
 
 import { Button } from "@/components/ui/button";
+import { AccessGate } from "@/components/shared/access-gate";
 import { ErrorPage } from "@/components/shared/error-page";
 import { QrCode } from "@/components/shared/qr-code";
 import { ShareDialog } from "@/components/shared/share-dialog";
@@ -16,6 +17,35 @@ export function QuestionnaireFormPage() {
     const [shareOpen, setShareOpen] = useState(false);
 
     const shareUrl = `${window.location.origin}/questionnaire/${uuid}`;
+
+    return (
+        <AccessGate
+            entity="questionnaire"
+            uuid={uuid}
+            purpose="edit"
+            description="برای ادامه تکمیل پرسشنامه، کد تأیید به شماره موبایل صاحب پرسشنامه ارسال می‌شود."
+        >
+            <QuestionnaireFormContent uuid={uuid} shareUrl={shareUrl} />
+
+            <ShareDialog
+                open={shareOpen}
+                onOpenChange={setShareOpen}
+                url={shareUrl}
+                shareTitle="پرسشنامه استخدامی"
+                shareText="لطفاً فرم پرسشنامه را تکمیل کنید."
+            />
+        </AccessGate>
+    );
+}
+
+function QuestionnaireFormContent({
+    uuid,
+    shareUrl,
+}: {
+    uuid: string;
+    shareUrl: string;
+}) {
+    const [shareOpen, setShareOpen] = useState(false);
 
     const { data, isLoading, isError } = useQuery({
         queryKey: ["questionnaire", uuid],

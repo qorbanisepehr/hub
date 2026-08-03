@@ -20,6 +20,8 @@ export type LoginResponse = {
     destination?: string;
     user?: User;
     retry_after?: number;
+    expires_in?: number;
+    code_sent?: boolean;
 };
 
 export type LoginMode = "otp" | "password";

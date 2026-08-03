@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 
-import { api } from "@/lib/api";
+import { publicApi } from "@/lib/public-api";
 
 export type QuestionnaireDocument = {
     id: number;
@@ -18,12 +18,24 @@ export type QuestionnaireDocument = {
 export function useQuestionnaireDocuments(uuid: string | undefined) {
     const { data: documents = [], isLoading } = useQuery({
         queryKey: ["questionnaire-documents", uuid],
-        queryFn: () =>
-            api
+        queryFn: () => {
+            if (!uuid) {
+                throw new Error("Questionnaire uuid is required.");
+            }
+
+            return publicApi
                 .get<{ data: QuestionnaireDocument[] }>(
                     `/questionnaire/${uuid}/documents`,
+                    {
+                        grant: {
+                            entity: "questionnaire",
+                            uuid,
+                            purpose: "view",
+                        },
+                    },
                 )
-                .then((r) => r.data.data),
+                .then((r) => r.data.data);
+        },
         enabled: !!uuid,
     });
 

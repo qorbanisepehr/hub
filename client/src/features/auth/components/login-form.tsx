@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useForm } from "@tanstack/react-form";
+import { useStore } from "@tanstack/react-store";
 import { useNavigate } from "@tanstack/react-router";
 import { z } from "zod";
 
@@ -24,6 +25,7 @@ import { CodeField } from "@/features/auth/components/code-field";
 import { PasswordField } from "@/features/auth/components/password-field";
 import type { LoginMode } from "@/features/auth/types";
 import { getApiError } from "@/lib/error-utils";
+import { useOtpVerification } from "@/hooks/use-otp-verification";
 
 const identifierSchema = z.string().min(1, "این فیلد الزامی است");
 const codeSchema = z.string().length(6, "لطفا کد تایید را وارد کنید");
@@ -49,30 +51,19 @@ export function LoginForm({
             password: "",
         },
         onSubmit: async ({ value }) => {
-            if (!value.identifier) return;
-
-            try {
-                if (mode === "otp") {
-                    if (otpSent) {
-                        if (!value.code) return;
-                        await verifyOtp.mutateAsync({
-                            identifier: value.identifier,
-                            code: value.code,
-                        });
-                        navigate({ to: redirectTo ?? "/dashboard" });
-                    } else {
-                        await handleRequestOtp();
-                    }
+            if (mode === "otp") {
+                if (otpSent) {
+                    await handleVerify();
                 } else {
-                    if (!value.password) return;
-                    await loginPassword.mutateAsync({
-                        identifier: value.identifier,
-                        password: value.password,
-                    });
-                    navigate({ to: redirectTo ?? "/dashboard" });
+                    await handleSendOtp();
                 }
-            } catch {
-                // Error is displayed via mutation state below
+            } else {
+                if (!value.password) return;
+                await loginPassword.mutateAsync({
+                    identifier: value.identifier,
+                    password: value.password,
+                });
+                navigate({ to: redirectTo ?? "/dashboard" });
             }
         },
     });
@@ -86,18 +77,50 @@ export function LoginForm({
             setOtpDestination(result.data.destination);
             setOtpSent(true);
         }
+
+        return result;
     };
+
+    const {
+        otp,
+        setOtp,
+        isSending,
+        isVerifying,
+        error: otpError,
+        countdown,
+        sendOtp: handleSendOtp,
+        verifyOtp: handleVerify,
+        reset: resetOtp,
+    } = useOtpVerification({
+        sendOtp: handleRequestOtp,
+        verifyOtp: (code) =>
+            verifyOtp.mutateAsync({
+                identifier: form.state.values.identifier,
+                code,
+            }),
+        onVerified: () => {
+            form.setFieldValue("code", "");
+            navigate({ to: redirectTo ?? "/dashboard" });
+        },
+        cooldownSeconds: 120,
+        otpLength: 6,
+    });
+
+    // Keep the form's code field and the hook's otp state in sync.
+    const codeValue = useStore(form.store, (s) => s.values.code);
+    React.useEffect(() => {
+        setOtp(codeValue);
+    }, [codeValue, setOtp]);
 
     const handleBackToIdentifier = () => {
         setOtpSent(false);
         setOtpDestination(null);
         form.setFieldValue("code", "");
+        resetOtp();
     };
 
     const error =
-        getApiError(loginOtp.error) ??
-        getApiError(loginPassword.error) ??
-        getApiError(verifyOtp.error);
+        otpError ?? (mode === "password" ? getApiError(loginPassword.error) : null);
 
     return (
         <div className={cn("flex flex-col gap-6", className)} {...props}>
@@ -141,12 +164,27 @@ export function LoginForm({
 
                                     <Button
                                         type="submit"
-                                        disabled={verifyOtp.isPending}
+                                        disabled={isVerifying}
                                         className="w-full"
                                     >
-                                        {verifyOtp.isPending
+                                        {isVerifying
                                             ? "در حال بررسی..."
                                             : "تایید کد"}
+                                    </Button>
+
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        disabled={isSending || countdown > 0}
+                                        onClick={handleSendOtp}
+                                        className="w-full"
+                                    >
+                                        {isSending
+                                            ? "در حال ارسال..."
+                                            : countdown > 0
+                                              ? `ارسال مجدد کد (${countdown} ثانیه)`
+                                              : "ارسال مجدد کد"}
                                     </Button>
 
                                     <Button
@@ -164,10 +202,10 @@ export function LoginForm({
                                     {mode === "otp" && (
                                         <Button
                                             type="submit"
-                                            disabled={loginOtp.isPending}
+                                            disabled={isSending}
                                             className="w-full"
                                         >
-                                            {loginOtp.isPending
+                                            {isSending
                                                 ? "در حال ارسال..."
                                                 : "ارسال کد یکبار مصرف"}
                                         </Button>

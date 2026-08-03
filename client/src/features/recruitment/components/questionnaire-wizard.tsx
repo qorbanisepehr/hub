@@ -61,29 +61,50 @@ const SECTION_COMPONENTS = [
     JobRequestSection,
 ];
 
+type WizardFormValues = {
+    first_name?: string;
+    last_name?: string;
+    email?: string;
+    mobile?: string;
+    personal_info?: unknown;
+    contact_info?: unknown;
+    [key: string]: unknown;
+};
+
 /**
  * Extract the data payload for a given wizard step key from the full form values.
  */
 function extractSectionData(
-    values: ReturnType<typeof useForm>["state"]["values"],
+    values: WizardFormValues,
     sectionKey: string,
 ): Record<string, unknown> {
     switch (sectionKey) {
-        case "personal_info":
+        case "personal_info": {
+            // Spread the JSONB section first so the top-level identity fields
+            // win: the JSONB copy of first_name/last_name is stale and must
+            // never overwrite what the user just typed.
+            const personalInfo =
+                (values.personal_info as Record<string, unknown> | undefined) ?? {};
             return {
+                ...personalInfo,
                 first_name: values.first_name,
                 last_name: values.last_name,
-                ...(values.personal_info as Record<string, unknown> ?? {}),
             };
-        case "contact_info":
+        }
+        case "contact_info": {
+            // Same rule as personal_info: email/mobile live on the real
+            // columns, so the JSONB copy must not override the typed values.
+            const contactInfo =
+                (values.contact_info as Record<string, unknown> | undefined) ?? {};
             return {
+                ...contactInfo,
                 email: values.email,
                 mobile: values.mobile,
-                ...(values.contact_info as Record<string, unknown> ?? {}),
             };
+        }
         default:
             if (sectionKey in values) {
-                return (values[sectionKey as keyof typeof values] as Record<string, unknown>) ?? {};
+                return (values[sectionKey] as Record<string, unknown> | undefined) ?? {};
             }
             return {};
     }

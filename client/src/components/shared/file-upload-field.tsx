@@ -11,7 +11,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { cn } from "@/lib/utils";
-import { api } from "@/lib/api";
+import { publicApi } from "@/lib/public-api";
 import { getApiError } from "@/lib/error-utils";
 import { documentKeys } from "@/lib/query-keys";
 import { formatBytes } from "@/lib/file-size";
@@ -144,11 +144,16 @@ export function FileUploadField({
             } else if (notes) {
                 formData.append("notes", notes);
             }
-            return api
+            return publicApi
                 .post<{
                     data: QuestionnaireDocument;
                 }>(`/questionnaire/${uuid}/documents`, formData, {
                     headers: { "Content-Type": "multipart/form-data" },
+                    grant: {
+                        entity: "questionnaire",
+                        uuid,
+                        purpose: "edit",
+                    },
                 })
                 .then((r) => r.data.data);
         },
@@ -166,7 +171,9 @@ export function FileUploadField({
 
     const deleteMutation = useMutation({
         mutationFn: (usageId: number) =>
-            api.delete(`/questionnaire/${uuid}/documents/${usageId}`),
+            publicApi.delete(`/questionnaire/${uuid}/documents/${usageId}`, {
+                grant: { entity: "questionnaire", uuid, purpose: "edit" },
+            }),
         onSuccess: () => {
             queryClient.invalidateQueries({
                 queryKey: ["questionnaire-documents", uuid],
