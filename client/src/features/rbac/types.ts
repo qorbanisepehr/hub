@@ -68,6 +68,32 @@ export type UserRoleAssignment = {
     active_role: Role | null;
 };
 
+export type RoleChartUser = {
+    id: number;
+    name: string;
+    avatar_url: string | null;
+};
+
+export type RoleChartChild = {
+    id: number;
+    display_name: string;
+};
+
+export type RoleChartRole = {
+    id: number;
+    name: string;
+    display_name: string;
+    description: string | null;
+    is_active: boolean;
+    parent_id: number | null;
+    matrix_managers: MatrixManager[];
+    matrix_manager_roles: ResolvedMatrixManager[];
+    children: RoleChartChild[];
+    users: RoleChartUser[];
+    user_count: number;
+    children_count: number;
+};
+
 export type CreateRoleData = {
     name: string;
     display_name: string;

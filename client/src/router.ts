@@ -13,6 +13,7 @@ import { Route as EmployeeEditRoute } from "@/routes/_protected/employees/$id.ed
 import { Route as RolesRoute } from "@/routes/_protected/roles/index";
 import { Route as RoleCreateRoute } from "@/routes/_protected/roles/create";
 import { Route as RoleEditRoute } from "@/routes/_protected/roles/$roleId";
+import { Route as RoleChartRoute } from "@/routes/_protected/roles/chart";
 import { Route as UsersRoute } from "@/routes/_protected/users/index";
 import { Route as UserCreateRoute } from "@/routes/_protected/users/create";
 import { Route as UserViewRoute } from "@/routes/_protected/users/$userId";
@@ -45,6 +46,7 @@ const routeTree = RootRoute.addChildren([
         RolesRoute,
         RoleCreateRoute,
         RoleEditRoute,
+        RoleChartRoute,
         UsersRoute,
         UserCreateRoute,
         UserViewRoute,

@@ -35,6 +35,7 @@ export const roleKeys = {
     select: (search: string) =>
         [...roleKeys.all, "select", search] as const,
     filterOptions: () => [...roleKeys.all, "filter-options"] as const,
+    chart: () => [...roleKeys.all, "chart"] as const,
 };
 
 export const userKeys = {

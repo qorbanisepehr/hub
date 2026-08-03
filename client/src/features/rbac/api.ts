@@ -12,6 +12,7 @@ import type {
     UserDetail,
     UpdateUserData,
     CreateUserData,
+    RoleChartRole,
 } from "./types";
 
 export type { PaginatedResponse };
@@ -40,6 +41,10 @@ export function fetchRoles(params: RoleListParams = {}) {
 
 export function fetchAllRoles() {
     return api.get<{ data: Role[] }>("/roles", { params: { per_page: PAGINATION.FETCH_ALL_SIZE } });
+}
+
+export function fetchRolesChart() {
+    return api.get<{ data: RoleChartRole[] }>("/roles/chart");
 }
 
 export function fetchRole(id: number) {
