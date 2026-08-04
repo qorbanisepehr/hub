@@ -1,3 +1,5 @@
+import type { ValidationSection, DocumentRequirement } from "@/lib/validation-helpers";
+
 // Shared option lists are reused cross-domain from the recruitment feature to
 // avoid duplicating the same Persian option labels in two places.
 export {
@@ -30,6 +32,27 @@ export const CV_DOC_CATEGORY_SLUGS = {
     COVER_LETTER: "cover-letter",
     OTHER_DOCUMENTS: "other-documents",
 } as const;
+
+// Identity fields live on the real columns, not inside the JSONB section, so
+// they need extra match prefixes when grouping errors by section.
+const CV_SECTION_IDENTITY_MATCH: Record<string, string[]> = {
+    personal_info: ["first_name", "last_name"],
+    contact_info: ["email", "mobile"],
+};
+
+export const CV_VALIDATION_SECTIONS: ValidationSection[] = CV_WIZARD_STEPS.filter(
+    (step) => step.key !== "summary",
+).map((step) => ({
+    key: step.key,
+    label: step.label,
+    match: [step.key, ...(CV_SECTION_IDENTITY_MATCH[step.key] ?? [])],
+}));
+
+export const CV_DOC_REQUIREMENTS: DocumentRequirement[] = [
+    { slug: CV_DOC_CATEGORY_SLUGS.RESUME, label: "رزومه", required: true, max: 1 },
+    { slug: CV_DOC_CATEGORY_SLUGS.COVER_LETTER, label: "نامه معرفی", max: 1 },
+    { slug: CV_DOC_CATEGORY_SLUGS.OTHER_DOCUMENTS, label: "سایر مدارک", max: 3 },
+];
 
 export const CV_STATUS_LABELS: Record<string, string> = {
     draft: "پیش‌نویس",

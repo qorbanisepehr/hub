@@ -2,7 +2,18 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useCvDocuments } from "@/features/cv/hooks/use-cv-documents";
 import type { CvDocument } from "@/features/cv/hooks/use-cv-documents";
 import type { Cv, CvFormApi } from "@/features/cv/types";
-import { CV_DOC_CATEGORY_SLUGS } from "@/features/cv/constants";
+import {
+    CV_DOC_CATEGORY_SLUGS,
+    CV_VALIDATION_SECTIONS,
+    CV_DOC_REQUIREMENTS,
+    CV_WIZARD_STEPS,
+} from "@/features/cv/constants";
+import { validateSubmitData } from "@/features/cv/validation";
+import { FormValidationSummary } from "@/components/shared/form-validation-summary";
+import {
+    groupFieldErrorsBySection,
+    validateDocumentRequirements,
+} from "@/lib/validation-helpers";
 import {
     QuestionnaireDocumentPreview,
     QuestionnaireDocumentGrouped,
@@ -68,7 +79,17 @@ export function ReviewSection({ form, cv, onNavigateToStep }: SectionProps) {
     const training = v.training ?? {};
     const additional = v.additional_info ?? {};
 
-    const { getDocumentsBySlug } = useCvDocuments(cv?.uuid);
+    const { documents, isLoading: documentsLoading, getDocumentsBySlug } =
+        useCvDocuments(cv?.uuid);
+
+    const validation = validateSubmitData(form.state.values);
+    const docMessages = documentsLoading
+        ? []
+        : validateDocumentRequirements(documents, CV_DOC_REQUIREMENTS);
+    const validationGroups = groupFieldErrorsBySection(
+        validation.fieldErrors,
+        CV_VALIDATION_SECTIONS,
+    );
 
     function docsFor(slugs: string[]): CvDocument[] {
         return slugs.flatMap((slug) => getDocumentsBySlug(slug));
@@ -85,6 +106,13 @@ export function ReviewSection({ form, cv, onNavigateToStep }: SectionProps) {
 
     return (
         <div className="space-y-4">
+            <FormValidationSummary
+                groups={validationGroups}
+                docMessages={docMessages}
+                onNavigateToStep={onNavigateToStep}
+                steps={CV_WIZARD_STEPS}
+            />
+
             <Card>
                 <CardHeader>
                     <CardTitle>خلاصه و تأیید اطلاعات</CardTitle>

@@ -28,8 +28,19 @@ import {
 } from "@/components/reui/stepper";
 import { saveCvSection, submitCv } from "@/features/cv/api";
 import { getApiError } from "@/lib/error-utils";
-import { CV_WIZARD_STEPS } from "@/features/cv/constants";
+import {
+    CV_WIZARD_STEPS,
+    CV_VALIDATION_SECTIONS,
+    CV_DOC_REQUIREMENTS,
+} from "@/features/cv/constants";
+import { useCvDocuments } from "@/features/cv/hooks/use-cv-documents";
 import { validateSubmitData } from "@/features/cv/validation";
+import { useInjectedFieldErrors } from "@/hooks/use-injected-field-errors";
+import {
+    countSectionFieldErrors,
+    scrollToFirstInvalidField,
+    validateDocumentRequirements,
+} from "@/lib/validation-helpers";
 import { cvKeys } from "@/lib/query-keys";
 import type { Cv } from "@/features/cv/types";
 
@@ -302,6 +313,10 @@ export function CvWizard({ cv }: CvWizardProps) {
 
     const validation = validateSubmitData(form.state.values);
 
+    const { documents, isLoading: documentsLoading } = useCvDocuments(cv.uuid);
+    const { inject: injectFieldErrors, clear: clearInjectedErrors } =
+        useInjectedFieldErrors(form);
+
     // Email stays optional on a CV; when filled it must be OTP-verified.
     const emailIsSettled =
         !cv.email || cv.email_verified || form.state.values.email === "";
@@ -328,6 +343,45 @@ export function CvWizard({ cv }: CvWizardProps) {
         }
         setSubmitErrors([]);
         submitMutation.mutate();
+    };
+
+    const handleValidateClick = () => {
+        const result = validateSubmitData(form.state.values);
+        const docErrors = documentsLoading
+            ? []
+            : validateDocumentRequirements(documents, CV_DOC_REQUIREMENTS);
+
+        if (result.success && docErrors.length === 0) {
+            clearInjectedErrors();
+            toast.success("همه فیلدهای الزامی تکمیل شده‌اند.");
+            return;
+        }
+
+        const sectionKey = CV_WIZARD_STEPS[currentStep]?.key;
+        const section = CV_VALIDATION_SECTIONS.find((s) => s.key === sectionKey);
+        if (section) {
+            injectFieldErrors(result.fieldErrors, section);
+        }
+
+        const currentFieldCount = section
+            ? countSectionFieldErrors(result.fieldErrors, section)
+            : 0;
+        const currentDocCount =
+            sectionKey === "documents" ? docErrors.length : 0;
+        const currentCount = currentFieldCount + currentDocCount;
+        const otherCount = result.errors.length + docErrors.length - currentCount;
+
+        if (currentCount > 0) {
+            scrollToFirstInvalidField();
+        }
+
+        toast.error("فیلدهای الزامی ناقص هستند", {
+            description:
+                currentCount > 0
+                    ? `${currentCount} خطا در این بخش${otherCount > 0 ? ` و ${otherCount} خطا در سایر بخش‌ها` : ""} (در «خلاصه و تأیید» قابل مشاهده است).`
+                    : `${otherCount} خطا در سایر بخش‌ها وجود دارد که در «خلاصه و تأیید» قابل مشاهده است.`,
+            duration: 5000,
+        });
     };
 
     const goToStep = async (step: number) => {
@@ -507,21 +561,7 @@ export function CvWizard({ cv }: CvWizardProps) {
                         <Button
                             type="button"
                             variant="outline"
-                            onClick={() => {
-                                const result = validateSubmitData(
-                                    form.state.values,
-                                );
-                                if (result.success) {
-                                    toast.success(
-                                        "همه فیلدهای الزامی تکمیل شده‌اند.",
-                                    );
-                                } else {
-                                    toast.error("فیلدهای الزامی خالی هستند", {
-                                        description: `${result.errors.length} مورد یافت شد. به صفحه «بررسی نهایی» بروید.`,
-                                        duration: 5000,
-                                    });
-                                }
-                            }}
+                            onClick={handleValidateClick}
                         >
                             <IconClipboardCheck className="size-4" />
                             بررسی اعتبار
