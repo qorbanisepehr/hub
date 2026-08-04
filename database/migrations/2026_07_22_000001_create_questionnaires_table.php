@@ -13,6 +13,9 @@ return new class extends Migration
             $table->uuid('uuid')->unique();
             $table->string('status', 20)->default('draft');
 
+            // ── CV source link (draft questionnaires created from a CV) ──
+            $table->foreignId('cv_id')->nullable()->constrained('cvs')->nullOnDelete();
+
             // ── Real columns: identity ──
             $table->string('first_name', 100)->nullable();
             $table->string('last_name', 100)->nullable();

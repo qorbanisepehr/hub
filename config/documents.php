@@ -20,6 +20,12 @@ return [
         'allowed_mime_types' => ['pdf', 'jpg', 'jpeg', 'png', 'webp'],
     ],
 
+    'cv' => [
+        'max_file_size' => env('CV_DOC_MAX_SIZE', 10 * 1024 * 1024),
+        'max_files' => env('CV_DOC_MAX_FILES', 20),
+        'allowed_mime_types' => ['pdf', 'jpg', 'jpeg', 'png', 'webp'],
+    ],
+
     'thumbnail' => [
         'max_width' => 300,
         'max_height' => 300,

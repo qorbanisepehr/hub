@@ -2,6 +2,7 @@
 
 namespace App\Contracts;
 
+use App\Domains\Cv\Models\Cv;
 use App\Domains\Document\Models\DocumentUsage;
 use App\Domains\Employee\Models\Employee;
 use App\Domains\Recruitment\Models\Questionnaire;
@@ -22,6 +23,7 @@ trait DocumentableTrait
         $map = [
             'employee' => Employee::class,
             'questionnaire' => Questionnaire::class,
+            'cv' => Cv::class,
         ];
 
         return array_search(static::class, $map, true) ?: 'unknown';

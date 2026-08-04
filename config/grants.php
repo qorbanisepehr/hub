@@ -1,5 +1,6 @@
 <?php
 
+use App\Domains\Cv\Models\Cv;
 use App\Domains\Recruitment\Models\Questionnaire;
 
 return [
@@ -20,6 +21,10 @@ return [
     'entities' => [
         'questionnaire' => [
             'model' => Questionnaire::class,
+            'channel' => 'mobile',
+        ],
+        'cv' => [
+            'model' => Cv::class,
             'channel' => 'mobile',
         ],
     ],

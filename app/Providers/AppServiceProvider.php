@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Domains\Cv\Repositories\CvRepository;
+use App\Domains\Cv\Repositories\CvRepositoryInterface;
 use App\Domains\Document\Repositories\DocumentRepository;
 use App\Domains\Document\Repositories\DocumentRepositoryInterface;
 use App\Domains\Rbac\Policies\DynamicPolicy;
@@ -17,6 +19,7 @@ class AppServiceProvider extends ServiceProvider
         Gate::guessPolicyNamesUsing(fn () => DynamicPolicy::class);
 
         $this->app->bind(QuestionnaireRepositoryInterface::class, QuestionnaireRepository::class);
+        $this->app->bind(CvRepositoryInterface::class, CvRepository::class);
         $this->app->bind(DocumentRepositoryInterface::class, DocumentRepository::class);
     }
 }

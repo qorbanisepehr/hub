@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Domains\Recruitment\Models;
+namespace App\Domains\Cv\Models;
 
 use App\Contracts\Documentable;
 use App\Contracts\DocumentableTrait;
@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
 
-class Questionnaire extends Model implements Documentable, OtpVerifiable
+class Cv extends Model implements Documentable, OtpVerifiable
 {
     use DocumentableTrait;
     use SoftDeletes;
@@ -19,35 +19,12 @@ class Questionnaire extends Model implements Documentable, OtpVerifiable
     protected $fillable = [
         'uuid',
         'status',
-        'cv_id',
         // Real columns: identity
         'first_name',
         'last_name',
-        'national_id',
-        'gender',
-        'birth_date',
         // Real columns: contact
         'email',
         'mobile',
-        'phone',
-        'emergency_phone',
-        // Real columns: marital
-        'marital_status',
-        // Real columns: boolean filters
-        'has_chronic_disease',
-        'has_major_surgery',
-        'has_disability',
-        'can_travel',
-        'has_criminal_record',
-        // Real columns: employment
-        'employment_type',
-        'expected_monthly_salary',
-        'minimum_hours_per_month',
-        'expected_hourly_salary',
-        'submitted_resume_before',
-        'interviewed_before',
-        'currently_employed',
-        'available_start_date',
         // JSONB sections
         'section_personal',
         'section_contact_address',
@@ -56,32 +33,16 @@ class Questionnaire extends Model implements Documentable, OtpVerifiable
         'section_skills',
         'section_training',
         'section_additional_info',
-        'section_job_request',
         // OTP verification status
         'mobile_verified_at',
         'email_verified_at',
         // Meta
+        'lifecycle',
         'reviewed_by',
         'version',
     ];
 
     protected $casts = [
-        'birth_date' => 'date',
-        'has_chronic_disease' => 'boolean',
-        'has_major_surgery' => 'boolean',
-        'has_disability' => 'boolean',
-        'can_travel' => 'boolean',
-        'has_criminal_record' => 'boolean',
-        'submitted_resume_before' => 'boolean',
-        'interviewed_before' => 'boolean',
-        'currently_employed' => 'boolean',
-        'expected_monthly_salary' => 'integer',
-        'minimum_hours_per_month' => 'integer',
-        'expected_hourly_salary' => 'integer',
-        'version' => 'integer',
-        'mobile_verified_at' => 'datetime',
-        'email_verified_at' => 'datetime',
-        // JSONB sections
         'section_personal' => 'array',
         'section_contact_address' => 'array',
         'section_education' => 'array',
@@ -89,20 +50,23 @@ class Questionnaire extends Model implements Documentable, OtpVerifiable
         'section_skills' => 'array',
         'section_training' => 'array',
         'section_additional_info' => 'array',
-        'section_job_request' => 'array',
+        'lifecycle' => 'array',
+        'mobile_verified_at' => 'datetime',
+        'email_verified_at' => 'datetime',
+        'version' => 'integer',
     ];
 
     protected static function boot(): void
     {
         parent::boot();
 
-        static::creating(function (Questionnaire $model): void {
+        static::creating(function (Cv $model): void {
             if (empty($model->uuid)) {
                 $model->uuid = (string) Str::uuid();
             }
         });
 
-        static::saving(function (Questionnaire $model): void {
+        static::saving(function (Cv $model): void {
             if (! $model->exists) {
                 return;
             }
@@ -117,9 +81,11 @@ class Questionnaire extends Model implements Documentable, OtpVerifiable
             // Military service data only applies to male candidates; whenever
             // gender changes away from male (male → female), drop any orphaned
             // military record from the personal-info section.
-            if ($model->isDirty('gender') && $model->gender !== 'male') {
+            if ($model->isDirty('section_personal')) {
                 $sectionPersonal = $model->section_personal ?? [];
-                if (array_key_exists('military_status', $sectionPersonal) && $sectionPersonal['military_status'] !== null) {
+                if (($sectionPersonal['gender'] ?? null) !== 'male'
+                    && array_key_exists('military_status', $sectionPersonal)
+                    && $sectionPersonal['military_status'] !== null) {
                     unset($sectionPersonal['military_status']);
                     $model->section_personal = $sectionPersonal;
                 }
@@ -135,7 +101,7 @@ class Questionnaire extends Model implements Documentable, OtpVerifiable
 
     public function getDocumentConfigKey(): ?string
     {
-        return 'recruitment';
+        return 'cv';
     }
 
     // ── Status helpers ──
@@ -167,16 +133,25 @@ class Questionnaire extends Model implements Documentable, OtpVerifiable
         return $this->isOtpVerified('email');
     }
 
+    /**
+     * A CV is fully verified when the mobile is verified and, whenever an
+     * email is present, that email is verified too. Email stays optional on
+     * a CV, but once filled in it must be confirmed before submitting.
+     */
     public function isFullyVerified(): bool
     {
-        return $this->isMobileVerified() && $this->isEmailVerified();
+        if (! $this->isMobileVerified()) {
+            return false;
+        }
+
+        return blank($this->email) || $this->isEmailVerified();
     }
 
     // ── OtpVerifiable ──
 
     public function getOtpIdentifier(): string
     {
-        return "questionnaire:{$this->uuid}";
+        return "cv:{$this->uuid}";
     }
 
     public function markOtpVerified(string $channel): void
@@ -203,6 +178,30 @@ class Questionnaire extends Model implements Documentable, OtpVerifiable
     public function setSection(string $name, array $data): void
     {
         $this->{"section_{$name}"} = $data;
+    }
+
+    // ── Lifecycle ──
+
+    /**
+     * Append a lifecycle event (submitted/reviewed/rejected) keeping the full
+     * history ordered by occurrence. The latest event reflects the current
+     * review state; older entries remain for reference.
+     *
+     * @param  array<string, mixed>  $event
+     */
+    public function recordLifecycleEvent(array $event): void
+    {
+        $lifecycle = $this->lifecycle ?? [];
+        $lifecycle[] = $event;
+
+        $this->update(['lifecycle' => $lifecycle]);
+    }
+
+    public function lastLifecycleEvent(): ?array
+    {
+        $lifecycle = $this->lifecycle ?? [];
+
+        return $lifecycle[array_key_last($lifecycle)] ?? null;
     }
 
     // ── Optimistic locking ──

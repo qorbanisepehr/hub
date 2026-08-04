@@ -104,6 +104,7 @@ class RbacSeeder extends Seeder
             $groupModels['document']->id,
             $groupModels['document-category']->id,
             $groupModels['bulk-import']->id,
+            $groupModels['cv']->id,
         ]);
 
         // admin: individual permissions (role + user management)
