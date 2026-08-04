@@ -1,5 +1,10 @@
 import { z } from "zod";
 
+import {
+    birthCertificateNumber,
+    getAge,
+    nationalId,
+} from "@/lib/field-rules";
 import { numberField, requiredText, text } from "@/lib/zod-primitives";
 
 export const GENDER_VALUES = ["male", "female"] as const;
@@ -18,29 +23,6 @@ export const MILITARY_STATUS_VALUES = [
 ] as const;
 
 export const requiredString = requiredText("این فیلد الزامی است.");
-
-function isValidNationalId(val: string): boolean {
-    if (!/^\d{10}$/.test(val)) return true;
-    if (/^(\d)\1{9}$/.test(val)) return false;
-    let sum = 0;
-    for (let i = 0; i < 9; i++) {
-        sum += parseInt(val[i]) * (10 - i);
-    }
-    const remainder = sum % 11;
-    const control = remainder < 2 ? remainder : 11 - remainder;
-    return parseInt(val[9]) === control;
-}
-
-function getAge(birthDate: string): number {
-    const today = new Date();
-    const birth = new Date(birthDate);
-    let age = today.getFullYear() - birth.getFullYear();
-    const monthDiff = today.getMonth() - birth.getMonth();
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
-        age--;
-    }
-    return age;
-}
 
 export const militaryStatusSchema = z
     .object({
@@ -66,7 +48,7 @@ export const personalInfoFieldSchema = z
         blood_group: z.enum(BLOOD_GROUP_VALUES, { message: "گروه خونی الزامی است." }),
         birth_date: requiredString,
         birth_place: requiredText("این فیلد الزامی است.", 100),
-        birth_certificate_number: requiredText("این فیلد الزامی است.", 20),
+        birth_certificate_number: birthCertificateNumber(),
         father_name: requiredText("این فیلد الزامی است.", 100),
         religion: requiredText("این فیلد الزامی است.", 50),
         marital_status: z.enum(MARITAL_STATUS_VALUES, { message: "وضعیت تأهل الزامی است." }),
@@ -79,10 +61,7 @@ export const personalInfoFieldSchema = z
             .optional(),
         spouse_job: text(100, "حداکثر ۱۰۰ کاراکتر."),
         military_status: militaryStatusSchema.optional(),
-        national_id: requiredText("کد ملی الزامی است.", 10).refine(
-            (v) => v.length === 10,
-            "کد ملی باید ۱۰ رقم باشد.",
-        ),
+        national_id: nationalId(),
     })
     .superRefine((data, ctx) => {
         if (data.marital_status === "married" && !data.spouse_employment_status) {
@@ -125,15 +104,10 @@ export const fieldSchemas = {
         "حداقل سن الزامی ۱۸ سال است.",
     ),
     marital_status: z.enum(MARITAL_STATUS_VALUES, { message: "وضعیت تأهل الزامی است." }),
-    national_id: requiredText("کد ملی الزامی است.", 10)
-        .refine((v) => /^\d{10}$/.test(v), "کد ملی باید دقیقاً ۱۰ رقم باشد.")
-        .refine(isValidNationalId, "کد ملی معتبر نیست."),
+    national_id: nationalId(),
     blood_group: z.enum(BLOOD_GROUP_VALUES, { message: "گروه خونی الزامی است." }),
     birth_place: requiredText("محل تولد الزامی است.", 100),
-    birth_certificate_number: requiredText("شماره شناسنامه الزامی است.", 20).refine(
-        (v) => /^\d+$/.test(v),
-        "شماره شناسنامه باید فقط شامل اعداد باشد.",
-    ),
+    birth_certificate_number: birthCertificateNumber(),
     father_name: requiredText("نام پدر الزامی است.", 100),
     religion: requiredText("مذهب الزامی است.", 50),
     first_name_en: text(100, "حداکثر ۱۰۰ کاراکتر."),

@@ -8,6 +8,7 @@ import { skillsFieldSchema } from "./skills.schema";
 import { trainingFieldSchema } from "./training.schema";
 import { additionalInfoFieldSchema } from "./additional-info.schema";
 import { jobRequestFieldSchema } from "./job-request.schema";
+import { email, mobile } from "@/lib/field-rules";
 import {
     zodFieldErrors,
     zodIssueMessage,
@@ -18,11 +19,8 @@ import { requiredText } from "@/lib/zod-primitives";
 export const submitSchema = z.object({
     first_name: requiredText("نام الزامی است.", 100),
     last_name: requiredText("نام خانوادگی الزامی است.", 100),
-    email: requiredText("ایمیل الزامی است.", 255).refine(
-        (v) => z.string().email().safeParse(v).success,
-        "فرمت ایمیل نادرست است.",
-    ),
-    mobile: requiredText("شماره موبایل الزامی است.", 15),
+    email: email(),
+    mobile: mobile(),
     personal_info: personalInfoFieldSchema,
     contact_info: contactInfoFieldSchema,
     education: educationFieldSchema,
