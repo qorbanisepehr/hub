@@ -16,6 +16,8 @@ use App\Enums\OtpSendStatus;
 use App\Http\Responses\OtpResponder;
 use App\Models\PendingVerification;
 use App\Services\OtpService;
+use App\Support\MobileNumber;
+use App\Support\ValidationRules;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
@@ -33,6 +35,7 @@ class CvController extends Controller
     public function init(InitCvRequest $request): JsonResponse
     {
         $data = $request->validated();
+        $data['mobile'] = MobileNumber::normalize($data['mobile']);
 
         $payload = Arr::only($data, ['first_name', 'last_name', 'email', 'mobile']);
 
@@ -176,10 +179,10 @@ class CvController extends Controller
         $cv = $this->cvService->findByUuidOrFail($uuid);
 
         $data = $request->validate([
-            'mobile' => 'nullable|string|max:15|regex:/^09\d{9}$/',
+            'mobile' => ['nullable', 'string', 'max:15', ValidationRules::MOBILE_ACCEPTED],
         ]);
 
-        $pendingMobile = $data['mobile'] ?? null;
+        $pendingMobile = isset($data['mobile']) ? MobileNumber::normalize($data['mobile']) : null;
 
         $status = $this->otpService->sendWithCooldown($cv, 'mobile', OtpContext::VerifyMobile);
 

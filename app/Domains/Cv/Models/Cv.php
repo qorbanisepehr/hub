@@ -2,6 +2,7 @@
 
 namespace App\Domains\Cv\Models;
 
+use App\Casts\MobileNumberCast;
 use App\Contracts\Documentable;
 use App\Contracts\DocumentableTrait;
 use App\Contracts\OtpVerifiable;
@@ -43,6 +44,7 @@ class Cv extends Model implements Documentable, OtpVerifiable
     ];
 
     protected $casts = [
+        'mobile' => MobileNumberCast::class,
         'section_personal' => 'array',
         'section_contact_address' => 'array',
         'section_education' => 'array',

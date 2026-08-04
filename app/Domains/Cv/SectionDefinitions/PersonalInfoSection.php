@@ -4,6 +4,7 @@ namespace App\Domains\Cv\SectionDefinitions;
 
 use App\Domains\Recruitment\SectionDefinitions\BaseSection;
 use App\Rules\NationalIdRule;
+use App\Support\ValidationRules;
 use Carbon\Carbon;
 use Illuminate\Contracts\Validation\Validator;
 
@@ -40,7 +41,7 @@ class PersonalInfoSection extends BaseSection
             'first_name' => 'nullable|string|max:100',
             'last_name' => 'nullable|string|max:100',
             'gender' => 'nullable|in:male,female',
-            'birth_date' => 'nullable|date',
+            'birth_date' => 'nullable|'.ValidationRules::DATE,
             'marital_status' => 'nullable|in:single,married',
             'military_status' => 'nullable|array',
             'military_status.status' => 'nullable|in:completed,amrieh,guardian_exemption,medical_exemption,education_exemption,leader_pardon,service_purchase,other',
@@ -50,7 +51,7 @@ class PersonalInfoSection extends BaseSection
             'military_status.reason' => 'nullable|string|max:255',
             'national_id' => ['nullable', 'string', new NationalIdRule],
             'birth_place' => 'nullable|string|max:100',
-            'birth_certificate_number' => 'nullable|string|max:20|regex:/^\d+$/',
+            'birth_certificate_number' => 'nullable|'.ValidationRules::DIGITS_ONLY,
         ];
     }
 
@@ -60,11 +61,11 @@ class PersonalInfoSection extends BaseSection
             'first_name' => 'required|string|max:100',
             'last_name' => 'required|string|max:100',
             'gender' => 'required|in:male,female',
-            'birth_date' => 'required|date|before:today',
+            'birth_date' => 'required|'.ValidationRules::DATE.'|before:today',
             'marital_status' => 'required|in:single,married',
             'national_id' => ['required', 'string', new NationalIdRule],
             'birth_place' => 'required|string|max:100',
-            'birth_certificate_number' => 'required|string|max:20|regex:/^\d+$/',
+            'birth_certificate_number' => 'required|'.ValidationRules::DIGITS_ONLY,
             'military_status' => 'required_unless:gender,female',
             'military_status.status' => 'required_with:military_status',
             'military_status.organization' => 'required_with:military_status',

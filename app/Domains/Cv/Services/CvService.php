@@ -15,6 +15,7 @@ use App\Domains\Recruitment\SectionDefinitions\SectionDefinition;
 use App\Domains\Recruitment\SectionDefinitions\SkillsSection;
 use App\Domains\Recruitment\SectionDefinitions\TrainingSection;
 use App\Domains\Recruitment\SectionDefinitions\WorkExperienceSection;
+use App\Support\MobileNumber;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 use InvalidArgumentException;
@@ -88,6 +89,10 @@ class CvService
     public function saveSection(Cv $cv, string $sectionKey, array $data): Cv
     {
         $section = $this->getSection($sectionKey);
+
+        if (isset($data['mobile'])) {
+            $data['mobile'] = MobileNumber::normalize($data['mobile']);
+        }
 
         $validator = $section->validateData($data, SectionDefinition::MODE_STRUCTURAL);
 

@@ -3,6 +3,7 @@
 namespace App\Domains\Cv\SectionDefinitions;
 
 use App\Domains\Recruitment\SectionDefinitions\BaseSection;
+use App\Support\ValidationRules;
 
 class ContactInfoSection extends BaseSection
 {
@@ -30,18 +31,18 @@ class ContactInfoSection extends BaseSection
     public function structuralRules(): array
     {
         return [
-            'email' => 'nullable|email|max:255',
-            'mobile' => 'nullable|string|max:15|regex:/^09\d{9}$/',
-            'phone' => 'nullable|string|max:15|regex:/^0\d{10}$/',
-            'emergency_phone' => 'nullable|string|max:15|regex:/^0\d{10}$/',
+            'email' => 'nullable|'.ValidationRules::EMAIL,
+            'mobile' => ['nullable', 'string', 'max:15', ValidationRules::MOBILE_ACCEPTED],
+            'phone' => 'nullable|'.ValidationRules::LANDLINE,
+            'emergency_phone' => 'nullable|'.ValidationRules::MOBILE_OR_LANDLINE,
             'address' => 'nullable|array',
-            'address.postal_code' => 'nullable|string|max:10',
-            'address.province' => 'nullable|string|max:50',
-            'address.city' => 'nullable|string|max:50',
-            'address.address' => 'nullable|string|max:500',
-            'address.plaque' => 'nullable|string|max:10',
-            'address.floor' => 'nullable|string|max:10',
-            'address.unit' => 'nullable|string|max:10',
+            'address.postal_code' => 'nullable|'.ValidationRules::POSTAL_CODE,
+            'address.province' => 'nullable|'.ValidationRules::TEXT.'|max:50',
+            'address.city' => 'nullable|'.ValidationRules::TEXT.'|max:50',
+            'address.address' => 'nullable|'.ValidationRules::TEXT.'|max:500',
+            'address.plaque' => 'nullable|'.ValidationRules::TEXT.'|max:10',
+            'address.floor' => 'nullable|'.ValidationRules::TEXT.'|max:10',
+            'address.unit' => 'nullable|'.ValidationRules::TEXT.'|max:10',
         ];
     }
 
@@ -50,10 +51,10 @@ class ContactInfoSection extends BaseSection
         return [
             // Email stays optional on a CV, but once filled in it must be
             // verified before submit (enforced in the controller).
-            'email' => 'nullable|email|max:255',
-            'mobile' => 'required|string|max:15|regex:/^09\d{9}$/',
-            'phone' => 'nullable|string|max:15|regex:/^0\d{10}$/',
-            'emergency_phone' => 'nullable|string|max:15|regex:/^0\d{10}$/',
+            'email' => 'nullable|'.ValidationRules::EMAIL,
+            'mobile' => ['required', 'string', 'max:15', ValidationRules::MOBILE_ACCEPTED],
+            'phone' => 'nullable|'.ValidationRules::LANDLINE,
+            'emergency_phone' => 'nullable|'.ValidationRules::MOBILE_OR_LANDLINE,
             'address' => 'nullable|array',
         ];
     }

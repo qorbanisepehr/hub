@@ -252,6 +252,23 @@ describe('CV init', function () {
         ])->assertOk()
             ->assertJsonPath('code_sent', false);
     });
+
+    it('accepts +98 and 0098 prefixed mobiles and normalizes them', function () {
+        $this->postJson('/api/cv/init', [
+            'first_name' => 'Ali',
+            'last_name' => 'Rezaei',
+            'mobile' => '+989121234567',
+        ])->assertCreated();
+
+        $this->postJson('/api/cv/init', [
+            'first_name' => 'Ali',
+            'last_name' => 'Rezaei',
+            'mobile' => '00989123456789',
+        ])->assertCreated();
+
+        expect(PendingVerification::where('type', 'cv')->where('mobile', '09121234567')->exists())->toBeTrue()
+            ->and(PendingVerification::where('type', 'cv')->where('mobile', '09123456789')->exists())->toBeTrue();
+    });
 });
 
 function cvPending(array $payload = []): PendingVerification
