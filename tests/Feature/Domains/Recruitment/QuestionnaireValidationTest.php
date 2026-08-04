@@ -498,6 +498,67 @@ describe('Questionnaire validation', function () {
                 ->assertJsonValidationErrors(['education.student_degree']);
         });
 
+        it('rejects education record dates that are not Y-m-d on save', function () {
+            $uuid = createDraft();
+
+            $this->putJson("/api/questionnaire/{$uuid}/sections/education", [
+                'education_records' => [
+                    [
+                        'from' => '2013/06/15',
+                        'to' => 'not-a-date',
+                        'graduation_date' => '2013.06.15',
+                    ],
+                ],
+            ])->assertUnprocessable()
+                ->assertJsonValidationErrors([
+                    'education.education_records.0.from',
+                    'education.education_records.0.to',
+                    'education.education_records.0.graduation_date',
+                ]);
+        });
+
+        it('rejects study dates that are not Y-m-d on save', function () {
+            $uuid = createDraft();
+
+            $this->putJson("/api/questionnaire/{$uuid}/sections/education", [
+                'study_start' => '1400/01/01',
+                'expected_graduation' => '1404.07.01',
+            ])->assertUnprocessable()
+                ->assertJsonValidationErrors([
+                    'education.study_start',
+                    'education.expected_graduation',
+                ]);
+        });
+
+        it('rejects a phone that is not a landline on save', function () {
+            $uuid = createDraft();
+
+            $this->putJson("/api/questionnaire/{$uuid}/sections/contact_info", [
+                'phone' => '1234567890',
+                'emergency_phone' => '09121234567',
+            ])->assertUnprocessable()
+                ->assertJsonValidationErrors(['contact_info.phone']);
+        });
+
+        it('rejects an emergency phone that is neither a mobile nor a landline on save', function () {
+            $uuid = createDraft();
+
+            $this->putJson("/api/questionnaire/{$uuid}/sections/contact_info", [
+                'phone' => '02112345678',
+                'emergency_phone' => '12345',
+            ])->assertUnprocessable()
+                ->assertJsonValidationErrors(['contact_info.emergency_phone']);
+        });
+
+        it('accepts a mobile number as the emergency phone on save', function () {
+            $uuid = createDraft();
+
+            $this->putJson("/api/questionnaire/{$uuid}/sections/contact_info", [
+                'phone' => '02112345678',
+                'emergency_phone' => '09123456789',
+            ])->assertOk();
+        });
+
         it('validates work experience wildcard rules', function () {
             $uuid = createDraft();
 
@@ -833,6 +894,157 @@ describe('Questionnaire validation', function () {
                 ]);
         });
 
+        it('rejects education record dates that are not Y-m-d on submit', function () {
+            $uuid = createDraft();
+            saveSectionToDb($uuid, 'personal_info', validPersonalInfo());
+            saveSectionToDb($uuid, 'contact_info', validContactInfo());
+            saveSectionToDb($uuid, 'education', [
+                'education_records' => [
+                    array_merge(validEducationRecord()[0], [
+                        'from' => '2013/06/15',
+                        'to' => '2013/06/15',
+                        'graduation_date' => '2013/06/15',
+                    ]),
+                ],
+            ]);
+
+            $this->postJson("/api/questionnaire/{$uuid}/submit")
+                ->assertUnprocessable()
+                ->assertJsonValidationErrors([
+                    'education.education_records.0.from',
+                    'education.education_records.0.to',
+                    'education.education_records.0.graduation_date',
+                ]);
+        });
+
+        it('rejects study dates that are not Y-m-d when the applicant is a student on submit', function () {
+            $uuid = createDraft();
+            saveSectionToDb($uuid, 'personal_info', validPersonalInfo());
+            saveSectionToDb($uuid, 'contact_info', validContactInfo());
+            saveSectionToDb($uuid, 'education', [
+                'education_records' => validEducationRecord(),
+                'is_student' => true,
+                'student_degree' => 'MSc',
+                'student_field' => 'Computer Science',
+                'student_university' => 'University of Tehran',
+                'student_country' => 'Iran',
+                'student_city' => 'Tehran',
+                'student_gpa' => '18.5',
+                'study_start' => '1400/01/01',
+                'expected_graduation' => '2026-06-15',
+            ]);
+
+            $this->postJson("/api/questionnaire/{$uuid}/submit")
+                ->assertUnprocessable()
+                ->assertJsonValidationErrors(['education.study_start']);
+        });
+
+        it('rejects a phone that is not a landline on submit', function () {
+            $uuid = createDraft();
+            saveSectionToDb($uuid, 'personal_info', validPersonalInfo());
+            saveSectionToDb($uuid, 'contact_info', array_merge(validContactInfo(), [
+                'phone' => '1234567890',
+            ]));
+            saveSectionToDb($uuid, 'education', ['education_records' => validEducationRecord()]);
+
+            $this->postJson("/api/questionnaire/{$uuid}/submit")
+                ->assertUnprocessable()
+                ->assertJsonValidationErrors(['contact_info.phone']);
+        });
+
+        it('rejects an emergency phone that is neither a mobile nor a landline on submit', function () {
+            $uuid = createDraft();
+            saveSectionToDb($uuid, 'personal_info', validPersonalInfo());
+            saveSectionToDb($uuid, 'contact_info', array_merge(validContactInfo(), [
+                'emergency_phone' => '12345',
+            ]));
+            saveSectionToDb($uuid, 'education', ['education_records' => validEducationRecord()]);
+
+            $this->postJson("/api/questionnaire/{$uuid}/submit")
+                ->assertUnprocessable()
+                ->assertJsonValidationErrors(['contact_info.emergency_phone']);
+        });
+
+        it('accepts a mobile number as the emergency phone on submit', function () {
+            $uuid = createDraft();
+            saveSectionToDb($uuid, 'personal_info', validPersonalInfo());
+            saveSectionToDb($uuid, 'contact_info', array_merge(validContactInfo(), [
+                'emergency_phone' => '09123456789',
+            ]));
+            saveSectionToDb($uuid, 'education', ['education_records' => validEducationRecord()]);
+            saveSectionToDb($uuid, 'work_experience', validWorkExperience());
+            saveSectionToDb($uuid, 'skills', validSkills());
+            saveSectionToDb($uuid, 'training', validTraining());
+            saveSectionToDb($uuid, 'additional_info', validAdditionalInfo());
+            saveSectionToDb($uuid, 'job_request', validJobRequest());
+            attachRequiredDocuments($uuid);
+
+            $this->postJson("/api/questionnaire/{$uuid}/submit")
+                ->assertOk();
+        });
+
+        it('skips student fields when the applicant is not a student', function () {
+            $uuid = createDraft();
+            saveSectionToDb($uuid, 'personal_info', validPersonalInfo());
+            saveSectionToDb($uuid, 'contact_info', validContactInfo());
+            saveSectionToDb($uuid, 'education', [
+                'education_records' => validEducationRecord(),
+                'is_student' => false,
+                'student_degree' => null,
+                'student_field' => null,
+                'student_university' => null,
+                'student_country' => null,
+                'student_city' => null,
+                'student_semester' => null,
+                'passed_units' => null,
+                'remaining_units' => null,
+                'student_gpa' => null,
+                'study_start' => null,
+                'expected_graduation' => null,
+                'thesis_submitted' => false,
+                'student_thesis_title' => null,
+                'free_days_per_week' => null,
+                'education_description' => null,
+            ]);
+            saveSectionToDb($uuid, 'work_experience', validWorkExperience());
+            saveSectionToDb($uuid, 'skills', validSkills());
+            saveSectionToDb($uuid, 'training', validTraining());
+            saveSectionToDb($uuid, 'additional_info', validAdditionalInfo());
+            saveSectionToDb($uuid, 'job_request', validJobRequest());
+            attachRequiredDocuments($uuid);
+
+            $this->postJson("/api/questionnaire/{$uuid}/submit")
+                ->assertOk();
+        });
+
+        it('skips conditional descriptions when the flags are false', function () {
+            $uuid = createDraft();
+            saveSectionToDb($uuid, 'personal_info', validPersonalInfo());
+            saveSectionToDb($uuid, 'contact_info', validContactInfo());
+            saveSectionToDb($uuid, 'education', ['education_records' => validEducationRecord()]);
+            saveSectionToDb($uuid, 'work_experience', validWorkExperience());
+            saveSectionToDb($uuid, 'skills', validSkills());
+            saveSectionToDb($uuid, 'training', validTraining());
+            saveSectionToDb($uuid, 'additional_info', [
+                'has_chronic_disease' => false,
+                'chronic_disease_description' => null,
+                'has_major_surgery' => false,
+                'major_surgery_description' => null,
+                'has_disability' => false,
+                'disability_description' => null,
+                'can_travel' => false,
+                'travel_description' => null,
+                'has_criminal_record' => false,
+                'criminal_record_description' => null,
+                'references' => [],
+            ]);
+            saveSectionToDb($uuid, 'job_request', validJobRequest());
+            attachRequiredDocuments($uuid);
+
+            $this->postJson("/api/questionnaire/{$uuid}/submit")
+                ->assertOk();
+        });
+
         it('requires student fields when is_student is true', function () {
             $uuid = createDraft();
             saveSectionToDb($uuid, 'personal_info', validPersonalInfo());
@@ -840,6 +1052,14 @@ describe('Questionnaire validation', function () {
             saveSectionToDb($uuid, 'education', [
                 'education_records' => validEducationRecord(),
                 'is_student' => true,
+                'student_degree' => null,
+                'student_field' => null,
+                'student_university' => null,
+                'student_country' => null,
+                'student_city' => null,
+                'student_gpa' => null,
+                'study_start' => null,
+                'expected_graduation' => null,
             ]);
             saveSectionToDb($uuid, 'work_experience', validWorkExperience());
             saveSectionToDb($uuid, 'skills', validSkills());
@@ -847,8 +1067,8 @@ describe('Questionnaire validation', function () {
             saveSectionToDb($uuid, 'additional_info', validAdditionalInfo());
             saveSectionToDb($uuid, 'job_request', validJobRequest());
 
-            $this->postJson("/api/questionnaire/{$uuid}/submit")
-                ->assertUnprocessable()
+            $response = $this->postJson("/api/questionnaire/{$uuid}/submit");
+            $response->assertUnprocessable()
                 ->assertJsonValidationErrors([
                     'education.student_degree',
                     'education.student_field',
@@ -859,6 +1079,13 @@ describe('Questionnaire validation', function () {
                     'education.study_start',
                     'education.expected_graduation',
                 ]);
+
+            $errors = $response->json('errors');
+            expect($errors['education.student_degree'])
+                ->toContain('مقطع تحصیلی الزامی است.')
+                ->and($errors['education.study_start'])
+                ->toContain('تاریخ شروع تحصیل الزامی است.')
+                ->not->toContain('باید یک رشته باشد');
         });
 
         it('requires thesis title when thesis_submitted is true', function () {

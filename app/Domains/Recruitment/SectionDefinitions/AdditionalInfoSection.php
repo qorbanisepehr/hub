@@ -77,19 +77,19 @@ class AdditionalInfoSection extends BaseSection
     {
         return [
             'has_chronic_disease' => 'nullable|boolean',
-            'chronic_disease_description' => 'required_if:has_chronic_disease,true|string|max:500',
+            'chronic_disease_description' => 'required_if:has_chronic_disease,true|nullable|string|max:500',
             'has_major_surgery' => 'nullable|boolean',
-            'major_surgery_description' => 'required_if:has_major_surgery,true|string|max:500',
+            'major_surgery_description' => 'required_if:has_major_surgery,true|nullable|string|max:500',
             'has_disability' => 'nullable|boolean',
-            'disability_description' => 'required_if:has_disability,true|string|max:500',
+            'disability_description' => 'required_if:has_disability,true|nullable|string|max:500',
             'can_travel' => 'nullable|boolean',
-            'travel_description' => 'required_if:can_travel,true|string|max:500',
+            'travel_description' => 'required_if:can_travel,true|nullable|string|max:500',
             'has_criminal_record' => 'nullable|boolean',
-            'criminal_record_description' => 'required_if:has_criminal_record,true|string|max:500',
+            'criminal_record_description' => 'required_if:has_criminal_record,true|nullable|string|max:500',
             'references' => 'nullable|array',
-            'references.*.full_name' => 'required_with:references|string|max:100',
-            'references.*.relationship' => 'required_with:references|string|max:50',
-            'references.*.workplace_phone' => 'required_with:references|string|max:15',
+            'references.*.full_name' => 'required_with:references|nullable|string|max:100',
+            'references.*.relationship' => 'required_with:references|nullable|string|max:50',
+            'references.*.workplace_phone' => 'required_with:references|nullable|string|max:15',
         ];
     }
 
