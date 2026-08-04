@@ -2,6 +2,7 @@
 
 namespace App\Domains\Recruitment\Requests;
 
+use App\Support\ValidationRules;
 use Illuminate\Foundation\Http\FormRequest;
 
 class InitQuestionnaireRequest extends FormRequest
@@ -18,7 +19,7 @@ class InitQuestionnaireRequest extends FormRequest
             'first_name' => ['required', 'string', 'max:100'],
             'last_name' => ['required', 'string', 'max:100'],
             'email' => ['required', 'email', 'max:255'],
-            'mobile' => ['required', 'string', 'max:15', 'regex:/^09\d{9}$/'],
+            'mobile' => ['required', 'string', 'max:15', ValidationRules::MOBILE_ACCEPTED],
         ];
     }
 }

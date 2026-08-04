@@ -2,6 +2,7 @@
 
 namespace App\Domains\Recruitment\Models;
 
+use App\Casts\MobileNumberCast;
 use App\Contracts\Documentable;
 use App\Contracts\DocumentableTrait;
 use App\Contracts\OtpVerifiable;
@@ -67,6 +68,7 @@ class Questionnaire extends Model implements Documentable, OtpVerifiable
 
     protected $casts = [
         'birth_date' => 'date',
+        'mobile' => MobileNumberCast::class,
         'has_chronic_disease' => 'boolean',
         'has_major_surgery' => 'boolean',
         'has_disability' => 'boolean',

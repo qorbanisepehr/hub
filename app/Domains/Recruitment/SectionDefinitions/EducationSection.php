@@ -2,6 +2,7 @@
 
 namespace App\Domains\Recruitment\SectionDefinitions;
 
+use App\Support\ValidationRules;
 use Illuminate\Contracts\Validation\Validator;
 
 class EducationSection extends BaseSection
@@ -65,10 +66,10 @@ class EducationSection extends BaseSection
             'education_records.*.field' => 'nullable|string|max:100',
             'education_records.*.institution' => 'nullable|string|max:100',
             'education_records.*.location' => 'nullable|string|max:100',
-            'education_records.*.from' => 'nullable|string|date_format:Y-m-d',
-            'education_records.*.to' => 'nullable|string|date_format:Y-m-d',
+            'education_records.*.from' => 'nullable|'.ValidationRules::DATE_YMD,
+            'education_records.*.to' => 'nullable|'.ValidationRules::DATE_YMD,
             'education_records.*.thesis_title' => 'nullable|string|max:255',
-            'education_records.*.graduation_date' => 'nullable|string|date_format:Y-m-d',
+            'education_records.*.graduation_date' => 'nullable|'.ValidationRules::DATE_YMD,
             'education_records.*.gpa' => 'nullable|string|max:10',
             'is_student' => 'nullable|boolean',
             'student_degree' => 'nullable|string|max:50',
@@ -80,8 +81,8 @@ class EducationSection extends BaseSection
             'passed_units' => 'nullable|integer|min:0',
             'remaining_units' => 'nullable|integer|min:0',
             'student_gpa' => 'nullable|string|max:10',
-            'study_start' => 'nullable|string|date_format:Y-m-d',
-            'expected_graduation' => 'nullable|string|date_format:Y-m-d',
+            'study_start' => 'nullable|'.ValidationRules::DATE_YMD,
+            'expected_graduation' => 'nullable|'.ValidationRules::DATE_YMD,
             'thesis_submitted' => 'nullable|boolean',
             'student_thesis_title' => 'nullable|string|max:255',
             'free_days_per_week' => 'nullable|integer|min:0|max:7',
@@ -96,9 +97,9 @@ class EducationSection extends BaseSection
             'education_records.*.degree' => 'required|string|max:50',
             'education_records.*.field' => 'required|string|max:100',
             'education_records.*.institution' => 'required|string|max:100',
-            'education_records.*.from' => 'required|string|date_format:Y-m-d',
-            'education_records.*.to' => 'required|string|date_format:Y-m-d',
-            'education_records.*.graduation_date' => 'required|string|date_format:Y-m-d',
+            'education_records.*.from' => 'required|'.ValidationRules::DATE_YMD,
+            'education_records.*.to' => 'required|'.ValidationRules::DATE_YMD,
+            'education_records.*.graduation_date' => 'required|'.ValidationRules::DATE_YMD,
             'education_records.*.gpa' => 'required|string|max:10',
             'is_student' => 'nullable|boolean',
             'student_degree' => 'required_if:is_student,true|nullable|string|max:50',
@@ -107,8 +108,8 @@ class EducationSection extends BaseSection
             'student_country' => 'required_if:is_student,true|nullable|string|max:100',
             'student_city' => 'required_if:is_student,true|nullable|string|max:100',
             'student_gpa' => 'required_if:is_student,true|nullable|string|max:10',
-            'study_start' => 'required_if:is_student,true|nullable|string|date_format:Y-m-d',
-            'expected_graduation' => 'required_if:is_student,true|nullable|string|date_format:Y-m-d',
+            'study_start' => 'required_if:is_student,true|nullable|'.ValidationRules::DATE_YMD,
+            'expected_graduation' => 'required_if:is_student,true|nullable|'.ValidationRules::DATE_YMD,
             'thesis_submitted' => 'nullable|boolean',
             'student_thesis_title' => 'required_if:thesis_submitted,true|nullable|string|max:255',
         ];

@@ -114,6 +114,25 @@ describe('Questionnaire validation', function () {
                     'requires_otp',
                 ]);
         });
+
+        it('accepts +98 and 0098 prefixed mobiles and normalizes them', function () {
+            $this->postJson('/api/questionnaire/init', [
+                'first_name' => 'Ali',
+                'last_name' => 'Rezaei',
+                'email' => 'ali@example.com',
+                'mobile' => '+989121234567',
+            ])->assertCreated();
+
+            $this->postJson('/api/questionnaire/init', [
+                'first_name' => 'Ali',
+                'last_name' => 'Rezaei',
+                'email' => 'ali@example.com',
+                'mobile' => '00989123456789',
+            ])->assertCreated();
+
+            expect(PendingVerification::where('type', 'questionnaire')->where('mobile', '09121234567')->exists())->toBeTrue()
+                ->and(PendingVerification::where('type', 'questionnaire')->where('mobile', '09123456789')->exists())->toBeTrue();
+        });
     });
 
     // ────────────────────────────────────────
@@ -291,6 +310,20 @@ describe('Questionnaire validation', function () {
                 'mobile' => 'not-a-phone',
             ])->assertUnprocessable()
                 ->assertJsonValidationErrors(['mobile']);
+        });
+
+        it('accepts a prefixed staged mobile and stores it canonically', function () {
+            $uuid = createDraft();
+
+            $this->postJson("/api/questionnaire/{$uuid}/send-mobile-otp", [
+                'mobile' => '+989121234567',
+            ])->assertOk()
+                ->assertJsonPath('code_sent', true);
+
+            $this->assertDatabaseHas('questionnaires', [
+                'uuid' => $uuid,
+                'mobile' => '09121234567',
+            ]);
         });
 
         it('validates the staged email on send', function () {

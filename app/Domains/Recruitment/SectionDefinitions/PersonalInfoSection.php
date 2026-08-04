@@ -3,6 +3,7 @@
 namespace App\Domains\Recruitment\SectionDefinitions;
 
 use App\Rules\NationalIdRule;
+use App\Support\ValidationRules;
 use Carbon\Carbon;
 use Illuminate\Contracts\Validation\Validator;
 
@@ -77,9 +78,9 @@ class PersonalInfoSection extends BaseSection
             'last_name' => 'nullable|string|max:100',
             'gender' => 'nullable|in:male,female',
             'blood_group' => 'nullable|in:A+,A-,B+,B-,AB+,AB-,O+,O-',
-            'birth_date' => 'nullable|date',
+            'birth_date' => 'nullable|'.ValidationRules::DATE,
             'birth_place' => 'nullable|string|max:100',
-            'birth_certificate_number' => 'nullable|string|max:20|regex:/^\d+$/',
+            'birth_certificate_number' => 'nullable|'.ValidationRules::DIGITS_ONLY,
             'father_name' => 'nullable|string|max:100',
             'religion' => 'nullable|string|max:50',
             'marital_status' => 'nullable|in:single,married',
@@ -106,9 +107,9 @@ class PersonalInfoSection extends BaseSection
             'last_name' => 'required|string|max:100',
             'gender' => 'required|in:male,female',
             'blood_group' => 'required|in:A+,A-,B+,B-,AB+,AB-,O+,O-',
-            'birth_date' => 'required|date|before:today',
+            'birth_date' => 'required|'.ValidationRules::DATE.'|before:today',
             'birth_place' => 'required|string|max:100',
-            'birth_certificate_number' => 'required|string|max:20|regex:/^\d+$/',
+            'birth_certificate_number' => 'required|'.ValidationRules::DIGITS_ONLY,
             'father_name' => 'required|string|max:100',
             'religion' => 'required|string|max:50',
             'marital_status' => 'required|in:single,married',

@@ -14,6 +14,7 @@ use App\Domains\Recruitment\SectionDefinitions\SectionDefinition;
 use App\Domains\Recruitment\SectionDefinitions\SkillsSection;
 use App\Domains\Recruitment\SectionDefinitions\TrainingSection;
 use App\Domains\Recruitment\SectionDefinitions\WorkExperienceSection;
+use App\Support\MobileNumber;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 use InvalidArgumentException;
@@ -81,6 +82,10 @@ class QuestionnaireService
     public function saveSection(Questionnaire $questionnaire, string $sectionKey, array $data): Questionnaire
     {
         $section = $this->getSection($sectionKey);
+
+        if (isset($data['mobile'])) {
+            $data['mobile'] = MobileNumber::normalize($data['mobile']);
+        }
 
         // Validate with structural rules (nullable/format only)
         $validator = $section->validateData($data, SectionDefinition::MODE_STRUCTURAL);
