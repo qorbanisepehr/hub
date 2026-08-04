@@ -20,6 +20,7 @@ import type { InitCvResponse } from "@/features/cv/types";
 import { CV_ENTITY } from "@/features/cv/constants";
 import { getApiError } from "@/lib/error-utils";
 import { setGrantToken } from "@/lib/grant";
+import { MOBILE_ACCEPTED_REGEX } from "@/lib/field-rules";
 
 const initSchema = z.object({
     first_name: z
@@ -47,7 +48,7 @@ const initSchema = z.object({
         .trim()
         .min(1, "شماره موبایل الزامی است")
         .regex(
-            /^09\d{9}$/,
+            MOBILE_ACCEPTED_REGEX,
             "فرمت شماره موبایل نامعتبر است (مثال: 09121234567)",
         )
         .max(15, "حداکثر ۱۵ کاراکتر"),
