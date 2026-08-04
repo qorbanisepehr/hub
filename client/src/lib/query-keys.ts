@@ -59,3 +59,16 @@ export const permissionKeys = {
     search: (search: string) =>
         ["permissions-search", search] as const,
 };
+
+export const cvKeys = {
+    all: ["cvs"] as const,
+    lists: () => [...cvKeys.all, "list"] as const,
+    list: (params: Record<string, unknown>) =>
+        [...cvKeys.lists(), params] as const,
+    details: () => [...cvKeys.all, "detail"] as const,
+    detail: (uuid: string) => [...cvKeys.details(), uuid] as const,
+    bank: (params: Record<string, unknown>) =>
+        [...cvKeys.all, "bank", params] as const,
+    bankDetail: (id: number | string) => [...cvKeys.all, "bank", id] as const,
+    documents: (uuid: string) => [`cv-documents`, uuid] as const,
+};

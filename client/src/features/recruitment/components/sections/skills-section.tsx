@@ -14,7 +14,7 @@ import {
     SOFTWARE_LEVEL_OPTIONS,
     DOC_CATEGORY_SLUGS,
 } from "@/features/recruitment/constants";
-import { useQuestionnaireDocuments } from "@/features/recruitment/hooks/use-questionnaire-documents";
+import { useEntityDocuments } from "@/hooks/use-entity-documents";
 import { zodFieldValidators } from "@/lib/validation-helpers";
 import { fieldSchemas } from "@/features/recruitment/schemas/skills.schema";
 import type { QuestionnaireFormApi } from "@/features/recruitment/types";
@@ -23,6 +23,8 @@ type SectionProps = {
     form: QuestionnaireFormApi;
     uuid?: string;
     onPersist?: () => void;
+    /** Grant entity the section's documents belong to. Defaults to "questionnaire". */
+    entity?: string;
 };
 
 const LANGUAGE_COLUMNS: TableColumn[] = [
@@ -87,8 +89,8 @@ function SoftwareItem({
     );
 }
 
-export function SkillsSection({ form, uuid, onPersist }: SectionProps) {
-    const { getDocumentsBySlug } = useQuestionnaireDocuments(uuid);
+export function SkillsSection({ form, uuid, onPersist, entity = "questionnaire" }: SectionProps) {
+    const { getDocumentsBySlug } = useEntityDocuments(entity, uuid);
     const languageColumns: TableColumn[] = [
         ...LANGUAGE_COLUMNS,
         repeaterAttachmentColumn({
@@ -224,6 +226,7 @@ export function SkillsSection({ form, uuid, onPersist }: SectionProps) {
                                     {uuid && (
                                         <FileUploadField
                                             uuid={uuid}
+                                            entity={entity}
                                             categorySlug={
                                                 DOC_CATEGORY_SLUGS.LANGUAGE_CERTIFICATE
                                             }
@@ -267,6 +270,7 @@ export function SkillsSection({ form, uuid, onPersist }: SectionProps) {
                                         {uuid && (
                                             <FileUploadField
                                                 uuid={uuid}
+                                                entity={entity}
                                                 categorySlug={
                                                     DOC_CATEGORY_SLUGS.SKILL_CERTIFICATE
                                                 }
@@ -302,6 +306,7 @@ export function SkillsSection({ form, uuid, onPersist }: SectionProps) {
                                         {uuid && (
                                             <FileUploadField
                                                 uuid={uuid}
+                                                entity={entity}
                                                 categorySlug={
                                                     DOC_CATEGORY_SLUGS.SKILL_CERTIFICATE
                                                 }
@@ -360,6 +365,7 @@ export function SkillsSection({ form, uuid, onPersist }: SectionProps) {
                                     {uuid && (
                                         <FileUploadField
                                             uuid={uuid}
+                                            entity={entity}
                                             categorySlug={
                                                 DOC_CATEGORY_SLUGS.COURSE_CERTIFICATES
                                             }
@@ -405,6 +411,7 @@ export function SkillsSection({ form, uuid, onPersist }: SectionProps) {
                                     {uuid && (
                                         <FileUploadField
                                             uuid={uuid}
+                                            entity={entity}
                                             categorySlug={
                                                 DOC_CATEGORY_SLUGS.SKILL_CERTIFICATE
                                             }

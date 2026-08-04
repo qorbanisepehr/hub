@@ -5,7 +5,7 @@ import {
     SidebarMenuButton,
     SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import { IconDashboard, IconIdBadge2, IconSettings, IconMasksTheater, IconUsers, IconHierarchy2 } from "@tabler/icons-react";
+import { IconDashboard, IconIdBadge2, IconSettings, IconMasksTheater, IconUsers, IconHierarchy2, IconFileCv } from "@tabler/icons-react";
 import { Link } from "@tanstack/react-router";
 import { PermissionGuard } from "@/features/auth/components/permission-guard";
 import { PERMISSIONS } from "@/lib/permissions";
@@ -16,6 +16,7 @@ const items = [
     { title: "کاربران", url: "/users", icon: <IconUsers />, permission: PERMISSIONS.USER_VIEW as const },
     { title: "نقش‌ها", url: "/roles", icon: <IconMasksTheater />, permission: PERMISSIONS.ROLE_VIEW as const },
     { title: "نقشه سازمانی", url: "/roles/chart", icon: <IconHierarchy2 />, permission: PERMISSIONS.ROLE_VIEW },
+    { title: "بانک رزومه", url: "/cvs", icon: <IconFileCv />, permission: PERMISSIONS.CV_VIEW },
     { title: "تنظیمات", url: "/settings", icon: <IconSettings />, permission: [PERMISSIONS.DOCUMENT_CATEGORY_VIEW, PERMISSIONS.DOCUMENT_CATEGORY_MANAGE] as const },
 ];
 

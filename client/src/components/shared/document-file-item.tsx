@@ -10,11 +10,13 @@ import { ConfirmDeleteButton } from "@/components/ui/confirm-delete-button";
 import { FileThumbnail } from "@/components/ui/file-thumbnail";
 import { getFileIcon } from "@/lib/file-icon";
 import { getFileColorClasses } from "@/lib/file-colors";
-import type { QuestionnaireDocument } from "@/features/recruitment/hooks/use-questionnaire-documents";
+import type { EntityDocument } from "@/hooks/use-entity-documents";
 
 type DocumentFileItemProps = {
     uuid: string;
-    doc: QuestionnaireDocument;
+    doc: EntityDocument;
+    /** Grant entity the delete targets. Defaults to "questionnaire". */
+    entity?: string;
     /** "row": name + subtitle next to thumbnail (FileUploadField); "compact": thumbnail with a label row below (orphan entries) */
     layout?: "row" | "compact";
     /** Row layout: secondary text under the file name */
@@ -30,6 +32,7 @@ type DocumentFileItemProps = {
 export function DocumentFileItem({
     uuid,
     doc,
+    entity = "questionnaire",
     layout = "row",
     subtitle,
     label,
@@ -41,12 +44,12 @@ export function DocumentFileItem({
 
     const deleteMutation = useMutation({
         mutationFn: (usageId: number) =>
-            publicApi.delete(`/questionnaire/${uuid}/documents/${usageId}`, {
-                grant: { entity: "questionnaire", uuid, purpose: "edit" },
+            publicApi.delete(`/${entity}/${uuid}/documents/${usageId}`, {
+                grant: { entity, uuid, purpose: "edit" },
             }),
         onSuccess: () => {
             queryClient.invalidateQueries({
-                queryKey: ["questionnaire-documents", uuid],
+                queryKey: [`${entity}-documents`, uuid],
             });
             toast.success("مدرک حذف شد.");
         },

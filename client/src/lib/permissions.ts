@@ -36,6 +36,12 @@ export const PERMISSIONS = {
 
     // Bulk Import
     BULK_IMPORT_EMPLOYEE: "bulk-import.employee",
+
+    // CV
+    CV_VIEW: "cv.view",
+    CV_REVIEW: "cv.review",
+    CV_REJECT: "cv.reject",
+    CV_CREATE_QUESTIONNAIRE: "cv.create-questionnaire",
 } as const;
 
 export type PermissionValue = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];

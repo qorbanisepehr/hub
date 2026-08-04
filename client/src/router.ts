@@ -27,6 +27,11 @@ import { Route as CatchAllRoute } from "@/routes/_protected/$";
 import { Route as QuestionnaireRoute } from "@/routes/_public/questionnaire";
 import { Route as QuestionnaireIndexRoute } from "@/routes/_public/questionnaire/index";
 import { Route as QuestionnaireUuidRoute } from "@/routes/_public/questionnaire/$uuid";
+import { Route as CvRoute } from "@/routes/_public/cv";
+import { Route as CvIndexRoute } from "@/routes/_public/cv/index";
+import { Route as CvUuidRoute } from "@/routes/_public/cv/$uuid";
+import { Route as CvsRoute } from "@/routes/_protected/cvs/index";
+import { Route as CvBankDetailRoute } from "@/routes/_protected/cvs/$id";
 
 const routeTree = RootRoute.addChildren([
     PublicRoute.addChildren([
@@ -35,6 +40,7 @@ const routeTree = RootRoute.addChildren([
             QuestionnaireIndexRoute,
             QuestionnaireUuidRoute,
         ]),
+        CvRoute.addChildren([CvIndexRoute, CvUuidRoute]),
     ]),
     LoginRoute,
     ProtectedRoute.addChildren([
@@ -57,6 +63,8 @@ const routeTree = RootRoute.addChildren([
         ProfileEditRoute,
         UnauthorizedRoute,
         CatchAllRoute,
+        CvsRoute,
+        CvBankDetailRoute,
     ]),
 ]);
 

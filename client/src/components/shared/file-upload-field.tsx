@@ -15,8 +15,8 @@ import { publicApi } from "@/lib/public-api";
 import { getApiError } from "@/lib/error-utils";
 import { documentKeys } from "@/lib/query-keys";
 import { formatBytes } from "@/lib/file-size";
-import { useQuestionnaireDocuments } from "@/features/recruitment/hooks/use-questionnaire-documents";
-import type { QuestionnaireDocument } from "@/features/recruitment/hooks/use-questionnaire-documents";
+import { useEntityDocuments } from "@/hooks/use-entity-documents";
+import type { EntityDocument } from "@/hooks/use-entity-documents";
 import { fetchDocumentCategories } from "@/features/documents/api";
 import type { DocumentCategory } from "@/features/documents/types";
 import { BaseDropzone } from "@/components/shared/base-dropzone";
@@ -39,6 +39,8 @@ type FileUploadFieldProps = {
     uuid: string;
     categorySlug: string;
     label: string;
+    /** Grant entity the upload targets. Defaults to "questionnaire". */
+    entity?: string;
     variant?: FileUploadFieldVariant;
     accept?: string;
     multiple?: boolean;
@@ -53,7 +55,7 @@ type FileUploadFieldProps = {
     actionsEnabled?: boolean;
     /** Where the delete action button is rendered. Defaults to "overlay". */
     actionsPlacement?: FileUploadActionsPlacement;
-    onUploadComplete?: (doc: QuestionnaireDocument) => void;
+    onUploadComplete?: (doc: EntityDocument) => void;
 };
 
 const DEFAULT_ACCEPT = [
@@ -81,6 +83,7 @@ export function FileUploadField({
     uuid,
     categorySlug,
     label,
+    entity = "questionnaire",
     variant = "default",
     accept = DEFAULT_ACCEPT,
     multiple = false,
@@ -97,7 +100,7 @@ export function FileUploadField({
 }: FileUploadFieldProps) {
     const queryClient = useQueryClient();
 
-    const { getDocumentsBySlug } = useQuestionnaireDocuments(uuid);
+    const { getDocumentsBySlug } = useEntityDocuments(entity, uuid);
     const categoryDocs = getDocumentsBySlug(categorySlug, recordKey).filter(
         (d) => (notes !== undefined ? (d.notes ?? "") === notes : true),
     );
@@ -146,11 +149,11 @@ export function FileUploadField({
             }
             return publicApi
                 .post<{
-                    data: QuestionnaireDocument;
-                }>(`/questionnaire/${uuid}/documents`, formData, {
+                    data: EntityDocument;
+                }>(`/${entity}/${uuid}/documents`, formData, {
                     headers: { "Content-Type": "multipart/form-data" },
                     grant: {
-                        entity: "questionnaire",
+                        entity,
                         uuid,
                         purpose: "edit",
                     },
@@ -159,7 +162,7 @@ export function FileUploadField({
         },
         onSuccess: (doc) => {
             queryClient.invalidateQueries({
-                queryKey: ["questionnaire-documents", uuid],
+                queryKey: [`${entity}-documents`, uuid],
             });
             onUploadComplete?.(doc);
             toast.success("فایل با موفقیت آپلود شد");
@@ -171,12 +174,12 @@ export function FileUploadField({
 
     const deleteMutation = useMutation({
         mutationFn: (usageId: number) =>
-            publicApi.delete(`/questionnaire/${uuid}/documents/${usageId}`, {
-                grant: { entity: "questionnaire", uuid, purpose: "edit" },
+            publicApi.delete(`/${entity}/${uuid}/documents/${usageId}`, {
+                grant: { entity, uuid, purpose: "edit" },
             }),
         onSuccess: () => {
             queryClient.invalidateQueries({
-                queryKey: ["questionnaire-documents", uuid],
+                queryKey: [`${entity}-documents`, uuid],
             });
             toast.success("فایل حذف شد");
         },
@@ -218,7 +221,7 @@ export function FileUploadField({
         variant !== "default" && VARIANT_CONTAINER[variant],
     );
 
-    const renderDelete = (doc: QuestionnaireDocument) =>
+    const renderDelete = (doc: EntityDocument) =>
         actionsEnabled ? (
             <ConfirmDeleteButton
                 iconOnly

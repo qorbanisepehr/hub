@@ -19,7 +19,7 @@ import {
     parseBoolean,
 } from "@/features/recruitment/constants";
 import { DOC_CATEGORY_SLUGS } from "@/features/recruitment/constants";
-import { useQuestionnaireDocuments } from "@/features/recruitment/hooks/use-questionnaire-documents";
+import { useEntityDocuments } from "@/hooks/use-entity-documents";
 import { zodFieldValidators } from "@/lib/validation-helpers";
 import { fieldSchemas } from "@/features/recruitment/schemas/education.schema";
 import type { QuestionnaireFormApi } from "@/features/recruitment/types";
@@ -28,10 +28,12 @@ type SectionProps = {
     form: QuestionnaireFormApi;
     uuid?: string;
     onPersist?: () => void;
+    /** Grant entity the section's documents belong to. Defaults to "questionnaire". */
+    entity?: string;
 };
 
-export function EducationSection({ form, uuid, onPersist }: SectionProps) {
-    const { getDocumentsBySlug } = useQuestionnaireDocuments(uuid);
+export function EducationSection({ form, uuid, onPersist, entity = "questionnaire" }: SectionProps) {
+    const { getDocumentsBySlug } = useEntityDocuments(entity, uuid);
 
     const educationColumns: TableColumn[] = [
         { key: "degree", label: "مدرک" },
@@ -209,6 +211,7 @@ export function EducationSection({ form, uuid, onPersist }: SectionProps) {
                                     {uuid && (
                                         <FileUploadField
                                             uuid={uuid}
+                                            entity={entity}
                                             categorySlug={
                                                 DOC_CATEGORY_SLUGS.ACADEMIC_DEGREE
                                             }

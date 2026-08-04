@@ -1,0 +1,38 @@
+// Shared option lists are reused cross-domain from the recruitment feature to
+// avoid duplicating the same Persian option labels in two places.
+export {
+    GENDER_OPTIONS,
+    MARITAL_STATUS_OPTIONS,
+    MILITARY_STATUS_OPTIONS,
+    DEGREE_OPTIONS,
+    LANGUAGE_LEVEL_OPTIONS,
+    SOFTWARE_LEVEL_OPTIONS,
+    YES_NO_OPTIONS,
+    parseBoolean,
+} from "@/features/recruitment/constants";
+
+export const CV_ENTITY = "cv";
+
+export const CV_WIZARD_STEPS = [
+    { id: 0, label: "مشخصات فردی", description: "اطلاعات شخصی و شناسایی", key: "personal_info" },
+    { id: 1, label: "اطلاعات تماس", description: "تلفن، ایمیل و آدرس", key: "contact_info" },
+    { id: 2, label: "سوابق تحصیلی", description: "مدارک و سوابق تحصیلی", key: "education" },
+    { id: 3, label: "سوابق شغلی", description: "تجربیات کاری قبلی", key: "work_experience" },
+    { id: 4, label: "مهارت‌ها", description: "زبان‌ها و مهارت‌های نرم‌افزاری", key: "skills" },
+    { id: 5, label: "آموزشی و تحقیقاتی", description: "دوره‌ها و پژوهش‌ها", key: "training" },
+    { id: 6, label: "اطلاعات تکمیلی", description: "علایق، ارجاعات و نقاط قوت", key: "additional_info" },
+    { id: 7, label: "بارگذاری مدارک", description: "رزومه و مدارک پیوست", key: "documents" },
+    { id: 8, label: "خلاصه و تأیید", description: "بررسی و ارسال نهایی", key: "summary" },
+] as const;
+
+export const CV_DOC_CATEGORY_SLUGS = {
+    RESUME: "resume",
+    COVER_LETTER: "cover-letter",
+    OTHER_DOCUMENTS: "other-documents",
+} as const;
+
+export const CV_STATUS_LABELS: Record<string, string> = {
+    draft: "پیش‌نویس",
+    submitted: "ارسال شده",
+    reviewed: "بررسی شده",
+};

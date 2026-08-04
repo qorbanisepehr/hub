@@ -15,7 +15,7 @@ import {
     parseBoolean,
     DOC_CATEGORY_SLUGS,
 } from "@/features/recruitment/constants";
-import { useQuestionnaireDocuments } from "@/features/recruitment/hooks/use-questionnaire-documents";
+import { useEntityDocuments } from "@/hooks/use-entity-documents";
 import { zodFieldValidators } from "@/lib/validation-helpers";
 import { fieldSchemas } from "@/features/recruitment/schemas/work-experience.schema";
 import type { QuestionnaireFormApi } from "@/features/recruitment/types";
@@ -24,6 +24,8 @@ type SectionProps = {
     form: QuestionnaireFormApi;
     uuid?: string;
     onPersist?: () => void;
+    /** Grant entity the section's documents belong to. Defaults to "questionnaire". */
+    entity?: string;
 };
 
 const WORK_COLUMNS: TableColumn[] = [
@@ -35,8 +37,8 @@ const WORK_COLUMNS: TableColumn[] = [
     { key: "contract_type", label: "نوع قرارداد" },
 ];
 
-export function WorkExperienceSection({ form, uuid, onPersist }: SectionProps) {
-    const { getDocumentsBySlug } = useQuestionnaireDocuments(uuid);
+export function WorkExperienceSection({ form, uuid, onPersist, entity = "questionnaire" }: SectionProps) {
+    const { getDocumentsBySlug } = useEntityDocuments(entity, uuid);
     const workColumns: TableColumn[] = [
         ...WORK_COLUMNS,
         repeaterAttachmentColumn({
@@ -133,6 +135,7 @@ export function WorkExperienceSection({ form, uuid, onPersist }: SectionProps) {
                                     {uuid && (
                                         <FileUploadField
                                             uuid={uuid}
+                                            entity={entity}
                                             categorySlug={
                                                 DOC_CATEGORY_SLUGS.EMPLOYMENT_CERTIFICATE
                                             }
