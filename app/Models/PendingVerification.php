@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Casts\MobileNumberCast;
 use App\Contracts\OtpVerifiable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
@@ -18,6 +19,7 @@ class PendingVerification extends Model implements OtpVerifiable
     ];
 
     protected $casts = [
+        'mobile' => MobileNumberCast::class,
         'payload' => 'array',
         'verified_at' => 'datetime',
     ];
