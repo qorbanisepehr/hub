@@ -1,3 +1,5 @@
+import type { ValidationSection, DocumentRequirement } from "@/lib/validation-helpers";
+
 export const BLOOD_GROUPS = [
     { value: "A+", label: "A+" },
     { value: "A-", label: "A-" },
@@ -118,3 +120,33 @@ export function getRecordKeyLabel(recordKey?: string | null): string | null {
     if (!recordKey) return null;
     return RECORD_KEY_LABELS[recordKey] ?? recordKey;
 }
+
+// Identity fields live on the real columns, not inside the JSONB section, so
+// they need extra match prefixes when grouping errors by section.
+const QUESTIONNAIRE_SECTION_IDENTITY_MATCH: Record<string, string[]> = {
+    personal_info: ["first_name", "last_name"],
+    contact_info: ["email", "mobile"],
+};
+
+export const QUESTIONNAIRE_VALIDATION_SECTIONS: ValidationSection[] = WIZARD_STEPS.filter(
+    (step) => step.key !== "summary",
+).map((step) => ({
+    key: step.key,
+    label: step.label,
+    match: [step.key, ...(QUESTIONNAIRE_SECTION_IDENTITY_MATCH[step.key] ?? [])],
+}));
+
+export const QUESTIONNAIRE_DOC_REQUIREMENTS: DocumentRequirement[] = [
+    { slug: DOC_CATEGORY_SLUGS.NATIONAL_CARD, label: "کارت ملی", required: true, max: 1 },
+    { slug: DOC_CATEGORY_SLUGS.BIRTH_CERTIFICATE, label: "شناسنامه", required: true, max: 1 },
+    { slug: DOC_CATEGORY_SLUGS.PERSONNEL_PHOTO, label: "تصویر پرسنلی", required: true, max: 1 },
+    { slug: DOC_CATEGORY_SLUGS.RESUME, label: "رزومه", required: true },
+    { slug: DOC_CATEGORY_SLUGS.ACADEMIC_DEGREE, label: "مدرک تحصیلی" },
+    { slug: DOC_CATEGORY_SLUGS.LANGUAGE_CERTIFICATE, label: "گواهینامه زبان" },
+    { slug: DOC_CATEGORY_SLUGS.COURSE_CERTIFICATES, label: "گواهینامه دوره" },
+    { slug: DOC_CATEGORY_SLUGS.SKILL_CERTIFICATE, label: "گواهی مهارت", max: 1 },
+    { slug: DOC_CATEGORY_SLUGS.EMPLOYMENT_CERTIFICATE, label: "گواهی اشتغال به کار", max: 1 },
+    { slug: DOC_CATEGORY_SLUGS.RESEARCH_DOCUMENTS, label: "مدارک پژوهشی", max: 1 },
+    { slug: DOC_CATEGORY_SLUGS.COVER_LETTER, label: "نامه پوششی", max: 1 },
+    { slug: DOC_CATEGORY_SLUGS.OTHER_DOCUMENTS, label: "سایر مدارک", max: 3 },
+];

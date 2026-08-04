@@ -1,27 +1,27 @@
 import { z } from "zod";
 
-export const requiredString = z.string().min(1, "این فیلد الزامی است.");
+import { numberField, requiredText, text } from "@/lib/zod-primitives";
 
 export const languageSkillSchema = z.object({
-    language: z.string().min(1, "نام زبان الزامی است.").max(50, "حداکثر ۵۰ کاراکتر."),
-    reading: z.number().min(1, "سطح خواندن الزامی است.").max(4).nullable().optional(),
-    writing: z.number().min(1, "سطح نوشتن الزامی است.").max(4).nullable().optional(),
-    speaking: z.number().min(1, "سطح صحبت کردن الزامی است.").max(4).nullable().optional(),
-    comprehension: z.number().min(1, "سطح درک مطلب الزامی است.").max(4).nullable().optional(),
+    language: requiredText("نام زبان الزامی است.", 50),
+    reading: numberField(1, "سطح خواندن الزامی است.", 4),
+    writing: numberField(1, "سطح نوشتن الزامی است.", 4),
+    speaking: numberField(1, "سطح صحبت کردن الزامی است.", 4),
+    comprehension: numberField(1, "سطح درک مطلب الزامی است.", 4),
 });
 
 export type LanguageSkillFormData = z.infer<typeof languageSkillSchema>;
 
 export const softwareSkillSchema = z.object({
-    name: z.string().min(1, "نام نرم‌افزار الزامی است.").max(100, "حداکثر ۱۰۰ کاراکتر."),
-    level: z.number().min(1, "سطح مهارت الزامی است.").max(4).nullable().optional(),
+    name: requiredText("نام نرم‌افزار الزامی است.", 100),
+    level: numberField(1, "سطح مهارت الزامی است.", 4),
 });
 
 export type SoftwareSkillFormData = z.infer<typeof softwareSkillSchema>;
 
 export const certificateSchema = z.object({
-    title: z.string().min(1, "عنوان گواهینامه الزامی است.").max(100, "حداکثر ۱۰۰ کاراکتر."),
-    expire_at: z.string().nullable().optional(),
+    title: requiredText("عنوان گواهینامه الزامی است.", 100),
+    expire_at: text(),
 });
 
 export type CertificateFormData = z.infer<typeof certificateSchema>;
@@ -46,11 +46,11 @@ export type SkillsFormData = z.infer<typeof skillsFieldSchema>;
 export const fieldSchemas = {
     languages: z.array(languageSkillSchema).optional(),
     language_item: languageSkillSchema,
-    language: z.string().min(1, "نام زبان الزامی است.").max(50, "حداکثر ۵۰ کاراکتر."),
-    reading: z.number().min(1, "سطح خواندن الزامی است.").max(4).nullable().optional(),
-    writing: z.number().min(1, "سطح نوشتن الزامی است.").max(4).nullable().optional(),
-    speaking: z.number().min(1, "سطح صحبت کردن الزامی است.").max(4).nullable().optional(),
-    comprehension: z.number().min(1, "سطح درک مطلب الزامی است.").max(4).nullable().optional(),
+    language: requiredText("نام زبان الزامی است.", 50),
+    reading: numberField(1, "سطح خواندن الزامی است.", 4),
+    writing: numberField(1, "سطح نوشتن الزامی است.", 4),
+    speaking: numberField(1, "سطح صحبت کردن الزامی است.", 4),
+    comprehension: numberField(1, "سطح درک مطلب الزامی است.", 4),
     software_skills: z
         .object({
             specialized: z.array(softwareSkillSchema).optional(),
@@ -58,10 +58,10 @@ export const fieldSchemas = {
         })
         .optional(),
     software_skill_item: softwareSkillSchema,
-    software_skill_name: z.string().min(1, "نام نرم‌افزار الزامی است.").max(100, "حداکثر ۱۰۰ کاراکتر."),
+    software_skill_name: requiredText("نام نرم‌افزار الزامی است.", 100),
     certificates: z.array(certificateSchema).optional(),
     certificate_item: certificateSchema,
-    certificate_title: z.string().min(1, "عنوان گواهینامه الزامی است.").max(100, "حداکثر ۱۰۰ کاراکتر."),
-    special_skills: z.array(z.string().max(100, "حداکثر ۱۰۰ کاراکتر.")).optional(),
-    special_skill_item: z.string().min(1, "نام مهارت الزامی است.").max(100, "حداکثر ۱۰۰ کاراکتر."),
+    certificate_title: requiredText("عنوان گواهینامه الزامی است.", 100),
+    special_skills: z.array(text(100, "حداکثر ۱۰۰ کاراکتر.")).optional(),
+    special_skill_item: requiredText("نام مهارت الزامی است.", 100),
 } as const;

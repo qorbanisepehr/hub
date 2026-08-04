@@ -1,20 +1,20 @@
 import { z } from "zod";
 
-export const requiredString = z.string().min(1, "این فیلد الزامی است.");
+import { numberField, requiredText, text } from "@/lib/zod-primitives";
 
 export const workExperienceRecordSchema = z
     .object({
-        company: z.string().min(1, "نام شرکت الزامی است.").max(100, "حداکثر ۱۰۰ کاراکتر."),
-        location: z.string().max(100, "حداکثر ۱۰۰ کاراکتر.").optional(),
-        industry: z.string().max(100, "حداکثر ۱۰۰ کاراکتر.").optional(),
-        position: z.string().min(1, "سمت شغلی الزامی است.").max(100, "حداکثر ۱۰۰ کاراکتر."),
-        from: z.string().min(1, "تاریخ شروع الزامی است."),
-        to: z.string().min(1, "تاریخ پایان الزامی است."),
-        contract_type: z.string().max(50, "حداکثر ۵۰ کاراکتر.").optional(),
-        phone: z.string().max(15, "حداکثر ۱۵ کاراکتر.").optional(),
-        manager_name: z.string().max(100, "حداکثر ۱۰۰ کاراکتر.").optional(),
-        last_salary: z.number().min(0, "حقوق نمی‌تواند منفی باشد.").nullable().optional(),
-        leave_reason: z.string().max(255, "حداکثر ۲۵۵ کاراکتر.").optional(),
+        company: requiredText("نام شرکت الزامی است.", 100),
+        location: text(100, "حداکثر ۱۰۰ کاراکتر."),
+        industry: text(100, "حداکثر ۱۰۰ کاراکتر."),
+        position: requiredText("سمت شغلی الزامی است.", 100),
+        from: requiredText("تاریخ شروع الزامی است."),
+        to: requiredText("تاریخ پایان الزامی است."),
+        contract_type: text(50, "حداکثر ۵۰ کاراکتر."),
+        phone: text(15, "حداکثر ۱۵ کاراکتر."),
+        manager_name: text(100, "حداکثر ۱۰۰ کاراکتر."),
+        last_salary: numberField(0, "حقوق نمی‌تواند منفی باشد."),
+        leave_reason: text(255, "حداکثر ۲۵۵ کاراکتر."),
     })
     .superRefine((data, ctx) => {
         if (data.from && data.to && data.to < data.from) {
@@ -30,9 +30,9 @@ export type WorkExperienceRecordFormData = z.infer<typeof workExperienceRecordSc
 
 export const workExperienceFieldSchema = z.object({
     work_experiences: z.array(workExperienceRecordSchema).optional(),
-    achievements: z.string().max(2000).optional(),
+    achievements: text(2000),
     allow_contact_previous_managers: z.boolean().optional(),
-    contact_restriction_description: z.string().max(500).optional(),
+    contact_restriction_description: text(500),
 });
 
 export type WorkExperienceFormData = z.infer<typeof workExperienceFieldSchema>;
@@ -43,18 +43,18 @@ export type WorkExperienceFormData = z.infer<typeof workExperienceFieldSchema>;
 export const fieldSchemas = {
     work_experiences: z.array(workExperienceRecordSchema).optional(),
     work_experiences_item: workExperienceRecordSchema,
-    company: z.string().min(1, "نام شرکت الزامی است.").max(100, "حداکثر ۱۰۰ کاراکتر."),
-    position: z.string().min(1, "سمت شغلی الزامی است.").max(100, "حداکثر ۱۰۰ کاراکتر."),
-    from: z.string().min(1, "تاریخ شروع الزامی است."),
-    to: z.string().min(1, "تاریخ پایان الزامی است."),
-    location: z.string().max(100, "حداکثر ۱۰۰ کاراکتر.").optional(),
-    industry: z.string().max(100, "حداکثر ۱۰۰ کاراکتر.").optional(),
-    contract_type: z.string().max(50, "حداکثر ۵۰ کاراکتر.").optional(),
-    phone: z.string().max(15, "حداکثر ۱۵ کاراکتر.").optional(),
-    manager_name: z.string().max(100, "حداکثر ۱۰۰ کاراکتر.").optional(),
-    last_salary: z.number().min(0, "حقوق نمی‌تواند منفی باشد.").nullable().optional(),
-    leave_reason: z.string().max(255, "حداکثر ۲۵۵ کاراکتر.").optional(),
-    achievements: z.string().max(2000, "حداکثر ۲۰۰۰ کاراکتر.").optional(),
+    company: requiredText("نام شرکت الزامی است.", 100),
+    position: requiredText("سمت شغلی الزامی است.", 100),
+    from: requiredText("تاریخ شروع الزامی است."),
+    to: requiredText("تاریخ پایان الزامی است."),
+    location: text(100, "حداکثر ۱۰۰ کاراکتر."),
+    industry: text(100, "حداکثر ۱۰۰ کاراکتر."),
+    contract_type: text(50, "حداکثر ۵۰ کاراکتر."),
+    phone: text(15, "حداکثر ۱۵ کاراکتر."),
+    manager_name: text(100, "حداکثر ۱۰۰ کاراکتر."),
+    last_salary: numberField(0, "حقوق نمی‌تواند منفی باشد."),
+    leave_reason: text(255, "حداکثر ۲۵۵ کاراکتر."),
+    achievements: text(2000, "حداکثر ۲۰۰۰ کاراکتر."),
     allow_contact_previous_managers: z.boolean().optional(),
-    contact_restriction_description: z.string().max(500, "حداکثر ۵۰۰ کاراکتر.").optional(),
+    contact_restriction_description: text(500, "حداکثر ۵۰۰ کاراکتر."),
 } as const;

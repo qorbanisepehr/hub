@@ -1,18 +1,18 @@
 import { z } from "zod";
 
-export const requiredString = z.string().min(1, "این فیلد الزامی است.");
+import { numberField, requiredText, text } from "@/lib/zod-primitives";
 
 export const educationRecordSchema = z
     .object({
-        degree: z.string().min(1, "مدرک الزامی است.").max(50, "حداکثر ۵۰ کاراکتر."),
-        field: z.string().min(1, "رشته تحصیلی الزامی است.").max(100, "حداکثر ۱۰۰ کاراکتر."),
-        institution: z.string().min(1, "دانشگاه الزامی است.").max(100, "حداکثر ۱۰۰ کاراکتر."),
-        location: z.string().max(100, "حداکثر ۱۰۰ کاراکتر.").optional(),
-        from: z.string().min(1, "تاریخ شروع الزامی است."),
-        to: z.string().min(1, "تاریخ پایان الزامی است."),
-        thesis_title: z.string().max(255, "حداکثر ۲۵۵ کاراکتر.").optional().nullable(),
-        graduation_date: z.string().min(1, "تاریخ فارغ‌التحصیلی الزامی است."),
-        gpa: z.string().min(1, "معدل الزامی است.").max(10, "حداکثر ۱۰ کاراکتر."),
+        degree: requiredText("مدرک الزامی است.", 50),
+        field: requiredText("رشته تحصیلی الزامی است.", 100),
+        institution: requiredText("دانشگاه الزامی است.", 100),
+        location: text(100, "حداکثر ۱۰۰ کاراکتر."),
+        from: requiredText("تاریخ شروع الزامی است."),
+        to: requiredText("تاریخ پایان الزامی است."),
+        thesis_title: text(255, "حداکثر ۲۵۵ کاراکتر."),
+        graduation_date: requiredText("تاریخ فارغ‌التحصیلی الزامی است."),
+        gpa: requiredText("معدل الزامی است.", 10),
     })
     .superRefine((data, ctx) => {
         if (data.from && data.to && data.to < data.from) {
@@ -30,21 +30,21 @@ export const educationFieldSchema = z
     .object({
         education_records: z.array(educationRecordSchema).min(1, "حداقل یک سوابق تحصیلی الزامی است."),
         is_student: z.boolean().optional(),
-        student_degree: z.string().max(50).optional(),
-        student_field: z.string().max(100).optional(),
-        student_university: z.string().max(100).optional(),
-        student_country: z.string().max(100).optional(),
-        student_city: z.string().max(100).optional(),
-        student_semester: z.number().min(1).nullable().optional(),
-        passed_units: z.number().min(0).nullable().optional(),
-        remaining_units: z.number().min(0).nullable().optional(),
-        student_gpa: z.string().max(10).optional(),
-        study_start: z.string().optional(),
-        expected_graduation: z.string().optional(),
+        student_degree: text(50),
+        student_field: text(100),
+        student_university: text(100),
+        student_country: text(100),
+        student_city: text(100),
+        student_semester: numberField(1, "ترم نمی‌تواند کمتر از ۱ باشد."),
+        passed_units: numberField(0, "تعداد واحد نمی‌تواند منفی باشد."),
+        remaining_units: numberField(0, "تعداد واحد نمی‌تواند منفی باشد."),
+        student_gpa: text(10),
+        study_start: text(),
+        expected_graduation: text(),
         thesis_submitted: z.boolean().optional(),
-        student_thesis_title: z.string().max(255).optional(),
-        free_days_per_week: z.number().min(0).max(7).nullable().optional(),
-        education_description: z.string().max(1000).optional(),
+        student_thesis_title: text(255),
+        free_days_per_week: numberField(0, "روزهای آزاد نمی‌تواند منفی باشد.", 7),
+        education_description: text(1000),
     })
     .superRefine((data, ctx) => {
         if (data.is_student) {
@@ -87,13 +87,13 @@ export const fieldSchemas = {
         .array(z.object({}))
         .min(1, "حداقل یک سابقه تحصیلی الزامی است."),
     education_records_item: educationRecordSchema,
-    student_degree: z.string().min(1, "مقطع تحصیلی الزامی است.").max(50, "حداکثر ۵۰ کاراکتر."),
-    student_field: z.string().min(1, "رشته تحصیلی الزامی است.").max(100, "حداکثر ۱۰۰ کاراکتر."),
-    student_university: z.string().min(1, "نام دانشگاه الزامی است.").max(100, "حداکثر ۱۰۰ کاراکتر."),
-    student_country: z.string().min(1, "کشور الزامی است.").max(100, "حداکثر ۱۰۰ کاراکتر."),
-    student_city: z.string().min(1, "شهر الزامی است.").max(100, "حداکثر ۱۰۰ کاراکتر."),
-    student_gpa: z.string().min(1, "معدل الزامی است.").max(10, "حداکثر ۱۰ کاراکتر."),
-    study_start: z.string().min(1, "تاریخ شروع تحصیل الزامی است."),
-    expected_graduation: z.string().min(1, "تاریخ انتظار فارغ‌التحصیلی الزامی است."),
-    student_thesis_title: z.string().min(1, "عنوان پایان‌نامه الزامی است.").max(255, "حداکثر ۲۵۵ کاراکتر."),
+    student_degree: requiredText("مقطع تحصیلی الزامی است.", 50),
+    student_field: requiredText("رشته تحصیلی الزامی است.", 100),
+    student_university: requiredText("نام دانشگاه الزامی است.", 100),
+    student_country: requiredText("کشور الزامی است.", 100),
+    student_city: requiredText("شهر الزامی است.", 100),
+    student_gpa: requiredText("معدل الزامی است.", 10),
+    study_start: requiredText("تاریخ شروع تحصیل الزامی است."),
+    expected_graduation: requiredText("تاریخ انتظار فارغ‌التحصیلی الزامی است."),
+    student_thesis_title: requiredText("عنوان پایان‌نامه الزامی است.", 255),
 } as const;

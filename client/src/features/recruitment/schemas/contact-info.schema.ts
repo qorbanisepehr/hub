@@ -1,22 +1,28 @@
 import { z } from "zod";
 
-export const requiredString = z.string().min(1, "این فیلد الزامی است.");
+import { requiredText, text } from "@/lib/zod-primitives";
 
 export const addressSchema = z.object({
-    postal_code: z.string().min(1, "کد پستی الزامی است.").max(10, "حداکثر ۱۰ کاراکتر."),
-    province: z.string().min(1, "استان الزامی است.").max(50, "حداکثر ۵۰ کاراکتر."),
-    city: z.string().min(1, "شهر الزامی است.").max(50, "حداکثر ۵۰ کاراکتر."),
-    address: z.string().min(1, "آدرس الزامی است.").max(500, "حداکثر ۵۰۰ کاراکتر."),
-    plaque: z.string().max(10, "حداکثر ۱۰ کاراکتر.").optional(),
-    floor: z.string().max(10, "حداکثر ۱۰ کاراکتر.").optional(),
-    unit: z.string().max(10, "حداکثر ۱۰ کاراکتر.").optional(),
+    postal_code: requiredText("کد پستی الزامی است.", 10),
+    province: requiredText("استان الزامی است.", 50),
+    city: requiredText("شهر الزامی است.", 50),
+    address: requiredText("آدرس الزامی است.", 500),
+    plaque: text(10, "حداکثر ۱۰ کاراکتر."),
+    floor: text(10, "حداکثر ۱۰ کاراکتر."),
+    unit: text(10, "حداکثر ۱۰ کاراکتر."),
 });
 
 export type AddressFormData = z.infer<typeof addressSchema>;
 
 export const contactInfoFieldSchema = z.object({
-    phone: requiredString.max(15, "حداکثر ۱۵ کاراکتر."),
-    emergency_phone: requiredString.max(15, "حداکثر ۱۵ کاراکتر."),
+    phone: requiredText("تلفن ثابت الزامی است.", 15).refine(
+        (v) => /^0\d{10}$/.test(v),
+        "فرمت تلفن ثابت صحیح نیست.",
+    ),
+    emergency_phone: requiredText("تلفن اضطراری الزامی است.", 15).refine(
+        (v) => /^(09\d{9}|0\d{10})$/.test(v),
+        "شماره تماس اضطراری باید یک شماره موبایل یا تلفن ثابت معتبر باشد.",
+    ),
     address: addressSchema,
 });
 
@@ -26,20 +32,25 @@ export type ContactInfoFormData = z.infer<typeof contactInfoFieldSchema>;
  * Per-field schemas for use with TanStack Form validators.
  */
 export const fieldSchemas = {
-    email: z
-        .string()
-        .min(1, "ایمیل الزامی است.")
-        .email("فرمت ایمیل صحیح نیست.")
-        .max(255, "حداکثر ۲۵۵ کاراکتر."),
-    mobile: z
-        .string()
-        .min(1, "شماره موبایل الزامی است.")
-        .regex(/^09\d{9}$/, "شماره موبایل باید با 09 شروع شده و ۱۱ رقم باشد."),
-    phone: z.string().min(1, "تلفن ثابت الزامی است.").max(15, "حداکثر ۱۵ کاراکتر."),
-    emergency_phone: z.string().min(1, "تلفن اضطراری الزامی است.").max(15, "حداکثر ۱۵ کاراکتر."),
+    email: requiredText("ایمیل الزامی است.", 255).refine(
+        (v) => z.string().email().safeParse(v).success,
+        "فرمت ایمیل صحیح نیست.",
+    ),
+    mobile: requiredText("شماره موبایل الزامی است.", 15).refine(
+        (v) => /^09\d{9}$/.test(v),
+        "شماره موبایل باید با 09 شروع شده و ۱۱ رقم باشد.",
+    ),
+    phone: requiredText("تلفن ثابت الزامی است.", 15).refine(
+        (v) => /^0\d{10}$/.test(v),
+        "فرمت تلفن ثابت صحیح نیست.",
+    ),
+    emergency_phone: requiredText("تلفن اضطراری الزامی است.", 15).refine(
+        (v) => /^(09\d{9}|0\d{10})$/.test(v),
+        "شماره تماس اضطراری باید یک شماره موبایل یا تلفن ثابت معتبر باشد.",
+    ),
     address: z.object({}),
-    address_postal_code: z.string().min(1, "کد پستی الزامی است.").max(10, "حداکثر ۱۰ کاراکتر."),
-    address_province: z.string().min(1, "استان الزامی است.").max(50, "حداکثر ۵۰ کاراکتر."),
-    address_city: z.string().min(1, "شهر الزامی است.").max(50, "حداکثر ۵۰ کاراکتر."),
-    address_address: z.string().min(1, "آدرس الزامی است.").max(500, "حداکثر ۵۰۰ کاراکتر."),
+    address_postal_code: requiredText("کد پستی الزامی است.", 10),
+    address_province: requiredText("استان الزامی است.", 50),
+    address_city: requiredText("شهر الزامی است.", 50),
+    address_address: requiredText("آدرس الزامی است.", 500),
 } as const;

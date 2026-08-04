@@ -2,7 +2,18 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useQuestionnaireDocuments } from "@/features/recruitment/hooks/use-questionnaire-documents";
 import type { QuestionnaireDocument } from "@/features/recruitment/hooks/use-questionnaire-documents";
 import type { Questionnaire, QuestionnaireFormApi } from "@/features/recruitment/types";
-import { DOC_CATEGORY_SLUGS } from "@/features/recruitment/constants";
+import {
+    DOC_CATEGORY_SLUGS,
+    QUESTIONNAIRE_VALIDATION_SECTIONS,
+    QUESTIONNAIRE_DOC_REQUIREMENTS,
+    WIZARD_STEPS,
+} from "@/features/recruitment/constants";
+import { validateSubmitData } from "@/features/recruitment/validation";
+import { FormValidationSummary } from "@/components/shared/form-validation-summary";
+import {
+    groupFieldErrorsBySection,
+    validateDocumentRequirements,
+} from "@/lib/validation-helpers";
 import {
     QuestionnaireDocumentPreview,
     QuestionnaireDocumentGrouped,
@@ -79,7 +90,17 @@ export function ReviewSection({ form, questionnaire, onNavigateToStep }: Section
     const additional = v.additional_info ?? {};
     const job = v.job_request ?? {};
 
-    const { getDocumentsBySlug } = useQuestionnaireDocuments(questionnaire?.uuid);
+    const { documents, isLoading: documentsLoading, getDocumentsBySlug } =
+        useQuestionnaireDocuments(questionnaire?.uuid);
+
+    const validation = validateSubmitData(form.state.values);
+    const docMessages = documentsLoading
+        ? []
+        : validateDocumentRequirements(documents, QUESTIONNAIRE_DOC_REQUIREMENTS);
+    const validationGroups = groupFieldErrorsBySection(
+        validation.fieldErrors,
+        QUESTIONNAIRE_VALIDATION_SECTIONS,
+    );
 
     function docsFor(slugs: string[]): QuestionnaireDocument[] {
         return slugs.flatMap((slug) => getDocumentsBySlug(slug));
@@ -98,6 +119,13 @@ export function ReviewSection({ form, questionnaire, onNavigateToStep }: Section
 
     return (
         <div className="space-y-4">
+            <FormValidationSummary
+                groups={validationGroups}
+                docMessages={docMessages}
+                onNavigateToStep={onNavigateToStep}
+                steps={WIZARD_STEPS}
+            />
+
             <Card>
                 <CardHeader>
                     <CardTitle>خلاصه و تأیید اطلاعات</CardTitle>
