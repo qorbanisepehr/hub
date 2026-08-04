@@ -61,9 +61,9 @@ class AdditionalInfoSection extends BaseSection
             'hobbies' => 'nullable|string|max:1000',
             'strengths_and_improvements' => 'nullable|string|max:1000',
             'references' => 'nullable|array',
-            'references.*.full_name' => 'required_with:references|string|max:100',
-            'references.*.relationship' => 'required_with:references|string|max:50',
-            'references.*.workplace_phone' => 'required_with:references|string|max:15',
+            'references.*.full_name' => 'required_with:references|nullable|string|max:100',
+            'references.*.relationship' => 'required_with:references|nullable|string|max:50',
+            'references.*.workplace_phone' => 'required_with:references|nullable|string|max:15',
         ];
     }
 

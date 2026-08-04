@@ -574,6 +574,31 @@ describe('CV submit', function () {
         $this->postJson("/api/cv/{$uuid}/submit")->assertOk();
     });
 
+    it('skips student fields when the applicant is not a student', function () {
+        $uuid = createCvDraft();
+        saveCvSectionToDb($uuid, 'personal_info', cvValidPersonal());
+        saveCvSectionToDb($uuid, 'contact_info', cvValidContact());
+        saveCvSectionToDb($uuid, 'education', [
+            'education_records' => cvEducationRecord(),
+            'is_student' => false,
+            'student_degree' => null,
+            'student_field' => null,
+            'student_university' => null,
+            'student_country' => null,
+            'student_city' => null,
+            'student_gpa' => null,
+            'study_start' => null,
+            'expected_graduation' => null,
+        ]);
+        saveCvSectionToDb($uuid, 'work_experience', cvWorkExperience());
+        saveCvSectionToDb($uuid, 'skills', cvSkills());
+        saveCvSectionToDb($uuid, 'training', cvTraining());
+        saveCvSectionToDb($uuid, 'additional_info', cvAdditionalInfo());
+        attachCvDocuments($uuid);
+
+        $this->postJson("/api/cv/{$uuid}/submit")->assertOk();
+    });
+
     it('requires the resume document on submit', function () {
         $uuid = createCvDraft();
         cvFillAllSections($uuid);
