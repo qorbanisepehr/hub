@@ -14,6 +14,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\URL;
 
 /**
  * Helper: create a draft CV, issue an edit grant for it, and attach the token
@@ -487,6 +488,22 @@ describe('CV section save (structural validation)', function () {
         ]);
     });
 
+    it('increments the version on every section edit', function () {
+        $uuid = createCvDraft();
+
+        expect(Cv::where('uuid', $uuid)->value('version'))->toBe(1);
+
+        $this->putJson("/api/cv/{$uuid}/sections/personal_info", [
+            'first_name' => 'NewName',
+        ])->assertOk()
+            ->assertJsonPath('data.version', 2);
+
+        $this->putJson("/api/cv/{$uuid}/sections/contact_info", [
+            'phone' => '02112345678',
+        ])->assertOk()
+            ->assertJsonPath('data.version', 3);
+    });
+
     it('does not persist email or mobile on contact save (staged until OTP verification)', function () {
         $uuid = createCvDraft();
         $cv = Cv::where('uuid', $uuid)->firstOrFail();
@@ -644,6 +661,21 @@ describe('CV submit', function () {
             ->and($last['snapshot']['sections']['personal_info']['national_id'])->toBe('0123456789');
     });
 
+    it('submits a CV whose contact_info was never saved because email/mobile live on real columns', function () {
+        $uuid = createCvDraft();
+        saveCvSectionToDb($uuid, 'personal_info', cvValidPersonal());
+        saveCvSectionToDb($uuid, 'education', ['education_records' => cvEducationRecord()]);
+        saveCvSectionToDb($uuid, 'work_experience', cvWorkExperience());
+        saveCvSectionToDb($uuid, 'skills', cvSkills());
+        saveCvSectionToDb($uuid, 'training', cvTraining());
+        saveCvSectionToDb($uuid, 'additional_info', cvAdditionalInfo());
+        attachCvDocuments($uuid);
+
+        $this->postJson("/api/cv/{$uuid}/submit")
+            ->assertOk()
+            ->assertJsonPath('data.status', 'submitted');
+    });
+
     it('blocks editing after submit', function () {
         $uuid = createCvDraft();
         Cv::where('uuid', $uuid)->update(['status' => 'submitted']);
@@ -655,36 +687,36 @@ describe('CV submit', function () {
 });
 
 describe('CV admin review/reject', function () {
-    it('blocks unauthenticated access to review and reject', function () {
+    it('blocks unauthenticated access to approve and reject', function () {
         $uuid = createCvDraft();
         Cv::where('uuid', $uuid)->update(['status' => 'submitted']);
 
-        $this->postJson("/api/cv/{$uuid}/review")->assertUnauthorized();
+        $this->postJson("/api/cv/{$uuid}/approve")->assertUnauthorized();
         $this->postJson("/api/cv/{$uuid}/reject")->assertUnauthorized();
     });
 
-    it('blocks users without the review permission', function () {
+    it('blocks users without the approve permission', function () {
         $user = createUserWithPermissions(['cv.view']);
         $uuid = createCvDraft();
         Cv::where('uuid', $uuid)->update(['status' => 'submitted']);
 
-        $this->actingAs($user)->postJson("/api/cv/{$uuid}/review")->assertForbidden();
+        $this->actingAs($user)->postJson("/api/cv/{$uuid}/approve")->assertForbidden();
     });
 
-    it('reviews a submitted CV', function () {
-        $user = createUserWithPermissions(['cv.review']);
+    it('approves a submitted CV', function () {
+        $user = createUserWithPermissions(['cv.approve']);
         $uuid = createCvDraft();
         Cv::where('uuid', $uuid)->update(['status' => 'submitted']);
 
         $this->actingAs($user)
-            ->postJson("/api/cv/{$uuid}/review")
+            ->postJson("/api/cv/{$uuid}/approve")
             ->assertOk()
-            ->assertJsonPath('data.status', 'reviewed');
+            ->assertJsonPath('data.status', 'approved');
 
         $cv = Cv::where('uuid', $uuid)->firstOrFail();
 
         expect($cv->reviewed_by)->toBe($user->id)
-            ->and($cv->lastLifecycleEvent()['event'])->toBe('reviewed')
+            ->and($cv->lastLifecycleEvent()['event'])->toBe('approved')
             ->and($cv->lastLifecycleEvent()['by'])->toBe($user->id);
     });
 
@@ -699,7 +731,7 @@ describe('CV admin review/reject', function () {
             ->assertJsonValidationErrors(['reason']);
     });
 
-    it('rejects a submitted CV back to draft with the reason recorded', function () {
+    it('rejects a submitted CV keeping the rejected status with the reason recorded', function () {
         $user = createUserWithPermissions(['cv.reject']);
         $uuid = createCvDraft();
         Cv::where('uuid', $uuid)->update(['status' => 'submitted']);
@@ -707,14 +739,64 @@ describe('CV admin review/reject', function () {
         $this->actingAs($user)
             ->postJson("/api/cv/{$uuid}/reject", ['reason' => 'Missing documents'])
             ->assertOk()
-            ->assertJsonPath('data.status', 'draft');
+            ->assertJsonPath('data.status', 'rejected');
 
         $cv = Cv::where('uuid', $uuid)->firstOrFail();
         $last = $cv->lastLifecycleEvent();
 
         expect($last['event'])->toBe('rejected')
             ->and($last['reason'])->toBe('Missing documents')
-            ->and($last['by'])->toBe($user->id);
+            ->and($last['by'])->toBe($user->id)
+            ->and($cv->isRejected())->toBeTrue();
+    });
+
+    it('cannot approve a CV that is not submitted', function () {
+        $user = createUserWithPermissions(['cv.approve']);
+        $uuid = createCvDraft();
+
+        $this->actingAs($user)
+            ->postJson("/api/cv/{$uuid}/approve")
+            ->assertStatus(422)
+            ->assertJsonPath('message', __('cv.only_submitted_approvable'));
+    });
+
+    it('editing a rejected CV flips it back to draft', function () {
+        $uuid = createCvDraft();
+        Cv::where('uuid', $uuid)->update(['status' => 'rejected']);
+
+        $this->putJson("/api/cv/{$uuid}/sections/personal_info", [
+            'first_name' => 'NewName',
+        ])->assertOk()
+            ->assertJsonPath('data.status', 'draft');
+
+        $this->assertDatabaseHas('cvs', [
+            'uuid' => $uuid,
+            'status' => 'draft',
+        ]);
+    });
+
+    it('resubmits a rejected CV straight back to submitted', function () {
+        $uuid = createCvDraft();
+        cvFillAllSections($uuid);
+        attachCvDocuments($uuid);
+        Cv::where('uuid', $uuid)->update(['status' => 'rejected']);
+
+        $this->postJson("/api/cv/{$uuid}/submit")
+            ->assertOk()
+            ->assertJsonPath('data.status', 'submitted');
+    });
+
+    it('blocks editing and submitting a reviewed/approved CV', function () {
+        $uuid = createCvDraft();
+        Cv::where('uuid', $uuid)->update(['status' => 'approved']);
+
+        $this->putJson("/api/cv/{$uuid}/sections/personal_info", ['gender' => 'male'])
+            ->assertStatus(422)
+            ->assertJsonPath('message', __('cv.only_draft_editable'));
+
+        $this->postJson("/api/cv/{$uuid}/submit")
+            ->assertStatus(422)
+            ->assertJsonPath('message', __('cv.only_draft_submittable'));
     });
 });
 
@@ -729,7 +811,7 @@ describe('CV bank', function () {
         $this->actingAs($user)->getJson('/api/cv/bank')->assertForbidden();
     });
 
-    it('lists only submitted CVs', function () {
+    it('lists CVs of every status by default, filterable by status', function () {
         $user = createUserWithPermissions(['cv.view']);
 
         $submitted = Cv::create([
@@ -744,12 +826,23 @@ describe('CV bank', function () {
             'mobile' => '09122222222',
             'status' => 'draft',
         ]);
+        Cv::create([
+            'first_name' => 'Rejected',
+            'last_name' => 'User',
+            'mobile' => '09123333333',
+            'status' => 'rejected',
+        ]);
 
         $this->actingAs($user)
             ->getJson('/api/cv/bank')
             ->assertOk()
-            ->assertJsonPath('data.0.uuid', $submitted->uuid)
-            ->assertJsonCount(1, 'data');
+            ->assertJsonCount(3, 'data');
+
+        $this->actingAs($user)
+            ->getJson('/api/cv/bank?status=rejected')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.first_name', 'Rejected');
     });
 
     it('shows a CV by uuid', function () {
@@ -767,7 +860,99 @@ describe('CV bank', function () {
             ->assertJsonPath('data.uuid', $cv->uuid);
     });
 
-    it('creates a draft questionnaire from a submitted CV', function () {
+    it('shows a CV by numeric id', function () {
+        $user = createUserWithPermissions(['cv.view']);
+        $cv = Cv::create([
+            'first_name' => 'Ali',
+            'last_name' => 'Rezaei',
+            'mobile' => '09121234567',
+            'status' => 'submitted',
+        ]);
+
+        $this->actingAs($user)
+            ->getJson("/api/cv/bank/{$cv->id}")
+            ->assertOk()
+            ->assertJsonPath('data.id', $cv->id);
+    });
+
+    it('embeds the uploaded documents in the bank detail and the resume download url in the list', function () {
+        $user = createUserWithPermissions(['cv.view']);
+        $cv = Cv::create([
+            'first_name' => 'Ali',
+            'last_name' => 'Rezaei',
+            'mobile' => '09121234567',
+            'status' => 'submitted',
+        ]);
+
+        $resume = Document::factory()->create(['original_name' => 'resume.pdf']);
+        $cover = Document::factory()->create(['original_name' => 'cover.pdf']);
+        DocumentUsage::create([
+            'document_id' => $resume->id,
+            'entity_type' => Cv::class,
+            'entity_id' => $cv->id,
+            'category_slug' => 'resume',
+        ]);
+        DocumentUsage::create([
+            'document_id' => $cover->id,
+            'entity_type' => Cv::class,
+            'entity_id' => $cv->id,
+            'category_slug' => 'cover-letter',
+        ]);
+
+        $this->actingAs($user)
+            ->getJson("/api/cv/bank/{$cv->uuid}")
+            ->assertOk()
+            ->assertJsonCount(2, 'data.documents')
+            ->assertJsonPath('data.resume_document.category_slug', 'resume')
+            ->assertJsonPath('data.resume_document.original_name', 'resume.pdf')
+            ->assertJsonPath('data.resume_document.uuid', $resume->uuid)
+            ->assertJsonPath('data.resume_document.url', URL::signedRoute('cv.documents.serve', ['uuid' => $resume->uuid]))
+            ->assertJsonPath('data.resume_document.download_url', URL::signedRoute('cv.documents.serve', ['uuid' => $resume->uuid, 'download' => 1]));
+
+        $this->actingAs($user)
+            ->getJson('/api/cv/bank')
+            ->assertOk()
+            ->assertJsonPath('data.0.resume_document.original_name', 'resume.pdf');
+    });
+
+    it('returns empty documents and a null resume_document when no documents are uploaded', function () {
+        $user = createUserWithPermissions(['cv.view']);
+        $cv = Cv::create([
+            'first_name' => 'Ali',
+            'last_name' => 'Rezaei',
+            'mobile' => '09121234567',
+            'status' => 'submitted',
+        ]);
+
+        $this->actingAs($user)
+            ->getJson("/api/cv/bank/{$cv->uuid}")
+            ->assertOk()
+            ->assertJsonPath('data.documents', [])
+            ->assertJsonPath('data.resume_document', null)
+            ->assertJsonPath('data.questionnaire', null);
+    });
+
+    it('exposes the linked questionnaire on the bank detail', function () {
+        $admin = createUserWithPermissions(['cv.create-questionnaire']);
+        $uuid = createCvDraft();
+        Cv::where('uuid', $uuid)->update(['status' => 'submitted']);
+
+        $this->actingAs($admin)
+            ->postJson("/api/cv/bank/{$uuid}/questionnaire")
+            ->assertCreated()
+            ->assertJsonPath('data.status', 'draft');
+
+        $questionnaire = Questionnaire::where('cv_id', Cv::where('uuid', $uuid)->value('id'))->firstOrFail();
+
+        $viewer = createUserWithPermissions(['cv.view']);
+        $this->actingAs($viewer)
+            ->getJson("/api/cv/bank/{$uuid}")
+            ->assertOk()
+            ->assertJsonPath('data.questionnaire.uuid', $questionnaire->uuid)
+            ->assertJsonPath('data.questionnaire.status', 'draft');
+    });
+
+    it('creates a draft questionnaire from a submitted CV and auto-approves the CV', function () {
         $user = createUserWithPermissions(['cv.create-questionnaire']);
         $uuid = createCvDraft();
         Cv::where('uuid', $uuid)->update([
@@ -788,7 +973,24 @@ describe('CV bank', function () {
         expect($questionnaire->status)->toBe('draft')
             ->and($questionnaire->section_personal['national_id'])->toBe('0123456789')
             ->and($questionnaire->section_education)->not->toBeNull()
-            ->and($questionnaire->mobile)->toBe('09121234567');
+            ->and($questionnaire->mobile)->toBe('09121234567')
+            ->and($cv->isApproved())->toBeTrue()
+            ->and($cv->reviewed_by)->toBe($user->id)
+            ->and($cv->lastLifecycleEvent()['event'])->toBe('approved');
+    });
+
+    it('keeps an already approved CV approved when creating a questionnaire', function () {
+        $user = createUserWithPermissions(['cv.create-questionnaire']);
+        $uuid = createCvDraft();
+        Cv::where('uuid', $uuid)->update(['status' => 'approved']);
+
+        $this->actingAs($user)
+            ->postJson("/api/cv/bank/{$uuid}/questionnaire")
+            ->assertCreated();
+
+        $cv = Cv::where('uuid', $uuid)->firstOrFail();
+
+        expect($cv->isApproved())->toBeTrue();
     });
 
     it('blocks creating a second questionnaire for the same CV', function () {
@@ -915,5 +1117,39 @@ describe('CV documents', function () {
 
         expect($document->path)->toMatch('#^cv/.*/documents/resume/resume-[a-f0-9]{8}\.pdf$#');
         Storage::disk('local')->assertExists($document->path);
+    });
+
+    it('serves the document inline by default and as an attachment with the download flag', function () {
+        Storage::fake('local');
+        $uuid = createCvDraft();
+        $category = DocumentCategory::create([
+            'name' => 'رزومه',
+            'slug' => 'resume',
+            'type' => DocumentCategory::TYPE_PERSONNEL,
+        ]);
+
+        $this->postJson("/api/cv/{$uuid}/documents", [
+            'document_category_id' => $category->id,
+            'file' => UploadedFile::fake()->createWithContent('resume.pdf', 'resume-content'),
+        ])->assertCreated();
+
+        $document = Document::first();
+
+        $inlineUrl = URL::signedRoute('cv.documents.serve', ['uuid' => $document->uuid]);
+        $downloadUrl = URL::signedRoute('cv.documents.serve', ['uuid' => $document->uuid, 'download' => 1]);
+
+        $inline = $this->get($inlineUrl)->assertOk();
+        expect($inline->headers->get('Content-Disposition'))->toContain('inline');
+
+        $download = $this->get($downloadUrl)->assertOk();
+        expect($download->headers->get('Content-Disposition'))->toContain('attachment');
+    });
+
+    it('rejects an unsigned serve request', function () {
+        Storage::fake('local');
+        $document = Document::factory()->create();
+
+        $this->get("/api/cv/documents/{$document->uuid}/serve")
+            ->assertForbidden();
     });
 });

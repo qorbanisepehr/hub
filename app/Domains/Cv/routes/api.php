@@ -63,9 +63,9 @@ Route::get('cv/documents/{uuid}/serve', [CvDocumentController::class, 'serve'])
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('cv/bank', [CvBankController::class, 'index'])->middleware('permission:cv.view');
     Route::get('cv/bank/{cv}', [CvBankController::class, 'show'])->middleware('permission:cv.view');
-    Route::post('cv/{uuid}/review', [CvController::class, 'review'])
+    Route::post('cv/{uuid}/approve', [CvController::class, 'approve'])
         ->whereUuid('uuid')
-        ->middleware('permission:cv.review');
+        ->middleware('permission:cv.approve');
     Route::post('cv/{uuid}/reject', [CvController::class, 'reject'])
         ->whereUuid('uuid')
         ->middleware('permission:cv.reject');

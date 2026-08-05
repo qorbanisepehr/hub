@@ -2,6 +2,7 @@
 
 namespace App\Domains\Cv\Services;
 
+use App\Domains\Cv\Enums\CvStatus;
 use App\Domains\Cv\Models\Cv;
 use App\Domains\Cv\Repositories\CvRepositoryInterface;
 use App\Domains\Cv\SectionDefinitions\AdditionalInfoSection;
@@ -78,13 +79,17 @@ class CvService
         return $cv;
     }
 
-    public function updateStatus(Cv $cv, string $status): Cv
+    public function updateStatus(Cv $cv, CvStatus $status): Cv
     {
-        return $this->repository->updateStatus($cv, $status);
+        return $this->repository->updateStatus($cv, $status->value);
     }
 
     /**
-     * Save a single section (structural validation — draft safe).
+     * Save a single section (structural validation — draft/rejected safe).
+     *
+     * Editing a rejected CV flips it back to draft so it reads as "not
+     * submitted" in the bank while the candidate reworks it; the rejection
+     * history stays in the lifecycle.
      */
     public function saveSection(Cv $cv, string $sectionKey, array $data): Cv
     {
@@ -100,7 +105,7 @@ class CvService
             throw new ValidationException($validator);
         }
 
-        $this->repository->updateSection($cv, $section->storage()['jsonb'], $data);
+        $cv = $this->repository->updateSection($cv, $section->storage()['jsonb'], $data);
 
         if (! empty($section->storage()['real'])) {
             $realData = $this->extractRealFields($data, $section->storage()['real']);
@@ -109,7 +114,13 @@ class CvService
             }
         }
 
-        return $cv->fresh();
+        if ($cv->isRejected()) {
+            $cv = $this->updateStatus($cv, CvStatus::Draft);
+        }
+
+        // Every edit produces a new revision so the bank shows how many times
+        // the candidate has reworked the CV.
+        return $this->repository->incrementVersion($cv);
     }
 
     /**
@@ -138,16 +149,16 @@ class CvService
             'snapshot' => $this->snapshot($cv),
         ]);
 
-        return $this->repository->updateStatus($cv, 'submitted');
+        return $this->updateStatus($cv, CvStatus::Submitted);
     }
 
     /**
-     * Mark the CV as reviewed by the given user.
+     * Approve the CV as the given user.
      */
-    public function review(Cv $cv, ?int $reviewedBy = null): Cv
+    public function approve(Cv $cv, ?int $reviewedBy = null): Cv
     {
         $cv->recordLifecycleEvent([
-            'event' => 'reviewed',
+            'event' => 'approved',
             'version' => $cv->version,
             'at' => now()->toISOString(),
             'by' => $reviewedBy,
@@ -155,11 +166,15 @@ class CvService
 
         $cv->update(['reviewed_by' => $reviewedBy]);
 
-        return $this->repository->updateStatus($cv, 'reviewed');
+        return $this->updateStatus($cv, CvStatus::Approved);
     }
 
     /**
-     * Send the CV back to draft with a mandatory reason recorded in the lifecycle.
+     * Reject the CV with a mandatory reason recorded in the lifecycle.
+     *
+     * Unlike the old draft-reset behaviour, a rejected CV keeps its
+     * "rejected" status so it stays visible and labelled in the bank until
+     * the candidate edits it again (which flips it back to draft).
      */
     public function reject(Cv $cv, string $reason, ?int $reviewedBy = null): Cv
     {
@@ -171,20 +186,26 @@ class CvService
             'reason' => $reason,
         ]);
 
-        return $this->repository->updateStatus($cv, 'draft');
+        return $this->updateStatus($cv, CvStatus::Rejected);
     }
 
     /**
-     * Build a draft recruitment questionnaire prefilled from a submitted CV.
+     * Build a draft recruitment questionnaire prefilled from a submitted or
+     * approved CV. Creating the questionnaire approves the CV automatically
+     * (a rejected CV can never reach the next step), recording the reviewer.
      */
-    public function createQuestionnaireFromCv(Cv $cv): Questionnaire
+    public function createQuestionnaireFromCv(Cv $cv, ?int $reviewedBy = null): Questionnaire
     {
-        if (! $cv->isSubmitted()) {
+        if (! $cv->isSubmitted() && ! $cv->isApproved()) {
             abort(422, __('cv.only_submitted_creatable'));
         }
 
         if (Questionnaire::where('cv_id', $cv->id)->exists()) {
             abort(422, __('cv.already_linked'));
+        }
+
+        if (! $cv->isApproved()) {
+            $cv = $this->approve($cv, $reviewedBy);
         }
 
         $personal = $cv->getSection('personal') ?? [];
@@ -283,6 +304,17 @@ class CvService
             $jsonbColumn = $storage['jsonb'] ?? null;
             $data[$key] = $jsonbColumn ? ($cv->{$jsonbColumn} ?? null) : null;
         }
+
+        // email/mobile are committed to real columns (init + OTP verification),
+        // so the authoritative values must drive completion validation even if
+        // the JSONB copy was never written or has gone stale.
+        $data['contact_info'] = array_merge(
+            $data['contact_info'] ?? [],
+            [
+                'email' => $cv->email,
+                'mobile' => $cv->mobile,
+            ],
+        );
 
         return $data;
     }

@@ -94,15 +94,15 @@ class CvController extends Controller
         // Check for an existing CV with this mobile
         $existing = Cv::where('mobile', $pending->mobile)->first();
 
-        if ($existing && ! $existing->isReviewed() && $existing->isSubmitted()) {
+        if ($existing && ! $existing->isApproved() && $existing->isSubmitted()) {
             $existing->update(['status' => 'draft']);
         }
 
         // For existing CVs only re-apply contact info so the user can re-access
         // after changing email/mobile. Names are set at creation and edited
-        // inside the wizard, so they must not be overwritten here. Reviewed
+        // inside the wizard, so they must not be overwritten here. Approved
         // records must not be silently mutated at all.
-        $updateData = $existing && ! $existing->isReviewed()
+        $updateData = $existing && ! $existing->isApproved()
             ? Arr::only($pending->payload, ['email', 'mobile'])
             : [];
 
@@ -160,7 +160,7 @@ class CvController extends Controller
     {
         $cv = $request->attributes->get('granted_resource');
 
-        if (! $cv->isDraft()) {
+        if (! $cv->isEditable()) {
             return response()->json([
                 'message' => __('cv.only_draft_editable'),
             ], 422);
@@ -254,7 +254,7 @@ class CvController extends Controller
     {
         $cv = $request->attributes->get('granted_resource');
 
-        if (! $cv->isDraft()) {
+        if (! $cv->isEditable()) {
             return response()->json([
                 'message' => __('cv.only_draft_submittable'),
             ], 422);
@@ -274,21 +274,21 @@ class CvController extends Controller
         ]);
     }
 
-    public function review(Request $request, string $uuid): JsonResponse
+    public function approve(Request $request, string $uuid): JsonResponse
     {
         $cv = $this->cvService->findByUuidOrFail($uuid);
 
         if (! $cv->isSubmitted()) {
             return response()->json([
-                'message' => __('cv.only_submitted_reviewable'),
+                'message' => __('cv.only_submitted_approvable'),
             ], 422);
         }
 
-        $cv = $this->cvService->review($cv, $request->user()?->getKey());
+        $cv = $this->cvService->approve($cv, $request->user()?->getKey());
 
         return response()->json([
             'data' => new CvResource($cv),
-            'message' => __('cv.reviewed'),
+            'message' => __('cv.approved'),
         ]);
     }
 
@@ -296,7 +296,7 @@ class CvController extends Controller
     {
         $cv = $this->cvService->findByUuidOrFail($uuid);
 
-        if (! $cv->isSubmitted()) {
+        if (! $cv->isSubmitted() && ! $cv->isApproved()) {
             return response()->json([
                 'message' => __('cv.only_submitted_rejectable'),
             ], 422);

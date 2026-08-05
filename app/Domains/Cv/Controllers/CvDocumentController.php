@@ -159,6 +159,10 @@ class CvDocumentController extends Controller
             abort(404);
         }
 
+        if ($request->boolean('download')) {
+            return Storage::disk($disk)->download($path, $document->original_name);
+        }
+
         return Storage::disk($disk)->response($path);
     }
 
@@ -180,6 +184,10 @@ class CvDocumentController extends Controller
             'url' => URL::signedRoute(
                 'cv.documents.serve',
                 ['uuid' => $document->uuid],
+            ),
+            'download_url' => URL::signedRoute(
+                'cv.documents.serve',
+                ['uuid' => $document->uuid, 'download' => 1],
             ),
         ];
     }

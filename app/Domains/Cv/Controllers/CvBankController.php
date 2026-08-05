@@ -10,6 +10,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Routing\Controller;
+use Illuminate\Support\Str;
 
 class CvBankController extends Controller
 {
@@ -19,7 +20,7 @@ class CvBankController extends Controller
 
     public function index(Request $request): AnonymousResourceCollection
     {
-        $query = Cv::query()->where('status', 'submitted');
+        $query = Cv::query()->with('documentUsages.document');
 
         if ($request->filled('filter')) {
             $filter = $request->input('filter');
@@ -48,9 +49,11 @@ class CvBankController extends Controller
 
     public function show(string $cv): JsonResponse
     {
-        $model = Cv::where('uuid', $cv)
-            ->orWhere('id', $cv)
-            ->firstOrFail();
+        // A UUID literal can't be compared against the uuid column by Postgres
+        // when the route receives the numeric id, so branch on the value type.
+        $model = Str::isUuid($cv)
+            ? Cv::with('questionnaire')->with('documentUsages.document')->where('uuid', $cv)->firstOrFail()
+            : Cv::with('questionnaire')->with('documentUsages.document')->where('id', $cv)->firstOrFail();
 
         return response()->json([
             'data' => new CvResource($model),
@@ -61,7 +64,10 @@ class CvBankController extends Controller
     {
         $model = Cv::where('uuid', $cv)->firstOrFail();
 
-        $questionnaire = $this->cvService->createQuestionnaireFromCv($model);
+        $questionnaire = $this->cvService->createQuestionnaireFromCv(
+            $model,
+            $request->user()?->getKey(),
+        );
 
         return response()->json([
             'data' => new QuestionnaireResource($questionnaire),

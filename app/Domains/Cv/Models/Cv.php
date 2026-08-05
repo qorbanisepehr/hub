@@ -6,9 +6,12 @@ use App\Casts\MobileNumberCast;
 use App\Contracts\Documentable;
 use App\Contracts\DocumentableTrait;
 use App\Contracts\OtpVerifiable;
+use App\Domains\Cv\Enums\CvStatus;
+use App\Domains\Recruitment\Models\Questionnaire;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
 
@@ -44,6 +47,7 @@ class Cv extends Model implements Documentable, OtpVerifiable
     ];
 
     protected $casts = [
+        'status' => CvStatus::class,
         'mobile' => MobileNumberCast::class,
         'section_personal' => 'array',
         'section_contact_address' => 'array',
@@ -101,6 +105,12 @@ class Cv extends Model implements Documentable, OtpVerifiable
         return $this->belongsTo(User::class, 'reviewed_by');
     }
 
+    /** @return HasOne<Questionnaire, $this> */
+    public function questionnaire(): HasOne
+    {
+        return $this->hasOne(Questionnaire::class, 'cv_id');
+    }
+
     public function getDocumentConfigKey(): ?string
     {
         return 'cv';
@@ -110,17 +120,30 @@ class Cv extends Model implements Documentable, OtpVerifiable
 
     public function isDraft(): bool
     {
-        return $this->status === 'draft';
+        return $this->status === CvStatus::Draft;
     }
 
     public function isSubmitted(): bool
     {
-        return $this->status === 'submitted';
+        return $this->status === CvStatus::Submitted;
     }
 
-    public function isReviewed(): bool
+    public function isApproved(): bool
     {
-        return $this->status === 'reviewed';
+        return $this->status === CvStatus::Approved;
+    }
+
+    public function isRejected(): bool
+    {
+        return $this->status === CvStatus::Rejected;
+    }
+
+    /**
+     * Statuses the candidate can still open and edit the form in.
+     */
+    public function isEditable(): bool
+    {
+        return $this->isDraft() || $this->isRejected();
     }
 
     // ── OTP helpers ──
@@ -185,7 +208,7 @@ class Cv extends Model implements Documentable, OtpVerifiable
     // ── Lifecycle ──
 
     /**
-     * Append a lifecycle event (submitted/reviewed/rejected) keeping the full
+     * Append a lifecycle event (submitted/approved/rejected) keeping the full
      * history ordered by occurrence. The latest event reflects the current
      * review state; older entries remain for reference.
      *

@@ -83,7 +83,7 @@ return [
             'name' => 'CV Bank',
             'permissions' => [
                 'cv.view' => 'View CV bank',
-                'cv.review' => 'Review CVs',
+                'cv.approve' => 'Approve CVs',
                 'cv.reject' => 'Reject CVs',
                 'cv.create-questionnaire' => 'Create questionnaire from CV',
             ],
