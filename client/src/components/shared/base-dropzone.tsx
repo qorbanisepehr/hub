@@ -90,9 +90,10 @@ export function BaseDropzone({
                 multiple={multiple}
                 className="hidden"
                 onChange={async (e) => {
-                    if (e.target.files && e.target.files.length > 0) {
-                        await handleFiles(e.target.files);
-                        e.currentTarget.value = "";
+                    const input = e.target;
+                    if (input.files && input.files.length > 0) {
+                        await handleFiles(input.files);
+                        input.value = "";
                     }
                 }}
             />

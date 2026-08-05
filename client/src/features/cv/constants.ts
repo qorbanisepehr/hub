@@ -1,4 +1,9 @@
-import type { ValidationSection, DocumentRequirement } from "@/lib/validation-helpers";
+import type {
+    ValidationSection,
+    DocumentRequirement,
+} from "@/lib/validation-helpers";
+
+import type { CvStatus } from "./types";
 
 // Shared option lists are reused cross-domain from the recruitment feature to
 // avoid duplicating the same Persian option labels in two places.
@@ -54,8 +59,24 @@ export const CV_DOC_REQUIREMENTS: DocumentRequirement[] = [
     { slug: CV_DOC_CATEGORY_SLUGS.OTHER_DOCUMENTS, label: "سایر مدارک", max: 3 },
 ];
 
-export const CV_STATUS_LABELS: Record<string, string> = {
+export const CV_STATUS_LABELS: Record<CvStatus, string> = {
     draft: "پیش‌نویس",
     submitted: "ارسال شده",
-    reviewed: "بررسی شده",
+    approved: "تأیید شده",
+    rejected: "رد شده",
 };
+
+export const CV_STATUS_BADGE_VARIANTS: Record<
+    CvStatus,
+    "default" | "secondary" | "outline" | "success" | "warning" | "destructive"
+> = {
+    draft: "secondary",
+    submitted: "warning",
+    approved: "success",
+    rejected: "destructive",
+};
+
+export const CV_STATUS_OPTIONS = (Object.entries(CV_STATUS_LABELS) as [
+    CvStatus,
+    string,
+][]).map(([value, label]) => ({ value, label }));

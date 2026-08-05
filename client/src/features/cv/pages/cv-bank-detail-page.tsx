@@ -1,49 +1,51 @@
 import { useState } from "react";
+import type { ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useNavigate, useParams } from "@tanstack/react-router";
+import { useParams } from "@tanstack/react-router";
 import {
-    IconLoader2,
     IconCheck,
-    IconX,
+    IconDownload,
     IconFilePlus,
     IconHistory,
+    IconLoader2,
+    IconShare,
+    IconX,
 } from "@tabler/icons-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from "@/components/ui/dialog";
+import { ResponsiveDialog } from "@/components/ui/responsive-dialog";
 import { ErrorPage } from "@/components/shared/error-page";
-import {
-    getCvBankDetail,
-    reviewCv,
-    rejectCv,
-    createQuestionnaireFromCv,
-} from "@/features/cv/api";
-import { CV_STATUS_LABELS } from "@/features/cv/constants";
-import type { CvLifecycleEvent, CvPersonalInfo, CvContactInfo, CvAdditionalInfo } from "@/features/cv/types";
+import { PageHeader } from "@/components/shared/page-header";
+import { PageLayout } from "@/components/shared/page-layout";
+import { ViewSkeleton } from "@/components/shared/view-skeleton";
+import { ShareDialog } from "@/components/shared/share-dialog";
 import { PermissionGuard } from "@/features/auth/components/permission-guard";
+import { CvResumeView } from "@/features/cv/components/cv-resume-view";
+import {
+    CvFeedbackMenu,
+    CvTimelineModal,
+} from "@/features/cv/components/cv-lifecycle";
+import {
+    approveCv,
+    createQuestionnaireFromCv,
+    getCvBankDetail,
+    rejectCv,
+} from "@/features/cv/api";
+import {
+    CV_STATUS_BADGE_VARIANTS,
+    CV_STATUS_LABELS,
+} from "@/features/cv/constants";
 import { PERMISSIONS } from "@/lib/permissions";
 import { cvKeys } from "@/lib/query-keys";
 import { getApiError } from "@/lib/error-utils";
+import { toPersianDate } from "@/lib/date-format";
 
-function DataRow({
-    label,
-    value,
-}: {
-    label: string;
-    value: React.ReactNode;
-}) {
+function MetaRow({ label, value }: { label: string; value: ReactNode }) {
     return (
         <div className="flex flex-col gap-0.5">
             <span className="text-xs text-muted-foreground">{label}</span>
@@ -54,52 +56,16 @@ function DataRow({
     );
 }
 
-const EVENT_LABELS: Record<string, string> = {
-    submitted: "ارسال",
-    reviewed: "تأیید",
-    rejected: "بازگشت",
-};
-
-function LifecycleList({ lifecycle }: { lifecycle: CvLifecycleEvent[] | null }) {
-    if (!lifecycle || lifecycle.length === 0) {
-        return (
-            <p className="text-sm text-muted-foreground">سابقه‌ای ثبت نشده است</p>
-        );
-    }
-
-    return (
-        <ol className="space-y-3">
-            {[...lifecycle].reverse().map((event, i) => (
-                <li key={i} className="flex items-start gap-3 text-sm">
-                    <Badge variant="outline">
-                        {EVENT_LABELS[event.event] ?? event.event}
-                    </Badge>
-                    <div className="flex-1">
-                        <p>
-                            نسخه {event.version}
-                            {event.reason && (
-                                <span className="text-muted-foreground">
-                                    {" "}
-                                    — {event.reason}
-                                </span>
-                            )}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                            {event.at}
-                        </p>
-                    </div>
-                </li>
-            ))}
-        </ol>
-    );
-}
-
 export function CvBankDetailPage() {
     const { id } = useParams({ from: "/protected/cvs/$id" });
-    const navigate = useNavigate();
     const queryClient = useQueryClient();
     const [rejectOpen, setRejectOpen] = useState(false);
     const [rejectReason, setRejectReason] = useState("");
+    const [historyOpen, setHistoryOpen] = useState(false);
+    const [shareOpen, setShareOpen] = useState(false);
+    const [shareQuestionnaireUuid, setShareQuestionnaireUuid] = useState<
+        string | null
+    >(null);
 
     const { data, isLoading, isError } = useQuery({
         queryKey: cvKeys.bankDetail(id),
@@ -113,8 +79,8 @@ export function CvBankDetailPage() {
         queryClient.invalidateQueries({ queryKey: cvKeys.all });
     };
 
-    const reviewMutation = useMutation({
-        mutationFn: () => reviewCv(cv!.uuid),
+    const approveMutation = useMutation({
+        mutationFn: () => approveCv(cv!.uuid),
         onSuccess: () => {
             toast.success("رزومه تأیید شد.");
             invalidate();
@@ -125,7 +91,7 @@ export function CvBankDetailPage() {
     const rejectMutation = useMutation({
         mutationFn: () => rejectCv(cv!.uuid, rejectReason),
         onSuccess: () => {
-            toast.success("رزومه به پیش‌نویس بازگردانده شد.");
+            toast.success("رزومه رد شد.");
             setRejectOpen(false);
             setRejectReason("");
             invalidate();
@@ -137,25 +103,18 @@ export function CvBankDetailPage() {
         mutationFn: () => createQuestionnaireFromCv(cv!.uuid),
         onSuccess: (response) => {
             const questionnaire = response.data?.data;
-            toast.success("پرسشنامه پیش‌نویس ایجاد شد.");
+            toast.success("پرسشنامه پیش‌نویس ایجاد شد و رزومه تأیید شد.");
+            invalidate();
             if (questionnaire?.uuid) {
-                navigate({
-                    to: "/questionnaire/$uuid",
-                    params: { uuid: questionnaire.uuid },
-                });
-            } else {
-                invalidate();
+                setShareQuestionnaireUuid(questionnaire.uuid);
+                setShareOpen(true);
             }
         },
         onError: (err) => toast.error(getApiError(err)),
     });
 
     if (isLoading) {
-        return (
-            <div className="flex justify-center py-12">
-                <IconLoader2 className="size-8 animate-spin text-muted-foreground" />
-            </div>
-        );
+        return <ViewSkeleton columns={1} />;
     }
 
     if (isError || !cv) {
@@ -168,209 +127,175 @@ export function CvBankDetailPage() {
         );
     }
 
-    const pi: Partial<CvPersonalInfo> = cv.personal_info ?? {};
-    const ci: Partial<CvContactInfo> = cv.contact_info ?? {};
-    const additional: Partial<CvAdditionalInfo> = cv.additional_info ?? {};
+    const canForward = cv.status === "submitted" || cv.status === "approved";
+    const linkedQuestionnaire = cv.questionnaire?.uuid ?? null;
+
+    const openShare = (uuid: string) => {
+        setShareQuestionnaireUuid(uuid);
+        setShareOpen(true);
+    };
 
     return (
-        <div className="space-y-6">
-            {/* ── Header / actions ── */}
+        <PageLayout>
+            <PageHeader
+                title={`${cv.first_name} ${cv.last_name}`}
+                description={cv.email ?? undefined}
+                backTo="/cvs"
+            >
+                <div className="flex flex-wrap items-center gap-2">
+                    <CvFeedbackMenu cv={cv} />
+
+                    {cv.resume_document?.download_url && (
+                        <Button
+                            variant="outline"
+                            nativeButton={false}
+                            render={
+                                <a
+                                    href={cv.resume_document.download_url}
+                                    aria-label="دانلود رزومه"
+                                />
+                            }
+                        >
+                            <IconDownload className="size-4" />
+                            دانلود رزومه
+                        </Button>
+                    )}
+
+                    <Button
+                        variant="outline"
+                        size="icon"
+                        aria-label="تاریخچه"
+                        onClick={() => setHistoryOpen(true)}
+                    >
+                        <IconHistory className="size-4" />
+                    </Button>
+
+                    {canForward && !linkedQuestionnaire && (
+                        <PermissionGuard
+                            permission={
+                                PERMISSIONS.CV_CREATE_QUESTIONNAIRE
+                            }
+                        >
+                            <Button
+                                variant="outline"
+                                disabled={
+                                    createQuestionnaireMutation.isPending
+                                }
+                                onClick={() =>
+                                    createQuestionnaireMutation.mutate()
+                                }
+                            >
+                                {createQuestionnaireMutation.isPending ? (
+                                    <IconLoader2 className="size-4 animate-spin" />
+                                ) : (
+                                    <IconFilePlus className="size-4" />
+                                )}
+                                ایجاد پرسشنامه
+                            </Button>
+                        </PermissionGuard>
+                    )}
+
+                    {linkedQuestionnaire && (
+                        <Button
+                            variant="outline"
+                            onClick={() => openShare(linkedQuestionnaire)}
+                        >
+                            <IconShare className="size-4" />
+                            اشتراک‌گذاری
+                        </Button>
+                    )}
+
+                    {canForward && !linkedQuestionnaire && (
+                        <PermissionGuard
+                            permission={PERMISSIONS.CV_REJECT}
+                        >
+                            <Button
+                                variant="destructive"
+                                disabled={rejectMutation.isPending}
+                                onClick={() => setRejectOpen(true)}
+                            >
+                                <IconX className="size-4" />
+                                رد رزومه
+                            </Button>
+                        </PermissionGuard>
+                    )}
+
+                    {cv.status === "submitted" && (
+                        <PermissionGuard
+                            permission={PERMISSIONS.CV_APPROVE}
+                        >
+                            <Button
+                                disabled={
+                                    approveMutation.isPending ||
+                                    createQuestionnaireMutation.isPending
+                                }
+                                onClick={() => approveMutation.mutate()}
+                            >
+                                {approveMutation.isPending ? (
+                                    <IconLoader2 className="size-4 animate-spin" />
+                                ) : (
+                                    <IconCheck className="size-4" />
+                                )}
+                                تأیید رزومه
+                            </Button>
+                        </PermissionGuard>
+                    )}
+                </div>
+            </PageHeader>
+
             <Card>
                 <CardContent className="pt-6">
-                    <div className="flex flex-wrap items-start justify-between gap-4">
-                        <div>
-                            <div className="flex items-center gap-2">
-                                <h1 className="text-2xl font-bold">
-                                    {cv.first_name} {cv.last_name}
-                                </h1>
-                                <Badge>
-                                    {CV_STATUS_LABELS[cv.status] ?? cv.status}
-                                </Badge>
-                                <Badge variant="outline">
-                                    نسخه {cv.version}
-                                </Badge>
-                            </div>
-                            <p className="text-sm text-muted-foreground mt-1">
-                                {cv.email ?? ""}
-                            </p>
-                        </div>
-
-                        {cv.status === "submitted" && (
-                            <div className="flex flex-wrap gap-2">
-                                <PermissionGuard
-                                    permission={PERMISSIONS.CV_CREATE_QUESTIONNAIRE}
-                                >
-                                    <Button
-                                        variant="outline"
-                                        disabled={
-                                            createQuestionnaireMutation.isPending
-                                        }
-                                        onClick={() =>
-                                            createQuestionnaireMutation.mutate()
-                                        }
-                                    >
-                                        {createQuestionnaireMutation.isPending ? (
-                                            <IconLoader2 className="size-4 animate-spin" />
-                                        ) : (
-                                            <IconFilePlus className="size-4" />
-                                        )}
-                                        ایجاد پرسشنامه پیش‌نویس
-                                    </Button>
-                                </PermissionGuard>
-
-                                <PermissionGuard
-                                    permission={PERMISSIONS.CV_REJECT}
-                                >
-                                    <Button
-                                        variant="destructive"
-                                        disabled={rejectMutation.isPending}
-                                        onClick={() => setRejectOpen(true)}
-                                    >
-                                        <IconX className="size-4" />
-                                        بازگرداندن
-                                    </Button>
-                                </PermissionGuard>
-
-                                <PermissionGuard
-                                    permission={PERMISSIONS.CV_REVIEW}
-                                >
-                                    <Button
-                                        disabled={
-                                            reviewMutation.isPending ||
-                                            createQuestionnaireMutation.isPending
-                                        }
-                                        onClick={() => reviewMutation.mutate()}
-                                    >
-                                        {reviewMutation.isPending ? (
-                                            <IconLoader2 className="size-4 animate-spin" />
-                                        ) : (
-                                            <IconCheck className="size-4" />
-                                        )}
-                                        تأیید رزومه
-                                    </Button>
-                                </PermissionGuard>
-                            </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                        <Badge
+                            variant={
+                                CV_STATUS_BADGE_VARIANTS[cv.status] ??
+                                "secondary"
+                            }
+                        >
+                            {CV_STATUS_LABELS[cv.status] ?? cv.status}
+                        </Badge>
+                        <Badge variant="outline">
+                            نسخه {cv.version}
+                        </Badge>
+                        {cv.reviewer?.name && (
+                            <span className="text-xs text-muted-foreground">
+                                تأیید توسط {cv.reviewer.name}
+                                {cv.reviewer.role
+                                    ? ` (${cv.reviewer.role})`
+                                    : ""}
+                            </span>
                         )}
                     </div>
 
-                    <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t">
-                        <DataRow label="موبایل" value={cv.mobile} />
-                        <DataRow label="تاریخ ایجاد" value={cv.created_at} />
-                        <DataRow label="آخرین به‌روزرسانی" value={cv.updated_at} />
-                    </div>
-                </CardContent>
-            </Card>
-
-            {/* ── مشخصات فردی ── */}
-            <Card>
-                <CardHeader>
-                    <CardTitle>مشخصات فردی</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <DataRow label="جنسیت" value={pi.gender} />
-                        <DataRow label="تاریخ تولد" value={pi.birth_date} />
-                        <DataRow label="محل تولد" value={pi.birth_place} />
-                        <DataRow label="کد ملی" value={pi.national_id} />
-                        <DataRow
-                            label="شماره شناسنامه"
-                            value={pi.birth_certificate_number}
+                    <div className="mt-4 grid grid-cols-1 gap-4 border-t pt-4 md:grid-cols-3">
+                        <MetaRow label="موبایل" value={cv.mobile} />
+                        <MetaRow
+                            label="تاریخ ایجاد"
+                            value={toPersianDate(cv.created_at)}
                         />
-                        <DataRow label="وضعیت تأهل" value={pi.marital_status} />
-                    </div>
-                </CardContent>
-            </Card>
-
-            {/* ── اطلاعات تماس ── */}
-            <Card>
-                <CardHeader>
-                    <CardTitle>اطلاعات تماس</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <DataRow label="تلفن ثابت" value={ci.phone} />
-                        <DataRow label="تلفن اضطراری" value={ci.emergency_phone} />
-                        {ci.address && (
-                            <>
-                                <DataRow label="استان" value={ci.address.province} />
-                                <DataRow label="شهر" value={ci.address.city} />
-                                <DataRow
-                                    label="کد پستی"
-                                    value={ci.address.postal_code}
-                                />
-                                <DataRow label="آدرس" value={ci.address.address} />
-                            </>
-                        )}
-                    </div>
-                </CardContent>
-            </Card>
-
-            {/* ── اطلاعات تکمیلی ── */}
-            <Card>
-                <CardHeader>
-                    <CardTitle>اطلاعات تکمیلی</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <DataRow label="علاقه‌مندی‌ها" value={additional.hobbies} />
-                        <DataRow
-                            label="نقاط قوت"
-                            value={additional.strengths_and_improvements}
+                        <MetaRow
+                            label="آخرین به‌روزرسانی"
+                            value={toPersianDate(cv.updated_at)}
                         />
                     </div>
-                    {additional.references?.length ? (
-                        <div className="mt-4 pt-4 border-t space-y-2">
-                            {additional.references.map((ref, i) => (
-                                <div
-                                    key={i}
-                                    className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm p-2 rounded bg-muted/50"
-                                >
-                                    <DataRow label="نام" value={ref.full_name} />
-                                    <DataRow label="رابطه" value={ref.relationship} />
-                                    <DataRow
-                                        label="تلفن"
-                                        value={ref.workplace_phone}
-                                    />
-                                </div>
-                            ))}
-                        </div>
-                    ) : null}
                 </CardContent>
             </Card>
 
-            {/* ── چرخه حیات ── */}
-            <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                    <CardTitle className="flex items-center gap-2">
-                        <IconHistory className="size-4" />
-                        چرخه حیات رزومه
-                    </CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <LifecycleList lifecycle={cv.lifecycle} />
-                </CardContent>
-            </Card>
+            <CvResumeView cv={cv} documents={cv.documents ?? []} />
 
-            {/* ── Reject dialog ── */}
-            <Dialog open={rejectOpen} onOpenChange={setRejectOpen}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>بازگرداندن رزومه</DialogTitle>
-                        <DialogDescription>
-                            رزومه به وضعیت پیش‌نویس بازگردانده می‌شود. دلیل
-                            بازگرداندن الزامی است.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-2">
-                        <Label htmlFor="reject-reason">دلیل</Label>
-                        <Input
-                            id="reject-reason"
-                            value={rejectReason}
-                            onChange={(e) => setRejectReason(e.target.value)}
-                            placeholder="مثلاً: اطلاعات ناقص است"
-                        />
-                    </div>
-                    <DialogFooter>
+            <CvTimelineModal
+                cv={cv}
+                open={historyOpen}
+                onOpenChange={setHistoryOpen}
+            />
+
+            <ResponsiveDialog
+                open={rejectOpen}
+                onOpenChange={setRejectOpen}
+                title="رد رزومه"
+                description="رزومه به وضعیت «رد شده» منتقل می‌شود و تا زمان ویرایش مجدد توسط داوطلب در بانک رزومه مشخص می‌ماند. دلیل رد الزامی است."
+                footer={
+                    <>
                         <Button
                             variant="ghost"
                             onClick={() => setRejectOpen(false)}
@@ -378,7 +303,6 @@ export function CvBankDetailPage() {
                             انصراف
                         </Button>
                         <Button
-                            variant="destructive"
                             disabled={
                                 rejectMutation.isPending ||
                                 rejectReason.trim().length === 0
@@ -388,13 +312,32 @@ export function CvBankDetailPage() {
                             {rejectMutation.isPending ? (
                                 <IconLoader2 className="size-4 animate-spin" />
                             ) : (
-                                <IconX className="size-4" />
+                                <IconCheck className="size-4" />
                             )}
-                            بازگرداندن
+                            رد رزومه
                         </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-        </div>
+                    </>
+                }
+            >
+                <div className="space-y-2">
+                    <Label htmlFor="reject-reason">دلیل</Label>
+                    <Input
+                        id="reject-reason"
+                        value={rejectReason}
+                        onChange={(e) => setRejectReason(e.target.value)}
+                        placeholder="مثلاً: اطلاعات ناقص است"
+                    />
+                </div>
+            </ResponsiveDialog>
+
+            {shareQuestionnaireUuid && (
+                <ShareDialog
+                    open={shareOpen}
+                    onOpenChange={setShareOpen}
+                    title="اشتراک‌گذاری پرسشنامه"
+                    url={`${window.location.origin}/questionnaire/${shareQuestionnaireUuid}`}
+                />
+            )}
+        </PageLayout>
     );
 }

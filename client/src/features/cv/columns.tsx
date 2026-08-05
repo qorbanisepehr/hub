@@ -1,17 +1,12 @@
 import { type ColumnDef } from "@tanstack/react-table";
 import { Link } from "@tanstack/react-router";
-import { IconEye } from "@tabler/icons-react";
+import { IconDownload, IconEye } from "@tabler/icons-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DataTableColumnHeader } from "@/components/data-table";
-import { CV_STATUS_LABELS } from "@/features/cv/constants";
-import type { Cv } from "@/features/cv/types";
-
-const statusVariants: Record<string, "default" | "secondary" | "outline"> = {
-    draft: "secondary",
-    submitted: "default",
-    reviewed: "outline",
-};
+import { CV_STATUS_BADGE_VARIANTS, CV_STATUS_LABELS } from "@/features/cv/constants";
+import type { Cv, CvStatus } from "@/features/cv/types";
+import { toPersianDate } from "@/lib/date-format";
 
 export const cvBankColumns: ColumnDef<Cv>[] = [
     {
@@ -61,9 +56,9 @@ export const cvBankColumns: ColumnDef<Cv>[] = [
             <DataTableColumnHeader column={column} title="وضعیت" />
         ),
         cell: ({ row }) => {
-            const status = row.getValue("status") as string;
+            const status = row.getValue("status") as CvStatus;
             return (
-                <Badge variant={statusVariants[status] ?? "secondary"}>
+                <Badge variant={CV_STATUS_BADGE_VARIANTS[status] ?? "secondary"}>
                     {CV_STATUS_LABELS[status] ?? status}
                 </Badge>
             );
@@ -87,31 +82,56 @@ export const cvBankColumns: ColumnDef<Cv>[] = [
         header: ({ column }) => (
             <DataTableColumnHeader column={column} title="تاریخ ایجاد" />
         ),
-        cell: ({ row }) => (
-            <span className="text-sm text-muted-foreground">
-                {row.getValue("created_at") ?? "—"}
-            </span>
-        ),
+        cell: ({ row }) => {
+            const createdAt = row.getValue("created_at") as string | null;
+            return (
+                <span className="text-sm text-muted-foreground">
+                    {createdAt ? toPersianDate(createdAt) : "—"}
+                </span>
+            );
+        },
         meta: { displayName: "تاریخ ایجاد" },
     },
     {
         id: "actions",
         header: "عملیات",
-        cell: ({ row }) => (
-            <Button
-                variant="ghost"
-                size="icon-sm"
-                nativeButton={false}
-                render={
-                    <Link
-                        to="/cvs/$id"
-                        params={{ id: String(row.original.id) }}
-                    />
-                }
-            >
-                <IconEye className="size-4" />
-            </Button>
-        ),
+        cell: ({ row }) => {
+            const resume = row.original.resume_document;
+
+            return (
+                <div className="flex items-center justify-end gap-1">
+                    {resume?.download_url && (
+                        <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            nativeButton={false}
+                            render={
+                                <a
+                                    href={resume.download_url}
+                                    aria-label="دانلود رزومه"
+                                    title="دانلود رزومه"
+                                />
+                            }
+                        >
+                            <IconDownload className="size-4" />
+                        </Button>
+                    )}
+                    <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        nativeButton={false}
+                        render={
+                            <Link
+                                to="/cvs/$id"
+                                params={{ id: String(row.original.id) }}
+                            />
+                        }
+                    >
+                        <IconEye className="size-4" />
+                    </Button>
+                </div>
+            );
+        },
         enableSorting: false,
         enableHiding: false,
     },

@@ -39,7 +39,7 @@ export const PERMISSIONS = {
 
     // CV
     CV_VIEW: "cv.view",
-    CV_REVIEW: "cv.review",
+    CV_APPROVE: "cv.approve",
     CV_REJECT: "cv.reject",
     CV_CREATE_QUESTIONNAIRE: "cv.create-questionnaire",
 } as const;

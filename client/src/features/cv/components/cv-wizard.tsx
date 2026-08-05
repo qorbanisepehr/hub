@@ -325,7 +325,7 @@ export function CvWizard({ cv }: CvWizardProps) {
         validation.success &&
         cv.mobile_verified &&
         emailIsSettled &&
-        cv.status === "draft";
+        (cv.status === "draft" || cv.status === "rejected");
 
     const handleSubmit = () => {
         if (!validation.success) {

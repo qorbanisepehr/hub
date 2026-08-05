@@ -13,6 +13,7 @@ export type EntityDocument = {
     record_key: string | null;
     notes: string | null;
     url: string;
+    download_url?: string;
 };
 
 /**

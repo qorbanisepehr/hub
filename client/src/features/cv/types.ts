@@ -1,5 +1,6 @@
 import type { ReactFormExtendedApi } from "@tanstack/react-form";
 
+import type { EntityDocument } from "@/hooks/use-entity-documents";
 import type {
     Education,
     WorkExperience,
@@ -46,19 +47,28 @@ export interface CvAdditionalInfo {
     strengths_and_improvements: string;
 }
 
+export interface ReviewerSummary {
+    id: number;
+    name: string;
+    role: string | null;
+}
+
 export interface CvLifecycleEvent {
-    event: "submitted" | "reviewed" | "rejected";
+    event: "submitted" | "approved" | "rejected";
     version: number;
     at: string;
     by?: number | null;
+    by_user?: ReviewerSummary | null;
     reason?: string | null;
     snapshot?: Record<string, unknown>;
 }
 
+export type CvStatus = "draft" | "submitted" | "approved" | "rejected";
+
 export interface Cv {
     id: number;
     uuid: string;
-    status: "draft" | "submitted" | "reviewed";
+    status: CvStatus;
     version: number;
     first_name: string;
     last_name: string;
@@ -73,6 +83,10 @@ export interface Cv {
     additional_info: CvAdditionalInfo | null;
     mobile_verified: boolean;
     email_verified: boolean;
+    documents?: EntityDocument[];
+    resume_document?: EntityDocument | null;
+    questionnaire?: { uuid: string; status: string } | null;
+    reviewer: ReviewerSummary | null;
     lifecycle: CvLifecycleEvent[] | null;
     created_at: string;
     updated_at: string;

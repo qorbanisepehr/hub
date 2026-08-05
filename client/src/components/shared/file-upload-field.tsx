@@ -572,6 +572,7 @@ export function FileUploadField({
                         <DocumentFileItem
                             key={doc.usage_id}
                             uuid={uuid}
+                            entity={entity}
                             doc={doc}
                             subtitle={formatBytes(doc.size)}
                             actionsEnabled={actionsEnabled}

@@ -102,8 +102,8 @@ export function getCvBankDetail(id: number | string) {
     return api.get<{ data: Cv }>(`/cv/bank/${id}`);
 }
 
-export function reviewCv(uuid: string) {
-    return api.post<SaveCvResponse>(`/cv/${uuid}/review`);
+export function approveCv(uuid: string) {
+    return api.post<SaveCvResponse>(`/cv/${uuid}/approve`);
 }
 
 export function rejectCv(uuid: string, reason: string) {

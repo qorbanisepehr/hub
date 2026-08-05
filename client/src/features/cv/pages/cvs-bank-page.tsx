@@ -11,6 +11,7 @@ import { IconFileCv } from "@tabler/icons-react";
 import { DataTablePage, DataTableToolbar } from "@/components/data-table";
 import { fetchCvBank } from "@/features/cv/api";
 import { cvBankColumns } from "@/features/cv/columns";
+import { CV_STATUS_OPTIONS } from "@/features/cv/constants";
 import { useTableUrlState } from "@/hooks/use-table-url-state";
 import { cvKeys } from "@/lib/query-keys";
 import { PAGINATION } from "@/lib/constants";
@@ -123,7 +124,7 @@ export function CvsBankPage() {
                         بانک رزومه
                     </h1>
                     <p className="text-sm text-muted-foreground mt-1">
-                        رزومه‌های ارسال‌شده داوطلبان
+                        همه رزومه‌های داوطلبان (قابل فیلتر بر اساس وضعیت)
                     </p>
                 </div>
             }
@@ -137,11 +138,7 @@ export function CvsBankPage() {
                         {
                             columnId: "status",
                             title: "وضعیت",
-                            options: [
-                                { label: "پیش‌نویس", value: "draft" },
-                                { label: "ارسال شده", value: "submitted" },
-                                { label: "بررسی شده", value: "reviewed" },
-                            ],
+                            options: CV_STATUS_OPTIONS,
                         },
                     ]}
                 />
