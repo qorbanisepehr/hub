@@ -89,6 +89,14 @@ return [
             ],
         ],
 
+        'branding' => [
+            'name' => 'Branding',
+            'permissions' => [
+                'branding.view' => 'View branding',
+                'branding.manage' => 'Manage branding',
+            ],
+        ],
+
     ],
 
 ];

@@ -118,6 +118,8 @@ class RbacSeeder extends Seeder
             $permissionModels['user.update']->id,
             $permissionModels['user.assign-roles']->id,
             $permissionModels['user.delete']->id,
+            $permissionModels['branding.view']->id,
+            $permissionModels['branding.manage']->id,
         ]);
     }
 }
