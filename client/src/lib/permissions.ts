@@ -42,6 +42,10 @@ export const PERMISSIONS = {
     CV_APPROVE: "cv.approve",
     CV_REJECT: "cv.reject",
     CV_CREATE_QUESTIONNAIRE: "cv.create-questionnaire",
+
+    // Branding
+    BRANDING_VIEW: "branding.view",
+    BRANDING_MANAGE: "branding.manage",
 } as const;
 
 export type PermissionValue = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];

@@ -72,3 +72,8 @@ export const cvKeys = {
     bankDetail: (id: number | string) => [...cvKeys.all, "bank", id] as const,
     documents: (uuid: string) => [`cv-documents`, uuid] as const,
 };
+
+export const settingsKeys = {
+    all: ["settings"] as const,
+    branding: () => [...settingsKeys.all, "branding"] as const,
+};

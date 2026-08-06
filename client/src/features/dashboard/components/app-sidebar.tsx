@@ -13,9 +13,12 @@ import {
 } from "@/components/ui/sidebar";
 import { Logo, LogoType } from "@/components/shared/logo";
 import { Link } from "@tanstack/react-router";
+import { useBranding } from "@/features/settings/hooks/use-branding";
 import { COMPANY_SUB_NAME } from "@/lib/brand";
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+    const { data } = useBranding();
+
     return (
         <Sidebar collapsible="offcanvas" {...props}>
             <SidebarHeader>
@@ -32,7 +35,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                             <div className="space-y-1 group-data-[collapsible=icon]:hidden transition-all">
                                 <LogoType className="w-16!" />
                                 <span className="text-xs text-primary/50">
-                                    {COMPANY_SUB_NAME}
+                                    {data?.sub_name ?? COMPANY_SUB_NAME}
                                 </span>
                             </div>
                             <Logo className="size-9! group-data-[collapsible=icon]:size-6!" />

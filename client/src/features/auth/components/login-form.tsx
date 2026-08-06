@@ -26,6 +26,7 @@ import { PasswordField } from "@/features/auth/components/password-field";
 import type { LoginMode } from "@/features/auth/types";
 import { getApiError } from "@/lib/error-utils";
 import { COMPANY_NAME } from "@/lib/brand";
+import { useBranding } from "@/features/settings/hooks/use-branding";
 import { useOtpVerification } from "@/hooks/use-otp-verification";
 
 const identifierSchema = z.string().min(1, "این فیلد الزامی است");
@@ -39,6 +40,7 @@ export function LoginForm({
 }: React.ComponentProps<"div"> & { redirectTo?: string }) {
     const { loginOtp, loginPassword, verifyOtp } = useAuth();
     const navigate = useNavigate();
+    const { data: branding } = useBranding();
     const [mode, setMode] = React.useState<LoginMode>("otp");
     const [otpSent, setOtpSent] = React.useState(false);
     const [otpDestination, setOtpDestination] = React.useState<string | null>(
@@ -127,7 +129,7 @@ export function LoginForm({
         <div className={cn("flex flex-col gap-6", className)} {...props}>
             <Card>
                 <CardHeader className="text-center">
-                    <CardTitle>{COMPANY_NAME}</CardTitle>
+                    <CardTitle>{branding?.name ?? COMPANY_NAME}</CardTitle>
                     <CardDescription>
                         {otpSent
                             ? `کد تایید به ${otpDestination} ارسال شد`

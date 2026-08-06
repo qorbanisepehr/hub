@@ -2,6 +2,7 @@ import { createRoute, Outlet } from "@tanstack/react-router";
 import { Route as RootRoute } from "@/routes/__root";
 import { PublicHeader } from "@/components/shared/public-header";
 import { Logo } from "@/components/shared/logo";
+import { useBranding } from "@/features/settings/hooks/use-branding";
 import { COMPANY_NAME } from "@/lib/brand";
 
 export const Route = createRoute({
@@ -11,6 +12,8 @@ export const Route = createRoute({
 });
 
 function PublicLayout() {
+    const { data } = useBranding();
+
     return (
         <div className="flex flex-col min-h-dvh">
             <PublicHeader />
@@ -25,7 +28,7 @@ function PublicLayout() {
                         <div className="flex items-center gap-3">
                             <Logo className="size-8" />
                             <span className="font-heading text-lg font-bold">
-                                {COMPANY_NAME}
+                                {data?.name ?? COMPANY_NAME}
                             </span>
                         </div>
                         <p className="text-sm text-muted-foreground">

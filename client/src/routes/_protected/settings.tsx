@@ -1,12 +1,21 @@
 import { createRoute } from "@tanstack/react-router";
+import { z } from "zod";
 import { Route as ProtectedRoute } from "@/routes/_protected";
-import { PermissionsPage } from "@/features/rbac/pages/permissions-page";
+import { SettingsPage } from "@/features/settings/pages/settings-page";
 import { requirePermission } from "@/features/auth/guards";
 import { PERMISSIONS } from "@/lib/permissions";
 
 export const Route = createRoute({
     getParentRoute: () => ProtectedRoute,
     path: "/settings",
-    beforeLoad: requirePermission([PERMISSIONS.DOCUMENT_CATEGORY_VIEW, PERMISSIONS.DOCUMENT_CATEGORY_MANAGE]),
-    component: PermissionsPage,
+    validateSearch: z.object({
+        tab: z.enum(["branding", "permissions"]).optional(),
+    }),
+    beforeLoad: requirePermission([
+        PERMISSIONS.BRANDING_VIEW,
+        PERMISSIONS.BRANDING_MANAGE,
+        PERMISSIONS.DOCUMENT_CATEGORY_VIEW,
+        PERMISSIONS.DOCUMENT_CATEGORY_MANAGE,
+    ]),
+    component: SettingsPage,
 });

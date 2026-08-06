@@ -71,8 +71,8 @@
     --color-card: var(--card);
     --color-foreground: var(--foreground);
     --color-background: var(--background);
-    --color-brand: #db7868;
-    --color-brand-secondary: #1c2538;
+    --color-brand: var(--brand, #db7868);
+    --color-brand-secondary: var(--brand-secondary, #1c2538);
     --radius-sm: calc(var(--radius) * 0.6);
     --radius-md: calc(var(--radius) * 0.8);
     --radius-lg: var(--radius);
@@ -188,5 +188,17 @@
     }
     html {
         @apply font-sans;
+    }
+}
+
+@layer components {
+    .brand-svg {
+        display: block;
+    }
+
+    .brand-svg svg {
+        display: block;
+        width: 100%;
+        height: 100%;
     }
 }

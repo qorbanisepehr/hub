@@ -8,15 +8,22 @@ import {
 import QRCodeStyling from "qr-code-styling";
 
 import { cn } from "@/lib/utils";
-import { LOGO_PATH, LOGO_VIEWBOX } from "./logo";
+import { useBranding } from "@/features/settings/hooks/use-branding";
+import { LOGO_PATH, LOGO_VIEWBOX, useBrandImage } from "./logo";
+
+const svgToDataUrl = (svg: string): string => {
+    const encoded = encodeURIComponent(svg).replace(
+        /%([0-9A-F]{2})/g,
+        (_, p1: string) => String.fromCharCode(parseInt(p1, 16)),
+    );
+
+    return `data:image/svg+xml;base64,${btoa(encoded)}`;
+};
 
 const generateLogoSVG = (color: string): string => {
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${LOGO_VIEWBOX}" fill="none"><path d="${LOGO_PATH}" fill="${color}"/></svg>`;
-    const encoded = encodeURIComponent(svg).replace(
-        /%([0-9A-F]{2})/g,
-        (_, p1) => String.fromCharCode(parseInt(p1, 16)),
-    );
-    return `data:image/svg+xml;base64,${btoa(encoded)}`;
+
+    return svgToDataUrl(svg);
 };
 
 type QrCodeProps = {
@@ -35,7 +42,17 @@ export const QrCode = forwardRef<QrCodeRef, QrCodeProps>(function QrCode(
     ref,
 ) {
     const containerRef = useRef<HTMLDivElement>(null);
-    const logo = generateLogoSVG("#db7868");
+    const { data: branding } = useBranding();
+
+    const primaryColor = branding?.primary_color ?? "#db7868";
+    const logoUrl = branding?.logo_url ?? null;
+    const brandImage = useBrandImage(logoUrl, branding?.logo_svg);
+    const logo =
+        brandImage?.kind === "svg"
+            ? svgToDataUrl(brandImage.content)
+            : brandImage?.kind === "img"
+              ? logoUrl!
+              : generateLogoSVG(primaryColor);
 
     const [qrCode] = useState(
         () =>
@@ -79,9 +96,15 @@ export const QrCode = forwardRef<QrCodeRef, QrCodeProps>(function QrCode(
 
     useEffect(() => {
         if (value) {
-            qrCode.update({ data: value, image: logo });
+            qrCode.update({
+                data: value,
+                image: logo,
+                dotsOptions: { type: "rounded", color, roundSize: true },
+                cornersSquareOptions: { type: "rounded", color },
+                cornersDotOptions: { type: "rounded", color },
+            });
         }
-    }, [qrCode, value, logo]);
+    }, [qrCode, value, logo, color]);
 
     useEffect(() => {
         if (containerRef.current) {

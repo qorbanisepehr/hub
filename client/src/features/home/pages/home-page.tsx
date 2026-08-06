@@ -20,6 +20,8 @@ import {
 } from "@tabler/icons-react";
 import { Logo, LogoType } from "@/components/shared/logo";
 import { useAuth } from "@/features/auth/useAuth";
+import { useBranding } from "@/features/settings/hooks/use-branding";
+import { COMPANY_NAME } from "@/lib/brand";
 
 const services = [
     {
@@ -64,6 +66,7 @@ const reasons = [
 
 export function HomePage() {
     const { isAuthenticated } = useAuth();
+    const { data: branding } = useBranding();
 
     return (
         <>
@@ -74,7 +77,13 @@ export function HomePage() {
 
                 <div className="relative z-10 mx-auto max-w-3xl px-6 text-center">
                     <Logo className="mx-auto size-36 mb-6" />
-                    <LogoType className="w-72 md:w-40 mx-auto" />
+
+                    <h1 className="mt-8 font-heading text-3xl font-bold md:text-4xl">
+                        <LogoType className="w-72 md:w-40 mx-auto" />
+                        <span className="hidden sr-only" aria-hidden>
+                            {branding?.name ?? COMPANY_NAME}
+                        </span>
+                    </h1>
 
                     <p className="mt-6 text-lg text-muted-foreground max-w-md mx-auto">
                         سامانه مدیریت اسناد و پرونده‌های پرسنلی
@@ -222,7 +231,10 @@ export function HomePage() {
                                 تماس با ما
                             </Button>
                             <Link to="/questionnaire">
-                                <Button variant="outline" className="px-8 cursor-pointer">
+                                <Button
+                                    variant="outline"
+                                    className="px-8 cursor-pointer"
+                                >
                                     <IconClipboard className="ml-2 size-4" />
                                     پرسشنامه استخدامی
                                 </Button>
