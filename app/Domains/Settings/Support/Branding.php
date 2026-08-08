@@ -35,6 +35,16 @@ class Branding
         return self::settings()->logotypeUrl;
     }
 
+    public static function logoSvg(): ?string
+    {
+        return self::settings()->logoSvg;
+    }
+
+    public static function logotypeSvg(): ?string
+    {
+        return self::settings()->logotypeSvg;
+    }
+
     public static function faviconUrl(): ?string
     {
         return self::settings()->faviconUrl;

@@ -20,10 +20,10 @@
             <meta name="twitter:card" content="summary_large_image" />
         @endif
 
-        @if (\App\Domains\Settings\Support\Branding::logoUrl())
+        @if (\App\Domains\Settings\Support\Branding::logoUrl() && ! \App\Domains\Settings\Support\Branding::logoSvg())
             <link rel="preload" as="image" href="{{ \App\Domains\Settings\Support\Branding::logoUrl() }}" />
         @endif
-        @if (\App\Domains\Settings\Support\Branding::logotypeUrl())
+        @if (\App\Domains\Settings\Support\Branding::logotypeUrl() && ! \App\Domains\Settings\Support\Branding::logotypeSvg())
             <link rel="preload" as="image" href="{{ \App\Domains\Settings\Support\Branding::logotypeUrl() }}" />
         @endif
 
