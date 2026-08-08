@@ -1,13 +1,17 @@
 import { useState, useEffect } from "react";
-import { type Table } from "@tanstack/react-table";
+import {
+    type RowData,
+    type StockFeatures,
+    type Table,
+} from "@tanstack/react-table";
 import { IconSearch, IconX } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DataTableFacetedFilter } from "./faceted-filter";
 import { DataTableViewOptions } from "./view-options";
 
-type DataTableToolbarProps<TData> = {
-    table: Table<TData>;
+type DataTableToolbarProps<TData extends RowData> = {
+    table: Table<StockFeatures, TData>;
     searchPlaceholder?: string;
     searchKey?: string;
     globalFilter?: string;
@@ -23,7 +27,7 @@ type DataTableToolbarProps<TData> = {
     }[];
 };
 
-export function DataTableToolbar<TData>({
+export function DataTableToolbar<TData extends RowData>({
     table,
     searchPlaceholder = "جستجو...",
     searchKey,
@@ -32,8 +36,8 @@ export function DataTableToolbar<TData>({
     filters = [],
 }: DataTableToolbarProps<TData>) {
     const isFiltered =
-        table.getState().columnFilters.length > 0 ||
-        !!table.getState().globalFilter;
+        table.store.state.columnFilters.length > 0 ||
+        !!table.store.state.globalFilter;
 
     const committedValue = searchKey
         ? ((table.getColumn(searchKey)?.getFilterValue() as string) ?? "")

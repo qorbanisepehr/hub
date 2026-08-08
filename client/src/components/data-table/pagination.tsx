@@ -14,10 +14,14 @@ import {
     IconChevronsLeft,
     IconChevronsRight,
 } from "@tabler/icons-react";
-import { type Table } from "@tanstack/react-table";
+import {
+    type RowData,
+    type StockFeatures,
+    type Table,
+} from "@tanstack/react-table";
 
-type DataTablePaginationProps<TData> = {
-    table: Table<TData>;
+type DataTablePaginationProps<TData extends RowData> = {
+    table: Table<StockFeatures, TData>;
     className?: string;
     meta?: {
         current_page: number;
@@ -27,12 +31,12 @@ type DataTablePaginationProps<TData> = {
     };
 };
 
-export function DataTablePagination<TData>({
+export function DataTablePagination<TData extends RowData>({
     table,
     className,
     meta,
 }: DataTablePaginationProps<TData>) {
-    const currentPage = table.getState().pagination.pageIndex + 1;
+    const currentPage = table.store.state.pagination.pageIndex + 1;
     const totalPages = table.getPageCount();
     const pageNumbers = getPageNumbers(currentPage, totalPages);
 
@@ -47,7 +51,7 @@ export function DataTablePagination<TData>({
             <div className="flex items-center gap-2">
                 <div className="flex items-center gap-2">
                     <Select
-                        value={`${table.getState().pagination.pageSize}`}
+                        value={`${table.store.state.pagination.pageSize}`}
                         onValueChange={(value: string | null) => {
                             if (value) table.setPageSize(Number(value));
                         }}
@@ -55,7 +59,7 @@ export function DataTablePagination<TData>({
                         <SelectTrigger className="h-8 w-18">
                             <SelectValue
                                 placeholder={
-                                    table.getState().pagination.pageSize
+                                    table.store.state.pagination.pageSize
                                 }
                             />
                         </SelectTrigger>

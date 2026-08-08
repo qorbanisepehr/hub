@@ -1,4 +1,7 @@
-import { type ColumnDef } from "@tanstack/react-table";
+import {
+    type ColumnDef,
+    type StockFeatures,
+} from "@tanstack/react-table";
 import { Link } from "@tanstack/react-router";
 import { IconEye, IconPencil } from "@tabler/icons-react";
 import { Badge } from "@/components/ui/badge";
@@ -13,7 +16,7 @@ import {
 } from "@/features/employees/constants";
 import type { Employee } from "@/features/employees/types";
 
-export const employeeColumns: ColumnDef<Employee>[] = [
+export const employeeColumns: ColumnDef<StockFeatures, Employee>[] = [
     {
         accessorKey: "personnel_code",
         header: ({ column }) => (

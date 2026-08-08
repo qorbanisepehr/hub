@@ -2,9 +2,9 @@ import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, getRouteApi } from "@tanstack/react-router";
 import {
-    getCoreRowModel,
-    useReactTable,
-    type VisibilityState,
+    useTable,
+    stockFeatures,
+    type ColumnVisibilityState,
 } from "@tanstack/react-table";
 import { IconPlus, IconUsers } from "@tabler/icons-react";
 
@@ -25,9 +25,8 @@ export function UsersPage() {
     const search = route.useSearch();
     const navigate = route.useNavigate();
 
-    const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(
-        {},
-    );
+    const [columnVisibility, setColumnVisibility] =
+        useState<ColumnVisibilityState>({});
 
     const {
         sorting,
@@ -42,8 +41,16 @@ export function UsersPage() {
     } = useTableUrlState({
         search: search as unknown as Record<string, unknown>,
         navigate: navigate as never,
-        pagination: { defaultPage: 1, defaultPageSize: PAGINATION.DEFAULT_PAGE_SIZE },
-        sorting: { sortKey: "sort", orderKey: "order", defaultSort: "name", defaultOrder: "asc" },
+        pagination: {
+            defaultPage: 1,
+            defaultPageSize: PAGINATION.DEFAULT_PAGE_SIZE,
+        },
+        sorting: {
+            sortKey: "sort",
+            orderKey: "order",
+            defaultSort: "name",
+            defaultOrder: "asc",
+        },
         globalFilter: { enabled: true, key: "filter" },
         columnFilters: [
             {
@@ -55,19 +62,25 @@ export function UsersPage() {
                 columnId: "is_active",
                 searchKey: "is_active",
                 type: "string",
-                serialize: (v) => v === "true" ? true : v === "false" ? false : undefined,
-                deserialize: (v) => typeof v === "boolean" ? (v ? "true" : "false") : v,
+                serialize: (v) =>
+                    v === "true" ? true : v === "false" ? false : undefined,
+                deserialize: (v) =>
+                    typeof v === "boolean" ? (v ? "true" : "false") : v,
             },
         ],
     });
 
     const activeSort = sorting[0];
-    const activeRole =
-        (columnFilters.find((f) => f.id === "roles")
-            ?.value as string[] | undefined)?.[0];
-    const activeIsActive =
-        (columnFilters.find((f) => f.id === "is_active")
-            ?.value as string[] | undefined)?.[0];
+    const activeRole = (
+        columnFilters.find((f) => f.id === "roles")?.value as
+            | string[]
+            | undefined
+    )?.[0];
+    const activeIsActive = (
+        columnFilters.find((f) => f.id === "is_active")?.value as
+            | string[]
+            | undefined
+    )?.[0];
 
     const { data, isLoading, isError } = useQuery({
         queryKey: userKeys.list({
@@ -87,11 +100,12 @@ export function UsersPage() {
                 order: activeSort?.desc ? "desc" : "asc",
                 filter: globalFilter || undefined,
                 role: activeRole || undefined,
-                is_active: activeIsActive === "true"
-                    ? true
-                    : activeIsActive === "false"
-                        ? false
-                        : undefined,
+                is_active:
+                    activeIsActive === "true"
+                        ? true
+                        : activeIsActive === "false"
+                          ? false
+                          : undefined,
             });
             return data;
         },
@@ -110,7 +124,8 @@ export function UsersPage() {
 
     const columns = getUserColumns();
 
-    const table = useReactTable({
+    const table = useTable({
+        features: stockFeatures,
         data: tableData,
         columns,
         state: {
@@ -123,7 +138,7 @@ export function UsersPage() {
         onPaginationChange,
         onColumnVisibilityChange: setColumnVisibility,
         onColumnFiltersChange,
-        getCoreRowModel: getCoreRowModel(),
+        // getCoreRowModel: getCoreRowModel(),
         manualPagination: true,
         manualSorting: true,
         pageCount: meta?.last_page ?? 1,
@@ -136,7 +151,10 @@ export function UsersPage() {
     }, [table, ensurePageInRange, isLoading, meta]);
 
     const roleFilterOptions =
-        rolesData?.map((r) => ({ label: r.display_name, value: String(r.id) })) ?? [];
+        rolesData?.map((r) => ({
+            label: r.display_name,
+            value: String(r.id),
+        })) ?? [];
 
     return (
         <DataTablePage
@@ -176,11 +194,13 @@ export function UsersPage() {
                     onGlobalFilterChange={onGlobalFilterChange}
                     filters={[
                         ...(roleFilterOptions.length > 0
-                            ? [{
-                                  columnId: "roles",
-                                  title: "نقش",
-                                  options: roleFilterOptions,
-                              }]
+                            ? [
+                                  {
+                                      columnId: "roles",
+                                      title: "نقش",
+                                      options: roleFilterOptions,
+                                  },
+                              ]
                             : []),
                         {
                             columnId: "is_active",

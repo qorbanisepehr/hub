@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
 import {
     flexRender,
+    type RowData,
+    type StockFeatures,
     type Table as TanStackTable,
 } from "@tanstack/react-table";
 import type { Icon } from "@tabler/icons-react";
@@ -33,8 +35,8 @@ type Meta = {
     total: number;
 } | undefined;
 
-interface DataTablePageProps<T> {
-    table: TanStackTable<T>;
+interface DataTablePageProps<TData extends RowData> {
+    table: TanStackTable<StockFeatures, TData>;
     meta?: Meta;
     isLoading?: boolean;
     isError?: boolean;
@@ -50,7 +52,7 @@ interface DataTablePageProps<T> {
     colSpan: number;
 }
 
-export function DataTablePage<T>({
+export function DataTablePage<TData extends RowData>({
     table,
     meta,
     isLoading = false,
@@ -65,7 +67,7 @@ export function DataTablePage<T>({
     emptyAction,
     onRetry,
     colSpan,
-}: DataTablePageProps<T>) {
+}: DataTablePageProps<TData>) {
     return (
         <PageLayout>
             {header && (

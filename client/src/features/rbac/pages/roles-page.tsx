@@ -2,9 +2,9 @@ import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, getRouteApi } from "@tanstack/react-router";
 import {
-    getCoreRowModel,
-    useReactTable,
-    type VisibilityState,
+    useTable,
+    stockFeatures,
+    type ColumnVisibilityState,
 } from "@tanstack/react-table";
 import { IconPlus, IconUserCog } from "@tabler/icons-react";
 import { toast } from "sonner";
@@ -27,9 +27,8 @@ export function RolesPage() {
     const search = route.useSearch();
     const navigate = route.useNavigate();
 
-    const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(
-        {},
-    );
+    const [columnVisibility, setColumnVisibility] =
+        useState<ColumnVisibilityState>({});
 
     const {
         sorting,
@@ -44,24 +43,36 @@ export function RolesPage() {
     } = useTableUrlState({
         search: search as unknown as Record<string, unknown>,
         navigate: navigate as never,
-        pagination: { defaultPage: 1, defaultPageSize: PAGINATION.DEFAULT_PAGE_SIZE },
-        sorting: { sortKey: "sort", orderKey: "order", defaultSort: "display_name", defaultOrder: "asc" },
+        pagination: {
+            defaultPage: 1,
+            defaultPageSize: PAGINATION.DEFAULT_PAGE_SIZE,
+        },
+        sorting: {
+            sortKey: "sort",
+            orderKey: "order",
+            defaultSort: "display_name",
+            defaultOrder: "asc",
+        },
         globalFilter: { enabled: true, key: "filter" },
         columnFilters: [
             {
                 columnId: "is_active",
                 searchKey: "is_active",
                 type: "string",
-                serialize: (v) => v === "true" ? true : v === "false" ? false : undefined,
-                deserialize: (v) => typeof v === "boolean" ? (v ? "true" : "false") : v,
+                serialize: (v) =>
+                    v === "true" ? true : v === "false" ? false : undefined,
+                deserialize: (v) =>
+                    typeof v === "boolean" ? (v ? "true" : "false") : v,
             },
         ],
     });
 
     const activeSort = sorting[0];
-    const activeIsActive =
-        (columnFilters.find((f) => f.id === "is_active")
-            ?.value as string[] | undefined)?.[0];
+    const activeIsActive = (
+        columnFilters.find((f) => f.id === "is_active")?.value as
+            | string[]
+            | undefined
+    )?.[0];
 
     const { data, isLoading, isError } = useQuery({
         queryKey: roleKeys.list({
@@ -79,11 +90,12 @@ export function RolesPage() {
                 sort: activeSort?.id,
                 order: activeSort?.desc ? "desc" : "asc",
                 filter: globalFilter || undefined,
-                is_active: activeIsActive === "true"
-                    ? true
-                    : activeIsActive === "false"
-                        ? false
-                        : undefined,
+                is_active:
+                    activeIsActive === "true"
+                        ? true
+                        : activeIsActive === "false"
+                          ? false
+                          : undefined,
             });
             return data;
         },
@@ -121,7 +133,8 @@ export function RolesPage() {
     const tableData = data?.data ?? [];
     const meta = data?.meta;
 
-    const table = useReactTable({
+    const table = useTable({
+        features: stockFeatures,
         data: tableData,
         columns,
         state: {
@@ -134,11 +147,11 @@ export function RolesPage() {
         onPaginationChange,
         onColumnVisibilityChange: setColumnVisibility,
         onColumnFiltersChange,
-        getCoreRowModel: getCoreRowModel(),
         manualPagination: true,
         manualSorting: true,
         pageCount: meta?.last_page ?? 1,
     });
+    // getCoreRowModel: getCoreRowModel(),
 
     useEffect(() => {
         if (!isLoading && meta) {

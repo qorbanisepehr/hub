@@ -28,10 +28,11 @@ export async function renderPdfThumbnailUrl({
     try {
         ensurePdfjs();
 
-        const doc = await pdfjsLib.getDocument({
+        const loadingTask = pdfjsLib.getDocument({
             url,
             verbosity: pdfjsLib.VerbosityLevel.ERRORS,
-        }).promise;
+        });
+        const doc = await loadingTask.promise;
         const page = await doc.getPage(pageIndex + 1);
 
         const viewport = page.getViewport({ scale: 1 });
@@ -44,18 +45,18 @@ export async function renderPdfThumbnailUrl({
 
         const ctx = canvas.getContext("2d");
         if (!ctx) {
-            doc.destroy();
+            await loadingTask.destroy();
 
             return null;
         }
 
         await page.render({
-            canvasContext: ctx,
+            canvas,
             viewport: scaledViewport,
         }).promise;
 
         const dataUrl = canvas.toDataURL("image/png");
-        doc.destroy();
+        await loadingTask.destroy();
 
         return dataUrl;
     } catch (error) {

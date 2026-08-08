@@ -1,4 +1,7 @@
-import { type ColumnDef } from "@tanstack/react-table";
+import {
+    type ColumnDef,
+    type StockFeatures,
+} from "@tanstack/react-table";
 import { Link } from "@tanstack/react-router";
 import { IconPencil, IconTrash } from "@tabler/icons-react";
 import { Badge } from "@/components/ui/badge";
@@ -14,7 +17,9 @@ type RoleActions = {
     isDeleting?: boolean;
 };
 
-export function getRoleColumns(actions: RoleActions): ColumnDef<Role>[] {
+export function getRoleColumns(
+    actions: RoleActions,
+): ColumnDef<StockFeatures, Role>[] {
     return [
         {
             accessorKey: "display_name",

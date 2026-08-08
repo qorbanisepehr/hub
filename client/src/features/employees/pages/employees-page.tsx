@@ -2,9 +2,9 @@ import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, getRouteApi } from "@tanstack/react-router";
 import {
-    getCoreRowModel,
-    useReactTable,
-    type VisibilityState,
+    useTable,
+    stockFeatures,
+    type ColumnVisibilityState,
 } from "@tanstack/react-table";
 import { IconPlus, IconUsers } from "@tabler/icons-react";
 
@@ -25,9 +25,8 @@ export function EmployeesPage() {
     const search = route.useSearch();
     const navigate = route.useNavigate();
 
-    const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(
-        {},
-    );
+    const [columnVisibility, setColumnVisibility] =
+        useState<ColumnVisibilityState>({});
 
     const {
         sorting,
@@ -42,7 +41,10 @@ export function EmployeesPage() {
     } = useTableUrlState({
         search: search as unknown as Record<string, unknown>,
         navigate: navigate as never,
-        pagination: { defaultPage: 1, defaultPageSize: PAGINATION.DEFAULT_PAGE_SIZE },
+        pagination: {
+            defaultPage: 1,
+            defaultPageSize: PAGINATION.DEFAULT_PAGE_SIZE,
+        },
         sorting: { sortKey: "sort", orderKey: "order" },
         globalFilter: { enabled: true, key: "filter" },
         columnFilters: [
@@ -55,9 +57,11 @@ export function EmployeesPage() {
     });
 
     const activeSort = sorting[0];
-    const activeStatus =
-        (columnFilters.find((f) => f.id === "employment_status")
-            ?.value as string[] | undefined)?.[0];
+    const activeStatus = (
+        columnFilters.find((f) => f.id === "employment_status")?.value as
+            | string[]
+            | undefined
+    )?.[0];
 
     const { data, isLoading, isError } = useQuery({
         queryKey: employeeKeys.list({
@@ -84,7 +88,8 @@ export function EmployeesPage() {
     const tableData = data?.data ?? [];
     const meta = data?.meta;
 
-    const table = useReactTable({
+    const table = useTable({
+        features: stockFeatures,
         data: tableData,
         columns: employeeColumns,
         state: {
@@ -97,7 +102,7 @@ export function EmployeesPage() {
         onPaginationChange,
         onColumnVisibilityChange: setColumnVisibility,
         onColumnFiltersChange,
-        getCoreRowModel: getCoreRowModel(),
+        // getCoreRowModel: getCoreRowModel(),
         manualPagination: true,
         manualSorting: true,
         pageCount: meta?.last_page ?? 1,

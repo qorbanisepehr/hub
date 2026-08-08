@@ -2,9 +2,9 @@ import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getRouteApi } from "@tanstack/react-router";
 import {
-    getCoreRowModel,
-    useReactTable,
-    type VisibilityState,
+    useTable,
+    stockFeatures,
+    type ColumnVisibilityState,
 } from "@tanstack/react-table";
 import { IconFileCv } from "@tabler/icons-react";
 
@@ -23,9 +23,8 @@ export function CvsBankPage() {
     const search = route.useSearch();
     const navigate = route.useNavigate();
 
-    const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(
-        {},
-    );
+    const [columnVisibility, setColumnVisibility] =
+        useState<ColumnVisibilityState>({});
 
     const {
         sorting,
@@ -56,8 +55,11 @@ export function CvsBankPage() {
     });
 
     const activeSort = sorting[0];
-    const activeStatus =
-        (columnFilters.find((f) => f.id === "status")?.value as string[] | undefined)?.[0];
+    const activeStatus = (
+        columnFilters.find((f) => f.id === "status")?.value as
+            | string[]
+            | undefined
+    )?.[0];
 
     const { data, isLoading, isError } = useQuery({
         queryKey: cvKeys.bank({
@@ -84,7 +86,8 @@ export function CvsBankPage() {
     const tableData = data?.data ?? [];
     const meta = data?.meta;
 
-    const table = useReactTable({
+    const table = useTable({
+        features: stockFeatures,
         data: tableData,
         columns: cvBankColumns,
         state: {
@@ -97,7 +100,6 @@ export function CvsBankPage() {
         onPaginationChange,
         onColumnVisibilityChange: setColumnVisibility,
         onColumnFiltersChange,
-        getCoreRowModel: getCoreRowModel(),
         manualPagination: true,
         manualSorting: true,
         pageCount: meta?.last_page ?? 1,

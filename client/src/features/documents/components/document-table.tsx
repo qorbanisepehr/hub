@@ -1,10 +1,11 @@
 import * as React from "react";
 import {
-    useReactTable,
-    getCoreRowModel,
+    useTable,
+    stockFeatures,
     flexRender,
     type ColumnDef,
     type RowSelectionState,
+    type StockFeatures,
 } from "@tanstack/react-table";
 import { IconDownload, IconLoader2, IconTrash } from "@tabler/icons-react";
 
@@ -81,7 +82,7 @@ export function DocumentTable({
         [rowSelection, documents, onSelectionChange],
     );
 
-    const columns = React.useMemo<ColumnDef<Document>[]>(
+    const columns = React.useMemo<ColumnDef<StockFeatures, Document>[]>(
         () => [
             {
                 id: "select",
@@ -230,10 +231,10 @@ export function DocumentTable({
         ],
     );
 
-    const table = useReactTable({
+    const table = useTable({
+        features: stockFeatures,
         data: documents,
         columns,
-        getCoreRowModel: getCoreRowModel(),
         onRowSelectionChange: handleSelectionChange,
         state: {
             rowSelection,

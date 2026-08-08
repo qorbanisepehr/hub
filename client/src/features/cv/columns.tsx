@@ -1,4 +1,7 @@
-import { type ColumnDef } from "@tanstack/react-table";
+import {
+    type ColumnDef,
+    type StockFeatures,
+} from "@tanstack/react-table";
 import { Link } from "@tanstack/react-router";
 import { IconDownload, IconEye } from "@tabler/icons-react";
 import { Badge } from "@/components/ui/badge";
@@ -8,7 +11,7 @@ import { CV_STATUS_BADGE_VARIANTS, CV_STATUS_LABELS } from "@/features/cv/consta
 import type { Cv, CvStatus } from "@/features/cv/types";
 import { toPersianDate } from "@/lib/date-format";
 
-export const cvBankColumns: ColumnDef<Cv>[] = [
+export const cvBankColumns: ColumnDef<StockFeatures, Cv>[] = [
     {
         id: "full_name",
         accessorFn: (row) => `${row.first_name} ${row.last_name}`,

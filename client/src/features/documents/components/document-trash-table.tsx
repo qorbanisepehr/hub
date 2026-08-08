@@ -1,18 +1,29 @@
 import * as React from "react";
 import {
-    useReactTable,
-    getCoreRowModel,
+    useTable,
+    stockFeatures,
     flexRender,
     type ColumnDef,
+    type StockFeatures,
 } from "@tanstack/react-table";
 import { IconArrowBackUp, IconLoader2, IconTrash } from "@tabler/icons-react";
 
 import { Button } from "@/components/ui/button";
-import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
+import {
+    Table,
+    TableHeader,
+    TableBody,
+    TableHead,
+    TableRow,
+    TableCell,
+} from "@/components/ui/table";
 import { ConfirmDeleteActions } from "./confirm-delete-actions";
 import { DocumentFileCell } from "./document-file-cell";
 import { toPersianDate } from "@/lib/date-format";
-import { getDocOriginalName, getDocFileSizeFormatted } from "@/features/documents/types";
+import {
+    getDocOriginalName,
+    getDocFileSizeFormatted,
+} from "@/features/documents/types";
 import type { Document } from "@/features/documents/types";
 
 type DocumentTrashTableProps = {
@@ -36,7 +47,7 @@ export function DocumentTrashTable({
     onConfirmForceDelete,
     onCancelForceDelete,
 }: DocumentTrashTableProps) {
-    const columns = React.useMemo<ColumnDef<Document>[]>(
+    const columns = React.useMemo<ColumnDef<StockFeatures, Document>[]>(
         () => [
             {
                 accessorKey: "category.name",
@@ -147,20 +158,18 @@ export function DocumentTrashTable({
         ],
     );
 
-    const table = useReactTable({
+    const table = useTable({
+        features: stockFeatures,
         data: documents,
         columns,
-        getCoreRowModel: getCoreRowModel(),
+        // getCoreRowModel: getCoreRowModel(),
     });
 
     return (
         <Table>
             <TableHeader>
                 {table.getHeaderGroups().map((headerGroup) => (
-                    <TableRow
-                        key={headerGroup.id}
-                        className="group/row"
-                    >
+                    <TableRow key={headerGroup.id} className="group/row">
                         {headerGroup.headers.map((header) => {
                             const isActions = header.id === "actions";
                             return (
@@ -186,10 +195,7 @@ export function DocumentTrashTable({
             </TableHeader>
             <TableBody>
                 {table.getRowModel().rows.map((row) => (
-                    <TableRow
-                        key={row.id}
-                        className="group/row"
-                    >
+                    <TableRow key={row.id} className="group/row">
                         {row.getVisibleCells().map((cell) => {
                             const isActions = cell.column.id === "actions";
                             return (

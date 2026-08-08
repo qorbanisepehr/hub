@@ -1,5 +1,8 @@
 import { useState } from "react";
-import { type ColumnDef } from "@tanstack/react-table";
+import {
+    type ColumnDef,
+    type StockFeatures,
+} from "@tanstack/react-table";
 import { Link } from "@tanstack/react-router";
 import { IconMasksTheater, IconPencil, IconUser } from "@tabler/icons-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -28,7 +31,7 @@ function UserAvatar({ name, avatarUrl }: { name: string; avatarUrl: string | nul
     );
 }
 
-export function getUserColumns(): ColumnDef<UserListItem>[] {
+export function getUserColumns(): ColumnDef<StockFeatures, UserListItem>[] {
     return [
         {
             id: "avatar",

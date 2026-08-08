@@ -18,10 +18,14 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { IconCheck, IconFilter } from "@tabler/icons-react";
-import { type Column } from "@tanstack/react-table";
+import {
+    type Column,
+    type RowData,
+    type StockFeatures,
+} from "@tanstack/react-table";
 
-type DataTableFacetedFilterProps<TData, TValue> = {
-    column?: Column<TData, TValue>;
+type DataTableFacetedFilterProps<TData extends RowData, TValue> = {
+    column?: Column<StockFeatures, TData, TValue>;
     title?: string;
     options: {
         label: string;
@@ -30,7 +34,7 @@ type DataTableFacetedFilterProps<TData, TValue> = {
     }[];
 };
 
-export function DataTableFacetedFilter<TData, TValue>({
+export function DataTableFacetedFilter<TData extends RowData, TValue>({
     column,
     title,
     options,
