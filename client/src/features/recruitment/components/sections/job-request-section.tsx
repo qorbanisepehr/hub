@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldLabel } from "@/components/ui/field";
@@ -6,18 +7,20 @@ import {
     FormNumberField,
     FormTextarea,
     FormRadioGroup,
-    FormCheckboxGroup,
     FormDatePicker,
 } from "@/components/shared/form-fields";
 import {
-    EMPLOYMENT_TYPE_OPTIONS,
+    FormOptionCheckboxGroup,
+    FormOptionRadioGroup,
+} from "@/components/shared/form-option-fields";
+import {
     YES_NO_OPTIONS,
     CURRENTLY_EMPLOYED_OPTIONS,
-    PREFERRED_WORKPLACE_OPTIONS,
     parseBoolean,
 } from "@/features/recruitment/constants";
+import { useFormOptionsByGroup } from "@/features/form-options/hooks/use-form-options";
+import { buildJobRequestSchemas } from "@/features/recruitment/schemas/job-request.schema";
 import { zodFieldValidators } from "@/lib/validation-helpers";
-import { fieldSchemas } from "@/features/recruitment/schemas/job-request.schema";
 import type { QuestionnaireFormApi } from "@/features/recruitment/types";
 
 type SectionProps = {
@@ -25,6 +28,20 @@ type SectionProps = {
 };
 
 export function JobRequestSection({ form }: SectionProps) {
+    const { data: employmentTypeOptions } = useFormOptionsByGroup("employment_type");
+    const { data: preferredWorkplaceOptions } = useFormOptionsByGroup("preferred_workplace");
+
+    const optionsLoaded =
+        employmentTypeOptions !== undefined && preferredWorkplaceOptions !== undefined;
+
+    const schemas = useMemo(() => {
+        if (!optionsLoaded) return undefined;
+        return buildJobRequestSchemas({
+            employment_type: employmentTypeOptions,
+            preferred_workplace: preferredWorkplaceOptions,
+        });
+    }, [optionsLoaded, employmentTypeOptions, preferredWorkplaceOptions]);
+
     return (
         <Card>
             <CardHeader>
@@ -33,13 +50,17 @@ export function JobRequestSection({ form }: SectionProps) {
             <CardContent className="space-y-6">
                 <form.Field
                     name="job_request.employment_type"
-                    validators={zodFieldValidators(fieldSchemas.employment_type)}
+                    validators={
+                        schemas
+                            ? zodFieldValidators(schemas.fieldSchemas.employment_type)
+                            : undefined
+                    }
                 >
                     {(field) => (
-                        <FormRadioGroup
+                        <FormOptionRadioGroup
                             field={field}
                             label="نوع اشتغال"
-                            options={EMPLOYMENT_TYPE_OPTIONS}
+                            group="employment_type"
                         />
                     )}
                 </form.Field>
@@ -87,7 +108,11 @@ export function JobRequestSection({ form }: SectionProps) {
 
                 <form.Field
                     name="job_request.accept_information"
-                    validators={zodFieldValidators(fieldSchemas.accept_information)}
+                    validators={
+                        schemas
+                            ? zodFieldValidators(schemas.fieldSchemas.accept_information)
+                            : undefined
+                    }
                 >
                     {(field) => (
                         <Field>
@@ -107,10 +132,10 @@ export function JobRequestSection({ form }: SectionProps) {
 
                 <form.Field name="job_request.preferred_workplace">
                     {(field) => (
-                        <FormCheckboxGroup
+                        <FormOptionCheckboxGroup
                             field={field}
                             label="محل کار مورد نظر"
-                            options={PREFERRED_WORKPLACE_OPTIONS}
+                            group="preferred_workplace"
                         />
                     )}
                 </form.Field>
@@ -118,7 +143,11 @@ export function JobRequestSection({ form }: SectionProps) {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <form.Field
                         name="job_request.job_priority_1"
-                        validators={zodFieldValidators(fieldSchemas.job_priority_1)}
+                        validators={
+                            schemas
+                                ? zodFieldValidators(schemas.fieldSchemas.job_priority_1)
+                                : undefined
+                        }
                     >
                         {(field) => <FormTextField field={field} label="اولویت شغلی ۱" />}
                     </form.Field>
@@ -140,7 +169,11 @@ export function JobRequestSection({ form }: SectionProps) {
                     </form.Field>
                     <form.Field
                         name="job_request.available_start_date"
-                        validators={zodFieldValidators(fieldSchemas.available_start_date)}
+                        validators={
+                            schemas
+                                ? zodFieldValidators(schemas.fieldSchemas.available_start_date)
+                                : undefined
+                        }
                     >
                         {(field) => <FormDatePicker field={field} label="تاریخ شروع به کار" />}
                     </form.Field>

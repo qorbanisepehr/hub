@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm, useStore } from "@tanstack/react-form";
 import { isAxiosError } from "axios";
@@ -34,7 +34,8 @@ import {
     CV_DOC_REQUIREMENTS,
 } from "@/features/cv/constants";
 import { useCvDocuments } from "@/features/cv/hooks/use-cv-documents";
-import { validateSubmitData } from "@/features/cv/validation";
+import { useCvSubmitOptions } from "@/features/cv/hooks/use-cv-submit-options";
+import { buildValidateSubmitData } from "@/features/cv/validation";
 import { useInjectedFieldErrors } from "@/hooks/use-injected-field-errors";
 import {
     countSectionFieldErrors,
@@ -311,7 +312,14 @@ export function CvWizard({ cv }: CvWizardProps) {
         return () => window.removeEventListener("beforeunload", handler);
     }, [isDirty]);
 
-    const validation = validateSubmitData(form.state.values);
+    const { submitOptions, optionsReady } = useCvSubmitOptions();
+
+    const validateSubmit = useMemo(
+        () => buildValidateSubmitData(submitOptions),
+        [submitOptions],
+    );
+
+    const validation = validateSubmit(form.state.values);
 
     const { documents, isLoading: documentsLoading } = useCvDocuments(cv.uuid);
     const { inject: injectFieldErrors, clear: clearInjectedErrors } =
@@ -322,12 +330,14 @@ export function CvWizard({ cv }: CvWizardProps) {
         !cv.email || cv.email_verified || form.state.values.email === "";
 
     const canSubmit =
+        optionsReady &&
         validation.success &&
         cv.mobile_verified &&
         emailIsSettled &&
         (cv.status === "draft" || cv.status === "rejected");
 
     const handleSubmit = () => {
+        if (!optionsReady) return;
         if (!validation.success) {
             setSubmitErrors(validation.errors);
             toast.error("لطفاً خطاهای زیر را اصلاح کنید.");
@@ -346,7 +356,8 @@ export function CvWizard({ cv }: CvWizardProps) {
     };
 
     const handleValidateClick = () => {
-        const result = validateSubmitData(form.state.values);
+        if (!optionsReady) return;
+        const result = validateSubmit(form.state.values);
         const docErrors = documentsLoading
             ? []
             : validateDocumentRequirements(documents, CV_DOC_REQUIREMENTS);
@@ -435,7 +446,11 @@ export function CvWizard({ cv }: CvWizardProps) {
 
                 <StepperPanel>
                     <StepperContent index={0}>
-                        <PersonalInfoSection form={form as never} cv={cv} />
+                        <PersonalInfoSection
+                            form={form as never}
+                            cv={cv}
+                            uuid={cv.uuid}
+                        />
                     </StepperContent>
 
                     <StepperContent index={1}>

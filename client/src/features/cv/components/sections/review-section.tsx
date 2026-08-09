@@ -1,4 +1,6 @@
+import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { FileThumbnail } from "@/components/ui/file-thumbnail";
 import { useCvDocuments } from "@/features/cv/hooks/use-cv-documents";
 import type { CvDocument } from "@/features/cv/hooks/use-cv-documents";
 import type { Cv, CvFormApi } from "@/features/cv/types";
@@ -8,12 +10,15 @@ import {
     CV_DOC_REQUIREMENTS,
     CV_WIZARD_STEPS,
 } from "@/features/cv/constants";
-import { validateSubmitData } from "@/features/cv/validation";
+import { buildValidateSubmitData } from "@/features/cv/validation";
+import { useCvSubmitOptions } from "@/features/cv/hooks/use-cv-submit-options";
 import { FormValidationSummary } from "@/components/shared/form-validation-summary";
 import {
     groupFieldErrorsBySection,
     validateDocumentRequirements,
 } from "@/lib/validation-helpers";
+import { toPersianDate } from "@/lib/date-format";
+import { GENDER_MALE } from "@/features/recruitment/schemas/personal-info.schema";
 import {
     QuestionnaireDocumentPreview,
     QuestionnaireDocumentGrouped,
@@ -66,6 +71,7 @@ function SectionHeader({
 const TREE_GROUPS = [
     { label: "رزومه", slug: CV_DOC_CATEGORY_SLUGS.RESUME },
     { label: "نامه معرفی", slug: CV_DOC_CATEGORY_SLUGS.COVER_LETTER },
+    { label: "عکس پرسنلی", slug: CV_DOC_CATEGORY_SLUGS.PERSONNEL_PHOTO },
     { label: "سایر مدارک", slug: CV_DOC_CATEGORY_SLUGS.OTHER_DOCUMENTS },
 ];
 
@@ -82,7 +88,14 @@ export function ReviewSection({ form, cv, onNavigateToStep }: SectionProps) {
     const { documents, isLoading: documentsLoading, getDocumentsBySlug } =
         useCvDocuments(cv?.uuid);
 
-    const validation = validateSubmitData(form.state.values);
+    const { submitOptions } = useCvSubmitOptions();
+
+    const validateSubmit = useMemo(
+        () => buildValidateSubmitData(submitOptions),
+        [submitOptions],
+    );
+
+    const validation = validateSubmit(form.state.values);
     const docMessages = documentsLoading
         ? []
         : validateDocumentRequirements(documents, CV_DOC_REQUIREMENTS);
@@ -103,6 +116,10 @@ export function ReviewSection({ form, cv, onNavigateToStep }: SectionProps) {
     const hasAnyDoc = TREE_GROUPS.some(
         (g) => getDocumentsBySlug(g.slug).length > 0,
     );
+
+    const personnelPhoto = getDocumentsBySlug(
+        CV_DOC_CATEGORY_SLUGS.PERSONNEL_PHOTO,
+    )[0];
 
     return (
         <div className="space-y-4">
@@ -133,38 +150,41 @@ export function ReviewSection({ form, cv, onNavigateToStep }: SectionProps) {
                     onEdit={() => onNavigateToStep?.(0)}
                 />
                 <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <DataRow label="نام" value={v.first_name} />
-                        <DataRow label="نام خانوادگی" value={v.last_name} />
-                        <DataRow
-                            label="جنسیت"
-                            value={
-                                pi.gender === "male"
-                                    ? "مرد"
-                                    : pi.gender === "female"
-                                      ? "زن"
-                                      : pi.gender
-                            }
-                        />
-                        <DataRow label="تاریخ تولد" value={pi.birth_date} />
-                        <DataRow label="محل تولد" value={pi.birth_place} />
-                        <DataRow
-                            label="شماره شناسنامه"
-                            value={pi.birth_certificate_number}
-                        />
-                        <DataRow label="کد ملی" value={pi.national_id} />
-                        <DataRow
-                            label="وضعیت تأهل"
-                            value={
-                                pi.marital_status === "single"
-                                    ? "مجرد"
-                                    : pi.marital_status === "married"
-                                      ? "متاهل"
-                                      : pi.marital_status
-                            }
-                        />
+                    <div className="flex flex-col gap-4 md:flex-row">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 flex-1">
+                            <DataRow label="نام" value={v.first_name} />
+                            <DataRow label="نام خانوادگی" value={v.last_name} />
+                            <DataRow
+                                label="جنسیت"
+                                value={pi.gender}
+                            />
+                            <DataRow
+                                label="تاریخ تولد"
+                                value={toPersianDate(pi.birth_date)}
+                            />
+                            <DataRow label="محل تولد" value={pi.birth_place} />
+                            <DataRow
+                                label="شماره شناسنامه"
+                                value={pi.birth_certificate_number}
+                            />
+                            <DataRow label="کد ملی" value={pi.national_id} />
+                            <DataRow label="وضعیت تأهل" value={pi.marital_status} />
+                        </div>
+                        {personnelPhoto && (
+                            <div className="shrink-0">
+                                <FileThumbnail
+                                    file={{
+                                        name: personnelPhoto.original_name,
+                                        type: personnelPhoto.mime_type,
+                                    }}
+                                    previewImageUrl={personnelPhoto.url}
+                                    className="w-28 rounded-xl overflow-hidden"
+                                    previewAspectRatio={3 / 4}
+                                />
+                            </div>
+                        )}
                     </div>
-                    {pi.military_status && pi.gender === "male" && (
+                    {pi.military_status && pi.gender === GENDER_MALE && (
                         <div className="mt-4 pt-4 border-t">
                             <p className="text-sm font-medium mb-2">
                                 وضعیت نظام وظیفه
@@ -180,11 +200,11 @@ export function ReviewSection({ form, cv, onNavigateToStep }: SectionProps) {
                                 />
                                 <DataRow
                                     label="از تاریخ"
-                                    value={pi.military_status.from}
+                                    value={toPersianDate(pi.military_status.from)}
                                 />
                                 <DataRow
                                     label="تا تاریخ"
-                                    value={pi.military_status.to}
+                                    value={toPersianDate(pi.military_status.to)}
                                 />
                                 <DataRow
                                     label="دلیل"
@@ -258,12 +278,18 @@ export function ReviewSection({ form, cv, onNavigateToStep }: SectionProps) {
                                     value={rec.institution}
                                 />
                                 <DataRow label="محل" value={rec.location} />
-                                <DataRow label="از تاریخ" value={rec.from} />
-                                <DataRow label="تا تاریخ" value={rec.to} />
+                                <DataRow
+                                    label="از تاریخ"
+                                    value={toPersianDate(rec.from)}
+                                />
+                                <DataRow
+                                    label="تا تاریخ"
+                                    value={toPersianDate(rec.to)}
+                                />
                                 <DataRow label="معدل" value={rec.gpa} />
                                 <DataRow
                                     label="تاریخ فارغ‌التحصیلی"
-                                    value={rec.graduation_date}
+                                    value={toPersianDate(rec.graduation_date)}
                                 />
                                 <DataRow
                                     label="پایان‌نامه"
@@ -321,8 +347,14 @@ export function ReviewSection({ form, cv, onNavigateToStep }: SectionProps) {
                                 <DataRow label="سمت" value={exp.position} />
                                 <DataRow label="صنعت" value={exp.industry} />
                                 <DataRow label="محل کار" value={exp.location} />
-                                <DataRow label="از تاریخ" value={exp.from} />
-                                <DataRow label="تا تاریخ" value={exp.to} />
+                                <DataRow
+                                    label="از تاریخ"
+                                    value={toPersianDate(exp.from)}
+                                />
+                                <DataRow
+                                    label="تا تاریخ"
+                                    value={toPersianDate(exp.to)}
+                                />
                                 <DataRow
                                     label="نوع قرارداد"
                                     value={exp.contract_type}
@@ -497,6 +529,14 @@ export function ReviewSection({ form, cv, onNavigateToStep }: SectionProps) {
                         <DataRow
                             label="نقاط قوت و زمینه‌های قابل بهبود"
                             value={additional.strengths_and_improvements}
+                        />
+                        <DataRow
+                            label="وضعیت جسمانی"
+                            value={additional.physical_condition}
+                        />
+                        <DataRow
+                            label="نوع معلولیت"
+                            value={additional.disability_type}
                         />
                     </div>
                     {additional.references?.length > 0 && (

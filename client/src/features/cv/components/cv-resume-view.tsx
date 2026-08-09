@@ -1,17 +1,12 @@
 import type { ReactNode } from "react";
 
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
     QuestionnaireDocumentGrouped,
     QuestionnaireDocumentPreview,
 } from "@/components/shared/questionnaire-document-preview";
 import { toPersianDate } from "@/lib/date-format";
-import {
-    DEGREE_OPTIONS,
-    GENDER_OPTIONS,
-    MARITAL_STATUS_OPTIONS,
-    MILITARY_STATUS_OPTIONS,
-} from "@/features/recruitment/constants";
 import type {
     Education,
     Skills,
@@ -19,21 +14,18 @@ import type {
     WorkExperience,
 } from "@/features/recruitment/types";
 import type { EntityDocument } from "@/hooks/use-entity-documents";
-import { CV_DOC_CATEGORY_SLUGS } from "@/features/cv/constants";
+import {
+    CV_DOC_CATEGORY_SLUGS,
+    CV_STATUS_BADGE_VARIANTS,
+    CV_STATUS_LABELS,
+} from "@/features/cv/constants";
 import type {
     Cv,
     CvAdditionalInfo,
     CvContactInfo,
     CvPersonalInfo,
+    CvStatus,
 } from "@/features/cv/types";
-
-function optionLabel(
-    options: { value: string; label: string }[],
-    value?: string | null,
-): string | null {
-    if (!value) return null;
-    return options.find((option) => option.value === value)?.label ?? null;
-}
 
 function DataRow({
     label,
@@ -90,7 +82,7 @@ function EducationSection({
                             className="space-y-1 rounded-lg border bg-muted/30 p-3"
                         >
                             <p className="text-sm font-medium">
-                                {optionLabel(DEGREE_OPTIONS, record.degree)}
+                                {record.degree}
                                 {record.field ? ` - ${record.field}` : ""}
                             </p>
                             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
@@ -120,7 +112,7 @@ function EducationSection({
                     <DataRow label="دانشجو" value="بله" />
                     <DataRow
                         label="مقطع"
-                        value={optionLabel(DEGREE_OPTIONS, education.student_degree)}
+                        value={education.student_degree}
                     />
                     <DataRow label="رشته" value={education.student_field} />
                     <DataRow label="دانشگاه" value={education.student_university} />
@@ -362,6 +354,10 @@ export function CvResumeView({
             docs: docsBySlug(CV_DOC_CATEGORY_SLUGS.COVER_LETTER),
         },
         {
+            label: "عکس پرسنلی",
+            docs: docsBySlug(CV_DOC_CATEGORY_SLUGS.PERSONNEL_PHOTO),
+        },
+        {
             label: "سایر مدارک",
             docs: docsBySlug(CV_DOC_CATEGORY_SLUGS.OTHER_DOCUMENTS),
         },
@@ -370,11 +366,56 @@ export function CvResumeView({
 
     return (
         <div className="space-y-6">
+            <Card>
+                <CardContent className="pt-6">
+                    <div className="flex flex-wrap items-center justify-between gap-4">
+                        <div className="space-y-2">
+                            <h2 className="text-xl font-bold tracking-tight">
+                                {cv.first_name} {cv.last_name}
+                            </h2>
+                            <div className="flex flex-wrap gap-x-6 gap-y-1">
+                                <DataRow
+                                    label="موبایل"
+                                    value={
+                                        <span dir="ltr" className="text-sm">
+                                            {cv.mobile}
+                                        </span>
+                                    }
+                                />
+                                <DataRow
+                                    label="ایمیل"
+                                    value={
+                                        <span dir="ltr" className="text-sm">
+                                            {cv.email ?? "—"}
+                                        </span>
+                                    }
+                                />
+                            </div>
+                        </div>
+                        <div className="flex flex-col items-end gap-1">
+                            <Badge
+                                variant={
+                                    CV_STATUS_BADGE_VARIANTS[
+                                        cv.status as CvStatus
+                                    ] ?? "secondary"
+                                }
+                            >
+                                {CV_STATUS_LABELS[cv.status as CvStatus] ??
+                                    cv.status}
+                            </Badge>
+                            <span className="text-xs text-muted-foreground">
+                                نسخه {cv.version}
+                            </span>
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+
             <SectionCard title="مشخصات فردی">
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                     <DataRow
                         label="جنسیت"
-                        value={optionLabel(GENDER_OPTIONS, personal.gender)}
+                        value={personal.gender}
                     />
                     <DataRow
                         label="تاریخ تولد"
@@ -386,18 +427,12 @@ export function CvResumeView({
                         label="شماره شناسنامه"
                         value={personal.birth_certificate_number}
                     />
-                    <DataRow
-                        label="وضعیت تأهل"
-                        value={optionLabel(MARITAL_STATUS_OPTIONS, personal.marital_status)}
-                    />
+                    <DataRow label="وضعیت تأهل" value={personal.marital_status} />
                     {personal.military_status && (
                         <>
                             <DataRow
                                 label="وضعیت خدمت"
-                                value={optionLabel(
-                                    MILITARY_STATUS_OPTIONS,
-                                    personal.military_status.status,
-                                )}
+                                value={personal.military_status.status}
                             />
                             <DataRow
                                 label="سازمان خدمت"
@@ -463,6 +498,14 @@ export function CvResumeView({
                     <DataRow
                         label="نقاط قوت و بهبود"
                         value={additional.strengths_and_improvements}
+                    />
+                    <DataRow
+                        label="وضعیت جسمانی"
+                        value={additional.physical_condition}
+                    />
+                    <DataRow
+                        label="نوع معلولیت"
+                        value={additional.disability_type}
                     />
                 </div>
                 {additional.references?.length ? (

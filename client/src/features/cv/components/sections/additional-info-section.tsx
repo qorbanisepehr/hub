@@ -1,8 +1,15 @@
+import { useMemo } from "react";
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FormTextarea, FormTextField } from "@/components/shared/form-fields";
 import { FormRepeater } from "@/components/shared/form-repeater";
+import { PhysicalConditionFields } from "@/components/shared/physical-condition-fields";
 import { zodFieldValidators } from "@/lib/validation-helpers";
-import { fieldSchemas } from "@/features/cv/schemas/additional-info.schema";
+import { useFormOptionsByGroup } from "@/features/form-options/hooks/use-form-options";
+import {
+    buildAdditionalInfoSchemas,
+    fieldSchemas,
+} from "@/features/cv/schemas/additional-info.schema";
 import type { CvFormApi } from "@/features/cv/types";
 
 type SectionProps = {
@@ -11,6 +18,23 @@ type SectionProps = {
 };
 
 export function AdditionalInfoSection({ form, onPersist }: SectionProps) {
+    const { data: physicalConditionOptions } =
+        useFormOptionsByGroup("physical_condition");
+    const { data: disabilityTypeOptions } =
+        useFormOptionsByGroup("disability_type");
+
+    const optionsLoaded =
+        physicalConditionOptions !== undefined &&
+        disabilityTypeOptions !== undefined;
+
+    const schemas = useMemo(() => {
+        if (!optionsLoaded) return fieldSchemas;
+        return buildAdditionalInfoSchemas({
+            physical_condition: physicalConditionOptions,
+            disability_type: disabilityTypeOptions,
+        });
+    }, [optionsLoaded, physicalConditionOptions, disabilityTypeOptions]);
+
     return (
         <Card>
             <CardHeader>
@@ -19,7 +43,7 @@ export function AdditionalInfoSection({ form, onPersist }: SectionProps) {
             <CardContent className="space-y-6">
                 <form.Field
                     name="additional_info.hobbies"
-                    validators={zodFieldValidators(fieldSchemas.hobbies)}
+                    validators={zodFieldValidators(schemas.hobbies)}
                 >
                     {(field) => (
                         <FormTextarea
@@ -32,7 +56,7 @@ export function AdditionalInfoSection({ form, onPersist }: SectionProps) {
                 <form.Field
                     name="additional_info.strengths_and_improvements"
                     validators={zodFieldValidators(
-                        fieldSchemas.strengths_and_improvements,
+                        schemas.strengths_and_improvements,
                     )}
                 >
                     {(field) => (
@@ -43,11 +67,17 @@ export function AdditionalInfoSection({ form, onPersist }: SectionProps) {
                     )}
                 </form.Field>
 
+                <PhysicalConditionFields
+                    form={form}
+                    conditionField="additional_info.physical_condition"
+                    typeField="additional_info.disability_type"
+                />
+
                 <form.Field name="additional_info.references">
                     {(field) => (
                         <FormRepeater
                             field={field}
-                            label="ارجاعات"
+                            label="معرفها"
                             onPersist={onPersist}
                             columns={[
                                 { key: "full_name", label: "نام" },
@@ -64,7 +94,8 @@ export function AdditionalInfoSection({ form, onPersist }: SectionProps) {
                                     <form.Field
                                         name={`additional_info.references.${index}.full_name`}
                                         validators={zodFieldValidators(
-                                            fieldSchemas.reference_item.shape.full_name,
+                                            schemas.reference_item.shape
+                                                .full_name,
                                         )}
                                     >
                                         {(f) => (
@@ -77,7 +108,7 @@ export function AdditionalInfoSection({ form, onPersist }: SectionProps) {
                                     <form.Field
                                         name={`additional_info.references.${index}.relationship`}
                                         validators={zodFieldValidators(
-                                            fieldSchemas.reference_item.shape
+                                            schemas.reference_item.shape
                                                 .relationship,
                                         )}
                                     >
@@ -91,7 +122,7 @@ export function AdditionalInfoSection({ form, onPersist }: SectionProps) {
                                     <form.Field
                                         name={`additional_info.references.${index}.workplace_phone`}
                                         validators={zodFieldValidators(
-                                            fieldSchemas.reference_item.shape
+                                            schemas.reference_item.shape
                                                 .workplace_phone,
                                         )}
                                     >

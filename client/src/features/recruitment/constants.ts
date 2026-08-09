@@ -37,6 +37,28 @@ export const MILITARY_STATUS_OPTIONS = [
     { value: "other", label: "سایر" },
 ];
 
+/** Statuses treated as «معافیت» (exemptions); their start date is required. */
+export const MILITARY_EXEMPTION_STATUSES = [
+    "معافیت کفالت",
+    "معافیت پزشکی",
+    "معافیت تحصیلی",
+    "عفو رهبری",
+] as const;
+
+/** Statuses whose start date (from) is required: «امریه» plus exemptions. */
+export const MILITARY_STATUS_REQUIRES_START_DATE: ReadonlySet<string> = new Set([
+    "امریه",
+    ...MILITARY_EXEMPTION_STATUSES,
+]);
+
+export const MILITARY_STATUS_OTHER = "سایر";
+
+/** Physical conditions that count as a disability, revealing the disability-type select. */
+export const DISABLED_PHYSICAL_CONDITIONS: ReadonlySet<string> = new Set([
+    "معلول",
+    "معلول شدید",
+]);
+
 export const DEGREE_OPTIONS = [
     { value: "doctorate", label: "دکتری" },
     { value: "master", label: "کارشناسی ارشد" },
@@ -46,10 +68,12 @@ export const DEGREE_OPTIONS = [
 ];
 
 export const LANGUAGE_LEVEL_OPTIONS = [
-    { value: "1", label: "۱" },
-    { value: "2", label: "۲" },
-    { value: "3", label: "۳" },
-    { value: "4", label: "۴" },
+    { value: "10", label: "۱۰٪ مقدماتی" },
+    { value: "30", label: "۳۰٪ پایین‌تر از متوسط" },
+    { value: "50", label: "۵۰٪ متوسط" },
+    { value: "70", label: "۷۰٪ بالاتر از متوسط" },
+    { value: "90", label: "۹۰٪ پیشرفته" },
+    { value: "100", label: "۱۰۰٪ در حد زبان مادری" },
 ];
 
 export const SOFTWARE_LEVEL_OPTIONS = [

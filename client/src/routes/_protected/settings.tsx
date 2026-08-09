@@ -9,13 +9,15 @@ export const Route = createRoute({
     getParentRoute: () => ProtectedRoute,
     path: "/settings",
     validateSearch: z.object({
-        tab: z.enum(["branding", "permissions"]).optional(),
+        tab: z.enum(["branding", "permissions", "form-options"]).optional(),
     }),
     beforeLoad: requirePermission([
         PERMISSIONS.BRANDING_VIEW,
         PERMISSIONS.BRANDING_MANAGE,
         PERMISSIONS.DOCUMENT_CATEGORY_VIEW,
         PERMISSIONS.DOCUMENT_CATEGORY_MANAGE,
+        PERMISSIONS.FORM_OPTIONS_VIEW,
+        PERMISSIONS.FORM_OPTIONS_MANAGE,
     ]),
     component: SettingsPage,
 });

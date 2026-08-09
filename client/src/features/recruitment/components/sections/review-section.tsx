@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useQuestionnaireDocuments } from "@/features/recruitment/hooks/use-questionnaire-documents";
 import type { QuestionnaireDocument } from "@/features/recruitment/hooks/use-questionnaire-documents";
@@ -8,12 +9,15 @@ import {
     QUESTIONNAIRE_DOC_REQUIREMENTS,
     WIZARD_STEPS,
 } from "@/features/recruitment/constants";
-import { validateSubmitData } from "@/features/recruitment/validation";
+import { buildValidateSubmitData } from "@/features/recruitment/validation";
+import { useQuestionnaireSubmitOptions } from "@/features/recruitment/hooks/use-questionnaire-submit-options";
 import { FormValidationSummary } from "@/components/shared/form-validation-summary";
 import {
     groupFieldErrorsBySection,
     validateDocumentRequirements,
 } from "@/lib/validation-helpers";
+import { toPersianDate } from "@/lib/date-format";
+import { GENDER_MALE, SPOUSE_EMPLOYED } from "@/features/recruitment/schemas/personal-info.schema";
 import {
     QuestionnaireDocumentPreview,
     QuestionnaireDocumentGrouped,
@@ -93,7 +97,14 @@ export function ReviewSection({ form, questionnaire, onNavigateToStep }: Section
     const { documents, isLoading: documentsLoading, getDocumentsBySlug } =
         useQuestionnaireDocuments(questionnaire?.uuid);
 
-    const validation = validateSubmitData(form.state.values);
+    const { submitOptions } = useQuestionnaireSubmitOptions();
+
+    const validateSubmit = useMemo(
+        () => buildValidateSubmitData(submitOptions),
+        [submitOptions],
+    );
+
+    const validation = validateSubmit(form.state.values);
     const docMessages = documentsLoading
         ? []
         : validateDocumentRequirements(documents, QUESTIONNAIRE_DOC_REQUIREMENTS);
@@ -145,30 +156,30 @@ export function ReviewSection({ form, questionnaire, onNavigateToStep }: Section
                         <DataRow label="نام" value={v.first_name} />
                         <DataRow label="نام خانوادگی" value={v.last_name} />
                         <DataRow label="نام انگلیسی" value={`${pi.first_name_en ?? ""} ${pi.last_name_en ?? ""}`.trim()} />
-                        <DataRow label="جنسیت" value={pi.gender === "male" ? "مرد" : pi.gender === "female" ? "زن" : pi.gender} />
+                        <DataRow label="جنسیت" value={pi.gender} />
                         <DataRow label="گروه خونی" value={pi.blood_group} />
-                        <DataRow label="تاریخ تولد" value={pi.birth_date} />
+                        <DataRow label="تاریخ تولد" value={toPersianDate(pi.birth_date)} />
                         <DataRow label="محل تولد" value={pi.birth_place} />
                         <DataRow label="شماره شناسنامه" value={pi.birth_certificate_number} />
                         <DataRow label="نام پدر" value={pi.father_name} />
                         <DataRow label="مذهب" value={pi.religion} />
-                        <DataRow label="وضعیت تأهل" value={pi.marital_status === "single" ? "مجرد" : pi.marital_status === "married" ? "متاهل" : pi.marital_status} />
+                        <DataRow label="وضعیت تأهل" value={pi.marital_status} />
                         <DataRow label="تعداد افراد تحت تکفل" value={pi.dependents_count} />
                         <DataRow label="تعداد فرزندان" value={pi.children_count} />
-                        <DataRow label="وضعیت اشتغال همسر" value={pi.spouse_employment_status === "employed" ? "شاغل" : pi.spouse_employment_status === "housewife" ? "خانه دار" : pi.spouse_employment_status} />
-                        {pi.spouse_employment_status === "employed" && (
+                        <DataRow label="وضعیت اشتغال همسر" value={pi.spouse_employment_status} />
+                        {pi.spouse_employment_status === SPOUSE_EMPLOYED && (
                             <DataRow label="شغل همسر" value={pi.spouse_job} />
                         )}
                         <DataRow label="کد ملی" value={pi.national_id} />
                     </div>
-                    {pi.military_status && pi.gender === "male" && (
+                    {pi.military_status && pi.gender === GENDER_MALE && (
                         <div className="mt-4 pt-4 border-t">
                             <p className="text-sm font-medium mb-2">وضعیت نظام وظیفه</p>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <DataRow label="وضعیت" value={pi.military_status.status} />
                                 <DataRow label="سازمان" value={pi.military_status.organization} />
-                                <DataRow label="از تاریخ" value={pi.military_status.from} />
-                                <DataRow label="تا تاریخ" value={pi.military_status.to} />
+                                <DataRow label="از تاریخ" value={toPersianDate(pi.military_status.from)} />
+                                <DataRow label="تا تاریخ" value={toPersianDate(pi.military_status.to)} />
                                 <DataRow label="دلیل" value={pi.military_status.reason} />
                             </div>
                         </div>
@@ -194,6 +205,7 @@ export function ReviewSection({ form, questionnaire, onNavigateToStep }: Section
                             <>
                                 <DataRow label="استان" value={ci.address.province} />
                                 <DataRow label="شهر" value={ci.address.city} />
+                                <DataRow label="محله" value={ci.address.neighborhood} />
                                 <DataRow label="کد پستی" value={ci.address.postal_code} />
                                 <DataRow label="آدرس" value={ci.address.address} />
                                 <DataRow label="پلاک" value={ci.address.plaque} />
@@ -216,10 +228,10 @@ export function ReviewSection({ form, questionnaire, onNavigateToStep }: Section
                                 <DataRow label="رشته" value={rec.field} />
                                 <DataRow label="دانشگاه" value={rec.institution} />
                                 <DataRow label="محل" value={rec.location} />
-                                <DataRow label="از تاریخ" value={rec.from} />
-                                <DataRow label="تا تاریخ" value={rec.to} />
+                                <DataRow label="از تاریخ" value={toPersianDate(rec.from)} />
+                                <DataRow label="تا تاریخ" value={toPersianDate(rec.to)} />
                                 <DataRow label="معدل" value={rec.gpa} />
-                                <DataRow label="تاریخ فارغ‌التحصیلی" value={rec.graduation_date} />
+                                <DataRow label="تاریخ فارغ‌التحصیلی" value={toPersianDate(rec.graduation_date)} />
                                 <DataRow label="پایان‌نامه" value={rec.thesis_title} />
                             </div>
                         ))
@@ -256,8 +268,8 @@ export function ReviewSection({ form, questionnaire, onNavigateToStep }: Section
                                 <DataRow label="سمت" value={exp.position} />
                                 <DataRow label="صنعت" value={exp.industry} />
                                 <DataRow label="محل کار" value={exp.location} />
-                                <DataRow label="از تاریخ" value={exp.from} />
-                                <DataRow label="تا تاریخ" value={exp.to} />
+                                <DataRow label="از تاریخ" value={toPersianDate(exp.from)} />
+                                <DataRow label="تا تاریخ" value={toPersianDate(exp.to)} />
                                 <DataRow label="نوع قرارداد" value={exp.contract_type} />
                                 <DataRow label="آخرین حقوق" value={exp.last_salary} />
                                 <DataRow label="دلیل ترک" value={exp.leave_reason} />
@@ -372,6 +384,8 @@ export function ReviewSection({ form, questionnaire, onNavigateToStep }: Section
                         <DataRow label="بیماری مزمن" value={<YesNo value={additional.has_chronic_disease} />} />
                         <DataRow label="عمل جراحی سنگین" value={<YesNo value={additional.has_major_surgery} />} />
                         <DataRow label="معلولیت" value={<YesNo value={additional.has_disability} />} />
+                        <DataRow label="وضعیت جسمانی" value={additional.physical_condition} />
+                        <DataRow label="نوع معلولیت" value={additional.disability_type} />
                         <DataRow label="امکان سفر" value={<YesNo value={additional.can_travel} />} />
                         <DataRow label="سوءسابقه کیفری" value={<YesNo value={additional.has_criminal_record} />} />
                     </div>
@@ -394,14 +408,14 @@ export function ReviewSection({ form, questionnaire, onNavigateToStep }: Section
                 <SectionHeader title="نوع درخواست همکاری" onEdit={() => onNavigateToStep?.(7)} />
                 <CardContent>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <DataRow label="نوع اشتغال" value={job.employment_type === "full_time" ? "تمام وقت" : job.employment_type === "part_time" ? "پاره وقت" : job.employment_type} />
+                        <DataRow label="نوع اشتغال" value={job.employment_type} />
                         <DataRow label="حقوق ماهانه مورد انتظار" value={job.expected_monthly_salary} />
                         <DataRow label="حقوق ساعتی مورد انتظار" value={job.expected_hourly_salary} />
                         <DataRow label="حداقل ساعات کاری در ماه" value={job.minimum_hours_per_month} />
                         <DataRow label="ارسال رزومه قبلی" value={<YesNo value={job.submitted_resume_before} />} />
                         <DataRow label="مصاحبه قبلی" value={<YesNo value={job.interviewed_before} />} />
                         <DataRow label="شاغل در حال حاضر" value={<YesNo value={job.currently_employed} />} />
-                        <DataRow label="تاریخ شروع به کار" value={job.available_start_date} />
+                        <DataRow label="تاریخ شروع به کار" value={toPersianDate(job.available_start_date)} />
                         <DataRow label="محل کار مورد نظر" value={job.preferred_workplace?.join("، ")} />
                         <DataRow label="اولویت شغلی ۱" value={job.job_priority_1} />
                         <DataRow label="اولویت شغلی ۲" value={job.job_priority_2} />

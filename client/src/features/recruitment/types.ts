@@ -194,6 +194,8 @@ export interface AdditionalInfo {
     reason_for_joining: string;
     has_disability: boolean;
     disability_description: string;
+    physical_condition: string;
+    disability_type: string;
     can_travel: boolean;
     travel_description: string;
     has_criminal_record: boolean;

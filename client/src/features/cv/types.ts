@@ -45,6 +45,8 @@ export interface CvAdditionalInfo {
     hobbies: string;
     references: Reference[];
     strengths_and_improvements: string;
+    physical_condition: string;
+    disability_type: string;
 }
 
 export interface ReviewerSummary {

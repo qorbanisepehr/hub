@@ -10,10 +10,11 @@ import {
 import { PERMISSIONS } from "@/lib/permissions";
 import { BrandingSettingsSection } from "@/features/settings/pages/branding-settings-page";
 import { PermissionsSection } from "@/features/rbac/pages/permissions-section";
+import { FormOptionsSection } from "@/features/settings/pages/form-options-section";
 
 const route = getRouteApi("/protected/settings");
 
-export type SettingsTab = "branding" | "permissions";
+export type SettingsTab = "branding" | "permissions" | "form-options";
 
 export function SettingsPage() {
     const search = route.useSearch();
@@ -27,20 +28,36 @@ export function SettingsPage() {
         PERMISSIONS.DOCUMENT_CATEGORY_VIEW,
         PERMISSIONS.DOCUMENT_CATEGORY_MANAGE,
     ]);
+    const canFormOptions = usePermission([
+        PERMISSIONS.FORM_OPTIONS_VIEW,
+        PERMISSIONS.FORM_OPTIONS_MANAGE,
+    ]);
 
-    const defaultTab: SettingsTab = canBranding ? "branding" : "permissions";
+    const defaultTab: SettingsTab = canBranding
+        ? "branding"
+        : canPermissions
+          ? "permissions"
+          : "form-options";
     const activeTab = search.tab ?? defaultTab;
 
     useEffect(() => {
         if (
             (activeTab === "branding" && !canBranding) ||
-            (activeTab === "permissions" && !canPermissions)
+            (activeTab === "permissions" && !canPermissions) ||
+            (activeTab === "form-options" && !canFormOptions)
         ) {
             navigate({
                 search: (prev) => ({ ...prev, tab: defaultTab }),
             });
         }
-    }, [activeTab, canBranding, canPermissions, defaultTab, navigate]);
+    }, [
+        activeTab,
+        canBranding,
+        canPermissions,
+        canFormOptions,
+        defaultTab,
+        navigate,
+    ]);
 
     return (
         <PageLayout>
@@ -49,7 +66,7 @@ export function SettingsPage() {
                     تنظیمات
                 </h1>
                 <p className="text-sm text-muted-foreground mt-1">
-                    مدیریت برندینگ و مجوزهای سیستم
+                    مدیریت برندینگ، مجوزها و گزینه‌های فرم سیستم
                 </p>
             </div>
 
@@ -65,6 +82,9 @@ export function SettingsPage() {
                     )}
                     {canPermissions && (
                         <TabsTrigger value="permissions">مجوزها</TabsTrigger>
+                    )}
+                    {canFormOptions && (
+                        <TabsTrigger value="form-options">گزینه‌های فرم</TabsTrigger>
                     )}
                 </TabsList>
 
@@ -90,6 +110,19 @@ export function SettingsPage() {
                             ]}
                         >
                             <PermissionsSection />
+                        </PermissionGuard>
+                    </TabsContent>
+                )}
+
+                {canFormOptions && (
+                    <TabsContent value="form-options">
+                        <PermissionGuard
+                            permission={[
+                                PERMISSIONS.FORM_OPTIONS_VIEW,
+                                PERMISSIONS.FORM_OPTIONS_MANAGE,
+                            ]}
+                        >
+                            <FormOptionsSection />
                         </PermissionGuard>
                     </TabsContent>
                 )}

@@ -5,116 +5,179 @@ import {
     getAge,
     nationalId,
 } from "@/lib/field-rules";
+import {
+    optionEnum,
+    optionEnumOptional,
+    placeEnum,
+    type OptionSource,
+    type PlaceOption,
+} from "@/features/form-options/schema";
 import { numberField, requiredText, text } from "@/lib/zod-primitives";
+import {
+    MILITARY_STATUS_OTHER,
+    MILITARY_STATUS_REQUIRES_START_DATE,
+} from "@/features/recruitment/constants";
 
-export const GENDER_VALUES = ["male", "female"] as const;
-export const BLOOD_GROUP_VALUES = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"] as const;
-export const MARITAL_STATUS_VALUES = ["single", "married"] as const;
-export const SPOUSE_EMPLOYMENT_VALUES = ["employed", "housewife"] as const;
-export const MILITARY_STATUS_VALUES = [
-    "completed",
-    "amrieh",
-    "guardian_exemption",
-    "medical_exemption",
-    "education_exemption",
-    "leader_pardon",
-    "service_purchase",
-    "other",
-] as const;
+// Special values with structural meaning in the form logic (e.g. "when married
+// the spouse employment field becomes required"). Form sections persist the
+// readable label, so these mirror the option labels and the server-side rules.
+export const GENDER_MALE = "مرد";
+export const GENDER_FEMALE = "زن";
+export const MARITAL_SINGLE = "مجرد";
+export const MARITAL_MARRIED = "متاهل";
+export const SPOUSE_EMPLOYED = "شاغل";
+
+export type PersonalInfoOptions = {
+    gender: OptionSource[];
+    blood_group: OptionSource[];
+    marital_status: OptionSource[];
+    spouse_employment_status: OptionSource[];
+    military_status: OptionSource[];
+    religion: OptionSource[];
+    religion_sect: OptionSource[];
+    /** Active `province` group options for combined place validation. */
+    province: PlaceOption[];
+    /** Active `city` group options; the city label plus parent province label. */
+    birth_place: PlaceOption[];
+};
 
 export const requiredString = requiredText("این فیلد الزامی است.");
 
-export const militaryStatusSchema = z
-    .object({
-        status: z.enum(MILITARY_STATUS_VALUES, { message: "وضعیت خدمت الزامی است." }),
-        organization: requiredText("سازمان الزامی است.", 100),
-        from: requiredText("تاریخ شروع الزامی است."),
-        to: requiredText("تاریخ پایان الزامی است."),
-        reason: requiredText("دلیل الزامی است.", 255),
-    })
-    .superRefine((data, ctx) => {
-        if (data.from && data.to && data.to < data.from) {
-            ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                message: "تاریخ پایان نباید قبل از تاریخ شروع باشد.",
-                path: ["to"],
-            });
-        }
-    });
+export function buildPersonalInfoSchemas(options: PersonalInfoOptions) {
+    const gender = optionEnum(options.gender, "جنسیت الزامی است.");
+    const bloodGroup = optionEnum(options.blood_group, "گروه خونی الزامی است.");
+    const maritalStatus = optionEnum(options.marital_status, "وضعیت تأهل الزامی است.");
+    const spouseEmployment = optionEnumOptional(
+        options.spouse_employment_status,
+        "وضعیت اشتغال همسر الزامی است.",
+    );
+    const militaryStatusValue = optionEnum(
+        options.military_status,
+        "وضعیت خدمت الزامی است.",
+    );
+    const religion = optionEnum(options.religion, "دین الزامی است.");
+    const religionSect = optionEnumOptional(
+        options.religion_sect,
+        "مذهب الزامی است.",
+    );
+    const birthPlace = placeEnum(
+        options.province,
+        options.birth_place,
+        "محل تولد الزامی است.",
+    );
 
-export const personalInfoFieldSchema = z
-    .object({
-        gender: z.enum(GENDER_VALUES, { message: "جنسیت الزامی است." }),
-        blood_group: z.enum(BLOOD_GROUP_VALUES, { message: "گروه خونی الزامی است." }),
-        birth_date: requiredString,
-        birth_place: requiredText("این فیلد الزامی است.", 100),
+    const militaryStatusSchema = z
+        .object({
+            status: militaryStatusValue,
+            organization: requiredText("سازمان الزامی است.", 100),
+            from: text(30),
+            to: requiredText("تاریخ پایان الزامی است.", 30),
+            reason: text(255),
+        })
+        .superRefine((data, ctx) => {
+            if (MILITARY_STATUS_REQUIRES_START_DATE.has(data.status) && !data.from) {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    message: "تاریخ شروع الزامی است.",
+                    path: ["from"],
+                });
+            }
+            if (data.status === MILITARY_STATUS_OTHER && !data.reason) {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    message: "توضیحات الزامی است.",
+                    path: ["reason"],
+                });
+            }
+            if (data.from && data.to && data.to < data.from) {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    message: "تاریخ پایان نباید قبل از تاریخ شروع باشد.",
+                    path: ["to"],
+                });
+            }
+        });
+
+    const personalInfoFieldSchema = z
+        .object({
+            gender,
+            blood_group: bloodGroup,
+            birth_date: requiredString,
+            birth_place: birthPlace,
+            birth_certificate_number: birthCertificateNumber(),
+            father_name: requiredText("این فیلد الزامی است.", 100),
+            religion,
+            religion_sect: religionSect,
+            marital_status: maritalStatus,
+            first_name_en: text(100, "حداکثر ۱۰۰ کاراکتر."),
+            last_name_en: text(100, "حداکثر ۱۰۰ کاراکتر."),
+            dependents_count: numberField(0, "تعداد افراد تحت تکفل نمی‌تواند منفی باشد."),
+            children_count: numberField(0, "تعداد فرزندان نمی‌تواند منفی باشد."),
+            spouse_employment_status: spouseEmployment,
+            spouse_job: text(100, "حداکثر ۱۰۰ کاراکتر."),
+            military_status: militaryStatusSchema.optional(),
+            national_id: nationalId(),
+        })
+        .superRefine((data, ctx) => {
+            if (data.marital_status === MARITAL_MARRIED && !data.spouse_employment_status) {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    message: "وضعیت اشتغال همسر الزامی است.",
+                    path: ["spouse_employment_status"],
+                });
+            }
+            if (data.spouse_employment_status === SPOUSE_EMPLOYED && !data.spouse_job?.trim()) {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    message: "شغل همسر الزامی است.",
+                    path: ["spouse_job"],
+                });
+            }
+            if (data.gender === GENDER_MALE && !data.military_status) {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    message: "وضعیت نظام وظیفه الزامی است.",
+                    path: ["military_status"],
+                });
+            }
+        });
+
+    /**
+     * Per-field schemas for use with TanStack Form validators.
+     */
+    const fieldSchemas = {
+        first_name: requiredText("نام الزامی است.", 100),
+        last_name: requiredText("نام خانوادگی الزامی است.", 100),
+        gender,
+        birth_date: requiredText("تاریخ تولد الزامی است.").refine(
+            (val) => {
+                if (!val) return true;
+                return getAge(val) >= 18;
+            },
+            "حداقل سن الزامی ۱۸ سال است.",
+        ),
+        marital_status: maritalStatus,
+        national_id: nationalId(),
+        blood_group: bloodGroup,
+        birth_place: birthPlace,
         birth_certificate_number: birthCertificateNumber(),
-        father_name: requiredText("این فیلد الزامی است.", 100),
-        religion: requiredText("این فیلد الزامی است.", 50),
-        marital_status: z.enum(MARITAL_STATUS_VALUES, { message: "وضعیت تأهل الزامی است." }),
+        father_name: requiredText("نام پدر الزامی است.", 100),
+        religion,
+        religion_sect: religionSect,
         first_name_en: text(100, "حداکثر ۱۰۰ کاراکتر."),
         last_name_en: text(100, "حداکثر ۱۰۰ کاراکتر."),
         dependents_count: numberField(0, "تعداد افراد تحت تکفل نمی‌تواند منفی باشد."),
         children_count: numberField(0, "تعداد فرزندان نمی‌تواند منفی باشد."),
-        spouse_employment_status: z
-            .enum(SPOUSE_EMPLOYMENT_VALUES, { message: "وضعیت اشتغال همسر الزامی است." })
-            .optional(),
-        spouse_job: text(100, "حداکثر ۱۰۰ کاراکتر."),
-        military_status: militaryStatusSchema.optional(),
-        national_id: nationalId(),
-    })
-    .superRefine((data, ctx) => {
-        if (data.marital_status === "married" && !data.spouse_employment_status) {
-            ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                message: "وضعیت اشتغال همسر الزامی است.",
-                path: ["spouse_employment_status"],
-            });
-        }
-        if (data.spouse_employment_status === "employed" && !data.spouse_job?.trim()) {
-            ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                message: "شغل همسر الزامی است.",
-                path: ["spouse_job"],
-            });
-        }
-        if (data.gender === "male" && !data.military_status) {
-            ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                message: "وضعیت نظام وظیفه الزامی است.",
-                path: ["military_status"],
-            });
-        }
-    });
+        spouse_employment_status: spouseEmployment,
+        spouse_job: requiredText("شغل همسر الزامی است.", 100),
+        military_status: militaryStatusSchema,
+    } as const;
 
-export type PersonalInfoFormData = z.infer<typeof personalInfoFieldSchema>;
+    return { personalInfoFieldSchema, militaryStatusSchema, fieldSchemas };
+}
 
-/**
- * Per-field schemas for use with TanStack Form validators.
- */
-export const fieldSchemas = {
-    first_name: requiredText("نام الزامی است.", 100),
-    last_name: requiredText("نام خانوادگی الزامی است.", 100),
-    gender: z.enum(GENDER_VALUES, { message: "جنسیت الزامی است." }),
-    birth_date: requiredText("تاریخ تولد الزامی است.").refine(
-        (val) => {
-            if (!val) return true;
-            return getAge(val) >= 18;
-        },
-        "حداقل سن الزامی ۱۸ سال است.",
-    ),
-    marital_status: z.enum(MARITAL_STATUS_VALUES, { message: "وضعیت تأهل الزامی است." }),
-    national_id: nationalId(),
-    blood_group: z.enum(BLOOD_GROUP_VALUES, { message: "گروه خونی الزامی است." }),
-    birth_place: requiredText("محل تولد الزامی است.", 100),
-    birth_certificate_number: birthCertificateNumber(),
-    father_name: requiredText("نام پدر الزامی است.", 100),
-    religion: requiredText("مذهب الزامی است.", 50),
-    first_name_en: text(100, "حداکثر ۱۰۰ کاراکتر."),
-    last_name_en: text(100, "حداکثر ۱۰۰ کاراکتر."),
-    dependents_count: numberField(0, "تعداد افراد تحت تکفل نمی‌تواند منفی باشد."),
-    children_count: numberField(0, "تعداد فرزندان نمی‌تواند منفی باشد."),
-    spouse_employment_status: z.enum(SPOUSE_EMPLOYMENT_VALUES, { message: "وضعیت اشتغال همسر الزامی است." }),
-    spouse_job: requiredText("شغل همسر الزامی است.", 100),
-    military_status: militaryStatusSchema,
-} as const;
+export type PersonalInfoSchemas = ReturnType<typeof buildPersonalInfoSchemas>;
+
+export type PersonalInfoFormData = z.infer<
+    ReturnType<typeof buildPersonalInfoSchemas>["personalInfoFieldSchema"]
+>;

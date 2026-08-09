@@ -5,6 +5,7 @@ import {
     FormSelectField,
     FormDatePicker,
 } from "@/components/shared/form-fields";
+import { FormOptionSelectField } from "@/components/shared/form-option-fields";
 import { FileUploadField } from "@/components/shared/file-upload-field";
 import { repeaterAttachmentColumn } from "@/components/shared/repeater-attachment-cell";
 import { FormRepeater } from "@/components/shared/form-repeater";
@@ -14,6 +15,7 @@ import {
     SOFTWARE_LEVEL_OPTIONS,
     DOC_CATEGORY_SLUGS,
 } from "@/features/recruitment/constants";
+import { useFormOptionsByGroup } from "@/features/form-options/hooks/use-form-options";
 import { useEntityDocuments } from "@/hooks/use-entity-documents";
 import { zodFieldValidators } from "@/lib/validation-helpers";
 import { fieldSchemas } from "@/features/recruitment/schemas/skills.schema";
@@ -91,6 +93,12 @@ function SoftwareItem({
 
 export function SkillsSection({ form, uuid, onPersist, entity = "questionnaire" }: SectionProps) {
     const { getDocumentsBySlug } = useEntityDocuments(entity, uuid);
+
+    const { data: languageOptions } = useFormOptionsByGroup("language");
+    const languageLabel = (value: string | undefined) =>
+        languageOptions?.find((option) => option.value === value)?.label ??
+        value;
+
     const languageColumns: TableColumn[] = [
         ...LANGUAGE_COLUMNS,
         repeaterAttachmentColumn({
@@ -147,7 +155,7 @@ export function SkillsSection({ form, uuid, onPersist, entity = "questionnaire" 
                             columns={languageColumns}
                             onPersist={onPersist}
                             getSummary={(item) => ({
-                                language: item.language,
+                                language: languageLabel(item.language as string | undefined),
                                 reading: item.reading,
                                 writing: item.writing,
                                 speaking: item.speaking,
@@ -163,10 +171,11 @@ export function SkillsSection({ form, uuid, onPersist, entity = "questionnaire" 
                                             )}
                                         >
                                             {(f) => (
-                                                <FormTextField
+                                                <FormOptionSelectField
                                                     field={f}
                                                     label="زبان"
-                                                    placeholder="انگلیسی"
+                                                    group="language"
+                                                    placeholder="انتخاب زبان"
                                                 />
                                             )}
                                         </form.Field>

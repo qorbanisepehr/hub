@@ -41,6 +41,15 @@ export function DocumentsSection({ uuid }: SectionProps) {
                 <FileUploadField
                     uuid={uuid}
                     entity="cv"
+                    categorySlug={CV_DOC_CATEGORY_SLUGS.PERSONNEL_PHOTO}
+                    label="عکس پرسنلی (اختیاری)"
+                    accept="image/jpeg,image/png,image/webp"
+                    maxFiles={1}
+                />
+
+                <FileUploadField
+                    uuid={uuid}
+                    entity="cv"
                     categorySlug={CV_DOC_CATEGORY_SLUGS.OTHER_DOCUMENTS}
                     label="سایر مدارک"
                     accept=".pdf,image/jpeg,image/png,image/webp"

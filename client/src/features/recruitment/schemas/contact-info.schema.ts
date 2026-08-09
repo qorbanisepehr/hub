@@ -7,6 +7,7 @@ export const addressSchema = z.object({
     postal_code: postalCode(),
     province: requiredText("استان الزامی است.", 50),
     city: requiredText("شهر الزامی است.", 50),
+    neighborhood: text(100, "حداکثر ۱۰۰ کاراکتر."),
     address: requiredText("آدرس الزامی است.", 500),
     plaque: text(10, "حداکثر ۱۰ کاراکتر."),
     floor: text(10, "حداکثر ۱۰ کاراکتر."),
@@ -35,5 +36,6 @@ export const fieldSchemas = {
     address_postal_code: postalCode(),
     address_province: requiredText("استان الزامی است.", 50),
     address_city: requiredText("شهر الزامی است.", 50),
+    address_neighborhood: text(100, "حداکثر ۱۰۰ کاراکتر."),
     address_address: requiredText("آدرس الزامی است.", 500),
 } as const;

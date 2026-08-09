@@ -1,6 +1,9 @@
 import { z } from "zod";
 
-import { personalInfoFieldSchema } from "./personal-info.schema";
+import {
+    buildPersonalInfoSchemas,
+    type PersonalInfoOptions,
+} from "./personal-info.schema";
 import { contactInfoFieldSchema } from "./contact-info.schema";
 import { additionalInfoFieldSchema } from "./additional-info.schema";
 import { educationFieldSchema } from "@/features/recruitment/schemas/education.schema";
@@ -15,41 +18,62 @@ import {
 } from "@/lib/validation-helpers";
 import { requiredText } from "@/lib/zod-primitives";
 
-export const submitSchema = z.object({
-    first_name: requiredText("نام الزامی است.", 100),
-    last_name: requiredText("نام خانوادگی الزامی است.", 100),
-    // Email stays optional on a CV, but once filled it must be OTP-verified.
-    email: optionalEmail(),
-    mobile: mobile(),
-    personal_info: personalInfoFieldSchema,
-    contact_info: contactInfoFieldSchema,
-    education: educationFieldSchema,
-    work_experience: workExperienceFieldSchema,
-    skills: skillsFieldSchema,
-    training: trainingFieldSchema,
-    additional_info: additionalInfoFieldSchema,
-});
+export type SubmitOptions = {
+    personal_info: PersonalInfoOptions;
+};
 
-export type SubmitFormData = z.infer<typeof submitSchema>;
+export function buildSubmitSchema(options: SubmitOptions) {
+    const { personalInfoFieldSchema } = buildPersonalInfoSchemas(options.personal_info);
 
-export function validateSubmitData(
-    data: unknown,
-): { success: boolean; errors: string[]; fieldErrors: FieldErrors } {
-    const result = submitSchema.safeParse(data);
-    if (result.success) {
-        return { success: true, errors: [], fieldErrors: {} };
-    }
-    return {
-        success: false,
-        errors: result.error.issues.map((issue) => zodIssueMessage(issue)),
-        fieldErrors: zodFieldErrors(result.error),
+    return z.object({
+        first_name: requiredText("نام الزامی است.", 100),
+        last_name: requiredText("نام خانوادگی الزامی است.", 100),
+        // Email stays optional on a CV, but once filled it must be OTP-verified.
+        email: optionalEmail(),
+        mobile: mobile(),
+        personal_info: personalInfoFieldSchema,
+        contact_info: contactInfoFieldSchema,
+        education: educationFieldSchema,
+        work_experience: workExperienceFieldSchema,
+        skills: skillsFieldSchema,
+        training: trainingFieldSchema,
+        additional_info: additionalInfoFieldSchema,
+    });
+}
+
+export type SubmitFormData = z.infer<ReturnType<typeof buildSubmitSchema>>;
+
+export type SubmitValidationResult = {
+    success: boolean;
+    errors: string[];
+    fieldErrors: FieldErrors;
+};
+
+export function buildValidateSubmitData(
+    options: SubmitOptions | undefined,
+): (data: unknown) => SubmitValidationResult {
+    const schema = options ? buildSubmitSchema(options) : undefined;
+
+    return (data) => {
+        if (!schema) {
+            return { success: false, errors: [], fieldErrors: {} };
+        }
+        const result = schema.safeParse(data);
+        if (result.success) {
+            return { success: true, errors: [], fieldErrors: {} };
+        }
+        return {
+            success: false,
+            errors: result.error.issues.map((issue) => zodIssueMessage(issue)),
+            fieldErrors: zodFieldErrors(result.error),
+        };
     };
 }
 
 export {
-    personalInfoFieldSchema,
-    fieldSchemas as personalInfoFieldSchemas,
-    militaryStatusSchema,
+    buildPersonalInfoSchemas,
+    type PersonalInfoOptions,
+    type PersonalInfoSchemas,
 } from "./personal-info.schema";
 export {
     contactInfoFieldSchema,

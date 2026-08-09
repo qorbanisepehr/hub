@@ -1,9 +1,13 @@
+import { useMemo } from "react";
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { FormTextarea, FormTextField } from "@/components/shared/form-fields";
 import { FormRepeater } from "@/components/shared/form-repeater";
+import { PhysicalConditionFields } from "@/components/shared/physical-condition-fields";
 import { zodFieldValidators } from "@/lib/validation-helpers";
-import { fieldSchemas } from "@/features/recruitment/schemas/additional-info.schema";
+import { useFormOptionsByGroup } from "@/features/form-options/hooks/use-form-options";
+import { buildAdditionalInfoSchemas, fieldSchemas } from "@/features/recruitment/schemas/additional-info.schema";
 import type { QuestionnaireFormApi } from "@/features/recruitment/types";
 
 import { YesNoWithDescription } from "./yes-no-with-description";
@@ -14,6 +18,21 @@ type SectionProps = {
 };
 
 export function AdditionalInfoSection({ form, onPersist }: SectionProps) {
+    const { data: physicalConditionOptions } = useFormOptionsByGroup("physical_condition");
+    const { data: disabilityTypeOptions } = useFormOptionsByGroup("disability_type");
+
+    const optionsLoaded =
+        physicalConditionOptions !== undefined &&
+        disabilityTypeOptions !== undefined;
+
+    const schemas = useMemo(() => {
+        if (!optionsLoaded) return fieldSchemas;
+        return buildAdditionalInfoSchemas({
+            physical_condition: physicalConditionOptions,
+            disability_type: disabilityTypeOptions,
+        });
+    }, [optionsLoaded, physicalConditionOptions, disabilityTypeOptions]);
+
     return (
         <Card>
             <CardHeader>
@@ -47,6 +66,12 @@ export function AdditionalInfoSection({ form, onPersist }: SectionProps) {
                     descriptionLabel="توضیحات معلولیت"
                 />
 
+                <PhysicalConditionFields
+                    form={form}
+                    conditionField="additional_info.physical_condition"
+                    typeField="additional_info.disability_type"
+                />
+
                 <Separator />
 
                 {/* ── Background ── */}
@@ -54,7 +79,7 @@ export function AdditionalInfoSection({ form, onPersist }: SectionProps) {
 
                 <form.Field
                     name="additional_info.company_introduction_method"
-                    validators={zodFieldValidators(fieldSchemas.company_introduction_method)}
+                    validators={zodFieldValidators(schemas.company_introduction_method)}
                 >
                     {(field) => (
                         <FormTextarea field={field} label="نحوه آشنایی با شرکت" />
@@ -63,7 +88,7 @@ export function AdditionalInfoSection({ form, onPersist }: SectionProps) {
 
                 <form.Field
                     name="additional_info.reason_for_joining"
-                    validators={zodFieldValidators(fieldSchemas.reason_for_joining)}
+                    validators={zodFieldValidators(schemas.reason_for_joining)}
                 >
                     {(field) => <FormTextarea field={field} label="دلیل تمایل به همکاری" />}
                 </form.Field>
@@ -91,14 +116,14 @@ export function AdditionalInfoSection({ form, onPersist }: SectionProps) {
 
                 <form.Field
                     name="additional_info.hobbies"
-                    validators={zodFieldValidators(fieldSchemas.hobbies)}
+                    validators={zodFieldValidators(schemas.hobbies)}
                 >
                     {(field) => <FormTextarea field={field} label="علاقه‌مندی‌ها و سرگرمی‌ها" />}
                 </form.Field>
 
                 <form.Field
                     name="additional_info.strengths_and_improvements"
-                    validators={zodFieldValidators(fieldSchemas.strengths_and_improvements)}
+                    validators={zodFieldValidators(schemas.strengths_and_improvements)}
                 >
                     {(field) => (
                         <FormTextarea
@@ -131,19 +156,19 @@ export function AdditionalInfoSection({ form, onPersist }: SectionProps) {
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     <form.Field
                                         name={`additional_info.references.${index}.full_name`}
-                                        validators={zodFieldValidators(fieldSchemas.reference_item.shape.full_name)}
+                                        validators={zodFieldValidators(schemas.reference_item.shape.full_name)}
                                     >
                                         {(f) => <FormTextField field={f} label="نام و نام خانوادگی" />}
                                     </form.Field>
                                     <form.Field
                                         name={`additional_info.references.${index}.relationship`}
-                                        validators={zodFieldValidators(fieldSchemas.reference_item.shape.relationship)}
+                                        validators={zodFieldValidators(schemas.reference_item.shape.relationship)}
                                     >
                                         {(f) => <FormTextField field={f} label="رابطه" />}
                                     </form.Field>
                                     <form.Field
                                         name={`additional_info.references.${index}.workplace_phone`}
-                                        validators={zodFieldValidators(fieldSchemas.reference_item.shape.workplace_phone)}
+                                        validators={zodFieldValidators(schemas.reference_item.shape.workplace_phone)}
                                     >
                                         {(f) => (
                                             <FormTextField

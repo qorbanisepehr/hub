@@ -8,10 +8,6 @@ import type { CvStatus } from "./types";
 // Shared option lists are reused cross-domain from the recruitment feature to
 // avoid duplicating the same Persian option labels in two places.
 export {
-    GENDER_OPTIONS,
-    MARITAL_STATUS_OPTIONS,
-    MILITARY_STATUS_OPTIONS,
-    DEGREE_OPTIONS,
     LANGUAGE_LEVEL_OPTIONS,
     SOFTWARE_LEVEL_OPTIONS,
     YES_NO_OPTIONS,
@@ -36,6 +32,7 @@ export const CV_DOC_CATEGORY_SLUGS = {
     RESUME: "resume",
     COVER_LETTER: "cover-letter",
     OTHER_DOCUMENTS: "other-documents",
+    PERSONNEL_PHOTO: "personnel-photo",
 } as const;
 
 // Identity fields live on the real columns, not inside the JSONB section, so
@@ -57,6 +54,7 @@ export const CV_DOC_REQUIREMENTS: DocumentRequirement[] = [
     { slug: CV_DOC_CATEGORY_SLUGS.RESUME, label: "رزومه", required: true, max: 1 },
     { slug: CV_DOC_CATEGORY_SLUGS.COVER_LETTER, label: "نامه معرفی", max: 1 },
     { slug: CV_DOC_CATEGORY_SLUGS.OTHER_DOCUMENTS, label: "سایر مدارک", max: 3 },
+    { slug: CV_DOC_CATEGORY_SLUGS.PERSONNEL_PHOTO, label: "عکس پرسنلی", max: 1 },
 ];
 
 export const CV_STATUS_LABELS: Record<CvStatus, string> = {

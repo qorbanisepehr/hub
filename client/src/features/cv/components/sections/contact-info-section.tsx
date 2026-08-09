@@ -146,7 +146,11 @@ export function ContactInfoSection({ form, cv }: SectionProps) {
                     <span className="text-sm font-medium mb-3 block">
                         آدرس
                     </span>
-                    <AddressForm form={form} prefix="contact_info.address" />
+                    <AddressForm
+                        form={form}
+                        prefix="contact_info.address"
+                        mode="simple"
+                    />
                 </div>
             </CardContent>
         </Card>

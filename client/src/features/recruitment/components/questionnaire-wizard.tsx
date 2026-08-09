@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm, useStore } from "@tanstack/react-form";
 import { isAxiosError } from "axios";
@@ -37,7 +37,8 @@ import {
     QUESTIONNAIRE_DOC_REQUIREMENTS,
 } from "@/features/recruitment/constants";
 import { useQuestionnaireDocuments } from "@/features/recruitment/hooks/use-questionnaire-documents";
-import { validateSubmitData } from "@/features/recruitment/validation";
+import { useQuestionnaireSubmitOptions } from "@/features/recruitment/hooks/use-questionnaire-submit-options";
+import { buildValidateSubmitData } from "@/features/recruitment/validation";
 import { useInjectedFieldErrors } from "@/hooks/use-injected-field-errors";
 import {
     countSectionFieldErrors,
@@ -196,6 +197,13 @@ export function QuestionnaireWizard({
         },
     });
 
+    const { submitOptions, optionsReady } = useQuestionnaireSubmitOptions();
+
+    const validateSubmit = useMemo(
+        () => buildValidateSubmitData(submitOptions),
+        [submitOptions],
+    );
+
     const form = useForm({
         defaultValues: {
             first_name: questionnaire.first_name ?? "",
@@ -345,7 +353,7 @@ export function QuestionnaireWizard({
         return () => window.removeEventListener("beforeunload", handler);
     }, [isDirty]);
 
-    const validation = validateSubmitData(form.state.values);
+    const validation = validateSubmit(form.state.values);
 
     const { documents, isLoading: documentsLoading } = useQuestionnaireDocuments(
         questionnaire.uuid,
@@ -354,12 +362,14 @@ export function QuestionnaireWizard({
         useInjectedFieldErrors(form);
 
     const canSubmit =
+        optionsReady &&
         validation.success &&
         questionnaire.email_verified &&
         questionnaire.mobile_verified &&
         questionnaire.status === "draft";
 
     const handleSubmit = () => {
+        if (!optionsReady) return;
         if (!validation.success) {
             setSubmitErrors(validation.errors);
             toast.error("لطفاً خطاهای زیر را اصلاح کنید.");
@@ -378,7 +388,8 @@ export function QuestionnaireWizard({
     };
 
     const handleValidateClick = () => {
-        const result = validateSubmitData(form.state.values);
+        if (!optionsReady) return;
+        const result = validateSubmit(form.state.values);
         const docErrors = documentsLoading
             ? []
             : validateDocumentRequirements(documents, QUESTIONNAIRE_DOC_REQUIREMENTS);

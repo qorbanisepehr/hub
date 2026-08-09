@@ -5,20 +5,24 @@ import {
     FormTextField,
     FormNumberField,
     FormTextarea,
-    FormSelectField,
     FormRadioGroup,
     FormDatePicker,
 } from "@/components/shared/form-fields";
+import {
+    FormOptionSelectField,
+    FormOptionComboboxField,
+} from "@/components/shared/form-option-fields";
 import { FileUploadField } from "@/components/shared/file-upload-field";
 import { repeaterAttachmentColumn } from "@/components/shared/repeater-attachment-cell";
 import { FormRepeater } from "@/components/shared/form-repeater";
 import type { TableColumn } from "@/components/shared/form-repeater";
 import {
-    DEGREE_OPTIONS,
     YES_NO_OPTIONS,
     parseBoolean,
 } from "@/features/recruitment/constants";
 import { DOC_CATEGORY_SLUGS } from "@/features/recruitment/constants";
+import { optionEnum } from "@/features/form-options/schema";
+import { useFormOptionsByGroup } from "@/features/form-options/hooks/use-form-options";
 import { useEntityDocuments } from "@/hooks/use-entity-documents";
 import { zodFieldValidators } from "@/lib/validation-helpers";
 import { fieldSchemas } from "@/features/recruitment/schemas/education.schema";
@@ -34,6 +38,16 @@ type SectionProps = {
 
 export function EducationSection({ form, uuid, onPersist, entity = "questionnaire" }: SectionProps) {
     const { getDocumentsBySlug } = useEntityDocuments(entity, uuid);
+
+    const { data: degreeOptions } = useFormOptionsByGroup("degree");
+    const { data: universityOptions } = useFormOptionsByGroup("university");
+
+    const degreeLabel = (value: string | undefined) =>
+        degreeOptions?.find((option) => option.value === value)?.label ?? value;
+
+    const universitySchema = universityOptions
+        ? optionEnum(universityOptions, "دانشگاه الزامی است.")
+        : undefined;
 
     const educationColumns: TableColumn[] = [
         { key: "degree", label: "مدرک" },
@@ -68,10 +82,7 @@ export function EducationSection({ form, uuid, onPersist, entity = "questionnair
                             columns={educationColumns}
                             onPersist={onPersist}
                             getSummary={(item) => ({
-                                degree:
-                                    DEGREE_OPTIONS.find(
-                                        (d) => d.value === item.degree,
-                                    )?.label ?? item.degree,
+                                degree: degreeLabel(item.degree as string | undefined),
                                 field: item.field,
                                 institution: item.institution,
                                 from: item.from,
@@ -90,10 +101,10 @@ export function EducationSection({ form, uuid, onPersist, entity = "questionnair
                                             )}
                                         >
                                             {(f) => (
-                                                <FormSelectField
+                                                <FormOptionSelectField
                                                     field={f}
                                                     label="مدرک"
-                                                    options={DEGREE_OPTIONS}
+                                                    group="degree"
                                                 />
                                             )}
                                         </form.Field>
@@ -279,14 +290,17 @@ export function EducationSection({ form, uuid, onPersist, entity = "questionnair
                                         </form.Field>
                                         <form.Field
                                             name="education.student_university"
-                                            validators={zodFieldValidators(
-                                                fieldSchemas.student_university,
-                                            )}
+                                            validators={
+                                                universitySchema
+                                                    ? zodFieldValidators(universitySchema)
+                                                    : undefined
+                                            }
                                         >
                                             {(f) => (
-                                                <FormTextField
+                                                <FormOptionComboboxField
                                                     field={f}
                                                     label="دانشگاه"
+                                                    group="university"
                                                 />
                                             )}
                                         </form.Field>

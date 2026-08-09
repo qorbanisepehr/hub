@@ -6,7 +6,17 @@ import {
     SidebarMenuButton,
     SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import { IconDashboard, IconIdBadge2, IconSettings, IconMasksTheater, IconUsers, IconHierarchy2, IconFileCv, IconPalette } from "@tabler/icons-react";
+import {
+    IconDashboard,
+    IconIdBadge2,
+    IconSettings,
+    IconMasksTheater,
+    IconUsers,
+    IconHierarchy2,
+    IconFileCv,
+    IconPalette,
+    IconListDetails,
+} from "@tabler/icons-react";
 import { Link } from "@tanstack/react-router";
 import { PermissionGuard } from "@/features/auth/components/permission-guard";
 import { PERMISSIONS } from "@/lib/permissions";
@@ -21,13 +31,50 @@ interface NavItem {
 
 const items: NavItem[] = [
     { title: "داشبورد", url: "/dashboard", icon: <IconDashboard /> },
-    { title: "کارمندان", url: "/employees", icon: <IconIdBadge2 />, permission: [PERMISSIONS.EMPLOYEE_VIEW_OWN, PERMISSIONS.EMPLOYEE_VIEW_ALL] },
-    { title: "کاربران", url: "/users", icon: <IconUsers />, permission: PERMISSIONS.USER_VIEW },
-    { title: "نقش‌ها", url: "/roles", icon: <IconMasksTheater />, permission: PERMISSIONS.ROLE_VIEW },
-    { title: "نقشه سازمانی", url: "/roles/chart", icon: <IconHierarchy2 />, permission: PERMISSIONS.ROLE_VIEW },
-    { title: "بانک رزومه", url: "/cvs", icon: <IconFileCv />, permission: PERMISSIONS.CV_VIEW },
-    { title: "تنظیمات", url: "/settings", icon: <IconSettings />, permission: [PERMISSIONS.DOCUMENT_CATEGORY_VIEW, PERMISSIONS.DOCUMENT_CATEGORY_MANAGE] },
-    { title: "برندینگ", url: "/settings", icon: <IconPalette />, permission: [PERMISSIONS.BRANDING_VIEW, PERMISSIONS.BRANDING_MANAGE], search: { tab: "branding" } },
+    {
+        title: "کارمندان",
+        url: "/employees",
+        icon: <IconIdBadge2 />,
+        permission: [
+            PERMISSIONS.EMPLOYEE_VIEW_OWN,
+            PERMISSIONS.EMPLOYEE_VIEW_ALL,
+        ],
+    },
+    {
+        title: "کاربران",
+        url: "/users",
+        icon: <IconUsers />,
+        permission: PERMISSIONS.USER_VIEW,
+    },
+    {
+        title: "نقش‌ها",
+        url: "/roles",
+        icon: <IconMasksTheater />,
+        permission: PERMISSIONS.ROLE_VIEW,
+    },
+    {
+        title: "نقشه سازمانی",
+        url: "/roles/chart",
+        icon: <IconHierarchy2 />,
+        permission: PERMISSIONS.ROLE_VIEW,
+    },
+    {
+        title: "بانک رزومه",
+        url: "/cvs",
+        icon: <IconFileCv />,
+        permission: PERMISSIONS.CV_VIEW,
+    },
+    {
+        title: "تنظیمات",
+        url: "/settings",
+        icon: <IconSettings />,
+        permission: [
+            PERMISSIONS.DOCUMENT_CATEGORY_VIEW,
+            PERMISSIONS.DOCUMENT_CATEGORY_MANAGE,
+        ],
+    },
+    // { title: "برندینگ", url: "/settings", icon: <IconPalette />, permission: [PERMISSIONS.BRANDING_VIEW, PERMISSIONS.BRANDING_MANAGE], search: { tab: "branding" } },
+    // { title: "گزینه‌های فرم", url: "/settings", icon: <IconListDetails />, permission: [PERMISSIONS.FORM_OPTIONS_VIEW, PERMISSIONS.FORM_OPTIONS_MANAGE], search: { tab: "form-options" } },
 ];
 
 export function NavMain() {
@@ -39,7 +86,12 @@ export function NavMain() {
                         const link = (
                             <SidebarMenuButton
                                 tooltip={item.title}
-                                render={<Link to={item.url} search={item.search as never} />}
+                                render={
+                                    <Link
+                                        to={item.url}
+                                        search={item.search as never}
+                                    />
+                                }
                             >
                                 {item.icon}
                                 <span>{item.title}</span>
@@ -49,7 +101,9 @@ export function NavMain() {
                         return (
                             <SidebarMenuItem key={item.title}>
                                 {item.permission ? (
-                                    <PermissionGuard permission={item.permission}>
+                                    <PermissionGuard
+                                        permission={item.permission}
+                                    >
                                         {link}
                                     </PermissionGuard>
                                 ) : (

@@ -213,6 +213,7 @@ type FormSelectFieldProps = {
     label: string;
     options: SelectOption[];
     placeholder?: string;
+    disabled?: boolean;
 };
 
 export function FormSelectField({
@@ -220,6 +221,7 @@ export function FormSelectField({
     label,
     options,
     placeholder = "انتخاب کنید",
+    disabled,
 }: FormSelectFieldProps) {
     const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid;
 
@@ -234,8 +236,9 @@ export function FormSelectField({
                         ? (options.find((o) => o.value === val)?.label ?? val)
                         : ""
                 }
+                disabled={disabled}
             >
-                <SelectTrigger id={field.name}>
+                <SelectTrigger id={field.name} disabled={disabled}>
                     <SelectValue placeholder={placeholder} />
                 </SelectTrigger>
                 <SelectContent>

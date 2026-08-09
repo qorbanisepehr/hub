@@ -30,6 +30,7 @@ type QrCodeProps = {
     value: string;
     size?: number;
     color?: string;
+    logoColor?: string;
     className?: string;
 };
 
@@ -38,18 +39,21 @@ export type QrCodeRef = {
 };
 
 export const QrCode = forwardRef<QrCodeRef, QrCodeProps>(function QrCode(
-    { value, size = 256, color = "hsl(222.2 84% 4.9%)", className },
+    { value, size = 256, color = "hsl(222.2 84% 4.9%)", logoColor, className },
     ref,
 ) {
     const containerRef = useRef<HTMLDivElement>(null);
     const { data: branding } = useBranding();
 
-    const primaryColor = branding?.primary_color ?? "#db7868";
+    const primaryColor = logoColor ?? branding?.primary_color ?? "#000000";
     const logoUrl = branding?.logo_url ?? null;
     const brandImage = useBrandImage(logoUrl, branding?.logo_svg);
+
     const logo =
         brandImage?.kind === "svg"
-            ? svgToDataUrl(brandImage.content)
+            ? svgToDataUrl(
+                  brandImage.content.replaceAll("currentColor", primaryColor),
+              )
             : brandImage?.kind === "img"
               ? logoUrl!
               : generateLogoSVG(primaryColor);

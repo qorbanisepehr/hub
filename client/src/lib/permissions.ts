@@ -46,6 +46,10 @@ export const PERMISSIONS = {
     // Branding
     BRANDING_VIEW: "branding.view",
     BRANDING_MANAGE: "branding.manage",
+
+    // Form Options
+    FORM_OPTIONS_VIEW: "form-options.view",
+    FORM_OPTIONS_MANAGE: "form-options.manage",
 } as const;
 
 export type PermissionValue = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];

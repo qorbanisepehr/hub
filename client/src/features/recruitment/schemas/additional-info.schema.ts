@@ -1,6 +1,11 @@
 import { z } from "zod";
 
 import { requiredText, text } from "@/lib/zod-primitives";
+import {
+    optionEnumOptional,
+    type OptionSource,
+} from "@/features/form-options/schema";
+import { DISABLED_PHYSICAL_CONDITIONS } from "@/features/recruitment/constants";
 
 export const referenceSchema = z.object({
     full_name: requiredText("نام و نام خانوادگی الزامی است.", 100),
@@ -20,6 +25,8 @@ export const additionalInfoFieldSchema = z
         reason_for_joining: text(1000),
         has_disability: z.boolean().optional(),
         disability_description: text(500),
+        physical_condition: text(50),
+        disability_type: text(50),
         can_travel: z.boolean().optional(),
         travel_description: text(500),
         has_criminal_record: z.boolean().optional(),
@@ -45,6 +52,18 @@ export const additionalInfoFieldSchema = z
                     path: [field],
                 });
             }
+        }
+
+        if (
+            data.physical_condition !== undefined &&
+            DISABLED_PHYSICAL_CONDITIONS.has(data.physical_condition) &&
+            !data.disability_type
+        ) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: "نوع معلولیت الزامی است.",
+                path: ["disability_type"],
+            });
         }
     });
 
@@ -72,3 +91,30 @@ export const fieldSchemas = {
     strengths_and_improvements: text(1000, "حداکثر ۱۰۰۰ کاراکتر."),
     company_introduction_method: text(255, "حداکثر ۲۵۵ کاراکتر."),
 } as const;
+
+export type AdditionalInfoOptions = {
+    physical_condition: OptionSource[];
+    disability_type: OptionSource[];
+};
+
+/**
+ * Per-field schemas extended with the two form-option backed fields
+ * (`physical_condition`, `disability_type`), which validate against the
+ * fetched option sets just like the personal-info enums.
+ */
+export function buildAdditionalInfoSchemas(options: AdditionalInfoOptions) {
+    const physicalCondition = optionEnumOptional(
+        options.physical_condition,
+        "وضعیت جسمانی انتخاب‌شده معتبر نیست.",
+    );
+    const disabilityType = optionEnumOptional(
+        options.disability_type,
+        "نوع معلولیت انتخاب‌شده معتبر نیست.",
+    );
+
+    return {
+        ...fieldSchemas,
+        physical_condition: physicalCondition,
+        disability_type: disabilityType,
+    };
+}

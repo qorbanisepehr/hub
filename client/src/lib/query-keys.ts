@@ -36,6 +36,7 @@ export const roleKeys = {
         [...roleKeys.all, "select", search] as const,
     filterOptions: () => [...roleKeys.all, "filter-options"] as const,
     chart: () => [...roleKeys.all, "chart"] as const,
+    options: () => [...roleKeys.all, "options"] as const,
 };
 
 export const userKeys = {
@@ -76,4 +77,12 @@ export const cvKeys = {
 export const settingsKeys = {
     all: ["settings"] as const,
     branding: () => [...settingsKeys.all, "branding"] as const,
+};
+
+export const formOptionKeys = {
+    all: () => ["form-options"] as const,
+    byGroup: (group: string, parentValue?: string, search?: string) =>
+        [...formOptionKeys.all(), group, parentValue ?? "", search ?? ""] as const,
+    admin: (group?: string) =>
+        [...formOptionKeys.all(), "admin", group ?? "all"] as const,
 };
