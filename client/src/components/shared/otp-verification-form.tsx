@@ -87,6 +87,7 @@ export function OtpVerificationForm({
                         onChange={(v) => setOtp(v)}
                         dir="ltr"
                         containerClassName="justify-around"
+                        autoFocus
                     >
                         {Array.from({ length: otpLength }, (_, i) => (
                             <InputOTPGroup dir="ltr" key={i}>

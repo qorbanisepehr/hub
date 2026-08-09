@@ -24,6 +24,7 @@ export function CodeField({ field }: Props) {
                     onBlur={field.handleBlur}
                     onChange={(val) => field.handleChange(val)}
                     dir="ltr"
+                    autoFocus
                 >
                     <InputOTPGroup dir="ltr">
                         <InputOTPSlot index={0} />
