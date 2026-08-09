@@ -2,6 +2,8 @@
 
 namespace App\Domains\Recruitment\SectionDefinitions;
 
+use App\Rules\FormOptionValue;
+
 class JobRequestSection extends BaseSection
 {
     public function key(): string
@@ -48,7 +50,7 @@ class JobRequestSection extends BaseSection
     public function structuralRules(): array
     {
         return [
-            'employment_type' => 'nullable|in:full_time,part_time',
+            'employment_type' => ['nullable', new FormOptionValue('employment_type')],
             'expected_monthly_salary' => 'nullable|integer|min:0',
             'minimum_hours_per_month' => 'nullable|integer|min:0',
             'expected_hourly_salary' => 'nullable|integer|min:0',
@@ -57,7 +59,7 @@ class JobRequestSection extends BaseSection
             'other_information' => 'nullable|string|max:2000',
             'accept_information' => 'nullable|boolean',
             'preferred_workplace' => 'nullable|array',
-            'preferred_workplace.*' => 'nullable|in:tehran,kerman,site,other',
+            'preferred_workplace.*' => ['nullable', new FormOptionValue('preferred_workplace')],
             'job_priority_1' => 'nullable|string|max:100',
             'job_priority_2' => 'nullable|string|max:100',
             'currently_employed' => 'nullable|boolean',
@@ -68,7 +70,7 @@ class JobRequestSection extends BaseSection
     public function completionRules(): array
     {
         return [
-            'employment_type' => 'required|in:full_time,part_time',
+            'employment_type' => ['required', new FormOptionValue('employment_type')],
             'job_priority_1' => 'required|string|max:100',
             'available_start_date' => 'required|string|max:255',
             'accept_information' => 'accepted',
@@ -76,7 +78,7 @@ class JobRequestSection extends BaseSection
             'minimum_hours_per_month' => 'nullable|integer|min:0',
             'expected_hourly_salary' => 'nullable|integer|min:0',
             'preferred_workplace' => 'nullable|array',
-            'preferred_workplace.*' => 'nullable|in:tehran,kerman,site,other',
+            'preferred_workplace.*' => ['nullable', new FormOptionValue('preferred_workplace')],
         ];
     }
 

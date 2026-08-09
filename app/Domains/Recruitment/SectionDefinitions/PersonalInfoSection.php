@@ -2,6 +2,7 @@
 
 namespace App\Domains\Recruitment\SectionDefinitions;
 
+use App\Rules\FormOptionValue;
 use App\Rules\NationalIdRule;
 use App\Support\ValidationRules;
 use Carbon\Carbon;
@@ -59,6 +60,7 @@ class PersonalInfoSection extends BaseSection
             'birth_certificate_number' => 'string',
             'father_name' => 'string',
             'religion' => 'string',
+            'religion_sect' => 'string',
             'marital_status' => 'string',
             'first_name_en' => 'string',
             'last_name_en' => 'string',
@@ -76,22 +78,23 @@ class PersonalInfoSection extends BaseSection
         return [
             'first_name' => 'nullable|string|max:100',
             'last_name' => 'nullable|string|max:100',
-            'gender' => 'nullable|in:male,female',
-            'blood_group' => 'nullable|in:A+,A-,B+,B-,AB+,AB-,O+,O-',
+            'gender' => ['nullable', new FormOptionValue('gender')],
+            'blood_group' => ['nullable', new FormOptionValue('blood_group')],
             'birth_date' => 'nullable|'.ValidationRules::DATE,
-            'birth_place' => 'nullable|string|max:100',
+            'birth_place' => ['nullable', new FormOptionValue('city', 'province')],
             'birth_certificate_number' => 'nullable|'.ValidationRules::DIGITS_ONLY,
             'father_name' => 'nullable|string|max:100',
-            'religion' => 'nullable|string|max:50',
-            'marital_status' => 'nullable|in:single,married',
+            'religion' => ['nullable', new FormOptionValue('religion')],
+            'religion_sect' => ['nullable', new FormOptionValue('religion_sect')],
+            'marital_status' => ['nullable', new FormOptionValue('marital_status')],
             'first_name_en' => 'nullable|string|max:100',
             'last_name_en' => 'nullable|string|max:100',
             'dependents_count' => 'nullable|integer|min:0',
             'children_count' => 'nullable|integer|min:0',
-            'spouse_employment_status' => 'nullable|in:employed,housewife',
+            'spouse_employment_status' => ['nullable', new FormOptionValue('spouse_employment_status')],
             'spouse_job' => 'nullable|string|max:100',
             'military_status' => 'nullable|array',
-            'military_status.status' => 'nullable|in:completed,amrieh,guardian_exemption,medical_exemption,education_exemption,leader_pardon,service_purchase,other',
+            'military_status.status' => ['nullable', new FormOptionValue('military_status')],
             'military_status.organization' => 'nullable|string|max:100',
             'military_status.from' => 'nullable|string',
             'military_status.to' => 'nullable|string',
@@ -105,23 +108,24 @@ class PersonalInfoSection extends BaseSection
         return [
             'first_name' => 'required|string|max:100',
             'last_name' => 'required|string|max:100',
-            'gender' => 'required|in:male,female',
-            'blood_group' => 'required|in:A+,A-,B+,B-,AB+,AB-,O+,O-',
+            'gender' => ['required', new FormOptionValue('gender')],
+            'blood_group' => ['required', new FormOptionValue('blood_group')],
             'birth_date' => 'required|'.ValidationRules::DATE.'|before:today',
-            'birth_place' => 'required|string|max:100',
+            'birth_place' => ['required', new FormOptionValue('city', 'province')],
             'birth_certificate_number' => 'required|'.ValidationRules::DIGITS_ONLY,
             'father_name' => 'required|string|max:100',
-            'religion' => 'required|string|max:50',
-            'marital_status' => 'required|in:single,married',
+            'religion' => ['required', new FormOptionValue('religion')],
+            'religion_sect' => ['nullable', new FormOptionValue('religion_sect')],
+            'marital_status' => ['required', new FormOptionValue('marital_status')],
             'national_id' => ['required', 'string', new NationalIdRule],
-            'military_status' => 'required_unless:gender,female',
-            'military_status.status' => 'required_with:military_status',
+            'military_status' => 'required_unless:gender,زن',
+            'military_status.status' => ['required_with:military_status', new FormOptionValue('military_status')],
             'military_status.organization' => 'required_with:military_status',
-            'military_status.from' => 'required_with:military_status',
+            'military_status.from' => 'required_if:military_status.status,امریه,معافیت کفالت,معافیت پزشکی,معافیت تحصیلی,عفو رهبری|nullable|string',
             'military_status.to' => 'required_with:military_status',
-            'military_status.reason' => 'required_with:military_status',
-            'spouse_employment_status' => 'required_if:marital_status,married',
-            'spouse_job' => 'required_if:spouse_employment_status,employed',
+            'military_status.reason' => 'required_if:military_status.status,سایر|nullable|string|max:255',
+            'spouse_employment_status' => 'required_if:marital_status,متاهل',
+            'spouse_job' => 'required_if:spouse_employment_status,شاغل',
         ];
     }
 

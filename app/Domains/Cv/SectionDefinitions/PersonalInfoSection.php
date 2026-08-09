@@ -3,6 +3,7 @@
 namespace App\Domains\Cv\SectionDefinitions;
 
 use App\Domains\Recruitment\SectionDefinitions\BaseSection;
+use App\Rules\FormOptionValue;
 use App\Rules\NationalIdRule;
 use App\Support\ValidationRules;
 use Carbon\Carbon;
@@ -40,17 +41,17 @@ class PersonalInfoSection extends BaseSection
         return [
             'first_name' => 'nullable|string|max:100',
             'last_name' => 'nullable|string|max:100',
-            'gender' => 'nullable|in:male,female',
+            'gender' => ['nullable', new FormOptionValue('gender')],
             'birth_date' => 'nullable|'.ValidationRules::DATE,
-            'marital_status' => 'nullable|in:single,married',
+            'marital_status' => ['nullable', new FormOptionValue('marital_status')],
             'military_status' => 'nullable|array',
-            'military_status.status' => 'nullable|in:completed,amrieh,guardian_exemption,medical_exemption,education_exemption,leader_pardon,service_purchase,other',
+            'military_status.status' => ['nullable', new FormOptionValue('military_status')],
             'military_status.organization' => 'nullable|string|max:100',
             'military_status.from' => 'nullable|string',
             'military_status.to' => 'nullable|string',
             'military_status.reason' => 'nullable|string|max:255',
             'national_id' => ['nullable', 'string', new NationalIdRule],
-            'birth_place' => 'nullable|string|max:100',
+            'birth_place' => ['nullable', new FormOptionValue('city', 'province')],
             'birth_certificate_number' => 'nullable|'.ValidationRules::DIGITS_ONLY,
         ];
     }
@@ -60,18 +61,18 @@ class PersonalInfoSection extends BaseSection
         return [
             'first_name' => 'required|string|max:100',
             'last_name' => 'required|string|max:100',
-            'gender' => 'required|in:male,female',
+            'gender' => ['required', new FormOptionValue('gender')],
             'birth_date' => 'required|'.ValidationRules::DATE.'|before:today',
-            'marital_status' => 'required|in:single,married',
+            'marital_status' => ['required', new FormOptionValue('marital_status')],
             'national_id' => ['required', 'string', new NationalIdRule],
-            'birth_place' => 'required|string|max:100',
+            'birth_place' => ['required', new FormOptionValue('city', 'province')],
             'birth_certificate_number' => 'required|'.ValidationRules::DIGITS_ONLY,
-            'military_status' => 'required_unless:gender,female',
-            'military_status.status' => 'required_with:military_status',
-            'military_status.organization' => 'required_with:military_status',
-            'military_status.from' => 'required_with:military_status',
-            'military_status.to' => 'required_with:military_status',
-            'military_status.reason' => 'required_with:military_status',
+            'military_status' => 'required_unless:gender,زن',
+            'military_status.status' => ['required_with:military_status', new FormOptionValue('military_status')],
+            'military_status.organization' => 'nullable|string|max:100',
+            'military_status.from' => 'nullable|string',
+            'military_status.to' => 'nullable|string',
+            'military_status.reason' => 'nullable|string|max:255',
         ];
     }
 

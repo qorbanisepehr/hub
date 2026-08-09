@@ -2,6 +2,8 @@
 
 namespace App\Domains\Recruitment\SectionDefinitions;
 
+use App\Rules\FormOptionValue;
+
 class AdditionalInfoSection extends BaseSection
 {
     public function key(): string
@@ -37,6 +39,8 @@ class AdditionalInfoSection extends BaseSection
             'major_surgery_description' => 'string',
             'has_disability' => 'boolean',
             'disability_description' => 'string',
+            'physical_condition' => 'string',
+            'disability_type' => 'string',
             'can_travel' => 'boolean',
             'travel_description' => 'string',
             'has_criminal_record' => 'boolean',
@@ -58,6 +62,8 @@ class AdditionalInfoSection extends BaseSection
             'major_surgery_description' => 'nullable|string|max:500',
             'has_disability' => 'nullable|boolean',
             'disability_description' => 'nullable|string|max:500',
+            'physical_condition' => ['nullable', new FormOptionValue('physical_condition')],
+            'disability_type' => ['nullable', new FormOptionValue('disability_type')],
             'can_travel' => 'nullable|boolean',
             'travel_description' => 'nullable|string|max:500',
             'has_criminal_record' => 'nullable|boolean',
@@ -82,6 +88,8 @@ class AdditionalInfoSection extends BaseSection
             'major_surgery_description' => 'required_if:has_major_surgery,true|nullable|string|max:500',
             'has_disability' => 'nullable|boolean',
             'disability_description' => 'required_if:has_disability,true|nullable|string|max:500',
+            'physical_condition' => ['nullable', new FormOptionValue('physical_condition')],
+            'disability_type' => 'required_if:physical_condition,معلول,معلول شدید|nullable|string|max:50',
             'can_travel' => 'nullable|boolean',
             'travel_description' => 'required_if:can_travel,true|nullable|string|max:500',
             'has_criminal_record' => 'nullable|boolean',

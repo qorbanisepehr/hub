@@ -85,14 +85,14 @@ function cvValidPersonal(): array
     return [
         'first_name' => 'Ali',
         'last_name' => 'Rezaei',
-        'gender' => 'male',
+        'gender' => 'مرد',
         'birth_date' => '1990-01-15',
-        'marital_status' => 'single',
+        'marital_status' => 'مجرد',
         'national_id' => '0123456789',
-        'birth_place' => 'Tehran',
+        'birth_place' => 'تهران-تهران',
         'birth_certificate_number' => '12345',
         'military_status' => [
-            'status' => 'completed',
+            'status' => 'پایان خدمت',
             'organization' => 'Army',
             'from' => '2011-03-21',
             'to' => '2013-03-21',
@@ -110,8 +110,8 @@ function cvValidContact(): array
         'emergency_phone' => '09121234567',
         'address' => [
             'postal_code' => '1234567890',
-            'province' => 'Tehran',
-            'city' => 'Tehran',
+            'province' => 'تهران',
+            'city' => 'تهران',
             'address' => 'Test address',
             'plaque' => '12',
             'floor' => '3',
@@ -124,7 +124,7 @@ function cvEducationRecord(): array
 {
     return [
         [
-            'degree' => 'BSc',
+            'degree' => 'کارشناسی',
             'field' => 'Computer Science',
             'institution' => 'University of Tehran',
             'from' => '2009-09-01',
@@ -447,12 +447,17 @@ describe('CV OTP endpoints (existing record)', function () {
 });
 
 describe('CV section save (structural validation)', function () {
+    beforeEach(function () {
+        seedFormOptions(['gender', 'marital_status', 'military_status']);
+        seedLocationOptions();
+    });
+
     it('validates personal_info fields', function () {
         $uuid = createCvDraft();
 
         $this->putJson("/api/cv/{$uuid}/sections/personal_info", [
             'gender' => 'invalid',
-            'marital_status' => 'unknown',
+            'marital_status' => 'not-a-status',
             'national_id' => str_repeat('1', 11),
         ])->assertUnprocessable()
             ->assertJsonValidationErrors([
@@ -534,6 +539,11 @@ describe('CV section save (structural validation)', function () {
 });
 
 describe('CV submit', function () {
+    beforeEach(function () {
+        seedFormOptions(['gender', 'marital_status', 'military_status']);
+        seedLocationOptions();
+    });
+
     it('blocks submit when the email is present but unverified', function () {
         $uuid = createCvDraft();
         Cv::where('uuid', $uuid)->update(['email_verified_at' => null]);
@@ -594,7 +604,7 @@ describe('CV submit', function () {
 
     it('does not require military_status when gender is female', function () {
         $uuid = createCvDraft();
-        $personal = array_merge(cvValidPersonal(), ['gender' => 'female']);
+        $personal = array_merge(cvValidPersonal(), ['gender' => 'زن']);
         unset($personal['military_status']);
         saveCvSectionToDb($uuid, 'personal_info', $personal);
         saveCvSectionToDb($uuid, 'contact_info', cvValidContact());
@@ -680,13 +690,18 @@ describe('CV submit', function () {
         $uuid = createCvDraft();
         Cv::where('uuid', $uuid)->update(['status' => 'submitted']);
 
-        $this->putJson("/api/cv/{$uuid}/sections/personal_info", ['gender' => 'male'])
+        $this->putJson("/api/cv/{$uuid}/sections/personal_info", ['gender' => 'مرد'])
             ->assertStatus(422)
             ->assertJsonPath('message', __('cv.only_draft_editable'));
     });
 });
 
 describe('CV admin review/reject', function () {
+    beforeEach(function () {
+        seedFormOptions(['gender', 'marital_status', 'military_status']);
+        seedLocationOptions();
+    });
+
     it('blocks unauthenticated access to approve and reject', function () {
         $uuid = createCvDraft();
         Cv::where('uuid', $uuid)->update(['status' => 'submitted']);
@@ -790,7 +805,7 @@ describe('CV admin review/reject', function () {
         $uuid = createCvDraft();
         Cv::where('uuid', $uuid)->update(['status' => 'approved']);
 
-        $this->putJson("/api/cv/{$uuid}/sections/personal_info", ['gender' => 'male'])
+        $this->putJson("/api/cv/{$uuid}/sections/personal_info", ['gender' => 'مرد'])
             ->assertStatus(422)
             ->assertJsonPath('message', __('cv.only_draft_editable'));
 
@@ -1051,7 +1066,7 @@ describe('CV grants', function () {
         $viewToken = grantCvToken($uuid, GrantPurpose::View);
 
         $this->withHeader('X-Access-Token', $viewToken)
-            ->putJson("/api/cv/{$uuid}/sections/personal_info", ['gender' => 'male'])
+            ->putJson("/api/cv/{$uuid}/sections/personal_info", ['gender' => 'مرد'])
             ->assertUnauthorized();
 
         $this->withHeader('X-Access-Token', $viewToken)

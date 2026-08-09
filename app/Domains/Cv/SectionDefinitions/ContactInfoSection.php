@@ -39,6 +39,7 @@ class ContactInfoSection extends BaseSection
             'address.postal_code' => 'nullable|'.ValidationRules::POSTAL_CODE,
             'address.province' => 'nullable|'.ValidationRules::TEXT.'|max:50',
             'address.city' => 'nullable|'.ValidationRules::TEXT.'|max:50',
+            'address.neighborhood' => 'nullable|'.ValidationRules::TEXT.'|max:100',
             'address.address' => 'nullable|'.ValidationRules::TEXT.'|max:500',
             'address.plaque' => 'nullable|'.ValidationRules::TEXT.'|max:10',
             'address.floor' => 'nullable|'.ValidationRules::TEXT.'|max:10',

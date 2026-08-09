@@ -2,6 +2,7 @@
 
 namespace App\Domains\Recruitment\SectionDefinitions;
 
+use App\Rules\FormOptionValue;
 use App\Support\ValidationRules;
 use Illuminate\Contracts\Validation\Validator;
 
@@ -74,7 +75,7 @@ class EducationSection extends BaseSection
             'is_student' => 'nullable|boolean',
             'student_degree' => 'nullable|string|max:50',
             'student_field' => 'nullable|string|max:100',
-            'student_university' => 'nullable|string|max:100',
+            'student_university' => ['nullable', new FormOptionValue('university')],
             'student_country' => 'nullable|string|max:100',
             'student_city' => 'nullable|string|max:100',
             'student_semester' => 'nullable|integer|min:1',
@@ -104,7 +105,7 @@ class EducationSection extends BaseSection
             'is_student' => 'nullable|boolean',
             'student_degree' => 'required_if:is_student,true|nullable|string|max:50',
             'student_field' => 'required_if:is_student,true|nullable|string|max:100',
-            'student_university' => 'required_if:is_student,true|nullable|string|max:100',
+            'student_university' => ['required_if:is_student,true', new FormOptionValue('university')],
             'student_country' => 'required_if:is_student,true|nullable|string|max:100',
             'student_city' => 'required_if:is_student,true|nullable|string|max:100',
             'student_gpa' => 'required_if:is_student,true|nullable|string|max:10',

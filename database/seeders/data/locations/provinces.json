@@ -1,0 +1,374 @@
+[
+    {
+        "value": "100",
+        "label": "مرکزی",
+        "sort_order": 0,
+        "meta": {
+            "slug": "مرکزی",
+            "tel_prefix": "086",
+            "phone_code": 86,
+            "lat": "34.5302705",
+            "lon": "49.7864561"
+        }
+    },
+    {
+        "value": "101",
+        "label": "گیلان",
+        "sort_order": 1,
+        "meta": {
+            "slug": "گیلان",
+            "tel_prefix": "013",
+            "phone_code": 13,
+            "lat": "37.1515627",
+            "lon": "49.6389743"
+        }
+    },
+    {
+        "value": "102",
+        "label": "مازندران",
+        "sort_order": 2,
+        "meta": {
+            "slug": "مازندران",
+            "tel_prefix": "011",
+            "phone_code": 11,
+            "lat": "36.3159159",
+            "lon": "51.8968597"
+        }
+    },
+    {
+        "value": "103",
+        "label": "آذربایجان شرقی",
+        "sort_order": 3,
+        "meta": {
+            "slug": "آذربایجان-شرقی",
+            "tel_prefix": "041",
+            "phone_code": 41,
+            "lat": "37.9160365",
+            "lon": "46.6781589"
+        }
+    },
+    {
+        "value": "104",
+        "label": "آذربایجان غربی",
+        "sort_order": 4,
+        "meta": {
+            "slug": "آذربایجان-غربی",
+            "tel_prefix": "044",
+            "phone_code": 44,
+            "lat": "37.7416484",
+            "lon": "45.0207638"
+        }
+    },
+    {
+        "value": "105",
+        "label": "کرمانشاه",
+        "sort_order": 5,
+        "meta": {
+            "slug": "کرمانشاه",
+            "tel_prefix": "083",
+            "phone_code": 83,
+            "lat": "34.486732",
+            "lon": "46.80872698861859"
+        }
+    },
+    {
+        "value": "106",
+        "label": "خوزستان",
+        "sort_order": 6,
+        "meta": {
+            "slug": "خوزستان",
+            "tel_prefix": "061",
+            "phone_code": 61,
+            "lat": "31.5563051",
+            "lon": "49.0058885"
+        }
+    },
+    {
+        "value": "107",
+        "label": "فارس",
+        "sort_order": 7,
+        "meta": {
+            "slug": "فارس",
+            "tel_prefix": "071",
+            "phone_code": 71,
+            "lat": "29.299051",
+            "lon": "53.218456"
+        }
+    },
+    {
+        "value": "108",
+        "label": "کرمان",
+        "sort_order": 8,
+        "meta": {
+            "slug": "کرمان",
+            "tel_prefix": "034",
+            "phone_code": 34,
+            "lat": "29.571858",
+            "lon": "57.301047"
+        }
+    },
+    {
+        "value": "109",
+        "label": "خراسان رضوی",
+        "sort_order": 9,
+        "meta": {
+            "slug": "خراسان-رضوی",
+            "tel_prefix": "051",
+            "phone_code": 51,
+            "lat": "35.4795009",
+            "lon": "59.0237291"
+        }
+    },
+    {
+        "value": "110",
+        "label": "اصفهان",
+        "sort_order": 10,
+        "meta": {
+            "slug": "اصفهان",
+            "tel_prefix": "031",
+            "phone_code": 31,
+            "lat": "33.1881386",
+            "lon": "52.4981635"
+        }
+    },
+    {
+        "value": "111",
+        "label": "سیستان و بلوچستان",
+        "sort_order": 11,
+        "meta": {
+            "slug": "سیستان-و-بلوچستان",
+            "tel_prefix": "054",
+            "phone_code": 54,
+            "lat": "28.1292481",
+            "lon": "60.8236848"
+        }
+    },
+    {
+        "value": "112",
+        "label": "کردستان",
+        "sort_order": 12,
+        "meta": {
+            "slug": "کردستان",
+            "tel_prefix": "087",
+            "phone_code": 87,
+            "lat": "35.672803",
+            "lon": "47.0124376"
+        }
+    },
+    {
+        "value": "113",
+        "label": "همدان",
+        "sort_order": 13,
+        "meta": {
+            "slug": "همدان",
+            "tel_prefix": "081",
+            "phone_code": 81,
+            "lat": "34.9726302",
+            "lon": "48.6563818"
+        }
+    },
+    {
+        "value": "114",
+        "label": "چهارمحال و بختیاری",
+        "sort_order": 14,
+        "meta": {
+            "slug": "چهارمحال-و-بختیاری",
+            "tel_prefix": "038",
+            "phone_code": 38,
+            "lat": "32.0163307",
+            "lon": "50.685709"
+        }
+    },
+    {
+        "value": "115",
+        "label": "لرستان",
+        "sort_order": 15,
+        "meta": {
+            "slug": "لرستان",
+            "tel_prefix": "066",
+            "phone_code": 66,
+            "lat": "33.5368206",
+            "lon": "48.2443945"
+        }
+    },
+    {
+        "value": "116",
+        "label": "ایلام",
+        "sort_order": 16,
+        "meta": {
+            "slug": "ایلام",
+            "tel_prefix": "084",
+            "phone_code": 84,
+            "lat": "33.1545696",
+            "lon": "46.7576343"
+        }
+    },
+    {
+        "value": "117",
+        "label": "کهگیلویه و بویراحمد",
+        "sort_order": 17,
+        "meta": {
+            "slug": "کهگیلویه-و-بویراحمد",
+            "tel_prefix": "074",
+            "phone_code": 74,
+            "lat": "30.8143476",
+            "lon": "50.8661454"
+        }
+    },
+    {
+        "value": "118",
+        "label": "بوشهر",
+        "sort_order": 18,
+        "meta": {
+            "slug": "بوشهر",
+            "tel_prefix": "077",
+            "phone_code": 77,
+            "lat": "28.8936645",
+            "lon": "51.3204877"
+        }
+    },
+    {
+        "value": "119",
+        "label": "زنجان",
+        "sort_order": 19,
+        "meta": {
+            "slug": "زنجان",
+            "tel_prefix": "024",
+            "phone_code": 24,
+            "lat": "36.515854",
+            "lon": "48.4777616"
+        }
+    },
+    {
+        "value": "120",
+        "label": "سمنان",
+        "sort_order": 20,
+        "meta": {
+            "slug": "سمنان",
+            "tel_prefix": "023",
+            "phone_code": 23,
+            "lat": "35.3843145",
+            "lon": "54.6209302"
+        }
+    },
+    {
+        "value": "121",
+        "label": "یزد",
+        "sort_order": 21,
+        "meta": {
+            "slug": "یزد",
+            "tel_prefix": "035",
+            "phone_code": 35,
+            "lat": "32.0406164",
+            "lon": "54.6657189"
+        }
+    },
+    {
+        "value": "122",
+        "label": "هرمزگان",
+        "sort_order": 22,
+        "meta": {
+            "slug": "هرمزگان",
+            "tel_prefix": "076",
+            "phone_code": 76,
+            "lat": "27.7198095",
+            "lon": "56.335807"
+        }
+    },
+    {
+        "value": "123",
+        "label": "تهران",
+        "sort_order": 23,
+        "meta": {
+            "slug": "تهران",
+            "tel_prefix": "021",
+            "phone_code": 21,
+            "lat": 35.561769196,
+            "lon": 51.734780835
+        }
+    },
+    {
+        "value": "124",
+        "label": "اردبیل",
+        "sort_order": 24,
+        "meta": {
+            "slug": "اردبیل",
+            "tel_prefix": "045",
+            "phone_code": 45,
+            "lat": "38.4583983",
+            "lon": "47.9313001"
+        }
+    },
+    {
+        "value": "125",
+        "label": "قم",
+        "sort_order": 25,
+        "meta": {
+            "slug": "قم",
+            "tel_prefix": "025",
+            "phone_code": 25,
+            "lat": "34.7191915",
+            "lon": "51.0122844"
+        }
+    },
+    {
+        "value": "126",
+        "label": "قزوین",
+        "sort_order": 26,
+        "meta": {
+            "slug": "قزوین",
+            "tel_prefix": "028",
+            "phone_code": 28,
+            "lat": "36.0156291",
+            "lon": "49.8398161"
+        }
+    },
+    {
+        "value": "127",
+        "label": "گلستان",
+        "sort_order": 27,
+        "meta": {
+            "slug": "گلستان",
+            "tel_prefix": "017",
+            "phone_code": 17,
+            "lat": "37.1984436",
+            "lon": "55.070672"
+        }
+    },
+    {
+        "value": "128",
+        "label": "خراسان شمالی",
+        "sort_order": 28,
+        "meta": {
+            "slug": "خراسان-شمالی",
+            "tel_prefix": "058",
+            "phone_code": 58,
+            "lat": "37.5378855",
+            "lon": "56.9526137"
+        }
+    },
+    {
+        "value": "129",
+        "label": "خراسان جنوبی",
+        "sort_order": 29,
+        "meta": {
+            "slug": "خراسان-جنوبی",
+            "tel_prefix": "056",
+            "phone_code": 56,
+            "lat": "33.129577",
+            "lon": "58.1065069"
+        }
+    },
+    {
+        "value": "130",
+        "label": "البرز",
+        "sort_order": 30,
+        "meta": {
+            "slug": "البرز",
+            "tel_prefix": "026",
+            "phone_code": 26,
+            "lat": "35.9413239",
+            "lon": "50.7884216"
+        }
+    }
+]

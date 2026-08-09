@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Domains\Employee\Models\Employee;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
@@ -25,11 +26,13 @@ class UserSeeder extends Seeder
             'password' => Hash::make('Xx123456'),
         ]);
         User::create([
-            'name' => 'Sepehr',
+            'name' => 'سپهر',
             'email' => 'sepehr@local.test',
             'username' => 'sepehr',
             'phone' => '09371855738',
             'password' => Hash::make('Xx123456'),
         ]);
+
+        Employee::factory(50)->create();
     }
 }

@@ -18,6 +18,8 @@ class DatabaseSeeder extends Seeder
             UserSeeder::class,
             DocumentCategorySeeder::class,
             RbacSeeder::class,
+            FormOptionSeeder::class,
+            LocationSeeder::class,
         ]);
     }
 }

@@ -3,6 +3,7 @@
 namespace App\Domains\Cv\SectionDefinitions;
 
 use App\Domains\Recruitment\SectionDefinitions\BaseSection;
+use App\Rules\FormOptionValue;
 
 class AdditionalInfoSection extends BaseSection
 {
@@ -40,6 +41,8 @@ class AdditionalInfoSection extends BaseSection
             'hobbies' => 'string',
             'references' => 'array',
             'strengths_and_improvements' => 'string',
+            'physical_condition' => 'string',
+            'disability_type' => 'string',
         ];
     }
 
@@ -48,6 +51,8 @@ class AdditionalInfoSection extends BaseSection
         return [
             'hobbies' => 'nullable|string|max:1000',
             'strengths_and_improvements' => 'nullable|string|max:1000',
+            'physical_condition' => ['nullable', new FormOptionValue('physical_condition')],
+            'disability_type' => ['nullable', new FormOptionValue('disability_type')],
             'references' => 'nullable|array',
             'references.*.full_name' => 'nullable|string|max:100',
             'references.*.relationship' => 'nullable|string|max:50',
@@ -60,6 +65,8 @@ class AdditionalInfoSection extends BaseSection
         return [
             'hobbies' => 'nullable|string|max:1000',
             'strengths_and_improvements' => 'nullable|string|max:1000',
+            'physical_condition' => ['nullable', new FormOptionValue('physical_condition')],
+            'disability_type' => 'required_if:physical_condition,معلول,معلول شدید|nullable|string|max:50',
             'references' => 'nullable|array',
             'references.*.full_name' => 'required_with:references|nullable|string|max:100',
             'references.*.relationship' => 'required_with:references|nullable|string|max:50',

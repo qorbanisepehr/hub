@@ -1,5 +1,6 @@
 <?php
 
+use App\Domains\FormOptions\Models\FormOption;
 use App\Domains\Rbac\Models\Permission;
 use App\Domains\Rbac\Models\PermissionGroup;
 use App\Domains\Rbac\Models\Role;
@@ -8,6 +9,7 @@ use App\Enums\GrantPurpose;
 use App\Enums\OtpContext;
 use App\Models\User;
 use App\Services\OtpService;
+use Database\Seeders\FormOptionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -52,6 +54,35 @@ expect()->extend('toBeOne', function () {
 |
 */
 
+/**
+ * Seed the option groups referenced by questionnaire/cv validation rules.
+ */
+function seedFormOptions(?array $groups = null): void
+{
+    app(FormOptionSeeder::class)->run($groups);
+}
+
+/**
+ * Seed a minimal province + city pair so birth_place (a combined «استان-شهر»
+ * label value validated by FormOptionValue('city', 'province')) passes both
+ * structural and completion validation.
+ */
+function seedLocationOptions(): void
+{
+    FormOption::firstOrCreate(
+        ['group' => 'province', 'value' => 'tehran'],
+        ['label' => 'تهران', 'sort_order' => 0, 'is_active' => true],
+    );
+
+    FormOption::firstOrCreate(
+        ['group' => 'city', 'value' => 'tehran'],
+        ['label' => 'تهران', 'parent_value' => 'tehran', 'sort_order' => 0, 'is_active' => true],
+    );
+}
+
+/**
+ * Create an extra questionnaire for OTP-related helpers when needed.
+ */
 function createUserWithPermissions(array $permissionNames = []): User
 {
     $user = User::factory()->create();

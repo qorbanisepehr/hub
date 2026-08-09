@@ -89,7 +89,7 @@ class Cv extends Model implements Documentable, OtpVerifiable
             // military record from the personal-info section.
             if ($model->isDirty('section_personal')) {
                 $sectionPersonal = $model->section_personal ?? [];
-                if (($sectionPersonal['gender'] ?? null) !== 'male'
+                if (($sectionPersonal['gender'] ?? null) !== 'مرد'
                     && array_key_exists('military_status', $sectionPersonal)
                     && $sectionPersonal['military_status'] !== null) {
                     unset($sectionPersonal['military_status']);

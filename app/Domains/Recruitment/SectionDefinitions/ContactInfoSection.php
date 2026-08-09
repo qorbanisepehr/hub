@@ -2,6 +2,7 @@
 
 namespace App\Domains\Recruitment\SectionDefinitions;
 
+use App\Rules\FormOptionValue;
 use App\Support\ValidationRules;
 
 class ContactInfoSection extends BaseSection
@@ -34,8 +35,9 @@ class ContactInfoSection extends BaseSection
             'emergency_phone' => 'nullable|'.ValidationRules::MOBILE_OR_LANDLINE,
             'address' => 'nullable|array',
             'address.postal_code' => 'nullable|'.ValidationRules::POSTAL_CODE,
-            'address.province' => 'nullable|'.ValidationRules::TEXT.'|max:50',
-            'address.city' => 'nullable|'.ValidationRules::TEXT.'|max:50',
+            'address.province' => ['nullable', new FormOptionValue('province')],
+            'address.city' => ['nullable', new FormOptionValue('city')],
+            'address.neighborhood' => 'nullable|'.ValidationRules::TEXT.'|max:100',
             'address.address' => 'nullable|'.ValidationRules::TEXT.'|max:500',
             'address.plaque' => 'nullable|'.ValidationRules::TEXT.'|max:10',
             'address.floor' => 'nullable|'.ValidationRules::TEXT.'|max:10',
@@ -52,8 +54,9 @@ class ContactInfoSection extends BaseSection
             'emergency_phone' => 'required|'.ValidationRules::MOBILE_OR_LANDLINE,
             'address' => 'required|array',
             'address.postal_code' => 'required|'.ValidationRules::POSTAL_CODE,
-            'address.province' => 'required|'.ValidationRules::TEXT.'|max:50',
-            'address.city' => 'required|'.ValidationRules::TEXT.'|max:50',
+            'address.province' => ['required', new FormOptionValue('province')],
+            'address.city' => ['required', new FormOptionValue('city')],
+            'address.neighborhood' => 'nullable|'.ValidationRules::TEXT.'|max:100',
             'address.address' => 'required|'.ValidationRules::TEXT.'|max:500',
         ];
     }

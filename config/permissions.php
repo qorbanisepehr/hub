@@ -97,6 +97,14 @@ return [
             ],
         ],
 
+        'form-options' => [
+            'name' => 'Form Options',
+            'permissions' => [
+                'form-options.view' => 'View form options',
+                'form-options.manage' => 'Manage form options',
+            ],
+        ],
+
     ],
 
 ];
