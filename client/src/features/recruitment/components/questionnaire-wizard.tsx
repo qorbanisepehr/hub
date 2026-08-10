@@ -84,6 +84,126 @@ type WizardFormValues = {
 };
 
 /**
+ * Build the wizard's default values from a questionnaire. The server is the
+ * source of truth after every section save, so this is also used to reset the
+ * form from the save response instead of re-reading possibly stale local state.
+ */
+function buildDefaultValues(questionnaire: Questionnaire): WizardFormValues {
+    return {
+        first_name: questionnaire.first_name ?? "",
+        last_name: questionnaire.last_name ?? "",
+        email: questionnaire.email ?? "",
+        mobile: questionnaire.mobile ?? "",
+        personal_info: questionnaire.personal_info ?? {
+            gender: "",
+            blood_group: "",
+            birth_date: "",
+            birth_place: "",
+            birth_certificate_number: "",
+            father_name: "",
+            religion: "",
+            marital_status: "",
+            first_name_en: "",
+            last_name_en: "",
+            dependents_count: null,
+            children_count: null,
+            spouse_employment_status: "",
+            spouse_job: "",
+            military_status: {
+                status: "",
+                organization: "",
+                from: "",
+                to: "",
+                reason: "",
+            },
+            national_id: "",
+        },
+        contact_info: questionnaire.contact_info ?? {
+            phone: "",
+            emergency_phone: "",
+            address: {
+                postal_code: "",
+                province: "",
+                city: "",
+                address: "",
+                plaque: "",
+                floor: "",
+                unit: "",
+                neighborhood: "",
+            },
+        },
+        education: questionnaire.education ?? {
+            education_records: [],
+            is_student: false,
+            student_degree: "",
+            student_field: "",
+            student_university: "",
+            student_country: "",
+            student_city: "",
+            student_semester: null,
+            passed_units: null,
+            remaining_units: null,
+            student_gpa: "",
+            study_start: "",
+            expected_graduation: "",
+            thesis_submitted: false,
+            student_thesis_title: "",
+            free_days_per_week: null,
+            education_description: "",
+        },
+        work_experience: questionnaire.work_experience ?? {
+            work_experiences: [],
+            achievements: "",
+            allow_contact_previous_managers: false,
+            contact_restriction_description: "",
+        },
+        skills: questionnaire.skills ?? {
+            languages: [],
+            certificates: [],
+            special_skills: [],
+            software_skills: { specialized: [], general: [] },
+        },
+        training: questionnaire.training ?? {
+            training_courses: [],
+            professional_memberships: "",
+            researches: [],
+        },
+        additional_info: questionnaire.additional_info ?? {
+            has_chronic_disease: false,
+            chronic_disease_description: "",
+            company_introduction_method: "",
+            has_major_surgery: false,
+            major_surgery_description: "",
+            reason_for_joining: "",
+            has_disability: false,
+            disability_description: "",
+            can_travel: false,
+            travel_description: "",
+            has_criminal_record: false,
+            criminal_record_description: "",
+            hobbies: "",
+            references: [],
+            strengths_and_improvements: "",
+        },
+        job_request: questionnaire.job_request ?? {
+            employment_type: "",
+            expected_monthly_salary: null,
+            minimum_hours_per_month: null,
+            expected_hourly_salary: null,
+            submitted_resume_before: false,
+            interviewed_before: false,
+            other_information: "",
+            accept_information: false,
+            preferred_workplace: [],
+            job_priority_1: "",
+            job_priority_2: "",
+            currently_employed: false,
+            available_start_date: "",
+        },
+    };
+}
+
+/**
  * Extract the data payload for a given wizard step key from the full form values.
  */
 function extractSectionData(
@@ -161,11 +281,11 @@ export function QuestionnaireWizard({
             section: string;
             data: Record<string, unknown>;
         }) => saveQuestionnaireSection(questionnaire.uuid, section, data),
-        onSuccess: () => {
+        onSuccess: (response) => {
             queryClient.invalidateQueries({
                 queryKey: ["questionnaire", questionnaire.uuid],
             });
-            form.reset(form.state.values);
+            form.reset(buildDefaultValues(response.data.data));
         },
         onError: () => {
             toast.error("خطا در ذخیره‌سازی");
@@ -205,117 +325,7 @@ export function QuestionnaireWizard({
     );
 
     const form = useForm({
-        defaultValues: {
-            first_name: questionnaire.first_name ?? "",
-            last_name: questionnaire.last_name ?? "",
-            email: questionnaire.email ?? "",
-            mobile: questionnaire.mobile ?? "",
-            personal_info: questionnaire.personal_info ?? {
-                gender: "",
-                blood_group: "",
-                birth_date: "",
-                birth_place: "",
-                birth_certificate_number: "",
-                father_name: "",
-                religion: "",
-                marital_status: "",
-                first_name_en: "",
-                last_name_en: "",
-                dependents_count: null,
-                children_count: null,
-                spouse_employment_status: "",
-                spouse_job: "",
-                military_status: {
-                    status: "",
-                    organization: "",
-                    from: "",
-                    to: "",
-                    reason: "",
-                },
-                national_id: "",
-            },
-            contact_info: questionnaire.contact_info ?? {
-                phone: "",
-                emergency_phone: "",
-                address: {
-                    postal_code: "",
-                    province: "",
-                    city: "",
-                    address: "",
-                    plaque: "",
-                    floor: "",
-                    unit: "",
-                },
-            },
-            education: questionnaire.education ?? {
-                education_records: [],
-                is_student: false,
-                student_degree: "",
-                student_field: "",
-                student_university: "",
-                student_country: "",
-                student_city: "",
-                student_semester: null,
-                passed_units: null,
-                remaining_units: null,
-                student_gpa: "",
-                study_start: "",
-                expected_graduation: "",
-                thesis_submitted: false,
-                student_thesis_title: "",
-                free_days_per_week: null,
-                education_description: "",
-            },
-            work_experience: questionnaire.work_experience ?? {
-                work_experiences: [],
-                achievements: "",
-                allow_contact_previous_managers: false,
-                contact_restriction_description: "",
-            },
-            skills: questionnaire.skills ?? {
-                languages: [],
-                certificates: [],
-                special_skills: [],
-                software_skills: { specialized: [], general: [] },
-            },
-            training: questionnaire.training ?? {
-                training_courses: [],
-                professional_memberships: "",
-                researches: [],
-            },
-            additional_info: questionnaire.additional_info ?? {
-                has_chronic_disease: false,
-                chronic_disease_description: "",
-                company_introduction_method: "",
-                has_major_surgery: false,
-                major_surgery_description: "",
-                reason_for_joining: "",
-                has_disability: false,
-                disability_description: "",
-                can_travel: false,
-                travel_description: "",
-                has_criminal_record: false,
-                criminal_record_description: "",
-                hobbies: "",
-                references: [],
-                strengths_and_improvements: "",
-            },
-            job_request: questionnaire.job_request ?? {
-                employment_type: "",
-                expected_monthly_salary: null,
-                minimum_hours_per_month: null,
-                expected_hourly_salary: null,
-                submitted_resume_before: false,
-                interviewed_before: false,
-                other_information: "",
-                accept_information: false,
-                preferred_workplace: [],
-                job_priority_1: "",
-                job_priority_2: "",
-                currently_employed: false,
-                available_start_date: "",
-            },
-        },
+        defaultValues: buildDefaultValues(questionnaire),
         onSubmit: async ({ value }) => {
             const sectionKey = WIZARD_STEPS[currentStep]?.key;
             if (!sectionKey || sectionKey === "summary" || sectionKey === "documents") {

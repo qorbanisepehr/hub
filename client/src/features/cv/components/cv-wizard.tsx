@@ -80,6 +80,90 @@ type WizardFormValues = {
 };
 
 /**
+ * Build the wizard's default values from a CV. The server is the source of
+ * truth after every section save, so this is also used to reset the form
+ * from the save response instead of re-reading possibly stale local state.
+ */
+function buildDefaultValues(cv: Cv): WizardFormValues {
+    return {
+        first_name: cv.first_name ?? "",
+        last_name: cv.last_name ?? "",
+        email: cv.email ?? "",
+        mobile: cv.mobile ?? "",
+        personal_info: cv.personal_info ?? {
+            gender: "",
+            birth_date: "",
+            marital_status: "",
+            military_status: {
+                status: "",
+                organization: "",
+                from: "",
+                to: "",
+                reason: "",
+            },
+            national_id: "",
+            birth_place: "",
+            birth_certificate_number: "",
+        },
+        contact_info: cv.contact_info ?? {
+            phone: "",
+            emergency_phone: "",
+            address: {
+                postal_code: "",
+                province: "",
+                city: "",
+                address: "",
+                plaque: "",
+                floor: "",
+                unit: "",
+                neighborhood: "",
+            },
+        },
+        education: cv.education ?? {
+            education_records: [],
+            is_student: false,
+            student_degree: "",
+            student_field: "",
+            student_university: "",
+            student_country: "",
+            student_city: "",
+            student_semester: null,
+            passed_units: null,
+            remaining_units: null,
+            student_gpa: "",
+            study_start: "",
+            expected_graduation: "",
+            thesis_submitted: false,
+            student_thesis_title: "",
+            free_days_per_week: null,
+            education_description: "",
+        },
+        work_experience: cv.work_experience ?? {
+            work_experiences: [],
+            achievements: "",
+            allow_contact_previous_managers: false,
+            contact_restriction_description: "",
+        },
+        skills: cv.skills ?? {
+            languages: [],
+            certificates: [],
+            special_skills: [],
+            software_skills: { specialized: [], general: [] },
+        },
+        training: cv.training ?? {
+            training_courses: [],
+            professional_memberships: "",
+            researches: [],
+        },
+        additional_info: cv.additional_info ?? {
+            hobbies: "",
+            references: [],
+            strengths_and_improvements: "",
+        },
+    };
+}
+
+/**
  * Extract the data payload for a given wizard step key from the full form values.
  */
 function extractSectionData(
@@ -155,11 +239,11 @@ export function CvWizard({ cv }: CvWizardProps) {
             section: string;
             data: Record<string, unknown>;
         }) => saveCvSection(cv.uuid, section, data),
-        onSuccess: () => {
+        onSuccess: (response) => {
             queryClient.invalidateQueries({
                 queryKey: cvKeys.detail(cv.uuid),
             });
-            form.reset(form.state.values);
+            form.reset(buildDefaultValues(response.data.data));
         },
         onError: () => {
             toast.error("خطا در ذخیره‌سازی");
@@ -192,81 +276,7 @@ export function CvWizard({ cv }: CvWizardProps) {
     });
 
     const form = useForm({
-        defaultValues: {
-            first_name: cv.first_name ?? "",
-            last_name: cv.last_name ?? "",
-            email: cv.email ?? "",
-            mobile: cv.mobile ?? "",
-            personal_info: cv.personal_info ?? {
-                gender: "",
-                birth_date: "",
-                marital_status: "",
-                military_status: {
-                    status: "",
-                    organization: "",
-                    from: "",
-                    to: "",
-                    reason: "",
-                },
-                national_id: "",
-                birth_place: "",
-                birth_certificate_number: "",
-            },
-            contact_info: cv.contact_info ?? {
-                phone: "",
-                emergency_phone: "",
-                address: {
-                    postal_code: "",
-                    province: "",
-                    city: "",
-                    address: "",
-                    plaque: "",
-                    floor: "",
-                    unit: "",
-                },
-            },
-            education: cv.education ?? {
-                education_records: [],
-                is_student: false,
-                student_degree: "",
-                student_field: "",
-                student_university: "",
-                student_country: "",
-                student_city: "",
-                student_semester: null,
-                passed_units: null,
-                remaining_units: null,
-                student_gpa: "",
-                study_start: "",
-                expected_graduation: "",
-                thesis_submitted: false,
-                student_thesis_title: "",
-                free_days_per_week: null,
-                education_description: "",
-            },
-            work_experience: cv.work_experience ?? {
-                work_experiences: [],
-                achievements: "",
-                allow_contact_previous_managers: false,
-                contact_restriction_description: "",
-            },
-            skills: cv.skills ?? {
-                languages: [],
-                certificates: [],
-                special_skills: [],
-                software_skills: { specialized: [], general: [] },
-            },
-            training: cv.training ?? {
-                training_courses: [],
-                professional_memberships: "",
-                researches: [],
-            },
-            additional_info: cv.additional_info ?? {
-                hobbies: "",
-                references: [],
-                strengths_and_improvements: "",
-            },
-        },
+        defaultValues: buildDefaultValues(cv),
         onSubmit: async ({ value }) => {
             const sectionKey = CV_WIZARD_STEPS[currentStep]?.key;
             if (
