@@ -85,8 +85,11 @@ export function ReviewSection({ form, cv, onNavigateToStep }: SectionProps) {
     const training = v.training ?? {};
     const additional = v.additional_info ?? {};
 
-    const { documents, isLoading: documentsLoading, getDocumentsBySlug } =
-        useCvDocuments(cv?.uuid);
+    const {
+        documents,
+        isLoading: documentsLoading,
+        getDocumentsBySlug,
+    } = useCvDocuments(cv?.uuid);
 
     const { submitOptions } = useCvSubmitOptions();
 
@@ -137,8 +140,7 @@ export function ReviewSection({ form, cv, onNavigateToStep }: SectionProps) {
                 <CardContent>
                     <p className="text-sm text-muted-foreground">
                         لطفاً اطلاعات وارد شده را بررسی کنید و در صورت صحت،
-                        کدهای تأیید را دریافت و وارد کرده و رزومه را ارسال
-                        کنید.
+                        کدهای تأیید را دریافت و وارد کرده و رزومه را ارسال کنید.
                     </p>
                 </CardContent>
             </Card>
@@ -154,10 +156,7 @@ export function ReviewSection({ form, cv, onNavigateToStep }: SectionProps) {
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 flex-1">
                             <DataRow label="نام" value={v.first_name} />
                             <DataRow label="نام خانوادگی" value={v.last_name} />
-                            <DataRow
-                                label="جنسیت"
-                                value={pi.gender}
-                            />
+                            <DataRow label="جنسیت" value={pi.gender} />
                             <DataRow
                                 label="تاریخ تولد"
                                 value={toPersianDate(pi.birth_date)}
@@ -168,8 +167,20 @@ export function ReviewSection({ form, cv, onNavigateToStep }: SectionProps) {
                                 value={pi.birth_certificate_number}
                             />
                             <DataRow label="کد ملی" value={pi.national_id} />
-                            <DataRow label="وضعیت تأهل" value={pi.marital_status} />
+                            <DataRow
+                                label="وضعیت تأهل"
+                                value={pi.marital_status}
+                            />
+
+                            {pi.military_status &&
+                                pi.gender === GENDER_MALE && (
+                                    <DataRow
+                                        label="وضعیت نظام وظیفه"
+                                        value={pi.military_status.status}
+                                    />
+                                )}
                         </div>
+
                         {personnelPhoto && (
                             <div className="shrink-0">
                                 <FileThumbnail
@@ -184,35 +195,6 @@ export function ReviewSection({ form, cv, onNavigateToStep }: SectionProps) {
                             </div>
                         )}
                     </div>
-                    {pi.military_status && pi.gender === GENDER_MALE && (
-                        <div className="mt-4 pt-4 border-t">
-                            <p className="text-sm font-medium mb-2">
-                                وضعیت نظام وظیفه
-                            </p>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <DataRow
-                                    label="وضعیت"
-                                    value={pi.military_status.status}
-                                />
-                                <DataRow
-                                    label="سازمان"
-                                    value={pi.military_status.organization}
-                                />
-                                <DataRow
-                                    label="از تاریخ"
-                                    value={toPersianDate(pi.military_status.from)}
-                                />
-                                <DataRow
-                                    label="تا تاریخ"
-                                    value={toPersianDate(pi.military_status.to)}
-                                />
-                                <DataRow
-                                    label="دلیل"
-                                    value={pi.military_status.reason}
-                                />
-                            </div>
-                        </div>
-                    )}
                 </CardContent>
             </Card>
 
@@ -227,31 +209,17 @@ export function ReviewSection({ form, cv, onNavigateToStep }: SectionProps) {
                         <DataRow label="ایمیل" value={v.email} />
                         <DataRow label="موبایل" value={v.mobile} />
                         <DataRow label="تلفن ثابت" value={ci.phone} />
-                        <DataRow
-                            label="تلفن اضطراری"
-                            value={ci.emergency_phone}
-                        />
                         {ci.address && (
                             <>
                                 <DataRow
                                     label="استان"
                                     value={ci.address.province}
                                 />
+                                <DataRow label="شهر" value={ci.address.city} />
                                 <DataRow
-                                    label="شهر"
-                                    value={ci.address.city}
+                                    label="محله"
+                                    value={ci.address.neighborhood}
                                 />
-                                <DataRow
-                                    label="کد پستی"
-                                    value={ci.address.postal_code}
-                                />
-                                <DataRow
-                                    label="آدرس"
-                                    value={ci.address.address}
-                                />
-                                <DataRow label="پلاک" value={ci.address.plaque} />
-                                <DataRow label="طبقه" value={ci.address.floor} />
-                                <DataRow label="واحد" value={ci.address.unit} />
                             </>
                         )}
                     </div>
@@ -313,7 +281,10 @@ export function ReviewSection({ form, cv, onNavigateToStep }: SectionProps) {
                                     label="مقطع"
                                     value={edu.student_degree}
                                 />
-                                <DataRow label="رشته" value={edu.student_field} />
+                                <DataRow
+                                    label="رشته"
+                                    value={edu.student_field}
+                                />
                                 <DataRow
                                     label="دانشگاه"
                                     value={edu.student_university}
@@ -399,16 +370,19 @@ export function ReviewSection({ form, cv, onNavigateToStep }: SectionProps) {
                         <div>
                             <p className="text-sm font-medium mb-2">زبان‌ها</p>
                             <div className="space-y-2">
-                                {skills.languages.map((lang: any, i: number) => (
-                                    <div
-                                        key={i}
-                                        className="text-sm p-2 rounded bg-muted/50"
-                                    >
-                                        {lang.language}: خواندن {lang.reading}،
-                                        نوشتن {lang.writing}، صحبت {lang.speaking}
-                                        ، درک مطلب {lang.comprehension}
-                                    </div>
-                                ))}
+                                {skills.languages.map(
+                                    (lang: any, i: number) => (
+                                        <div
+                                            key={i}
+                                            className="text-sm p-2 rounded bg-muted/50"
+                                        >
+                                            {lang.language}: خواندن{" "}
+                                            {lang.reading}، نوشتن {lang.writing}
+                                            ، صحبت {lang.speaking}، درک مطلب{" "}
+                                            {lang.comprehension}
+                                        </div>
+                                    ),
+                                )}
                             </div>
                         </div>
                     )}
@@ -525,7 +499,10 @@ export function ReviewSection({ form, cv, onNavigateToStep }: SectionProps) {
                 />
                 <CardContent>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <DataRow label="علاقه‌مندی‌ها" value={additional.hobbies} />
+                        <DataRow
+                            label="علاقه‌مندی‌ها"
+                            value={additional.hobbies}
+                        />
                         <DataRow
                             label="نقاط قوت و زمینه‌های قابل بهبود"
                             value={additional.strengths_and_improvements}
@@ -541,9 +518,7 @@ export function ReviewSection({ form, cv, onNavigateToStep }: SectionProps) {
                     </div>
                     {additional.references?.length > 0 && (
                         <div className="mt-4 pt-4 border-t">
-                            <p className="text-sm font-medium mb-2">
-                                ارجاعات
-                            </p>
+                            <p className="text-sm font-medium mb-2">ارجاعات</p>
                             <div className="space-y-2">
                                 {additional.references.map(
                                     (ref: any, i: number) => (

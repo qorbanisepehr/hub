@@ -27,13 +27,7 @@ import type {
     CvStatus,
 } from "@/features/cv/types";
 
-function DataRow({
-    label,
-    value,
-}: {
-    label: string;
-    value: ReactNode;
-}) {
+function DataRow({ label, value }: { label: string; value: ReactNode }) {
     return (
         <div className="flex flex-col gap-0.5">
             <span className="text-xs text-muted-foreground">{label}</span>
@@ -86,14 +80,25 @@ function EducationSection({
                                 {record.field ? ` - ${record.field}` : ""}
                             </p>
                             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                                <DataRow label="مؤسسه" value={record.institution} />
+                                <DataRow
+                                    label="مؤسسه"
+                                    value={record.institution}
+                                />
                                 <DataRow label="شهر" value={record.location} />
                                 <DataRow label="معدل" value={record.gpa} />
-                                <DataRow label="از" value={toPersianDate(record.from)} />
-                                <DataRow label="تا" value={toPersianDate(record.to)} />
+                                <DataRow
+                                    label="از"
+                                    value={toPersianDate(record.from)}
+                                />
+                                <DataRow
+                                    label="تا"
+                                    value={toPersianDate(record.to)}
+                                />
                                 <DataRow
                                     label="تاریخ فارغ‌التحصیلی"
-                                    value={toPersianDate(record.graduation_date)}
+                                    value={toPersianDate(
+                                        record.graduation_date,
+                                    )}
                                 />
                                 <DataRow
                                     label="عنوان پایان‌نامه"
@@ -110,16 +115,19 @@ function EducationSection({
             {education.is_student && (
                 <div className="mt-4 grid grid-cols-1 gap-4 border-t pt-4 md:grid-cols-3">
                     <DataRow label="دانشجو" value="بله" />
-                    <DataRow
-                        label="مقطع"
-                        value={education.student_degree}
-                    />
+                    <DataRow label="مقطع" value={education.student_degree} />
                     <DataRow label="رشته" value={education.student_field} />
-                    <DataRow label="دانشگاه" value={education.student_university} />
+                    <DataRow
+                        label="دانشگاه"
+                        value={education.student_university}
+                    />
                     <DataRow label="کشور" value={education.student_country} />
                     <DataRow label="شهر" value={education.student_city} />
                     <DataRow label="ترم" value={education.student_semester} />
-                    <DataRow label="واحد گذرانده" value={education.passed_units} />
+                    <DataRow
+                        label="واحد گذرانده"
+                        value={education.passed_units}
+                    />
                     <DataRow label="معدل" value={education.student_gpa} />
                     <DataRow
                         label="شروع تحصیل"
@@ -165,13 +173,22 @@ function WorkExperienceSection({ work }: { work: WorkExperience }) {
                             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                                 <DataRow label="صنعت" value={record.industry} />
                                 <DataRow label="شهر" value={record.location} />
-                                <DataRow label="از" value={toPersianDate(record.from)} />
-                                <DataRow label="تا" value={toPersianDate(record.to)} />
+                                <DataRow
+                                    label="از"
+                                    value={toPersianDate(record.from)}
+                                />
+                                <DataRow
+                                    label="تا"
+                                    value={toPersianDate(record.to)}
+                                />
                                 <DataRow
                                     label="نوع قرارداد"
                                     value={record.contract_type}
                                 />
-                                <DataRow label="مدیر" value={record.manager_name} />
+                                <DataRow
+                                    label="مدیر"
+                                    value={record.manager_name}
+                                />
                                 <DataRow label="تلفن" value={record.phone} />
                                 <DataRow
                                     label="دلیل ترک"
@@ -196,7 +213,9 @@ function WorkExperienceSection({ work }: { work: WorkExperience }) {
 
 function SkillChip({ children }: { children: ReactNode }) {
     return (
-        <span className="rounded-md bg-muted px-2 py-1 text-sm">{children}</span>
+        <span className="rounded-md bg-muted px-2 py-1 text-sm">
+            {children}
+        </span>
     );
 }
 
@@ -215,10 +234,22 @@ function SkillsSection({ skills }: { skills: Skills }) {
                                 key={index}
                                 className="grid grid-cols-1 gap-4 rounded-lg border bg-muted/30 p-3 md:grid-cols-4"
                             >
-                                <DataRow label="زبان" value={language.language} />
-                                <DataRow label="خواندن" value={language.reading} />
-                                <DataRow label="نوشتن" value={language.writing} />
-                                <DataRow label="صحبت" value={language.speaking} />
+                                <DataRow
+                                    label="زبان"
+                                    value={language.language}
+                                />
+                                <DataRow
+                                    label="خواندن"
+                                    value={language.reading}
+                                />
+                                <DataRow
+                                    label="نوشتن"
+                                    value={language.writing}
+                                />
+                                <DataRow
+                                    label="صحبت"
+                                    value={language.speaking}
+                                />
                             </div>
                         ))}
                     </div>
@@ -264,7 +295,10 @@ function SkillsSection({ skills }: { skills: Skills }) {
                                 key={index}
                                 className="grid grid-cols-2 gap-4 rounded-lg border bg-muted/30 p-3"
                             >
-                                <DataRow label="عنوان" value={certificate.title} />
+                                <DataRow
+                                    label="عنوان"
+                                    value={certificate.title}
+                                />
                                 <DataRow
                                     label="اعتبار تا"
                                     value={toPersianDate(certificate.expire_at)}
@@ -301,9 +335,15 @@ function TrainingSection({ training }: { training: Training }) {
                                 key={index}
                                 className="grid grid-cols-1 gap-4 rounded-lg border bg-muted/30 p-3 md:grid-cols-3"
                             >
-                                <DataRow label="دوره" value={course.course_name} />
+                                <DataRow
+                                    label="دوره"
+                                    value={course.course_name}
+                                />
                                 <DataRow label="مدت" value={course.duration} />
-                                <DataRow label="مؤسسه" value={course.institution} />
+                                <DataRow
+                                    label="مؤسسه"
+                                    value={course.institution}
+                                />
                             </div>
                         ))}
                     </div>
@@ -362,7 +402,9 @@ export function CvResumeView({
             docs: docsBySlug(CV_DOC_CATEGORY_SLUGS.OTHER_DOCUMENTS),
         },
     ];
-    const hasAnyDocument = documentGroups.some((group) => group.docs.length > 0);
+    const hasAnyDocument = documentGroups.some(
+        (group) => group.docs.length > 0,
+    );
 
     return (
         <div className="space-y-6">
@@ -413,10 +455,7 @@ export function CvResumeView({
 
             <SectionCard title="مشخصات فردی">
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                    <DataRow
-                        label="جنسیت"
-                        value={personal.gender}
-                    />
+                    <DataRow label="جنسیت" value={personal.gender} />
                     <DataRow
                         label="تاریخ تولد"
                         value={toPersianDate(personal.birth_date)}
@@ -427,22 +466,15 @@ export function CvResumeView({
                         label="شماره شناسنامه"
                         value={personal.birth_certificate_number}
                     />
-                    <DataRow label="وضعیت تأهل" value={personal.marital_status} />
+                    <DataRow
+                        label="وضعیت تأهل"
+                        value={personal.marital_status}
+                    />
                     {personal.military_status && (
-                        <>
-                            <DataRow
-                                label="وضعیت خدمت"
-                                value={personal.military_status.status}
-                            />
-                            <DataRow
-                                label="سازمان خدمت"
-                                value={personal.military_status.organization}
-                            />
-                            <DataRow
-                                label="دلیل معافیت"
-                                value={personal.military_status.reason}
-                            />
-                        </>
+                        <DataRow
+                            label="وضعیت خدمت"
+                            value={personal.military_status.status}
+                        />
                     )}
                 </div>
             </SectionCard>
@@ -469,8 +501,14 @@ export function CvResumeView({
                                 label="پلاک"
                                 value={contact.address.plaque}
                             />
-                            <DataRow label="طبقه" value={contact.address.floor} />
-                            <DataRow label="واحد" value={contact.address.unit} />
+                            <DataRow
+                                label="طبقه"
+                                value={contact.address.floor}
+                            />
+                            <DataRow
+                                label="واحد"
+                                value={contact.address.unit}
+                            />
                             <DataRow
                                 label="آدرس"
                                 value={contact.address.address}
@@ -516,7 +554,10 @@ export function CvResumeView({
                                 className="grid grid-cols-1 gap-4 rounded bg-muted/50 p-2 text-sm md:grid-cols-3"
                             >
                                 <DataRow label="نام" value={ref.full_name} />
-                                <DataRow label="رابطه" value={ref.relationship} />
+                                <DataRow
+                                    label="رابطه"
+                                    value={ref.relationship}
+                                />
                                 <DataRow
                                     label="تلفن محل کار"
                                     value={ref.workplace_phone}

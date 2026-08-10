@@ -4,13 +4,12 @@ import { mobile, optionalEmail, optionalLandline, optionalMobileOrLandline } fro
 import { requiredText, text } from "@/lib/zod-primitives";
 
 export const addressSchema = z.object({
+    // The CV form collects a slim address (province/city/neighborhood/postal),
+    // so this schema mirrors the "simple" AddressForm rather than the full one.
     postal_code: text(10, "حداکثر ۱۰ کاراکتر."),
     province: text(50, "حداکثر ۵۰ کاراکتر."),
     city: text(50, "حداکثر ۵۰ کاراکتر."),
-    address: text(500, "حداکثر ۵۰۰ کاراکتر."),
-    plaque: text(10, "حداکثر ۱۰ کاراکتر."),
-    floor: text(10, "حداکثر ۱۰ کاراکتر."),
-    unit: text(10, "حداکثر ۱۰ کاراکتر."),
+    neighborhood: text(100, "حداکثر ۱۰۰ کاراکتر."),
 });
 
 export type AddressFormData = z.infer<typeof addressSchema>;

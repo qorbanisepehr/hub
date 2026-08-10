@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -45,6 +46,31 @@ export function useFormOptionsByGroup(group: string, parentValue?: string, searc
         },
         staleTime: Infinity,
     });
+}
+
+/**
+ * Shared plumbing for entity submit options: both the CV and the questionnaire
+ * wizards need the full option map plus the province/city groups before they
+ * can validate place fields. Each entity keeps a thin builder that maps the
+ * fetched options into its own submit-options shape.
+ */
+export function useFormOptionsWithPlaces<T>(
+    build: (
+        formOptions: FormOptionsMap | undefined,
+        province: FormOptionsMap[string] | undefined,
+        city: FormOptionsMap[string] | undefined,
+    ) => T | undefined,
+): { submitOptions: T | undefined; optionsReady: boolean } {
+    const { data: formOptions } = useFormOptions();
+    const { data: provinceOptions } = useFormOptionsByGroup("province");
+    const { data: cityOptions } = useFormOptionsByGroup("city");
+
+    const submitOptions = useMemo(
+        () => build(formOptions, provinceOptions, cityOptions),
+        [formOptions, provinceOptions, cityOptions, build],
+    );
+
+    return { submitOptions, optionsReady: submitOptions !== undefined };
 }
 
 export function useAdminFormOptions(group?: string) {

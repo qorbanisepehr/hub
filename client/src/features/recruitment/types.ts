@@ -72,6 +72,7 @@ export interface Address {
     plaque: string;
     floor: string;
     unit: string;
+    neighborhood: string;
 }
 
 export interface ContactInfo {
