@@ -1,7 +1,4 @@
-import {
-    type ColumnDef,
-    type StockFeatures,
-} from "@tanstack/react-table";
+import { type ColumnDef, type StockFeatures } from "@tanstack/react-table";
 import { Link } from "@tanstack/react-router";
 import { IconEye, IconPencil } from "@tabler/icons-react";
 import { Badge } from "@/components/ui/badge";
@@ -10,7 +7,6 @@ import { DataTableColumnHeader } from "@/components/data-table";
 import { PermissionGuard } from "@/features/auth/components/permission-guard";
 import { PERMISSIONS } from "@/lib/permissions";
 import {
-    genderLabels,
     statusLabels,
     statusVariants,
 } from "@/features/employees/constants";
@@ -54,8 +50,7 @@ export const employeeColumns: ColumnDef<StockFeatures, Employee>[] = [
         ),
         cell: ({ row }) => (
             <Badge variant="outline">
-                {genderLabels[row.getValue("gender") as string] ??
-                    row.getValue("gender")}
+                {(row.getValue("gender") as string | null) ?? "—"}
             </Badge>
         ),
         meta: { displayName: "جنسیت" },

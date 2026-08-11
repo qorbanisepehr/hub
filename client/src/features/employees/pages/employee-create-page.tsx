@@ -16,10 +16,13 @@ export function EmployeeCreatePage() {
     const mutation = useMutation({
         mutationFn: (data: Parameters<typeof createEmployee>[0]) =>
             createEmployee(data),
-        onSuccess: () => {
+        onSuccess: ({ data }) => {
             queryClient.invalidateQueries({ queryKey: employeeKeys.all });
             toast.success("کارمند جدید ثبت شد");
-            navigate({ to: "/employees" });
+            navigate({
+                to: "/employees/$id/edit",
+                params: { id: String(data.data.id) },
+            });
         },
         onError: (err: unknown) => {
             toast.error(getApiError(err));
