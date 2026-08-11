@@ -3,9 +3,12 @@
 namespace App\Domains\Employee\Controllers;
 
 use App\Domains\Employee\Models\Employee;
+use App\Domains\Employee\Requests\SaveEmployeeSectionRequest;
 use App\Domains\Employee\Requests\StoreEmployeeRequest;
+use App\Domains\Employee\Requests\SubmitEmployeeRequest;
 use App\Domains\Employee\Requests\UpdateEmployeeRequest;
 use App\Domains\Employee\Resources\EmployeeResource;
+use App\Domains\Employee\Services\EmployeeService;
 use App\Http\Controllers\ApiController;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -25,6 +28,10 @@ class EmployeeController extends ApiController
         'hire_date' => 'hire_date',
         'created_at' => 'created_at',
     ];
+
+    public function __construct(
+        private EmployeeService $employeeService,
+    ) {}
 
     public function index(Request $request): AnonymousResourceCollection
     {
@@ -58,7 +65,10 @@ class EmployeeController extends ApiController
 
     public function store(StoreEmployeeRequest $request): EmployeeResource
     {
-        $employee = Employee::create($request->validated());
+        $employee = $this->employeeService->create(
+            $request->validated(),
+            $this->collectSections($request),
+        );
         $employee->load(['user']);
 
         return new EmployeeResource($employee);
@@ -74,6 +84,23 @@ class EmployeeController extends ApiController
     public function update(UpdateEmployeeRequest $request, Employee $employee): EmployeeResource
     {
         $employee->update($request->validated());
+        $employee->load(['user']);
+
+        return new EmployeeResource($employee);
+    }
+
+    public function saveSection(Employee $employee, string $section, SaveEmployeeSectionRequest $request): EmployeeResource
+    {
+        $employee = $this->employeeService->saveSection($employee, $section, $request->validated());
+        $employee->load(['user']);
+
+        return new EmployeeResource($employee);
+    }
+
+    public function submit(Employee $employee, SubmitEmployeeRequest $request): EmployeeResource
+    {
+        $employee = $this->employeeService->submit($employee);
+        $employee->load(['user']);
 
         return new EmployeeResource($employee);
     }
@@ -83,5 +110,24 @@ class EmployeeController extends ApiController
         $employee->delete();
 
         return response()->json(['message' => __('employee.deleted')]);
+    }
+
+    /**
+     * Pull the submitted sections out of the request so the service can persist
+     * them with their structural validation (same flow as the questionnaire).
+     *
+     * @return array<string, mixed>
+     */
+    private function collectSections(Request $request): array
+    {
+        $sections = [];
+
+        foreach ($this->employeeService->getSectionKeys() as $key) {
+            if ($request->has($key)) {
+                $sections[$key] = $request->input($key);
+            }
+        }
+
+        return $sections;
     }
 }

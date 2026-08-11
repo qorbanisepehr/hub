@@ -9,17 +9,144 @@ function employeeData(array $overrides = []): array
         'personnel_code' => '00001',
         'first_name' => 'John',
         'last_name' => 'Doe',
-        'gender' => 'male',
+        'gender' => 'مرد',
         'birth_date' => '1990-01-15',
         'id_number' => '1234567890',
-        'marital_status' => 'single',
-        'education_level' => 'bachelor',
-        'education_field' => 'Computer Science',
+        'marital_status' => 'مجرد',
+        'email' => 'john@example.com',
+        'mobile' => '09123456789',
         'employment_type' => 'official',
         'hire_date' => '2023-06-01',
         'employment_status' => 'active',
     ], $overrides);
 }
+
+function validEmployeePersonalInfo(): array
+{
+    return [
+        'first_name' => 'Ali',
+        'last_name' => 'Rezaei',
+        'gender' => 'مرد',
+        'blood_group' => 'A+',
+        'birth_date' => '1990-01-15',
+        'birth_place' => 'تهران-تهران',
+        'birth_certificate_number' => '12345',
+        'father_name' => 'Ahmad',
+        'religion' => 'اسلام',
+        'marital_status' => 'مجرد',
+        'national_id' => '0123456789',
+        'military_status' => [
+            'status' => 'پایان خدمت',
+            'organization' => 'Army',
+            'from' => '2011-03-21',
+            'to' => '2013-03-21',
+            'reason' => 'Completed',
+        ],
+    ];
+}
+
+function validEmployeeContactInfo(): array
+{
+    return [
+        'email' => 'ali.rezaei@example.com',
+        'mobile' => '09121234567',
+        'phone' => '02112345678',
+        'emergency_phone' => '09121234567',
+        'address' => [
+            'postal_code' => '1234567890',
+            'province' => 'تهران',
+            'city' => 'تهران',
+            'address' => 'Test address',
+            'plaque' => '12',
+            'floor' => '3',
+            'unit' => '2',
+        ],
+    ];
+}
+
+function validEmployeeEducation(): array
+{
+    return [
+        'education_records' => [
+            [
+                'degree' => 'کارشناسی',
+                'field' => 'Computer Science',
+                'institution' => 'University of Tehran',
+                'from' => '2009-09-01',
+                'to' => '2013-06-15',
+                'graduation_date' => '2013-06-15',
+                'gpa' => '17.5',
+            ],
+        ],
+    ];
+}
+
+function validEmployeeWorkExperience(): array
+{
+    return [
+        'work_experiences' => [
+            [
+                'company' => 'Acme Corp',
+                'position' => 'Developer',
+                'from' => '2016-03-21',
+                'to' => '2021-03-20',
+            ],
+        ],
+    ];
+}
+
+function validEmployeeSkills(): array
+{
+    return [
+        'languages' => [
+            [
+                'language' => 'English',
+                'reading' => 4,
+                'writing' => 3,
+                'speaking' => 3,
+                'comprehension' => 4,
+            ],
+        ],
+        'software_skills' => [
+            'specialized' => [
+                ['name' => 'PHP', 'level' => 4],
+            ],
+            'general' => [
+                ['name' => 'Word', 'level' => 4],
+            ],
+        ],
+    ];
+}
+
+function validEmployeeTraining(): array
+{
+    return [
+        'training_courses' => [
+            ['course_name' => 'Laravel', 'duration' => '40 hours', 'institution' => 'Academy'],
+        ],
+    ];
+}
+
+function validEmployeeAdditionalInfo(): array
+{
+    return [
+        'references' => [
+            [
+                'full_name' => 'Mohammad Karimi',
+                'relationship' => 'Former Manager',
+                'workplace_phone' => '02188888888',
+            ],
+        ],
+    ];
+}
+
+beforeEach(function () {
+    seedFormOptions([
+        'gender', 'blood_group', 'marital_status', 'military_status',
+        'spouse_employment_status', 'religion', 'religion_sect', 'degree', 'university',
+    ]);
+    seedLocationOptions();
+});
 
 describe('employee CRUD', function () {
     describe('authentication', function () {
@@ -75,7 +202,7 @@ describe('employee CRUD', function () {
                         'personnel_code' => '00001',
                         'first_name' => 'John',
                         'last_name' => 'Doe',
-                        'gender' => 'male',
+                        'gender' => 'مرد',
                     ],
                 ]);
 
@@ -106,11 +233,11 @@ describe('employee CRUD', function () {
                 ]);
         });
 
-        it('fails with invalid gender', function () {
+        it('fails with invalid gender (english key value is not a label)', function () {
             $user = createUserWithPermissions(['employee.create']);
 
             $this->actingAs($user)
-                ->postJson('/api/employees', employeeData(['gender' => 'other']))
+                ->postJson('/api/employees', employeeData(['gender' => 'male']))
                 ->assertStatus(422)
                 ->assertJsonValidationErrors(['gender']);
         });
@@ -223,6 +350,52 @@ describe('employee CRUD', function () {
                 ])
                 ->assertStatus(403);
         });
+
+        it('links a user via partial update without identity fields', function () {
+            $user = createUserWithPermissions(['employee.update_all']);
+            $employee = Employee::factory()->create();
+            $employeeUser = User::factory()->create();
+
+            $this->actingAs($user)
+                ->putJson('/api/employees/'.$employee->id, [
+                    'user_id' => $employeeUser->id,
+                ])
+                ->assertStatus(200)
+                ->assertJsonPath('data.user.id', $employeeUser->id);
+
+            expect($employee->fresh()->user_id)->toBe($employeeUser->id);
+        });
+
+        it('unlinks the user when user_id is null', function () {
+            $user = createUserWithPermissions(['employee.update_all']);
+            $employeeUser = User::factory()->create();
+            $employee = Employee::factory()->create(['user_id' => $employeeUser->id]);
+
+            $this->actingAs($user)
+                ->putJson('/api/employees/'.$employee->id, [
+                    'user_id' => null,
+                ])
+                ->assertStatus(200)
+                ->assertJsonPath('data.user', null);
+
+            expect($employee->fresh()->user_id)->toBeNull();
+        });
+
+        it('rejects linking a user already assigned to another employee', function () {
+            $user = createUserWithPermissions(['employee.update_all']);
+            $employeeUser = User::factory()->create();
+            $other = Employee::factory()->create(['user_id' => $employeeUser->id]);
+            $employee = Employee::factory()->create();
+
+            $this->actingAs($user)
+                ->putJson('/api/employees/'.$employee->id, [
+                    'user_id' => $employeeUser->id,
+                ])
+                ->assertStatus(422)
+                ->assertJsonValidationErrors(['user_id']);
+
+            expect($employee->fresh()->user_id)->toBeNull();
+        });
     });
 
     describe('destroy', function () {
@@ -276,6 +449,184 @@ describe('employee CRUD', function () {
 
             $this->actingAs($user)
                 ->postJson('/api/employees', employeeData())
+                ->assertStatus(403);
+        });
+    });
+
+    describe('save section', function () {
+        it('persists personal info section into real columns and jsonb remainder', function () {
+            $user = createUserWithPermissions(['employee.update_all']);
+            $employee = Employee::factory()->create();
+
+            $this->actingAs($user)
+                ->postJson("/api/employees/{$employee->id}/sections/personal_info", validEmployeePersonalInfo())
+                ->assertStatus(200);
+
+            $this->assertDatabaseHas('employees', [
+                'id' => $employee->id,
+                'first_name' => 'Ali',
+                'last_name' => 'Rezaei',
+                'gender' => 'مرد',
+                'marital_status' => 'مجرد',
+                'id_number' => '0123456789',
+            ]);
+
+            $saved = $employee->fresh();
+            expect($saved->birth_date?->format('Y-m-d'))->toBe('1990-01-15')
+                ->and($saved->section_personal['blood_group'])->toBe('A+')
+                ->and($saved->section_personal)->not->toHaveKey('first_name')
+                ->and($saved->section_personal)->not->toHaveKey('gender');
+        });
+
+        it('persists contact info email and mobile into real columns', function () {
+            $user = createUserWithPermissions(['employee.update_all']);
+            $employee = Employee::factory()->create();
+
+            $this->actingAs($user)
+                ->postJson("/api/employees/{$employee->id}/sections/contact_info", validEmployeeContactInfo())
+                ->assertStatus(200);
+
+            $this->assertDatabaseHas('employees', [
+                'id' => $employee->id,
+                'email' => 'ali.rezaei@example.com',
+                'mobile' => '09121234567',
+            ]);
+
+            $saved = $employee->fresh();
+            expect($saved->section_contact_address['address']['city'])->toBe('تهران')
+                ->and($saved->section_contact_address)->not->toHaveKey('email')
+                ->and($saved->section_contact_address)->not->toHaveKey('mobile');
+        });
+
+        it('rejects structurally invalid section data', function () {
+            $user = createUserWithPermissions(['employee.update_all']);
+            $employee = Employee::factory()->create();
+
+            $this->actingAs($user)
+                ->postJson("/api/employees/{$employee->id}/sections/personal_info", [
+                    'gender' => 'invalid-gender',
+                    'birth_date' => 'not-a-date',
+                ])
+                ->assertStatus(422)
+                ->assertJsonValidationErrors(['personal_info.gender', 'personal_info.birth_date']);
+        });
+
+        it('returns 500 for unknown section key', function () {
+            $user = createUserWithPermissions(['employee.update_all']);
+            $employee = Employee::factory()->create();
+
+            $this->actingAs($user)
+                ->postJson("/api/employees/{$employee->id}/sections/unknown", ['foo' => 'bar'])
+                ->assertStatus(500);
+        });
+
+        it('denies section save without update permission', function () {
+            $user = createUserWithPermissions(['employee.view_all']);
+            $employee = Employee::factory()->create();
+
+            $this->actingAs($user)
+                ->postJson("/api/employees/{$employee->id}/sections/personal_info", validEmployeePersonalInfo())
+                ->assertStatus(403);
+        });
+
+        it('persists employment section into real columns without a jsonb remainder', function () {
+            $user = createUserWithPermissions(['employee.update_all']);
+            $employee = Employee::factory()->create();
+
+            $this->actingAs($user)
+                ->postJson("/api/employees/{$employee->id}/sections/employment", [
+                    'personnel_code' => 'EMP-1001',
+                    'employment_type' => 'contractual',
+                    'hire_date' => '2023-06-01',
+                    'employment_status' => 'active',
+                ])
+                ->assertStatus(200);
+
+            $this->assertDatabaseHas('employees', [
+                'id' => $employee->id,
+                'personnel_code' => 'EMP-1001',
+                'employment_type' => 'contractual',
+                'employment_status' => 'active',
+            ]);
+
+            $saved = $employee->fresh();
+            expect($saved->personnel_code)->toBe('EMP-1001')
+                ->and($saved->employment_type)->toBe('contractual')
+                ->and($saved->hire_date?->format('Y-m-d'))->toBe('2023-06-01')
+                ->and($saved->employment_status)->toBe('active');
+        });
+
+        it('rejects a personnel code already assigned to another employee', function () {
+            $user = createUserWithPermissions(['employee.update_all']);
+            $other = Employee::factory()->create(['personnel_code' => 'EMP-2000']);
+            $employee = Employee::factory()->create();
+
+            $this->actingAs($user)
+                ->postJson("/api/employees/{$employee->id}/sections/employment", [
+                    'personnel_code' => 'EMP-2000',
+                ])
+                ->assertStatus(422)
+                ->assertJsonValidationErrors(['employment.personnel_code']);
+
+            expect($employee->fresh()->personnel_code)->not->toBe('EMP-2000');
+        });
+
+        it('rejects structurally invalid employment section data', function () {
+            $user = createUserWithPermissions(['employee.update_all']);
+            $employee = Employee::factory()->create();
+
+            $this->actingAs($user)
+                ->postJson("/api/employees/{$employee->id}/sections/employment", [
+                    'employment_type' => 'not-a-type',
+                    'hire_date' => 'not-a-date',
+                ])
+                ->assertStatus(422)
+                ->assertJsonValidationErrors(['employment.employment_type', 'employment.hire_date']);
+        });
+    });
+
+    describe('submit', function () {
+        it('rejects submission when completion rules fail', function () {
+            $user = createUserWithPermissions(['employee.update_all']);
+            $employee = Employee::factory()->create();
+
+            $this->actingAs($user)
+                ->postJson("/api/employees/{$employee->id}/submit")
+                ->assertStatus(422);
+        });
+
+        it('accepts submission when all sections are complete', function () {
+            $user = createUserWithPermissions(['employee.update_all']);
+            $employee = Employee::factory()->create();
+
+            $sections = [
+                'personal_info' => validEmployeePersonalInfo(),
+                'contact_info' => validEmployeeContactInfo(),
+                'education' => validEmployeeEducation(),
+                'work_experience' => validEmployeeWorkExperience(),
+                'skills' => validEmployeeSkills(),
+                'training' => validEmployeeTraining(),
+                'additional_info' => validEmployeeAdditionalInfo(),
+            ];
+
+            foreach ($sections as $key => $data) {
+                $this->actingAs($user)
+                    ->postJson("/api/employees/{$employee->id}/sections/{$key}", $data)
+                    ->assertStatus(200);
+            }
+
+            $this->actingAs($user)
+                ->postJson("/api/employees/{$employee->id}/submit")
+                ->assertStatus(200)
+                ->assertJsonPath('data.id', $employee->id);
+        });
+
+        it('denies submit without update permission', function () {
+            $user = createUserWithPermissions(['employee.view_all']);
+            $employee = Employee::factory()->create();
+
+            $this->actingAs($user)
+                ->postJson("/api/employees/{$employee->id}/submit")
                 ->assertStatus(403);
         });
     });

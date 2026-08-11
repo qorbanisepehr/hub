@@ -21,12 +21,19 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     'birth_date',
     'id_number',
     'marital_status',
-    'education_level',
-    'education_field',
+    'email',
+    'mobile',
     'employment_type',
     'hire_date',
     'employment_status',
     'user_id',
+    'section_personal',
+    'section_contact_address',
+    'section_education',
+    'section_work_experience',
+    'section_skills',
+    'section_training',
+    'section_additional_info',
 ])]
 #[UseFactory(EmployeeFactory::class)]
 class Employee extends Model implements Documentable
@@ -47,6 +54,25 @@ class Employee extends Model implements Documentable
         return [
             'birth_date' => 'date',
             'hire_date' => 'date',
+            'section_personal' => 'array',
+            'section_contact_address' => 'array',
+            'section_education' => 'array',
+            'section_work_experience' => 'array',
+            'section_skills' => 'array',
+            'section_training' => 'array',
+            'section_additional_info' => 'array',
         ];
+    }
+
+    // ── Section accessors ──
+
+    public function getSection(string $name): ?array
+    {
+        return $this->{"section_{$name}"} ?? null;
+    }
+
+    public function setSection(string $name, array $data): void
+    {
+        $this->{"section_{$name}"} = $data;
     }
 }

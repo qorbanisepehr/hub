@@ -17,12 +17,20 @@ return new class extends Migration
             $table->date('birth_date')->nullable();
             $table->string('id_number', 10)->unique()->nullable();
             $table->string('marital_status')->nullable();
-            $table->string('education_level')->nullable();
-            $table->string('education_field')->nullable();
+            $table->string('email', 255)->nullable()->unique();
+            $table->string('mobile', 15)->nullable()->unique();
             $table->string('employment_type')->nullable();
             $table->date('hire_date')->nullable();
             $table->string('employment_status')->nullable();
             $table->foreignId('user_id')->nullable()->unique()->constrained()->nullOnDelete();
+            // JSONB sections — same layout as questionnaires/CV (see SectionDefinition storage).
+            $table->json('section_personal')->nullable();
+            $table->json('section_contact_address')->nullable();
+            $table->json('section_education')->nullable();
+            $table->json('section_work_experience')->nullable();
+            $table->json('section_skills')->nullable();
+            $table->json('section_training')->nullable();
+            $table->json('section_additional_info')->nullable();
             $table->timestamps();
             $table->softDeletes();
         });

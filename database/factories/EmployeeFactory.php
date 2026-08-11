@@ -8,11 +8,6 @@ use Illuminate\Database\Eloquent\Factories\Factory;
 /**
  * @extends Factory<Employee>
  */
-
-namespace Database\Factories;
-
-use Illuminate\Database\Eloquent\Factories\Factory;
-
 class EmployeeFactory extends Factory
 {
     protected static ?string $lastPersonnelCode = null;
@@ -21,7 +16,7 @@ class EmployeeFactory extends Factory
     {
         $this->faker = \Faker\Factory::create('fa_IR');
 
-        $gender = $this->faker->randomElement(['male', 'female']);
+        $genderKey = $this->faker->randomElement(['male', 'female']);
 
         return [
             'personnel_code' => static::$lastPersonnelCode = str_pad(
@@ -30,17 +25,14 @@ class EmployeeFactory extends Factory
                 '0',
                 STR_PAD_LEFT,
             ),
-            'first_name' => $this->faker->firstName($gender),
+            'first_name' => $this->faker->firstName($genderKey),
             'last_name' => $this->faker->lastName(),
-            'gender' => $gender,
+            'gender' => $genderKey === 'male' ? 'مرد' : 'زن',
             'birth_date' => $this->faker->date('Y-m-d', '2000-01-01'),
             'id_number' => $this->generateValidIranianNationalId(),
-            'marital_status' => $this->faker->randomElement(['single', 'married']),
-            'education_level' => $this->faker->randomElement(['diploma', 'associate', 'bachelor', 'master', 'doctorate']),
-            'education_field' => $this->faker->randomElement([
-                'مهندسی نرم‌افزار', 'مهندسی کامپیوتر', 'مدیریت بازرگانی',
-                'حسابداری', 'روانشناسی', 'حقوق', 'مهندسی صنایع', 'پزشکی',
-            ]),
+            'marital_status' => $this->faker->randomElement(['مجرد', 'متاهل']),
+            'email' => $this->faker->unique()->safeEmail(),
+            'mobile' => '09'.$this->faker->numberBetween(100000000, 999999999),
             'employment_type' => $this->faker->randomElement(['official', 'contractual', 'project-based']),
             'hire_date' => $this->faker->date('Y-m-d', 'now'),
             'employment_status' => $this->faker->randomElement(['active', 'inactive']),
