@@ -1,11 +1,11 @@
 <?php
 
-namespace App\Domains\Document\Requests;
+namespace App\Domains\Employee\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rules\File;
 
-class StoreDocumentRequest extends FormRequest
+class StoreEmployeeDocumentRequest extends FormRequest
 {
     public function authorize(): bool
     {
@@ -16,17 +16,17 @@ class StoreDocumentRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'documentable_type' => ['required', 'string', 'in:employee,questionnaire'],
-            'documentable_id' => ['required', 'integer', 'min:1'],
             'document_category_id' => ['required', 'exists:document_categories,id'],
             'file' => [
                 'required',
                 File::default()
-                    ->types(config('documents.allowed_mime_types'))
-                    ->max(config('documents.max_file_size')),
+                    ->types(config('documents.employee.allowed_mime_types'))
+                    ->max(config('documents.employee.max_file_size')),
             ],
-            'record_key' => ['nullable', 'string', 'max:255'],
             'notes' => ['nullable', 'string', 'max:1000'],
+            'meta' => ['nullable', 'json', 'max:5000'],
+            'record_key' => ['nullable', 'string', 'max:255'],
+            'form_data' => ['nullable', 'json'],
         ];
     }
 }

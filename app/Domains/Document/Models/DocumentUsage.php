@@ -4,9 +4,12 @@ namespace App\Domains\Document\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class DocumentUsage extends Model
 {
+    use SoftDeletes;
+
     protected $fillable = [
         'document_id',
         'entity_type',

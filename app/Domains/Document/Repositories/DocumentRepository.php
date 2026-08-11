@@ -50,7 +50,7 @@ class DocumentRepository implements DocumentRepositoryInterface
             ->whereKey($usageId)
             ->where('entity_type', $entityType)
             ->where('entity_id', $entityId)
-            ->delete() > 0;
+            ->forceDelete() > 0;
     }
 
     public function getForEntity(Model $entity, ?string $categorySlug = null): Collection

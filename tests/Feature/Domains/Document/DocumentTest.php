@@ -1,5 +1,21 @@
 <?php
 
+use App\Domains\Document\Models\Document;
+use App\Domains\Document\Models\DocumentCategory;
+use App\Domains\Document\Models\DocumentUsage;
+use App\Domains\Employee\Models\Employee;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
+
+function personnelDocumentCategory(string $slug, string $name = 'Personnel'): DocumentCategory
+{
+    return DocumentCategory::create([
+        'name' => $name,
+        'slug' => $slug,
+        'type' => DocumentCategory::TYPE_PERSONNEL,
+    ]);
+}
+
 describe('document API', function () {
     describe('authentication', function () {
         it('blocks unauthenticated access', function () {
@@ -8,14 +24,11 @@ describe('document API', function () {
             $this->deleteJson('/api/documents/1')->assertStatus(401);
             $this->getJson('/api/documents/trash')->assertStatus(401);
             $this->deleteJson('/api/documents/1/force')->assertStatus(401);
+            $this->postJson('/api/documents/1/restore')->assertStatus(401);
         });
     });
 
     describe('index', function () {
-        it('lists documents filtered by type', function () {
-            $this->markTestSkipped('Old morph-based DocumentController needs refactoring for DocumentUsage.');
-        });
-
         it('returns empty array when no documents', function () {
             $user = createUserWithPermissions(['document.view_all', 'document.view_own']);
 
@@ -24,68 +37,177 @@ describe('document API', function () {
                 ->assertStatus(200)
                 ->assertJsonCount(0, 'data');
         });
+
+        it('lists usages scoped to the entity and exposes the shared-component shape', function () {
+            Storage::fake('local');
+            $user = createUserWithPermissions(['document.view_all', 'document.upload_all']);
+            $employee = Employee::factory()->create();
+            $category = personnelDocumentCategory('resume', 'رزومه');
+
+            $data = $this->actingAs($user)
+                ->postJson('/api/documents', [
+                    'documentable_type' => 'employee',
+                    'documentable_id' => $employee->id,
+                    'document_category_id' => $category->id,
+                    'file' => UploadedFile::fake()->createWithContent('cv.pdf', 'document-content'),
+                    'notes' => 'بررسی شود',
+                ])
+                ->assertCreated()
+                ->json('data');
+
+            expect($data['document_category_id'])->toBe($category->id)
+                ->and($data['category']['name'])->toBe('رزومه')
+                ->and($data['category_slug'])->toBe('resume')
+                ->and($data['notes'])->toBe('بررسی شود')
+                ->and($data['current_revision']['original_name'])->toBe('cv.pdf')
+                ->and($data['current_revision']['file_size_formatted'])->not->toBeEmpty()
+                ->and($data['deleted_at'])->toBeNull();
+
+            $this->actingAs($user)
+                ->getJson('/api/documents?type=employee&id='.$employee->id)
+                ->assertOk()
+                ->assertJsonCount(1, 'data')
+                ->assertJsonPath('data.0.id', $data['id'])
+                ->assertJsonPath('data.0.document_category_id', $category->id)
+                ->assertJsonPath('data.0.category.name', 'رزومه')
+                ->assertJsonPath('data.0.category_slug', 'resume');
+        });
+
+        it('does not leak usages of other employees', function () {
+            Storage::fake('local');
+            $user = createUserWithPermissions(['document.view_all', 'document.upload_all']);
+            $employeeA = Employee::factory()->create();
+            $employeeB = Employee::factory()->create();
+            $category = personnelDocumentCategory('resume');
+
+            $this->actingAs($user)
+                ->postJson('/api/documents', [
+                    'documentable_type' => 'employee',
+                    'documentable_id' => $employeeA->id,
+                    'document_category_id' => $category->id,
+                    'file' => UploadedFile::fake()->createWithContent('cv.pdf', 'document-content'),
+                ])
+                ->assertCreated();
+
+            $this->actingAs($user)
+                ->getJson('/api/documents?type=employee&id='.$employeeB->id)
+                ->assertOk()
+                ->assertJsonCount(0, 'data');
+
+            $this->actingAs($user)
+                ->getJson('/api/documents?type=employee&id='.$employeeA->id)
+                ->assertOk()
+                ->assertJsonCount(1, 'data');
+        });
     });
 
     describe('store', function () {
-        it('uploads a document', function () {
-            $this->markTestSkipped('Old morph-based DocumentController needs refactoring for DocumentUsage.');
-        });
-
         it('fails without required fields', function () {
-            $this->markTestSkipped('Old morph-based DocumentController needs refactoring for DocumentUsage.');
+            $user = createUserWithPermissions(['document.upload_all']);
+
+            $this->actingAs($user)
+                ->postJson('/api/documents', [])
+                ->assertStatus(422)
+                ->assertJsonValidationErrors(['documentable_type', 'documentable_id', 'document_category_id', 'file']);
         });
 
-        it('fails with invalid category', function () {
-            $this->markTestSkipped('Old morph-based DocumentController needs refactoring for DocumentUsage.');
-        });
+        it('rejects an invalid documentable type', function () {
+            $user = createUserWithPermissions(['document.upload_all']);
 
-        it('dispatches thumbnail generation job on upload', function () {
-            $this->markTestSkipped('Old morph-based DocumentController needs refactoring for DocumentUsage.');
-        });
-
-        it('generates thumbnail for image uploads', function () {
-            $this->markTestSkipped('Old morph-based DocumentController needs refactoring for DocumentUsage.');
-        });
-
-        it('does not generate thumbnail for non-image uploads', function () {
-            $this->markTestSkipped('Old morph-based DocumentController needs refactoring for DocumentUsage.');
+            $this->actingAs($user)
+                ->postJson('/api/documents', [
+                    'documentable_type' => 'unknown',
+                    'documentable_id' => 1,
+                    'document_category_id' => 1,
+                    'file' => UploadedFile::fake()->create('a.pdf'),
+                ])
+                ->assertStatus(422)
+                ->assertJsonValidationErrors(['documentable_type']);
         });
 
         it('rejects disallowed mime types', function () {
-            $this->markTestSkipped('Old morph-based DocumentController needs refactoring for DocumentUsage.');
-        });
-    });
+            Storage::fake('local');
+            $user = createUserWithPermissions(['document.upload_all']);
+            $employee = Employee::factory()->create();
+            $category = personnelDocumentCategory('resume');
 
-    describe('show', function () {
-        it('shows document with revisions', function () {
-            $this->markTestSkipped('Old morph-based DocumentController needs refactoring for DocumentUsage.');
+            $this->actingAs($user)
+                ->postJson('/api/documents', [
+                    'documentable_type' => 'employee',
+                    'documentable_id' => $employee->id,
+                    'document_category_id' => $category->id,
+                    'file' => UploadedFile::fake()->createWithContent('malware.exe', 'MZ'),
+                ])
+                ->assertStatus(422)
+                ->assertJsonValidationErrors(['file']);
+        });
+
+        it('returns 404 when the documentable entity does not exist', function () {
+            $user = createUserWithPermissions(['document.upload_all']);
+            $category = personnelDocumentCategory('resume');
+
+            $this->actingAs($user)
+                ->postJson('/api/documents', [
+                    'documentable_type' => 'employee',
+                    'documentable_id' => 99999,
+                    'document_category_id' => $category->id,
+                    'file' => UploadedFile::fake()->create('a.pdf'),
+                ])
+                ->assertStatus(404);
         });
     });
 
     describe('destroy', function () {
-        it('soft-deletes a document and keeps files on disk', function () {
-            $this->markTestSkipped('Old morph-based DocumentController needs refactoring for DocumentUsage.');
+        it('soft-deletes a usage into the trash and keeps the file', function () {
+            Storage::fake('local');
+            $user = createUserWithPermissions(['document.view_all', 'document.upload_all', 'document.delete_all']);
+            $employee = Employee::factory()->create();
+            $category = personnelDocumentCategory('resume');
+
+            $data = $this->actingAs($user)
+                ->postJson('/api/documents', [
+                    'documentable_type' => 'employee',
+                    'documentable_id' => $employee->id,
+                    'document_category_id' => $category->id,
+                    'file' => UploadedFile::fake()->createWithContent('cv.pdf', 'document-content'),
+                ])
+                ->assertCreated()
+                ->json('data');
+
+            $path = Document::first()->path;
+
+            $this->actingAs($user)
+                ->deleteJson('/api/documents/'.$data['id'])
+                ->assertOk()
+                ->assertJson(['message' => __('document.document_deleted')]);
+
+            $this->actingAs($user)
+                ->getJson('/api/documents?type=employee&id='.$employee->id)
+                ->assertOk()
+                ->assertJsonCount(0, 'data');
+
+            $this->actingAs($user)
+                ->getJson('/api/documents/trash?type=employee&id='.$employee->id)
+                ->assertOk()
+                ->assertJsonCount(1, 'data')
+                ->assertJsonPath('data.0.id', $data['id']);
+
+            expect(DocumentUsage::withTrashed()->count())->toBe(1)
+                ->and(DocumentUsage::withTrashed()->first()->trashed())->toBeTrue();
+            Storage::disk('local')->assertExists($path);
         });
 
-        it('returns 404 for non-existent document', function () {
+        it('returns 404 for a non-existent usage', function () {
             $user = createUserWithPermissions(['document.delete_all']);
 
             $this->actingAs($user)
                 ->deleteJson('/api/documents/99999')
                 ->assertStatus(404);
         });
-
-        it('hides soft-deleted documents from the index', function () {
-            $this->markTestSkipped('Old morph-based DocumentController needs refactoring for DocumentUsage.');
-        });
     });
 
     describe('trash', function () {
-        it('lists trashed documents', function () {
-            $this->markTestSkipped('Old morph-based DocumentController needs refactoring for DocumentUsage.');
-        });
-
-        it('returns empty array when no trashed documents', function () {
+        it('returns empty array when the trash is empty', function () {
             $user = createUserWithPermissions(['document.view_all', 'document.view_own']);
 
             $this->actingAs($user)
@@ -93,14 +215,88 @@ describe('document API', function () {
                 ->assertStatus(200)
                 ->assertJsonCount(0, 'data');
         });
+
+        it('lists only the trashed usages of the requested entity', function () {
+            Storage::fake('local');
+            $user = createUserWithPermissions(['document.view_all', 'document.upload_all', 'document.delete_all']);
+            $employeeA = Employee::factory()->create();
+            $employeeB = Employee::factory()->create();
+            $category = personnelDocumentCategory('resume');
+
+            $dataA = $this->actingAs($user)
+                ->postJson('/api/documents', [
+                    'documentable_type' => 'employee',
+                    'documentable_id' => $employeeA->id,
+                    'document_category_id' => $category->id,
+                    'file' => UploadedFile::fake()->createWithContent('cv.pdf', 'document-content'),
+                ])
+                ->assertCreated()
+                ->json('data');
+
+            $this->actingAs($user)
+                ->postJson('/api/documents', [
+                    'documentable_type' => 'employee',
+                    'documentable_id' => $employeeB->id,
+                    'document_category_id' => $category->id,
+                    'file' => UploadedFile::fake()->createWithContent('cv-b.pdf', 'document-content-b'),
+                ])
+                ->assertCreated();
+
+            $this->actingAs($user)
+                ->deleteJson('/api/documents/'.$dataA['id'])
+                ->assertOk();
+
+            $this->actingAs($user)
+                ->getJson('/api/documents/trash?type=employee&id='.$employeeA->id)
+                ->assertOk()
+                ->assertJsonCount(1, 'data')
+                ->assertJsonPath('data.0.id', $dataA['id']);
+
+            $this->actingAs($user)
+                ->getJson('/api/documents/trash?type=employee&id='.$employeeB->id)
+                ->assertOk()
+                ->assertJsonCount(0, 'data');
+        });
     });
 
     describe('restore', function () {
-        it('restores a soft-deleted document', function () {
-            $this->markTestSkipped('Old morph-based DocumentController needs refactoring for DocumentUsage.');
+        it('restores a soft-deleted usage back to the active list', function () {
+            Storage::fake('local');
+            $user = createUserWithPermissions(['document.view_all', 'document.upload_all', 'document.delete_all']);
+            $employee = Employee::factory()->create();
+            $category = personnelDocumentCategory('resume');
+
+            $data = $this->actingAs($user)
+                ->postJson('/api/documents', [
+                    'documentable_type' => 'employee',
+                    'documentable_id' => $employee->id,
+                    'document_category_id' => $category->id,
+                    'file' => UploadedFile::fake()->createWithContent('cv.pdf', 'document-content'),
+                ])
+                ->assertCreated()
+                ->json('data');
+
+            $this->actingAs($user)
+                ->deleteJson('/api/documents/'.$data['id'])
+                ->assertOk();
+
+            $this->actingAs($user)
+                ->postJson('/api/documents/'.$data['id'].'/restore')
+                ->assertOk()
+                ->assertJson(['message' => __('document.document_restored')]);
+
+            $this->actingAs($user)
+                ->getJson('/api/documents?type=employee&id='.$employee->id)
+                ->assertJsonCount(1, 'data');
+
+            $this->actingAs($user)
+                ->getJson('/api/documents/trash?type=employee&id='.$employee->id)
+                ->assertJsonCount(0, 'data');
+
+            expect(DocumentUsage::first()->trashed())->toBeFalse();
         });
 
-        it('returns 404 for non-existent trashed document', function () {
+        it('returns 404 for a non-existent trashed usage', function () {
             $user = createUserWithPermissions(['document.delete_all']);
 
             $this->actingAs($user)
@@ -110,11 +306,39 @@ describe('document API', function () {
     });
 
     describe('force destroy', function () {
-        it('permanently deletes a document and its files', function () {
-            $this->markTestSkipped('Old morph-based DocumentController needs refactoring for DocumentUsage.');
+        it('permanently deletes the usage and the file when it is the last one', function () {
+            Storage::fake('local');
+            $user = createUserWithPermissions(['document.view_all', 'document.upload_all', 'document.delete_all']);
+            $employee = Employee::factory()->create();
+            $category = personnelDocumentCategory('resume');
+
+            $data = $this->actingAs($user)
+                ->postJson('/api/documents', [
+                    'documentable_type' => 'employee',
+                    'documentable_id' => $employee->id,
+                    'document_category_id' => $category->id,
+                    'file' => UploadedFile::fake()->createWithContent('cv.pdf', 'document-content'),
+                ])
+                ->assertCreated()
+                ->json('data');
+
+            $path = Document::first()->path;
+
+            $this->actingAs($user)
+                ->deleteJson('/api/documents/'.$data['id'])
+                ->assertOk();
+
+            $this->actingAs($user)
+                ->deleteJson('/api/documents/'.$data['id'].'/force')
+                ->assertOk()
+                ->assertJson(['message' => __('document.document_force_deleted')]);
+
+            expect(Document::count())->toBe(0)
+                ->and(DocumentUsage::withTrashed()->count())->toBe(0);
+            Storage::disk('local')->assertMissing($path);
         });
 
-        it('returns 404 for non-existent document', function () {
+        it('returns 404 for a non-existent usage', function () {
             $user = createUserWithPermissions(['document.delete_all']);
 
             $this->actingAs($user)
@@ -124,35 +348,31 @@ describe('document API', function () {
     });
 
     describe('download', function () {
-        it('downloads document with category slug format', function () {
-            $this->markTestSkipped('Old morph-based DocumentController needs refactoring for DocumentUsage.');
-        });
+        it('downloads the stored document', function () {
+            Storage::fake('local');
+            $user = createUserWithPermissions(['document.view_all', 'document.upload_all', 'document.download_all']);
+            $employee = Employee::factory()->create();
+            $category = personnelDocumentCategory('resume');
 
-        it('returns 404 when file missing from disk', function () {
-            $this->markTestSkipped('Old morph-based DocumentController needs refactoring for DocumentUsage.');
-        });
-    });
+            $this->actingAs($user)
+                ->postJson('/api/documents', [
+                    'documentable_type' => 'employee',
+                    'documentable_id' => $employee->id,
+                    'document_category_id' => $category->id,
+                    'file' => UploadedFile::fake()->createWithContent('cv.pdf', 'document-content'),
+                ])
+                ->assertCreated();
 
-    describe('serve', function () {
-        it('serves thumbnail when requested with ?thumbnail=1', function () {
-            $this->markTestSkipped('Old morph-based DocumentController needs refactoring for DocumentUsage.');
-        });
+            $document = Document::first();
 
-        it('serves original file when thumbnail does not exist', function () {
-            $this->markTestSkipped('Old morph-based DocumentController needs refactoring for DocumentUsage.');
-        });
-
-        it('denies serve without auth', function () {
-            $this->markTestSkipped('Old morph-based DocumentController needs refactoring for DocumentUsage.');
-        });
-
-        it('denies serve for other users document with download_own only', function () {
-            $this->markTestSkipped('Old morph-based DocumentController needs refactoring for DocumentUsage.');
+            $this->actingAs($user)
+                ->get('/api/documents/'.$document->id.'/download')
+                ->assertOk();
         });
     });
 
     describe('authorization', function () {
-        it('denies access without required permission', function () {
+        it('denies access without the required permission', function () {
             $user = createUserWithPermissions([]);
 
             $this->actingAs($user)
@@ -169,27 +389,13 @@ describe('document API', function () {
                 ])
                 ->assertStatus(403);
         });
-    });
 
-    describe('own/all scoping', function () {
-        it('scopes index to own documents with view_own only', function () {
-            $this->markTestSkipped('Old morph-based DocumentController needs refactoring for DocumentUsage.');
-        });
+        it('denies delete without document.delete permission', function () {
+            $user = createUserWithPermissions(['document.view_all']);
 
-        it('shows all documents with view_all permission', function () {
-            $this->markTestSkipped('Old morph-based DocumentController needs refactoring for DocumentUsage.');
-        });
-
-        it('scopes trash to own documents with view_own only', function () {
-            $this->markTestSkipped('Old morph-based DocumentController needs refactoring for DocumentUsage.');
-        });
-
-        it('denies delete of other users documents with delete_own only', function () {
-            $this->markTestSkipped('Old morph-based DocumentController needs refactoring for DocumentUsage.');
-        });
-
-        it('allows delete of own documents with delete_own', function () {
-            $this->markTestSkipped('Old morph-based DocumentController needs refactoring for DocumentUsage.');
+            $this->actingAs($user)
+                ->deleteJson('/api/documents/1')
+                ->assertStatus(403);
         });
     });
 });

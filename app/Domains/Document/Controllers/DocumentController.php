@@ -2,14 +2,17 @@
 
 namespace App\Domains\Document\Controllers;
 
+use App\Contracts\Documentable;
 use App\Domains\Document\Models\Document;
 use App\Domains\Document\Models\DocumentCategory;
+use App\Domains\Document\Models\DocumentUsage;
 use App\Domains\Document\Requests\StoreDocumentRequest;
 use App\Domains\Document\Resources\DocumentResource;
 use App\Domains\Document\Services\DocumentService;
 use App\Domains\Employee\Models\Employee;
 use App\Domains\Recruitment\Models\Questionnaire;
 use App\Http\Controllers\ApiController;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -31,24 +34,15 @@ class DocumentController extends ApiController
 
     public function index(Request $request): AnonymousResourceCollection
     {
-        $query = Document::query()
-            ->with(['usages', 'usages.document'])
-            ->whereHas('usages', function ($q) use ($request) {
-                if ($type = $request->input('type')) {
-                    $class = self::ROUTE_TYPE_MAP[$type] ?? null;
-                    if ($class) {
-                        $q->where('entity_type', $class);
-                    }
-                }
+        $query = DocumentUsage::query()
+            ->with('document')
+            ->whereNull('document_usages.deleted_at');
 
-                if ($recordKey = $request->input('record_key')) {
-                    $q->where('record_key', $recordKey);
-                }
-            });
+        $this->applyEntityScope($query, $request);
 
-        $documents = $query->latest()->paginate($request->input('per_page', 50));
-
-        return DocumentResource::collection($documents);
+        return DocumentResource::collection(
+            $query->latest('document_usages.id')->paginate($request->input('per_page', 50)),
+        );
     }
 
     public function store(StoreDocumentRequest $request): DocumentResource
@@ -67,11 +61,18 @@ class DocumentController extends ApiController
             $request->input('document_category_id'),
         );
 
+        $customProperties = [];
+        if ($notes = $request->input('notes')) {
+            $customProperties['notes'] = $notes;
+        }
+
         $document = $this->documentService->upload(
             $owner,
             $request->file('file'),
             $category?->slug ?? 'general',
             $request->input('record_key'),
+            null,
+            $customProperties !== [] ? $customProperties : null,
         );
 
         return new DocumentResource($document);
@@ -84,30 +85,58 @@ class DocumentController extends ApiController
         return new DocumentResource($document);
     }
 
-    public function destroy(Document $document): JsonResponse
+    /**
+     * Move a single usage (identified by its id, exposed as `id` in the
+     * resource) to the trash. The file is kept so it can be restored later.
+     */
+    public function destroy(int $document): JsonResponse
     {
-        $this->documentService->delete($document);
+        $entity = $this->resolveUsageEntity(DocumentUsage::find($document));
 
-        return response()->json(['message' => __('document.document_force_deleted')]);
+        if ($entity === null) {
+            abort(404);
+        }
+
+        $this->documentService->trashUsage($document, $entity);
+
+        return response()->json(['message' => __('document.document_deleted')]);
     }
 
     public function trashed(Request $request): AnonymousResourceCollection
     {
+        $query = DocumentUsage::query()
+            ->onlyTrashed()
+            ->with('document');
+
+        $this->applyEntityScope($query, $request);
+
         return DocumentResource::collection(
-            Document::query()->whereRaw('1 = 0')->paginate(),
+            $query->latest('document_usages.id')->paginate($request->input('per_page', 50)),
         );
     }
 
-    public function restore(int $id): JsonResponse
+    public function restore(int $document): JsonResponse
     {
-        abort(404, __('document.restore_not_supported'));
+        $entity = $this->resolveUsageEntity(DocumentUsage::onlyTrashed()->find($document));
+
+        if ($entity === null) {
+            abort(404);
+        }
+
+        $this->documentService->restoreUsage($document, $entity);
+
+        return response()->json(['message' => __('document.document_restored')]);
     }
 
-    public function forceDestroy(int $id): JsonResponse
+    public function forceDestroy(int $document): JsonResponse
     {
-        $document = Document::findOrFail($id);
+        $entity = $this->resolveUsageEntity(DocumentUsage::withTrashed()->find($document));
 
-        $this->documentService->delete($document);
+        if ($entity === null) {
+            abort(404);
+        }
+
+        $this->documentService->forceDeleteUsage($document, $entity);
 
         return response()->json(['message' => __('document.document_force_deleted')]);
     }
@@ -141,10 +170,34 @@ class DocumentController extends ApiController
             abort(404);
         }
 
-        $extension = pathinfo($document->original_name, PATHINFO_EXTENSION);
         $filename = $document->original_name;
 
         return Storage::disk($disk)->download($path, $filename);
+    }
+
+    private function applyEntityScope(Builder $query, Request $request): void
+    {
+        if ($type = $request->input('type')) {
+            $class = self::ROUTE_TYPE_MAP[$type] ?? null;
+            if ($class) {
+                $query->where('entity_type', $class);
+            }
+        }
+
+        if ($entityId = $request->input('id')) {
+            $query->where('entity_id', $entityId);
+        }
+    }
+
+    private function resolveUsageEntity(?DocumentUsage $usage): ?Documentable
+    {
+        if ($usage === null) {
+            return null;
+        }
+
+        $entity = $usage->resolveEntity();
+
+        return $entity instanceof Documentable ? $entity : null;
     }
 
     private function getThumbnailPath(string $originalPath): string

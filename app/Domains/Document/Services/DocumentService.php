@@ -96,6 +96,76 @@ class DocumentService
     }
 
     /**
+     * Soft-delete a single usage (move it to the trash). The file and the
+     * document record are kept so the usage can be restored later.
+     */
+    public function trashUsage(int $usageId, Documentable $entity): bool
+    {
+        $usage = DocumentUsage::query()
+            ->whereKey($usageId)
+            ->where('entity_type', get_class($entity))
+            ->where('entity_id', $entity->getKey())
+            ->first();
+
+        if (! $usage) {
+            return false;
+        }
+
+        $usage->delete();
+
+        return true;
+    }
+
+    /**
+     * Restore a soft-deleted usage so it appears again on the entity.
+     */
+    public function restoreUsage(int $usageId, Documentable $entity): bool
+    {
+        $usage = DocumentUsage::query()
+            ->withTrashed()
+            ->whereKey($usageId)
+            ->where('entity_type', get_class($entity))
+            ->where('entity_id', $entity->getKey())
+            ->first();
+
+        if (! $usage) {
+            return false;
+        }
+
+        $usage->restore();
+
+        return true;
+    }
+
+    /**
+     * Permanently delete a trashed usage (file + record when nothing shares
+     * the document anymore).
+     */
+    public function forceDeleteUsage(int $usageId, Documentable $entity): bool
+    {
+        $usage = DocumentUsage::query()
+            ->withTrashed()
+            ->whereKey($usageId)
+            ->where('entity_type', get_class($entity))
+            ->where('entity_id', $entity->getKey())
+            ->first();
+
+        if (! $usage) {
+            return false;
+        }
+
+        $document = $usage->document;
+
+        $usage->forceDelete();
+
+        if ($document && $document->usages()->count() === 0) {
+            $this->repository->deleteDocument($document);
+        }
+
+        return true;
+    }
+
+    /**
      * Remove document usage (unlink from entity, but keep the file if shared).
      */
     public function detach(Document $document, Documentable $entity): bool
