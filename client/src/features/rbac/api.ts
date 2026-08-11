@@ -40,7 +40,9 @@ export function fetchRoles(params: RoleListParams = {}) {
 }
 
 export function fetchAllRoles() {
-    return api.get<{ data: Role[] }>("/roles", { params: { per_page: PAGINATION.FETCH_ALL_SIZE } });
+    return api.get<{ data: Role[] }>("/roles", {
+        params: { per_page: PAGINATION.FETCH_ALL_SIZE },
+    });
 }
 
 export function fetchRolesChart() {
@@ -74,11 +76,15 @@ export function fetchPermissions() {
 }
 
 export function fetchPermissionsPaginated(params: PermissionListParams = {}) {
-    return api.get<PaginatedResponse<Permission>>("/permissions/search", { params });
+    return api.get<PaginatedResponse<Permission>>("/permissions/search", {
+        params,
+    });
 }
 
 export function fetchRegisteredPermissions() {
-    return api.get<Record<string, { name: string; permissions: Record<string, string> }>>("/permissions/registered");
+    return api.get<
+        Record<string, { name: string; permissions: Record<string, string> }>
+    >("/permissions/registered");
 }
 
 // ── Users ──
@@ -115,7 +121,38 @@ export function removeUserRole(userId: number, roleId: number) {
 }
 
 export function switchActiveRole(userId: number, roleId: number) {
-    return api.post<{ message: string }>(`/users/${userId}/switch-active-role`, {
-        role_id: roleId,
+    return api.post<{ message: string }>(
+        `/users/${userId}/switch-active-role`,
+        {
+            role_id: roleId,
+        },
+    );
+}
+
+// ── Export ──
+export type ChartExportField = {
+    key: string;
+    label: string;
+    column: string;
+};
+
+export function fetchChartExportFields() {
+    return api.get<{ data: ChartExportField[] }>("/roles/chart/export-fields");
+}
+
+export function exportRoleChart(params: {
+    scope?: "all" | "subtree";
+    root_id?: number;
+    fields?: string[];
+    format?: string;
+}) {
+    return api.get("/roles/chart/export", {
+        params: {
+            scope: params.scope ?? "all",
+            root_id: params.root_id,
+            fields: (params.fields ?? []).join(","),
+            format: params.format ?? "csv",
+        },
+        responseType: "blob",
     });
 }

@@ -2,6 +2,7 @@
 
 namespace App\Domains\Rbac\Controllers;
 
+use App\Domains\Rbac\Exports\RoleChartCsvExporter;
 use App\Domains\Rbac\Models\Role;
 use App\Domains\Rbac\Requests\StoreRoleRequest;
 use App\Domains\Rbac\Requests\UpdateRoleRequest;
@@ -10,6 +11,7 @@ use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
 
 class RoleController
@@ -196,6 +198,43 @@ class RoleController
         }
 
         $this->flushRoleUsersCaches($role);
+    }
+
+    public function exportChart(Request $request)
+    {
+        $scope = $request->query('scope', 'all');
+        $format = $request->query('format', 'csv');
+        $rootId = $request->filled('root_id') ? (int) $request->query('root_id') : null;
+        $fields = array_filter(array_map('trim', explode(',', (string) $request->query('fields', ''))));
+
+        if ($format !== 'csv') {
+            return response()->json(['message' => 'این فرمت هنوز پشتیبانی نمی‌شود.'], 422);
+        }
+
+        if ($scope === 'subtree' && $rootId === null) {
+            return response()->json(['message' => 'برای خروجی زیرمجموعه، انتخاب نقش ریشه الزامی است.'], 422);
+        }
+
+        if ($rootId !== null && ! Role::whereKey($rootId)->exists()) {
+            return response()->json(['message' => 'نقش ریشه یافت نشد.'], 404);
+        }
+
+        $csv = (new RoleChartCsvExporter)->export($rootId, $fields);
+        $filename = 'org-chart-roles-'.now()->format('Y-m-d-His').'.csv';
+
+        // مهم: حتماً از response() با محتوای خام استفاده کنید، نه response()->json()
+        return response($csv, 200, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
+            'Cache-Control' => 'no-store',
+        ]);
+    }
+
+    public function exportFields(): JsonResponse
+    {
+        return response()->json([
+            'data' => (new RoleChartCsvExporter)->availableFields(),
+        ]);
     }
 
     /**

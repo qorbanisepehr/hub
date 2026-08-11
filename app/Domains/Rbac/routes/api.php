@@ -62,4 +62,10 @@ Route::middleware('auth:sanctum')->group(function () {
         ->middleware('permission:user.assign-roles');
     Route::post('users/{user}/switch-active-role', [UserRoleController::class, 'switchActive'])
         ->middleware('permission:user.assign-roles');
+
+    Route::get('roles/chart/export', [RoleController::class, 'exportChart'])
+        ->middleware('permission:role.view');
+
+    Route::get('roles/chart/export-fields', [RoleController::class, 'exportFields'])
+        ->middleware('permission:role.view');
 });

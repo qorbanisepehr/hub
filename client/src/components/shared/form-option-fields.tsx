@@ -84,7 +84,7 @@ export function FormOptionSelectField({
 }: FormOptionFieldProps) {
     const { data } = useFormOptionsByGroup(group, parentValue);
     const options = toSelectOptions(data, filter);
-
+    console.log(data, options, filter, field.state.value);
     return (
         <FormSelectField
             field={field}
@@ -106,7 +106,9 @@ export function FormOptionRadioGroup({
     const { data } = useFormOptionsByGroup(group, parentValue);
     const options = toSelectOptions(data, filter);
 
-    return <FormRadioGroup field={field} label={label} options={options ?? []} />;
+    return (
+        <FormRadioGroup field={field} label={label} options={options ?? []} />
+    );
 }
 
 export function FormOptionCheckboxGroup({
@@ -120,7 +122,11 @@ export function FormOptionCheckboxGroup({
     const options = toSelectOptions(data, filter);
 
     return (
-        <FormCheckboxGroup field={field} label={label} options={options ?? []} />
+        <FormCheckboxGroup
+            field={field}
+            label={label}
+            options={options ?? []}
+        />
     );
 }
 
@@ -334,9 +340,10 @@ export function PlaceFields({
                     value={province || null}
                     onValueChange={handleProvinceChange}
                     itemToStringLabel={(item) =>
-                        provinceItems?.find(
-                            (option) => option.value === item,
-                        )?.label ?? item ?? ""
+                        provinceItems?.find((option) => option.value === item)
+                            ?.label ??
+                        item ??
+                        ""
                     }
                 >
                     <SelectTrigger id={`${field.name}.province`}>
@@ -357,14 +364,14 @@ export function PlaceFields({
                 group="city"
                 parentValue={provinceValue || undefined}
                 disabled={!province}
-                placeholder={province ? cityPlaceholder : "ابتدا استان را انتخاب کنید"}
+                placeholder={
+                    province ? cityPlaceholder : "ابتدا استان را انتخاب کنید"
+                }
                 deriveDisplayValue={(stored) => {
                     const combined = (stored as string | undefined) ?? "";
                     return combined.split("-")[1] ?? combined;
                 }}
-                formatValue={(city) =>
-                    city ? `${province}-${city}` : ""
-                }
+                formatValue={(city) => (city ? `${province}-${city}` : "")}
             />
         </>
     );
@@ -390,8 +397,7 @@ export function ProvinceCityFields({
     provincePlaceholder?: string;
     cityPlaceholder?: string;
 }) {
-    const province =
-        (provinceField.state.value as string | undefined) ?? "";
+    const province = (provinceField.state.value as string | undefined) ?? "";
 
     const { data: provinceOptions } = useFormOptionsByGroup("province");
 
@@ -422,9 +428,10 @@ export function ProvinceCityFields({
                     value={province || null}
                     onValueChange={handleProvinceChange}
                     itemToStringLabel={(item) =>
-                        provinceItems?.find(
-                            (option) => option.value === item,
-                        )?.label ?? item ?? ""
+                        provinceItems?.find((option) => option.value === item)
+                            ?.label ??
+                        item ??
+                        ""
                     }
                 >
                     <SelectTrigger id={provinceField.name}>
