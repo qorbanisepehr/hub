@@ -7,10 +7,10 @@ export function fetchDocumentCategories(type?: string) {
     return api.get<{ data: DocumentCategory[] }>("/document-categories", { params });
 }
 
-export function fetchDocuments(type?: string, recordKey?: string, status?: string) {
+export function fetchDocuments(type?: string, entityId?: string, status?: string) {
     const params: Record<string, string> = {};
     if (type) params.type = type;
-    if (recordKey) params.record_key = recordKey;
+    if (entityId) params.id = entityId;
     if (status) params.status = status;
     return api.get<{ data: Document[] }>("/documents", { params });
 }
@@ -33,10 +33,10 @@ export function deleteDocument(documentId: number) {
     );
 }
 
-export function fetchTrashedDocuments(type?: string, recordKey?: string) {
+export function fetchTrashedDocuments(type?: string, entityId?: string) {
     const params: Record<string, string> = {};
     if (type) params.type = type;
-    if (recordKey) params.record_key = recordKey;
+    if (entityId) params.id = entityId;
     return api.get<{ data: Document[] }>("/documents/trash", { params });
 }
 

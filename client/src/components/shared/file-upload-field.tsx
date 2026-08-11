@@ -11,11 +11,12 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { cn } from "@/lib/utils";
+import { api } from "@/lib/api";
 import { publicApi } from "@/lib/public-api";
 import { getApiError } from "@/lib/error-utils";
 import { documentKeys } from "@/lib/query-keys";
 import { formatBytes } from "@/lib/file-size";
-import { useEntityDocuments } from "@/hooks/use-entity-documents";
+import { isAuthedDocumentEntity, useEntityDocuments } from "@/hooks/use-entity-documents";
 import type { EntityDocument } from "@/hooks/use-entity-documents";
 import { fetchDocumentCategories } from "@/features/documents/api";
 import type { DocumentCategory } from "@/features/documents/types";
@@ -100,6 +101,9 @@ export function FileUploadField({
 }: FileUploadFieldProps) {
     const queryClient = useQueryClient();
 
+    const authed = isAuthedDocumentEntity(entity);
+    const docClient = authed ? api : publicApi;
+
     const { getDocumentsBySlug } = useEntityDocuments(entity, uuid);
     const categoryDocs = getDocumentsBySlug(categorySlug, recordKey).filter(
         (d) => (notes !== undefined ? (d.notes ?? "") === notes : true),
@@ -147,16 +151,20 @@ export function FileUploadField({
             } else if (notes) {
                 formData.append("notes", notes);
             }
-            return publicApi
+            return docClient
                 .post<{
                     data: EntityDocument;
                 }>(`/${entity}/${uuid}/documents`, formData, {
                     headers: { "Content-Type": "multipart/form-data" },
-                    grant: {
-                        entity,
-                        uuid,
-                        purpose: "edit",
-                    },
+                    ...(authed
+                        ? {}
+                        : {
+                              grant: {
+                                  entity,
+                                  uuid,
+                                  purpose: "edit",
+                              },
+                          }),
                 })
                 .then((r) => r.data.data);
         },
@@ -174,8 +182,10 @@ export function FileUploadField({
 
     const deleteMutation = useMutation({
         mutationFn: (usageId: number) =>
-            publicApi.delete(`/${entity}/${uuid}/documents/${usageId}`, {
-                grant: { entity, uuid, purpose: "edit" },
+            docClient.delete(`/${entity}/${uuid}/documents/${usageId}`, {
+                ...(authed
+                    ? {}
+                    : { grant: { entity, uuid, purpose: "edit" } }),
             }),
         onSuccess: () => {
             queryClient.invalidateQueries({

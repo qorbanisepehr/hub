@@ -5,11 +5,13 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { cn } from "@/lib/utils";
+import { api } from "@/lib/api";
 import { publicApi } from "@/lib/public-api";
 import { ConfirmDeleteButton } from "@/components/ui/confirm-delete-button";
 import { FileThumbnail } from "@/components/ui/file-thumbnail";
 import { getFileIcon } from "@/lib/file-icon";
 import { getFileColorClasses } from "@/lib/file-colors";
+import { isAuthedDocumentEntity } from "@/hooks/use-entity-documents";
 import type { EntityDocument } from "@/hooks/use-entity-documents";
 
 type DocumentFileItemProps = {
@@ -41,11 +43,13 @@ export function DocumentFileItem({
     className,
 }: DocumentFileItemProps) {
     const queryClient = useQueryClient();
+    const authed = isAuthedDocumentEntity(entity);
+    const docClient = authed ? api : publicApi;
 
     const deleteMutation = useMutation({
         mutationFn: (usageId: number) =>
-            publicApi.delete(`/${entity}/${uuid}/documents/${usageId}`, {
-                grant: { entity, uuid, purpose: "edit" },
+            docClient.delete(`/${entity}/${uuid}/documents/${usageId}`, {
+                ...(authed ? {} : { grant: { entity, uuid, purpose: "edit" } }),
             }),
         onSuccess: () => {
             queryClient.invalidateQueries({

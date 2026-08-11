@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 
+import { api } from "@/lib/api";
 import { publicApi } from "@/lib/public-api";
 
 export type EntityDocument = {
@@ -12,16 +13,29 @@ export type EntityDocument = {
     category_slug: string | null;
     record_key: string | null;
     notes: string | null;
+    deleted_at?: string | null;
     url: string;
     download_url?: string;
 };
 
 /**
- * Load the document usages attached to any grant-protected entity
- * (e.g. "questionnaire", "cv"). The query key is namespaced per entity so
- * invalidation stays isolated between features.
+ * Entities whose document API is protected by Sanctum auth instead of an access
+ * grant. The entity value doubles as the API path prefix, so the auth model is
+ * derived from it (questionnaire/cv use grant tokens, employees use the session).
+ */
+const AUTHED_DOCUMENT_ENTITIES = new Set(["employees"]);
+
+export function isAuthedDocumentEntity(entity: string): boolean {
+    return AUTHED_DOCUMENT_ENTITIES.has(entity);
+}
+
+/**
+ * Load the document usages attached to any entity (grant-protected like
+ * "questionnaire"/"cv", or auth-protected like "employees"). The query key is
+ * namespaced per entity so invalidation stays isolated between features.
  */
 export function useEntityDocuments(entity: string, uuid: string | undefined) {
+    const client = isAuthedDocumentEntity(entity) ? api : publicApi;
     const { data: documents = [], isLoading } = useQuery({
         queryKey: [`${entity}-documents`, uuid],
         queryFn: () => {
@@ -29,9 +43,11 @@ export function useEntityDocuments(entity: string, uuid: string | undefined) {
                 throw new Error(`${entity} uuid is required.`);
             }
 
-            return publicApi
+            return client
                 .get<{ data: EntityDocument[] }>(`/${entity}/${uuid}/documents`, {
-                    grant: { entity, uuid, purpose: "view" },
+                    ...(isAuthedDocumentEntity(entity)
+                        ? {}
+                        : { grant: { entity, uuid, purpose: "view" } }),
                 })
                 .then((r) => r.data.data);
         },

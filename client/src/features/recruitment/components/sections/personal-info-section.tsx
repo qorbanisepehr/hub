@@ -33,12 +33,15 @@ type SectionProps = {
     form: QuestionnaireFormApi;
     questionnaire?: Questionnaire | null;
     uuid?: string;
+    /** Grant entity the section's documents belong to. Defaults to "questionnaire". */
+    entity?: string;
 };
 
 export function PersonalInfoSection({
     form,
     questionnaire,
     uuid,
+    entity = "questionnaire",
 }: SectionProps) {
     const maritalStatus = useStore(
         form.store,
@@ -205,6 +208,7 @@ export function PersonalInfoSection({
                     {uuid && (
                         <FileUploadField
                             uuid={uuid}
+                            entity={entity}
                             categorySlug={DOC_CATEGORY_SLUGS.PERSONNEL_PHOTO}
                             label="تصویر پرسنلی"
                             recordKey="photo"
