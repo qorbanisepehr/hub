@@ -7,7 +7,7 @@ return [
     |--------------------------------------------------------------------------
     |
     | Central configuration for the unified OTP service. Route-level rate
-    | limiters (auth-login, recruitment-otp-send, ...) remain in
+    | limiters (auth-login, questionnaire-otp-send, ...) remain in
     | config/rate-limits.php.
     |
     */

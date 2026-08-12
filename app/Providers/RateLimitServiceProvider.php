@@ -28,16 +28,16 @@ class RateLimitServiceProvider extends ServiceProvider
                 ->response($this->tooManyAttemptsResponse());
         });
 
-        RateLimiter::for('recruitment-otp-send', function (Request $request) {
-            $config = config('rate-limits.recruitment-otp-send');
+        RateLimiter::for('questionnaire-otp-send', function (Request $request) {
+            $config = config('rate-limits.questionnaire-otp-send');
 
             return Limit::perSecond($config['limit'], $config['period'])
                 ->by($request->route('uuid', '').'|send|'.$request->ip())
                 ->response($this->tooManyAttemptsResponse());
         });
 
-        RateLimiter::for('recruitment-otp-verify', function (Request $request) {
-            $config = config('rate-limits.recruitment-otp-verify');
+        RateLimiter::for('questionnaire-otp-verify', function (Request $request) {
+            $config = config('rate-limits.questionnaire-otp-verify');
 
             return Limit::perSecond($config['limit'], $config['period'])
                 ->by($request->route('uuid', '').'|verify|'.$request->ip())

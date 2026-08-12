@@ -218,6 +218,9 @@ class OtpService
 
     private function generateCode(): string
     {
+        // for demo and don't need commit this
+        return '123456';
+
         $length = config('otp.code_length', 6);
         $min = 10 ** ($length - 1);
         $max = (10 ** $length) - 1;

@@ -10,29 +10,29 @@ use Illuminate\Support\Facades\Route;
 Route::post('cv/init', [CvController::class, 'init'])
     ->middleware('throttle:10,1');
 Route::post('cv/verify-init-otp', [CvController::class, 'verifyInitOtp'])
-    ->middleware('throttle:recruitment-otp-verify');
+    ->middleware('throttle:questionnaire-otp-verify');
 
 // OTP endpoints
 Route::post('cv/pending/{uuid}/send-otp', [CvController::class, 'resendInitOtp'])
-    ->middleware('throttle:recruitment-otp-send');
+    ->middleware('throttle:questionnaire-otp-send');
 Route::post('cv/{uuid}/send-mobile-otp', [CvController::class, 'sendMobileOtp'])
     ->whereUuid('uuid')
-    ->middleware('throttle:recruitment-otp-send');
+    ->middleware('throttle:questionnaire-otp-send');
 Route::post('cv/{uuid}/send-email-otp', [CvController::class, 'sendEmailOtp'])
     ->whereUuid('uuid')
-    ->middleware('throttle:recruitment-otp-send');
+    ->middleware('throttle:questionnaire-otp-send');
 Route::post('cv/{uuid}/verify-mobile-otp', [CvController::class, 'verifyMobileOtp'])
     ->whereUuid('uuid')
-    ->middleware('throttle:recruitment-otp-verify');
+    ->middleware('throttle:questionnaire-otp-verify');
 Route::post('cv/{uuid}/verify-email-otp', [CvController::class, 'verifyEmailOtp'])
     ->whereUuid('uuid')
-    ->middleware('throttle:recruitment-otp-verify');
+    ->middleware('throttle:questionnaire-otp-verify');
 
 // Grant issuance (public, OTP-gated) for cv entities
 Route::post('{entity}/{uuid}/request-access', [GrantAccessController::class, 'requestAccess'])
-    ->middleware('throttle:recruitment-otp-send');
+    ->middleware('throttle:questionnaire-otp-send');
 Route::post('{entity}/{uuid}/verify-access-otp', [GrantAccessController::class, 'verifyAccessOtp'])
-    ->middleware('throttle:recruitment-otp-verify');
+    ->middleware('throttle:questionnaire-otp-verify');
 
 // Existence check (public) so clients can show a 404 before offering the
 // protected access form.

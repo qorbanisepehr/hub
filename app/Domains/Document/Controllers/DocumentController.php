@@ -10,7 +10,7 @@ use App\Domains\Document\Requests\StoreDocumentRequest;
 use App\Domains\Document\Resources\DocumentResource;
 use App\Domains\Document\Services\DocumentService;
 use App\Domains\Employee\Models\Employee;
-use App\Domains\Recruitment\Models\Questionnaire;
+use App\Domains\Questionnaire\Models\Questionnaire;
 use App\Http\Controllers\ApiController;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;

@@ -38,7 +38,7 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Recruitment Questionnaire OTP Rate Limiters
+    | Questionnaire OTP Rate Limiters
     |--------------------------------------------------------------------------
     |
     | Send: per-uuid + per-IP safety net for sending OTP (default: 5 per 120
@@ -49,14 +49,14 @@ return [
     |
     */
 
-    'recruitment-otp-send' => [
-        'limit' => (int) env('RECRUITMENT_OTP_SEND_LIMIT', 5),
-        'period' => (int) env('RECRUITMENT_OTP_SEND_PERIOD', 120),
-        'ttl' => (int) env('RECRUITMENT_OTP_SEND_TTL', 120),
+    'questionnaire-otp-send' => [
+        'limit' => (int) env('QUESTIONNAIRE_OTP_SEND_LIMIT', 5),
+        'period' => (int) env('QUESTIONNAIRE_OTP_SEND_PERIOD', 120),
+        'ttl' => (int) env('QUESTIONNAIRE_OTP_SEND_TTL', 120),
     ],
 
-    'recruitment-otp-verify' => [
-        'limit' => (int) env('RECRUITMENT_OTP_VERIFY_LIMIT', 5),
-        'period' => (int) env('RECRUITMENT_OTP_VERIFY_PERIOD', 300),
+    'questionnaire-otp-verify' => [
+        'limit' => (int) env('QUESTIONNAIRE_OTP_VERIFY_LIMIT', 5),
+        'period' => (int) env('QUESTIONNAIRE_OTP_VERIFY_PERIOD', 300),
     ],
 ];

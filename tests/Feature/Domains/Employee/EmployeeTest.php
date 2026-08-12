@@ -34,7 +34,7 @@ function validEmployeePersonalInfo(): array
         'father_name' => 'Ahmad',
         'religion' => 'اسلام',
         'marital_status' => 'مجرد',
-        'national_id' => '0123456789',
+        'id_number' => '0123456789',
         'military_status' => [
             'status' => 'پایان خدمت',
             'organization' => 'Army',

@@ -29,7 +29,7 @@ class EmployeeFactory extends Factory
             'last_name' => $this->faker->lastName(),
             'gender' => $genderKey === 'male' ? 'مرد' : 'زن',
             'birth_date' => $this->faker->date('Y-m-d', '2000-01-01'),
-            'id_number' => $this->generateValidIranianNationalId(),
+            'id_number' => $this->generateValidIdNumber(),
             'marital_status' => $this->faker->randomElement(['مجرد', 'متاهل']),
             'email' => $this->faker->unique()->safeEmail(),
             'mobile' => '09'.$this->faker->numberBetween(100000000, 999999999),
@@ -39,7 +39,7 @@ class EmployeeFactory extends Factory
         ];
     }
 
-    private function generateValidIranianNationalId(): string
+    private function generateValidIdNumber(): string
     {
         do {
             $code = (string) $this->faker->numberBetween(100000000, 999999999);

@@ -3,16 +3,16 @@
 namespace App\Domains\Employee\Services;
 
 use App\Domains\Employee\Models\Employee;
-use App\Domains\Employee\SectionDefinitions\EmploymentSection;
-use App\Domains\Recruitment\SectionDefinitions\AdditionalInfoSection;
-use App\Domains\Recruitment\SectionDefinitions\ContactInfoSection;
-use App\Domains\Recruitment\SectionDefinitions\EducationSection;
-use App\Domains\Recruitment\SectionDefinitions\PersonalInfoSection;
-use App\Domains\Recruitment\SectionDefinitions\SectionDefinition;
-use App\Domains\Recruitment\SectionDefinitions\SkillsSection;
-use App\Domains\Recruitment\SectionDefinitions\TrainingSection;
-use App\Domains\Recruitment\SectionDefinitions\WorkExperienceSection;
+use App\Domains\Employee\Sections\EmploymentSection;
+use App\Domains\Questionnaire\Sections\AdditionalInfoSection;
+use App\Domains\Questionnaire\Sections\ContactInfoSection;
+use App\Domains\Questionnaire\Sections\EducationSection;
+use App\Domains\Questionnaire\Sections\PersonalInfoSection;
+use App\Domains\Questionnaire\Sections\SkillsSection;
+use App\Domains\Questionnaire\Sections\TrainingSection;
+use App\Domains\Questionnaire\Sections\WorkExperienceSection;
 use App\Support\MobileNumber;
+use App\Support\Sections\SectionDefinition;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 use InvalidArgumentException;
@@ -32,7 +32,7 @@ class EmployeeService
         'personal_info' => [
             'first_name' => 'first_name',
             'last_name' => 'last_name',
-            'national_id' => 'id_number',
+            'id_number' => 'id_number',
             'gender' => 'gender',
             'birth_date' => 'birth_date',
             'marital_status' => 'marital_status',
@@ -56,7 +56,7 @@ class EmployeeService
      * @var array<string, string[]>
      */
     private const JSONB_EXCLUDED = [
-        'personal_info' => ['first_name', 'last_name', 'national_id', 'gender', 'birth_date', 'marital_status'],
+        'personal_info' => ['first_name', 'last_name', 'id_number', 'gender', 'birth_date', 'marital_status'],
         'contact_info' => ['email', 'mobile'],
         'employment' => ['personnel_code', 'employment_type', 'hire_date', 'employment_status'],
     ];

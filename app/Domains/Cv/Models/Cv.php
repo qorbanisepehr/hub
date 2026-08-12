@@ -7,7 +7,7 @@ use App\Contracts\Documentable;
 use App\Contracts\DocumentableTrait;
 use App\Contracts\OtpVerifiable;
 use App\Domains\Cv\Enums\CvStatus;
-use App\Domains\Recruitment\Models\Questionnaire;
+use App\Domains\Questionnaire\Models\Questionnaire;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;

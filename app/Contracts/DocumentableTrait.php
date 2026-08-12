@@ -5,7 +5,7 @@ namespace App\Contracts;
 use App\Domains\Cv\Models\Cv;
 use App\Domains\Document\Models\DocumentUsage;
 use App\Domains\Employee\Models\Employee;
-use App\Domains\Recruitment\Models\Questionnaire;
+use App\Domains\Questionnaire\Models\Questionnaire;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 

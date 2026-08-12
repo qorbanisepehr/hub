@@ -5,7 +5,7 @@ use App\Domains\Cv\Services\CvService;
 use App\Domains\Document\Models\Document;
 use App\Domains\Document\Models\DocumentCategory;
 use App\Domains\Document\Models\DocumentUsage;
-use App\Domains\Recruitment\Models\Questionnaire;
+use App\Domains\Questionnaire\Models\Questionnaire;
 use App\Enums\GrantPurpose;
 use App\Enums\OtpContext;
 use App\Models\PendingVerification;
@@ -88,7 +88,7 @@ function cvValidPersonal(): array
         'gender' => 'مرد',
         'birth_date' => '1990-01-15',
         'marital_status' => 'مجرد',
-        'national_id' => '0123456789',
+        'id_number' => '0123456789',
         'birth_place' => 'تهران-تهران',
         'birth_certificate_number' => '12345',
         'military_status' => [
@@ -458,12 +458,12 @@ describe('CV section save (structural validation)', function () {
         $this->putJson("/api/cv/{$uuid}/sections/personal_info", [
             'gender' => 'invalid',
             'marital_status' => 'not-a-status',
-            'national_id' => str_repeat('1', 11),
+            'id_number' => str_repeat('1', 11),
         ])->assertUnprocessable()
             ->assertJsonValidationErrors([
                 'personal_info.gender',
                 'personal_info.marital_status',
-                'personal_info.national_id',
+                'personal_info.id_number',
             ]);
     });
 
@@ -578,7 +578,7 @@ describe('CV submit', function () {
                 'personal_info.gender',
                 'personal_info.birth_date',
                 'personal_info.marital_status',
-                'personal_info.national_id',
+                'personal_info.id_number',
                 'personal_info.birth_place',
                 'personal_info.birth_certificate_number',
             ]);
@@ -668,7 +668,7 @@ describe('CV submit', function () {
         expect($last['event'])->toBe('submitted')
             ->and($last['version'])->toBe(1)
             ->and($last['snapshot']['first_name'])->toBe('Test')
-            ->and($last['snapshot']['sections']['personal_info']['national_id'])->toBe('0123456789');
+            ->and($last['snapshot']['sections']['personal_info']['id_number'])->toBe('0123456789');
     });
 
     it('submits a CV whose contact_info was never saved because email/mobile live on real columns', function () {
@@ -986,7 +986,7 @@ describe('CV bank', function () {
         $questionnaire = Questionnaire::where('cv_id', $cv->id)->firstOrFail();
 
         expect($questionnaire->status)->toBe('draft')
-            ->and($questionnaire->section_personal['national_id'])->toBe('0123456789')
+            ->and($questionnaire->section_personal['id_number'])->toBe('0123456789')
             ->and($questionnaire->section_education)->not->toBeNull()
             ->and($questionnaire->mobile)->toBe('09121234567')
             ->and($cv->isApproved())->toBeTrue()

@@ -225,7 +225,7 @@ return [
         'personal_info.spouse_job' => [
             'required_if' => 'شغل همسر الزامی است.',
         ],
-        'personal_info.national_id' => [
+        'personal_info.id_number' => [
             'required' => 'کد ملی الزامی است.',
         ],
         // ── Contact Info ──
@@ -421,7 +421,7 @@ return [
         'personal_info.military_status.to' => 'تاریخ پایان',
         'personal_info.military_status.reason' => 'دلیل',
         'personal_info.photo' => 'تصویر',
-        'personal_info.national_id' => 'کد ملی',
+        'personal_info.id_number' => 'کد ملی',
         'contact_info.phone' => 'تلفن ثابت',
         'contact_info.emergency_phone' => 'تلفن اضطراری',
         'contact_info.address.postal_code' => 'کد پستی',

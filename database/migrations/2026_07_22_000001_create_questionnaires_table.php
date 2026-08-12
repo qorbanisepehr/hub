@@ -19,7 +19,7 @@ return new class extends Migration
             // ── Real columns: identity ──
             $table->string('first_name', 100)->nullable();
             $table->string('last_name', 100)->nullable();
-            $table->string('national_id', 10)->nullable()->unique();
+            $table->string('id_number', 10)->nullable()->unique();
             $table->string('gender', 10)->nullable();
             $table->date('birth_date')->nullable();
 

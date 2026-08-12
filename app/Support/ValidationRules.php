@@ -3,7 +3,7 @@
 namespace App\Support;
 
 /**
- * Canonical validation rule fragments shared across the Recruitment and CV
+ * Canonical validation rule fragments shared across the Questionnaire and CV
  * domains. Compose them into section rule chains or FormRequest arrays so a
  * single change (e.g. a new accepted phone format) updates every consumer.
  *

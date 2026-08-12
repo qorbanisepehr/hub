@@ -140,7 +140,7 @@ class CvResource extends JsonResource
     }
 
     /**
-     * The linked recruitment questionnaire (uuid + status), exposed only when
+     * The linked questionnaire (uuid + status), exposed only when
      * the caller eager-loaded the `questionnaire` relation (the bank detail
      * endpoint does). Used by the review page to offer a share action and to
      * hide CV actions that no longer apply once the CV moved to a

@@ -9,7 +9,7 @@ use App\Domains\Document\Repositories\DocumentRepositoryInterface;
 use App\Domains\Document\Services\DocumentService;
 use App\Domains\Employee\Models\Employee;
 use App\Domains\Employee\Requests\StoreEmployeeDocumentRequest;
-use App\Domains\Recruitment\Services\QuestionnaireService;
+use App\Domains\Questionnaire\Services\QuestionnaireService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;

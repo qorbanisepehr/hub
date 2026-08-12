@@ -5,18 +5,18 @@ namespace App\Domains\Cv\Services;
 use App\Domains\Cv\Enums\CvStatus;
 use App\Domains\Cv\Models\Cv;
 use App\Domains\Cv\Repositories\CvRepositoryInterface;
-use App\Domains\Cv\SectionDefinitions\AdditionalInfoSection;
-use App\Domains\Cv\SectionDefinitions\ContactInfoSection;
-use App\Domains\Cv\SectionDefinitions\PersonalInfoSection;
+use App\Domains\Cv\Sections\AdditionalInfoSection;
+use App\Domains\Cv\Sections\ContactInfoSection;
+use App\Domains\Cv\Sections\PersonalInfoSection;
 use App\Domains\Document\Services\DocumentService;
-use App\Domains\Recruitment\Models\Questionnaire;
-use App\Domains\Recruitment\Repositories\QuestionnaireRepositoryInterface;
-use App\Domains\Recruitment\SectionDefinitions\EducationSection;
-use App\Domains\Recruitment\SectionDefinitions\SectionDefinition;
-use App\Domains\Recruitment\SectionDefinitions\SkillsSection;
-use App\Domains\Recruitment\SectionDefinitions\TrainingSection;
-use App\Domains\Recruitment\SectionDefinitions\WorkExperienceSection;
+use App\Domains\Questionnaire\Models\Questionnaire;
+use App\Domains\Questionnaire\Repositories\QuestionnaireRepositoryInterface;
+use App\Domains\Questionnaire\Sections\EducationSection;
+use App\Domains\Questionnaire\Sections\SkillsSection;
+use App\Domains\Questionnaire\Sections\TrainingSection;
+use App\Domains\Questionnaire\Sections\WorkExperienceSection;
 use App\Support\MobileNumber;
+use App\Support\Sections\SectionDefinition;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 use InvalidArgumentException;
@@ -190,7 +190,7 @@ class CvService
     }
 
     /**
-     * Build a draft recruitment questionnaire prefilled from a submitted or
+     * Build a draft questionnaire prefilled from a submitted or
      * approved CV. Creating the questionnaire approves the CV automatically
      * (a rejected CV can never reach the next step), recording the reviewer.
      */
@@ -219,7 +219,7 @@ class CvService
             'gender' => $personal['gender'] ?? null,
             'birth_date' => $personal['birth_date'] ?? null,
             'marital_status' => $personal['marital_status'] ?? null,
-            'national_id' => $personal['national_id'] ?? null,
+            'id_number' => $personal['id_number'] ?? null,
             'section_personal' => $personal,
             'section_contact_address' => $cv->section_contact_address ?? [],
             'section_education' => $cv->section_education ?? [],

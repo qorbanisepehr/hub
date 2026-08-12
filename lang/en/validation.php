@@ -237,7 +237,7 @@ return [
         'personal_info.spouse_job' => [
             'required_if' => 'Spouse job is required.',
         ],
-        'personal_info.national_id' => [
+        'personal_info.id_number' => [
             'required' => 'National ID is required.',
             'size' => 'National ID must be 10 digits.',
         ],
@@ -428,7 +428,7 @@ return [
         'personal_info.military_status.to' => 'end date',
         'personal_info.military_status.reason' => 'reason',
         'personal_info.photo' => 'photo',
-        'personal_info.national_id' => 'national ID',
+        'personal_info.id_number' => 'national ID',
         'contact_info.phone' => 'phone',
         'contact_info.emergency_phone' => 'emergency phone',
         'contact_info.address.postal_code' => 'postal code',

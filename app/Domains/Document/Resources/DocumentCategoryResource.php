@@ -3,7 +3,7 @@
 namespace App\Domains\Document\Resources;
 
 use App\Domains\Document\Models\DocumentCategory;
-use App\Domains\Recruitment\Services\QuestionnaireService;
+use App\Domains\Questionnaire\Services\QuestionnaireService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 

@@ -1,7 +1,7 @@
 <?php
 
 use App\Domains\Cv\Models\Cv;
-use App\Domains\Recruitment\Models\Questionnaire;
+use App\Domains\Questionnaire\Models\Questionnaire;
 
 return [
     /*

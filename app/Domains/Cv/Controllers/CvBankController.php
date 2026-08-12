@@ -5,7 +5,7 @@ namespace App\Domains\Cv\Controllers;
 use App\Domains\Cv\Models\Cv;
 use App\Domains\Cv\Resources\CvResource;
 use App\Domains\Cv\Services\CvService;
-use App\Domains\Recruitment\Resources\QuestionnaireResource;
+use App\Domains\Questionnaire\Resources\QuestionnaireResource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;

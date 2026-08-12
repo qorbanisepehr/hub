@@ -225,7 +225,7 @@ class DocumentService
         $errors = [];
         foreach ($missing as $slug) {
             $errors["documents.{$slug}"] = [
-                __('recruitment.documents.missing', ['document' => $names[$slug] ?? $slug]),
+                __('questionnaire.documents.missing', ['document' => $names[$slug] ?? $slug]),
             ];
         }
 

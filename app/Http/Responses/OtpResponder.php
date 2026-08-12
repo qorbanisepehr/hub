@@ -14,7 +14,7 @@ use Illuminate\Http\JsonResponse;
  * Consuming controllers must inject an `OtpService` into the trait's calls
  * by promoting a private `OtpService $otpService` constructor property.
  * Copy strings resolve through `otpLang()`, which defaults to
- * `recruitment.questionnaire.*` and may be overridden.
+ * `questionnaire.questionnaire.*` and may be overridden.
  */
 trait OtpResponder
 {
@@ -119,6 +119,6 @@ trait OtpResponder
      */
     protected function otpLang(string $key, array $replace = []): string
     {
-        return __("recruitment.questionnaire.{$key}", $replace);
+        return __("questionnaire.questionnaire.{$key}", $replace);
     }
 }
