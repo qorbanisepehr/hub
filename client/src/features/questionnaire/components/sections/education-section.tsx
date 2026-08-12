@@ -19,14 +19,14 @@ import type { TableColumn } from "@/components/shared/form-repeater";
 import {
     YES_NO_OPTIONS,
     parseBoolean,
-} from "@/features/recruitment/constants";
-import { DOC_CATEGORY_SLUGS } from "@/features/recruitment/constants";
+} from "@/features/questionnaire/constants";
+import { DOC_CATEGORY_SLUGS } from "@/features/questionnaire/constants";
 import { optionEnum } from "@/features/form-options/schema";
 import { useFormOptionsByGroup } from "@/features/form-options/hooks/use-form-options";
 import { useEntityDocuments } from "@/hooks/use-entity-documents";
 import { zodFieldValidators } from "@/lib/validation-helpers";
-import { fieldSchemas } from "@/features/recruitment/schemas/education.schema";
-import type { QuestionnaireFormApi } from "@/features/recruitment/types";
+import { fieldSchemas } from "@/features/questionnaire/schemas/education.schema";
+import type { QuestionnaireFormApi } from "@/features/questionnaire/types";
 
 type SectionProps = {
     form: QuestionnaireFormApi;

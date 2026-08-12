@@ -29,23 +29,23 @@ import {
 import {
     saveQuestionnaireSection,
     submitQuestionnaire,
-} from "@/features/recruitment/api";
+} from "@/features/questionnaire/api";
 import { getApiError } from "@/lib/error-utils";
 import {
     WIZARD_STEPS,
     QUESTIONNAIRE_VALIDATION_SECTIONS,
     QUESTIONNAIRE_DOC_REQUIREMENTS,
-} from "@/features/recruitment/constants";
-import { useQuestionnaireDocuments } from "@/features/recruitment/hooks/use-questionnaire-documents";
-import { useQuestionnaireSubmitOptions } from "@/features/recruitment/hooks/use-questionnaire-submit-options";
-import { buildValidateSubmitData } from "@/features/recruitment/validation";
+} from "@/features/questionnaire/constants";
+import { useQuestionnaireDocuments } from "@/features/questionnaire/hooks/use-questionnaire-documents";
+import { useQuestionnaireSubmitOptions } from "@/features/questionnaire/hooks/use-questionnaire-submit-options";
+import { buildValidateSubmitData } from "@/features/questionnaire/validation";
 import { useInjectedFieldErrors } from "@/hooks/use-injected-field-errors";
 import {
     countSectionFieldErrors,
     scrollToFirstInvalidField,
     validateDocumentRequirements,
 } from "@/lib/validation-helpers";
-import type { Questionnaire } from "@/features/recruitment/types";
+import type { Questionnaire } from "@/features/questionnaire/types";
 
 import { PersonalInfoSection } from "./sections/personal-info-section";
 import { ContactInfoSection } from "./sections/contact-info-section";
@@ -116,7 +116,7 @@ function buildDefaultValues(questionnaire: Questionnaire): WizardFormValues {
                 to: "",
                 reason: "",
             },
-            national_id: "",
+            id_number: "",
         },
         contact_info: questionnaire.contact_info ?? {
             phone: "",

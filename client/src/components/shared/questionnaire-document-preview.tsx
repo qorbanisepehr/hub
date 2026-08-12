@@ -9,7 +9,7 @@ import { FileThumbnail } from "@/components/ui/file-thumbnail";
 import { getFileIcon } from "@/lib/file-icon";
 import { getFileColorClasses } from "@/lib/file-colors";
 import { formatBytes } from "@/lib/file-size";
-import type { QuestionnaireDocument } from "@/features/recruitment/hooks/use-questionnaire-documents";
+import type { QuestionnaireDocument } from "@/features/questionnaire/hooks/use-questionnaire-documents";
 
 type QuestionnaireDocPreviewProps = {
     documents: QuestionnaireDocument[];

@@ -126,11 +126,11 @@ export function fetchQuestionnaires(params?: {
     filter?: string;
     status?: string;
 }) {
-    return api.get("/recruitment/questionnaires", { params });
+    return api.get("/questionnaires", { params });
 }
 
 export function getQuestionnaireDetail(id: number) {
     return api.get<{ data: Questionnaire }>(
-        `/recruitment/questionnaires/${id}`
+        `/questionnaires/${id}`
     );
 }

@@ -9,11 +9,11 @@ import {
     sendEmailOtp,
     verifyMobileOtp,
     verifyEmailOtp,
-} from "@/features/recruitment/api";
+} from "@/features/questionnaire/api";
 import { getApiError } from "@/lib/error-utils";
 import { zodFieldValidators } from "@/lib/validation-helpers";
-import { fieldSchemas } from "@/features/recruitment/schemas/contact-info.schema";
-import type { Questionnaire, QuestionnaireFormApi } from "@/features/recruitment/types";
+import { fieldSchemas } from "@/features/questionnaire/schemas/contact-info.schema";
+import type { Questionnaire, QuestionnaireFormApi } from "@/features/questionnaire/types";
 
 import { OtpVerifiedInput } from "@/components/shared/otp-verified-input";
 

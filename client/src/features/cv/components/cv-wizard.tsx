@@ -101,7 +101,7 @@ function buildDefaultValues(cv: Cv): WizardFormValues {
                 to: "",
                 reason: "",
             },
-            national_id: "",
+            id_number: "",
             birth_place: "",
             birth_certificate_number: "",
         },

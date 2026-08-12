@@ -7,14 +7,14 @@ import { useFormOptionsByGroup } from "@/features/form-options/hooks/use-form-op
 import {
     MILITARY_STATUS_OTHER,
     MILITARY_STATUS_REQUIRES_START_DATE,
-} from "@/features/recruitment/constants";
+} from "@/features/questionnaire/constants";
 import { zodFieldValidators } from "@/lib/validation-helpers";
 import { requiredText, text } from "@/lib/zod-primitives";
-import type { QuestionnaireFormApi } from "@/features/recruitment/types";
+import type { QuestionnaireFormApi } from "@/features/questionnaire/types";
 
 type MilitaryServiceFieldsProps = {
     form: QuestionnaireFormApi;
-    /** Dot-notation field path prefix; defaults to the recruitment personal-info path */
+    /** Dot-notation field path prefix; defaults to the questionnaire personal-info path */
     basePath?: string;
     /**
      * `"full"` (default): status plus organization/from/to/reason for the

@@ -9,7 +9,7 @@ import type {
     Address,
     RequestAccessResponse,
     VerifyAccessResponse,
-} from "@/features/recruitment/types";
+} from "@/features/questionnaire/types";
 
 export type { RequestAccessResponse, VerifyAccessResponse };
 
@@ -24,7 +24,7 @@ export interface CvPersonalInfo {
         to: string;
         reason: string;
     };
-    national_id: string;
+    id_number: string;
     birth_place: string;
     birth_certificate_number: string;
 }

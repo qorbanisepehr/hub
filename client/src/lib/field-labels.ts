@@ -21,7 +21,7 @@ const FIELD_LABELS: Record<string, string> = {
     spouse_employment_status: "وضعیت اشتغال همسر",
     spouse_job: "شغل همسر",
     military_status: "وضعیت نظام وظیفه",
-    national_id: "کد ملی",
+    id_number: "کد ملی",
     first_name_en: "نام انگلیسی",
     last_name_en: "نام خانوادگی انگلیسی",
     dependents_count: "تعداد افراد تحت تکفل",

@@ -6,10 +6,10 @@ import {
 } from "./personal-info.schema";
 import { contactInfoFieldSchema } from "./contact-info.schema";
 import { additionalInfoFieldSchema } from "./additional-info.schema";
-import { educationFieldSchema } from "@/features/recruitment/schemas/education.schema";
-import { workExperienceFieldSchema } from "@/features/recruitment/schemas/work-experience.schema";
-import { skillsFieldSchema } from "@/features/recruitment/schemas/skills.schema";
-import { trainingFieldSchema } from "@/features/recruitment/schemas/training.schema";
+import { educationFieldSchema } from "@/features/questionnaire/schemas/education.schema";
+import { workExperienceFieldSchema } from "@/features/questionnaire/schemas/work-experience.schema";
+import { skillsFieldSchema } from "@/features/questionnaire/schemas/skills.schema";
+import { trainingFieldSchema } from "@/features/questionnaire/schemas/training.schema";
 import { mobile, optionalEmail } from "@/lib/field-rules";
 import {
     zodFieldErrors,

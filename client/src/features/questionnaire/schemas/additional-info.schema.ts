@@ -5,7 +5,7 @@ import {
     optionEnumOptional,
     type OptionSource,
 } from "@/features/form-options/schema";
-import { DISABLED_PHYSICAL_CONDITIONS } from "@/features/recruitment/constants";
+import { DISABLED_PHYSICAL_CONDITIONS } from "@/features/questionnaire/constants";
 
 export const referenceSchema = z.object({
     full_name: requiredText("نام و نام خانوادگی الزامی است.", 100),

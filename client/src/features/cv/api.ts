@@ -13,11 +13,11 @@ export {
     requestAccess,
     checkAccess,
     verifyAccessOtp,
-} from "@/features/recruitment/api";
+} from "@/features/questionnaire/api";
 export type {
     RequestAccessResponse,
     VerifyAccessResponse,
-} from "@/features/recruitment/types";
+} from "@/features/questionnaire/types";
 
 export function initCv(data: {
     first_name: string;

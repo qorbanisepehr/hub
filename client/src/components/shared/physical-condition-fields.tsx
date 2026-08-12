@@ -4,7 +4,7 @@ import { useStore, type ReactFormExtendedApi } from "@tanstack/react-form";
 import { FormOptionSelectField } from "./form-option-fields";
 import { useFormOptionsByGroup } from "@/features/form-options/hooks/use-form-options";
 import { optionEnumOptional } from "@/features/form-options/schema";
-import { DISABLED_PHYSICAL_CONDITIONS } from "@/features/recruitment/constants";
+import { DISABLED_PHYSICAL_CONDITIONS } from "@/features/questionnaire/constants";
 import { zodFieldValidators } from "@/lib/validation-helpers";
 
 export type PhysicalConditionFieldsForm = ReactFormExtendedApi<

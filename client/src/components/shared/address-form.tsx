@@ -3,7 +3,7 @@ import type { ReactFormExtendedApi } from "@tanstack/react-form";
 import { FormTextField, FormTextarea } from "@/components/shared/form-fields";
 import { ProvinceCityFields } from "@/components/shared/form-option-fields";
 import { zodFieldValidators } from "@/lib/validation-helpers";
-import { fieldSchemas } from "@/features/recruitment/schemas/contact-info.schema";
+import { fieldSchemas } from "@/features/questionnaire/schemas/contact-info.schema";
 
 type AddressFormProps = {
     form: ReactFormExtendedApi<any, any, any, any, any, any, any, any, any, any, any, any>;

@@ -14,11 +14,11 @@ import { buildPersonalInfoSchemas } from "@/features/cv/schemas/personal-info.sc
 import {
     GENDER_MALE,
     GENDER_FEMALE,
-} from "@/features/recruitment/schemas/personal-info.schema";
+} from "@/features/questionnaire/schemas/personal-info.schema";
 import { CV_DOC_CATEGORY_SLUGS } from "@/features/cv/constants";
 import { zodFieldValidators } from "@/lib/validation-helpers";
 import type { Cv, CvFormApi } from "@/features/cv/types";
-import { MilitaryServiceFields } from "@/features/recruitment/components/sections/military-service-fields";
+import { MilitaryServiceFields } from "@/features/questionnaire/components/sections/military-service-fields";
 
 type SectionProps = {
     form: CvFormApi;
@@ -132,11 +132,11 @@ export function PersonalInfoSection({ form, cv, uuid }: SectionProps) {
             <CardContent className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <form.Field
-                        name="personal_info.national_id"
+                        name="personal_info.id_number"
                         validators={
                             schemas
                                 ? zodFieldValidators(
-                                      schemas.fieldSchemas.national_id,
+                                      schemas.fieldSchemas.id_number,
                                   )
                                 : undefined
                         }

@@ -14,12 +14,12 @@ import {
 } from "@/components/ui/select";
 import { FileUploadField } from "@/components/shared/file-upload-field";
 import { DocumentFileItem } from "@/components/shared/document-file-item";
-import { useQuestionnaireDocuments } from "@/features/recruitment/hooks/use-questionnaire-documents";
-import type { QuestionnaireDocument } from "@/features/recruitment/hooks/use-questionnaire-documents";
+import { useQuestionnaireDocuments } from "@/features/questionnaire/hooks/use-questionnaire-documents";
+import type { QuestionnaireDocument } from "@/features/questionnaire/hooks/use-questionnaire-documents";
 import {
     getRecordKeyLabel,
     DOC_CATEGORY_SLUGS,
-} from "@/features/recruitment/constants";
+} from "@/features/questionnaire/constants";
 import { fetchDocumentCategories } from "@/features/documents/api";
 import type { DocumentCategory } from "@/features/documents/types";
 import { documentKeys } from "@/lib/query-keys";

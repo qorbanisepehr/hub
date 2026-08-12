@@ -3,7 +3,7 @@ import { z } from "zod";
 import {
     birthCertificateNumber,
     getAge,
-    nationalId,
+    idNumber,
 } from "@/lib/field-rules";
 import {
     optionEnum,
@@ -12,7 +12,7 @@ import {
     type PlaceOption,
 } from "@/features/form-options/schema";
 import { requiredText, text } from "@/lib/zod-primitives";
-import { GENDER_MALE } from "@/features/recruitment/schemas/personal-info.schema";
+import { GENDER_MALE } from "@/features/questionnaire/schemas/personal-info.schema";
 
 export type PersonalInfoOptions = {
     gender: OptionSource[];
@@ -56,7 +56,7 @@ export function buildPersonalInfoSchemas(options: PersonalInfoOptions) {
             birth_certificate_number: birthCertificateNumber(),
             marital_status: maritalStatus,
             military_status: militaryStatusSchema.optional(),
-            national_id: nationalId(),
+            id_number: idNumber(),
         })
         .superRefine((data, ctx) => {
             if (data.gender === GENDER_MALE && !data.military_status) {
@@ -80,7 +80,7 @@ export function buildPersonalInfoSchemas(options: PersonalInfoOptions) {
             "حداقل سن الزامی ۱۸ سال است.",
         ),
         marital_status: maritalStatus,
-        national_id: nationalId(),
+        id_number: idNumber(),
         birth_place: birthPlace,
         birth_certificate_number: birthCertificateNumber(),
         military_status: militaryStatusSchema,

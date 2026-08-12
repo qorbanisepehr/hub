@@ -15,8 +15,8 @@ import {
     initQuestionnaire,
     verifyInitOtp,
     resendInitOtp,
-} from "@/features/recruitment/api";
-import type { InitQuestionnaireResponse } from "@/features/recruitment/types";
+} from "@/features/questionnaire/api";
+import type { InitQuestionnaireResponse } from "@/features/questionnaire/types";
 import { getApiError } from "@/lib/error-utils";
 import { setGrantToken } from "@/lib/grant";
 import { MOBILE_ACCEPTED_REGEX } from "@/lib/field-rules";

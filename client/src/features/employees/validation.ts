@@ -3,14 +3,14 @@ import { z } from "zod";
 import {
     buildPersonalInfoSchemas,
     type PersonalInfoOptions,
-} from "@/features/recruitment/schemas/personal-info.schema";
-import { contactInfoFieldSchema } from "@/features/recruitment/schemas/contact-info.schema";
-import { employmentFieldSchema } from "@/features/recruitment/schemas/employment.schema";
-import { educationFieldSchema } from "@/features/recruitment/schemas/education.schema";
-import { workExperienceFieldSchema } from "@/features/recruitment/schemas/work-experience.schema";
-import { skillsFieldSchema } from "@/features/recruitment/schemas/skills.schema";
-import { trainingFieldSchema } from "@/features/recruitment/schemas/training.schema";
-import { additionalInfoFieldSchema } from "@/features/recruitment/schemas/additional-info.schema";
+} from "@/features/questionnaire/schemas/personal-info.schema";
+import { contactInfoFieldSchema } from "@/features/questionnaire/schemas/contact-info.schema";
+import { employmentFieldSchema } from "@/features/questionnaire/schemas/employment.schema";
+import { educationFieldSchema } from "@/features/questionnaire/schemas/education.schema";
+import { workExperienceFieldSchema } from "@/features/questionnaire/schemas/work-experience.schema";
+import { skillsFieldSchema } from "@/features/questionnaire/schemas/skills.schema";
+import { trainingFieldSchema } from "@/features/questionnaire/schemas/training.schema";
+import { additionalInfoFieldSchema } from "@/features/questionnaire/schemas/additional-info.schema";
 import { email, mobile } from "@/lib/field-rules";
 import {
     zodFieldErrors,
@@ -23,7 +23,7 @@ export type SubmitOptions = {
     personal_info: PersonalInfoOptions;
 };
 
-// The shared recruitment schema keeps employment fields draft-optional. The
+// The shared questionnaire schema keeps employment fields draft-optional. The
 // personnel code is the one employment field that must survive a completed
 // profile (NOT NULL, unique column), so it is required here at submit time.
 const employeeEmploymentSchema = employmentFieldSchema.extend({

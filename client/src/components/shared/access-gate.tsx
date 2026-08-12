@@ -9,7 +9,7 @@ import { OtpVerificationForm } from "@/components/shared/otp-verification-form";
 import { onGrantUnauthorized } from "@/lib/public-api";
 import { hasGrant, setGrantToken } from "@/lib/grant";
 import type { GrantPurpose } from "@/lib/grant";
-import { checkAccess, requestAccess, verifyAccessOtp } from "@/features/recruitment/api";
+import { checkAccess, requestAccess, verifyAccessOtp } from "@/features/questionnaire/api";
 import type { OtpVerifyPayload } from "@/hooks/use-otp-verification";
 
 type AccessGateProps = {

@@ -3,9 +3,9 @@ import { useStore } from "@tanstack/react-form";
 import { z } from "zod";
 
 import { FormTextarea, FormRadioGroup } from "@/components/shared/form-fields";
-import { YES_NO_OPTIONS, parseBoolean } from "@/features/recruitment/constants";
+import { YES_NO_OPTIONS, parseBoolean } from "@/features/questionnaire/constants";
 import { zodFieldValidators } from "@/lib/validation-helpers";
-import type { QuestionnaireFormApi } from "@/features/recruitment/types";
+import type { QuestionnaireFormApi } from "@/features/questionnaire/types";
 
 const requiredDescription = z.string().min(1, "این فیلد الزامی است.").max(500);
 

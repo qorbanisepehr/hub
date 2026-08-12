@@ -8,8 +8,8 @@ import { AccessGate } from "@/components/shared/access-gate";
 import { ErrorPage } from "@/components/shared/error-page";
 import { QrCode } from "@/components/shared/qr-code";
 import { ShareDialog } from "@/components/shared/share-dialog";
-import { getQuestionnaire } from "@/features/recruitment/api";
-import { QuestionnaireWizard } from "@/features/recruitment/components/questionnaire-wizard";
+import { getQuestionnaire } from "@/features/questionnaire/api";
+import { QuestionnaireWizard } from "@/features/questionnaire/components/questionnaire-wizard";
 import { QuestionnaireSuccessPage } from "./questionnaire-success-page";
 
 export function QuestionnaireFormPage() {

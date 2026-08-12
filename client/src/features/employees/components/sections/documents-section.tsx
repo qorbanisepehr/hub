@@ -20,7 +20,7 @@ import { EmployeeDocumentTrashModal } from "./employee-document-trash-modal";
 import {
     DOC_CATEGORY_SLUGS,
     getRecordKeyLabel,
-} from "@/features/recruitment/constants";
+} from "@/features/questionnaire/constants";
 import { fetchDocumentCategories } from "@/features/documents/api";
 import type { DocumentCategory } from "@/features/documents/types";
 import { documentKeys } from "@/lib/query-keys";

@@ -3,7 +3,7 @@ import { FormTextField } from "@/components/shared/form-fields";
 import { AddressForm } from "@/components/shared/address-form";
 import { zodFieldValidators } from "@/lib/validation-helpers";
 import { optionalEmail } from "@/lib/field-rules";
-import { fieldSchemas } from "@/features/recruitment/schemas/contact-info.schema";
+import { fieldSchemas } from "@/features/questionnaire/schemas/contact-info.schema";
 import type { EmployeeFormApi } from "@/features/employees/types";
 
 type SectionProps = {

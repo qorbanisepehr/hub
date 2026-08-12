@@ -15,12 +15,12 @@ import { Button } from "@/components/ui/button";
 import { ErrorBanner } from "@/components/shared/error-banner";
 import { UnsavedChangesDialog } from "@/components/shared/unsaved-changes-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { PersonalInfoSection } from "@/features/recruitment/components/sections/personal-info-section";
-import { EducationSection } from "@/features/recruitment/components/sections/education-section";
-import { WorkExperienceSection } from "@/features/recruitment/components/sections/work-experience-section";
-import { SkillsSection } from "@/features/recruitment/components/sections/skills-section";
-import { TrainingSection } from "@/features/recruitment/components/sections/training-section";
-import { AdditionalInfoSection } from "@/features/recruitment/components/sections/additional-info-section";
+import { PersonalInfoSection } from "@/features/questionnaire/components/sections/personal-info-section";
+import { EducationSection } from "@/features/questionnaire/components/sections/education-section";
+import { WorkExperienceSection } from "@/features/questionnaire/components/sections/work-experience-section";
+import { SkillsSection } from "@/features/questionnaire/components/sections/skills-section";
+import { TrainingSection } from "@/features/questionnaire/components/sections/training-section";
+import { AdditionalInfoSection } from "@/features/questionnaire/components/sections/additional-info-section";
 import { ContactInfoSection } from "./sections/contact-info-section";
 import { LinkedUserSection } from "./sections/linked-user-section";
 import { EmploymentSection } from "./sections/employment-section";
@@ -48,7 +48,7 @@ type EmployeeProfileFormProps = {
 };
 
 const EMPTY_PERSONAL_INFO = {
-    national_id: "",
+    id_number: "",
     gender: "",
     birth_date: "",
     marital_status: "",
@@ -159,7 +159,7 @@ function buildDefaultValues(employee: Employee): EmployeeProfileFormData {
         personal_info: {
             ...EMPTY_PERSONAL_INFO,
             ...(employee.section_personal ?? {}),
-            national_id: employee.id_number ?? "",
+            id_number: employee.id_number ?? "",
             gender: employee.gender ?? "",
             birth_date: employee.birth_date ?? "",
             marital_status: employee.marital_status ?? "",

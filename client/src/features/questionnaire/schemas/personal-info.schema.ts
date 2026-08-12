@@ -3,7 +3,7 @@ import { z } from "zod";
 import {
     birthCertificateNumber,
     getAge,
-    nationalId,
+    idNumber,
 } from "@/lib/field-rules";
 import {
     optionEnum,
@@ -16,7 +16,7 @@ import { numberField, requiredText, text } from "@/lib/zod-primitives";
 import {
     MILITARY_STATUS_OTHER,
     MILITARY_STATUS_REQUIRES_START_DATE,
-} from "@/features/recruitment/constants";
+} from "@/features/questionnaire/constants";
 
 // Special values with structural meaning in the form logic (e.g. "when married
 // the spouse employment field becomes required"). Form sections persist the
@@ -116,7 +116,7 @@ export function buildPersonalInfoSchemas(options: PersonalInfoOptions) {
             spouse_employment_status: spouseEmployment,
             spouse_job: text(100, "حداکثر ۱۰۰ کاراکتر."),
             military_status: militaryStatusSchema.optional(),
-            national_id: nationalId(),
+            id_number: idNumber(),
         })
         .superRefine((data, ctx) => {
             if (data.marital_status === MARITAL_MARRIED && !data.spouse_employment_status) {
@@ -157,7 +157,7 @@ export function buildPersonalInfoSchemas(options: PersonalInfoOptions) {
             "حداقل سن الزامی ۱۸ سال است.",
         ),
         marital_status: maritalStatus,
-        national_id: nationalId(),
+        id_number: idNumber(),
         blood_group: bloodGroup,
         birth_place: birthPlace,
         birth_certificate_number: birthCertificateNumber(),

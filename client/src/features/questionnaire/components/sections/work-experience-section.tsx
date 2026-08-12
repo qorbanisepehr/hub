@@ -14,11 +14,11 @@ import {
     YES_NO_OPTIONS,
     parseBoolean,
     DOC_CATEGORY_SLUGS,
-} from "@/features/recruitment/constants";
+} from "@/features/questionnaire/constants";
 import { useEntityDocuments } from "@/hooks/use-entity-documents";
 import { zodFieldValidators } from "@/lib/validation-helpers";
-import { fieldSchemas } from "@/features/recruitment/schemas/work-experience.schema";
-import type { QuestionnaireFormApi } from "@/features/recruitment/types";
+import { fieldSchemas } from "@/features/questionnaire/schemas/work-experience.schema";
+import type { QuestionnaireFormApi } from "@/features/questionnaire/types";
 
 type SectionProps = {
     form: QuestionnaireFormApi;

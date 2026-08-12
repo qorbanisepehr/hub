@@ -7,8 +7,8 @@ import { FormRepeater } from "@/components/shared/form-repeater";
 import { PhysicalConditionFields } from "@/components/shared/physical-condition-fields";
 import { zodFieldValidators } from "@/lib/validation-helpers";
 import { useFormOptionsByGroup } from "@/features/form-options/hooks/use-form-options";
-import { buildAdditionalInfoSchemas, fieldSchemas } from "@/features/recruitment/schemas/additional-info.schema";
-import type { QuestionnaireFormApi } from "@/features/recruitment/types";
+import { buildAdditionalInfoSchemas, fieldSchemas } from "@/features/questionnaire/schemas/additional-info.schema";
+import type { QuestionnaireFormApi } from "@/features/questionnaire/types";
 
 import { YesNoWithDescription } from "./yes-no-with-description";
 

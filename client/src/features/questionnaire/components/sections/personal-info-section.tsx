@@ -13,7 +13,7 @@ import {
     FormOptionSelectField,
 } from "@/components/shared/form-option-fields";
 import { FileUploadField } from "@/components/shared/file-upload-field";
-import { DOC_CATEGORY_SLUGS } from "@/features/recruitment/constants";
+import { DOC_CATEGORY_SLUGS } from "@/features/questionnaire/constants";
 import { useFormOptionsByGroup } from "@/features/form-options/hooks/use-form-options";
 import {
     buildPersonalInfoSchemas,
@@ -21,12 +21,12 @@ import {
     GENDER_FEMALE,
     MARITAL_SINGLE,
     SPOUSE_EMPLOYED,
-} from "@/features/recruitment/schemas/personal-info.schema";
+} from "@/features/questionnaire/schemas/personal-info.schema";
 import { zodFieldValidators } from "@/lib/validation-helpers";
 import type {
     Questionnaire,
     QuestionnaireFormApi,
-} from "@/features/recruitment/types";
+} from "@/features/questionnaire/types";
 import { MilitaryServiceFields } from "./military-service-fields";
 
 type SectionProps = {
@@ -174,10 +174,10 @@ export function PersonalInfoSection({
             <CardContent className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <form.Field
-                        name="personal_info.national_id"
+                        name="personal_info.id_number"
                         validators={
                             schemas
-                                ? zodFieldValidators(schemas.fieldSchemas.national_id)
+                                ? zodFieldValidators(schemas.fieldSchemas.id_number)
                                 : undefined
                         }
                     >

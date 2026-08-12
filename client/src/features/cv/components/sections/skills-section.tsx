@@ -1,4 +1,4 @@
-import { SkillsSection as RecruitmentSkillsSection } from "@/features/recruitment/components/sections/skills-section";
+import { SkillsSection as QuestionnaireSkillsSection } from "@/features/questionnaire/components/sections/skills-section";
 import type { CvFormApi } from "@/features/cv/types";
 
 type SectionProps = {
@@ -9,7 +9,7 @@ type SectionProps = {
 
 export function SkillsSection({ form, uuid, onPersist }: SectionProps) {
     return (
-        <RecruitmentSkillsSection
+        <QuestionnaireSkillsSection
             form={form}
             uuid={uuid}
             onPersist={onPersist}

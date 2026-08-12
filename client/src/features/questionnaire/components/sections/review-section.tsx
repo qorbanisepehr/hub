@@ -1,23 +1,23 @@
 import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useQuestionnaireDocuments } from "@/features/recruitment/hooks/use-questionnaire-documents";
-import type { QuestionnaireDocument } from "@/features/recruitment/hooks/use-questionnaire-documents";
-import type { Questionnaire, QuestionnaireFormApi } from "@/features/recruitment/types";
+import { useQuestionnaireDocuments } from "@/features/questionnaire/hooks/use-questionnaire-documents";
+import type { QuestionnaireDocument } from "@/features/questionnaire/hooks/use-questionnaire-documents";
+import type { Questionnaire, QuestionnaireFormApi } from "@/features/questionnaire/types";
 import {
     DOC_CATEGORY_SLUGS,
     QUESTIONNAIRE_VALIDATION_SECTIONS,
     QUESTIONNAIRE_DOC_REQUIREMENTS,
     WIZARD_STEPS,
-} from "@/features/recruitment/constants";
-import { buildValidateSubmitData } from "@/features/recruitment/validation";
-import { useQuestionnaireSubmitOptions } from "@/features/recruitment/hooks/use-questionnaire-submit-options";
+} from "@/features/questionnaire/constants";
+import { buildValidateSubmitData } from "@/features/questionnaire/validation";
+import { useQuestionnaireSubmitOptions } from "@/features/questionnaire/hooks/use-questionnaire-submit-options";
 import { FormValidationSummary } from "@/components/shared/form-validation-summary";
 import {
     groupFieldErrorsBySection,
     validateDocumentRequirements,
 } from "@/lib/validation-helpers";
 import { toPersianDate } from "@/lib/date-format";
-import { GENDER_MALE, SPOUSE_EMPLOYED } from "@/features/recruitment/schemas/personal-info.schema";
+import { GENDER_MALE, SPOUSE_EMPLOYED } from "@/features/questionnaire/schemas/personal-info.schema";
 import {
     QuestionnaireDocumentPreview,
     QuestionnaireDocumentGrouped,
@@ -170,7 +170,7 @@ export function ReviewSection({ form, questionnaire, onNavigateToStep }: Section
                         {pi.spouse_employment_status === SPOUSE_EMPLOYED && (
                             <DataRow label="شغل همسر" value={pi.spouse_job} />
                         )}
-                        <DataRow label="کد ملی" value={pi.national_id} />
+                        <DataRow label="کد ملی" value={pi.id_number} />
                     </div>
                     {pi.military_status && pi.gender === GENDER_MALE && (
                         <div className="mt-4 pt-4 border-t">

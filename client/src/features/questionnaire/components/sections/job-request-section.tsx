@@ -17,11 +17,11 @@ import {
     YES_NO_OPTIONS,
     CURRENTLY_EMPLOYED_OPTIONS,
     parseBoolean,
-} from "@/features/recruitment/constants";
+} from "@/features/questionnaire/constants";
 import { useFormOptionsByGroup } from "@/features/form-options/hooks/use-form-options";
-import { buildJobRequestSchemas } from "@/features/recruitment/schemas/job-request.schema";
+import { buildJobRequestSchemas } from "@/features/questionnaire/schemas/job-request.schema";
 import { zodFieldValidators } from "@/lib/validation-helpers";
-import type { QuestionnaireFormApi } from "@/features/recruitment/types";
+import type { QuestionnaireFormApi } from "@/features/questionnaire/types";
 
 type SectionProps = {
     form: QuestionnaireFormApi;

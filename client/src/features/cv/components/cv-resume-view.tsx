@@ -12,7 +12,7 @@ import type {
     Skills,
     Training,
     WorkExperience,
-} from "@/features/recruitment/types";
+} from "@/features/questionnaire/types";
 import type { EntityDocument } from "@/hooks/use-entity-documents";
 import {
     CV_DOC_CATEGORY_SLUGS,
@@ -461,7 +461,7 @@ export function CvResumeView({
                         value={toPersianDate(personal.birth_date)}
                     />
                     <DataRow label="محل تولد" value={personal.birth_place} />
-                    <DataRow label="کد ملی" value={personal.national_id} />
+                    <DataRow label="کد ملی" value={personal.id_number} />
                     <DataRow
                         label="شماره شناسنامه"
                         value={personal.birth_certificate_number}

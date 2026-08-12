@@ -61,7 +61,7 @@ export interface PersonalInfo {
         to: string;
         reason: string;
     };
-    national_id: string;
+    id_number: string;
 }
 
 export interface Address {

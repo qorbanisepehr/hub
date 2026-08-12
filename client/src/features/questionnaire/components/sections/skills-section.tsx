@@ -14,12 +14,12 @@ import {
     LANGUAGE_LEVEL_OPTIONS,
     SOFTWARE_LEVEL_OPTIONS,
     DOC_CATEGORY_SLUGS,
-} from "@/features/recruitment/constants";
+} from "@/features/questionnaire/constants";
 import { useFormOptionsByGroup } from "@/features/form-options/hooks/use-form-options";
 import { useEntityDocuments } from "@/hooks/use-entity-documents";
 import { zodFieldValidators } from "@/lib/validation-helpers";
-import { fieldSchemas } from "@/features/recruitment/schemas/skills.schema";
-import type { QuestionnaireFormApi } from "@/features/recruitment/types";
+import { fieldSchemas } from "@/features/questionnaire/schemas/skills.schema";
+import type { QuestionnaireFormApi } from "@/features/questionnaire/types";
 
 type SectionProps = {
     form: QuestionnaireFormApi;

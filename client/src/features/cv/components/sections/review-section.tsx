@@ -18,7 +18,7 @@ import {
     validateDocumentRequirements,
 } from "@/lib/validation-helpers";
 import { toPersianDate } from "@/lib/date-format";
-import { GENDER_MALE } from "@/features/recruitment/schemas/personal-info.schema";
+import { GENDER_MALE } from "@/features/questionnaire/schemas/personal-info.schema";
 import {
     QuestionnaireDocumentPreview,
     QuestionnaireDocumentGrouped,
@@ -166,7 +166,7 @@ export function ReviewSection({ form, cv, onNavigateToStep }: SectionProps) {
                                 label="شماره شناسنامه"
                                 value={pi.birth_certificate_number}
                             />
-                            <DataRow label="کد ملی" value={pi.national_id} />
+                            <DataRow label="کد ملی" value={pi.id_number} />
                             <DataRow
                                 label="وضعیت تأهل"
                                 value={pi.marital_status}

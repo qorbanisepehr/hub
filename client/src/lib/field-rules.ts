@@ -4,7 +4,7 @@ import { requiredText, text } from "@/lib/zod-primitives";
 
 /**
  * Canonical client-side validation rules mirroring `App\Support\ValidationRules`
- * on the backend. Both the Recruitment and CV domains compose these builders so
+ * on the backend. Both the Questionnaire and CV domains compose these builders so
  * a single change (e.g. a new accepted phone format) updates every consumer.
  */
 
@@ -86,7 +86,7 @@ export function optionalEmail() {
  * 10-digit input so callers that already enforce the length can chain this
  * after a length check.
  */
-export function isValidNationalId(val: string): boolean {
+export function isValidIdNumber(val: string): boolean {
     if (!/^\d{10}$/.test(val)) return true;
     if (/^(\d)\1{9}$/.test(val)) return false;
     let sum = 0;
@@ -99,10 +99,10 @@ export function isValidNationalId(val: string): boolean {
 }
 
 /** Required national id: exactly 10 digits with a valid checksum. */
-export function nationalId(message = "کد ملی الزامی است.") {
+export function idNumber(message = "کد ملی الزامی است.") {
     return requiredText(message, 10)
         .refine((v) => /^\d{10}$/.test(v), "کد ملی باید دقیقاً ۱۰ رقم باشد.")
-        .refine(isValidNationalId, "کد ملی معتبر نیست.");
+        .refine(isValidIdNumber, "کد ملی معتبر نیست.");
 }
 
 /** Age in whole years on a Gregorian date string (Y-m-d). */

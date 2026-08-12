@@ -15,7 +15,7 @@ import { getFileTypeLabel } from "@/lib/file-type-label";
 import { renderPdfThumbnailUrl } from "@/lib/pdf-thumbnail-utils";
 import type { Document } from "@/features/documents/types";
 import { getDocOriginalName, getDocMimeType, getDocFileSizeFormatted, getDocServeUrl, getDocDownloadUrl } from "@/features/documents/types";
-import { getRecordKeyLabel } from "@/features/recruitment/constants";
+import { getRecordKeyLabel } from "@/features/questionnaire/constants";
 
 type DocumentPreviewLightboxProps = {
     documents: Document[];

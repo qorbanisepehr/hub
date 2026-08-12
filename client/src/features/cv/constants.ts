@@ -5,14 +5,14 @@ import type {
 
 import type { CvStatus } from "./types";
 
-// Shared option lists are reused cross-domain from the recruitment feature to
+// Shared option lists are reused cross-domain from the questionnaire feature to
 // avoid duplicating the same Persian option labels in two places.
 export {
     LANGUAGE_LEVEL_OPTIONS,
     SOFTWARE_LEVEL_OPTIONS,
     YES_NO_OPTIONS,
     parseBoolean,
-} from "@/features/recruitment/constants";
+} from "@/features/questionnaire/constants";
 
 export const CV_ENTITY = "cv";
 

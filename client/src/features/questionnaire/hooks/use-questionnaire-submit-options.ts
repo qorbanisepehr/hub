@@ -1,6 +1,6 @@
 import { useFormOptionsWithPlaces } from "@/features/form-options/hooks/use-form-options";
 import type { FormOptionsMap } from "@/features/form-options/types";
-import type { SubmitOptions } from "@/features/recruitment/validation";
+import type { SubmitOptions } from "@/features/questionnaire/validation";
 
 const REQUIRED_GROUPS = [
     "gender",

@@ -8,11 +8,11 @@ import { FileUploadField } from "@/components/shared/file-upload-field";
 import { repeaterAttachmentColumn } from "@/components/shared/repeater-attachment-cell";
 import { FormRepeater } from "@/components/shared/form-repeater";
 import type { TableColumn } from "@/components/shared/form-repeater";
-import { DOC_CATEGORY_SLUGS } from "@/features/recruitment/constants";
+import { DOC_CATEGORY_SLUGS } from "@/features/questionnaire/constants";
 import { useEntityDocuments } from "@/hooks/use-entity-documents";
 import { zodFieldValidators } from "@/lib/validation-helpers";
-import { fieldSchemas } from "@/features/recruitment/schemas/training.schema";
-import type { QuestionnaireFormApi } from "@/features/recruitment/types";
+import { fieldSchemas } from "@/features/questionnaire/schemas/training.schema";
+import type { QuestionnaireFormApi } from "@/features/questionnaire/types";
 
 type SectionProps = {
     form: QuestionnaireFormApi;
