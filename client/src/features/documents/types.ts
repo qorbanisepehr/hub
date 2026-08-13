@@ -126,7 +126,7 @@ export function getExactCategoryName(
     return find(categories, categoryId) ?? "";
 }
 
-// Helper functions to access revision data from a Document
+// Helper functions to access display data from a Document
 export function getDocOriginalName(doc: Document): string {
     if (doc.structure_name) return doc.structure_name;
     return doc.category?.name ?? "";
