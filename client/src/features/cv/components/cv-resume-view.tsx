@@ -385,7 +385,7 @@ export function CvResumeView({
     const additional: Partial<CvAdditionalInfo> = cv.additional_info ?? {};
 
     const docsBySlug = (slug: string) =>
-        documents.filter((doc) => doc.category_slug === slug);
+        documents.filter((doc) => doc.category?.slug === slug);
 
     const hasAnyDocument = documents.length > 0;
 

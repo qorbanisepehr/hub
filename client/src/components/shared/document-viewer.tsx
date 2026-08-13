@@ -57,12 +57,12 @@ export function groupDocumentsByCategory<T extends EntityDocument>(
     const byKey = new Map<string, { label: string; docs: T[] }>();
 
     for (const doc of documents) {
-        const key = doc.category_slug ?? "other";
+        const key = doc.category?.slug ?? "other";
         let group = byKey.get(key);
 
         if (!group) {
             group = {
-                label: doc.category_label ?? "سایر مدارک",
+                label: doc.category?.name ?? "سایر مدارک",
                 docs: [],
             };
             byKey.set(key, group);
@@ -86,11 +86,11 @@ export function toLightboxDocument(doc: EntityDocument): Document {
         documentable_type: "entity",
         documentable_id: 0,
         document_category_id: 0,
-        category: doc.category_label
+        category: doc.category
             ? {
-                  id: 0,
-                  name: doc.category_label,
-                  slug: doc.category_slug ?? "",
+                  id: doc.category.id,
+                  name: doc.category.name,
+                  slug: doc.category.slug,
                   description: null,
                   sort_order: 0,
                   parent_id: null,
@@ -239,7 +239,7 @@ function DocumentTableView({
                             </div>
                         </TableCell>
                         <TableCell className="text-muted-foreground">
-                            {doc.category_label ?? "—"}
+                            {doc.category?.name ?? "—"}
                         </TableCell>
                         <TableCell className="text-muted-foreground">
                             {getFileTypeLabel(doc.mime_type)}

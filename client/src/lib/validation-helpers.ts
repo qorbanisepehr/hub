@@ -131,12 +131,12 @@ export type DocumentRequirement = {
  * backend enforcement (CvService/QuestionnaireService documentRequirements).
  */
 export function validateDocumentRequirements(
-    documents: Array<{ category_slug: string | null }>,
+    documents: Array<{ category: { slug: string } | null }>,
     requirements: DocumentRequirement[],
 ): string[] {
     const messages: string[] = [];
     for (const requirement of requirements) {
-        const count = documents.filter((d) => d.category_slug === requirement.slug).length;
+        const count = documents.filter((d) => d.category?.slug === requirement.slug).length;
         if (requirement.required && count === 0) {
             messages.push(`«${requirement.label}» الزامی است و بارگذاری نشده است.`);
         }

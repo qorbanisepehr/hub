@@ -69,16 +69,17 @@ function deriveExtraEntries(
 ): ExtraDocEntry[] {
     const entries = new Map<string, ExtraDocEntry>();
     for (const doc of documents) {
-        if (!doc.category_slug || !EXTRA_DOC_SLUGS.has(doc.category_slug)) {
+        const slug = doc.category?.slug;
+        if (!slug || !EXTRA_DOC_SLUGS.has(slug)) {
             continue;
         }
         const notes = doc.notes ?? "";
-        const key = `${doc.category_slug}::${notes}`;
+        const key = `${slug}::${notes}`;
         if (entries.has(key)) continue;
         entries.set(key, {
             key,
-            slug: doc.category_slug,
-            label: labels.get(doc.category_slug) ?? doc.category_slug,
+            slug,
+            label: labels.get(slug) ?? slug,
             notes,
         });
     }
