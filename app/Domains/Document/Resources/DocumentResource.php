@@ -36,9 +36,6 @@ class DocumentResource extends JsonResource
             'original_name' => $document->original_name,
             'mime_type' => $document->mime_type,
             'size' => $document->size,
-            'disk' => $document->disk,
-            'path' => $document->path,
-            'hash' => $document->hash,
             'documentable_type' => $usage?->entity_type
                 ? strtolower(class_basename($usage->entity_type))
                 : null,
@@ -58,23 +55,8 @@ class DocumentResource extends JsonResource
                 ? class_basename($usage->entity_type)
                 : null,
             'entity_id' => $usage?->entity_id,
-            'status' => null,
             'notes' => $metadata['notes'] ?? null,
-            'meta' => $metadata,
             'metadata' => $metadata,
-            'current_revision' => [
-                'id' => $document->id,
-                'original_name' => $document->original_name,
-                'mime_type' => $document->mime_type,
-                'file_size' => $document->size,
-                'file_size_formatted' => $this->formatFileSize($document->size),
-                'form_data' => null,
-                'uploaded_by' => null,
-                'uploader_name' => null,
-                'created_at' => $document->created_at,
-            ],
-            'uploaded_by' => null,
-            'uploader_name' => null,
             'serve_url' => $document->id
                 ? Route::has('documents.serve')
                     ? route('documents.serve', $document->id)
@@ -99,19 +81,6 @@ class DocumentResource extends JsonResource
             'updated_at' => $document->updated_at,
             'deleted_at' => $usage?->deleted_at,
         ];
-    }
-
-    private function formatFileSize(int $bytes): string
-    {
-        if ($bytes >= 1048576) {
-            return round($bytes / 1048576, 1).' MB';
-        }
-
-        if ($bytes >= 1024) {
-            return round($bytes / 1024, 1).' KB';
-        }
-
-        return $bytes.' B';
     }
 
     private function structureName(Document $document, DocumentUsage $usage): string

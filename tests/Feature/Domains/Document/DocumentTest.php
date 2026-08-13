@@ -61,8 +61,9 @@ describe('document API', function () {
                 ->and($data['category_slug'])->toBe('resume')
                 ->and($data['structure_name'])->toBe('رزومه')
                 ->and($data['notes'])->toBe('بررسی شود')
-                ->and($data['current_revision']['original_name'])->toBe('cv.pdf')
-                ->and($data['current_revision']['file_size_formatted'])->not->toBeEmpty()
+                ->and($data['original_name'])->toBe('cv.pdf')
+                ->and($data['mime_type'])->toBe('application/pdf')
+                ->and($data['size'])->toBeGreaterThan(0)
                 ->and($data['deleted_at'])->toBeNull();
 
             $this->actingAs($user)
