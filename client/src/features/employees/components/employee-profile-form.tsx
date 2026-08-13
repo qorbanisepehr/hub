@@ -120,7 +120,7 @@ const EMPTY_WORK_EXPERIENCE = {
 };
 
 const EMPTY_SOCIAL_INSURANCE = {
-    insurance_number: "",
+    social_insurance_number: "",
     insurance_status: "",
     insurance_start_date: "",
     has_insurance_history: false,
@@ -205,7 +205,7 @@ function buildDefaultValues(employee: Employee): EmployeeProfileFormData {
         social_insurance: {
             ...EMPTY_SOCIAL_INSURANCE,
             ...(employee.section_social_insurance ?? {}),
-            insurance_number: employee.social_insurance_number ?? "",
+            social_insurance_number: employee.social_insurance_number ?? "",
         },
         skills: { ...EMPTY_SKILLS, ...(employee.section_skills ?? {}) },
         training: { ...EMPTY_TRAINING, ...(employee.section_training ?? {}) },

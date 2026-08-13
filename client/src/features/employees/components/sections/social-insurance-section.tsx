@@ -1,4 +1,4 @@
-import { useStore } from "@tanstack/react-form";
+import { useSelector } from "@tanstack/react-form";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -32,7 +32,7 @@ const HISTORY_COLUMNS: TableColumn[] = [
 ];
 
 export function SocialInsuranceSection({ form, uuid }: SectionProps) {
-    const hasHistory = useStore(
+    const hasHistory = useSelector(
         form.store,
         (state) =>
             state.values.social_insurance?.has_insurance_history === true,
@@ -53,9 +53,10 @@ export function SocialInsuranceSection({ form, uuid }: SectionProps) {
             <CardContent className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <form.Field
-                        name="social_insurance.insurance_number"
+                        name="social_insurance.social_insurance_number"
                         validators={zodFieldValidators(
-                            socialInsuranceFieldSchema.shape.insurance_number,
+                            socialInsuranceFieldSchema.shape
+                                .social_insurance_number,
                         )}
                     >
                         {(field) => (

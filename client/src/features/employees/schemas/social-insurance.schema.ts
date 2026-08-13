@@ -18,7 +18,7 @@ const historySchema = z.object({
 });
 
 export const socialInsuranceFieldSchema = z.object({
-    insurance_number: z
+    social_insurance_number: z
         .string()
         .max(30, "شماره بیمه حداکثر ۳۰ کاراکتر است")
         .or(z.literal("")),
