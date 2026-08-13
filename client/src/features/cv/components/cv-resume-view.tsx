@@ -3,10 +3,9 @@ import type { ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-    QuestionnaireDocumentGrouped,
     QuestionnaireDocumentPreview,
-    groupDocumentsByCategory,
 } from "@/components/shared/questionnaire-document-preview";
+import { DocumentViewer } from "@/components/shared/document-viewer";
 import { toPersianDate } from "@/lib/date-format";
 import type {
     Education,
@@ -388,8 +387,7 @@ export function CvResumeView({
     const docsBySlug = (slug: string) =>
         documents.filter((doc) => doc.category_slug === slug);
 
-    const documentGroups = groupDocumentsByCategory(documents);
-    const hasAnyDocument = documentGroups.length > 0;
+    const hasAnyDocument = documents.length > 0;
 
     return (
         <div className="space-y-6">
@@ -555,10 +553,7 @@ export function CvResumeView({
 
             {hasAnyDocument && (
                 <SectionCard title="همه مدارک بارگذاری شده">
-                    <p className="mb-4 text-sm text-muted-foreground">
-                        برای مشاهده جزئیات و پیش‌نمایش، روی هر مدرک کلیک کنید
-                    </p>
-                    <QuestionnaireDocumentGrouped groups={documentGroups} />
+                    <DocumentViewer documents={documents} />
                 </SectionCard>
             )}
         </div>

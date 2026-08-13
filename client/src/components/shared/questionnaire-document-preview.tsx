@@ -9,38 +9,8 @@ import { FileThumbnail } from "@/components/ui/file-thumbnail";
 import { getFileIcon } from "@/lib/file-icon";
 import { getFileColorClasses } from "@/lib/file-colors";
 import { formatBytes } from "@/lib/file-size";
-import type { EntityDocument } from "@/hooks/use-entity-documents";
+import { toLightboxDocument } from "@/components/shared/document-viewer";
 import type { QuestionnaireDocument } from "@/features/questionnaire/hooks/use-questionnaire-documents";
-
-/**
- * Group documents by their category, in upload order, so that every uploaded
- * document is represented regardless of which category it belongs to. Documents
- * without a category fall back to a generic "سایر مدارک" group.
- */
-export function groupDocumentsByCategory<T extends EntityDocument>(
-    documents: T[],
-): { label: string; docs: T[] }[] {
-    const groups: { label: string; docs: T[] }[] = [];
-    const byKey = new Map<string, { label: string; docs: T[] }>();
-
-    for (const doc of documents) {
-        const key = doc.category_slug ?? "other";
-        let group = byKey.get(key);
-
-        if (!group) {
-            group = {
-                label: doc.category_label ?? "سایر مدارک",
-                docs: [],
-            };
-            byKey.set(key, group);
-            groups.push(group);
-        }
-
-        group.docs.push(doc);
-    }
-
-    return groups;
-}
 
 type QuestionnaireDocPreviewProps = {
     documents: QuestionnaireDocument[];
@@ -136,52 +106,10 @@ export function QuestionnaireDocumentPreview({
     const [lightboxOpen, setLightboxOpen] = React.useState(false);
     const [currentIndex, setCurrentIndex] = React.useState(0);
 
-    // Convert QuestionnaireDocument to the shape DocumentPreviewLightbox expects
-    const lightboxDocs = React.useMemo(() => {
-        return documents.map((d) => ({
-            id: d.usage_id,
-            uuid: d.uuid,
-            original_name: d.structure_name,
-            mime_type: d.mime_type,
-            size: d.size,
-            section_key: d.section_key,
-            field_key: d.field_key,
-            category_slug: d.category_slug,
-            url: d.url,
-            // Bridge to Document type shape:
-            documentable_type: "questionnaire",
-            documentable_id: 0,
-            document_category_id: 0,
-            status: "pending" as const,
-            notes: null,
-            meta: null,
-            current_revision: {
-                id: 0,
-                original_name: d.structure_name,
-                mime_type: d.mime_type,
-                file_size: d.size,
-                file_size_formatted: formatBytes(d.size),
-                form_data: null,
-                uploaded_by: null,
-                uploader_name: null,
-                created_at: "",
-            },
-            uploaded_by: null,
-            uploader_name: null,
-            serve_url: d.url,
-            thumbnail_url: "",
-            download_url: d.url,
-            entity_type: null,
-            entity_id: null,
-            disk: "local",
-            path: "",
-            hash: "",
-            created_at: "",
-            updated_at: "",
-            deleted_at: null,
-            category: undefined,
-        }));
-    }, [documents]);
+    const lightboxDocs = React.useMemo(
+        () => documents.map(toLightboxDocument),
+        [documents],
+    );
 
     function openLightbox(index: number) {
         setCurrentIndex(index);
@@ -227,7 +155,7 @@ export function QuestionnaireDocumentPreview({
                     ))}
                 </div>
                 <DocumentPreviewLightbox
-                    documents={lightboxDocs as any}
+                    documents={lightboxDocs}
                     currentIndex={currentIndex}
                     open={lightboxOpen}
                     onClose={() => setLightboxOpen(false)}
@@ -298,7 +226,7 @@ export function QuestionnaireDocumentPreview({
                     ))}
                 </div>
                 <DocumentPreviewLightbox
-                    documents={lightboxDocs as any}
+                    documents={lightboxDocs}
                     currentIndex={currentIndex}
                     open={lightboxOpen}
                     onClose={() => setLightboxOpen(false)}
@@ -322,42 +250,12 @@ export function QuestionnaireDocumentPreview({
                 ))}
             </div>
             <DocumentPreviewLightbox
-                documents={lightboxDocs as any}
+                documents={lightboxDocs}
                 currentIndex={currentIndex}
                 open={lightboxOpen}
                 onClose={() => setLightboxOpen(false)}
                 onNavigate={(index) => setCurrentIndex(index)}
             />
         </>
-    );
-}
-
-/**
- * Grouped view: show documents grouped by category label.
- * Each group has a heading + thumbnail grid with lightbox.
- */
-export function QuestionnaireDocumentGrouped({
-    groups,
-    className,
-}: {
-    groups: { label: string; docs: QuestionnaireDocument[] }[];
-    className?: string;
-}) {
-    const nonEmpty = groups.filter((g) => g.docs.length > 0);
-    if (nonEmpty.length === 0) return null;
-
-    return (
-        <div className={cn("space-y-4", className)}>
-            {nonEmpty.map((group) => (
-                <div key={group.label}>
-                    <p className="text-sm font-medium mb-2">{group.label}</p>
-                    <QuestionnaireDocumentPreview
-                        documents={group.docs}
-                        variant="thumbnail"
-                        size="md"
-                    />
-                </div>
-            ))}
-        </div>
     );
 }

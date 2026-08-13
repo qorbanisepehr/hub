@@ -18,11 +18,8 @@ import {
 } from "@/lib/validation-helpers";
 import { toPersianDate } from "@/lib/date-format";
 import { GENDER_MALE, SPOUSE_EMPLOYED } from "@/features/questionnaire/schemas/personal-info.schema";
-import {
-    QuestionnaireDocumentPreview,
-    QuestionnaireDocumentGrouped,
-    groupDocumentsByCategory,
-} from "@/components/shared/questionnaire-document-preview";
+import { QuestionnaireDocumentPreview } from "@/components/shared/questionnaire-document-preview";
+import { DocumentViewer } from "@/components/shared/document-viewer";
 
 type SectionProps = {
     form: QuestionnaireFormApi;
@@ -107,9 +104,7 @@ export function ReviewSection({ form, questionnaire, onNavigateToStep }: Section
         return docsFor(SECTION_DOCS.find((s) => s.step === step)?.slugs ?? []);
     }
 
-    const treeGroups = groupDocumentsByCategory(documents);
-
-    const hasAnyDoc = treeGroups.length > 0;
+    const hasAnyDoc = documents.length > 0;
 
     return (
         <div className="space-y-4">
@@ -414,15 +409,12 @@ export function ReviewSection({ form, questionnaire, onNavigateToStep }: Section
                 </CardContent>
             </Card>
 
-            {/* ── نمای درختی مدارک ── */}
+            {/* ── همه مدارک بارگذاری شده ── */}
             {hasAnyDoc && (
                 <Card>
                     <SectionHeader title="همه مدارک بارگذاری شده" />
                     <CardContent>
-                        <p className="text-sm text-muted-foreground mb-4">
-                            برای مشاهده جزئیات و پیش‌نمایش، روی هر مدرک کلیک کنید
-                        </p>
-                        <QuestionnaireDocumentGrouped groups={treeGroups} />
+                        <DocumentViewer documents={documents} />
                     </CardContent>
                 </Card>
             )}
