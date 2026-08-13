@@ -71,12 +71,18 @@ function attachCvDocuments(string $uuid): void
 {
     $cv = Cv::where('uuid', $uuid)->firstOrFail();
 
-    $document = Document::factory()->create();
+    $category = DocumentCategory::firstOrCreate([
+        'slug' => 'resume',
+    ], [
+        'name' => 'resume',
+        'type' => DocumentCategory::TYPE_PERSONNEL,
+    ]);
+
+    $document = Document::factory()->create(['category_id' => $category->id]);
     DocumentUsage::create([
         'document_id' => $document->id,
         'entity_type' => Cv::class,
         'entity_id' => $cv->id,
-        'category_slug' => 'resume',
     ]);
 }
 
@@ -899,19 +905,30 @@ describe('CV bank', function () {
             'status' => 'submitted',
         ]);
 
-        $resume = Document::factory()->create(['original_name' => 'resume.pdf']);
-        $cover = Document::factory()->create(['original_name' => 'cover.pdf']);
+        $resumeCategory = DocumentCategory::firstOrCreate([
+            'slug' => 'resume',
+        ], [
+            'name' => 'resume',
+            'type' => DocumentCategory::TYPE_PERSONNEL,
+        ]);
+        $coverCategory = DocumentCategory::firstOrCreate([
+            'slug' => 'cover-letter',
+        ], [
+            'name' => 'cover-letter',
+            'type' => DocumentCategory::TYPE_PERSONNEL,
+        ]);
+
+        $resume = Document::factory()->create(['original_name' => 'resume.pdf', 'category_id' => $resumeCategory->id]);
+        $cover = Document::factory()->create(['original_name' => 'cover.pdf', 'category_id' => $coverCategory->id]);
         DocumentUsage::create([
             'document_id' => $resume->id,
             'entity_type' => Cv::class,
             'entity_id' => $cv->id,
-            'category_slug' => 'resume',
         ]);
         DocumentUsage::create([
             'document_id' => $cover->id,
             'entity_type' => Cv::class,
             'entity_id' => $cv->id,
-            'category_slug' => 'cover-letter',
         ]);
 
         $this->actingAs($user)
@@ -919,7 +936,7 @@ describe('CV bank', function () {
             ->assertOk()
             ->assertJsonCount(2, 'data.documents')
             ->assertJsonPath('data.resume_document.category_slug', 'resume')
-            ->assertJsonPath('data.resume_document.original_name', 'resume.pdf')
+            ->assertJsonPath('data.resume_document.structure_name', 'resume')
             ->assertJsonPath('data.resume_document.uuid', $resume->uuid)
             ->assertJsonPath('data.resume_document.url', URL::signedRoute('cv.documents.serve', ['uuid' => $resume->uuid]))
             ->assertJsonPath('data.resume_document.download_url', URL::signedRoute('cv.documents.serve', ['uuid' => $resume->uuid, 'download' => 1]));
@@ -927,7 +944,7 @@ describe('CV bank', function () {
         $this->actingAs($user)
             ->getJson('/api/cv/bank')
             ->assertOk()
-            ->assertJsonPath('data.0.resume_document.original_name', 'resume.pdf');
+            ->assertJsonPath('data.0.resume_document.structure_name', 'resume');
     });
 
     it('returns empty documents and a null resume_document when no documents are uploaded', function () {
@@ -1100,8 +1117,11 @@ describe('CV section definitions', function () {
         expect($requirements)->toHaveKey('resume')
             ->and($requirements['resume']['required'])->toBeTrue()
             ->and($requirements['resume']['max_files'])->toBe(1)
+            ->and($requirements['resume']['section_key'])->toBe('documents')
             ->and($requirements['cover-letter']['required'])->toBeFalse()
             ->and($requirements['other-documents']['max_files'])->toBe(3)
+            ->and($requirements['personnel-photo']['field_keys'])->toBe(['photo'])
+            ->and($requirements['personnel-photo']['section_key'])->toBe('documents')
             ->and($requirements)->not->toHaveKey('national-card');
     });
 
@@ -1126,11 +1146,14 @@ describe('CV documents', function () {
             'document_category_id' => $category->id,
             'file' => UploadedFile::fake()->createWithContent('resume.pdf', 'resume-content'),
         ])->assertCreated()
-            ->assertJsonPath('data.category_slug', 'resume');
+            ->assertJsonPath('data.category_slug', 'resume')
+            ->assertJsonPath('data.category_label', 'رزومه')
+            ->assertJsonPath('data.structure_name', 'رزومه')
+            ->assertJsonMissingPath('data.original_name');
 
         $document = Document::first();
 
-        expect($document->path)->toMatch('#^cv/.*/documents/resume/resume-[a-f0-9]{8}\.pdf$#');
+        expect($document->path)->toMatch('#^cv/.*/documents/resume/document-[a-f0-9]{8}\.pdf$#');
         Storage::disk('local')->assertExists($document->path);
     });
 

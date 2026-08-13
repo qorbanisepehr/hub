@@ -259,7 +259,9 @@ class CvService
     }
 
     /**
-     * Merge per-category document requirements declared by every section definition.
+     * Merge per-category document requirements declared by every section
+     * definition. CV documents are placed at the standalone 'documents'
+     * section (declared explicitly by the sections).
      *
      * @return array<string, array<string, mixed>>
      */
@@ -269,7 +271,7 @@ class CvService
 
         foreach ($this->sections as $section) {
             foreach ($section->documentRequirements() as $slug => $requirement) {
-                $requirements[$slug] = $requirement;
+                $requirements[$slug] = $requirement + ['section_key' => 'documents'];
             }
         }
 

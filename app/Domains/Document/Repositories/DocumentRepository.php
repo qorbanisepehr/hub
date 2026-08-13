@@ -9,29 +9,23 @@ use Illuminate\Database\Eloquent\Model;
 
 class DocumentRepository implements DocumentRepositoryInterface
 {
-    public function findByHash(string $hash): ?Document
-    {
-        return Document::where('hash', $hash)->first();
-    }
-
     public function create(array $data): Document
     {
         return Document::create($data);
     }
 
-    public function attachUsage(Document $document, Model $entity, string $categorySlug, ?string $recordKey = null, ?string $slot = null, ?array $customProperties = null): DocumentUsage
+    public function attachUsage(Document $document, Model $entity, ?string $sectionKey = null, ?string $fieldKey = null, ?array $metadata = null): DocumentUsage
     {
         return DocumentUsage::updateOrCreate(
             [
                 'document_id' => $document->id,
                 'entity_type' => get_class($entity),
                 'entity_id' => $entity->getKey(),
-                'category_slug' => $categorySlug,
-                'record_key' => $recordKey,
+                'section_key' => $sectionKey,
+                'field_key' => $fieldKey,
             ],
             [
-                'slot' => $slot,
-                'custom_properties' => $customProperties,
+                'metadata' => $metadata,
             ]
         );
     }
@@ -53,16 +47,16 @@ class DocumentRepository implements DocumentRepositoryInterface
             ->forceDelete() > 0;
     }
 
-    public function getForEntity(Model $entity, ?string $categorySlug = null): Collection
+    public function getForEntity(Model $entity, ?string $sectionKey = null): Collection
     {
-        $query = Document::with('usages')->whereHas('usages', function ($q) use ($entity) {
+        $query = Document::with('usages', 'category')->whereHas('usages', function ($q) use ($entity) {
             $q->where('entity_type', get_class($entity))
                 ->where('entity_id', $entity->getKey());
         });
 
-        if ($categorySlug) {
-            $query->whereHas('usages', function ($q) use ($categorySlug) {
-                $q->where('category_slug', $categorySlug);
+        if ($sectionKey) {
+            $query->whereHas('usages', function ($q) use ($sectionKey) {
+                $q->where('section_key', $sectionKey);
             });
         }
 
@@ -71,14 +65,27 @@ class DocumentRepository implements DocumentRepositoryInterface
 
     public function deleteDocument(Document $document): bool
     {
-        $disk = \Storage::disk($document->disk);
+        // Only remove the physical file when no other Document references the
+        // same storage path. A Document created from the Library may point at
+        // the same file as another one, so deleting one record must not break
+        // the other.
+        $sharedElsewhere = Document::query()
+            ->where('disk', $document->disk)
+            ->where('path', $document->path)
+            ->whereKeyNot($document->getKey())
+            ->withTrashed()
+            ->exists();
 
-        // Delete physical file (original + thumbnail if exists)
-        $disk->delete($document->path);
+        if (! $sharedElsewhere) {
+            $disk = \Storage::disk($document->disk);
 
-        $thumbPath = $this->getThumbnailPath($document->path);
-        if ($disk->exists($thumbPath)) {
-            $disk->delete($thumbPath);
+            // Delete physical file (original + thumbnail if exists)
+            $disk->delete($document->path);
+
+            $thumbPath = $this->getThumbnailPath($document->path);
+            if ($disk->exists($thumbPath)) {
+                $disk->delete($thumbPath);
+            }
         }
 
         // Delete usages

@@ -25,7 +25,8 @@ class PublicStoreDocumentRequest extends FormRequest
             ],
             'notes' => ['nullable', 'string', 'max:1000'],
             'meta' => ['nullable', 'json', 'max:5000'],
-            'record_key' => ['nullable', 'string', 'max:255'],
+            'section_key' => ['nullable', 'string', 'max:100'],
+            'field_key' => ['nullable', 'string', 'max:100'],
             'form_data' => ['nullable', 'json'],
         ];
     }

@@ -3,6 +3,7 @@
 use App\Domains\Document\Models\Document;
 use App\Domains\Document\Models\DocumentCategory;
 use App\Domains\Document\Models\DocumentUsage;
+use App\Domains\Document\Repositories\DocumentRepository;
 use App\Domains\Employee\Models\Employee;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -58,6 +59,7 @@ describe('document API', function () {
             expect($data['document_category_id'])->toBe($category->id)
                 ->and($data['category']['name'])->toBe('رزومه')
                 ->and($data['category_slug'])->toBe('resume')
+                ->and($data['structure_name'])->toBe('رزومه')
                 ->and($data['notes'])->toBe('بررسی شود')
                 ->and($data['current_revision']['original_name'])->toBe('cv.pdf')
                 ->and($data['current_revision']['file_size_formatted'])->not->toBeEmpty()
@@ -70,7 +72,8 @@ describe('document API', function () {
                 ->assertJsonPath('data.0.id', $data['id'])
                 ->assertJsonPath('data.0.document_category_id', $category->id)
                 ->assertJsonPath('data.0.category.name', 'رزومه')
-                ->assertJsonPath('data.0.category_slug', 'resume');
+                ->assertJsonPath('data.0.category_slug', 'resume')
+                ->assertJsonPath('data.0.structure_name', 'رزومه');
         });
 
         it('does not leak usages of other employees', function () {
@@ -123,6 +126,62 @@ describe('document API', function () {
                 ])
                 ->assertStatus(422)
                 ->assertJsonValidationErrors(['documentable_type']);
+        });
+
+        it('persists the category on the document, not only on the usage', function () {
+            Storage::fake('local');
+            $user = createUserWithPermissions(['document.upload_all']);
+            $employee = Employee::factory()->create();
+            $category = personnelDocumentCategory('resume', 'رزومه');
+
+            $data = $this->actingAs($user)
+                ->postJson('/api/documents', [
+                    'documentable_type' => 'employee',
+                    'documentable_id' => $employee->id,
+                    'document_category_id' => $category->id,
+                    'file' => UploadedFile::fake()->createWithContent('cv.pdf', 'document-content'),
+                ])
+                ->assertCreated()
+                ->json('data');
+
+            $document = Document::first();
+
+            expect($document->category_id)->toBe($category->id)
+                ->and($document->category->is($category))->toBeTrue()
+                ->and($data['document_category_id'])->toBe($category->id);
+        });
+
+        it('creates a new document per upload instead of deduplicating by hash', function () {
+            Storage::fake('local');
+            $user = createUserWithPermissions(['document.upload_all']);
+            $employee = Employee::factory()->create();
+            $category = personnelDocumentCategory('resume');
+
+            $file = UploadedFile::fake()->createWithContent('cv.pdf', 'identical-content');
+
+            $first = $this->actingAs($user)
+                ->postJson('/api/documents', [
+                    'documentable_type' => 'employee',
+                    'documentable_id' => $employee->id,
+                    'document_category_id' => $category->id,
+                    'file' => $file,
+                ])
+                ->assertCreated()
+                ->json('data');
+
+            $second = $this->actingAs($user)
+                ->postJson('/api/documents', [
+                    'documentable_type' => 'employee',
+                    'documentable_id' => $employee->id,
+                    'document_category_id' => $category->id,
+                    'file' => $file,
+                ])
+                ->assertCreated()
+                ->json('data');
+
+            expect($first['document_id'])->not->toBe($second['document_id'])
+                ->and(Document::count())->toBe(2)
+                ->and(DocumentUsage::count())->toBe(2);
         });
 
         it('rejects disallowed mime types', function () {
@@ -344,6 +403,69 @@ describe('document API', function () {
             $this->actingAs($user)
                 ->deleteJson('/api/documents/99999/force')
                 ->assertStatus(404);
+        });
+    });
+
+    describe('deleteDocument repository invariant', function () {
+        it('keeps the physical file when another document references the same path', function () {
+            Storage::fake('local');
+            $category = personnelDocumentCategory('resume');
+            $employee = Employee::factory()->create();
+            $user = createUserWithPermissions(['document.upload_all']);
+
+            $this->actingAs($user)
+                ->postJson('/api/documents', [
+                    'documentable_type' => 'employee',
+                    'documentable_id' => $employee->id,
+                    'document_category_id' => $category->id,
+                    'file' => UploadedFile::fake()->createWithContent('cv.pdf', 'shared-content'),
+                ])->assertCreated();
+
+            $first = Document::first();
+            $path = $first->path;
+
+            $shared = Document::create([
+                'category_id' => $category->id,
+                'original_name' => 'cv-copy.pdf',
+                'mime_type' => 'application/pdf',
+                'size' => $first->size,
+                'disk' => $first->disk,
+                'path' => $path,
+                'hash' => $first->hash,
+            ]);
+
+            $repository = app(DocumentRepository::class);
+
+            expect($repository->deleteDocument($shared))->toBeTrue();
+
+            expect(Document::count())->toBe(1)
+                ->and(Document::first()->is($first))->toBeTrue();
+            Storage::disk('local')->assertExists($path);
+        });
+
+        it('removes the physical file when it is the last document for that path', function () {
+            Storage::fake('local');
+            $category = personnelDocumentCategory('resume');
+            $employee = Employee::factory()->create();
+            $user = createUserWithPermissions(['document.upload_all']);
+
+            $this->actingAs($user)
+                ->postJson('/api/documents', [
+                    'documentable_type' => 'employee',
+                    'documentable_id' => $employee->id,
+                    'document_category_id' => $category->id,
+                    'file' => UploadedFile::fake()->createWithContent('cv.pdf', 'solo-content'),
+                ])->assertCreated();
+
+            $document = Document::first();
+            $path = $document->path;
+
+            $repository = app(DocumentRepository::class);
+
+            expect($repository->deleteDocument($document))->toBeTrue();
+
+            expect(Document::count())->toBe(0);
+            Storage::disk('local')->assertMissing($path);
         });
     });
 

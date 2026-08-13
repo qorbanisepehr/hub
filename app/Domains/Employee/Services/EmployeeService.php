@@ -53,6 +53,28 @@ class EmployeeService
     }
 
     /**
+     * Merge per-category document requirements declared by the registered
+     * sections. Employee documents are uploaded in a standalone 'documents'
+     * step, so every requirement is placed at the documents section. This
+     * keeps the Employee domain independent of the Questionnaire service
+     * (only the shared section definitions are reused).
+     *
+     * @return array<string, array<string, mixed>>
+     */
+    public function getDocumentRequirements(): array
+    {
+        $requirements = [];
+
+        foreach ($this->sections as $section) {
+            foreach ($section->documentRequirements() as $slug => $requirement) {
+                $requirements[$slug] = $requirement + ['section_key' => 'documents'];
+            }
+        }
+
+        return $requirements;
+    }
+
+    /**
      * Create an employee with optional section data (structural validation —
      * draft safe, same as the questionnaire's per-section saves).
      *

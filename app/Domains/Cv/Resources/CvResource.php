@@ -3,7 +3,9 @@
 namespace App\Domains\Cv\Resources;
 
 use App\Domains\Cv\Enums\CvStatus;
+use App\Domains\Document\Models\Document;
 use App\Domains\Document\Models\DocumentUsage;
+use App\Domains\Document\Services\DocumentService;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -173,7 +175,7 @@ class CvResource extends JsonResource
         }
 
         $resume = $this->documentUsages
-            ->filter(fn (DocumentUsage $usage) => $usage->category_slug === 'resume' && $usage->document !== null)
+            ->filter(fn (DocumentUsage $usage) => $usage->document !== null && $usage->document->category?->slug === 'resume')
             ->first();
 
         return $resume ? $this->documentPayload($resume) : null;
@@ -190,12 +192,15 @@ class CvResource extends JsonResource
             'id' => $document->id,
             'usage_id' => $usage->id,
             'uuid' => $document->uuid,
-            'original_name' => $document->original_name,
+            'structure_name' => $this->structureName($document, $usage),
             'mime_type' => $document->mime_type,
             'size' => $document->size,
-            'category_slug' => $usage->category_slug,
-            'record_key' => $usage->record_key,
-            'notes' => $usage->custom_properties['notes'] ?? null,
+            'category_slug' => $document->category?->slug,
+            'category_label' => $document->category?->name,
+            'section_key' => $usage->section_key,
+            'field_key' => $usage->field_key,
+            'notes' => $usage->metadata['notes'] ?? null,
+            'metadata' => $usage->metadata ?? [],
             'url' => URL::signedRoute(
                 'cv.documents.serve',
                 ['uuid' => $document->uuid],
@@ -205,5 +210,10 @@ class CvResource extends JsonResource
                 ['uuid' => $document->uuid, 'download' => 1],
             ),
         ];
+    }
+
+    private function structureName(Document $document, DocumentUsage $usage): string
+    {
+        return app(DocumentService::class)->structureName($document, $usage);
     }
 }

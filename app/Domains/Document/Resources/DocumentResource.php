@@ -3,8 +3,8 @@
 namespace App\Domains\Document\Resources;
 
 use App\Domains\Document\Models\Document;
-use App\Domains\Document\Models\DocumentCategory;
 use App\Domains\Document\Models\DocumentUsage;
+use App\Domains\Document\Services\DocumentService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\Route;
@@ -12,14 +12,6 @@ use Illuminate\Support\Facades\Route;
 /** @mixin Document */
 class DocumentResource extends JsonResource
 {
-    /**
-     * Slug → resolved category, memoized per request so collections don't
-     * issue one query per usage.
-     *
-     * @var array<string, array{id:int,name:string,slug:string,parent_id:int|null,type:string}|null>
-     */
-    private static array $categoryCache = [];
-
     /** @return array<string, mixed> */
     public function toArray(Request $request): array
     {
@@ -31,16 +23,16 @@ class DocumentResource extends JsonResource
             $usage = $document->usages?->first();
         }
 
-        $category = $usage?->category_slug
-            ? $this->resolveCategory($usage->category_slug)
-            : null;
-
-        $customProperties = $usage?->custom_properties ?? [];
+        $category = $document->category;
+        $metadata = $usage?->metadata ?? [];
 
         return [
             'id' => $usage?->id,
             'document_id' => $document->id,
             'uuid' => $document->uuid,
+            'structure_name' => $usage
+                ? $this->structureName($document, $usage)
+                : ($category?->name ?? __('document.document')),
             'original_name' => $document->original_name,
             'mime_type' => $document->mime_type,
             'size' => $document->size,
@@ -51,18 +43,25 @@ class DocumentResource extends JsonResource
                 ? strtolower(class_basename($usage->entity_type))
                 : null,
             'documentable_id' => $usage?->entity_id,
-            'document_category_id' => $category['id'] ?? null,
-            'category' => $category,
-            'category_slug' => $usage?->category_slug,
-            'record_key' => $usage?->record_key,
-            'slot' => $usage?->slot,
+            'document_category_id' => $category?->id,
+            'category' => $category ? [
+                'id' => $category->id,
+                'name' => $category->name,
+                'slug' => $category->slug,
+                'parent_id' => $category->parent_id,
+                'type' => $category->type,
+            ] : null,
+            'category_slug' => $category?->slug,
+            'section_key' => $usage?->section_key,
+            'field_key' => $usage?->field_key,
             'entity_type' => $usage?->entity_type
                 ? class_basename($usage->entity_type)
                 : null,
             'entity_id' => $usage?->entity_id,
             'status' => null,
-            'notes' => $customProperties['notes'] ?? null,
-            'meta' => $customProperties,
+            'notes' => $metadata['notes'] ?? null,
+            'meta' => $metadata,
+            'metadata' => $metadata,
             'current_revision' => [
                 'id' => $document->id,
                 'original_name' => $document->original_name,
@@ -102,26 +101,6 @@ class DocumentResource extends JsonResource
         ];
     }
 
-    /**
-     * @return array{id:int,name:string,slug:string,parent_id:int|null,type:string}|null
-     */
-    private function resolveCategory(string $slug): ?array
-    {
-        if (array_key_exists($slug, self::$categoryCache)) {
-            return self::$categoryCache[$slug];
-        }
-
-        $category = DocumentCategory::where('slug', $slug)->first();
-
-        return self::$categoryCache[$slug] = $category ? [
-            'id' => $category->id,
-            'name' => $category->name,
-            'slug' => $category->slug,
-            'parent_id' => $category->parent_id,
-            'type' => $category->type,
-        ] : null;
-    }
-
     private function formatFileSize(int $bytes): string
     {
         if ($bytes >= 1048576) {
@@ -133,5 +112,10 @@ class DocumentResource extends JsonResource
         }
 
         return $bytes.' B';
+    }
+
+    private function structureName(Document $document, DocumentUsage $usage): string
+    {
+        return app(DocumentService::class)->structureName($document, $usage);
     }
 }

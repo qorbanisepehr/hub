@@ -17,6 +17,24 @@ class AdditionalInfoSection extends BaseSection
         return __('employee.sections.additional_info');
     }
 
+    public function documentRequirements(): array
+    {
+        return [
+            // Employee documents are uploaded in a standalone 'documents'
+            // step, so every requirement is placed at the documents section.
+            'cover-letter' => [
+                'section_key' => 'documents',
+                'required' => false,
+                'max_files' => 1,
+            ],
+            'other-documents' => [
+                'section_key' => 'documents',
+                'required' => false,
+                'max_files' => 3,
+            ],
+        ];
+    }
+
     public function fields(): array
     {
         return [

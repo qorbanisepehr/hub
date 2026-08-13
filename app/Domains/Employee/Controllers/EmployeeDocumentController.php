@@ -9,7 +9,7 @@ use App\Domains\Document\Repositories\DocumentRepositoryInterface;
 use App\Domains\Document\Services\DocumentService;
 use App\Domains\Employee\Models\Employee;
 use App\Domains\Employee\Requests\StoreEmployeeDocumentRequest;
-use App\Domains\Questionnaire\Services\QuestionnaireService;
+use App\Domains\Employee\Services\EmployeeService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
@@ -22,7 +22,7 @@ class EmployeeDocumentController extends Controller
     public function __construct(
         private DocumentService $documentService,
         private DocumentRepositoryInterface $documentRepository,
-        private QuestionnaireService $questionnaireService,
+        private EmployeeService $employeeService,
     ) {}
 
     public function index(Employee $employee): JsonResponse
@@ -38,12 +38,19 @@ class EmployeeDocumentController extends Controller
         ]);
     }
 
+    public function requirements(): JsonResponse
+    {
+        return response()->json([
+            'data' => $this->employeeService->getDocumentRequirements(),
+        ]);
+    }
+
     public function store(StoreEmployeeDocumentRequest $request, Employee $employee): JsonResponse
     {
         $file = $request->file('file');
         $category = DocumentCategory::where('id', $request->document_category_id)->firstOrFail();
 
-        $requirements = $this->questionnaireService->getDocumentRequirements();
+        $requirements = $this->employeeService->getDocumentRequirements();
         $requirement = $requirements[$category->slug] ?? null;
 
         $validationErrors = $this->documentService->validateDocument($file, $requirement ?? []);
@@ -55,15 +62,16 @@ class EmployeeDocumentController extends Controller
             ], 422);
         }
 
-        $recordKey = $request->input('record_key');
+        $sectionKey = $request->input('section_key');
+        $fieldKey = $request->input('field_key');
         $notes = $request->input('notes');
 
         $usageCount = DocumentUsage::query()
             ->where('entity_type', Employee::class)
             ->where('entity_id', $employee->getKey())
-            ->where('category_slug', $category->slug)
-            ->when($recordKey !== null, fn ($query) => $query->where('record_key', $recordKey))
-            ->when($notes !== null, fn ($query) => $query->where('custom_properties->notes', $notes))
+            ->whereHas('document', fn ($query) => $query->where('category_id', $category->id))
+            ->when($fieldKey !== null, fn ($query) => $query->where('field_key', $fieldKey))
+            ->when($notes !== null, fn ($query) => $query->where('metadata->notes', $notes))
             ->count();
 
         if ($requirement && ($max = $requirement['max_files'] ?? null) !== null && $usageCount >= $max) {
@@ -83,7 +91,7 @@ class EmployeeDocumentController extends Controller
             ], 422);
         }
 
-        $customProperties = array_filter([
+        $metadata = array_filter([
             'notes' => $request->input('notes'),
             'meta' => $this->decodeJson($request->input('meta')),
             'form_data' => $this->decodeJson($request->input('form_data')),
@@ -93,18 +101,17 @@ class EmployeeDocumentController extends Controller
             $employee,
             $file,
             $category->slug,
-            $request->input('record_key'),
-            $request->input('slot'),
-            $customProperties,
+            $sectionKey,
+            $fieldKey,
+            $metadata !== [] ? $metadata : null,
         );
 
         $usage = DocumentUsage::query()
             ->where('document_id', $document->id)
             ->where('entity_type', Employee::class)
             ->where('entity_id', $employee->id)
-            ->where('category_slug', $category->slug)
-            ->when($recordKey !== null, fn ($query) => $query->where('record_key', $recordKey))
-            ->when($notes !== null, fn ($query) => $query->where('custom_properties->notes', $notes))
+            ->when($fieldKey !== null, fn ($query) => $query->where('field_key', $fieldKey))
+            ->when($notes !== null, fn ($query) => $query->where('metadata->notes', $notes))
             ->latest('id')
             ->firstOrFail();
 
@@ -203,12 +210,15 @@ class EmployeeDocumentController extends Controller
             'id' => $document->id,
             'usage_id' => $usage->id,
             'uuid' => $document->uuid,
-            'original_name' => $document->original_name,
             'mime_type' => $document->mime_type,
             'size' => $document->size,
-            'category_slug' => $usage->category_slug,
-            'record_key' => $usage->record_key,
-            'notes' => $usage->custom_properties['notes'] ?? null,
+            'category_slug' => $document->category?->slug,
+            'category_label' => $document->category?->name,
+            'structure_name' => $this->documentService->structureName($document, $usage),
+            'section_key' => $usage->section_key,
+            'field_key' => $usage->field_key,
+            'notes' => $usage->metadata['notes'] ?? null,
+            'metadata' => $usage->metadata ?? [],
             'deleted_at' => $usage->deleted_at?->toIso8601String(),
             'url' => URL::signedRoute(
                 'employee.documents.serve',

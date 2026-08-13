@@ -12,6 +12,8 @@ Route::get('employees/documents/{uuid}/serve', [EmployeeDocumentController::clas
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('employees', [EmployeeController::class, 'index'])
         ->middleware('permission:employee.view_own,employee.view_all');
+    Route::get('employees/document-requirements', [EmployeeDocumentController::class, 'requirements'])
+        ->middleware('permission:employee.view_own,employee.view_all');
     Route::post('employees', [EmployeeController::class, 'store'])
         ->middleware('permission:employee.create');
     Route::get('employees/{employee}', [EmployeeController::class, 'show'])

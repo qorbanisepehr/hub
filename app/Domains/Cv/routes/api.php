@@ -38,6 +38,10 @@ Route::post('{entity}/{uuid}/verify-access-otp', [GrantAccessController::class, 
 // protected access form.
 Route::get('{entity}/{uuid}/exists', [GrantAccessController::class, 'exists']);
 
+// Per-category document requirements for the CV flow (public — no sensitive
+// data). Registered before the {uuid} routes so it never binds to cv/{uuid}.
+Route::get('cv/document-requirements', [CvDocumentController::class, 'requirements']);
+
 // Read-only access (grant.access:cv,view)
 Route::middleware('grant.access:cv,view')->group(function () {
     Route::get('cv/{uuid}', [CvController::class, 'show'])->whereUuid('uuid');

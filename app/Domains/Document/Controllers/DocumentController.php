@@ -61,18 +61,18 @@ class DocumentController extends ApiController
             $request->input('document_category_id'),
         );
 
-        $customProperties = [];
+        $metadata = [];
         if ($notes = $request->input('notes')) {
-            $customProperties['notes'] = $notes;
+            $metadata['notes'] = $notes;
         }
 
         $document = $this->documentService->upload(
             $owner,
             $request->file('file'),
             $category?->slug ?? 'general',
-            $request->input('record_key'),
-            null,
-            $customProperties !== [] ? $customProperties : null,
+            $request->input('section_key'),
+            $request->input('field_key'),
+            $metadata !== [] ? $metadata : null,
         );
 
         return new DocumentResource($document);

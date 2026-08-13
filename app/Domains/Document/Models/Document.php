@@ -5,14 +5,15 @@ namespace App\Domains\Document\Models;
 use Database\Factories\DocumentFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\UseFactory;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
 
 #[Fillable([
+    'category_id',
     'original_name',
     'mime_type',
     'size',
@@ -45,32 +46,10 @@ class Document extends Model
         return $this->hasMany(DocumentUsage::class);
     }
 
-    /** @return HasMany<Revision, $this> */
-    public function revisions(): HasMany
+    /** @return BelongsTo<DocumentCategory, $this> */
+    public function category(): BelongsTo
     {
-        return $this->hasMany(Revision::class);
-    }
-
-    public function scopeForEntity(Builder $query, string $entityType, int $entityId): Builder
-    {
-        return $query->whereHas('usages', function ($q) use ($entityType, $entityId) {
-            $q->where('entity_type', $entityType)
-                ->where('entity_id', $entityId);
-        });
-    }
-
-    public function scopeByCategory(Builder $query, string $categorySlug): Builder
-    {
-        return $query->whereHas('usages', function ($q) use ($categorySlug) {
-            $q->where('category_slug', $categorySlug);
-        });
-    }
-
-    public function scopeByRecordKey(Builder $query, string $recordKey): Builder
-    {
-        return $query->whereHas('usages', function ($q) use ($recordKey) {
-            $q->where('record_key', $recordKey);
-        });
+        return $this->belongsTo(DocumentCategory::class);
     }
 
     public function getFullUrl(): string

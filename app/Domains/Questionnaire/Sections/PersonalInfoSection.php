@@ -27,12 +27,12 @@ class PersonalInfoSection extends BaseSection
             'national-card' => [
                 'required' => true,
                 'max_files' => 1,
-                'record_keys' => ['front', 'back'],
+                'field_keys' => ['front', 'back'],
             ],
             'birth-certificate' => [
                 'required' => true,
                 'max_files' => 1,
-                'record_keys' => ['page-1', 'page-2', 'page-3'],
+                'field_keys' => ['page-1', 'page-2', 'page-3'],
             ],
             'personnel-photo' => [
                 'required' => true,

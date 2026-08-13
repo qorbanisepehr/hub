@@ -1,6 +1,7 @@
 <?php
 
 return [
+    'document' => 'Document',
     'category_deleted' => 'Document category deleted successfully.',
     'category_not_found' => 'Document category not found.',
     'category_type_mismatch' => 'This category is not available for this document type.',

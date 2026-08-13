@@ -1,6 +1,7 @@
 <?php
 
 return [
+    'document' => 'مدرک',
     'category_deleted' => 'دسته‌بندی مدرک با موفقیت حذف شد.',
     'category_not_found' => 'دسته‌بندی مورد نظر یافت نشد.',
     'category_type_mismatch' => 'این دسته‌بندی برای این نوع مدرک قابل استفاده نیست.',

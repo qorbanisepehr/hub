@@ -10,13 +10,72 @@ use App\Domains\Document\Models\DocumentUsage;
 use App\Domains\Document\Repositories\DocumentRepositoryInterface;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Hash;
 
 class DocumentService
 {
+    /**
+     * Field placements with a fixed Persian label. Repeater placements
+     * (e.g. "edu-0", "work-2") are resolved from their numeric index.
+     */
+    private const FIELD_KEY_LABELS = [
+        'front' => 'رو',
+        'back' => 'پشت',
+        'page-1' => 'صفحه اول',
+        'page-2' => 'صفحه دوم',
+        'page-3' => 'صفحه آخر',
+    ];
+
     public function __construct(
         private DocumentRepositoryInterface $repository,
     ) {}
+
+    /**
+     * Build the user-facing name of a document from its placement
+     * (category + section/field), e.g. "کارت ملی — پشت". The original
+     * file name is intentionally not exposed to clients; it stays on the
+     * record for storage and download purposes only.
+     */
+    public function structureName(Document $document, DocumentUsage $usage): string
+    {
+        $categoryName = $document->category?->name ?? __('document.document');
+
+        $fieldLabel = $this->fieldKeyLabel($usage->field_key);
+
+        return $fieldLabel !== null ? "{$categoryName} — {$fieldLabel}" : $categoryName;
+    }
+
+    private function fieldKeyLabel(?string $fieldKey): ?string
+    {
+        if ($fieldKey === null || $fieldKey === '') {
+            return null;
+        }
+
+        if (isset(self::FIELD_KEY_LABELS[$fieldKey])) {
+            return self::FIELD_KEY_LABELS[$fieldKey];
+        }
+
+        if (preg_match('/^[a-z]+-(\d+)$/', $fieldKey, $matches)) {
+            return $this->toPersianDigits((string) ((int) $matches[1] + 1));
+        }
+
+        return null;
+    }
+
+    private function toPersianDigits(string $value): string
+    {
+        return strtr($value, [
+            '0' => '۰',
+            '1' => '۱',
+            '2' => '۲',
+            '3' => '۳',
+            '4' => '۴',
+            '5' => '۵',
+            '6' => '۶',
+            '7' => '۷',
+            '8' => '۸',
+            '9' => '۹',
+        ]);
+    }
 
     /**
      * Upload and attach a document to an entity.
@@ -25,44 +84,40 @@ class DocumentService
         Documentable $entity,
         UploadedFile $file,
         string $categorySlug,
-        ?string $recordKey = null,
-        ?string $slot = null,
-        ?array $customProperties = null,
+        ?string $sectionKey = null,
+        ?string $fieldKey = null,
+        ?array $metadata = null,
     ): Document {
         $disk = config('documents.storage_disk', 'local');
         $hash = hash_file('sha256', $file->getRealPath());
 
-        // Check for duplicate by hash
-        $existing = $this->repository->findByHash($hash);
+        $categoryId = DocumentCategory::where('slug', $categorySlug)->value('id');
 
-        if ($existing) {
-            $document = $existing;
-        } else {
-            $prefix = $entity->getDocumentRouteType();
-            $identifier = $this->getIdentifier($entity);
-            $storedPath = $file->storeAs(
-                "{$prefix}/{$identifier}/documents/{$categorySlug}",
-                $this->buildStorageName($categorySlug, $recordKey, $hash, $file),
-                $disk,
-            );
+        $prefix = $entity->getDocumentRouteType();
+        $identifier = $this->getIdentifier($entity);
+        $storedPath = $file->storeAs(
+            "{$prefix}/{$identifier}/documents/{$categorySlug}",
+            $this->buildStorageName($sectionKey, $fieldKey, $hash, $file),
+            $disk,
+        );
 
-            $document = $this->repository->create([
-                'original_name' => $file->getClientOriginalName(),
-                'mime_type' => $file->getMimeType(),
-                'size' => $file->getSize(),
-                'disk' => $disk,
-                'path' => $storedPath,
-                'hash' => $hash,
-            ]);
+        $document = $this->repository->create([
+            'category_id' => $categoryId,
+            'original_name' => $file->getClientOriginalName(),
+            'mime_type' => $file->getMimeType(),
+            'size' => $file->getSize(),
+            'disk' => $disk,
+            'path' => $storedPath,
+            'hash' => $hash,
+        ]);
 
-            // Generate thumbnail for images in the background
-            if (str_starts_with($document->mime_type, 'image/')) {
-                GenerateDocumentThumbnail::dispatch($document);
-            }
+        // Generate thumbnail for images in the background
+        if (str_starts_with($document->mime_type, 'image/')) {
+            GenerateDocumentThumbnail::dispatch($document);
         }
 
         // Attach usage
-        $this->repository->attachUsage($document, $entity, $categorySlug, $recordKey, $slot, $customProperties);
+        $this->repository->attachUsage($document, $entity, $sectionKey, $fieldKey, $metadata);
 
         return $document->load('usages');
     }
@@ -182,13 +237,13 @@ class DocumentService
     }
 
     /**
-     * Get all documents for an entity, optionally filtered by category.
+     * Get all documents for an entity, optionally filtered by section placement.
      *
      * @return Collection
      */
-    public function getForEntity(Documentable $entity, ?string $categorySlug = null)
+    public function getForEntity(Documentable $entity, ?string $sectionKey = null)
     {
-        return $this->repository->getForEntity($entity, $categorySlug);
+        return $this->repository->getForEntity($entity, $sectionKey);
     }
 
     /**
@@ -209,7 +264,7 @@ class DocumentService
         }
 
         $present = $this->repository->getForEntity($entity)
-            ->flatMap(fn (Document $document) => $document->usages->pluck('category_slug'))
+            ->flatMap(fn (Document $document) => $document->category?->slug ? [$document->category->slug] : [])
             ->unique()
             ->values()
             ->all();
@@ -339,17 +394,16 @@ class DocumentService
     /**
      * Build a meaningful storage name for an uploaded file.
      *
-     * The name reflects the document's place in the questionnaire
-     * (category slug plus record key, e.g. `national-card-front`) so the
-     * file is identifiable from its name alone, and appends a short
-     * content fingerprint to guarantee uniqueness. The original file name
-     * is preserved on the record for display purposes.
+     * The name reflects the document's place in the entity (section and field
+     * placement, e.g. `personal-info-front`) so the file is identifiable from
+     * its name alone, and appends a short content fingerprint to guarantee
+     * uniqueness. The original file name is preserved on the record for
+     * display purposes.
      */
-    private function buildStorageName(string $categorySlug, ?string $recordKey, string $hash, UploadedFile $file): string
+    private function buildStorageName(?string $sectionKey, ?string $fieldKey, string $hash, UploadedFile $file): string
     {
-        $name = $recordKey !== null && $recordKey !== ''
-            ? "{$categorySlug}-{$recordKey}"
-            : $categorySlug;
+        $slug = str($fieldKey ?? $sectionKey)->slug();
+        $name = $slug->isNotEmpty() ? (string) $slug : 'document';
         $fingerprint = substr($hash, 0, 8);
         $extension = mb_strtolower($file->getClientOriginalExtension());
 

@@ -36,7 +36,7 @@ function createUsageDraft(): string
 }
 
 describe('questionnaire document usages (shared files)', function () {
-    it('reuses one file across categories and creates a usage per category', function () {
+    it('creates a distinct document per upload, even for identical file content', function () {
         Storage::fake('local');
         $uuid = createUsageDraft();
         $skills = usageCategory('language-certificate');
@@ -54,15 +54,16 @@ describe('questionnaire document usages (shared files)', function () {
             'file' => $shared,
         ])->assertCreated()->json('data');
 
-        expect($second['id'])->toBe($first['id'])
+        expect($second['id'])->not->toBe($first['id'])
             ->and($second['usage_id'])->not->toBe($first['usage_id'])
             ->and($second['category_slug'])->toBe('course-certificates');
 
-        expect(Document::count())->toBe(1)
-            ->and(DocumentUsage::count())->toBe(2);
+        expect(Document::count())->toBe(2)
+            ->and(DocumentUsage::count())->toBe(2)
+            ->and(Document::query()->distinct()->pluck('path')->count())->toBe(2);
     });
 
-    it('returns one index entry per usage so a shared file appears under both categories', function () {
+    it('returns one index entry per document so identical content appears under both categories', function () {
         Storage::fake('local');
         $uuid = createUsageDraft();
         $skills = usageCategory('language-certificate');
@@ -88,7 +89,7 @@ describe('questionnaire document usages (shared files)', function () {
             ->and(collect($data)->pluck('category_slug')->all())
             ->toMatchArray(['language-certificate', 'course-certificates'])
             ->and(collect($data)->pluck('usage_id')->unique()->count())->toBe(2)
-            ->and(collect($data)->pluck('id')->unique()->count())->toBe(1)
+            ->and(collect($data)->pluck('id')->unique()->count())->toBe(2)
             ->and(collect($data)->pluck('usage_id')->every(fn ($id) => is_int($id)))->toBeTrue();
     });
 

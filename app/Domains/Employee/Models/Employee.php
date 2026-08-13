@@ -23,6 +23,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     'marital_status',
     'email',
     'mobile',
+    'social_insurance_number',
     'employment_type',
     'hire_date',
     'employment_status',
@@ -34,6 +35,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     'section_skills',
     'section_training',
     'section_additional_info',
+    'section_social_insurance',
 ])]
 #[UseFactory(EmployeeFactory::class)]
 class Employee extends Model implements Documentable
@@ -61,6 +63,7 @@ class Employee extends Model implements Documentable
             'section_skills' => 'array',
             'section_training' => 'array',
             'section_additional_info' => 'array',
+            'section_social_insurance' => 'array',
         ];
     }
 

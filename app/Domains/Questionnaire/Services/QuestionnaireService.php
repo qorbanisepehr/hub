@@ -159,7 +159,9 @@ class QuestionnaireService
     }
 
     /**
-     * Merge per-category document requirements declared by every section definition.
+     * Merge per-category document requirements declared by every section
+     * definition. Each requirement carries the placement (section_key from the
+     * declaring section) so uploads know where the document belongs.
      *
      * @return array<string, array<string, mixed>>
      */
@@ -169,7 +171,7 @@ class QuestionnaireService
 
         foreach ($this->sections as $section) {
             foreach ($section->documentRequirements() as $slug => $requirement) {
-                $requirements[$slug] = $requirement;
+                $requirements[$slug] = $requirement + ['section_key' => $section->key()];
             }
         }
 

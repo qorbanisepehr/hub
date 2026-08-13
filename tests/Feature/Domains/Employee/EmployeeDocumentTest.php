@@ -44,14 +44,18 @@ describe('employee documents', function () {
             ->postJson("/api/employees/{$employee->id}/documents", [
                 'document_category_id' => $category->id,
                 'file' => UploadedFile::fake()->createWithContent('cv.pdf', 'employee-cert-content'),
-                'record_key' => 'main',
+                'section_key' => 'documents',
+                'field_key' => 'main',
             ])
             ->assertCreated()
             ->json('data');
 
         expect($data['category_slug'])->toBe('resume')
-            ->and($data['record_key'])->toBe('main')
-            ->and($data['original_name'])->toBe('cv.pdf');
+            ->and($data['category_label'])->toBe('Employee Document')
+            ->and($data['structure_name'])->toBe('Employee Document')
+            ->and($data['field_key'])->toBe('main')
+            ->and($data['section_key'])->toBe('documents')
+            ->and($data)->not->toHaveKey('original_name');
 
         $this->actingAs($user)
             ->getJson("/api/employees/{$employee->id}/documents")
@@ -62,6 +66,26 @@ describe('employee documents', function () {
             ->and(DocumentUsage::count())->toBe(1)
             ->and(DocumentUsage::first()->entity_type)->toBe(Employee::class)
             ->and(DocumentUsage::first()->entity_id)->toBe($employee->id);
+    });
+
+    it('derives the structure name from the category and field placement', function () {
+        Storage::fake('local');
+        $user = createUserWithPermissions(['employee.update_all', 'employee.view_all']);
+        $employee = Employee::factory()->create();
+        $category = employeeDocumentCategory('national-card', 'کارت ملی');
+
+        $data = $this->actingAs($user)
+            ->postJson("/api/employees/{$employee->id}/documents", [
+                'document_category_id' => $category->id,
+                'file' => UploadedFile::fake()->image('scan-unknown.png'),
+                'section_key' => 'documents',
+                'field_key' => 'back',
+            ])
+            ->assertCreated()
+            ->json('data');
+
+        expect($data['structure_name'])->toBe('کارت ملی — پشت')
+            ->and($data)->not->toHaveKey('original_name');
     });
 
     it('rejects uploads without a file', function () {

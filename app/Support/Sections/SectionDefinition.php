@@ -39,8 +39,12 @@ interface SectionDefinition
     /**
      * Per-category document requirements owned by this definition.
      * Keyed by document category slug: ['required' => bool, 'max_files' => ?int,
-     * 'record_keys' => string[], ...]. A null or missing 'max_files' means the
-     * category accepts an unlimited number of files per notes/record-key group.
+     * 'field_keys' => string[], 'section_key' => string, ...]. A null or
+     * missing 'max_files' means the category accepts an unlimited number of
+     * files per notes/field-key group. When 'section_key' is omitted it is
+     * derived from the declaring section's key(); a different placement can be
+     * declared explicitly (e.g. CV documents live in a standalone 'documents'
+     * section).
      *
      * @return array<string, array<string, mixed>>
      */

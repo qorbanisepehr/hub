@@ -57,12 +57,18 @@ function attachRequiredDocuments(string $uuid): void
     $questionnaire = Questionnaire::where('uuid', $uuid)->first();
 
     foreach (['national-card', 'birth-certificate', 'resume', 'personnel-photo'] as $slug) {
-        $document = Document::factory()->create();
+        $category = DocumentCategory::firstOrCreate([
+            'slug' => $slug,
+        ], [
+            'name' => $slug,
+            'type' => DocumentCategory::TYPE_PERSONNEL,
+        ]);
+
+        $document = Document::factory()->create(['category_id' => $category->id]);
         DocumentUsage::create([
             'document_id' => $document->id,
             'entity_type' => Questionnaire::class,
             'entity_id' => $questionnaire->id,
-            'category_slug' => $slug,
         ]);
     }
 }
@@ -1662,19 +1668,22 @@ describe('questionnaire regression coverage', function () {
 
             $this->postJson("/api/questionnaire/{$uuid}/documents", [
                 'document_category_id' => $category->id,
-                'record_key' => 'front',
+                'section_key' => 'personal_info',
+                'field_key' => 'front',
                 'file' => UploadedFile::fake()->createWithContent('front.pdf', 'front'),
             ])->assertCreated();
 
             $this->postJson("/api/questionnaire/{$uuid}/documents", [
                 'document_category_id' => $category->id,
-                'record_key' => 'back',
+                'section_key' => 'personal_info',
+                'field_key' => 'back',
                 'file' => UploadedFile::fake()->createWithContent('back.pdf', 'back'),
             ])->assertCreated();
 
             $this->postJson("/api/questionnaire/{$uuid}/documents", [
                 'document_category_id' => $category->id,
-                'record_key' => 'front',
+                'section_key' => 'personal_info',
+                'field_key' => 'front',
                 'file' => UploadedFile::fake()->createWithContent('front-2.pdf', 'front-2'),
             ])->assertStatus(422);
         });
@@ -1727,26 +1736,29 @@ describe('questionnaire regression coverage', function () {
 
             $this->postJson("/api/questionnaire/{$uuid}/documents", [
                 'document_category_id' => $birthCertificate->id,
-                'record_key' => 'front',
+                'section_key' => 'personal_info',
+                'field_key' => 'front',
                 'file' => $shared,
             ])->assertCreated();
 
             $this->postJson("/api/questionnaire/{$uuid}/documents", [
                 'document_category_id' => $languageCertificate->id,
-                'record_key' => 'back',
+                'section_key' => 'personal_info',
+                'field_key' => 'back',
                 'file' => $shared,
             ])->assertCreated();
 
             $this->postJson("/api/questionnaire/{$uuid}/documents", [
                 'document_category_id' => $birthCertificate->id,
-                'record_key' => 'back',
+                'section_key' => 'personal_info',
+                'field_key' => 'back',
                 'file' => UploadedFile::fake()->createWithContent('back.pdf', 'back-content'),
             ])->assertCreated();
         });
     });
 
     describe('document storage naming', function () {
-        it('stores uploads under a category-slug name with a content fingerprint', function () {
+        it('stores uploads under a category folder with a placement-based name', function () {
             Storage::fake('local');
             $uuid = createDraft();
             $category = DocumentCategory::create([
@@ -1763,11 +1775,11 @@ describe('questionnaire regression coverage', function () {
             $document = Document::where('uuid', $response->json('data.uuid'))->firstOrFail();
 
             expect($document->original_name)->toBe('My Resume (Final).pdf');
-            expect($document->path)->toMatch('#questionnaire/.*/documents/other-documents/other-documents-[a-f0-9]{8}\.pdf#');
+            expect($document->path)->toMatch('#questionnaire/.*/documents/other-documents/document-[a-f0-9]{8}\.pdf#');
             Storage::disk('local')->assertExists($document->path);
         });
 
-        it('names files after the category and record key', function () {
+        it('names files after the field placement', function () {
             Storage::fake('local');
             $questionnaire = Questionnaire::where('uuid', createDraft())->firstOrFail();
 
@@ -1775,11 +1787,12 @@ describe('questionnaire regression coverage', function () {
                 $questionnaire,
                 UploadedFile::fake()->image('scan.jpg', 10, 10),
                 'national-card',
+                'personal_info',
                 'front',
             );
 
             expect($document->original_name)->toBe('scan.jpg');
-            expect($document->path)->toMatch('#documents/national-card/national-card-front-[a-f0-9]{8}\.jpg$#');
+            expect($document->path)->toMatch('#documents/national-card/front-[a-f0-9]{8}\.jpg$#');
             Storage::disk('local')->assertExists($document->path);
         });
     });
@@ -1809,11 +1822,13 @@ describe('section definitions', function () {
         expect($requirements)->toHaveKey('national-card')
             ->and($requirements['national-card']['required'])->toBeTrue()
             ->and($requirements['national-card']['max_files'])->toBe(1)
-            ->and($requirements['national-card']['record_keys'])->toBe(['front', 'back'])
+            ->and($requirements['national-card']['field_keys'])->toBe(['front', 'back'])
+            ->and($requirements['national-card']['section_key'])->toBe('personal_info')
             ->and($requirements['birth-certificate']['required'])->toBeTrue()
-            ->and($requirements['birth-certificate']['record_keys'])->toBe(['page-1', 'page-2', 'page-3'])
+            ->and($requirements['birth-certificate']['field_keys'])->toBe(['page-1', 'page-2', 'page-3'])
             ->and($requirements['personnel-photo']['required'])->toBeTrue()
             ->and($requirements['resume']['required'])->toBeTrue()
+            ->and($requirements['resume']['section_key'])->toBe('job_request')
             ->and($requirements['other-documents']['max_files'])->toBe(3)
             ->and($requirements['course-certificates'])->not->toHaveKey('max_files')
             ->and($requirements['skill-certificate']['max_files'])->toBe(1)

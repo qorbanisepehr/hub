@@ -40,6 +40,13 @@ class CvDocumentController extends Controller
         ]);
     }
 
+    public function requirements(): JsonResponse
+    {
+        return response()->json([
+            'data' => $this->cvService->getDocumentRequirements(),
+        ]);
+    }
+
     public function store(PublicStoreCvDocumentRequest $request, string $uuid): JsonResponse
     {
         $cv = $request->attributes->get('granted_resource');
@@ -65,15 +72,16 @@ class CvDocumentController extends Controller
             ], 422);
         }
 
-        $recordKey = $request->input('record_key');
+        $sectionKey = $request->input('section_key');
+        $fieldKey = $request->input('field_key');
         $notes = $request->input('notes');
 
         $usageCount = DocumentUsage::query()
             ->where('entity_type', Cv::class)
             ->where('entity_id', $cv->getKey())
-            ->where('category_slug', $category->slug)
-            ->when($recordKey !== null, fn ($query) => $query->where('record_key', $recordKey))
-            ->when($notes !== null, fn ($query) => $query->where('custom_properties->notes', $notes))
+            ->whereHas('document', fn ($query) => $query->where('category_id', $category->id))
+            ->when($fieldKey !== null, fn ($query) => $query->where('field_key', $fieldKey))
+            ->when($notes !== null, fn ($query) => $query->where('metadata->notes', $notes))
             ->count();
 
         if ($requirement && ($max = $requirement['max_files'] ?? null) !== null && $usageCount >= $max) {
@@ -93,7 +101,7 @@ class CvDocumentController extends Controller
             ], 422);
         }
 
-        $customProperties = array_filter([
+        $metadata = array_filter([
             'notes' => $request->input('notes'),
             'meta' => $this->decodeJson($request->input('meta')),
             'form_data' => $this->decodeJson($request->input('form_data')),
@@ -103,18 +111,17 @@ class CvDocumentController extends Controller
             $cv,
             $file,
             $category->slug,
-            $request->input('record_key'),
-            $request->input('slot'),
-            $customProperties,
+            $sectionKey,
+            $fieldKey,
+            $metadata !== [] ? $metadata : null,
         );
 
         $usage = DocumentUsage::query()
             ->where('document_id', $document->id)
             ->where('entity_type', Cv::class)
             ->where('entity_id', $cv->id)
-            ->where('category_slug', $category->slug)
-            ->when($recordKey !== null, fn ($query) => $query->where('record_key', $recordKey))
-            ->when($notes !== null, fn ($query) => $query->where('custom_properties->notes', $notes))
+            ->when($fieldKey !== null, fn ($query) => $query->where('field_key', $fieldKey))
+            ->when($notes !== null, fn ($query) => $query->where('metadata->notes', $notes))
             ->latest('id')
             ->firstOrFail();
 
@@ -175,12 +182,15 @@ class CvDocumentController extends Controller
             'id' => $document->id,
             'usage_id' => $usage->id,
             'uuid' => $document->uuid,
-            'original_name' => $document->original_name,
             'mime_type' => $document->mime_type,
             'size' => $document->size,
-            'category_slug' => $usage->category_slug,
-            'record_key' => $usage->record_key,
-            'notes' => $usage->custom_properties['notes'] ?? null,
+            'category_slug' => $document->category?->slug,
+            'category_label' => $document->category?->name,
+            'structure_name' => $this->documentService->structureName($document, $usage),
+            'section_key' => $usage->section_key,
+            'field_key' => $usage->field_key,
+            'notes' => $usage->metadata['notes'] ?? null,
+            'metadata' => $usage->metadata ?? [],
             'url' => URL::signedRoute(
                 'cv.documents.serve',
                 ['uuid' => $document->uuid],

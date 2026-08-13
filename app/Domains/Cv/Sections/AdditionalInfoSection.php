@@ -20,17 +20,29 @@ class AdditionalInfoSection extends BaseSection
     public function documentRequirements(): array
     {
         return [
+            // CV documents are uploaded in a standalone 'documents' step, so
+            // they are placed at the documents section rather than at a field
+            // of the additional-info section that declares the requirement.
             'resume' => [
+                'section_key' => 'documents',
                 'required' => true,
                 'max_files' => 1,
             ],
             'cover-letter' => [
+                'section_key' => 'documents',
                 'required' => false,
                 'max_files' => 1,
             ],
             'other-documents' => [
+                'section_key' => 'documents',
                 'required' => false,
                 'max_files' => 3,
+            ],
+            'personnel-photo' => [
+                'section_key' => 'documents',
+                'required' => false,
+                'max_files' => 1,
+                'field_keys' => ['photo'],
             ],
         ];
     }

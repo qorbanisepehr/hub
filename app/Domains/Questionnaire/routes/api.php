@@ -34,6 +34,11 @@ Route::post('{entity}/{uuid}/verify-access-otp', [GrantAccessController::class, 
 // offering the protected access form.
 Route::get('{entity}/{uuid}/exists', [GrantAccessController::class, 'exists']);
 
+// Per-category document requirements for the questionnaire flow (public —
+// no sensitive data). Registered before the {uuid} routes so it never binds
+// to the questionnaire show route.
+Route::get('questionnaire/document-requirements', [QuestionnaireDocumentController::class, 'requirements']);
+
 // Read-only access (grant.access:questionnaire,view)
 Route::middleware('grant.access:questionnaire,view')->group(function () {
     Route::get('questionnaire/{uuid}', [QuestionnaireController::class, 'show']);
