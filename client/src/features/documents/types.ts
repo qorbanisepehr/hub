@@ -9,11 +9,12 @@ export type DocumentDimensions = {
 export type DocumentRequirement = {
     required: boolean;
     max_files: number | null;
-    record_keys: string[] | null;
+    field_keys: string[] | null;
     min_file_size: number | null;
     max_file_size: number | null;
     mime_types: string[] | null;
     dimensions: DocumentDimensions | null;
+    section_key: string | null;
 };
 
 export type DocumentCategory = {
@@ -24,7 +25,6 @@ export type DocumentCategory = {
     sort_order: number;
     parent_id: number | null;
     type: string;
-    requirement: DocumentRequirement | null;
     children?: DocumentCategory[];
     documents_count?: number;
     created_at?: string;
@@ -52,7 +52,9 @@ export type Document = {
     status: "pending" | "confirmed" | "rejected";
     notes: string | null;
     meta: Record<string, unknown> | null;
-    record_key: string | null;
+    section_key: string | null;
+    field_key: string | null;
+    structure_name?: string | null;
     current_revision: Revision | null;
     uploaded_by: number | null;
     uploader_name: string | null;
@@ -132,7 +134,8 @@ export function getExactCategoryName(
 
 // Helper functions to access revision data from a Document
 export function getDocOriginalName(doc: Document): string {
-    return doc.current_revision?.original_name ?? "";
+    if (doc.structure_name) return doc.structure_name;
+    return doc.category?.name ?? "";
 }
 
 export function getDocMimeType(doc: Document): string {

@@ -40,7 +40,7 @@ export function TrainingSection({ form, uuid, onPersist, entity = "questionnaire
         ...COURSE_COLUMNS,
         repeaterAttachmentColumn({
             categorySlug: DOC_CATEGORY_SLUGS.COURSE_CERTIFICATES,
-            recordKeyPrefix: "train-",
+            fieldKeyPrefix: "train-",
             getDocumentsBySlug,
         }),
     ];
@@ -48,7 +48,7 @@ export function TrainingSection({ form, uuid, onPersist, entity = "questionnaire
         ...RESEARCH_COLUMNS,
         repeaterAttachmentColumn({
             categorySlug: DOC_CATEGORY_SLUGS.RESEARCH_DOCUMENTS,
-            recordKeyPrefix: "res-",
+            fieldKeyPrefix: "res-",
             getDocumentsBySlug,
         }),
     ];
@@ -138,7 +138,7 @@ export function TrainingSection({ form, uuid, onPersist, entity = "questionnaire
                                                 DOC_CATEGORY_SLUGS.COURSE_CERTIFICATES
                                             }
                                             label="گواهینامه دوره"
-                                            recordKey={`train-${index}`}
+                                            fieldKey={`train-${index}`}
                                         />
                                     )}
                                 </div>
@@ -191,7 +191,7 @@ export function TrainingSection({ form, uuid, onPersist, entity = "questionnaire
                                                 DOC_CATEGORY_SLUGS.RESEARCH_DOCUMENTS
                                             }
                                             label="مدرک پژوهشی"
-                                            recordKey={`res-${index}`}
+                                            fieldKey={`res-${index}`}
                                         />
                                     )}
                                 </div>

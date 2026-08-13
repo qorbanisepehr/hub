@@ -9,7 +9,38 @@ import { FileThumbnail } from "@/components/ui/file-thumbnail";
 import { getFileIcon } from "@/lib/file-icon";
 import { getFileColorClasses } from "@/lib/file-colors";
 import { formatBytes } from "@/lib/file-size";
+import type { EntityDocument } from "@/hooks/use-entity-documents";
 import type { QuestionnaireDocument } from "@/features/questionnaire/hooks/use-questionnaire-documents";
+
+/**
+ * Group documents by their category, in upload order, so that every uploaded
+ * document is represented regardless of which category it belongs to. Documents
+ * without a category fall back to a generic "سایر مدارک" group.
+ */
+export function groupDocumentsByCategory<T extends EntityDocument>(
+    documents: T[],
+): { label: string; docs: T[] }[] {
+    const groups: { label: string; docs: T[] }[] = [];
+    const byKey = new Map<string, { label: string; docs: T[] }>();
+
+    for (const doc of documents) {
+        const key = doc.category_slug ?? "other";
+        let group = byKey.get(key);
+
+        if (!group) {
+            group = {
+                label: doc.category_label ?? "سایر مدارک",
+                docs: [],
+            };
+            byKey.set(key, group);
+            groups.push(group);
+        }
+
+        group.docs.push(doc);
+    }
+
+    return groups;
+}
 
 type QuestionnaireDocPreviewProps = {
     documents: QuestionnaireDocument[];
@@ -54,7 +85,7 @@ export function QuestionnaireDocThumbnail({
                 )}
             >
                 <FileThumbnail
-                    file={{ name: doc.original_name, type: doc.mime_type }}
+                    file={{ name: doc.structure_name, type: doc.mime_type }}
                     previewImageUrl={doc.url}
                     className="size-full rounded-none border-0"
                     previewClassName="aspect-square"
@@ -110,10 +141,11 @@ export function QuestionnaireDocumentPreview({
         return documents.map((d) => ({
             id: d.usage_id,
             uuid: d.uuid,
-            original_name: d.original_name,
+            original_name: d.structure_name,
             mime_type: d.mime_type,
             size: d.size,
-            record_key: d.record_key,
+            section_key: d.section_key,
+            field_key: d.field_key,
             category_slug: d.category_slug,
             url: d.url,
             // Bridge to Document type shape:
@@ -125,7 +157,7 @@ export function QuestionnaireDocumentPreview({
             meta: null,
             current_revision: {
                 id: 0,
-                original_name: d.original_name,
+                original_name: d.structure_name,
                 mime_type: d.mime_type,
                 file_size: d.size,
                 file_size_formatted: formatBytes(d.size),
@@ -178,7 +210,7 @@ export function QuestionnaireDocumentPreview({
                         >
                             {isImageMime(doc.mime_type) ? (
                                 <FileThumbnail
-                                    file={{ name: doc.original_name, type: doc.mime_type }}
+                                    file={{ name: doc.structure_name, type: doc.mime_type }}
                                     previewImageUrl={doc.url}
                                     className="size-8 rounded-none border-0 shrink-0"
                                     previewClassName="aspect-square"
@@ -189,7 +221,7 @@ export function QuestionnaireDocumentPreview({
                                 </div>
                             )}
                             <span className="truncate text-xs max-w-24">
-                                {doc.original_name}
+                                {doc.structure_name}
                             </span>
                         </div>
                     ))}
@@ -228,7 +260,7 @@ export function QuestionnaireDocumentPreview({
                             >
                                 {isImageMime(doc.mime_type) ? (
                                     <FileThumbnail
-                                        file={{ name: doc.original_name, type: doc.mime_type }}
+                                        file={{ name: doc.structure_name, type: doc.mime_type }}
                                         previewImageUrl={doc.url}
                                         className="size-10 rounded-none border-0 shrink-0"
                                         previewClassName="aspect-square"
@@ -240,7 +272,7 @@ export function QuestionnaireDocumentPreview({
                                 )}
                                 <div className="min-w-0 flex-1">
                                     <p className="truncate text-sm">
-                                        {doc.original_name}
+                                        {doc.structure_name}
                                     </p>
                                     {showSize && (
                                         <p className="text-xs text-muted-foreground">

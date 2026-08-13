@@ -43,7 +43,7 @@ export function WorkExperienceSection({ form, uuid, onPersist, entity = "questio
         ...WORK_COLUMNS,
         repeaterAttachmentColumn({
             categorySlug: DOC_CATEGORY_SLUGS.EMPLOYMENT_CERTIFICATE,
-            recordKeyPrefix: "work-",
+            fieldKeyPrefix: "work-",
             getDocumentsBySlug,
         }),
     ];
@@ -140,7 +140,7 @@ export function WorkExperienceSection({ form, uuid, onPersist, entity = "questio
                                                 DOC_CATEGORY_SLUGS.EMPLOYMENT_CERTIFICATE
                                             }
                                             label="گواهی اشتغال به کار"
-                                            recordKey={`work-${index}`}
+                                            fieldKey={`work-${index}`}
                                         />
                                     )}
                                 </div>

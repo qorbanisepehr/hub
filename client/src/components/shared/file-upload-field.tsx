@@ -19,7 +19,8 @@ import { formatBytes } from "@/lib/file-size";
 import { isAuthedDocumentEntity, useEntityDocuments } from "@/hooks/use-entity-documents";
 import type { EntityDocument } from "@/hooks/use-entity-documents";
 import { fetchDocumentCategories } from "@/features/documents/api";
-import type { DocumentCategory } from "@/features/documents/types";
+import { useDocumentRequirements } from "@/features/documents/hooks/use-document-requirements";
+import type { DocumentCategory, DocumentRequirement } from "@/features/documents/types";
 import { BaseDropzone } from "@/components/shared/base-dropzone";
 import { DocumentFileItem } from "@/components/shared/document-file-item";
 import { FileThumbnail } from "@/components/ui/file-thumbnail";
@@ -47,7 +48,8 @@ type FileUploadFieldProps = {
     multiple?: boolean;
     maxFiles?: number;
     notes?: string;
-    recordKey?: string;
+    /** Field placement within the requirement's section, e.g. "front" or "edu-0". */
+    fieldKey?: string;
     categoryType?: string;
     aspectRatio?: number;
     description?: string;
@@ -90,7 +92,7 @@ export function FileUploadField({
     multiple = false,
     maxFiles = 1,
     notes,
-    recordKey,
+    fieldKey,
     categoryType = "personnel",
     aspectRatio,
     description,
@@ -105,7 +107,7 @@ export function FileUploadField({
     const docClient = authed ? api : publicApi;
 
     const { getDocumentsBySlug } = useEntityDocuments(entity, uuid);
-    const categoryDocs = getDocumentsBySlug(categorySlug, recordKey).filter(
+    const categoryDocs = getDocumentsBySlug(categorySlug, fieldKey).filter(
         (d) => (notes !== undefined ? (d.notes ?? "") === notes : true),
     );
 
@@ -117,24 +119,25 @@ export function FileUploadField({
         },
     });
 
-    const { id: categoryId, req: requirement } = React.useMemo(() => {
-        function find(cats: DocumentCategory[]): {
-            id: number | undefined;
-            req: DocumentCategory["requirement"];
-        } {
+    const { data: requirements } = useDocumentRequirements(entity);
+
+    const categoryId = React.useMemo(() => {
+        function find(cats: DocumentCategory[]): number | undefined {
             for (const cat of cats) {
                 if (cat.slug === categorySlug) {
-                    return { id: cat.id, req: cat.requirement ?? null };
+                    return cat.id;
                 }
                 if (cat.children) {
                     const found = find(cat.children);
-                    if (found.id !== undefined) return found;
+                    if (found !== undefined) return found;
                 }
             }
-            return { id: undefined, req: null };
+            return undefined;
         }
-        return categories ? find(categories) : { id: undefined, req: null };
+        return categories ? find(categories) : undefined;
     }, [categories, categorySlug]);
+
+    const requirement = requirements?.[categorySlug] ?? null;
 
     const { validateFile } = useDocumentValidation(requirement);
 
@@ -146,9 +149,13 @@ export function FileUploadField({
             const formData = new FormData();
             formData.append("document_category_id", String(categoryId));
             formData.append("file", file);
-            if (recordKey) {
-                formData.append("record_key", recordKey);
-            } else if (notes) {
+            if (requirement?.section_key) {
+                formData.append("section_key", requirement.section_key);
+            }
+            if (fieldKey && requirement?.section_key) {
+                formData.append("field_key", fieldKey);
+            }
+            if (notes) {
                 formData.append("notes", notes);
             }
             return docClient
@@ -269,7 +276,7 @@ export function FileUploadField({
                                 {isImage ? (
                                     <FileThumbnail
                                         file={{
-                                            name: currentDoc.original_name,
+                                            name: currentDoc.structure_name,
                                             type: currentDoc.mime_type,
                                         }}
                                         previewImageUrl={currentDoc.url}
@@ -285,7 +292,7 @@ export function FileUploadField({
                                     <div className="flex size-full flex-col items-center justify-center gap-1 bg-muted p-2">
                                         <IconFile className="size-8 text-muted-foreground" />
                                         <span className="max-w-full truncate text-[10px] text-muted-foreground">
-                                            {currentDoc.original_name}
+                                            {currentDoc.structure_name}
                                         </span>
                                     </div>
                                 )}
@@ -362,7 +369,7 @@ export function FileUploadField({
                                 {isImage ? (
                                     <FileThumbnail
                                         file={{
-                                            name: currentDoc.original_name,
+                                            name: currentDoc.structure_name,
                                             type: currentDoc.mime_type,
                                         }}
                                         previewImageUrl={currentDoc.url}
@@ -388,7 +395,7 @@ export function FileUploadField({
                                             "size-8",
                                         )}
                                         <span className="max-w-full truncate text-[10px] text-muted-foreground">
-                                            {currentDoc.original_name}
+                                            {currentDoc.structure_name}
                                         </span>
                                     </div>
                                 )}
@@ -465,7 +472,7 @@ export function FileUploadField({
                                         {doc.mime_type.startsWith("image/") ? (
                                             <FileThumbnail
                                                 file={{
-                                                    name: doc.original_name,
+                                                    name: doc.structure_name,
                                                     type: doc.mime_type,
                                                 }}
                                                 previewImageUrl={doc.url}
@@ -496,7 +503,7 @@ export function FileUploadField({
                                     </div>
                                     <div className="flex flex-col gap-0.5 p-2">
                                         <span className="truncate text-xs font-medium">
-                                            {doc.original_name}
+                                            {doc.structure_name}
                                         </span>
                                         <span className="text-[10px] text-muted-foreground">
                                             {formatBytes(doc.size)}

@@ -1,10 +1,29 @@
 import { api } from "@/lib/api";
-import type { DocumentCategory, Document } from "./types";
+import { publicApi } from "@/lib/public-api";
+import type {
+    DocumentCategory,
+    Document,
+    DocumentRequirement,
+} from "./types";
 
 export function fetchDocumentCategories(type?: string) {
     const params: Record<string, string> = {};
     if (type) params.type = type;
     return api.get<{ data: DocumentCategory[] }>("/document-categories", { params });
+}
+
+/**
+ * Fetch the per-domain document requirements (slug → requirement) for an
+ * entity. Grant-protected entities (questionnaire/cv) use the public client;
+ * employees use the Sanctum-authenticated client.
+ */
+export function fetchDocumentRequirements(entity: string) {
+    const client = entity === "employees" ? api : publicApi;
+    return client
+        .get<{ data: Record<string, DocumentRequirement> }>(
+            `/${entity}/document-requirements`,
+        )
+        .then((r) => r.data.data);
 }
 
 export function fetchDocuments(type?: string, entityId?: string, status?: string) {

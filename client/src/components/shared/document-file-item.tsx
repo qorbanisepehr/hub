@@ -64,7 +64,7 @@ export function DocumentFileItem({
 
     const thumbnail = isImage ? (
         <FileThumbnail
-            file={{ name: doc.original_name, type: doc.mime_type }}
+            file={{ name: doc.structure_name, type: doc.mime_type }}
             previewImageUrl={doc.url}
             className={cn(thumbnailSize, "shrink-0 rounded-none border-0")}
             previewClassName="aspect-square"
@@ -107,7 +107,7 @@ export function DocumentFileItem({
         <div className={cn("flex items-center gap-3", className)}>
             {thumbnail}
             <div className="min-w-0 flex-1">
-                <p className="truncate text-sm">{doc.original_name}</p>
+                <p className="truncate text-sm">{doc.structure_name}</p>
                 {subtitle && (
                     <p className="text-xs text-muted-foreground">{subtitle}</p>
                 )}

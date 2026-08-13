@@ -22,6 +22,7 @@ import { GENDER_MALE } from "@/features/questionnaire/schemas/personal-info.sche
 import {
     QuestionnaireDocumentPreview,
     QuestionnaireDocumentGrouped,
+    groupDocumentsByCategory,
 } from "@/components/shared/questionnaire-document-preview";
 
 type SectionProps = {
@@ -68,13 +69,6 @@ function SectionHeader({
     );
 }
 
-const TREE_GROUPS = [
-    { label: "رزومه", slug: CV_DOC_CATEGORY_SLUGS.RESUME },
-    { label: "نامه معرفی", slug: CV_DOC_CATEGORY_SLUGS.COVER_LETTER },
-    { label: "عکس پرسنلی", slug: CV_DOC_CATEGORY_SLUGS.PERSONNEL_PHOTO },
-    { label: "سایر مدارک", slug: CV_DOC_CATEGORY_SLUGS.OTHER_DOCUMENTS },
-];
-
 export function ReviewSection({ form, cv, onNavigateToStep }: SectionProps) {
     const v = form.state.values;
     const pi = v.personal_info ?? {};
@@ -111,14 +105,9 @@ export function ReviewSection({ form, cv, onNavigateToStep }: SectionProps) {
         return slugs.flatMap((slug) => getDocumentsBySlug(slug));
     }
 
-    const treeGroups = TREE_GROUPS.map((g) => ({
-        label: g.label,
-        docs: getDocumentsBySlug(g.slug),
-    }));
+    const treeGroups = groupDocumentsByCategory(documents);
 
-    const hasAnyDoc = TREE_GROUPS.some(
-        (g) => getDocumentsBySlug(g.slug).length > 0,
-    );
+    const hasAnyDoc = treeGroups.length > 0;
 
     const personnelPhoto = getDocumentsBySlug(
         CV_DOC_CATEGORY_SLUGS.PERSONNEL_PHOTO,
@@ -185,7 +174,7 @@ export function ReviewSection({ form, cv, onNavigateToStep }: SectionProps) {
                             <div className="shrink-0">
                                 <FileThumbnail
                                     file={{
-                                        name: personnelPhoto.original_name,
+                                        name: personnelPhoto.structure_name,
                                         type: personnelPhoto.mime_type,
                                     }}
                                     previewImageUrl={personnelPhoto.url}
@@ -294,7 +283,9 @@ export function ReviewSection({ form, cv, onNavigateToStep }: SectionProps) {
                         )}
                     </div>
                     <QuestionnaireDocumentPreview
-                        documents={docsFor([CV_DOC_CATEGORY_SLUGS.RESUME])}
+                        documents={docsFor([
+                            CV_DOC_CATEGORY_SLUGS.ACADEMIC_DEGREE,
+                        ])}
                         variant="compact"
                         className="pt-2"
                     />

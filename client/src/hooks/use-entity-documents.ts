@@ -7,11 +7,14 @@ export type EntityDocument = {
     id: number;
     usage_id: number;
     uuid: string;
-    original_name: string;
+    structure_name: string;
     mime_type: string;
     size: number;
     category_slug: string | null;
-    record_key: string | null;
+    category_label: string | null;
+    section_key: string | null;
+    field_key: string | null;
+    metadata: Record<string, unknown> | null;
     notes: string | null;
     deleted_at?: string | null;
     url: string;
@@ -56,24 +59,24 @@ export function useEntityDocuments(entity: string, uuid: string | undefined) {
 
     function getDocumentsBySlug(
         slug: string,
-        recordKey?: string,
+        fieldKey?: string,
     ): EntityDocument[] {
         return documents.filter(
             (d) =>
                 d.category_slug === slug &&
-                (recordKey ? d.record_key === recordKey : true),
+                (fieldKey ? d.field_key === fieldKey : true),
         );
     }
 
     function getDocumentsBySlugExcept(
         slug: string,
-        excludedKeys: string[],
+        excludedFieldKeys: string[],
     ): EntityDocument[] {
         return documents.filter(
             (d) =>
                 d.category_slug === slug &&
-                d.record_key &&
-                !excludedKeys.includes(d.record_key),
+                d.field_key &&
+                !excludedFieldKeys.includes(d.field_key),
         );
     }
 

@@ -19,10 +19,12 @@ export const documentKeys = {
     lists: () => [...documentKeys.all, "list"] as const,
     list: (params?: Record<string, string>) =>
         [...documentKeys.lists(), params] as const,
-    trashed: (type?: string, recordKey?: string) =>
-        [...documentKeys.all, "trashed", type, recordKey] as const,
+    trashed: (type?: string, entityId?: string) =>
+        [...documentKeys.all, "trashed", type, entityId] as const,
     categories: (type?: string) =>
         [...documentKeys.all, "categories", type] as const,
+    requirements: (entity: string) =>
+        [...documentKeys.all, "requirements", entity] as const,
 };
 
 export const roleKeys = {

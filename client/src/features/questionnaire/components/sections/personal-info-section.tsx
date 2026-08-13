@@ -211,7 +211,7 @@ export function PersonalInfoSection({
                             entity={entity}
                             categorySlug={DOC_CATEGORY_SLUGS.PERSONNEL_PHOTO}
                             label="تصویر پرسنلی"
-                            recordKey="photo"
+                            fieldKey="photo"
                             variant="avatar"
                             aspectRatio={3 / 4}
                             actionsPlacement="overlay"

@@ -147,11 +147,11 @@ export function EmployeeDocumentTrashModal({
                             >
                                 <div className="min-w-0">
                                     <p className="truncate text-sm font-medium">
-                                        {doc.original_name}
+                                        {doc.structure_name}
                                     </p>
                                     <p className="mt-0.5 text-xs text-muted-foreground">
-                                        {doc.record_key
-                                            ? `${doc.record_key} — `
+                                        {doc.field_key
+                                            ? `${doc.field_key} — `
                                             : ""}
                                         {doc.deleted_at
                                             ? toPersianDate(doc.deleted_at)
@@ -164,7 +164,7 @@ export function EmployeeDocumentTrashModal({
                                         size="icon-xs"
                                         onClick={() => handleRestore(doc.usage_id)}
                                         disabled={isRestoring}
-                                        aria-label={`بازیابی ${doc.original_name}`}
+                                        aria-label={`بازیابی ${doc.structure_name}`}
                                     >
                                         {isRestoring ? (
                                             <IconLoader2 className="size-3.5 animate-spin" />
@@ -189,7 +189,7 @@ export function EmployeeDocumentTrashModal({
                                                 )
                                             }
                                             disabled={isForceDeleting}
-                                            aria-label={`حذف همیشگی ${doc.original_name}`}
+                                            aria-label={`حذف همیشگی ${doc.structure_name}`}
                                         >
                                             {isForceDeleting ? (
                                                 <IconLoader2 className="size-3.5 animate-spin" />

@@ -103,7 +103,7 @@ export function SkillsSection({ form, uuid, onPersist, entity = "questionnaire" 
         ...LANGUAGE_COLUMNS,
         repeaterAttachmentColumn({
             categorySlug: DOC_CATEGORY_SLUGS.LANGUAGE_CERTIFICATE,
-            recordKeyPrefix: "lang-",
+            fieldKeyPrefix: "lang-",
             getDocumentsBySlug,
         }),
     ];
@@ -111,7 +111,7 @@ export function SkillsSection({ form, uuid, onPersist, entity = "questionnaire" 
         ...SOFTWARE_COLUMNS,
         repeaterAttachmentColumn({
             categorySlug: DOC_CATEGORY_SLUGS.SKILL_CERTIFICATE,
-            recordKeyPrefix: "sw-spec-",
+            fieldKeyPrefix: "sw-spec-",
             getDocumentsBySlug,
         }),
     ];
@@ -119,7 +119,7 @@ export function SkillsSection({ form, uuid, onPersist, entity = "questionnaire" 
         ...SOFTWARE_COLUMNS,
         repeaterAttachmentColumn({
             categorySlug: DOC_CATEGORY_SLUGS.SKILL_CERTIFICATE,
-            recordKeyPrefix: "sw-gen-",
+            fieldKeyPrefix: "sw-gen-",
             getDocumentsBySlug,
         }),
     ];
@@ -127,7 +127,7 @@ export function SkillsSection({ form, uuid, onPersist, entity = "questionnaire" 
         ...CERTIFICATE_COLUMNS,
         repeaterAttachmentColumn({
             categorySlug: DOC_CATEGORY_SLUGS.COURSE_CERTIFICATES,
-            recordKeyPrefix: "cert-",
+            fieldKeyPrefix: "cert-",
             getDocumentsBySlug,
         }),
     ];
@@ -135,7 +135,7 @@ export function SkillsSection({ form, uuid, onPersist, entity = "questionnaire" 
         { key: "value", label: "مهارت" },
         repeaterAttachmentColumn({
             categorySlug: DOC_CATEGORY_SLUGS.SKILL_CERTIFICATE,
-            recordKeyPrefix: "spc-",
+            fieldKeyPrefix: "spc-",
             getDocumentsBySlug,
         }),
     ];
@@ -240,7 +240,7 @@ export function SkillsSection({ form, uuid, onPersist, entity = "questionnaire" 
                                                 DOC_CATEGORY_SLUGS.LANGUAGE_CERTIFICATE
                                             }
                                             label="گواهینامه زبان"
-                                            recordKey={`lang-${index}`}
+                                            fieldKey={`lang-${index}`}
                                         />
                                     )}
                                 </div>
@@ -284,7 +284,7 @@ export function SkillsSection({ form, uuid, onPersist, entity = "questionnaire" 
                                                     DOC_CATEGORY_SLUGS.SKILL_CERTIFICATE
                                                 }
                                                 label="گواهی مهارت نرم‌افزاری"
-                                                recordKey={`sw-spec-${index}`}
+                                                fieldKey={`sw-spec-${index}`}
                                             />
                                         )}
                                     </div>
@@ -320,7 +320,7 @@ export function SkillsSection({ form, uuid, onPersist, entity = "questionnaire" 
                                                     DOC_CATEGORY_SLUGS.SKILL_CERTIFICATE
                                                 }
                                                 label="گواهی مهارت نرم‌افزاری"
-                                                recordKey={`sw-gen-${index}`}
+                                                fieldKey={`sw-gen-${index}`}
                                             />
                                         )}
                                     </div>
@@ -379,7 +379,7 @@ export function SkillsSection({ form, uuid, onPersist, entity = "questionnaire" 
                                                 DOC_CATEGORY_SLUGS.COURSE_CERTIFICATES
                                             }
                                             label="فایل گواهینامه"
-                                            recordKey={`cert-${index}`}
+                                            fieldKey={`cert-${index}`}
                                         />
                                     )}
                                 </div>
@@ -425,7 +425,7 @@ export function SkillsSection({ form, uuid, onPersist, entity = "questionnaire" 
                                                 DOC_CATEGORY_SLUGS.SKILL_CERTIFICATE
                                             }
                                             label="گواهی مهارت"
-                                            recordKey={`spc-${index}`}
+                                            fieldKey={`spc-${index}`}
                                         />
                                     )}
                                 </div>

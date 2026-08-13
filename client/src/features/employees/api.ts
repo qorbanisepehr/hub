@@ -43,9 +43,10 @@ export function submitEmployee(id: number) {
 
 export type TrashedEmployeeDocument = {
     usage_id: number;
-    original_name: string;
+    structure_name: string;
     category_slug: string | null;
-    record_key: string | null;
+    section_key: string | null;
+    field_key: string | null;
     deleted_at: string | null;
 };
 

@@ -135,14 +135,18 @@ export const DOC_CATEGORY_SLUGS = {
     OTHER_DOCUMENTS: "other-documents",
 } as const;
 
-export const RECORD_KEY_LABELS: Record<string, string> = {
+export const FIELD_KEY_LABELS: Record<string, string> = {
     front: "رو",
     back: "پشت",
+    "page-1": "صفحه اول",
+    "page-2": "صفحه دوم",
+    "page-3": "صفحه آخر",
+    photo: "تصویر پرسنلی",
 };
 
-export function getRecordKeyLabel(recordKey?: string | null): string | null {
-    if (!recordKey) return null;
-    return RECORD_KEY_LABELS[recordKey] ?? recordKey;
+export function getFieldKeyLabel(fieldKey?: string | null): string | null {
+    if (!fieldKey) return null;
+    return FIELD_KEY_LABELS[fieldKey] ?? fieldKey;
 }
 
 // Identity fields live on the real columns, not inside the JSONB section, so

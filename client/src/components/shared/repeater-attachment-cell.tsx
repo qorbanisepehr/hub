@@ -17,7 +17,7 @@ function AttachmentThumbnail({ doc }: { doc: QuestionnaireDocument }) {
     if (doc.mime_type.startsWith("image/")) {
         return (
             <FileThumbnail
-                file={{ name: doc.original_name, type: doc.mime_type }}
+                file={{ name: doc.structure_name, type: doc.mime_type }}
                 previewImageUrl={doc.url}
                 className="size-8 shrink-0 rounded border-0"
                 previewClassName="aspect-square"
@@ -62,18 +62,18 @@ export function RepeaterAttachmentCell({ docs, className }: RepeaterAttachmentCe
 
 type RepeaterAttachmentColumnOptions = {
     categorySlug: string;
-    /** record-key prefix, e.g. "edu-", "lang-", "train-" */
-    recordKeyPrefix: string;
-    getDocumentsBySlug: (slug: string, recordKey?: string) => QuestionnaireDocument[];
+    /** field-key prefix, e.g. "edu-", "lang-", "train-" */
+    fieldKeyPrefix: string;
+    getDocumentsBySlug: (slug: string, fieldKey?: string) => QuestionnaireDocument[];
 };
 
 /**
  * Builds the standard `_attachment` repeater column for the given
- * document category + record-key prefix, wiring each row to its docs.
+ * document category + field-key prefix, wiring each row to its docs.
  */
 export function repeaterAttachmentColumn({
     categorySlug,
-    recordKeyPrefix,
+    fieldKeyPrefix,
     getDocumentsBySlug,
 }: RepeaterAttachmentColumnOptions) {
     return {
@@ -81,7 +81,7 @@ export function repeaterAttachmentColumn({
         label: "پیوست",
         render: (_value: unknown, _item: unknown, index: number) => (
             <RepeaterAttachmentCell
-                docs={getDocumentsBySlug(categorySlug, `${recordKeyPrefix}${index}`)}
+                docs={getDocumentsBySlug(categorySlug, `${fieldKeyPrefix}${index}`)}
             />
         ),
     };

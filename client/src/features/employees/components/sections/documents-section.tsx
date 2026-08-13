@@ -19,7 +19,7 @@ import type { EmployeeDocument } from "@/features/employees/hooks/use-employee-d
 import { EmployeeDocumentTrashModal } from "./employee-document-trash-modal";
 import {
     DOC_CATEGORY_SLUGS,
-    getRecordKeyLabel,
+    getFieldKeyLabel,
 } from "@/features/questionnaire/constants";
 import { fetchDocumentCategories } from "@/features/documents/api";
 import type { DocumentCategory } from "@/features/documents/types";
@@ -40,7 +40,7 @@ const EXTRA_DOC_SLUGS = new Set<string>([
     DOC_CATEGORY_SLUGS.OTHER_DOCUMENTS,
 ]);
 
-const CATEGORY_KNOWN_KEYS: Record<string, string[]> = {
+const CATEGORY_KNOWN_FIELD_KEYS: Record<string, string[]> = {
     [DOC_CATEGORY_SLUGS.NATIONAL_CARD]: ["front", "back"],
     [DOC_CATEGORY_SLUGS.BIRTH_CERTIFICATE]: ["page-1", "page-2", "page-3"],
 };
@@ -158,7 +158,7 @@ export function DocumentsSection({ employeeId }: SectionProps) {
         setPickNotes("");
     }
 
-    const orphanedEntries = Object.entries(CATEGORY_KNOWN_KEYS)
+    const orphanedEntries = Object.entries(CATEGORY_KNOWN_FIELD_KEYS)
         .map(([slug, knownKeys]) => {
             const orphans = getDocumentsBySlugExcept(slug, knownKeys);
             return { slug, label: categoryLabels.get(slug) ?? slug, orphans };
@@ -203,7 +203,7 @@ export function DocumentsSection({ employeeId }: SectionProps) {
                                 categorySlug={DOC_CATEGORY_SLUGS.NATIONAL_CARD}
                                 label="کارت ملی — رو"
                                 accept="image/jpeg,image/png,image/webp,.pdf"
-                                recordKey="front"
+                                fieldKey="front"
                             />
                             <FileUploadField
                                 uuid={uuid}
@@ -211,7 +211,7 @@ export function DocumentsSection({ employeeId }: SectionProps) {
                                 categorySlug={DOC_CATEGORY_SLUGS.NATIONAL_CARD}
                                 label="کارت ملی — پشت"
                                 accept="image/jpeg,image/png,image/webp,.pdf"
-                                recordKey="back"
+                                fieldKey="back"
                             />
                         </div>
                     </div>
@@ -226,7 +226,7 @@ export function DocumentsSection({ employeeId }: SectionProps) {
                                 }
                                 label="شناسنامه — صفحه اول"
                                 accept="image/jpeg,image/png,image/webp,.pdf"
-                                recordKey="page-1"
+                                fieldKey="page-1"
                             />
                             <FileUploadField
                                 uuid={uuid}
@@ -236,7 +236,7 @@ export function DocumentsSection({ employeeId }: SectionProps) {
                                 }
                                 label="شناسنامه — صفحه دوم"
                                 accept="image/jpeg,image/png,image/webp,.pdf"
-                                recordKey="page-2"
+                                fieldKey="page-2"
                             />
                             <FileUploadField
                                 uuid={uuid}
@@ -246,7 +246,7 @@ export function DocumentsSection({ employeeId }: SectionProps) {
                                 }
                                 label="شناسنامه — صفحه آخر"
                                 accept="image/jpeg,image/png,image/webp,.pdf"
-                                recordKey="page-3"
+                                fieldKey="page-3"
                             />
                         </div>
                     </div>
@@ -277,8 +277,8 @@ export function DocumentsSection({ employeeId }: SectionProps) {
                                         layout="compact"
                                         thumbnailSize="size-16"
                                         label={
-                                            getRecordKeyLabel(doc.record_key) ??
-                                            doc.record_key
+                                            getFieldKeyLabel(doc.field_key) ??
+                                            doc.field_key
                                         }
                                     />
                                 ))}
@@ -299,8 +299,9 @@ export function DocumentsSection({ employeeId }: SectionProps) {
                                     v != null && setPickSlug(v)
                                 }
                                 itemToStringLabel={(val) =>
-                                    extraDocOptions.find((o) => o.slug === val)
-                                        ?.label ?? val
+                                    extraDocOptions.find(
+                                        (o) => o.slug === val,
+                                    )?.label ?? val
                                 }
                             >
                                 <SelectTrigger className="w-48 h-8 text-xs">
@@ -319,7 +320,9 @@ export function DocumentsSection({ employeeId }: SectionProps) {
                             </Select>
                             <Input
                                 value={pickNotes}
-                                onChange={(e) => setPickNotes(e.target.value)}
+                                onChange={(e) =>
+                                    setPickNotes(e.target.value)
+                                }
                                 placeholder="توضیحات (اختیاری)"
                                 className="h-8 text-xs w-40"
                             />

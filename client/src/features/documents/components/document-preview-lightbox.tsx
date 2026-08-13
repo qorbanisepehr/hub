@@ -15,7 +15,7 @@ import { getFileTypeLabel } from "@/lib/file-type-label";
 import { renderPdfThumbnailUrl } from "@/lib/pdf-thumbnail-utils";
 import type { Document } from "@/features/documents/types";
 import { getDocOriginalName, getDocMimeType, getDocFileSizeFormatted, getDocServeUrl, getDocDownloadUrl } from "@/features/documents/types";
-import { getRecordKeyLabel } from "@/features/questionnaire/constants";
+import { getFieldKeyLabel } from "@/features/questionnaire/constants";
 
 type DocumentPreviewLightboxProps = {
     documents: Document[];
@@ -236,9 +236,9 @@ export function DocumentPreviewLightbox({
                     <p className="truncate text-sm font-medium text-white">
                         {getDocOriginalName(doc)}
                     </p>
-                    {(getRecordKeyLabel(doc.record_key) || doc.category?.name || doc.notes) && (
+                    {(getFieldKeyLabel(doc.field_key) || doc.category?.name || doc.notes) && (
                         <p className="truncate text-xs text-white/60">
-                            {getRecordKeyLabel(doc.record_key) ?? doc.notes ?? doc.category?.name}
+                            {getFieldKeyLabel(doc.field_key) ?? doc.notes ?? doc.category?.name}
                         </p>
                     )}
                 </div>

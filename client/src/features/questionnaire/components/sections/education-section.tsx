@@ -58,7 +58,7 @@ export function EducationSection({ form, uuid, onPersist, entity = "questionnair
         { key: "gpa", label: "معدل" },
         repeaterAttachmentColumn({
             categorySlug: DOC_CATEGORY_SLUGS.ACADEMIC_DEGREE,
-            recordKeyPrefix: "edu-",
+            fieldKeyPrefix: "edu-",
             getDocumentsBySlug,
         }),
     ];
@@ -227,7 +227,7 @@ export function EducationSection({ form, uuid, onPersist, entity = "questionnair
                                                 DOC_CATEGORY_SLUGS.ACADEMIC_DEGREE
                                             }
                                             label="مدرک تحصیلی"
-                                            recordKey={`edu-${index}`}
+                                            fieldKey={`edu-${index}`}
                                         />
                                     )}
                                 </div>

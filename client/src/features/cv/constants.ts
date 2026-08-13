@@ -33,6 +33,7 @@ export const CV_DOC_CATEGORY_SLUGS = {
     COVER_LETTER: "cover-letter",
     OTHER_DOCUMENTS: "other-documents",
     PERSONNEL_PHOTO: "personnel-photo",
+    ACADEMIC_DEGREE: "academic-degree",
 } as const;
 
 // Identity fields live on the real columns, not inside the JSONB section, so

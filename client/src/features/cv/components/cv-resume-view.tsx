@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
     QuestionnaireDocumentGrouped,
     QuestionnaireDocumentPreview,
+    groupDocumentsByCategory,
 } from "@/components/shared/questionnaire-document-preview";
 import { toPersianDate } from "@/lib/date-format";
 import type {
@@ -387,24 +388,8 @@ export function CvResumeView({
     const docsBySlug = (slug: string) =>
         documents.filter((doc) => doc.category_slug === slug);
 
-    const documentGroups = [
-        { label: "رزومه", docs: docsBySlug(CV_DOC_CATEGORY_SLUGS.RESUME) },
-        {
-            label: "نامه معرفی",
-            docs: docsBySlug(CV_DOC_CATEGORY_SLUGS.COVER_LETTER),
-        },
-        {
-            label: "عکس پرسنلی",
-            docs: docsBySlug(CV_DOC_CATEGORY_SLUGS.PERSONNEL_PHOTO),
-        },
-        {
-            label: "سایر مدارک",
-            docs: docsBySlug(CV_DOC_CATEGORY_SLUGS.OTHER_DOCUMENTS),
-        },
-    ];
-    const hasAnyDocument = documentGroups.some(
-        (group) => group.docs.length > 0,
-    );
+    const documentGroups = groupDocumentsByCategory(documents);
+    const hasAnyDocument = documentGroups.length > 0;
 
     return (
         <div className="space-y-6">
@@ -521,7 +506,7 @@ export function CvResumeView({
             {cv.education && (
                 <EducationSection
                     education={cv.education}
-                    documents={docsBySlug(CV_DOC_CATEGORY_SLUGS.RESUME)}
+                    documents={docsBySlug(CV_DOC_CATEGORY_SLUGS.ACADEMIC_DEGREE)}
                 />
             )}
             {cv.work_experience && (

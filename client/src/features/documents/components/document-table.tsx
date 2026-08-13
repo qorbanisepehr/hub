@@ -129,7 +129,7 @@ export function DocumentTable({
                 },
             },
             {
-                accessorKey: "current_revision.original_name",
+                accessorKey: "structure_name",
                 header: "فایل",
                 cell: ({ row }) => <DocumentFileCell doc={row.original} />,
             },

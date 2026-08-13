@@ -24,7 +24,7 @@ import { AdditionalInfoSection } from "@/features/questionnaire/components/secti
 import { ContactInfoSection } from "./sections/contact-info-section";
 import { LinkedUserSection } from "./sections/linked-user-section";
 import { EmploymentSection } from "./sections/employment-section";
-import { DocumentSection } from "@/features/documents/components/document-section";
+import { DocumentsSection } from "./sections/documents-section";
 import { saveEmployeeSection, submitEmployee } from "@/features/employees/api";
 import {
     EMPLOYEE_DOCUMENTS_TAB,
@@ -454,12 +454,7 @@ export function EmployeeProfileForm({ employee }: EmployeeProfileFormProps) {
                     />
                 );
             case "documents":
-                return (
-                    <DocumentSection
-                        documentableType="employee"
-                        documentableId={employee.id}
-                    />
-                );
+                return <DocumentsSection employeeId={employee.id} />;
             case "linked_user":
                 return <LinkedUserSection employee={employee} />;
             default:

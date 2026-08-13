@@ -248,7 +248,7 @@ export function DocumentList({
     >(null);
 
     const { data: documents, isLoading, error } = useQuery({
-        queryKey: documentKeys.list({ type: documentableType, record_key: String(documentableId) }),
+        queryKey: documentKeys.list({ type: documentableType, entity_id: String(documentableId) }),
         queryFn: async () => {
             const { data } = await fetchDocuments(documentableType, String(documentableId));
             return data.data;
@@ -265,7 +265,7 @@ export function DocumentList({
 
     function removeFromCache(documentId: number) {
         queryClient.setQueryData<Document[]>(
-            documentKeys.list({ type: documentableType, record_key: String(documentableId) }),
+            documentKeys.list({ type: documentableType, entity_id: String(documentableId) }),
             (old) => old?.filter((d) => d.id !== documentId),
         );
     }

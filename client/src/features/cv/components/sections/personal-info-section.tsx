@@ -173,7 +173,7 @@ export function PersonalInfoSection({ form, cv, uuid }: SectionProps) {
                             categorySlug={CV_DOC_CATEGORY_SLUGS.PERSONNEL_PHOTO}
                             entity="cv"
                             label="تصویر پرسنلی"
-                            recordKey="photo"
+                            fieldKey="photo"
                             variant="avatar"
                             aspectRatio={3 / 4}
                             actionsPlacement="overlay"

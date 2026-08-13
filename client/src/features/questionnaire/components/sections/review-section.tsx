@@ -21,6 +21,7 @@ import { GENDER_MALE, SPOUSE_EMPLOYED } from "@/features/questionnaire/schemas/p
 import {
     QuestionnaireDocumentPreview,
     QuestionnaireDocumentGrouped,
+    groupDocumentsByCategory,
 } from "@/components/shared/questionnaire-document-preview";
 
 type SectionProps = {
@@ -68,21 +69,6 @@ const SECTION_DOCS: { step: number; label: string; slugs: string[] }[] = [
     { step: 7, label: "مدارک شغلی", slugs: [DOC_CATEGORY_SLUGS.RESUME, DOC_CATEGORY_SLUGS.COVER_LETTER] },
 ];
 
-const TREE_GROUPS = [
-    { label: "تصویر پرسنلی", slug: DOC_CATEGORY_SLUGS.PERSONNEL_PHOTO },
-    { label: "کارت ملی", slug: DOC_CATEGORY_SLUGS.NATIONAL_CARD },
-    { label: "شناسنامه", slug: DOC_CATEGORY_SLUGS.BIRTH_CERTIFICATE },
-    { label: "مدرک تحصیلی", slug: DOC_CATEGORY_SLUGS.ACADEMIC_DEGREE },
-    { label: "گواهینامه زبان", slug: DOC_CATEGORY_SLUGS.LANGUAGE_CERTIFICATE },
-    { label: "گواهی مهارت", slug: DOC_CATEGORY_SLUGS.SKILL_CERTIFICATE },
-    { label: "گواهینامه دوره", slug: DOC_CATEGORY_SLUGS.COURSE_CERTIFICATES },
-    { label: "مدارک پژوهشی", slug: DOC_CATEGORY_SLUGS.RESEARCH_DOCUMENTS },
-    { label: "گواهی اشتغال به کار", slug: DOC_CATEGORY_SLUGS.EMPLOYMENT_CERTIFICATE },
-    { label: "رزومه", slug: DOC_CATEGORY_SLUGS.RESUME },
-    { label: "نامه پوششی", slug: DOC_CATEGORY_SLUGS.COVER_LETTER },
-    { label: "سایر مدارک", slug: DOC_CATEGORY_SLUGS.OTHER_DOCUMENTS },
-];
-
 export function ReviewSection({ form, questionnaire, onNavigateToStep }: SectionProps) {
     const v = form.state.values;
     const pi = v.personal_info ?? {};
@@ -121,12 +107,9 @@ export function ReviewSection({ form, questionnaire, onNavigateToStep }: Section
         return docsFor(SECTION_DOCS.find((s) => s.step === step)?.slugs ?? []);
     }
 
-    const treeGroups = TREE_GROUPS.map((g) => ({
-        label: g.label,
-        docs: getDocumentsBySlug(g.slug),
-    }));
+    const treeGroups = groupDocumentsByCategory(documents);
 
-    const hasAnyDoc = TREE_GROUPS.some((g) => getDocumentsBySlug(g.slug).length > 0);
+    const hasAnyDoc = treeGroups.length > 0;
 
     return (
         <div className="space-y-4">
