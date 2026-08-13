@@ -18,6 +18,7 @@ import {
     type FieldErrors,
 } from "@/lib/validation-helpers";
 import { requiredText } from "@/lib/zod-primitives";
+import { socialInsuranceSubmitSchema } from "./schemas/social-insurance.schema";
 
 export type SubmitOptions = {
     personal_info: PersonalInfoOptions;
@@ -48,6 +49,7 @@ export function buildSubmitSchema(options: SubmitOptions) {
         employment: employeeEmploymentSchema,
         education: educationFieldSchema,
         work_experience: workExperienceFieldSchema,
+        social_insurance: socialInsuranceSubmitSchema,
         skills: skillsFieldSchema,
         training: trainingFieldSchema,
         additional_info: additionalInfoFieldSchema,

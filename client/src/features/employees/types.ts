@@ -19,6 +19,8 @@ export type Employee = {
     section_skills: Record<string, unknown> | null;
     section_training: Record<string, unknown> | null;
     section_additional_info: Record<string, unknown> | null;
+    social_insurance_number: string | null;
+    section_social_insurance: Record<string, unknown> | null;
     user: {
         id: number;
         name: string;
@@ -51,6 +53,7 @@ export type EmployeeProfileFormData = {
     skills?: Record<string, unknown>;
     training?: Record<string, unknown>;
     additional_info?: Record<string, unknown>;
+    social_insurance?: Record<string, unknown>;
 };
 
 export type EmployeeFormApi = ReactFormExtendedApi<

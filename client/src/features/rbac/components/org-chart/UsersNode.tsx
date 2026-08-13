@@ -69,7 +69,7 @@ export default function UsersNode({ data, selected }: NodeProps<UsersNode>) {
     const users = role.users ?? [];
     const visibleUsers = users.slice(0, MAX_AVATARS);
     const hiddenCount = users.length - visibleUsers.length;
-    users && console.log(users);
+
     return (
         <>
             <Handle

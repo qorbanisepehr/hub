@@ -21,6 +21,7 @@ import { WorkExperienceSection } from "@/features/questionnaire/components/secti
 import { SkillsSection } from "@/features/questionnaire/components/sections/skills-section";
 import { TrainingSection } from "@/features/questionnaire/components/sections/training-section";
 import { AdditionalInfoSection } from "@/features/questionnaire/components/sections/additional-info-section";
+import { SocialInsuranceSection } from "@/features/employees/components/sections/social-insurance-section";
 import { ContactInfoSection } from "./sections/contact-info-section";
 import { LinkedUserSection } from "./sections/linked-user-section";
 import { EmploymentSection } from "./sections/employment-section";
@@ -41,7 +42,10 @@ import {
 } from "@/lib/validation-helpers";
 import { getApiError } from "@/lib/error-utils";
 import { employeeKeys } from "@/lib/query-keys";
-import type { Employee, EmployeeProfileFormData } from "@/features/employees/types";
+import type {
+    Employee,
+    EmployeeProfileFormData,
+} from "@/features/employees/types";
 
 type EmployeeProfileFormProps = {
     employee: Employee;
@@ -64,7 +68,13 @@ const EMPTY_PERSONAL_INFO = {
     children_count: null,
     spouse_employment_status: "",
     spouse_job: "",
-    military_status: { status: "", organization: "", from: "", to: "", reason: "" },
+    military_status: {
+        status: "",
+        organization: "",
+        from: "",
+        to: "",
+        reason: "",
+    },
 };
 
 const EMPTY_CONTACT_INFO = {
@@ -107,6 +117,14 @@ const EMPTY_WORK_EXPERIENCE = {
     achievements: "",
     allow_contact_previous_managers: false,
     contact_restriction_description: "",
+};
+
+const EMPTY_SOCIAL_INSURANCE = {
+    insurance_number: "",
+    insurance_status: "",
+    insurance_start_date: "",
+    has_insurance_history: false,
+    histories: [],
 };
 
 const EMPTY_SKILLS = {
@@ -176,10 +194,18 @@ function buildDefaultValues(employee: Employee): EmployeeProfileFormData {
             hire_date: employee.hire_date ?? "",
             employment_status: employee.employment_status ?? "",
         },
-        education: { ...EMPTY_EDUCATION, ...(employee.section_education ?? {}) },
+        education: {
+            ...EMPTY_EDUCATION,
+            ...(employee.section_education ?? {}),
+        },
         work_experience: {
             ...EMPTY_WORK_EXPERIENCE,
             ...(employee.section_work_experience ?? {}),
+        },
+        social_insurance: {
+            ...EMPTY_SOCIAL_INSURANCE,
+            ...(employee.section_social_insurance ?? {}),
+            insurance_number: employee.social_insurance_number ?? "",
         },
         skills: { ...EMPTY_SKILLS, ...(employee.section_skills ?? {}) },
         training: { ...EMPTY_TRAINING, ...(employee.section_training ?? {}) },
@@ -219,9 +245,11 @@ function extractSectionData(
         case "employment":
             return (values.employment as Record<string, unknown>) ?? {};
         default:
-            return (values[sectionKey as keyof EmployeeProfileFormData] as
-                | Record<string, unknown>
-                | undefined) ?? {};
+            return (
+                (values[sectionKey as keyof EmployeeProfileFormData] as
+                    | Record<string, unknown>
+                    | undefined) ?? {}
+            );
     }
 }
 
@@ -284,9 +312,7 @@ export function EmployeeProfileForm({ employee }: EmployeeProfileFormProps) {
                         : [getApiError(error) ?? "خطای ناشناخته"],
                 );
             } else {
-                setSubmitErrors([
-                    getApiError(error) ?? "خطا در ثبت پروفایل",
-                ]);
+                setSubmitErrors([getApiError(error) ?? "خطا در ثبت پروفایل"]);
             }
         },
     });
@@ -389,7 +415,11 @@ export function EmployeeProfileForm({ employee }: EmployeeProfileFormProps) {
     const handleTabChange = (value: string | number | null) => {
         if (!value) return;
         const next = String(value);
-        if (next !== activeSection && isDirty && formSectionKeys.has(activeSection)) {
+        if (
+            next !== activeSection &&
+            isDirty &&
+            formSectionKeys.has(activeSection)
+        ) {
             persistSection(activeSection);
         }
         setActiveSection(next);
@@ -426,6 +456,13 @@ export function EmployeeProfileForm({ employee }: EmployeeProfileFormProps) {
                         entity="employees"
                         uuid={String(employee.id)}
                         onPersist={handlePersist}
+                    />
+                );
+            case "social_insurance":
+                return (
+                    <SocialInsuranceSection
+                        form={form as never}
+                        uuid={String(employee.id)}
                     />
                 );
             case "skills":
@@ -466,7 +503,9 @@ export function EmployeeProfileForm({ employee }: EmployeeProfileFormProps) {
         <div className="space-y-6">
             <UnsavedChangesDialog
                 isDirty={isDirty}
-                isSubmitting={saveMutation.isPending || submitMutation.isPending}
+                isSubmitting={
+                    saveMutation.isPending || submitMutation.isPending
+                }
             />
 
             <div className="flex items-center justify-between rounded-lg border p-4">
@@ -560,7 +599,9 @@ export function EmployeeProfileForm({ employee }: EmployeeProfileFormProps) {
                                 <div className="flex items-center gap-3">
                                     <Button
                                         type="button"
-                                        onClick={() => persistSection(section.key)}
+                                        onClick={() =>
+                                            persistSection(section.key)
+                                        }
                                         disabled={
                                             saveMutation.isPending ||
                                             submitMutation.isPending ||

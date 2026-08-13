@@ -84,7 +84,7 @@ export function FormOptionSelectField({
 }: FormOptionFieldProps) {
     const { data } = useFormOptionsByGroup(group, parentValue);
     const options = toSelectOptions(data, filter);
-    console.log(data, options, filter, field.state.value);
+
     return (
         <FormSelectField
             field={field}

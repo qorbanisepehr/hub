@@ -6,6 +6,7 @@ use App\Domains\Employee\Models\Employee;
 use App\Domains\Employee\Sections\AdditionalInfoSection;
 use App\Domains\Employee\Sections\ContactInfoSection;
 use App\Domains\Employee\Sections\EmploymentSection;
+use App\Domains\Employee\Sections\SocialInsuranceSection;
 use App\Domains\Questionnaire\Sections\EducationSection;
 use App\Domains\Questionnaire\Sections\PersonalInfoSection;
 use App\Domains\Questionnaire\Sections\SkillsSection;
@@ -44,6 +45,7 @@ class EmployeeService
             SkillsSection::class,
             TrainingSection::class,
             AdditionalInfoSection::class,
+            SocialInsuranceSection::class,
         ];
 
         foreach ($definitions as $class) {

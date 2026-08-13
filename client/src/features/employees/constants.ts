@@ -12,7 +12,10 @@ export const statusLabels: Record<string, string> = {
     suspended: "تعلیق",
 };
 
-export const statusVariants: Record<string, "default" | "secondary" | "destructive"> = {
+export const statusVariants: Record<
+    string,
+    "default" | "secondary" | "destructive"
+> = {
     active: "default",
     inactive: "secondary",
     suspended: "destructive",
@@ -40,6 +43,11 @@ export const EMPLOYEE_SECTIONS = [
         key: "education",
         label: "سوابق تحصیلی",
         description: "مدارک و سوابق تحصیلی",
+    },
+    {
+        key: "social_insurance",
+        label: "بیمه تأمین اجتماعی",
+        description: "شماره بیمه و سوابق بیمه",
     },
     {
         key: "work_experience",

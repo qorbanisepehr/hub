@@ -2,12 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 import { Badge } from "@/components/ui/badge";
-import {
-    Card,
-    CardContent,
-    CardHeader,
-    CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { InfoRow } from "@/components/shared/info-row";
@@ -26,6 +21,7 @@ import {
     EMPLOYEE_SECTIONS,
 } from "@/features/employees/constants";
 import type { Employee } from "@/features/employees/types";
+import { SocialInsuranceView } from "./views/social-insurance-view";
 
 function asRecord(value: unknown): Record<string, unknown> {
     return value && typeof value === "object"
@@ -50,14 +46,15 @@ function RepeaterTable({
     emptyLabel,
 }: {
     items: unknown;
-    columns: { label: string; render: (item: Record<string, unknown>) => unknown }[];
+    columns: {
+        label: string;
+        render: (item: Record<string, unknown>) => unknown;
+    }[];
     emptyLabel: string;
 }) {
     const list = Array.isArray(items) ? items.map(asRecord) : [];
     if (list.length === 0) {
-        return (
-            <p className="text-sm text-muted-foreground">{emptyLabel}</p>
-        );
+        return <p className="text-sm text-muted-foreground">{emptyLabel}</p>;
     }
     return (
         <div className="overflow-x-auto rounded-lg border">
@@ -78,10 +75,7 @@ function RepeaterTable({
                     {list.map((item, index) => (
                         <tr key={index} className="border-b last:border-b-0">
                             {columns.map((column) => (
-                                <td
-                                    key={column.label}
-                                    className="px-3 py-2"
-                                >
+                                <td key={column.label} className="px-3 py-2">
                                     {stringValue(column.render(item)) ?? "—"}
                                 </td>
                             ))}
@@ -110,15 +104,27 @@ function PersonalInfoView({ employee }: { employee: Employee }) {
                     <Row label="تاریخ تولد" value={employee.birth_date} />
                     <Row label="وضعیت تأهل" value={employee.marital_status} />
                     <Row label="نام (انگلیسی)" value={personal.first_name_en} />
-                    <Row label="نام خانوادگی (انگلیسی)" value={personal.last_name_en} />
+                    <Row
+                        label="نام خانوادگی (انگلیسی)"
+                        value={personal.last_name_en}
+                    />
                     <Row label="محل تولد" value={personal.birth_place} />
-                    <Row label="شماره شناسنامه" value={personal.birth_certificate_number} />
+                    <Row
+                        label="شماره شناسنامه"
+                        value={personal.birth_certificate_number}
+                    />
                     <Row label="نام پدر" value={personal.father_name} />
                     <Row label="دین" value={personal.religion} />
                     <Row label="مذهب" value={personal.religion_sect} />
                     <Row label="گروه خونی" value={personal.blood_group} />
-                    <Row label="تعداد افراد تحت تکفل" value={personal.dependents_count} />
-                    <Row label="تعداد فرزندان" value={personal.children_count} />
+                    <Row
+                        label="تعداد افراد تحت تکفل"
+                        value={personal.dependents_count}
+                    />
+                    <Row
+                        label="تعداد فرزندان"
+                        value={personal.children_count}
+                    />
                     {spouseEmployed && (
                         <Row label="شغل همسر" value={personal.spouse_job} />
                     )}
@@ -133,7 +139,10 @@ function PersonalInfoView({ employee }: { employee: Employee }) {
                         </CardHeader>
                         <CardContent className="divide-y">
                             <Row label="وضعیت" value={military.status} />
-                            <Row label="محل خدمت" value={military.organization} />
+                            <Row
+                                label="محل خدمت"
+                                value={military.organization}
+                            />
                             <Row label="از تاریخ" value={military.from} />
                             <Row label="تا تاریخ" value={military.to} />
                             <Row label="توضیحات" value={military.reason} />
@@ -222,7 +231,10 @@ function EmploymentInfoView({ employee }: { employee: Employee }) {
                     <CardTitle>اطلاعات شغلی</CardTitle>
                 </CardHeader>
                 <CardContent className="divide-y">
-                    <InfoRow label="کد پرسنلی" value={employee.personnel_code} />
+                    <InfoRow
+                        label="کد پرسنلی"
+                        value={employee.personnel_code}
+                    />
                     <InfoRow
                         label="نوع استخدام"
                         value={
@@ -315,7 +327,10 @@ function EducationView({ employee }: { employee: Employee }) {
                         { label: "دانشگاه", render: (i) => i.institution },
                         { label: "از تاریخ", render: (i) => i.from },
                         { label: "تا تاریخ", render: (i) => i.to },
-                        { label: "تاریخ فارغ‌التحصیلی", render: (i) => i.graduation_date },
+                        {
+                            label: "تاریخ فارغ‌التحصیلی",
+                            render: (i) => i.graduation_date,
+                        },
                         { label: "معدل", render: (i) => i.gpa },
                     ]}
                 />
@@ -327,21 +342,54 @@ function EducationView({ employee }: { employee: Employee }) {
                         <div className="grid gap-6 md:grid-cols-2">
                             <Card className="border-0 shadow-none">
                                 <CardContent className="divide-y p-0">
-                                    <Row label="مقطع تحصیلی" value={education.student_degree} />
-                                    <Row label="رشته تحصیلی" value={education.student_field} />
-                                    <Row label="دانشگاه" value={education.student_university} />
-                                    <Row label="کشور" value={education.student_country} />
-                                    <Row label="شهر" value={education.student_city} />
+                                    <Row
+                                        label="مقطع تحصیلی"
+                                        value={education.student_degree}
+                                    />
+                                    <Row
+                                        label="رشته تحصیلی"
+                                        value={education.student_field}
+                                    />
+                                    <Row
+                                        label="دانشگاه"
+                                        value={education.student_university}
+                                    />
+                                    <Row
+                                        label="کشور"
+                                        value={education.student_country}
+                                    />
+                                    <Row
+                                        label="شهر"
+                                        value={education.student_city}
+                                    />
                                 </CardContent>
                             </Card>
                             <Card className="border-0 shadow-none">
                                 <CardContent className="divide-y p-0">
-                                    <Row label="ترم فعلی" value={education.student_semester} />
-                                    <Row label="واحدهای گذرانده" value={education.passed_units} />
-                                    <Row label="واحدهای باقی‌مانده" value={education.remaining_units} />
-                                    <Row label="معدل" value={education.student_gpa} />
-                                    <Row label="تاریخ شروع" value={education.study_start} />
-                                    <Row label="تاریخ فارغ‌التحصیلی مورد انتظار" value={education.expected_graduation} />
+                                    <Row
+                                        label="ترم فعلی"
+                                        value={education.student_semester}
+                                    />
+                                    <Row
+                                        label="واحدهای گذرانده"
+                                        value={education.passed_units}
+                                    />
+                                    <Row
+                                        label="واحدهای باقی‌مانده"
+                                        value={education.remaining_units}
+                                    />
+                                    <Row
+                                        label="معدل"
+                                        value={education.student_gpa}
+                                    />
+                                    <Row
+                                        label="تاریخ شروع"
+                                        value={education.study_start}
+                                    />
+                                    <Row
+                                        label="تاریخ فارغ‌التحصیلی مورد انتظار"
+                                        value={education.expected_graduation}
+                                    />
                                 </CardContent>
                             </Card>
                         </div>
@@ -350,16 +398,27 @@ function EducationView({ employee }: { employee: Employee }) {
                                 label="ارائه پایان‌نامه"
                                 value={
                                     stringValue(education.thesis_submitted)
-                                        ? (education.thesis_submitted ? "بله" : "خیر")
+                                        ? education.thesis_submitted
+                                            ? "بله"
+                                            : "خیر"
                                         : null
                                 }
                             />
                         </div>
-                        <Row label="عنوان پایان‌نامه" value={education.student_thesis_title} />
-                        <Row label="روزهای آزاد در هفته" value={education.free_days_per_week} />
+                        <Row
+                            label="عنوان پایان‌نامه"
+                            value={education.student_thesis_title}
+                        />
+                        <Row
+                            label="روزهای آزاد در هفته"
+                            value={education.free_days_per_week}
+                        />
                     </div>
                 )}
-                <Row label="توضیحات تحصیلی" value={education.education_description} />
+                <Row
+                    label="توضیحات تحصیلی"
+                    value={education.education_description}
+                />
             </CardContent>
         </Card>
     );
@@ -390,11 +449,16 @@ function WorkExperienceView({ employee }: { employee: Employee }) {
                     label="مجاز به تماس با مدیران قبلی"
                     value={
                         stringValue(work.allow_contact_previous_managers)
-                            ? (work.allow_contact_previous_managers ? "بله" : "خیر")
+                            ? work.allow_contact_previous_managers
+                                ? "بله"
+                                : "خیر"
                             : null
                     }
                 />
-                <Row label="توضیحات محدودیت تماس" value={work.contact_restriction_description} />
+                <Row
+                    label="توضیحات محدودیت تماس"
+                    value={work.contact_restriction_description}
+                />
             </CardContent>
         </Card>
     );
@@ -420,7 +484,10 @@ function SkillsView({ employee }: { employee: Employee }) {
                             { label: "خواندن", render: (i) => i.reading },
                             { label: "نوشتن", render: (i) => i.writing },
                             { label: "صحبت کردن", render: (i) => i.speaking },
-                            { label: "درک مطلب", render: (i) => i.comprehension },
+                            {
+                                label: "درک مطلب",
+                                render: (i) => i.comprehension,
+                            },
                         ]}
                     />
                 </div>
@@ -448,7 +515,9 @@ function SkillsView({ employee }: { employee: Employee }) {
                     />
                 </div>
                 <div>
-                    <p className="text-sm font-medium mb-2">مهارت‌های تخصصی نرم‌افزاری</p>
+                    <p className="text-sm font-medium mb-2">
+                        مهارت‌های تخصصی نرم‌افزاری
+                    </p>
                     <RepeaterTable
                         items={software.specialized}
                         emptyLabel="مهارت تخصصی ثبت نشده است."
@@ -459,7 +528,9 @@ function SkillsView({ employee }: { employee: Employee }) {
                     />
                 </div>
                 <div>
-                    <p className="text-sm font-medium mb-2">مهارت‌های عمومی نرم‌افزاری</p>
+                    <p className="text-sm font-medium mb-2">
+                        مهارت‌های عمومی نرم‌افزاری
+                    </p>
                     <RepeaterTable
                         items={software.general}
                         emptyLabel="مهارت عمومی ثبت نشده است."
@@ -495,7 +566,10 @@ function TrainingView({ employee }: { employee: Employee }) {
                         ]}
                     />
                 </div>
-                <Row label="عضویت‌های حرفه‌ای" value={training.professional_memberships} />
+                <Row
+                    label="عضویت‌های حرفه‌ای"
+                    value={training.professional_memberships}
+                />
                 <div>
                     <p className="text-sm font-medium mb-2">پژوهش‌ها</p>
                     <RepeaterTable
@@ -528,28 +602,64 @@ function AdditionalInfoView({ employee }: { employee: Employee }) {
                     columns={[
                         { label: "نام کامل", render: (i) => i.full_name },
                         { label: "رابطه", render: (i) => i.relationship },
-                        { label: "تلفن محل کار", render: (i) => i.workplace_phone },
+                        {
+                            label: "تلفن محل کار",
+                            render: (i) => i.workplace_phone,
+                        },
                     ]}
                 />
                 <div className="grid gap-6 md:grid-cols-2">
                     <Card className="border-0 shadow-none">
                         <CardContent className="divide-y p-0">
-                            <Row label="بیماری مزمن" value={info.has_chronic_disease ? "بله" : "خیر"} />
-                            <Row label="توضیحات بیماری مزمن" value={info.chronic_disease_description} />
-                            <Row label="جراحی عمده" value={info.has_major_surgery ? "بله" : "خیر"} />
-                            <Row label="توضیحات جراحی" value={info.major_surgery_description} />
-                            <Row label="ناتوانی" value={info.has_disability ? "بله" : "خیر"} />
-                            <Row label="نوع ناتوانی" value={info.disability_type} />
+                            <Row
+                                label="بیماری مزمن"
+                                value={info.has_chronic_disease ? "بله" : "خیر"}
+                            />
+                            <Row
+                                label="توضیحات بیماری مزمن"
+                                value={info.chronic_disease_description}
+                            />
+                            <Row
+                                label="جراحی عمده"
+                                value={info.has_major_surgery ? "بله" : "خیر"}
+                            />
+                            <Row
+                                label="توضیحات جراحی"
+                                value={info.major_surgery_description}
+                            />
+                            <Row
+                                label="ناتوانی"
+                                value={info.has_disability ? "بله" : "خیر"}
+                            />
+                            <Row
+                                label="نوع ناتوانی"
+                                value={info.disability_type}
+                            />
                         </CardContent>
                     </Card>
                     <Card className="border-0 shadow-none">
                         <CardContent className="divide-y p-0">
-                            <Row label="سابقه کیفری" value={info.has_criminal_record ? "بله" : "خیر"} />
-                            <Row label="توضیحات کیفری" value={info.criminal_record_description} />
-                            <Row label="امکان سفر" value={info.can_travel ? "بله" : "خیر"} />
-                            <Row label="توضیحات سفر" value={info.travel_description} />
+                            <Row
+                                label="سابقه کیفری"
+                                value={info.has_criminal_record ? "بله" : "خیر"}
+                            />
+                            <Row
+                                label="توضیحات کیفری"
+                                value={info.criminal_record_description}
+                            />
+                            <Row
+                                label="امکان سفر"
+                                value={info.can_travel ? "بله" : "خیر"}
+                            />
+                            <Row
+                                label="توضیحات سفر"
+                                value={info.travel_description}
+                            />
                             <Row label="علایق" value={info.hobbies} />
-                            <Row label="نقاط قوت و بهبود" value={info.strengths_and_improvements} />
+                            <Row
+                                label="نقاط قوت و بهبود"
+                                value={info.strengths_and_improvements}
+                            />
                         </CardContent>
                     </Card>
                 </div>
@@ -559,7 +669,9 @@ function AdditionalInfoView({ employee }: { employee: Employee }) {
 }
 
 export function EmployeeProfileView({ employee }: EmployeeProfileViewProps) {
-    const [activeTab, setActiveTab] = useState<string>(EMPLOYEE_SECTIONS[0].key);
+    const [activeTab, setActiveTab] = useState<string>(
+        EMPLOYEE_SECTIONS[0].key,
+    );
     const canManageDocuments = usePermission([
         PERMISSIONS.DOCUMENT_UPLOAD_OWN,
         PERMISSIONS.DOCUMENT_UPLOAD_ALL,
@@ -584,6 +696,8 @@ export function EmployeeProfileView({ employee }: EmployeeProfileViewProps) {
                 return <EducationView employee={employee} />;
             case "work_experience":
                 return <WorkExperienceView employee={employee} />;
+            case "social_insurance":
+                return <SocialInsuranceView employee={employee} />;
             case "skills":
                 return <SkillsView employee={employee} />;
             case "training":
