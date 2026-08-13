@@ -12,6 +12,7 @@ return [
     'document_uploaded' => 'مدرک با موفقیت آپلود شد.',
     'file_deleted' => 'فایل حذف شد.',
     'invalid_documentable_type' => 'نوع سند نامعتبر است.',
+    'library_selected' => 'مدرک از کتابخانه انتخاب شد.',
     'restore_not_supported' => 'بازیابی پشتیبانی نمی‌شود. اسناد برای همیشه حذف می‌شوند.',
     'bulk_uploaded' => ':count مدرک با موفقیت آپلود شد.',
     'bulk_skipped' => ':count مدرک تکراری رد شد.',

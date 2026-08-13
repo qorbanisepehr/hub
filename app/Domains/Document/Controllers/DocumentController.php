@@ -7,6 +7,7 @@ use App\Domains\Document\Models\Document;
 use App\Domains\Document\Models\DocumentCategory;
 use App\Domains\Document\Models\DocumentUsage;
 use App\Domains\Document\Requests\StoreDocumentRequest;
+use App\Domains\Document\Requests\StoreFromLibraryRequest;
 use App\Domains\Document\Resources\DocumentResource;
 use App\Domains\Document\Services\DocumentService;
 use App\Domains\Employee\Models\Employee;
@@ -70,6 +71,43 @@ class DocumentController extends ApiController
             $owner,
             $request->file('file'),
             $category,
+            $request->input('section_key'),
+            $request->input('field_key'),
+            $metadata !== [] ? $metadata : null,
+        );
+
+        return new DocumentResource($document);
+    }
+
+    public function library(): AnonymousResourceCollection
+    {
+        return DocumentResource::collection(
+            $this->documentService->getLibraryDocuments(),
+        );
+    }
+
+    public function storeFromLibrary(StoreFromLibraryRequest $request): DocumentResource
+    {
+        $type = $request->input('documentable_type');
+        $id = $request->input('documentable_id');
+        $class = self::ROUTE_TYPE_MAP[$type] ?? null;
+
+        if ($class === null) {
+            abort(422, __('document.invalid_documentable_type'));
+        }
+
+        $owner = $class::query()->findOrFail($id);
+
+        $source = Document::query()->findOrFail($request->input('source_document_id'));
+
+        $metadata = [];
+        if ($notes = $request->input('notes')) {
+            $metadata['notes'] = $notes;
+        }
+
+        $document = $this->documentService->uploadFromLibrary(
+            $owner,
+            $source,
             $request->input('section_key'),
             $request->input('field_key'),
             $metadata !== [] ? $metadata : null,

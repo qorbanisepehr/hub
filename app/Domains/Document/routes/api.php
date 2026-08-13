@@ -26,6 +26,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('documents/trash', [DocumentController::class, 'trashed'])
         ->middleware('permission:document.view_own,document.view_all');
 
+    Route::get('documents/library', [DocumentController::class, 'library'])
+        ->middleware('permission:document.library-select');
+    Route::post('documents/from-library', [DocumentController::class, 'storeFromLibrary'])
+        ->middleware('permission:document.library-select');
+
     Route::get('documents/{document}', [DocumentController::class, 'show'])
         ->middleware('permission:document.view_own,document.view_all');
     Route::delete('documents/{document}', [DocumentController::class, 'destroy'])

@@ -61,6 +61,7 @@ return [
                 'document.download_all' => 'Download any documents',
                 'document.delete_own' => 'Delete own documents',
                 'document.delete_all' => 'Delete any documents',
+                'document.library-select' => 'Select documents from the library',
             ],
         ],
 

@@ -33,6 +33,9 @@ Route::middleware('auth:sanctum')->group(function () {
         ->middleware('throttle:30,1');
     Route::delete('employees/{employee}/documents/{usageId}', [EmployeeDocumentController::class, 'destroy'])
         ->middleware('permission:employee.update_own,employee.update_all');
+    Route::post('employees/{employee}/documents/{usageId}/replace', [EmployeeDocumentController::class, 'replace'])
+        ->middleware('permission:employee.update_own,employee.update_all')
+        ->middleware('throttle:30,1');
     Route::post('employees/{employee}/documents/{usageId}/restore', [EmployeeDocumentController::class, 'restore'])
         ->middleware('permission:employee.update_own,employee.update_all');
     Route::delete('employees/{employee}/documents/{usageId}/force', [EmployeeDocumentController::class, 'forceDestroy'])

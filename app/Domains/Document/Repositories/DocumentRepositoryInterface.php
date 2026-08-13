@@ -17,6 +17,8 @@ interface DocumentRepositoryInterface
 
     public function getForEntity(Model $entity, ?string $sectionKey = null): Collection;
 
+    public function getLibraryDocuments(): Collection;
+
     public function deleteDocument(Document $document): bool;
 
     public function getThumbnailPath(string $originalPath): string;

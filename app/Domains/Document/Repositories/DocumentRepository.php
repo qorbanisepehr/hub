@@ -55,6 +55,15 @@ class DocumentRepository implements DocumentRepositoryInterface
         return $query->get();
     }
 
+    public function getLibraryDocuments(): Collection
+    {
+        return Document::query()
+            ->with('category')
+            ->doesntHave('usages')
+            ->latest('id')
+            ->get();
+    }
+
     public function deleteDocument(Document $document): bool
     {
         // Only remove the physical file when no other Document references the

@@ -9,6 +9,7 @@ use App\Domains\Document\Models\Document;
 use App\Domains\Document\Models\DocumentCategory;
 use App\Domains\Document\Models\DocumentUsage;
 use App\Domains\Document\Repositories\DocumentRepositoryInterface;
+use App\Domains\Document\Services\DocumentCapabilities;
 use App\Domains\Document\Services\DocumentService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -23,6 +24,7 @@ class CvDocumentController extends Controller
         private DocumentService $documentService,
         private DocumentRepositoryInterface $documentRepository,
         private CvService $cvService,
+        private DocumentCapabilities $documentCapabilities,
     ) {}
 
     public function index(Request $request, string $uuid): JsonResponse
@@ -37,6 +39,7 @@ class CvDocumentController extends Controller
                     fn (DocumentUsage $usage) => $this->documentPayload($document, $usage),
                 ))
                 ->values(),
+            'capabilities' => $this->documentCapabilities->forEntity($cv),
         ]);
     }
 

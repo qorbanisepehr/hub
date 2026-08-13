@@ -6,6 +6,7 @@ use App\Domains\Document\Models\Document;
 use App\Domains\Document\Models\DocumentCategory;
 use App\Domains\Document\Models\DocumentUsage;
 use App\Domains\Document\Repositories\DocumentRepositoryInterface;
+use App\Domains\Document\Services\DocumentCapabilities;
 use App\Domains\Document\Services\DocumentService;
 use App\Domains\Questionnaire\Models\Questionnaire;
 use App\Domains\Questionnaire\Requests\PublicStoreDocumentRequest;
@@ -23,6 +24,7 @@ class QuestionnaireDocumentController extends Controller
         private DocumentService $documentService,
         private DocumentRepositoryInterface $documentRepository,
         private QuestionnaireService $questionnaireService,
+        private DocumentCapabilities $documentCapabilities,
     ) {}
 
     public function index(Request $request, string $uuid): JsonResponse
@@ -37,6 +39,7 @@ class QuestionnaireDocumentController extends Controller
                     fn (DocumentUsage $usage) => $this->documentPayload($document, $usage),
                 ))
                 ->values(),
+            'capabilities' => $this->documentCapabilities->forEntity($questionnaire),
         ]);
     }
 

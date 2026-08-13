@@ -6,13 +6,16 @@ use App\Domains\Document\Models\Document;
 use App\Domains\Document\Models\DocumentCategory;
 use App\Domains\Document\Models\DocumentUsage;
 use App\Domains\Document\Repositories\DocumentRepositoryInterface;
+use App\Domains\Document\Services\DocumentCapabilities;
 use App\Domains\Document\Services\DocumentService;
 use App\Domains\Employee\Models\Employee;
+use App\Domains\Employee\Requests\ReplaceEmployeeDocumentRequest;
 use App\Domains\Employee\Requests\StoreEmployeeDocumentRequest;
 use App\Domains\Employee\Services\EmployeeService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -23,6 +26,7 @@ class EmployeeDocumentController extends Controller
         private DocumentService $documentService,
         private DocumentRepositoryInterface $documentRepository,
         private EmployeeService $employeeService,
+        private DocumentCapabilities $documentCapabilities,
     ) {}
 
     public function index(Employee $employee): JsonResponse
@@ -35,6 +39,7 @@ class EmployeeDocumentController extends Controller
                     fn (DocumentUsage $usage) => $this->documentPayload($document, $usage),
                 ))
                 ->values(),
+            'capabilities' => $this->documentCapabilities->forEntity($employee),
         ]);
     }
 
@@ -121,6 +126,68 @@ class EmployeeDocumentController extends Controller
         ], 201);
     }
 
+    public function replace(ReplaceEmployeeDocumentRequest $request, Employee $employee, int $usageId): JsonResponse
+    {
+        $oldUsage = DocumentUsage::query()
+            ->whereKey($usageId)
+            ->where('entity_type', Employee::class)
+            ->where('entity_id', $employee->getKey())
+            ->whereNull('deleted_at')
+            ->firstOrFail();
+
+        $category = $oldUsage->document->category;
+
+        if ($category === null) {
+            abort(422, __('employee.documents.invalid_category'));
+        }
+
+        $file = $request->file('file');
+        $requirements = $this->employeeService->getDocumentRequirements();
+        $requirement = $requirements[$category->slug] ?? null;
+
+        $validationErrors = $this->documentService->validateDocument($file, $requirement ?? []);
+
+        if (! empty($validationErrors)) {
+            return response()->json([
+                'message' => $validationErrors[0],
+                'errors' => $validationErrors,
+            ], 422);
+        }
+
+        $metadata = array_filter([
+            'notes' => $request->input('notes'),
+            'meta' => $this->decodeJson($request->input('meta')),
+            'form_data' => $this->decodeJson($request->input('form_data')),
+        ], fn ($value) => $value !== null);
+
+        [$document, $usage] = DB::transaction(function () use ($employee, $file, $category, $oldUsage, $metadata) {
+            $document = $this->documentService->upload(
+                $employee,
+                $file,
+                $category,
+                $oldUsage->section_key,
+                $oldUsage->field_key,
+                $metadata !== [] ? $metadata : null,
+            );
+
+            $oldUsage->delete();
+
+            $usage = DocumentUsage::query()
+                ->where('document_id', $document->id)
+                ->where('entity_type', Employee::class)
+                ->where('entity_id', $employee->id)
+                ->latest('id')
+                ->firstOrFail();
+
+            return [$document, $usage];
+        });
+
+        return response()->json([
+            'data' => $this->documentPayload($document, $usage),
+            'message' => __('employee.documents.replaced'),
+        ], 201);
+    }
+
     public function destroy(Employee $employee, int $usageId): JsonResponse
     {
         $deleted = $this->documentService->trashUsage($usageId, $employee);
@@ -147,6 +214,7 @@ class EmployeeDocumentController extends Controller
             'data' => $usages->map(
                 fn (DocumentUsage $usage) => $this->documentPayload($usage->document, $usage),
             )->values(),
+            'capabilities' => $this->documentCapabilities->forEntity($employee),
         ]);
     }
 
