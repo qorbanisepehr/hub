@@ -13,8 +13,6 @@ interface DocumentRepositoryInterface
 
     public function attachUsage(Document $document, Model $entity, ?string $sectionKey = null, ?string $fieldKey = null, ?array $metadata = null): DocumentUsage;
 
-    public function detachUsage(Document $document, Model $entity): bool;
-
     public function deleteUsageById(int $usageId, string $entityType, int $entityId): bool;
 
     public function getForEntity(Model $entity, ?string $sectionKey = null): Collection;
@@ -22,6 +20,4 @@ interface DocumentRepositoryInterface
     public function deleteDocument(Document $document): bool;
 
     public function getThumbnailPath(string $originalPath): string;
-
-    public function getOrphans(): Collection;
 }

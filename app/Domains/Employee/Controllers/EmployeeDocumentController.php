@@ -100,7 +100,7 @@ class EmployeeDocumentController extends Controller
         $document = $this->documentService->upload(
             $employee,
             $file,
-            $category->slug,
+            $category,
             $sectionKey,
             $fieldKey,
             $metadata !== [] ? $metadata : null,

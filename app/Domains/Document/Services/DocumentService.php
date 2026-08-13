@@ -83,7 +83,7 @@ class DocumentService
     public function upload(
         Documentable $entity,
         UploadedFile $file,
-        string $categorySlug,
+        DocumentCategory $category,
         ?string $sectionKey = null,
         ?string $fieldKey = null,
         ?array $metadata = null,
@@ -91,18 +91,16 @@ class DocumentService
         $disk = config('documents.storage_disk', 'local');
         $hash = hash_file('sha256', $file->getRealPath());
 
-        $categoryId = DocumentCategory::where('slug', $categorySlug)->value('id');
-
         $prefix = $entity->getDocumentRouteType();
         $identifier = $this->getIdentifier($entity);
         $storedPath = $file->storeAs(
-            "{$prefix}/{$identifier}/documents/{$categorySlug}",
+            "{$prefix}/{$identifier}/documents/{$category->slug}",
             $this->buildStorageName($sectionKey, $fieldKey, $hash, $file),
             $disk,
         );
 
         $document = $this->repository->create([
-            'category_id' => $categoryId,
+            'category_id' => $category->id,
             'original_name' => $file->getClientOriginalName(),
             'mime_type' => $file->getMimeType(),
             'size' => $file->getSize(),
@@ -218,22 +216,6 @@ class DocumentService
         }
 
         return true;
-    }
-
-    /**
-     * Remove document usage (unlink from entity, but keep the file if shared).
-     */
-    public function detach(Document $document, Documentable $entity): bool
-    {
-        return $this->repository->detachUsage($document, $entity);
-    }
-
-    /**
-     * Delete document completely (file + usages + record).
-     */
-    public function delete(Document $document): bool
-    {
-        return $this->repository->deleteDocument($document);
     }
 
     /**
@@ -368,22 +350,6 @@ class DocumentService
         }
 
         return $bytes.' bytes';
-    }
-
-    /**
-     * Clean up orphaned documents (no usages).
-     *
-     * @return Collection
-     */
-    public function cleanupOrphans()
-    {
-        $orphans = $this->repository->getOrphans();
-
-        foreach ($orphans as $document) {
-            $this->repository->deleteDocument($document);
-        }
-
-        return $orphans;
     }
 
     private function getIdentifier(Documentable $entity): string

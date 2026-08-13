@@ -1783,10 +1783,16 @@ describe('questionnaire regression coverage', function () {
             Storage::fake('local');
             $questionnaire = Questionnaire::where('uuid', createDraft())->firstOrFail();
 
+            $category = DocumentCategory::create([
+                'name' => 'کارت ملی',
+                'slug' => 'national-card',
+                'type' => DocumentCategory::TYPE_PERSONNEL,
+            ]);
+
             $document = app(DocumentService::class)->upload(
                 $questionnaire,
                 UploadedFile::fake()->image('scan.jpg', 10, 10),
-                'national-card',
+                $category,
                 'personal_info',
                 'front',
             );

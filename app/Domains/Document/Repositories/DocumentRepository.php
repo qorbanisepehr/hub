@@ -30,14 +30,6 @@ class DocumentRepository implements DocumentRepositoryInterface
         );
     }
 
-    public function detachUsage(Document $document, Model $entity): bool
-    {
-        return DocumentUsage::where('document_id', $document->id)
-            ->where('entity_type', get_class($entity))
-            ->where('entity_id', $entity->getKey())
-            ->delete() > 0;
-    }
-
     public function deleteUsageById(int $usageId, string $entityType, int $entityId): bool
     {
         return DocumentUsage::query()
@@ -106,10 +98,5 @@ class DocumentRepository implements DocumentRepositoryInterface
         $ext = pathinfo($originalPath, PATHINFO_EXTENSION);
 
         return "{$dir}/{$name}_thumb.{$ext}";
-    }
-
-    public function getOrphans(): Collection
-    {
-        return Document::doesntHave('usages')->get();
     }
 }

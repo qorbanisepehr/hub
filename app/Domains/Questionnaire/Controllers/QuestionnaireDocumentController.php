@@ -111,7 +111,7 @@ class QuestionnaireDocumentController extends Controller
         $document = $this->documentService->upload(
             $questionnaire,
             $file,
-            $category->slug,
+            $category,
             $sectionKey,
             $fieldKey,
             $metadata !== [] ? $metadata : null,

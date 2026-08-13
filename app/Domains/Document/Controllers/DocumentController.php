@@ -57,7 +57,7 @@ class DocumentController extends ApiController
 
         $owner = $class::query()->findOrFail($id);
 
-        $category = DocumentCategory::find(
+        $category = DocumentCategory::findOrFail(
             $request->input('document_category_id'),
         );
 
@@ -69,7 +69,7 @@ class DocumentController extends ApiController
         $document = $this->documentService->upload(
             $owner,
             $request->file('file'),
-            $category?->slug ?? 'general',
+            $category,
             $request->input('section_key'),
             $request->input('field_key'),
             $metadata !== [] ? $metadata : null,

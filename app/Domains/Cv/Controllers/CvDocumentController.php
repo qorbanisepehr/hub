@@ -110,7 +110,7 @@ class CvDocumentController extends Controller
         $document = $this->documentService->upload(
             $cv,
             $file,
-            $category->slug,
+            $category,
             $sectionKey,
             $fieldKey,
             $metadata !== [] ? $metadata : null,

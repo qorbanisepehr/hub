@@ -184,6 +184,41 @@ describe('document API', function () {
                 ->and(DocumentUsage::count())->toBe(2);
         });
 
+        it('keeps document identity isolated across different entities sharing the same file', function () {
+            Storage::fake('local');
+            $user = createUserWithPermissions(['document.upload_all']);
+            $employeeA = Employee::factory()->create();
+            $employeeB = Employee::factory()->create();
+            $category = personnelDocumentCategory('resume');
+
+            $file = UploadedFile::fake()->createWithContent('cv.pdf', 'identical-content');
+
+            $first = $this->actingAs($user)
+                ->postJson('/api/documents', [
+                    'documentable_type' => 'employee',
+                    'documentable_id' => $employeeA->id,
+                    'document_category_id' => $category->id,
+                    'file' => $file,
+                ])
+                ->assertCreated()
+                ->json('data');
+
+            $second = $this->actingAs($user)
+                ->postJson('/api/documents', [
+                    'documentable_type' => 'employee',
+                    'documentable_id' => $employeeB->id,
+                    'document_category_id' => $category->id,
+                    'file' => $file,
+                ])
+                ->assertCreated()
+                ->json('data');
+
+            expect($first['document_id'])->not->toBe($second['document_id'])
+                ->and(Document::count())->toBe(2)
+                ->and(DocumentUsage::where('entity_id', $employeeA->id)->count())->toBe(1)
+                ->and(DocumentUsage::where('entity_id', $employeeB->id)->count())->toBe(1);
+        });
+
         it('rejects disallowed mime types', function () {
             Storage::fake('local');
             $user = createUserWithPermissions(['document.upload_all']);
