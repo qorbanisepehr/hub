@@ -255,7 +255,7 @@ function TreeFileItem({
                         e.stopPropagation();
                         onDownload(doc);
                     }}
-                    disabled={!doc.current_revision}
+                    disabled={!doc.download_url && !doc.url}
                 >
                     <IconDownload className="size-3.5" />
                 </Button>

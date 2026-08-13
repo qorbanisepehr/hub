@@ -204,7 +204,7 @@ export function DocumentPreviewLightbox({
     }
 
     function handleDownload() {
-        if (!doc?.current_revision) return;
+        if (!doc?.url && !doc?.download_url) return;
         const a = document.createElement("a");
         a.href = getDocDownloadUrl(doc);
         a.download = getDocOriginalName(doc);
@@ -254,7 +254,7 @@ export function DocumentPreviewLightbox({
                     <button
                         type="button"
                         onClick={handleDownload}
-                        disabled={!doc.current_revision}
+                        disabled={!doc.download_url && !doc.url}
                         className="rounded-full p-2 text-white/80 hover:bg-white/10 hover:text-white disabled:opacity-40"
                         aria-label="Download"
                     >

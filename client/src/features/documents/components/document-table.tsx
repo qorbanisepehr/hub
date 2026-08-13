@@ -186,7 +186,7 @@ export function DocumentTable({
                                     e.stopPropagation();
                                     onDownload(doc);
                                 }}
-                                disabled={!doc.current_revision}
+                                disabled={!doc.download_url && !doc.url}
                                 aria-label={`Download ${getDocOriginalName(doc)}`}
                             >
                                 <IconDownload className="size-3.5" />

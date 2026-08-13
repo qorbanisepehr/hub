@@ -18,7 +18,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { fetchDocuments, deleteDocument, fetchDocumentCategories } from "@/features/documents/api";
-import { getDocServeUrl, getDocDownloadUrl, collectDocs } from "@/features/documents/types";
+import { getDocServeUrl, getDocDownloadUrl, getDocOriginalName, collectDocs } from "@/features/documents/types";
 import type { Document, DocumentCategory } from "@/features/documents/types";
 import { DocumentPreviewLightbox } from "./document-preview-lightbox";
 import { DocumentTable } from "./document-table";
@@ -208,11 +208,12 @@ type DocumentListProps = {
 };
 
 function handleDownload(doc: Document) {
-    if (!doc.current_revision) return;
+    const url = getDocDownloadUrl(doc);
+    if (!url) return;
 
     const a = document.createElement("a");
-    a.href = getDocDownloadUrl(doc);
-    a.download = doc.current_revision?.original_name ?? "";
+    a.href = url;
+    a.download = doc.original_name ?? getDocOriginalName(doc) ?? "";
     document.body.appendChild(a);
     a.click();
     a.remove();

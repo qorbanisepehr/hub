@@ -1,3 +1,5 @@
+import { formatBytes } from "@/lib/file-size";
+
 export type DocumentDimensions = {
     min_width?: number;
     min_height?: number;
@@ -31,20 +33,10 @@ export type DocumentCategory = {
     updated_at?: string;
 };
 
-export type Revision = {
-    id: number;
-    original_name: string;
-    mime_type: string;
-    file_size: number;
-    file_size_formatted: string;
-    form_data: Record<string, unknown> | null;
-    uploaded_by: number | null;
-    uploader_name: string | null;
-    created_at: string;
-};
-
 export type Document = {
     id: number;
+    document_id?: number;
+    uuid?: string;
     documentable_type: string;
     documentable_id: number;
     document_category_id: number;
@@ -55,7 +47,9 @@ export type Document = {
     section_key: string | null;
     field_key: string | null;
     structure_name?: string | null;
-    current_revision: Revision | null;
+    mime_type?: string;
+    size?: number;
+    original_name?: string;
     uploaded_by: number | null;
     uploader_name: string | null;
     serve_url?: string;
@@ -139,15 +133,15 @@ export function getDocOriginalName(doc: Document): string {
 }
 
 export function getDocMimeType(doc: Document): string {
-    return doc.current_revision?.mime_type ?? "";
+    return doc.mime_type ?? "";
 }
 
 export function getDocFileSize(doc: Document): number {
-    return doc.current_revision?.file_size ?? 0;
+    return doc.size ?? 0;
 }
 
 export function getDocFileSizeFormatted(doc: Document): string {
-    return doc.current_revision?.file_size_formatted ?? "";
+    return doc.size !== undefined ? formatBytes(doc.size) : "";
 }
 
 export function getDocServeUrl(doc: Document, thumbnail = false): string {
