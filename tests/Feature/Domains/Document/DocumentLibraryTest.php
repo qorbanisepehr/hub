@@ -53,7 +53,7 @@ describe('document library', function () {
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.document_id', $pool->id)
-            ->assertJsonPath('data.0.category_slug', 'resume')
+            ->assertJsonPath('data.0.category.slug', 'resume')
             ->assertJsonPath('data.0.id', null);
     });
 
@@ -87,7 +87,7 @@ describe('document library', function () {
             ])
             ->assertCreated()
             ->assertJsonPath('data.document_id', fn ($id) => $id !== $source->id)
-            ->assertJsonPath('data.category_slug', 'resume')
+            ->assertJsonPath('data.category.slug', 'resume')
             ->assertJsonPath('data.field_key', 'front');
 
         $target = Document::query()->latest('id')->first();

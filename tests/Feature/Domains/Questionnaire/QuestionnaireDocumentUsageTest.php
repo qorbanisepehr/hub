@@ -56,7 +56,7 @@ describe('questionnaire document usages (shared files)', function () {
 
         expect($second['id'])->not->toBe($first['id'])
             ->and($second['usage_id'])->not->toBe($first['usage_id'])
-            ->and($second['category_slug'])->toBe('course-certificates');
+            ->and($second['category']['slug'])->toBe('course-certificates');
 
         expect(Document::count())->toBe(2)
             ->and(DocumentUsage::count())->toBe(2)
@@ -86,7 +86,7 @@ describe('questionnaire document usages (shared files)', function () {
             ->json('data');
 
         expect($data)->toHaveCount(2)
-            ->and(collect($data)->pluck('category_slug')->all())
+            ->and(collect($data)->pluck('category.slug')->all())
             ->toMatchArray(['language-certificate', 'course-certificates'])
             ->and(collect($data)->pluck('usage_id')->unique()->count())->toBe(2)
             ->and(collect($data)->pluck('id')->unique()->count())->toBe(2)
@@ -117,7 +117,7 @@ describe('questionnaire document usages (shared files)', function () {
         $data = $this->getJson("/api/questionnaire/{$uuid}/documents")->json('data');
 
         expect($data)->toHaveCount(1)
-            ->and($data[0]['category_slug'])->toBe('language-certificate');
+            ->and($data[0]['category']['slug'])->toBe('language-certificate');
 
         expect(Document::count())->toBe(1);
         $document = Document::first();

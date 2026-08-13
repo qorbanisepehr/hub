@@ -58,7 +58,7 @@ describe('document API', function () {
 
             expect($data['document_category_id'])->toBe($category->id)
                 ->and($data['category']['name'])->toBe('رزومه')
-                ->and($data['category_slug'])->toBe('resume')
+                ->and($data['category']['slug'])->toBe('resume')
                 ->and($data['structure_name'])->toBe('رزومه')
                 ->and($data['notes'])->toBe('بررسی شود')
                 ->and($data['original_name'])->toBe('cv.pdf')
@@ -73,7 +73,7 @@ describe('document API', function () {
                 ->assertJsonPath('data.0.id', $data['id'])
                 ->assertJsonPath('data.0.document_category_id', $category->id)
                 ->assertJsonPath('data.0.category.name', 'رزومه')
-                ->assertJsonPath('data.0.category_slug', 'resume')
+                ->assertJsonPath('data.0.category.slug', 'resume')
                 ->assertJsonPath('data.0.structure_name', 'رزومه');
         });
 

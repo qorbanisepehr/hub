@@ -48,7 +48,6 @@ class DocumentResource extends JsonResource
                 'parent_id' => $category->parent_id,
                 'type' => $category->type,
             ] : null,
-            'category_slug' => $category?->slug,
             'section_key' => $usage?->section_key,
             'field_key' => $usage?->field_key,
             'entity_type' => $usage?->entity_type

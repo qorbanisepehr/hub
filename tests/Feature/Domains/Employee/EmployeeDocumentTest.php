@@ -50,8 +50,8 @@ describe('employee documents', function () {
             ->assertCreated()
             ->json('data');
 
-        expect($data['category_slug'])->toBe('resume')
-            ->and($data['category_label'])->toBe('Employee Document')
+        expect($data['category']['slug'])->toBe('resume')
+            ->and($data['category']['name'])->toBe('Employee Document')
             ->and($data['structure_name'])->toBe('Employee Document')
             ->and($data['field_key'])->toBe('main')
             ->and($data['section_key'])->toBe('documents')

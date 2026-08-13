@@ -195,8 +195,11 @@ class CvResource extends JsonResource
             'structure_name' => $this->structureName($document, $usage),
             'mime_type' => $document->mime_type,
             'size' => $document->size,
-            'category_slug' => $document->category?->slug,
-            'category_label' => $document->category?->name,
+            'category' => $document->category ? [
+                'id' => $document->category->id,
+                'name' => $document->category->name,
+                'slug' => $document->category->slug,
+            ] : null,
             'section_key' => $usage->section_key,
             'field_key' => $usage->field_key,
             'notes' => $usage->metadata['notes'] ?? null,

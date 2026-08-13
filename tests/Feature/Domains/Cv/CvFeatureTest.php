@@ -935,7 +935,7 @@ describe('CV bank', function () {
             ->getJson("/api/cv/bank/{$cv->uuid}")
             ->assertOk()
             ->assertJsonCount(2, 'data.documents')
-            ->assertJsonPath('data.resume_document.category_slug', 'resume')
+            ->assertJsonPath('data.resume_document.category.slug', 'resume')
             ->assertJsonPath('data.resume_document.structure_name', 'resume')
             ->assertJsonPath('data.resume_document.uuid', $resume->uuid)
             ->assertJsonPath('data.resume_document.url', URL::signedRoute('cv.documents.serve', ['uuid' => $resume->uuid]))
@@ -1146,8 +1146,8 @@ describe('CV documents', function () {
             'document_category_id' => $category->id,
             'file' => UploadedFile::fake()->createWithContent('resume.pdf', 'resume-content'),
         ])->assertCreated()
-            ->assertJsonPath('data.category_slug', 'resume')
-            ->assertJsonPath('data.category_label', 'رزومه')
+            ->assertJsonPath('data.category.slug', 'resume')
+            ->assertJsonPath('data.category.name', 'رزومه')
             ->assertJsonPath('data.structure_name', 'رزومه')
             ->assertJsonMissingPath('data.original_name');
 
