@@ -4,6 +4,7 @@ import { IconArrowBackUp, IconLoader2, IconTrashOff } from "@tabler/icons-react"
 import { toast } from "sonner";
 
 import { getApiError } from "@/lib/error-utils";
+import { documentKeys } from "@/lib/query-keys";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { ResponsiveDialog } from "@/components/ui/responsive-dialog";
@@ -23,10 +24,10 @@ type EmployeeDocumentTrashModalProps = {
 };
 
 const trashKey = (employeeId: number) =>
-    ["employees-documents-trash", String(employeeId)] as const;
+    documentKeys.trashed("employees", String(employeeId));
 
 const activeKey = (employeeId: number) =>
-    ["employees-documents", String(employeeId)] as const;
+    documentKeys.entityDocuments("employees", String(employeeId));
 
 export function EmployeeDocumentTrashModal({
     open,

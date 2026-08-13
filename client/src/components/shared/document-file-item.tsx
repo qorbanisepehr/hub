@@ -1,6 +1,6 @@
 "use client";
 
-import { IconFile } from "@tabler/icons-react";
+import { IconFile, IconReplace } from "@tabler/icons-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -13,6 +13,7 @@ import { getFileIcon } from "@/lib/file-icon";
 import { getFileColorClasses } from "@/lib/file-colors";
 import { isAuthedDocumentEntity } from "@/hooks/use-entity-documents";
 import type { EntityDocument } from "@/hooks/use-entity-documents";
+import { documentKeys } from "@/lib/query-keys";
 
 type DocumentFileItemProps = {
     uuid: string;
@@ -28,6 +29,8 @@ type DocumentFileItemProps = {
     thumbnailSize?: string;
     /** Whether to show the delete action button. Defaults to true. */
     actionsEnabled?: boolean;
+    /** When provided, renders a "replace" action that invokes this callback. */
+    onReplace?: (doc: EntityDocument) => void;
     className?: string;
 };
 
@@ -40,6 +43,7 @@ export function DocumentFileItem({
     label,
     thumbnailSize = "size-10",
     actionsEnabled = true,
+    onReplace,
     className,
 }: DocumentFileItemProps) {
     const queryClient = useQueryClient();
@@ -53,7 +57,7 @@ export function DocumentFileItem({
             }),
         onSuccess: () => {
             queryClient.invalidateQueries({
-                queryKey: [`${entity}-documents`, uuid],
+                queryKey: documentKeys.entityDocuments(entity, uuid),
             });
             toast.success("مدرک حذف شد.");
         },
@@ -91,6 +95,19 @@ export function DocumentFileItem({
                             {label}
                         </span>
                     )}
+                    {onReplace && (
+                        <button
+                            type="button"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onReplace(doc);
+                            }}
+                            className="rounded-full p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                            aria-label={`جایگزینی ${doc.structure_name}`}
+                        >
+                            <IconReplace className="size-3.5" />
+                        </button>
+                    )}
                     {actionsEnabled && (
                         <ConfirmDeleteButton
                             iconOnly
@@ -112,6 +129,19 @@ export function DocumentFileItem({
                     <p className="text-xs text-muted-foreground">{subtitle}</p>
                 )}
             </div>
+            {onReplace && (
+                <button
+                    type="button"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onReplace(doc);
+                    }}
+                    className="rounded-full p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                    aria-label={`جایگزینی ${doc.structure_name}`}
+                >
+                    <IconReplace className="size-4" />
+                </button>
+            )}
             {actionsEnabled && (
                 <ConfirmDeleteButton
                     iconOnly

@@ -1,5 +1,6 @@
 import { api } from "@/lib/api";
 import type { PaginatedResponse, PaginatedListParams } from "@/lib/types";
+import type { EntityDocument } from "@/hooks/use-entity-documents";
 import type { Employee, EmployeeBaseFormData } from "./types";
 
 export type EmployeeListParams = PaginatedListParams & {
@@ -68,5 +69,21 @@ export function restoreEmployeeDocument(id: number, usageId: number) {
 export function forceDeleteEmployeeDocument(id: number, usageId: number) {
     return api.delete<{ message: string }>(
         `/employees/${id}/documents/${usageId}/force`,
+    );
+}
+
+/**
+ * Replace a current employee document usage with a new file. The backend keeps
+ * the old document soft-deleted (history) and creates a fresh Document.
+ */
+export function replaceEmployeeDocument(
+    id: number,
+    usageId: number,
+    formData: FormData,
+) {
+    return api.post<{ data: EntityDocument; message: string }>(
+        `/employees/${id}/documents/${usageId}/replace`,
+        formData,
+        { headers: { "Content-Type": "multipart/form-data" } },
     );
 }

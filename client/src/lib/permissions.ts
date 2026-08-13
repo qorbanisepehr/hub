@@ -16,6 +16,7 @@ export const PERMISSIONS = {
     DOCUMENT_DOWNLOAD_ALL: "document.download_all",
     DOCUMENT_DELETE_OWN: "document.delete_own",
     DOCUMENT_DELETE_ALL: "document.delete_all",
+    DOCUMENT_LIBRARY_SELECT: "document.library-select",
 
     // User
     USER_VIEW: "user.view",

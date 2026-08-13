@@ -70,3 +70,23 @@ export function forceDeleteDocument(documentId: number) {
         `/documents/${documentId}/force`,
     );
 }
+
+/** List documents that are not attached anywhere and can be reused. */
+export function fetchLibraryDocuments() {
+    return api.get<{ data: Document[] }>("/documents/library");
+}
+
+/**
+ * Attach a copy of a library document to a target entity. The backend always
+ * creates a new Document with its own identity (the source stays untouched).
+ */
+export function selectFromLibrary(payload: {
+    source_document_id: number;
+    documentable_type: string;
+    documentable_id: number;
+    section_key?: string | null;
+    field_key?: string | null;
+    notes?: string | null;
+}) {
+    return api.post<{ data: Document }>("/documents/from-library", payload);
+}

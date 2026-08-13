@@ -17,6 +17,7 @@ import { DocumentFileItem } from "@/components/shared/document-file-item";
 import { useEmployeeDocuments } from "@/features/employees/hooks/use-employee-documents";
 import type { EmployeeDocument } from "@/features/employees/hooks/use-employee-documents";
 import { EmployeeDocumentTrashModal } from "./employee-document-trash-modal";
+import { EmployeeDocumentReplaceModal } from "./employee-document-replace-modal";
 import {
     DOC_CATEGORY_SLUGS,
     getFieldKeyLabel,
@@ -93,9 +94,11 @@ export function DocumentsSection({ employeeId }: SectionProps) {
     );
     const [pickNotes, setPickNotes] = useState("");
     const [trashOpen, setTrashOpen] = useState(false);
+    const [replaceTarget, setReplaceTarget] =
+        useState<EmployeeDocument | null>(null);
 
     const uuid = String(employeeId);
-    const { documents, getDocumentsBySlugExcept } =
+    const { documents, getDocumentsBySlugExcept, capabilities } =
         useEmployeeDocuments(employeeId);
 
     const { data: categories } = useQuery({
@@ -188,6 +191,14 @@ export function DocumentsSection({ employeeId }: SectionProps) {
                     onOpenChange={setTrashOpen}
                     employeeId={employeeId}
                 />
+                <EmployeeDocumentReplaceModal
+                    open={replaceTarget !== null}
+                    onOpenChange={(next) => {
+                        if (!next) setReplaceTarget(null);
+                    }}
+                    employeeId={employeeId}
+                    doc={replaceTarget}
+                />
                 <p className="text-sm text-muted-foreground">
                     مدارک مورد نیاز را بارگذاری کنید. فرمت‌های مجاز: PDF، JPEG،
                     PNG، WebP.
@@ -205,6 +216,8 @@ export function DocumentsSection({ employeeId }: SectionProps) {
                                 label="کارت ملی — رو"
                                 accept="image/jpeg,image/png,image/webp,.pdf"
                                 fieldKey="front"
+                                replaceEnabled={capabilities.replace}
+                                onReplace={setReplaceTarget}
                             />
                             <FileUploadField
                                 uuid={uuid}
@@ -213,6 +226,8 @@ export function DocumentsSection({ employeeId }: SectionProps) {
                                 label="کارت ملی — پشت"
                                 accept="image/jpeg,image/png,image/webp,.pdf"
                                 fieldKey="back"
+                                replaceEnabled={capabilities.replace}
+                                onReplace={setReplaceTarget}
                             />
                         </div>
                     </div>
@@ -228,6 +243,8 @@ export function DocumentsSection({ employeeId }: SectionProps) {
                                 label="شناسنامه — صفحه اول"
                                 accept="image/jpeg,image/png,image/webp,.pdf"
                                 fieldKey="page-1"
+                                replaceEnabled={capabilities.replace}
+                                onReplace={setReplaceTarget}
                             />
                             <FileUploadField
                                 uuid={uuid}
@@ -238,6 +255,8 @@ export function DocumentsSection({ employeeId }: SectionProps) {
                                 label="شناسنامه — صفحه دوم"
                                 accept="image/jpeg,image/png,image/webp,.pdf"
                                 fieldKey="page-2"
+                                replaceEnabled={capabilities.replace}
+                                onReplace={setReplaceTarget}
                             />
                             <FileUploadField
                                 uuid={uuid}
@@ -248,6 +267,8 @@ export function DocumentsSection({ employeeId }: SectionProps) {
                                 label="شناسنامه — صفحه آخر"
                                 accept="image/jpeg,image/png,image/webp,.pdf"
                                 fieldKey="page-3"
+                                replaceEnabled={capabilities.replace}
+                                onReplace={setReplaceTarget}
                             />
                         </div>
                     </div>
@@ -260,6 +281,8 @@ export function DocumentsSection({ employeeId }: SectionProps) {
                             multiple
                             maxFiles={5}
                             accept=".pdf,image/jpeg,image/png,image/webp"
+                            replaceEnabled={capabilities.replace}
+                            onReplace={setReplaceTarget}
                         />
                     </div>
 
@@ -280,6 +303,11 @@ export function DocumentsSection({ employeeId }: SectionProps) {
                                         label={
                                             getFieldKeyLabel(doc.field_key) ??
                                             doc.field_key
+                                        }
+                                        onReplace={
+                                            capabilities.replace
+                                                ? () => setReplaceTarget(doc)
+                                                : undefined
                                         }
                                     />
                                 ))}
@@ -355,6 +383,8 @@ export function DocumentsSection({ employeeId }: SectionProps) {
                                     multiple
                                     maxFiles={5}
                                     notes={entry.notes}
+                                    replaceEnabled={capabilities.replace}
+                                    onReplace={setReplaceTarget}
                                 />
                             ))}
                         </div>

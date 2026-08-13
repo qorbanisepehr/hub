@@ -58,6 +58,9 @@ type FileUploadFieldProps = {
     actionsEnabled?: boolean;
     /** Where the delete action button is rendered. Defaults to "overlay". */
     actionsPlacement?: FileUploadActionsPlacement;
+    /** When enabled, current documents render a "replace" action. */
+    replaceEnabled?: boolean;
+    onReplace?: (doc: EntityDocument) => void;
     onUploadComplete?: (doc: EntityDocument) => void;
 };
 
@@ -99,6 +102,8 @@ export function FileUploadField({
     className,
     actionsEnabled = true,
     actionsPlacement = "column",
+    replaceEnabled = false,
+    onReplace,
     onUploadComplete,
 }: FileUploadFieldProps) {
     const queryClient = useQueryClient();
@@ -177,7 +182,7 @@ export function FileUploadField({
         },
         onSuccess: (doc) => {
             queryClient.invalidateQueries({
-                queryKey: [`${entity}-documents`, uuid],
+                queryKey: documentKeys.entityDocuments(entity, uuid),
             });
             onUploadComplete?.(doc);
             toast.success("فایل با موفقیت آپلود شد");
@@ -196,7 +201,7 @@ export function FileUploadField({
             }),
         onSuccess: () => {
             queryClient.invalidateQueries({
-                queryKey: [`${entity}-documents`, uuid],
+                queryKey: documentKeys.entityDocuments(entity, uuid),
             });
             toast.success("فایل حذف شد");
         },
@@ -593,6 +598,11 @@ export function FileUploadField({
                             doc={doc}
                             subtitle={formatBytes(doc.size)}
                             actionsEnabled={actionsEnabled}
+                            onReplace={
+                                replaceEnabled
+                                    ? () => onReplace?.(doc)
+                                    : undefined
+                            }
                             className="border-b px-3 py-2 last:border-b-0"
                         />
                     ))}

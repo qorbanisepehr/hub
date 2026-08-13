@@ -1,14 +1,17 @@
 import * as React from "react";
 import { useQuery } from "@tanstack/react-query";
-import { IconFileUpload, IconTrash } from "@tabler/icons-react";
+import { IconFileUpload, IconLibrary, IconTrash } from "@tabler/icons-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { fetchTrashedDocuments } from "@/features/documents/api";
 import { documentKeys } from "@/lib/query-keys";
+import { PERMISSIONS } from "@/lib/permissions";
+import { usePermission } from "@/features/auth/components/permission-guard";
 import { DocumentList } from "./document-list";
 import { DocumentUploadModal } from "./document-upload-modal";
 import { DocumentTrashModal } from "./document-trash-modal";
+import { DocumentLibraryModal } from "./document-library-modal";
 
 type DocumentSectionProps = {
     documentableType: string;
@@ -27,7 +30,12 @@ export function DocumentSection({
 }: DocumentSectionProps) {
     const [uploadOpen, setUploadOpen] = React.useState(false);
     const [trashOpen, setTrashOpen] = React.useState(false);
+    const [libraryOpen, setLibraryOpen] = React.useState(false);
     const [internalSelectedIds, setInternalSelectedIds] = React.useState<number[]>([]);
+
+    const canSelectFromLibrary = usePermission(
+        PERMISSIONS.DOCUMENT_LIBRARY_SELECT,
+    );
 
     const selectedIds = externalSelectedIds ?? internalSelectedIds;
     const onSelectionChange = externalOnSelectionChange ?? setInternalSelectedIds;
@@ -63,6 +71,16 @@ export function DocumentSection({
                             </Badge>
                         )}
                     </Button>
+                    {canSelectFromLibrary && (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setLibraryOpen(true)}
+                        >
+                            <IconLibrary className="size-4" />
+                            کتابخانه
+                        </Button>
+                    )}
                     <Button size="sm" onClick={() => setUploadOpen(true)}>
                         <IconFileUpload className="size-4" />
                         آپلود مدرک
@@ -91,6 +109,14 @@ export function DocumentSection({
                         documentableType={documentableType}
                         documentableId={documentableId}
                     />
+                    {canSelectFromLibrary && (
+                        <DocumentLibraryModal
+                            open={libraryOpen}
+                            onOpenChange={setLibraryOpen}
+                            documentableType={documentableType}
+                            documentableId={documentableId}
+                        />
+                    )}
                 </>
             )}
         </div>
