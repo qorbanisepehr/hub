@@ -21,7 +21,7 @@ class SocialInsuranceSection extends BaseSection
     public function fields(): array
     {
         return [
-            'insurance_number' => 'string',
+            'social_insurance_number' => 'string',
             'has_insurance_history' => 'boolean',
             'insurance_status' => 'string',
             'insurance_start_date' => 'date',
@@ -32,7 +32,7 @@ class SocialInsuranceSection extends BaseSection
     public function structuralRules(): array
     {
         return [
-            'insurance_number' => 'nullable|string|max:30',
+            'social_insurance_number' => 'nullable|string|max:30',
 
             'has_insurance_history' => 'nullable|boolean',
 
@@ -54,7 +54,7 @@ class SocialInsuranceSection extends BaseSection
     public function completionRules(): array
     {
         return [
-            'insurance_number' => 'required|string|max:30',
+            'social_insurance_number' => 'required|string|max:30',
 
             // TODO: Replace with the confirmed insurance status vocabulary.
             'insurance_status' => 'required|string|max:100',
@@ -81,7 +81,7 @@ class SocialInsuranceSection extends BaseSection
     public function storage(): array
     {
         return [
-            'real' => ['insurance_number'],
+            'real' => ['social_insurance_number'],
             'jsonb' => 'section_social_insurance',
         ];
     }
@@ -89,7 +89,7 @@ class SocialInsuranceSection extends BaseSection
     public function searchMetadata(): array
     {
         return [
-            'insurance_number',
+            'social_insurance_number',
         ];
     }
 
@@ -102,14 +102,15 @@ class SocialInsuranceSection extends BaseSection
     }
 
     public function documentRequirements(): array
-{
-    return [
-        'insurance-history' => [
-            'required' => false,
-            'max_files' => 1,
-        ],
-    ];
-}
+    {
+        return [
+            'insurance-history' => [
+                'required' => false,
+                'max_files' => 1,
+            ],
+        ];
+    }
+
     protected function afterValidation(
         Validator $validator,
         array $data,

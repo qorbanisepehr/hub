@@ -140,6 +140,24 @@ function validEmployeeAdditionalInfo(): array
     ];
 }
 
+function validEmployeeSocialInsurance(): array
+{
+    return [
+        'social_insurance_number' => '1234567890',
+        'has_insurance_history' => true,
+        'insurance_status' => 'active',
+        'insurance_start_date' => '2023-01-01',
+        'histories' => [
+            [
+                'workshop_name' => 'Company A',
+                'workshop_code' => '12345',
+                'job_title' => 'Developer',
+                'start_date' => '2023-01-01',
+            ],
+        ],
+    ];
+}
+
 beforeEach(function () {
     seedFormOptions([
         'gender', 'blood_group', 'marital_status', 'military_status',
@@ -583,6 +601,30 @@ describe('employee CRUD', function () {
                 ->assertStatus(422)
                 ->assertJsonValidationErrors(['employment.employment_type', 'employment.hire_date']);
         });
+
+        it('persists social insurance number into its real column', function () {
+            $user = createUserWithPermissions(['employee.update_all']);
+            $employee = Employee::factory()->create();
+
+            $this->actingAs($user)
+                ->postJson("/api/employees/{$employee->id}/sections/social_insurance", [
+                    'social_insurance_number' => '1234567890',
+                    'insurance_status' => 'active',
+                    'has_insurance_history' => true,
+                    'histories' => [
+                        [
+                            'workshop_name' => 'Company A',
+                            'start_date' => '2023-01-01',
+                        ],
+                    ],
+                ])
+                ->assertStatus(200);
+
+            $saved = $employee->fresh();
+            expect($saved->social_insurance_number)->toBe('1234567890')
+                ->and($saved->section_social_insurance['insurance_status'])->toBe('active')
+                ->and($saved->section_social_insurance)->not->toHaveKey('social_insurance_number');
+        });
     });
 
     describe('submit', function () {
@@ -607,6 +649,7 @@ describe('employee CRUD', function () {
                 'skills' => validEmployeeSkills(),
                 'training' => validEmployeeTraining(),
                 'additional_info' => validEmployeeAdditionalInfo(),
+                'social_insurance' => validEmployeeSocialInsurance(),
             ];
 
             foreach ($sections as $key => $data) {

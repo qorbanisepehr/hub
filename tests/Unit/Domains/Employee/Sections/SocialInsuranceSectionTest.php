@@ -30,7 +30,7 @@ class SocialInsuranceSectionTest extends TestCase
     {
         $this->assertSame(
             [
-                'real' => ['insurance_number'],
+                'real' => ['social_insurance_number'],
                 'jsonb' => 'section_social_insurance',
             ],
             $this->section->storage()
@@ -186,13 +186,13 @@ class SocialInsuranceSectionTest extends TestCase
         $this->assertValid($data);
     }
 
-    public function test_insurance_number_is_required_for_completion(): void
+    public function test_social_insurance_number_is_required_for_completion(): void
     {
         $data = $this->validData([
-            'insurance_number' => null,
+            'social_insurance_number' => null,
         ]);
 
-        $this->assertInvalid($data, 'insurance_number');
+        $this->assertInvalid($data, 'social_insurance_number');
     }
 
     public function test_insurance_status_is_required_for_completion(): void
@@ -216,7 +216,7 @@ class SocialInsuranceSectionTest extends TestCase
     private function validData(array $overrides = []): array
     {
         return array_replace_recursive([
-            'insurance_number' => '1234567890',
+            'social_insurance_number' => '1234567890',
             'insurance_status' => 'active',
             'insurance_start_date' => null,
             'has_insurance_history' => false,
