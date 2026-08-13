@@ -72,6 +72,7 @@ class WorkExperienceSection extends BaseSection
     public function storage(): array
     {
         return [
+            'real' => [],
             'jsonb' => 'section_work_experience',
         ];
     }

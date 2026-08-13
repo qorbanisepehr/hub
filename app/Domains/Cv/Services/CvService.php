@@ -17,6 +17,7 @@ use App\Domains\Questionnaire\Sections\TrainingSection;
 use App\Domains\Questionnaire\Sections\WorkExperienceSection;
 use App\Support\MobileNumber;
 use App\Support\Sections\SectionDefinition;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 use InvalidArgumentException;
@@ -91,36 +92,63 @@ class CvService
      * submitted" in the bank while the candidate reworks it; the rejection
      * history stays in the lifecycle.
      */
-    public function saveSection(Cv $cv, string $sectionKey, array $data): Cv
-    {
+    public function saveSection(
+        Cv $cv,
+        string $sectionKey,
+        array $data
+    ): Cv {
         $section = $this->getSection($sectionKey);
 
         if (isset($data['mobile'])) {
             $data['mobile'] = MobileNumber::normalize($data['mobile']);
         }
 
-        $validator = $section->validateData($data, SectionDefinition::MODE_STRUCTURAL);
+        $validator = $section->validateData(
+            $data,
+            SectionDefinition::MODE_STRUCTURAL
+        );
 
         if ($validator->fails()) {
             throw new ValidationException($validator);
         }
 
-        $cv = $this->repository->updateSection($cv, $section->storage()['jsonb'], $data);
+        return DB::transaction(function () use (
+            $cv,
+            $section,
+            $data
+        ): Cv {
+            $storage = $section->storage();
+            $jsonbColumn = $storage['jsonb'] ?? null;
 
-        if (! empty($section->storage()['real'])) {
-            $realData = $this->extractRealFields($data, $section->storage()['real']);
-            if (! empty($realData)) {
+            // JSONB column gets the full payload (preserves existing behavior);
+            // real columns below are the authoritative copy for shared fields.
+            if ($jsonbColumn !== null) {
+                $cv = $this->repository->updateSection(
+                    $cv,
+                    $jsonbColumn,
+                    $data
+                );
+            }
+
+            $realData = $this->extractRealFields(
+                $data,
+                $storage['real'] ?? []
+            );
+
+            if ($realData !== []) {
                 $cv->update($realData);
             }
-        }
 
-        if ($cv->isRejected()) {
-            $cv = $this->updateStatus($cv, CvStatus::Draft);
-        }
+            $cv = $cv->fresh();
 
-        // Every edit produces a new revision so the bank shows how many times
-        // the candidate has reworked the CV.
-        return $this->repository->incrementVersion($cv);
+            if ($cv->isRejected()) {
+                $cv = $this->updateStatus($cv, CvStatus::Draft);
+            }
+
+            // Every edit produces a new revision so the bank shows how many
+            // times the candidate has reworked the CV.
+            return $this->repository->incrementVersion($cv);
+        });
     }
 
     /**
@@ -335,13 +363,13 @@ class CvService
         ];
     }
 
-    /**
-     * @param  array<string, mixed>  $data
-     * @param  string[]  $realFields
-     * @return array<string, mixed>
-     */
-    private function extractRealFields(array $data, array $realFields): array
-    {
-        return array_intersect_key($data, array_flip($realFields));
+    private function extractRealFields(
+        array $data,
+        array $realFields
+    ): array {
+        return array_intersect_key(
+            $data,
+            array_flip($realFields)
+        );
     }
 }

@@ -3,9 +3,9 @@
 namespace App\Domains\Employee\Services;
 
 use App\Domains\Employee\Models\Employee;
+use App\Domains\Employee\Sections\AdditionalInfoSection;
+use App\Domains\Employee\Sections\ContactInfoSection;
 use App\Domains\Employee\Sections\EmploymentSection;
-use App\Domains\Questionnaire\Sections\AdditionalInfoSection;
-use App\Domains\Questionnaire\Sections\ContactInfoSection;
 use App\Domains\Questionnaire\Sections\EducationSection;
 use App\Domains\Questionnaire\Sections\PersonalInfoSection;
 use App\Domains\Questionnaire\Sections\SkillsSection;
@@ -13,54 +13,13 @@ use App\Domains\Questionnaire\Sections\TrainingSection;
 use App\Domains\Questionnaire\Sections\WorkExperienceSection;
 use App\Support\MobileNumber;
 use App\Support\Sections\SectionDefinition;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 use InvalidArgumentException;
 
 class EmployeeService
 {
-    /**
-     * Fields that live on the employee's real columns instead of the JSONB
-     * section. The questionnaire/CV persist the full object to JSONB, but the
-     * employee already owned these columns, so merging them (single source of
-     * truth) avoids storing the same value twice. Keyed by section key; value
-     * maps the section field name to the employee column name.
-     *
-     * @var array<string, array<string, string>>
-     */
-    private const REAL_FIELD_MAP = [
-        'personal_info' => [
-            'first_name' => 'first_name',
-            'last_name' => 'last_name',
-            'id_number' => 'id_number',
-            'gender' => 'gender',
-            'birth_date' => 'birth_date',
-            'marital_status' => 'marital_status',
-        ],
-        'contact_info' => [
-            'email' => 'email',
-            'mobile' => 'mobile',
-        ],
-        'employment' => [
-            'personnel_code' => 'personnel_code',
-            'employment_type' => 'employment_type',
-            'hire_date' => 'hire_date',
-            'employment_status' => 'employment_status',
-        ],
-    ];
-
-    /**
-     * Section keys that are never written to the JSONB column because they are
-     * owned by a real column (see REAL_FIELD_MAP).
-     *
-     * @var array<string, string[]>
-     */
-    private const JSONB_EXCLUDED = [
-        'personal_info' => ['first_name', 'last_name', 'id_number', 'gender', 'birth_date', 'marital_status'],
-        'contact_info' => ['email', 'mobile'],
-        'employment' => ['personnel_code', 'employment_type', 'hire_date', 'employment_status'],
-    ];
-
     /** @var array<string, SectionDefinition> */
     private array $sections;
 
@@ -73,7 +32,9 @@ class EmployeeService
     {
         // All questionnaire sections except job_request (applicant-preference
         // fields don't apply to existing employees). Definitions are reused
-        // cross-domain to keep a single source of validation rules.
+        // cross-domain to keep a single source of validation rules. Contact
+        // info and additional info use employee-specific definitions because
+        // their real-column ownership differs from the questionnaire's.
         $definitions = [
             PersonalInfoSection::class,
             ContactInfoSection::class,
@@ -130,21 +91,39 @@ class EmployeeService
             $this->assertPersonnelCodeUnique($employee, $data['personnel_code'] ?? null);
         }
 
-        // Real columns — single source of truth for overlapping fields.
-        $realData = $this->extractRealFields($data, $sectionKey);
-        if (! empty($realData)) {
-            $employee->update($realData);
-        }
+        return DB::transaction(function () use (
+            $employee,
+            $section,
+            $data
+        ): Employee {
+            $storage = $section->storage();
 
-        // JSONB remainder — only the fields not owned by a real column. Sections
-        // fully owned by real columns (e.g. employment) skip the JSONB write.
-        $jsonbColumn = $section->storage()['jsonb'];
-        if ($jsonbColumn) {
-            $jsonbData = array_diff_key($data, array_flip(self::JSONB_EXCLUDED[$sectionKey] ?? []));
-            $employee->update([$jsonbColumn => $jsonbData]);
-        }
+            $realFields = $storage['real'] ?? [];
+            $jsonbColumn = $storage['jsonb'] ?? null;
 
-        return $employee->fresh();
+            $realData = $this->extractRealFields(
+                $data,
+                $realFields
+            );
+
+            if ($realData !== []) {
+                $employee->update($realData);
+            }
+
+            if ($jsonbColumn !== null) {
+                $jsonbData = $this->extractJsonbData(
+                    $data,
+                    $realFields
+                );
+
+                $employee->update([
+                    $jsonbColumn => $jsonbData,
+                ]);
+            }
+
+            return $employee->fresh();
+        });
+
     }
 
     /**
@@ -236,25 +215,20 @@ class EmployeeService
     }
 
     /**
-     * Extract the real-column values for a section, mapping section field names
-     * to employee columns. Empty strings are normalized to null so nullable
-     * unique columns (email, mobile, id_number) never collide.
+     * Extract the real-column values for a section from storage(). Empty
+     * strings are normalized to null so nullable unique columns (email, mobile,
+     * id_number) never collide.
      *
      * @param  array<string, mixed>  $data
+     * @param  string[]  $realFields
      * @return array<string, mixed>
      */
-    private function extractRealFields(array $data, string $sectionKey): array
+    private function extractRealFields(array $data, array $realFields): array
     {
-        $realMap = self::REAL_FIELD_MAP[$sectionKey] ?? [];
-        $realData = [];
+        $realData = array_intersect_key($data, array_flip($realFields));
 
-        foreach ($realMap as $field => $column) {
-            if (! array_key_exists($field, $data)) {
-                continue;
-            }
-
-            $value = $data[$field];
-            $realData[$column] = is_string($value) && $value === '' ? null : $value;
+        foreach ($realData as $field => $value) {
+            $realData[$field] = is_string($value) && $value === '' ? null : $value;
         }
 
         return $realData;
@@ -271,11 +245,12 @@ class EmployeeService
         $data = [];
 
         foreach ($this->sections as $key => $section) {
-            $jsonbColumn = $section->storage()['jsonb'] ?? null;
+            $storage = $section->storage();
+            $jsonbColumn = $storage['jsonb'] ?? null;
             $sectionData = $jsonbColumn ? ($employee->{$jsonbColumn} ?? []) : [];
 
-            foreach (self::REAL_FIELD_MAP[$key] ?? [] as $field => $column) {
-                $value = $employee->{$column} ?? null;
+            foreach ($storage['real'] ?? [] as $field) {
+                $value = $employee->{$field} ?? null;
                 if ($value !== null) {
                     $sectionData[$field] = $value;
                 }
@@ -285,5 +260,19 @@ class EmployeeService
         }
 
         return $data;
+    }
+
+    private function extractJsonbData(
+        array $data,
+        array $realFields
+    ): array {
+        if ($realFields === []) {
+            return $data;
+        }
+
+        return array_diff_key(
+            $data,
+            array_flip($realFields)
+        );
     }
 }

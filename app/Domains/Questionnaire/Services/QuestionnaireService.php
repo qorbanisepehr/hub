@@ -15,6 +15,7 @@ use App\Domains\Questionnaire\Sections\TrainingSection;
 use App\Domains\Questionnaire\Sections\WorkExperienceSection;
 use App\Support\MobileNumber;
 use App\Support\Sections\SectionDefinition;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 use InvalidArgumentException;
@@ -79,8 +80,11 @@ class QuestionnaireService
     /**
      * Save a single section (structural validation — draft safe).
      */
-    public function saveSection(Questionnaire $questionnaire, string $sectionKey, array $data): Questionnaire
-    {
+    public function saveSection(
+        Questionnaire $questionnaire,
+        string $sectionKey,
+        array $data
+    ): Questionnaire {
         $section = $this->getSection($sectionKey);
 
         if (isset($data['mobile'])) {
@@ -94,18 +98,43 @@ class QuestionnaireService
             throw new ValidationException($validator);
         }
 
-        // Store to JSONB column
-        $this->repository->updateSection($questionnaire, $section->storage()['jsonb'], $data);
+        return DB::transaction(function () use (
+            $questionnaire,
+            $section,
+            $data
+        ): Questionnaire {
+            $storage = $section->storage();
+            $jsonbColumn = $storage['jsonb'] ?? null;
 
-        // Update real columns if defined
-        if (! empty($section->storage()['real'])) {
-            $realData = $this->extractRealFields($data, $section->storage()['real']);
-            if (! empty($realData)) {
+            // JSONB column gets the full payload (preserves existing behavior);
+            // real columns below are the authoritative copy for shared fields.
+            if ($jsonbColumn !== null) {
+                $this->repository->updateSection(
+                    $questionnaire,
+                    $jsonbColumn,
+                    $data
+                );
+            }
+
+            // Update real columns if defined
+            $realData = $this->extractRealFields($data, $storage['real'] ?? []);
+
+            if ($realData !== []) {
                 $questionnaire->update($realData);
             }
-        }
 
-        return $questionnaire->fresh();
+            return $questionnaire->fresh();
+        });
+    }
+
+    private function extractRealFields(
+        array $data,
+        array $realFields
+    ): array {
+        return array_intersect_key(
+            $data,
+            array_flip($realFields)
+        );
     }
 
     /**
@@ -212,17 +241,5 @@ class QuestionnaireService
         }
 
         return $data;
-    }
-
-    /**
-     * Extract real column values from section data.
-     *
-     * @param  array<string, mixed>  $data
-     * @param  string[]  $realFields
-     * @return array<string, mixed>
-     */
-    private function extractRealFields(array $data, array $realFields): array
-    {
-        return array_intersect_key($data, array_flip($realFields));
     }
 }

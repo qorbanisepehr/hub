@@ -75,6 +75,7 @@ class SkillsSection extends BaseSection
     public function storage(): array
     {
         return [
+            'real' => [],
             'jsonb' => 'section_skills',
         ];
     }

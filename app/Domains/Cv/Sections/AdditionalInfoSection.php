@@ -77,6 +77,7 @@ class AdditionalInfoSection extends BaseSection
     public function storage(): array
     {
         return [
+            'real' => [],
             'jsonb' => 'section_additional_info',
         ];
     }

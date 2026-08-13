@@ -19,13 +19,16 @@ class QuestionnaireRepository implements QuestionnaireRepositoryInterface
         return Questionnaire::where('uuid', $uuid)->first();
     }
 
-    public function updateSection(Questionnaire $questionnaire, string $jsonbColumn, array $data): Questionnaire
-    {
+    public function updateSection(
+        Questionnaire $questionnaire,
+        string $jsonbColumn,
+        array $data
+    ): Questionnaire {
         $questionnaire->update([
             $jsonbColumn => $data,
         ]);
 
-        return $questionnaire->fresh();
+        return $questionnaire;
     }
 
     public function updateStatus(Questionnaire $questionnaire, string $status): Questionnaire
