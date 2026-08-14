@@ -316,7 +316,7 @@ class EmployeeDocumentController extends Controller
         }
 
         if ($request->boolean('download')) {
-            return Storage::disk($disk)->download($path, $document->original_name);
+            return Storage::disk($disk)->download($path, $this->documentService->downloadName($document));
         }
 
         return Storage::disk($disk)->response($path);

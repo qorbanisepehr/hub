@@ -496,11 +496,11 @@ describe('document API', function () {
     });
 
     describe('download', function () {
-        it('downloads the stored document', function () {
+        it('downloads the stored document under its structure name', function () {
             Storage::fake('local');
             $user = createUserWithPermissions(['document.view_all', 'document.upload_all', 'document.download_all']);
             $employee = Employee::factory()->create();
-            $category = personnelDocumentCategory('resume');
+            $category = personnelDocumentCategory('resume', 'رزومه');
 
             $this->actingAs($user)
                 ->postJson('/api/documents', [
@@ -513,9 +513,14 @@ describe('document API', function () {
 
             $document = Document::first();
 
-            $this->actingAs($user)
+            $response = $this->actingAs($user)
                 ->get('/api/documents/'.$document->id.'/download')
                 ->assertOk();
+
+            $disposition = rawurldecode($response->headers->get('Content-Disposition') ?? '');
+
+            expect($disposition)->toContain('رزومه.pdf')
+                ->and($disposition)->not->toContain('cv.pdf');
         });
     });
 

@@ -233,9 +233,10 @@ class DocumentController extends ApiController
             abort(404);
         }
 
-        $filename = $document->original_name;
-
-        return Storage::disk($disk)->download($path, $filename);
+        return Storage::disk($disk)->download(
+            $path,
+            $this->documentService->downloadName($document),
+        );
     }
 
     private function applyEntityScope(Builder $query, Request $request): void

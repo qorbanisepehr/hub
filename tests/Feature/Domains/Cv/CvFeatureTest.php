@@ -1180,7 +1180,11 @@ describe('CV documents', function () {
         expect($inline->headers->get('Content-Disposition'))->toContain('inline');
 
         $download = $this->get($downloadUrl)->assertOk();
-        expect($download->headers->get('Content-Disposition'))->toContain('attachment');
+        $disposition = rawurldecode($download->headers->get('Content-Disposition') ?? '');
+
+        expect($download->headers->get('Content-Disposition'))->toContain('attachment')
+            ->and($disposition)->toContain('رزومه.pdf')
+            ->and($disposition)->not->toContain('resume.pdf');
     });
 
     it('rejects an unsigned serve request', function () {

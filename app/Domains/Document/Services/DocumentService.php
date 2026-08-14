@@ -61,6 +61,30 @@ class DocumentService
         return null;
     }
 
+    /**
+     * Build the file name used when a document is saved/downloaded. The
+     * original upload name is intentionally never used: the user-facing
+     * structure name is what they see, with the stored extension appended so
+     * the saved file opens correctly (e.g. "کارت ملی — پشت.pdf").
+     */
+    public function downloadName(Document $document, ?DocumentUsage $usage = null): string
+    {
+        if ($usage === null) {
+            $usage = $document->usages()
+                ->whereNull('deleted_at')
+                ->orderBy('id')
+                ->first();
+        }
+
+        $base = $usage
+            ? $this->structureName($document, $usage)
+            : ($document->category?->name ?? __('document.document'));
+
+        $extension = pathinfo($document->path, PATHINFO_EXTENSION);
+
+        return $extension !== '' ? "{$base}.{$extension}" : $base;
+    }
+
     private function toPersianDigits(string $value): string
     {
         return strtr($value, [

@@ -6,6 +6,7 @@ use App\Domains\Document\Models\DocumentUsage;
 use App\Domains\Employee\Models\Employee;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\URL;
 
 function employeeDocumentCategory(string $slug, string $name = 'Employee Document'): DocumentCategory
 {
@@ -86,6 +87,39 @@ describe('employee documents', function () {
 
         expect($data['structure_name'])->toBe('کارت ملی — پشت')
             ->and($data)->not->toHaveKey('original_name');
+    });
+
+    it('serves a document inline and downloads it under the structure name', function () {
+        Storage::fake('local');
+        $user = createUserWithPermissions(['employee.update_all', 'employee.view_all']);
+        $employee = Employee::factory()->create();
+        $category = employeeDocumentCategory('national-card', 'کارت ملی');
+
+        $data = $this->actingAs($user)
+            ->postJson("/api/employees/{$employee->id}/documents", [
+                'document_category_id' => $category->id,
+                'file' => UploadedFile::fake()->createWithContent('scan.pdf', 'scan-content'),
+                'section_key' => 'documents',
+                'field_key' => 'back',
+            ])
+            ->assertCreated()
+            ->json('data');
+
+        $document = Document::first();
+
+        $inline = $this->actingAs($user)
+            ->get($data['url'])
+            ->assertOk();
+        expect($inline->headers->get('Content-Disposition'))->toContain('inline');
+
+        $download = $this->actingAs($user)
+            ->get(URL::signedRoute('employee.documents.serve', ['uuid' => $document->uuid, 'download' => 1]))
+            ->assertOk();
+        $disposition = rawurldecode($download->headers->get('Content-Disposition') ?? '');
+
+        expect($download->headers->get('Content-Disposition'))->toContain('attachment')
+            ->and($disposition)->toContain('کارت ملی — پشت.pdf')
+            ->and($disposition)->not->toContain('scan.pdf');
     });
 
     it('rejects uploads without a file', function () {
