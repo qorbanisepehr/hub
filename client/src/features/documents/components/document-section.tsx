@@ -113,8 +113,7 @@ export function DocumentSection({
                         <DocumentLibraryModal
                             open={libraryOpen}
                             onOpenChange={setLibraryOpen}
-                            documentableType={documentableType}
-                            documentableId={documentableId}
+                            employeeId={documentableId}
                         />
                     )}
                 </>

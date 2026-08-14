@@ -19,26 +19,24 @@ import { FileThumbnail } from "@/components/ui/file-thumbnail";
 import { getFileIcon } from "@/lib/file-icon";
 import { getFileColorClasses } from "@/lib/file-colors";
 import {
-    fetchLibraryDocuments,
+    fetchEmployeeDocumentLibrary,
     selectFromLibrary,
 } from "@/features/documents/api";
 import type { Document } from "@/features/documents/types";
 
 type DocumentLibraryModalProps = {
-    documentableType: string;
-    documentableId: number;
+    employeeId: number;
     open: boolean;
     onOpenChange: (open: boolean) => void;
 };
 
 /**
- * Reusable documents that are not attached to any entity yet. Picking one
- * creates a fresh Document + usage on the target (the library source stays
- * untouched — the backend never shares identities).
+ * The employee's own active documents, listed for reuse. Picking one creates
+ * a fresh Document + usage on the same employee (the source stays untouched —
+ * the backend never shares identities).
  */
 export function DocumentLibraryModal({
-    documentableType,
-    documentableId,
+    employeeId,
     open,
     onOpenChange,
 }: DocumentLibraryModalProps) {
@@ -46,10 +44,10 @@ export function DocumentLibraryModal({
     const [selectingId, setSelectingId] = React.useState<number | null>(null);
 
     const { data: documents, isLoading } = useQuery({
-        queryKey: documentKeys.library(),
+        queryKey: documentKeys.library(employeeId),
         enabled: open,
         queryFn: async () => {
-            const { data } = await fetchLibraryDocuments();
+            const { data } = await fetchEmployeeDocumentLibrary(employeeId);
             return data.data;
         },
     });
@@ -58,19 +56,17 @@ export function DocumentLibraryModal({
         mutationFn: (sourceDocumentId: number) =>
             selectFromLibrary({
                 source_document_id: sourceDocumentId,
-                documentable_type: documentableType,
-                documentable_id: documentableId,
+                documentable_type: "employee",
+                documentable_id: employeeId,
             }),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: documentKeys.lists() });
-            if (documentableType === "employee") {
-                queryClient.invalidateQueries({
-                    queryKey: documentKeys.entityDocuments(
-                        "employees",
-                        String(documentableId),
-                    ),
-                });
-            }
+            queryClient.invalidateQueries({
+                queryKey: documentKeys.entityDocuments(
+                    "employees",
+                    String(employeeId),
+                ),
+            });
             toast.success("مدرک از کتابخانه انتخاب شد");
             onOpenChange(false);
         },
@@ -90,7 +86,7 @@ export function DocumentLibraryModal({
             open={open}
             onOpenChange={onOpenChange}
             title="کتابخانه مدارک"
-            description="مدارک قابل استفاده‌ای که به جای دیگری متصل نیستند"
+            description="مدارک قابل استفاده این کارمند"
         >
             {isLoading ? (
                 <div className="space-y-3 py-4">

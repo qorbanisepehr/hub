@@ -25,7 +25,8 @@ export const documentKeys = {
         [...documentKeys.all, "categories", type] as const,
     requirements: (entity: string) =>
         [...documentKeys.all, "requirements", entity] as const,
-    library: () => [...documentKeys.all, "library"] as const,
+    library: (employeeId: number, sectionKey?: string, fieldKey?: string) =>
+        [...documentKeys.all, "library", employeeId, sectionKey, fieldKey] as const,
     /** Namespaced per entity so invalidation stays isolated between features. */
     entityDocuments: (entity: string, uuid: string | undefined) =>
         [`${entity}-documents`, uuid] as const,

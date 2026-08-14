@@ -71,9 +71,20 @@ export function forceDeleteDocument(documentId: number) {
     );
 }
 
-/** List documents that are not attached anywhere and can be reused. */
-export function fetchLibraryDocuments() {
-    return api.get<{ data: Document[] }>("/documents/library");
+/**
+ * List the employee's own active documents that can be reused from the
+ * library. The list is scoped to the employee and re-checked for
+ * authorization server-side; selection always creates a NEW Document + usage
+ * (the source stays untouched).
+ */
+export function fetchEmployeeDocumentLibrary(
+    employeeId: number,
+    params?: { sectionKey?: string; fieldKey?: string },
+) {
+    return api.get<{ data: Document[] }>(
+        `/employees/${employeeId}/documents/library`,
+        { params },
+    );
 }
 
 /**
