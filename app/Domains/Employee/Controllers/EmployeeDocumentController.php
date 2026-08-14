@@ -2,6 +2,9 @@
 
 namespace App\Domains\Employee\Controllers;
 
+use App\Contracts\DocumentAuthorization;
+use App\Domains\Document\Auth\DocumentAuthorizationContext;
+use App\Domains\Document\Enums\DocumentAction;
 use App\Domains\Document\Models\Document;
 use App\Domains\Document\Models\DocumentCategory;
 use App\Domains\Document\Models\DocumentUsage;
@@ -29,7 +32,7 @@ class EmployeeDocumentController extends Controller
         private DocumentCapabilities $documentCapabilities,
     ) {}
 
-    public function index(Employee $employee): JsonResponse
+    public function index(Request $request, Employee $employee): JsonResponse
     {
         $documents = $this->documentService->getForEntity($employee);
 
@@ -39,7 +42,7 @@ class EmployeeDocumentController extends Controller
                     fn (DocumentUsage $usage) => $this->documentPayload($document, $usage),
                 ))
                 ->values(),
-            'capabilities' => $this->documentCapabilities->forEntity($employee),
+            'capabilities' => $this->documentCapabilities->forEntity($request->user(), $employee),
         ]);
     }
 
@@ -47,6 +50,56 @@ class EmployeeDocumentController extends Controller
     {
         return response()->json([
             'data' => $this->employeeService->getDocumentRequirements(),
+        ]);
+    }
+
+    /**
+     * Employee-scoped document library. Never a global list: only the current
+     * employee's active, authorized documents are eligible (rule: employee
+     * document library). The query is authorized server-side and may be further
+     * narrowed to the categories compatible with a target placement.
+     */
+    public function library(Request $request, Employee $employee, DocumentAuthorization $authorization): JsonResponse
+    {
+        $actor = $request->user();
+
+        if ($actor === null) {
+            abort(401);
+        }
+
+        if (! $authorization->authorize(
+            $actor,
+            DocumentAction::LibrarySelect,
+            DocumentAuthorizationContext::forOwner($employee),
+        )) {
+            abort(403, __('messages.permission_denied'));
+        }
+
+        $categoryIds = $this->compatibleCategoryIds(
+            $request->input('section_key'),
+            $request->input('field_key'),
+        );
+
+        $query = DocumentUsage::query()
+            ->with('document')
+            ->where('entity_type', Employee::class)
+            ->where('entity_id', $employee->getKey());
+
+        $query = $authorization->scope($actor, DocumentAction::LibrarySelect, $query);
+
+        if ($categoryIds !== null) {
+            $query->whereHas(
+                'document',
+                fn ($q) => $q->whereIn('category_id', $categoryIds),
+            );
+        }
+
+        $usages = $query->latest('document_usages.id')->get();
+
+        return response()->json([
+            'data' => $usages->map(
+                fn (DocumentUsage $usage) => $this->documentPayload($usage->document, $usage),
+            )->values(),
         ]);
     }
 
@@ -199,7 +252,7 @@ class EmployeeDocumentController extends Controller
         return response()->json(['message' => __('employee.documents.trashed')]);
     }
 
-    public function trashed(Employee $employee): JsonResponse
+    public function trashed(Request $request, Employee $employee): JsonResponse
     {
         $usages = DocumentUsage::query()
             ->withTrashed()
@@ -214,7 +267,7 @@ class EmployeeDocumentController extends Controller
             'data' => $usages->map(
                 fn (DocumentUsage $usage) => $this->documentPayload($usage->document, $usage),
             )->values(),
-            'capabilities' => $this->documentCapabilities->forEntity($employee),
+            'capabilities' => $this->documentCapabilities->forEntity($request->user(), $employee),
         ]);
     }
 
@@ -270,6 +323,40 @@ class EmployeeDocumentController extends Controller
     }
 
     /**
+     * Resolve the document category ids eligible for a target placement. Returns
+     * null when no placement is given (every one of the employee's active
+     * documents is eligible). When a placement is given, only categories whose
+     * declared requirement matches the section/field are eligible.
+     *
+     * @return array<int, int>|null
+     */
+    private function compatibleCategoryIds(?string $sectionKey, ?string $fieldKey): ?array
+    {
+        if ($sectionKey === null && $fieldKey === null) {
+            return null;
+        }
+
+        $slugs = collect($this->employeeService->getDocumentRequirements())
+            ->filter(
+                fn (array $requirement) => $sectionKey === null
+                    || ($requirement['section_key'] ?? null) === $sectionKey,
+            )
+            ->filter(
+                fn (array $requirement) => $fieldKey === null
+                    || ($requirement['field_keys'] ?? null) === null
+                    || in_array($fieldKey, $requirement['field_keys'], true),
+            )
+            ->keys()
+            ->all();
+
+        if ($slugs === []) {
+            return [];
+        }
+
+        return DocumentCategory::whereIn('slug', $slugs)->pluck('id')->all();
+    }
+
+    /**
      * @return array<string, mixed>
      */
     private function documentPayload(Document $document, DocumentUsage $usage): array
@@ -277,6 +364,7 @@ class EmployeeDocumentController extends Controller
         return [
             'id' => $document->id,
             'usage_id' => $usage->id,
+            'document_id' => $document->id,
             'uuid' => $document->uuid,
             'mime_type' => $document->mime_type,
             'size' => $document->size,

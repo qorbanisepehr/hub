@@ -3,6 +3,9 @@
 namespace App\Domains\Document\Controllers;
 
 use App\Contracts\Documentable;
+use App\Contracts\DocumentAuthorization;
+use App\Domains\Document\Auth\DocumentAuthorizationContext;
+use App\Domains\Document\Enums\DocumentAction;
 use App\Domains\Document\Models\Document;
 use App\Domains\Document\Models\DocumentCategory;
 use App\Domains\Document\Models\DocumentUsage;
@@ -29,6 +32,7 @@ class DocumentController extends ApiController
 
     public function __construct(
         private readonly DocumentService $documentService,
+        private readonly DocumentAuthorization $documentAuthorization,
     ) {
         $this->model = Document::class;
     }
@@ -79,13 +83,6 @@ class DocumentController extends ApiController
         return new DocumentResource($document);
     }
 
-    public function library(): AnonymousResourceCollection
-    {
-        return DocumentResource::collection(
-            $this->documentService->getLibraryDocuments(),
-        );
-    }
-
     public function storeFromLibrary(StoreFromLibraryRequest $request): DocumentResource
     {
         $type = $request->input('documentable_type');
@@ -99,6 +96,34 @@ class DocumentController extends ApiController
         $owner = $class::query()->findOrFail($id);
 
         $source = Document::query()->findOrFail($request->input('source_document_id'));
+
+        $actor = $request->user();
+
+        if ($actor === null) {
+            abort(401);
+        }
+
+        // Re-authorize at the point of operation: the actor must still be able
+        // to reach the target owner, and the source must belong to that owner.
+        // The library never reuses identities or moves documents across owners.
+        if (! $this->documentAuthorization->authorize(
+            $actor,
+            DocumentAction::LibrarySelect,
+            DocumentAuthorizationContext::forOwner($owner),
+        )) {
+            abort(403, __('messages.permission_denied'));
+        }
+
+        $sourceBelongsToTarget = DocumentUsage::query()
+            ->where('entity_type', get_class($owner))
+            ->where('entity_id', $owner->getKey())
+            ->where('document_id', $source->id)
+            ->whereNull('deleted_at')
+            ->exists();
+
+        if (! $sourceBelongsToTarget) {
+            abort(403, __('messages.permission_denied'));
+        }
 
         $metadata = [];
         if ($notes = $request->input('notes')) {

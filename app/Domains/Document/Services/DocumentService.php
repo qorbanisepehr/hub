@@ -229,18 +229,6 @@ class DocumentService
     }
 
     /**
-     * List documents that are not attached anywhere and can be reused from
-     * the library. Selecting one always creates a new Document with its own
-     * identity, never reuses the source record.
-     *
-     * @return Collection
-     */
-    public function getLibraryDocuments()
-    {
-        return $this->repository->getLibraryDocuments();
-    }
-
-    /**
      * Attach a copy of a library document to an entity. The source document
      * keeps its own identity and stays untouched; the new document points at
      * the same physical file and gains a fresh usage.

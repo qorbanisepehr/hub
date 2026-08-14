@@ -39,7 +39,7 @@ class CvDocumentController extends Controller
                     fn (DocumentUsage $usage) => $this->documentPayload($document, $usage),
                 ))
                 ->values(),
-            'capabilities' => $this->documentCapabilities->forEntity($cv),
+            'capabilities' => $this->documentCapabilities->forEntity($request->user(), $cv),
         ]);
     }
 

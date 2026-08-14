@@ -28,6 +28,9 @@ Route::middleware('auth:sanctum')->group(function () {
         ->middleware('permission:employee.view_own,employee.view_all');
     Route::get('employees/{employee}/documents/trashed', [EmployeeDocumentController::class, 'trashed'])
         ->middleware('permission:employee.view_own,employee.view_all');
+    Route::get('employees/{employee}/documents/library', [EmployeeDocumentController::class, 'library'])
+        ->middleware('permission:employee.view_own,employee.view_all')
+        ->middleware('permission:document.library-select');
     Route::post('employees/{employee}/documents', [EmployeeDocumentController::class, 'store'])
         ->middleware('permission:employee.update_own,employee.update_all')
         ->middleware('throttle:30,1');

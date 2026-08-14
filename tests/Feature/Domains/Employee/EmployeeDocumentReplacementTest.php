@@ -61,10 +61,30 @@ describe('employee document replacement', function () {
         $this->actingAs($user)
             ->getJson("/api/employees/{$employee->id}/documents")
             ->assertOk()
+            ->assertJsonPath('capabilities.view', true)
+            ->assertJsonPath('capabilities.download', true)
+            ->assertJsonPath('capabilities.upload', false)
+            ->assertJsonPath('capabilities.replace', false)
+            ->assertJsonPath('capabilities.delete', false)
+            ->assertJsonPath('capabilities.restore', false)
+            ->assertJsonPath('capabilities.force_delete', false)
             ->assertJsonPath('capabilities.history', true)
+            ->assertJsonPath('capabilities.library_select', false);
+    });
+
+    it('grants write capabilities only to users with update access', function () {
+        $user = createUserWithPermissions([
+            'employee.view_all',
+            'employee.update_all',
+        ]);
+        $employee = Employee::factory()->create();
+
+        $this->actingAs($user)
+            ->getJson("/api/employees/{$employee->id}/documents")
+            ->assertOk()
+            ->assertJsonPath('capabilities.replace', true)
             ->assertJsonPath('capabilities.restore', true)
             ->assertJsonPath('capabilities.force_delete', true)
-            ->assertJsonPath('capabilities.replace', true)
             ->assertJsonPath('capabilities.library_select', false);
     });
 });

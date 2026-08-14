@@ -1,5 +1,6 @@
 <?php
 
+use App\Domains\Document\Models\DocumentCategory;
 use App\Domains\FormOptions\Models\FormOption;
 use App\Domains\Questionnaire\Models\Questionnaire;
 use App\Domains\Rbac\Models\Permission;
@@ -53,6 +54,18 @@ expect()->extend('toBeOne', function () {
 | global functions to help you to reduce the number of lines of code in your test files.
 |
 */
+
+/**
+ * Create a personnel document category for tests.
+ */
+function personnelDocumentCategory(string $slug, string $name = 'Personnel'): DocumentCategory
+{
+    return DocumentCategory::create([
+        'name' => $name,
+        'slug' => $slug,
+        'type' => DocumentCategory::TYPE_PERSONNEL,
+    ]);
+}
 
 /**
  * Seed the option groups referenced by questionnaire/cv validation rules.

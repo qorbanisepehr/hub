@@ -1,21 +1,11 @@
 <?php
 
 use App\Domains\Document\Models\Document;
-use App\Domains\Document\Models\DocumentCategory;
 use App\Domains\Document\Models\DocumentUsage;
 use App\Domains\Document\Repositories\DocumentRepository;
 use App\Domains\Employee\Models\Employee;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
-
-function personnelDocumentCategory(string $slug, string $name = 'Personnel'): DocumentCategory
-{
-    return DocumentCategory::create([
-        'name' => $name,
-        'slug' => $slug,
-        'type' => DocumentCategory::TYPE_PERSONNEL,
-    ]);
-}
 
 describe('document API', function () {
     describe('authentication', function () {

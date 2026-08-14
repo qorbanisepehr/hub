@@ -39,7 +39,7 @@ class QuestionnaireDocumentController extends Controller
                     fn (DocumentUsage $usage) => $this->documentPayload($document, $usage),
                 ))
                 ->values(),
-            'capabilities' => $this->documentCapabilities->forEntity($questionnaire),
+            'capabilities' => $this->documentCapabilities->forEntity($request->user(), $questionnaire),
         ]);
     }
 

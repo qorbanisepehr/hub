@@ -16,7 +16,7 @@ class StoreFromLibraryRequest extends FormRequest
     {
         return [
             'source_document_id' => ['required', 'integer', 'exists:documents,id'],
-            'documentable_type' => ['required', 'string', 'in:employee,questionnaire'],
+            'documentable_type' => ['required', 'string', 'in:employee'],
             'documentable_id' => ['required', 'integer', 'min:1'],
             'section_key' => ['nullable', 'string', 'max:100'],
             'field_key' => ['nullable', 'string', 'max:100'],
