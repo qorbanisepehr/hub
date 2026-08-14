@@ -1,11 +1,11 @@
 <?php
 
+use App\Domains\Authorization\Models\Permission;
+use App\Domains\Authorization\Models\PermissionGroup;
+use App\Domains\Authorization\Models\Role;
 use App\Domains\Document\Models\DocumentCategory;
 use App\Domains\FormOptions\Models\FormOption;
 use App\Domains\Questionnaire\Models\Questionnaire;
-use App\Domains\Rbac\Models\Permission;
-use App\Domains\Rbac\Models\PermissionGroup;
-use App\Domains\Rbac\Models\Role;
 use App\Enums\GrantPurpose;
 use App\Enums\OtpContext;
 use App\Models\User;

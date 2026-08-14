@@ -2,7 +2,7 @@
 
 namespace App\Providers;
 
-use App\Domains\Rbac\Services\PermissionRegistrar;
+use App\Domains\Authorization\Services\PermissionRegistrar;
 use Illuminate\Support\ServiceProvider;
 
 class PermissionServiceProvider extends ServiceProvider

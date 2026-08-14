@@ -1,21 +1,20 @@
 <?php
 
-namespace App\Domains\Auth\Requests;
+namespace App\Domains\Authorization\Requests;
 
 use App\Domains\Authorization\Models\Role;
 use Illuminate\Foundation\Http\FormRequest;
 
-class SwitchProfileRoleRequest extends FormRequest
+class SwitchActiveRoleRequest extends FormRequest
 {
     public function authorize(): bool
     {
         return true;
     }
 
-    /** @return array<string, mixed> */
     public function rules(): array
     {
-        $userId = $this->user()->id;
+        $userId = $this->route('user')->id;
 
         return [
             'role_id' => [
@@ -25,13 +24,13 @@ class SwitchProfileRoleRequest extends FormRequest
                     $role = Role::find($value);
 
                     if (! $role) {
-                        $fail('نقش یافت نشد.');
+                        $fail('Role not found.');
 
                         return;
                     }
 
                     if (! $role->is_active) {
-                        $fail('این نقش غیرفعال است.');
+                        $fail('Cannot switch to an inactive role.');
 
                         return;
                     }
@@ -39,7 +38,7 @@ class SwitchProfileRoleRequest extends FormRequest
                     $hasRole = $role->users()->where('user_id', $userId)->exists();
 
                     if (! $hasRole) {
-                        $fail('شما این نقش را ندارید.');
+                        $fail('The user does not have this role assigned.');
                     }
                 },
             ],

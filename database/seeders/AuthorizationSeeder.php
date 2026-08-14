@@ -1,0 +1,316 @@
+<?php
+
+namespace Database\Seeders;
+
+use App\Domains\Authorization\Models\Permission;
+use App\Domains\Authorization\Models\PermissionGroup;
+use App\Domains\Authorization\Models\Role;
+use App\Domains\Authorization\Models\RoleInheritance;
+use App\Domains\Authorization\Services\PermissionRegistrar;
+use Illuminate\Database\Seeder;
+
+class AuthorizationSeeder extends Seeder
+{
+    public function run(): void
+    {
+        // ── 1. Sync Permission Groups & Permissions from config ──
+        $groups = PermissionRegistrar::getRegisteredGroups();
+        $permissionModels = [];
+        $groupPermissionIds = [];
+        $sortOrder = 0;
+        $groupModels = [];
+
+        foreach ($groups as $slug => $group) {
+            $permissionGroup = PermissionGroup::updateOrCreate(
+                ['slug' => $slug],
+                [
+                    'name' => $group['name'],
+                    'sort_order' => $sortOrder++,
+                ],
+            );
+
+            $groupModels[$slug] = $permissionGroup;
+
+            foreach ($group['permissions'] as $name => $description) {
+                $permissionModels[$name] = Permission::updateOrCreate(
+                    ['name' => $name],
+                    [
+                        'display_name' => $description,
+                        'group_id' => $permissionGroup->id,
+                    ],
+                );
+            }
+
+            $groupPermissionIds[$slug] = $permissionGroup->permissions()->pluck('id')->all();
+        }
+
+        // ── 2. System Admin (always exists, top-level) ──
+        $adminRole = Role::updateOrCreate(
+            ['name' => 'admin'],
+            [
+                'display_name' => 'مدیر سامانه',
+                'is_active' => true,
+            ],
+        );
+
+        // ── 3. Organizational Hierarchy (via role_inheritances) ──
+        // Level 0 — سرپرست معاونت سرمایه انسانی (root)
+        $hrDeputyHead = Role::updateOrCreate(
+            ['name' => 'hr-deputy-head'],
+            [
+                'display_name' => 'سرپرست معاونت سرمایه انسانی',
+                'is_active' => true,
+            ],
+        );
+
+        // ── Level 1 ──
+        $hrManagementHead = Role::updateOrCreate(
+            ['name' => 'hr-management-head'],
+            [
+                'display_name' => 'سرپرست مدیریت سرمایه انسانی',
+                'is_active' => true,
+            ],
+        );
+
+        $supportManager = Role::updateOrCreate(
+            ['name' => 'support-manager'],
+            [
+                'display_name' => 'مدیر پشتیبانی',
+                'is_active' => true,
+            ],
+        );
+
+        $advisor = Role::updateOrCreate(
+            ['name' => 'advisor'],
+            [
+                'display_name' => 'مشاور',
+                'is_active' => true,
+            ],
+        );
+
+        // ── Level 2 — under سرپرست مدیریت سرمایه انسانی ──
+        $motivationWelfareHead = Role::updateOrCreate(
+            ['name' => 'motivation-welfare-head'],
+            [
+                'display_name' => 'رئیس انگیزه و رفاه',
+                'is_active' => true,
+            ],
+        );
+
+        $adminAffairsHead = Role::updateOrCreate(
+            ['name' => 'admin-affairs-head'],
+            [
+                'display_name' => 'رئیس امور اداری و کارگزینی',
+                'is_active' => true,
+            ],
+        );
+
+        // ── Level 2 — under مدیر پشتیبانی ──
+        $supportServicesHead = Role::updateOrCreate(
+            ['name' => 'support-services-head'],
+            [
+                'display_name' => 'رئیس پشتیبانی و خدمات عمومی',
+                'is_active' => true,
+            ],
+        );
+
+        // ── Level 3 ──
+        Role::updateOrCreate(
+            ['name' => 'senior-motivation-welfare-expert'],
+            [
+                'display_name' => 'کارشناس ارشد انگیزش و رفاه',
+                'is_active' => true,
+            ],
+        );
+
+        Role::updateOrCreate(
+            ['name' => 'motivation-welfare-employee'],
+            [
+                'display_name' => 'کارمند انگیزش و رفاه',
+                'is_active' => true,
+            ],
+        );
+
+        Role::updateOrCreate(
+            ['name' => 'admin-affairs-employee'],
+            [
+                'display_name' => 'کارمند اداری و کارگزینی',
+                'is_active' => true,
+            ],
+        );
+
+        Role::updateOrCreate(
+            ['name' => 'senior-admin-expert'],
+            [
+                'display_name' => 'کارشناس ارشد اداری و کارگزینی',
+                'is_active' => true,
+            ],
+        );
+
+        Role::updateOrCreate(
+            ['name' => 'admin-expert'],
+            [
+                'display_name' => 'کارشناس اداری و کارگزینی',
+                'is_active' => true,
+            ],
+        );
+
+        Role::updateOrCreate(
+            ['name' => 'general-services-employee'],
+            [
+                'display_name' => 'کارمند خدمات عمومی و تاسیسات',
+                'is_active' => true,
+            ],
+        );
+
+        Role::updateOrCreate(
+            ['name' => 'general-services-facilities-expert'],
+            [
+                'display_name' => 'کارشناس خدمات عمومی و تاسیسات',
+                'is_active' => true,
+            ],
+        );
+
+        Role::updateOrCreate(
+            ['name' => 'general-services-expert'],
+            [
+                'display_name' => 'کارشناس خدمات عمومی',
+                'is_active' => true,
+            ],
+        );
+
+        // ── 4. Inheritance edges (org chart + permission propagation) ──
+        $inheritances = [
+            'hr-management-head' => 'hr-deputy-head',
+            'support-manager' => 'hr-deputy-head',
+            'advisor' => 'hr-deputy-head',
+            'motivation-welfare-head' => 'hr-management-head',
+            'admin-affairs-head' => 'hr-management-head',
+            'support-services-head' => 'support-manager',
+            'senior-motivation-welfare-expert' => 'motivation-welfare-head',
+            'motivation-welfare-employee' => 'motivation-welfare-head',
+            'admin-affairs-employee' => 'admin-affairs-head',
+            'senior-admin-expert' => 'admin-affairs-head',
+            'admin-expert' => 'admin-affairs-head',
+            'general-services-employee' => 'support-services-head',
+            'general-services-facilities-expert' => 'support-services-head',
+            'general-services-expert' => 'support-services-head',
+        ];
+
+        foreach ($inheritances as $childName => $parentName) {
+            $child = Role::where('name', $childName)->first();
+            $parent = Role::where('name', $parentName)->first();
+
+            if ($child && $parent) {
+                RoleInheritance::updateOrCreate(
+                    ['role_id' => $child->id, 'parent_role_id' => $parent->id],
+                    [],
+                );
+            }
+        }
+
+        // ── 5. Permission Assignment (example — adjust per business needs) ──
+
+        // سرپرست معاونت: full HR visibility
+        $hrDeputyHead->syncPermissions(array_merge(
+            $groupPermissionIds['employee'],
+            $groupPermissionIds['document'],
+        ));
+
+        // سرپرست مدیریت سرمایه انسانی: employee + document
+        $hrManagementHead->syncPermissions(array_merge(
+            $groupPermissionIds['employee'],
+            $groupPermissionIds['document'],
+        ));
+
+        // رئیس انگیزه و رفاه: view employees + documents
+        $motivationWelfareHead->syncPermissions([
+            $permissionModels['employee.view_all']->id,
+            $permissionModels['document.view_all']->id,
+            $permissionModels['document.download_all']->id,
+        ]);
+
+        // رئیس امور اداری و کارگزینی: full employee + document management
+        $adminAffairsHead->syncPermissions(array_merge(
+            $groupPermissionIds['employee'],
+            $groupPermissionIds['document'],
+        ));
+
+        // مدیر پشتیبانی: view employees + documents
+        $supportManager->syncPermissions([
+            $permissionModels['employee.view_all']->id,
+            $permissionModels['document.view_all']->id,
+            $permissionModels['document.download_all']->id,
+        ]);
+
+        // رئیس پشتیبانی و خدمات عمومی
+        $supportServicesHead->syncPermissions([
+            $permissionModels['employee.view_all']->id,
+            $permissionModels['document.view_all']->id,
+            $permissionModels['document.download_all']->id,
+        ]);
+
+        // مشاور: view only
+        $advisor->syncPermissions([
+            $permissionModels['employee.view_all']->id,
+            $permissionModels['document.view_all']->id,
+        ]);
+
+        // ── Level 3 roles: own profile + own documents ──
+        $level3Roles = [
+            'senior-motivation-welfare-expert',
+            'motivation-welfare-employee',
+            'admin-affairs-employee',
+            'senior-admin-expert',
+            'admin-expert',
+            'general-services-employee',
+            'general-services-facilities-expert',
+            'general-services-expert',
+        ];
+
+        foreach ($level3Roles as $roleName) {
+            $role = Role::where('name', $roleName)->first();
+            if ($role) {
+                $role->syncPermissions([
+                    $permissionModels['employee.view_own']->id,
+                    $permissionModels['employee.update_own']->id,
+                    $permissionModels['document.view_own']->id,
+                    $permissionModels['document.upload_own']->id,
+                    $permissionModels['document.download_own']->id,
+                ]);
+            }
+        }
+
+        // کارشناسان ارشد اداری: additionally can view all employees
+        $seniorAdminExpert = Role::where('name', 'senior-admin-expert')->first();
+        if ($seniorAdminExpert) {
+            $seniorAdminExpert->syncPermissions([
+                $permissionModels['employee.view_own']->id,
+                $permissionModels['employee.view_all']->id,
+                $permissionModels['employee.update_own']->id,
+                $permissionModels['document.view_own']->id,
+                $permissionModels['document.view_all']->id,
+                $permissionModels['document.upload_own']->id,
+                $permissionModels['document.download_own']->id,
+                $permissionModels['document.download_all']->id,
+            ]);
+        }
+
+        // admin: individual permissions (role + user management)
+        $adminRole->syncPermissions([
+            $permissionModels['role.view']->id,
+            $permissionModels['role.create']->id,
+            $permissionModels['role.update']->id,
+            $permissionModels['role.delete']->id,
+            $permissionModels['user.view']->id,
+            $permissionModels['user.create']->id,
+            $permissionModels['user.update']->id,
+            $permissionModels['user.assign-roles']->id,
+            $permissionModels['user.delete']->id,
+            $permissionModels['branding.view']->id,
+            $permissionModels['branding.manage']->id,
+            $permissionModels['form-options.view']->id,
+            $permissionModels['form-options.manage']->id,
+        ]);
+    }
+}

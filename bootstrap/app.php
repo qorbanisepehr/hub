@@ -1,7 +1,7 @@
 <?php
 
-use App\Domains\Rbac\Middleware\CheckPermission;
-use App\Domains\Rbac\Middleware\CheckRole;
+use App\Domains\Authorization\Middleware\CheckPermission;
+use App\Domains\Authorization\Middleware\CheckRole;
 use App\Http\Middleware\VerifyGrantAccess;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Application;

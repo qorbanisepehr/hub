@@ -17,7 +17,7 @@ class DatabaseSeeder extends Seeder
         $this->call([
             UserSeeder::class,
             DocumentCategorySeeder::class,
-            RbacSeeder::class,
+            AuthorizationSeeder::class,
             FormOptionSeeder::class,
             LocationSeeder::class,
         ]);

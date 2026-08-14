@@ -3,13 +3,13 @@
 namespace App\Providers;
 
 use App\Contracts\DocumentAuthorization;
+use App\Domains\Authorization\Policies\DynamicPolicy;
 use App\Domains\Cv\Repositories\CvRepository;
 use App\Domains\Cv\Repositories\CvRepositoryInterface;
 use App\Domains\Document\Repositories\DocumentRepository;
 use App\Domains\Document\Repositories\DocumentRepositoryInterface;
 use App\Domains\Questionnaire\Repositories\QuestionnaireRepository;
 use App\Domains\Questionnaire\Repositories\QuestionnaireRepositoryInterface;
-use App\Domains\Rbac\Policies\DynamicPolicy;
 use App\Domains\Settings\Repositories\FileSettingsRepository;
 use App\Domains\Settings\Repositories\SettingsRepositoryInterface;
 use App\Domains\Settings\Services\SettingsService;

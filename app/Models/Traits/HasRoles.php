@@ -2,8 +2,8 @@
 
 namespace App\Models\Traits;
 
-use App\Domains\Rbac\Models\Permission;
-use App\Domains\Rbac\Models\Role;
+use App\Domains\Authorization\Models\Permission;
+use App\Domains\Authorization\Models\Role;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Collection;

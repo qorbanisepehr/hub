@@ -13,6 +13,11 @@ return new class extends Migration
             $table->string('name')->unique();
             $table->string('display_name');
             $table->text('description')->nullable();
+            $table->string('resource')->nullable();
+            $table->string('action')->nullable();
+            $table->string('label')->nullable();
+            $table->json('metadata')->nullable();
+            $table->boolean('is_active')->default(true);
             $table->foreignId('group_id')->constrained('permission_groups')->cascadeOnDelete();
             $table->timestamps();
         });

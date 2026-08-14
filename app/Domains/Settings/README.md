@@ -49,7 +49,7 @@ app.blade.php
 | `Resources/BrandingResource.php` | Wraps `BrandingSettings` as `{ data: { … } }`. |
 | `routes/api.php` | Public + admin routes; required from root `routes/api.php`. |
 
-Supporting config: `config/settings.php` (storage path + per-kind rules), `config/filesystems.php` (`branding` disk), `config/company.php` (default colors), `config/permissions.php` (`branding` group), `database/seeders/RbacSeeder.php` (grant to admin role).
+Supporting config: `config/settings.php` (storage path + per-kind rules), `config/filesystems.php` (`branding` disk), `config/company.php` (default colors), `config/permissions.php` (`branding` group), `database/seeders/AuthorizationSeeder.php` (grant to admin role).
 
 ### Client (`client/src/features/settings`)
 
@@ -133,7 +133,7 @@ Rules:
 
 ## 6. Adding a New Settings Section / Tab
 
-1. **Permission** (if section-gated): add a group to `config/permissions.php`, grant it to roles in `database/seeders/RbacSeeder.php`, add the const to `client/src/lib/permissions.ts`, and re-run `php artisan db:seed --class=RbacSeeder` (then `php artisan optimize:clear`). The settings route guard + tab gating read these permissions.
+1. **Permission** (if section-gated): add a group to `config/permissions.php`, grant it to roles in `database/seeders/AuthorizationSeeder.php`, add the const to `client/src/lib/permissions.ts`, and re-run `php artisan db:seed --class=AuthorizationSeeder` (then `php artisan optimize:clear`). The settings route guard + tab gating read these permissions.
 2. **Route** — extend `client/src/routes/_protected/settings.tsx` `validateSearch` enum with the new tab and add it to the `beforeLoad` permission list.
 3. **Page** — add the section component and a `TabsTrigger`/`TabsContent` pair in `settings-page.tsx`, wrapped in `PermissionGuard`. Add a sidebar item in `nav-main.tsx` using `search: { tab: "…" }`.
 4. Follow §4/§5 for whatever the section manages.

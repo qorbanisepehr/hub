@@ -2,7 +2,7 @@
 
 namespace App\Domains\Auth\Resources;
 
-use App\Domains\Rbac\Resources\RoleResource;
+use App\Domains\Authorization\Resources\RoleResource;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
