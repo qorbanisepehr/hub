@@ -286,7 +286,10 @@ export function DocumentPreviewLightbox({
                     />
                     <InfoRow label="اندازه" value={getDocFileSizeFormatted(doc)} />
                     {doc.uploaded_by && (
-                        <InfoRow label="آپلود توسط" value={doc.uploaded_by} />
+                        <InfoRow
+                            label="آپلود توسط"
+                            value={String(doc.uploaded_by)}
+                        />
                     )}
                     {doc.created_at && (
                         <InfoRow

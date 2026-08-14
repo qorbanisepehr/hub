@@ -1,4 +1,4 @@
-import type { FieldApi } from "@tanstack/react-form";
+import type { AnyFieldApi } from "@tanstack/react-form";
 
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import {
@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/input-otp";
 
 type Props = {
-    field: FieldApi<any, any, any, any>;
+    field: AnyFieldApi;
 };
 
 export function CodeField({ field }: Props) {

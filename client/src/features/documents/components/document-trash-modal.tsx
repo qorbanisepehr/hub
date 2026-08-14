@@ -39,13 +39,15 @@ export function DocumentTrashModal({
         new Set(),
     );
 
+    const entityId = documentableId ? String(documentableId) : undefined;
+
     const { data: trashedDocuments, isLoading } = useQuery({
-        queryKey: documentKeys.trashed(documentableType, documentableId),
+        queryKey: documentKeys.trashed(documentableType, entityId),
         enabled: open,
         queryFn: async () => {
             const { data } = await fetchTrashedDocuments(
                 documentableType,
-                documentableId ? String(documentableId) : undefined,
+                entityId,
             );
             return data.data;
         },
@@ -55,7 +57,7 @@ export function DocumentTrashModal({
         mutationFn: (documentId: number) => restoreDocument(documentId),
         onSuccess: (response, documentId) => {
             queryClient.setQueryData(
-                documentKeys.trashed(documentableType, documentableId),
+                documentKeys.trashed(documentableType, entityId),
                 (old: Document[] | undefined) =>
                     old?.filter((d) => d.id !== documentId),
             );
@@ -75,7 +77,7 @@ export function DocumentTrashModal({
         mutationFn: (documentId: number) => forceDeleteDocument(documentId),
         onSuccess: (_, documentId) => {
             queryClient.setQueryData(
-                documentKeys.trashed(documentableType, documentableId),
+                documentKeys.trashed(documentableType, entityId),
                 (old: Document[] | undefined) =>
                     old?.filter((d) => d.id !== documentId),
             );

@@ -75,7 +75,8 @@ export function ExportChartDialog({
         try {
             const response = await exportRoleChart({
                 scope,
-                root_id: scope === "subtree" ? rootId : undefined,
+                root_id:
+                    scope === "subtree" ? (rootId ?? undefined) : undefined,
                 fields: selectedFields,
                 format: "csv",
             });

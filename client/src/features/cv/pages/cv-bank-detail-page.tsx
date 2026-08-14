@@ -24,7 +24,6 @@ import { PageHeader } from "@/components/shared/page-header";
 import { PageLayout } from "@/components/shared/page-layout";
 import { ViewSkeleton } from "@/components/shared/view-skeleton";
 import { ShareDialog } from "@/components/shared/share-dialog";
-import { PermissionGuard } from "@/features/auth/components/permission-guard";
 import { CvResumeView } from "@/features/cv/components/cv-resume-view";
 import {
     CvFeedbackMenu,
@@ -40,7 +39,6 @@ import {
     CV_STATUS_BADGE_VARIANTS,
     CV_STATUS_LABELS,
 } from "@/features/cv/constants";
-import { PERMISSIONS } from "@/lib/permissions";
 import { cvKeys } from "@/lib/query-keys";
 import { getApiError } from "@/lib/error-utils";
 import { toPersianDate } from "@/lib/date-format";
@@ -170,12 +168,9 @@ export function CvBankDetailPage() {
                         <IconHistory className="size-4" />
                     </Button>
 
-                    {canForward && !linkedQuestionnaire && (
-                        <PermissionGuard
-                            permission={
-                                PERMISSIONS.CV_CREATE_QUESTIONNAIRE
-                            }
-                        >
+                    {canForward &&
+                        !linkedQuestionnaire &&
+                        cv.capabilities.create_questionnaire && (
                             <Button
                                 variant="outline"
                                 disabled={
@@ -192,8 +187,7 @@ export function CvBankDetailPage() {
                                 )}
                                 ایجاد پرسشنامه
                             </Button>
-                        </PermissionGuard>
-                    )}
+                        )}
 
                     {linkedQuestionnaire && (
                         <Button
@@ -205,40 +199,32 @@ export function CvBankDetailPage() {
                         </Button>
                     )}
 
-                    {canForward && !linkedQuestionnaire && (
-                        <PermissionGuard
-                            permission={PERMISSIONS.CV_REJECT}
+                    {canForward && !linkedQuestionnaire && cv.capabilities.reject && (
+                        <Button
+                            variant="destructive"
+                            disabled={rejectMutation.isPending}
+                            onClick={() => setRejectOpen(true)}
                         >
-                            <Button
-                                variant="destructive"
-                                disabled={rejectMutation.isPending}
-                                onClick={() => setRejectOpen(true)}
-                            >
-                                <IconX className="size-4" />
-                                رد رزومه
-                            </Button>
-                        </PermissionGuard>
+                            <IconX className="size-4" />
+                            رد رزومه
+                        </Button>
                     )}
 
-                    {cv.status === "submitted" && (
-                        <PermissionGuard
-                            permission={PERMISSIONS.CV_APPROVE}
+                    {cv.status === "submitted" && cv.capabilities.approve && (
+                        <Button
+                            disabled={
+                                approveMutation.isPending ||
+                                createQuestionnaireMutation.isPending
+                            }
+                            onClick={() => approveMutation.mutate()}
                         >
-                            <Button
-                                disabled={
-                                    approveMutation.isPending ||
-                                    createQuestionnaireMutation.isPending
-                                }
-                                onClick={() => approveMutation.mutate()}
-                            >
-                                {approveMutation.isPending ? (
-                                    <IconLoader2 className="size-4 animate-spin" />
-                                ) : (
-                                    <IconCheck className="size-4" />
-                                )}
-                                تأیید رزومه
-                            </Button>
-                        </PermissionGuard>
+                            {approveMutation.isPending ? (
+                                <IconLoader2 className="size-4 animate-spin" />
+                            ) : (
+                                <IconCheck className="size-4" />
+                            )}
+                            تأیید رزومه
+                        </Button>
                     )}
                 </div>
             </PageHeader>

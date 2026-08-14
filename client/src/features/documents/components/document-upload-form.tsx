@@ -106,7 +106,11 @@ export function DocumentUploadForm({
         },
         onError: (error: unknown) => {
             if (file) {
-                setFile({ ...file, status: "error", error: getApiError(error) });
+                setFile({
+                    ...file,
+                    status: "error",
+                    error: getApiError(error) ?? undefined,
+                });
             }
             setServerError(getApiError(error));
         },

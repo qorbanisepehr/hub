@@ -67,6 +67,12 @@ export interface CvLifecycleEvent {
 
 export type CvStatus = "draft" | "submitted" | "approved" | "rejected";
 
+export interface CvCapabilities {
+    approve: boolean;
+    reject: boolean;
+    create_questionnaire: boolean;
+}
+
 export interface Cv {
     id: number;
     uuid: string;
@@ -90,6 +96,7 @@ export interface Cv {
     questionnaire?: { uuid: string; status: string } | null;
     reviewer: ReviewerSummary | null;
     lifecycle: CvLifecycleEvent[] | null;
+    capabilities: CvCapabilities;
     created_at: string;
     updated_at: string;
 }
