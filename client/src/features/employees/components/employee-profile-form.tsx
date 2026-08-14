@@ -26,6 +26,27 @@ import { ContactInfoSection } from "./sections/contact-info-section";
 import { LinkedUserSection } from "./sections/linked-user-section";
 import { EmploymentSection } from "./sections/employment-section";
 import { DocumentsSection } from "./sections/documents-section";
+import {
+    defaultPersonalInfo,
+    toPersonalInfoPayload,
+} from "@/features/questionnaire/schemas/personal-info.schema";
+import {
+    defaultContactInfo,
+    toContactInfoPayload,
+} from "@/features/questionnaire/schemas/contact-info.schema";
+import { defaultEducation } from "@/features/questionnaire/schemas/education.schema";
+import { defaultWorkExperience } from "@/features/questionnaire/schemas/work-experience.schema";
+import { defaultSkills } from "@/features/questionnaire/schemas/skills.schema";
+import { defaultTraining } from "@/features/questionnaire/schemas/training.schema";
+import { defaultAdditionalInfo } from "@/features/questionnaire/schemas/additional-info.schema";
+import {
+    defaultEmployeeEmployment,
+    toEmploymentPayload,
+} from "@/features/employees/schemas/employment.schema";
+import {
+    defaultSocialInsurance,
+    toSocialInsurancePayload,
+} from "@/features/employees/schemas/social-insurance.schema";
 import { saveEmployeeSection, submitEmployee } from "@/features/employees/api";
 import {
     EMPLOYEE_DOCUMENTS_TAB,
@@ -51,113 +72,14 @@ type EmployeeProfileFormProps = {
     employee: Employee;
 };
 
-const EMPTY_PERSONAL_INFO = {
-    id_number: "",
-    gender: "",
-    birth_date: "",
-    marital_status: "",
-    first_name_en: "",
-    last_name_en: "",
-    birth_place: "",
-    birth_certificate_number: "",
-    father_name: "",
-    religion: "",
-    religion_sect: "",
-    blood_group: "",
-    dependents_count: null,
-    children_count: null,
-    spouse_employment_status: "",
-    spouse_job: "",
-    military_status: {
-        status: "",
-        organization: "",
-        from: "",
-        to: "",
-        reason: "",
-    },
-};
-
-const EMPTY_CONTACT_INFO = {
-    phone: "",
-    emergency_phone: "",
-    address: {
-        postal_code: "",
-        province: "",
-        city: "",
-        neighborhood: "",
-        address: "",
-        plaque: "",
-        floor: "",
-        unit: "",
-    },
-};
-
-const EMPTY_EDUCATION = {
-    education_records: [],
-    is_student: false,
-    student_degree: "",
-    student_field: "",
-    student_university: "",
-    student_country: "",
-    student_city: "",
-    student_semester: null,
-    passed_units: null,
-    remaining_units: null,
-    student_gpa: "",
-    study_start: "",
-    expected_graduation: "",
-    thesis_submitted: false,
-    student_thesis_title: "",
-    free_days_per_week: null,
-    education_description: "",
-};
-
-const EMPTY_WORK_EXPERIENCE = {
-    work_experiences: [],
-    achievements: "",
-    allow_contact_previous_managers: false,
-    contact_restriction_description: "",
-};
-
-const EMPTY_SOCIAL_INSURANCE = {
-    social_insurance_number: "",
-    insurance_status: "",
-    insurance_start_date: "",
-    has_insurance_history: false,
-    histories: [],
-};
-
-const EMPTY_SKILLS = {
-    languages: [],
-    certificates: [],
-    special_skills: [],
-    software_skills: { specialized: [], general: [] },
-};
-
-const EMPTY_TRAINING = {
-    training_courses: [],
-    professional_memberships: "",
-    researches: [],
-};
-
-const EMPTY_ADDITIONAL_INFO = {
-    has_chronic_disease: false,
-    chronic_disease_description: "",
-    company_introduction_method: "",
-    has_major_surgery: false,
-    major_surgery_description: "",
-    reason_for_joining: "",
-    has_disability: false,
-    disability_description: "",
-    physical_condition: "",
-    disability_type: "",
-    can_travel: false,
-    travel_description: "",
-    has_criminal_record: false,
-    criminal_record_description: "",
-    hobbies: "",
-    references: [],
-    strengths_and_improvements: "",
+const SECTION_PAYLOAD_BUILDERS: Record<
+    string,
+    (values: EmployeeProfileFormData) => Record<string, unknown>
+> = {
+    personal_info: toPersonalInfoPayload,
+    contact_info: toContactInfoPayload,
+    employment: toEmploymentPayload,
+    social_insurance: toSocialInsurancePayload,
 };
 
 /**
@@ -175,7 +97,7 @@ function buildDefaultValues(employee: Employee): EmployeeProfileFormData {
         email: employee.email ?? "",
         mobile: employee.mobile ?? "",
         personal_info: {
-            ...EMPTY_PERSONAL_INFO,
+            ...defaultPersonalInfo(),
             ...(employee.section_personal ?? {}),
             id_number: employee.id_number ?? "",
             gender: employee.gender ?? "",
@@ -183,34 +105,35 @@ function buildDefaultValues(employee: Employee): EmployeeProfileFormData {
             marital_status: employee.marital_status ?? "",
         },
         contact_info: {
-            ...EMPTY_CONTACT_INFO,
+            ...defaultContactInfo(),
             ...(employee.section_contact_address ?? {}),
             email: employee.email ?? "",
             mobile: employee.mobile ?? "",
         },
         employment: {
+            ...defaultEmployeeEmployment(),
             personnel_code: employee.personnel_code ?? "",
             employment_type: employee.employment_type ?? "",
             hire_date: employee.hire_date ?? "",
             employment_status: employee.employment_status ?? "",
         },
         education: {
-            ...EMPTY_EDUCATION,
+            ...defaultEducation(),
             ...(employee.section_education ?? {}),
         },
         work_experience: {
-            ...EMPTY_WORK_EXPERIENCE,
+            ...defaultWorkExperience(),
             ...(employee.section_work_experience ?? {}),
         },
         social_insurance: {
-            ...EMPTY_SOCIAL_INSURANCE,
+            ...defaultSocialInsurance(),
             ...(employee.section_social_insurance ?? {}),
             social_insurance_number: employee.social_insurance_number ?? "",
         },
-        skills: { ...EMPTY_SKILLS, ...(employee.section_skills ?? {}) },
-        training: { ...EMPTY_TRAINING, ...(employee.section_training ?? {}) },
+        skills: { ...defaultSkills(), ...(employee.section_skills ?? {}) },
+        training: { ...defaultTraining(), ...(employee.section_training ?? {}) },
         additional_info: {
-            ...EMPTY_ADDITIONAL_INFO,
+            ...defaultAdditionalInfo(),
             ...(employee.section_additional_info ?? {}),
         },
     };
@@ -219,38 +142,21 @@ function buildDefaultValues(employee: Employee): EmployeeProfileFormData {
 /**
  * Extract the payload for one section from the full form values. Top-level
  * identity/contact fields win: the JSONB copy is stale and must never overwrite
- * what the user just typed.
+ * what the user just typed. Sections without a dedicated builder pass through.
  */
 function extractSectionData(
     values: EmployeeProfileFormData,
     sectionKey: string,
 ): Record<string, unknown> {
-    switch (sectionKey) {
-        case "personal_info": {
-            const personalInfo = values.personal_info ?? {};
-            return {
-                ...personalInfo,
-                first_name: values.first_name ?? "",
-                last_name: values.last_name ?? "",
-            };
-        }
-        case "contact_info": {
-            const contactInfo = values.contact_info ?? {};
-            return {
-                ...contactInfo,
-                email: values.email ?? "",
-                mobile: values.mobile ?? "",
-            };
-        }
-        case "employment":
-            return (values.employment as Record<string, unknown>) ?? {};
-        default:
-            return (
-                (values[sectionKey as keyof EmployeeProfileFormData] as
-                    | Record<string, unknown>
-                    | undefined) ?? {}
-            );
+    const builder = SECTION_PAYLOAD_BUILDERS[sectionKey];
+    if (builder) {
+        return builder(values);
     }
+    return (
+        (values[sectionKey as keyof EmployeeProfileFormData] as
+            | Record<string, unknown>
+            | undefined) ?? {}
+    );
 }
 
 export function EmployeeProfileForm({ employee }: EmployeeProfileFormProps) {

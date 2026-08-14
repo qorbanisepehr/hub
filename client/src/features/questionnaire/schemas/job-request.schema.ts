@@ -59,3 +59,25 @@ export type JobRequestSchemas = ReturnType<typeof buildJobRequestSchemas>;
 export type JobRequestFormData = z.infer<
     ReturnType<typeof buildJobRequestSchemas>["jobRequestFieldSchema"]
 >;
+
+/**
+ * Default (draft) values for the job request section. The accept checkbox
+ * starts unchecked and is only required at submit time.
+ */
+export function defaultJobRequest() {
+    return {
+        employment_type: "",
+        expected_monthly_salary: null,
+        minimum_hours_per_month: null,
+        expected_hourly_salary: null,
+        submitted_resume_before: false,
+        interviewed_before: false,
+        other_information: "",
+        accept_information: false,
+        preferred_workplace: [],
+        job_priority_1: "",
+        job_priority_2: "",
+        currently_employed: false,
+        available_start_date: "",
+    };
+}

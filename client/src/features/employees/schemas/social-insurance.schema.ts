@@ -108,3 +108,27 @@ export const socialInsuranceSubmitSchema =
 export type SocialInsuranceFormData = z.infer<
     typeof socialInsuranceFieldSchema
 >;
+
+/**
+ * Default (draft) values for the social insurance section.
+ */
+export function defaultSocialInsurance() {
+    return {
+        social_insurance_number: "",
+        insurance_status: "",
+        insurance_start_date: "",
+        has_insurance_history: false,
+        histories: [],
+    };
+}
+
+/**
+ * Build the social insurance section payload from the full form values. The
+ * section is passed through as-is; the number is persisted into the real
+ * `social_insurance_number` column at save time.
+ */
+export function toSocialInsurancePayload(values: {
+    social_insurance?: unknown;
+}): Record<string, unknown> {
+    return (values.social_insurance as Record<string, unknown> | undefined) ?? {};
+}

@@ -20,3 +20,15 @@ export const employmentFieldSchema = z.object({
 });
 
 export type EmploymentFormData = z.infer<typeof employmentFieldSchema>;
+
+/**
+ * Default (draft) values for the employment fields shared by the questionnaire
+ * and employee profile forms.
+ */
+export function defaultEmployment() {
+    return {
+        employment_type: "",
+        hire_date: "",
+        employment_status: "",
+    };
+}

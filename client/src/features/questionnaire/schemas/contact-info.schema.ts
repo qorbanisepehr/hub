@@ -39,3 +39,43 @@ export const fieldSchemas = {
     address_neighborhood: text(100, "حداکثر ۱۰۰ کاراکتر."),
     address_address: requiredText("آدرس الزامی است.", 500),
 } as const;
+
+/**
+ * Default (draft) values for the contact info section, shared by the
+ * questionnaire, CV, and employee profile forms.
+ */
+export function defaultContactInfo() {
+    return {
+        phone: "",
+        emergency_phone: "",
+        address: {
+            postal_code: "",
+            province: "",
+            city: "",
+            neighborhood: "",
+            address: "",
+            plaque: "",
+            floor: "",
+            unit: "",
+        },
+    };
+}
+
+/**
+ * Build the contact info section payload from the full form values. The
+ * JSONB section is spread first so the top-level email/mobile columns win:
+ * the JSONB copy is stale and must never overwrite what the user just typed.
+ */
+export function toContactInfoPayload(values: {
+    email?: string;
+    mobile?: string;
+    contact_info?: unknown;
+}): Record<string, unknown> {
+    const contactInfo =
+        (values.contact_info as Record<string, unknown> | undefined) ?? {};
+    return {
+        ...contactInfo,
+        email: values.email ?? "",
+        mobile: values.mobile ?? "",
+    };
+}

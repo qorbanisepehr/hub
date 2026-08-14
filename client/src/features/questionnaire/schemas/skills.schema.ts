@@ -65,3 +65,16 @@ export const fieldSchemas = {
     special_skills: z.array(text(100, "حداکثر ۱۰۰ کاراکتر.")).optional(),
     special_skill_item: requiredText("نام مهارت الزامی است.", 100),
 } as const;
+
+/**
+ * Default (draft) values for the skills section, shared by the questionnaire,
+ * CV, and employee profile forms.
+ */
+export function defaultSkills() {
+    return {
+        languages: [],
+        certificates: [],
+        special_skills: [],
+        software_skills: { specialized: [], general: [] },
+    };
+}

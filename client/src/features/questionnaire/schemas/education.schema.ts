@@ -97,3 +97,29 @@ export const fieldSchemas = {
     expected_graduation: requiredText("تاریخ انتظار فارغ‌التحصیلی الزامی است."),
     student_thesis_title: requiredText("عنوان پایان‌نامه الزامی است.", 255),
 } as const;
+
+/**
+ * Default (draft) values for the education section, shared by the
+ * questionnaire, CV, and employee profile forms.
+ */
+export function defaultEducation() {
+    return {
+        education_records: [],
+        is_student: false,
+        student_degree: "",
+        student_field: "",
+        student_university: "",
+        student_country: "",
+        student_city: "",
+        student_semester: null,
+        passed_units: null,
+        remaining_units: null,
+        student_gpa: "",
+        study_start: "",
+        expected_graduation: "",
+        thesis_submitted: false,
+        student_thesis_title: "",
+        free_days_per_week: null,
+        education_description: "",
+    };
+}

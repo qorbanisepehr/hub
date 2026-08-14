@@ -46,6 +46,20 @@ import {
     validateDocumentRequirements,
 } from "@/lib/validation-helpers";
 import type { Questionnaire } from "@/features/questionnaire/types";
+import {
+    defaultPersonalInfo,
+    toPersonalInfoPayload,
+} from "@/features/questionnaire/schemas/personal-info.schema";
+import {
+    defaultContactInfo,
+    toContactInfoPayload,
+} from "@/features/questionnaire/schemas/contact-info.schema";
+import { defaultEducation } from "@/features/questionnaire/schemas/education.schema";
+import { defaultWorkExperience } from "@/features/questionnaire/schemas/work-experience.schema";
+import { defaultSkills } from "@/features/questionnaire/schemas/skills.schema";
+import { defaultTraining } from "@/features/questionnaire/schemas/training.schema";
+import { defaultAdditionalInfo } from "@/features/questionnaire/schemas/additional-info.schema";
+import { defaultJobRequest } from "@/features/questionnaire/schemas/job-request.schema";
 
 import { PersonalInfoSection } from "./sections/personal-info-section";
 import { ContactInfoSection } from "./sections/contact-info-section";
@@ -94,114 +108,26 @@ function buildDefaultValues(questionnaire: Questionnaire): WizardFormValues {
         last_name: questionnaire.last_name ?? "",
         email: questionnaire.email ?? "",
         mobile: questionnaire.mobile ?? "",
-        personal_info: questionnaire.personal_info ?? {
-            gender: "",
-            blood_group: "",
-            birth_date: "",
-            birth_place: "",
-            birth_certificate_number: "",
-            father_name: "",
-            religion: "",
-            marital_status: "",
-            first_name_en: "",
-            last_name_en: "",
-            dependents_count: null,
-            children_count: null,
-            spouse_employment_status: "",
-            spouse_job: "",
-            military_status: {
-                status: "",
-                organization: "",
-                from: "",
-                to: "",
-                reason: "",
-            },
-            id_number: "",
-        },
-        contact_info: questionnaire.contact_info ?? {
-            phone: "",
-            emergency_phone: "",
-            address: {
-                postal_code: "",
-                province: "",
-                city: "",
-                address: "",
-                plaque: "",
-                floor: "",
-                unit: "",
-                neighborhood: "",
-            },
-        },
-        education: questionnaire.education ?? {
-            education_records: [],
-            is_student: false,
-            student_degree: "",
-            student_field: "",
-            student_university: "",
-            student_country: "",
-            student_city: "",
-            student_semester: null,
-            passed_units: null,
-            remaining_units: null,
-            student_gpa: "",
-            study_start: "",
-            expected_graduation: "",
-            thesis_submitted: false,
-            student_thesis_title: "",
-            free_days_per_week: null,
-            education_description: "",
-        },
-        work_experience: questionnaire.work_experience ?? {
-            work_experiences: [],
-            achievements: "",
-            allow_contact_previous_managers: false,
-            contact_restriction_description: "",
-        },
-        skills: questionnaire.skills ?? {
-            languages: [],
-            certificates: [],
-            special_skills: [],
-            software_skills: { specialized: [], general: [] },
-        },
-        training: questionnaire.training ?? {
-            training_courses: [],
-            professional_memberships: "",
-            researches: [],
-        },
-        additional_info: questionnaire.additional_info ?? {
-            has_chronic_disease: false,
-            chronic_disease_description: "",
-            company_introduction_method: "",
-            has_major_surgery: false,
-            major_surgery_description: "",
-            reason_for_joining: "",
-            has_disability: false,
-            disability_description: "",
-            can_travel: false,
-            travel_description: "",
-            has_criminal_record: false,
-            criminal_record_description: "",
-            hobbies: "",
-            references: [],
-            strengths_and_improvements: "",
-        },
-        job_request: questionnaire.job_request ?? {
-            employment_type: "",
-            expected_monthly_salary: null,
-            minimum_hours_per_month: null,
-            expected_hourly_salary: null,
-            submitted_resume_before: false,
-            interviewed_before: false,
-            other_information: "",
-            accept_information: false,
-            preferred_workplace: [],
-            job_priority_1: "",
-            job_priority_2: "",
-            currently_employed: false,
-            available_start_date: "",
-        },
+        personal_info: questionnaire.personal_info ?? defaultPersonalInfo(),
+        contact_info: questionnaire.contact_info ?? defaultContactInfo(),
+        education: questionnaire.education ?? defaultEducation(),
+        work_experience:
+            questionnaire.work_experience ?? defaultWorkExperience(),
+        skills: questionnaire.skills ?? defaultSkills(),
+        training: questionnaire.training ?? defaultTraining(),
+        additional_info:
+            questionnaire.additional_info ?? defaultAdditionalInfo(),
+        job_request: questionnaire.job_request ?? defaultJobRequest(),
     };
 }
+
+const SECTION_PAYLOAD_BUILDERS: Record<
+    string,
+    (values: WizardFormValues) => Record<string, unknown>
+> = {
+    personal_info: toPersonalInfoPayload,
+    contact_info: toContactInfoPayload,
+};
 
 /**
  * Extract the data payload for a given wizard step key from the full form values.
@@ -210,36 +136,16 @@ function extractSectionData(
     values: WizardFormValues,
     sectionKey: string,
 ): Record<string, unknown> {
-    switch (sectionKey) {
-        case "personal_info": {
-            // Spread the JSONB section first so the top-level identity fields
-            // win: the JSONB copy of first_name/last_name is stale and must
-            // never overwrite what the user just typed.
-            const personalInfo =
-                (values.personal_info as Record<string, unknown> | undefined) ?? {};
-            return {
-                ...personalInfo,
-                first_name: values.first_name,
-                last_name: values.last_name,
-            };
-        }
-        case "contact_info": {
-            // Same rule as personal_info: email/mobile live on the real
-            // columns, so the JSONB copy must not override the typed values.
-            const contactInfo =
-                (values.contact_info as Record<string, unknown> | undefined) ?? {};
-            return {
-                ...contactInfo,
-                email: values.email,
-                mobile: values.mobile,
-            };
-        }
-        default:
-            if (sectionKey in values) {
-                return (values[sectionKey] as Record<string, unknown> | undefined) ?? {};
-            }
-            return {};
+    const builder = SECTION_PAYLOAD_BUILDERS[sectionKey];
+    if (builder) {
+        return builder(values);
     }
+    if (sectionKey in values) {
+        return (
+            (values[sectionKey] as Record<string, unknown> | undefined) ?? {}
+        );
+    }
+    return {};
 }
 
 function getStepFromHash(): number {

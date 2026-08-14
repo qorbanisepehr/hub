@@ -58,3 +58,16 @@ export const fieldSchemas = {
     allow_contact_previous_managers: z.boolean().optional(),
     contact_restriction_description: text(500, "حداکثر ۵۰۰ کاراکتر."),
 } as const;
+
+/**
+ * Default (draft) values for the work experience section, shared by the
+ * questionnaire, CV, and employee profile forms.
+ */
+export function defaultWorkExperience() {
+    return {
+        work_experiences: [],
+        achievements: "",
+        allow_contact_previous_managers: false,
+        contact_restriction_description: "",
+    };
+}

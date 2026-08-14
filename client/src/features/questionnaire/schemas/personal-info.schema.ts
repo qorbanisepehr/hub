@@ -181,3 +181,55 @@ export type PersonalInfoSchemas = ReturnType<typeof buildPersonalInfoSchemas>;
 export type PersonalInfoFormData = z.infer<
     ReturnType<typeof buildPersonalInfoSchemas>["personalInfoFieldSchema"]
 >;
+
+/**
+ * Default (draft) values for the personal info section, shared by the
+ * questionnaire, CV, and employee profile forms.
+ */
+export function defaultPersonalInfo() {
+    return {
+        id_number: "",
+        gender: "",
+        birth_date: "",
+        marital_status: "",
+        first_name_en: "",
+        last_name_en: "",
+        birth_place: "",
+        birth_certificate_number: "",
+        father_name: "",
+        religion: "",
+        religion_sect: "",
+        blood_group: "",
+        dependents_count: null,
+        children_count: null,
+        spouse_employment_status: "",
+        spouse_job: "",
+        military_status: {
+            status: "",
+            organization: "",
+            from: "",
+            to: "",
+            reason: "",
+        },
+    };
+}
+
+/**
+ * Build the personal info section payload from the full form values. The
+ * JSONB section is spread first so the top-level identity fields win: the
+ * JSONB copy of first/last name is stale and must never overwrite what the
+ * user just typed.
+ */
+export function toPersonalInfoPayload(values: {
+    first_name?: string;
+    last_name?: string;
+    personal_info?: unknown;
+}): Record<string, unknown> {
+    const personalInfo =
+        (values.personal_info as Record<string, unknown> | undefined) ?? {};
+    return {
+        ...personalInfo,
+        first_name: values.first_name ?? "",
+        last_name: values.last_name ?? "",
+    };
+}

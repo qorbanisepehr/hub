@@ -42,3 +42,15 @@ export const fieldSchemas = {
     research_title: requiredText("عنوان تحقیق الزامی است.", 255),
     professional_memberships: text(1000, "حداکثر ۱۰۰۰ کاراکتر."),
 } as const;
+
+/**
+ * Default (draft) values for the training section, shared by the
+ * questionnaire, CV, and employee profile forms.
+ */
+export function defaultTraining() {
+    return {
+        training_courses: [],
+        professional_memberships: "",
+        researches: [],
+    };
+}

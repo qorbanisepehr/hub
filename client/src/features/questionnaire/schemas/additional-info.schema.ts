@@ -118,3 +118,29 @@ export function buildAdditionalInfoSchemas(options: AdditionalInfoOptions) {
         disability_type: disabilityType,
     };
 }
+
+/**
+ * Default (draft) values for the additional info section, shared by the
+ * questionnaire, CV, and employee profile forms.
+ */
+export function defaultAdditionalInfo() {
+    return {
+        has_chronic_disease: false,
+        chronic_disease_description: "",
+        company_introduction_method: "",
+        has_major_surgery: false,
+        major_surgery_description: "",
+        reason_for_joining: "",
+        has_disability: false,
+        disability_description: "",
+        physical_condition: "",
+        disability_type: "",
+        can_travel: false,
+        travel_description: "",
+        has_criminal_record: false,
+        criminal_record_description: "",
+        hobbies: "",
+        references: [],
+        strengths_and_improvements: "",
+    };
+}
