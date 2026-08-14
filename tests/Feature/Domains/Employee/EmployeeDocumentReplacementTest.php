@@ -10,8 +10,8 @@ describe('employee document replacement', function () {
     it('replaces the current document and keeps the old one as history', function () {
         Storage::fake('local');
         $user = createUserWithPermissions([
-            'employee.view_all',
-            'employee.update_all',
+            'employee.documents.upload',
+            'employee.documents.view',
         ]);
         $employee = Employee::factory()->create();
         $category = personnelDocumentCategory('national-card', 'کارت ملی');
@@ -55,7 +55,7 @@ describe('employee document replacement', function () {
     });
 
     it('exposes backend-authoritative capabilities on the employee index', function () {
-        $user = createUserWithPermissions(['employee.view_all']);
+        $user = createUserWithPermissions(['employee.documents.view', 'employee.documents.download']);
         $employee = Employee::factory()->create();
 
         $this->actingAs($user)
@@ -74,8 +74,10 @@ describe('employee document replacement', function () {
 
     it('grants write capabilities only to users with update access', function () {
         $user = createUserWithPermissions([
-            'employee.view_all',
-            'employee.update_all',
+            'employee.documents.view',
+            'employee.documents.download',
+            'employee.documents.upload',
+            'employee.documents.delete',
         ]);
         $employee = Employee::factory()->create();
 

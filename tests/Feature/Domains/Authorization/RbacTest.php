@@ -1,12 +1,12 @@
 <?php
 
-use App\Domains\Document\Models\Document;
-use App\Domains\Document\Models\DocumentCategory;
-use App\Domains\Employee\Models\Employee;
 use App\Domains\Authorization\Models\Permission;
 use App\Domains\Authorization\Models\PermissionGroup;
 use App\Domains\Authorization\Models\Role;
 use App\Domains\Authorization\Policies\DynamicPolicy;
+use App\Domains\Document\Models\Document;
+use App\Domains\Document\Models\DocumentCategory;
+use App\Domains\Employee\Models\Employee;
 use App\Models\User;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Testing\Fluent\AssertableJson;
@@ -16,19 +16,19 @@ describe('RBAC', function () {
         it('creates a permission with group', function () {
             $group = PermissionGroup::create(['name' => 'Employees', 'slug' => 'employee']);
             $permission = Permission::create([
-                'name' => 'employee.view_all',
+                'name' => 'employee.view',
                 'display_name' => 'View All Employees',
                 'group_id' => $group->id,
             ]);
 
-            expect($permission->name)->toBe('employee.view_all');
+            expect($permission->name)->toBe('employee.view');
             expect($permission->group->slug)->toBe('employee');
         });
 
         it('creates a role with permissions', function () {
             $group = PermissionGroup::create(['name' => 'Employees', 'slug' => 'employee']);
             $permission = Permission::create([
-                'name' => 'employee.view_all',
+                'name' => 'employee.view',
                 'display_name' => 'View All Employees',
                 'group_id' => $group->id,
             ]);
@@ -40,13 +40,13 @@ describe('RBAC', function () {
             $role->permissions()->attach($permission->id);
 
             expect($role->permissions)->toHaveCount(1);
-            expect($role->permissions->first()->name)->toBe('employee.view_all');
+            expect($role->permissions->first()->name)->toBe('employee.view');
         });
 
         it('resolves hierarchy permissions recursively', function () {
             $group = PermissionGroup::create(['name' => 'Employees', 'slug' => 'employee']);
-            $perm1 = Permission::create(['name' => 'employee.view_own', 'display_name' => 'View Own', 'group_id' => $group->id]);
-            $perm2 = Permission::create(['name' => 'employee.view_all', 'display_name' => 'View All', 'group_id' => $group->id]);
+            $perm1 = Permission::create(['name' => 'employee.update', 'display_name' => 'View Own', 'group_id' => $group->id]);
+            $perm2 = Permission::create(['name' => 'employee.view', 'display_name' => 'View All', 'group_id' => $group->id]);
 
             $parent = Role::create(['name' => 'employee', 'display_name' => 'Employee', 'is_active' => true]);
             $parent->permissions()->attach($perm1->id);
@@ -58,14 +58,14 @@ describe('RBAC', function () {
             $allPermissions = $child->getAllPermissions();
 
             expect($allPermissions)->toHaveCount(2);
-            expect($allPermissions->pluck('name'))->toContain('employee.view_own');
-            expect($allPermissions->pluck('name'))->toContain('employee.view_all');
+            expect($allPermissions->pluck('name'))->toContain('employee.update');
+            expect($allPermissions->pluck('name'))->toContain('employee.view');
         });
 
         it('does not inherit permissions from unrelated roles', function () {
             $group = PermissionGroup::create(['name' => 'Employees', 'slug' => 'employee']);
-            $perm1 = Permission::create(['name' => 'employee.view_own', 'display_name' => 'View Own', 'group_id' => $group->id]);
-            $perm2 = Permission::create(['name' => 'employee.view_all', 'display_name' => 'View All', 'group_id' => $group->id]);
+            $perm1 = Permission::create(['name' => 'employee.update', 'display_name' => 'View Own', 'group_id' => $group->id]);
+            $perm2 = Permission::create(['name' => 'employee.view', 'display_name' => 'View All', 'group_id' => $group->id]);
 
             $parent = Role::create(['name' => 'employee', 'display_name' => 'Employee', 'is_active' => true]);
             $parent->permissions()->attach($perm1->id);
@@ -80,8 +80,8 @@ describe('RBAC', function () {
             $allPermissions = $child->getAllPermissions();
 
             expect($allPermissions)->toHaveCount(1);
-            expect($allPermissions->pluck('name'))->toContain('employee.view_all');
-            expect($allPermissions->pluck('name'))->not->toContain('employee.view_own');
+            expect($allPermissions->pluck('name'))->toContain('employee.view');
+            expect($allPermissions->pluck('name'))->not->toContain('employee.update');
         });
 
         it('detects parent-child relationship', function () {
@@ -95,8 +95,8 @@ describe('RBAC', function () {
 
         it('includes group permissions in role', function () {
             $group = PermissionGroup::create(['name' => 'Employees', 'slug' => 'employee']);
-            $perm1 = Permission::create(['name' => 'employee.view_own', 'display_name' => 'View Own', 'group_id' => $group->id]);
-            $perm2 = Permission::create(['name' => 'employee.view_all', 'display_name' => 'View All', 'group_id' => $group->id]);
+            $perm1 = Permission::create(['name' => 'employee.update', 'display_name' => 'View Own', 'group_id' => $group->id]);
+            $perm2 = Permission::create(['name' => 'employee.view', 'display_name' => 'View All', 'group_id' => $group->id]);
 
             $role = Role::create([
                 'name' => 'manager',
@@ -109,8 +109,8 @@ describe('RBAC', function () {
             $allPermissions = $role->getAllPermissions();
 
             expect($allPermissions)->toHaveCount(2);
-            expect($allPermissions->pluck('name'))->toContain('employee.view_own');
-            expect($allPermissions->pluck('name'))->toContain('employee.view_all');
+            expect($allPermissions->pluck('name'))->toContain('employee.update');
+            expect($allPermissions->pluck('name'))->toContain('employee.view');
         });
     });
 
@@ -149,14 +149,14 @@ describe('RBAC', function () {
             $role = Role::create(['name' => 'test', 'display_name' => 'Test', 'is_active' => true]);
             $group = PermissionGroup::create(['name' => 'Employees', 'slug' => 'employee']);
             $permission = Permission::create([
-                'name' => 'employee.view_all',
+                'name' => 'employee.view',
                 'display_name' => 'View All',
                 'group_id' => $group->id,
             ]);
             $role->permissions()->attach($permission->id);
             $user->assignRole($role->id, true);
 
-            expect($user->hasPermissionTo('employee.view_all'))->toBeTrue();
+            expect($user->hasPermissionTo('employee.view'))->toBeTrue();
             expect($user->hasPermissionTo('employee.delete'))->toBeFalse();
         });
 
@@ -164,29 +164,31 @@ describe('RBAC', function () {
             $user = User::factory()->create();
             $role = Role::create(['name' => 'test', 'display_name' => 'Test', 'is_active' => true]);
             $group = PermissionGroup::create(['name' => 'Employees', 'slug' => 'employee']);
-            $perm1 = Permission::create(['name' => 'employee.view_all', 'display_name' => 'View All', 'group_id' => $group->id]);
+            $perm1 = Permission::create(['name' => 'employee.view', 'display_name' => 'View All', 'group_id' => $group->id]);
             $perm2 = Permission::create(['name' => 'employee.delete', 'display_name' => 'Delete', 'group_id' => $group->id]);
             $role->permissions()->attach([$perm1->id, $perm2->id]);
             $user->assignRole($role->id, true);
 
-            expect($user->hasAnyPermission(['employee.view_all', 'employee.create']))->toBeTrue();
-            expect($user->hasAnyPermission(['employee.create', 'employee.delete_all']))->toBeFalse();
+            expect($user->hasAnyPermission(['employee.view', 'employee.create']))->toBeTrue();
+            expect($user->hasAnyPermission(['employee.create', 'employee.update']))->toBeFalse();
         });
 
-        it('checks super admin bypass', function () {
-            config(['rbac.super_admin_email' => 'superadmin@test.com']);
-            $user = User::factory()->create(['email' => 'superadmin@test.com']);
+        it('recognizes the system administrator role', function () {
+            $role = Role::create(['name' => 'system.administrator', 'display_name' => 'System Administrator', 'is_active' => true]);
+            $user = User::factory()->create();
+            $user->assignRole($role->id, true);
 
-            expect($user->isSuperAdmin())->toBeTrue();
+            expect($user->hasRole('system.administrator'))->toBeTrue();
+            expect(User::factory()->create()->hasRole('system.administrator'))->toBeFalse();
         });
 
         it('caches permissions in cache store', function () {
-            config(['rbac.cache_store' => 'array']);
+            config(['authorization.cache_store' => 'array']);
             $user = User::factory()->create();
             $role = Role::create(['name' => 'test', 'display_name' => 'Test', 'is_active' => true]);
             $group = PermissionGroup::create(['name' => 'Employees', 'slug' => 'employee']);
             $permission = Permission::create([
-                'name' => 'employee.view_all',
+                'name' => 'employee.view',
                 'display_name' => 'View All',
                 'group_id' => $group->id,
             ]);
@@ -197,16 +199,16 @@ describe('RBAC', function () {
 
             expect($cached)->toBeArray();
             $names = array_column($cached, 'name');
-            expect($names)->toContain('employee.view_all');
+            expect($names)->toContain('employee.view');
         });
 
         it('flushes cache on role change', function () {
-            config(['rbac.cache_store' => 'array']);
+            config(['authorization.cache_store' => 'array']);
             $user = User::factory()->create();
             $role = Role::create(['name' => 'test', 'display_name' => 'Test', 'is_active' => true]);
             $group = PermissionGroup::create(['name' => 'Employees', 'slug' => 'employee']);
             $permission = Permission::create([
-                'name' => 'employee.view_all',
+                'name' => 'employee.view',
                 'display_name' => 'View All',
                 'group_id' => $group->id,
             ]);
@@ -215,7 +217,7 @@ describe('RBAC', function () {
 
             $cached = Cache::store('array')->get("user_{$user->id}_permissions");
             $names = array_column($cached, 'name');
-            expect($names)->toContain('employee.view_all');
+            expect($names)->toContain('employee.view');
 
             $user->removeRole($role->id);
 
@@ -301,7 +303,7 @@ describe('RBAC', function () {
             $role1 = Role::create(['name' => 'r1', 'display_name' => 'R1', 'is_active' => true]);
             $role2 = Role::create(['name' => 'r2', 'display_name' => 'R2', 'is_active' => true]);
             $group = PermissionGroup::create(['name' => 'Employees', 'slug' => 'employee']);
-            $perm = Permission::create(['name' => 'employee.view_all', 'display_name' => 'View All', 'group_id' => $group->id]);
+            $perm = Permission::create(['name' => 'employee.view', 'display_name' => 'View All', 'group_id' => $group->id]);
 
             $this->actingAs($user)
                 ->postJson('/api/roles/batch-assign-permissions', [
@@ -319,7 +321,7 @@ describe('RBAC', function () {
             $role1 = Role::create(['name' => 'r1', 'display_name' => 'R1', 'is_active' => true]);
             $role2 = Role::create(['name' => 'r2', 'display_name' => 'R2', 'is_active' => true]);
             $group = PermissionGroup::create(['name' => 'Employees', 'slug' => 'employee']);
-            Permission::create(['name' => 'employee.view_all', 'display_name' => 'View All', 'group_id' => $group->id]);
+            Permission::create(['name' => 'employee.view', 'display_name' => 'View All', 'group_id' => $group->id]);
 
             $this->actingAs($user)
                 ->postJson('/api/roles/batch-assign-permissions', [
@@ -338,7 +340,7 @@ describe('RBAC', function () {
         it('lists permission groups with permissions', function () {
             $user = createUserWithPermissions(['role.view']);
             $group = PermissionGroup::create(['name' => 'Employees', 'slug' => 'employee']);
-            Permission::create(['name' => 'employee.view_all', 'display_name' => 'View All', 'group_id' => $group->id]);
+            Permission::create(['name' => 'employee.view', 'display_name' => 'View All', 'group_id' => $group->id]);
 
             $this->actingAs($user)
                 ->getJson('/api/permissions')
@@ -584,7 +586,7 @@ describe('RBAC', function () {
 
     describe('middleware', function () {
         it('allows access with required permission', function () {
-            $user = createUserWithPermissions(['employee.view_all']);
+            $user = createUserWithPermissions(['employee.list']);
 
             $this->actingAs($user)
                 ->getJson('/api/employees')
@@ -599,17 +601,21 @@ describe('RBAC', function () {
                 ->assertStatus(403);
         });
 
-        it('allows access with one of multiple OR permissions', function () {
-            $user = createUserWithPermissions(['employee.view_own']);
+        it('allows access with a permission matching the route', function () {
+            $employee = Employee::factory()->create();
+            $user = createUserWithPermissions(['employee.view']);
 
             $this->actingAs($user)
-                ->getJson('/api/employees')
+                ->getJson('/api/employees/'.$employee->id)
                 ->assertStatus(200);
         });
 
-        it('allows super admin to bypass all permission checks', function () {
-            config(['rbac.super_admin_email' => 'superadmin@test.com']);
-            $user = User::factory()->create(['email' => 'superadmin@test.com']);
+        it('grants access to the system administrator role', function () {
+            $permission = Permission::create(['name' => 'employee.list', 'display_name' => 'List', 'group_id' => PermissionGroup::create(['name' => 'Employees', 'slug' => 'employee'])->id]);
+            $role = Role::create(['name' => 'system.administrator', 'display_name' => 'System Administrator', 'is_active' => true]);
+            $role->permissions()->attach($permission->id);
+            $user = User::factory()->create();
+            $user->assignRole($role->id, true);
 
             $this->actingAs($user)
                 ->getJson('/api/employees')
@@ -617,7 +623,7 @@ describe('RBAC', function () {
         });
 
         it('denies inactive user even with valid permissions', function () {
-            $user = createUserWithPermissions(['employee.view_all']);
+            $user = createUserWithPermissions(['employee.list']);
             $user->update(['is_active' => false]);
 
             $this->actingAs($user)
@@ -625,9 +631,10 @@ describe('RBAC', function () {
                 ->assertStatus(401);
         });
 
-        it('allows super admin to access me endpoint', function () {
-            config(['rbac.super_admin_email' => 'superadmin@test.com']);
-            $user = User::factory()->create(['email' => 'superadmin@test.com']);
+        it('flags the system administrator role on me endpoint', function () {
+            $role = Role::create(['name' => 'system.administrator', 'display_name' => 'System Administrator', 'is_active' => true]);
+            $user = User::factory()->create();
+            $user->assignRole($role->id, true);
 
             $this->actingAs($user)
                 ->getJson('/api/auth/me')
@@ -647,7 +654,7 @@ describe('RBAC', function () {
     describe('DynamicPolicy', function () {
         it('resolves employee model permissions via convention', function () {
             $employee = Employee::factory()->create();
-            $user = createUserWithPermissions(['employee.view_own', 'employee.view_all']);
+            $user = createUserWithPermissions(['employee.update', 'employee.list']);
             $policy = app(DynamicPolicy::class);
 
             expect($policy->viewAny($user, $employee))->toBeTrue();
@@ -655,7 +662,7 @@ describe('RBAC', function () {
 
         it('resolves document model permissions via explicit config', function () {
             $document = Document::factory()->create();
-            $user = createUserWithPermissions(['document.view_own', 'document.view_all']);
+            $user = createUserWithPermissions(['employee.documents.view', 'employee.documents.download']);
             $policy = app(DynamicPolicy::class);
 
             expect($policy->viewAny($user, $document))->toBeTrue();
@@ -671,7 +678,7 @@ describe('RBAC', function () {
 
         it('allows viewAny when user has required permission', function () {
             $employee = Employee::factory()->create();
-            $user = createUserWithPermissions(['employee.view_own', 'employee.view_all']);
+            $user = createUserWithPermissions(['employee.update', 'employee.list']);
             $policy = app(DynamicPolicy::class);
 
             expect($policy->viewAny($user, $employee))->toBeTrue();
@@ -685,13 +692,13 @@ describe('RBAC', function () {
             expect($policy->viewAny($user, $employee))->toBeFalse();
         });
 
-        it('grants view when user owns the resource with own permission', function () {
+        it('grants view to the resource owner with the view permission', function () {
             $user = User::factory()->create();
             $employee = Employee::factory()->create(['user_id' => $user->id]);
             $role = Role::create(['name' => 'test', 'display_name' => 'Test', 'is_active' => true]);
             $group = PermissionGroup::create(['name' => 'Employees', 'slug' => 'employee']);
-            Permission::create(['name' => 'employee.view_own', 'display_name' => 'View Own', 'group_id' => $group->id]);
-            $role->permissions()->attach(Permission::where('name', 'employee.view_own')->first()->id);
+            Permission::create(['name' => 'employee.view', 'display_name' => 'View', 'group_id' => $group->id]);
+            $role->permissions()->attach(Permission::where('name', 'employee.view')->first()->id);
             $user->assignRole($role->id, true);
 
             $policy = app(DynamicPolicy::class);
@@ -699,19 +706,19 @@ describe('RBAC', function () {
             expect($policy->view($user, $employee))->toBeTrue();
         });
 
-        it('denies view when user does not own the resource with own permission', function () {
+        it('grants view regardless of ownership', function () {
             $user = User::factory()->create();
             $otherUser = User::factory()->create();
             $employee = Employee::factory()->create(['user_id' => $otherUser->id]);
             $role = Role::create(['name' => 'test', 'display_name' => 'Test', 'is_active' => true]);
             $group = PermissionGroup::create(['name' => 'Employees', 'slug' => 'employee']);
-            Permission::create(['name' => 'employee.view_own', 'display_name' => 'View Own', 'group_id' => $group->id]);
-            $role->permissions()->attach(Permission::where('name', 'employee.view_own')->first()->id);
+            Permission::create(['name' => 'employee.view', 'display_name' => 'View', 'group_id' => $group->id]);
+            $role->permissions()->attach(Permission::where('name', 'employee.view')->first()->id);
             $user->assignRole($role->id, true);
 
             $policy = app(DynamicPolicy::class);
 
-            expect($policy->view($user, $employee))->toBeFalse();
+            expect($policy->view($user, $employee))->toBeTrue();
         });
 
         it('grants view with all permission regardless of ownership', function () {
@@ -719,8 +726,8 @@ describe('RBAC', function () {
             $employee = Employee::factory()->create();
             $role = Role::create(['name' => 'test', 'display_name' => 'Test', 'is_active' => true]);
             $group = PermissionGroup::create(['name' => 'Employees', 'slug' => 'employee']);
-            Permission::create(['name' => 'employee.view_all', 'display_name' => 'View All', 'group_id' => $group->id]);
-            $role->permissions()->attach(Permission::where('name', 'employee.view_all')->first()->id);
+            Permission::create(['name' => 'employee.view', 'display_name' => 'View All', 'group_id' => $group->id]);
+            $role->permissions()->attach(Permission::where('name', 'employee.view')->first()->id);
             $user->assignRole($role->id, true);
 
             $policy = app(DynamicPolicy::class);
@@ -736,18 +743,18 @@ describe('RBAC', function () {
             expect($policy->viewAny($user, $roleModel))->toBeFalse();
         });
 
-        it('scopeOwn returns true for own-only users', function () {
+        it('scopeOwn returns false until the policy phase introduces scoping', function () {
             $user = User::factory()->create();
             $employee = Employee::factory()->create(['user_id' => $user->id]);
             $role = Role::create(['name' => 'test', 'display_name' => 'Test', 'is_active' => true]);
             $group = PermissionGroup::create(['name' => 'Employees', 'slug' => 'employee']);
-            Permission::create(['name' => 'employee.view_own', 'display_name' => 'View Own', 'group_id' => $group->id]);
-            $role->permissions()->attach(Permission::where('name', 'employee.view_own')->first()->id);
+            Permission::create(['name' => 'employee.update', 'display_name' => 'View Own', 'group_id' => $group->id]);
+            $role->permissions()->attach(Permission::where('name', 'employee.update')->first()->id);
             $user->assignRole($role->id, true);
 
             $policy = app(DynamicPolicy::class);
 
-            expect($policy->scopeOwn($user, $employee))->toBeTrue();
+            expect($policy->scopeOwn($user, $employee))->toBeFalse();
         });
 
         it('scopeOwn returns false when user has all permission', function () {
@@ -755,11 +762,11 @@ describe('RBAC', function () {
             $employee = Employee::factory()->create(['user_id' => $user->id]);
             $role = Role::create(['name' => 'test', 'display_name' => 'Test', 'is_active' => true]);
             $group = PermissionGroup::create(['name' => 'Employees', 'slug' => 'employee']);
-            Permission::create(['name' => 'employee.view_own', 'display_name' => 'View Own', 'group_id' => $group->id]);
-            Permission::create(['name' => 'employee.view_all', 'display_name' => 'View All', 'group_id' => $group->id]);
+            Permission::create(['name' => 'employee.update', 'display_name' => 'View Own', 'group_id' => $group->id]);
+            Permission::create(['name' => 'employee.view', 'display_name' => 'View All', 'group_id' => $group->id]);
             $role->permissions()->attach([
-                Permission::where('name', 'employee.view_own')->first()->id,
-                Permission::where('name', 'employee.view_all')->first()->id,
+                Permission::where('name', 'employee.update')->first()->id,
+                Permission::where('name', 'employee.view')->first()->id,
             ]);
             $user->assignRole($role->id, true);
 

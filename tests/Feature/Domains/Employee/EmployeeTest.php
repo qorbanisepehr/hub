@@ -179,7 +179,7 @@ describe('employee CRUD', function () {
 
     describe('index', function () {
         it('lists employees with pagination', function () {
-            $user = createUserWithPermissions(['employee.view_all', 'employee.view_own']);
+            $user = createUserWithPermissions(['employee.list']);
             Employee::factory()->count(3)->create();
 
             $this->actingAs($user)
@@ -194,16 +194,15 @@ describe('employee CRUD', function () {
                 ->assertJsonPath('meta.total', 3);
         });
 
-        it('filters employees by own scope', function () {
-            $user = createUserWithPermissions(['employee.view_own']);
+        it('lists all employees until the policy phase introduces scoping', function () {
+            $user = createUserWithPermissions(['employee.list']);
             $ownEmployee = Employee::factory()->create(['user_id' => $user->id]);
             Employee::factory()->create();
 
             $this->actingAs($user)
                 ->getJson('/api/employees')
                 ->assertStatus(200)
-                ->assertJsonPath('meta.total', 1)
-                ->assertJsonPath('data.0.id', $ownEmployee->id);
+                ->assertJsonPath('meta.total', 2);
         });
     });
 
@@ -276,7 +275,7 @@ describe('employee CRUD', function () {
 
     describe('show', function () {
         it('returns a single employee', function () {
-            $user = createUserWithPermissions(['employee.view_all']);
+            $user = createUserWithPermissions(['employee.view']);
             $employee = Employee::factory()->create();
 
             $this->actingAs($user)
@@ -292,26 +291,26 @@ describe('employee CRUD', function () {
         });
 
         it('returns 404 for non-existent employee', function () {
-            $user = createUserWithPermissions(['employee.view_all']);
+            $user = createUserWithPermissions(['employee.view']);
 
             $this->actingAs($user)
                 ->getJson('/api/employees/99999')
                 ->assertStatus(404);
         });
 
-        it('denies access to other employee with own scope', function () {
-            $user = createUserWithPermissions(['employee.view_own']);
+        it('allows access to any employee profile until the policy phase introduces scoping', function () {
+            $user = createUserWithPermissions(['employee.view']);
             $employee = Employee::factory()->create();
 
             $this->actingAs($user)
                 ->getJson('/api/employees/'.$employee->id)
-                ->assertStatus(403);
+                ->assertStatus(200);
         });
     });
 
     describe('update', function () {
         it('updates an employee', function () {
-            $user = createUserWithPermissions(['employee.update_all']);
+            $user = createUserWithPermissions(['employee.update']);
             $employee = Employee::factory()->create();
 
             $this->actingAs($user)
@@ -326,7 +325,7 @@ describe('employee CRUD', function () {
         });
 
         it('allows unique personnel_code on own record', function () {
-            $user = createUserWithPermissions(['employee.update_all']);
+            $user = createUserWithPermissions(['employee.update']);
             $employee = Employee::factory()->create();
 
             $this->actingAs($user)
@@ -340,7 +339,7 @@ describe('employee CRUD', function () {
         });
 
         it('fails with duplicate personnel_code on other record', function () {
-            $user = createUserWithPermissions(['employee.update_all']);
+            $user = createUserWithPermissions(['employee.update']);
             $employee = Employee::factory()->create();
             $other = Employee::factory()->create();
 
@@ -355,8 +354,8 @@ describe('employee CRUD', function () {
                 ->assertJsonValidationErrors(['personnel_code']);
         });
 
-        it('denies update on other employee with own scope', function () {
-            $user = createUserWithPermissions(['employee.update_own']);
+        it('allows update on any employee until the policy phase introduces scoping', function () {
+            $user = createUserWithPermissions(['employee.update']);
             $employee = Employee::factory()->create();
 
             $this->actingAs($user)
@@ -366,11 +365,11 @@ describe('employee CRUD', function () {
                     'last_name' => $employee->last_name,
                     'gender' => $employee->gender,
                 ])
-                ->assertStatus(403);
+                ->assertStatus(200);
         });
 
         it('links a user via partial update without identity fields', function () {
-            $user = createUserWithPermissions(['employee.update_all']);
+            $user = createUserWithPermissions(['employee.update']);
             $employee = Employee::factory()->create();
             $employeeUser = User::factory()->create();
 
@@ -385,7 +384,7 @@ describe('employee CRUD', function () {
         });
 
         it('unlinks the user when user_id is null', function () {
-            $user = createUserWithPermissions(['employee.update_all']);
+            $user = createUserWithPermissions(['employee.update']);
             $employeeUser = User::factory()->create();
             $employee = Employee::factory()->create(['user_id' => $employeeUser->id]);
 
@@ -400,7 +399,7 @@ describe('employee CRUD', function () {
         });
 
         it('rejects linking a user already assigned to another employee', function () {
-            $user = createUserWithPermissions(['employee.update_all']);
+            $user = createUserWithPermissions(['employee.update']);
             $employeeUser = User::factory()->create();
             $other = Employee::factory()->create(['user_id' => $employeeUser->id]);
             $employee = Employee::factory()->create();
@@ -442,7 +441,7 @@ describe('employee CRUD', function () {
 
     describe('index with soft deleted', function () {
         it('excludes soft deleted employees from list', function () {
-            $user = createUserWithPermissions(['employee.view_all']);
+            $user = createUserWithPermissions(['employee.list']);
             Employee::factory()->count(2)->create();
             $deleted = Employee::factory()->create();
             $deleted->delete();
@@ -463,7 +462,7 @@ describe('employee CRUD', function () {
         });
 
         it('denies store without employee.create permission', function () {
-            $user = createUserWithPermissions(['employee.view_all']);
+            $user = createUserWithPermissions(['employee.view']);
 
             $this->actingAs($user)
                 ->postJson('/api/employees', employeeData())
@@ -473,7 +472,7 @@ describe('employee CRUD', function () {
 
     describe('save section', function () {
         it('persists personal info section into real columns and jsonb remainder', function () {
-            $user = createUserWithPermissions(['employee.update_all']);
+            $user = createUserWithPermissions(['employee.update']);
             $employee = Employee::factory()->create();
 
             $this->actingAs($user)
@@ -497,7 +496,7 @@ describe('employee CRUD', function () {
         });
 
         it('persists contact info email and mobile into real columns', function () {
-            $user = createUserWithPermissions(['employee.update_all']);
+            $user = createUserWithPermissions(['employee.update']);
             $employee = Employee::factory()->create();
 
             $this->actingAs($user)
@@ -517,7 +516,7 @@ describe('employee CRUD', function () {
         });
 
         it('rejects structurally invalid section data', function () {
-            $user = createUserWithPermissions(['employee.update_all']);
+            $user = createUserWithPermissions(['employee.update']);
             $employee = Employee::factory()->create();
 
             $this->actingAs($user)
@@ -530,7 +529,7 @@ describe('employee CRUD', function () {
         });
 
         it('returns 500 for unknown section key', function () {
-            $user = createUserWithPermissions(['employee.update_all']);
+            $user = createUserWithPermissions(['employee.update']);
             $employee = Employee::factory()->create();
 
             $this->actingAs($user)
@@ -539,7 +538,7 @@ describe('employee CRUD', function () {
         });
 
         it('denies section save without update permission', function () {
-            $user = createUserWithPermissions(['employee.view_all']);
+            $user = createUserWithPermissions(['employee.view']);
             $employee = Employee::factory()->create();
 
             $this->actingAs($user)
@@ -548,7 +547,7 @@ describe('employee CRUD', function () {
         });
 
         it('persists employment section into real columns without a jsonb remainder', function () {
-            $user = createUserWithPermissions(['employee.update_all']);
+            $user = createUserWithPermissions(['employee.update']);
             $employee = Employee::factory()->create();
 
             $this->actingAs($user)
@@ -575,7 +574,7 @@ describe('employee CRUD', function () {
         });
 
         it('rejects a personnel code already assigned to another employee', function () {
-            $user = createUserWithPermissions(['employee.update_all']);
+            $user = createUserWithPermissions(['employee.update']);
             $other = Employee::factory()->create(['personnel_code' => 'EMP-2000']);
             $employee = Employee::factory()->create();
 
@@ -590,7 +589,7 @@ describe('employee CRUD', function () {
         });
 
         it('rejects structurally invalid employment section data', function () {
-            $user = createUserWithPermissions(['employee.update_all']);
+            $user = createUserWithPermissions(['employee.update']);
             $employee = Employee::factory()->create();
 
             $this->actingAs($user)
@@ -603,7 +602,7 @@ describe('employee CRUD', function () {
         });
 
         it('persists social insurance number into its real column', function () {
-            $user = createUserWithPermissions(['employee.update_all']);
+            $user = createUserWithPermissions(['employee.update']);
             $employee = Employee::factory()->create();
 
             $this->actingAs($user)
@@ -629,7 +628,7 @@ describe('employee CRUD', function () {
 
     describe('submit', function () {
         it('rejects submission when completion rules fail', function () {
-            $user = createUserWithPermissions(['employee.update_all']);
+            $user = createUserWithPermissions(['employee.update']);
             $employee = Employee::factory()->create();
 
             $this->actingAs($user)
@@ -638,7 +637,7 @@ describe('employee CRUD', function () {
         });
 
         it('accepts submission when all sections are complete', function () {
-            $user = createUserWithPermissions(['employee.update_all']);
+            $user = createUserWithPermissions(['employee.update']);
             $employee = Employee::factory()->create();
 
             $sections = [
@@ -665,7 +664,7 @@ describe('employee CRUD', function () {
         });
 
         it('denies submit without update permission', function () {
-            $user = createUserWithPermissions(['employee.view_all']);
+            $user = createUserWithPermissions(['employee.view']);
             $employee = Employee::factory()->create();
 
             $this->actingAs($user)

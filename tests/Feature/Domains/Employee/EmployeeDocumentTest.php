@@ -37,7 +37,7 @@ describe('employee documents', function () {
 
     it('uploads a document and lists it for the employee', function () {
         Storage::fake('local');
-        $user = createUserWithPermissions(['employee.update_all', 'employee.view_all']);
+        $user = createUserWithPermissions(['employee.documents.upload', 'employee.documents.delete', 'employee.documents.view']);
         $employee = Employee::factory()->create();
         $category = employeeDocumentCategory('resume');
 
@@ -71,7 +71,7 @@ describe('employee documents', function () {
 
     it('derives the structure name from the category and field placement', function () {
         Storage::fake('local');
-        $user = createUserWithPermissions(['employee.update_all', 'employee.view_all']);
+        $user = createUserWithPermissions(['employee.documents.upload', 'employee.documents.delete', 'employee.documents.view']);
         $employee = Employee::factory()->create();
         $category = employeeDocumentCategory('national-card', 'کارت ملی');
 
@@ -91,7 +91,7 @@ describe('employee documents', function () {
 
     it('serves a document inline and downloads it under the structure name', function () {
         Storage::fake('local');
-        $user = createUserWithPermissions(['employee.update_all', 'employee.view_all']);
+        $user = createUserWithPermissions(['employee.documents.upload', 'employee.documents.delete', 'employee.documents.view']);
         $employee = Employee::factory()->create();
         $category = employeeDocumentCategory('national-card', 'کارت ملی');
 
@@ -123,7 +123,7 @@ describe('employee documents', function () {
     });
 
     it('rejects uploads without a file', function () {
-        $user = createUserWithPermissions(['employee.update_all']);
+        $user = createUserWithPermissions(['employee.documents.upload']);
         $employee = Employee::factory()->create();
         $category = employeeDocumentCategory('resume');
 
@@ -138,7 +138,7 @@ describe('employee documents', function () {
     it('rejects uploads past the per-employee total file limit', function () {
         Storage::fake('local');
         config(['documents.employee.max_files' => 1]);
-        $user = createUserWithPermissions(['employee.update_all']);
+        $user = createUserWithPermissions(['employee.documents.upload']);
         $employee = Employee::factory()->create();
         $category = employeeDocumentCategory('resume');
 
@@ -159,7 +159,7 @@ describe('employee documents', function () {
 
     it('soft deletes a usage into the trash instead of removing the file', function () {
         Storage::fake('local');
-        $user = createUserWithPermissions(['employee.update_all', 'employee.view_all']);
+        $user = createUserWithPermissions(['employee.documents.upload', 'employee.documents.delete', 'employee.documents.view']);
         $employee = Employee::factory()->create();
         $category = employeeDocumentCategory('resume');
 
@@ -198,7 +198,7 @@ describe('employee documents', function () {
 
     it('restores a trashed usage back to the active list', function () {
         Storage::fake('local');
-        $user = createUserWithPermissions(['employee.update_all', 'employee.view_all']);
+        $user = createUserWithPermissions(['employee.documents.upload', 'employee.documents.delete', 'employee.documents.view']);
         $employee = Employee::factory()->create();
         $category = employeeDocumentCategory('resume');
 
@@ -232,7 +232,7 @@ describe('employee documents', function () {
 
     it('force deletes a trashed usage and removes the file when it is the last one', function () {
         Storage::fake('local');
-        $user = createUserWithPermissions(['employee.update_all', 'employee.view_all']);
+        $user = createUserWithPermissions(['employee.documents.upload', 'employee.documents.delete', 'employee.documents.view']);
         $employee = Employee::factory()->create();
         $category = employeeDocumentCategory('resume');
 
@@ -262,7 +262,7 @@ describe('employee documents', function () {
 
     it('404s trash and restore operations on a usage belonging to another employee', function () {
         Storage::fake('local');
-        $user = createUserWithPermissions(['employee.update_all', 'employee.view_all']);
+        $user = createUserWithPermissions(['employee.documents.upload', 'employee.documents.delete', 'employee.documents.view']);
         $employeeA = Employee::factory()->create();
         $employeeB = Employee::factory()->create();
         $category = employeeDocumentCategory('resume');
@@ -292,7 +292,7 @@ describe('employee documents', function () {
 
     it('404s when deleting a usage that belongs to another employee', function () {
         Storage::fake('local');
-        $user = createUserWithPermissions(['employee.update_all', 'employee.view_all']);
+        $user = createUserWithPermissions(['employee.documents.upload', 'employee.documents.delete', 'employee.documents.view']);
         $employeeA = Employee::factory()->create();
         $employeeB = Employee::factory()->create();
         $category = employeeDocumentCategory('resume');

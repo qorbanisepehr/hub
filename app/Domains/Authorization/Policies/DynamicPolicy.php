@@ -165,7 +165,7 @@ class DynamicPolicy
         return match (true) {
             is_array($permission) && array_key_exists('own', $permission) && array_key_exists('all', $permission) => $user->hasPermissionTo($permission['own'])
                     && ! $user->hasPermissionTo($permission['all']),
-            is_string($permission) => $user->hasPermissionTo($permission),
+            is_string($permission) => false,
             default => false,
         };
     }

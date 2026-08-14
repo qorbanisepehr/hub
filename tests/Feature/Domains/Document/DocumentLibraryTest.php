@@ -16,7 +16,7 @@ describe('document library', function () {
     });
 
     it('denies library access without the library-select permission', function () {
-        $user = createUserWithPermissions(['employee.view_all']);
+        $user = createUserWithPermissions(['employee.documents.view']);
         $employee = Employee::factory()->create();
 
         $this->actingAs($user)
@@ -25,7 +25,7 @@ describe('document library', function () {
     });
 
     it('denies library access without employee access', function () {
-        $user = createUserWithPermissions(['document.library-select']);
+        $user = createUserWithPermissions(['employee.documents.library-select']);
         $employee = Employee::factory()->create();
 
         $this->actingAs($user)
@@ -36,10 +36,10 @@ describe('document library', function () {
     it('lists only the employee\'s own active documents', function () {
         Storage::fake('local');
         $user = createUserWithPermissions([
-            'document.library-select',
-            'employee.view_all',
-            'document.upload_all',
-            'document.delete_all',
+            'employee.documents.library-select',
+            'employee.documents.view',
+            'employee.documents.upload',
+            'employee.documents.delete',
         ]);
         $category = personnelDocumentCategory('resume', 'رزومه');
         $otherCategory = personnelDocumentCategory('contract', 'قرارداد');
@@ -77,9 +77,9 @@ describe('document library', function () {
     it('creates a new document with its own identity when selecting from the library', function () {
         Storage::fake('local');
         $user = createUserWithPermissions([
-            'document.library-select',
-            'employee.view_all',
-            'document.upload_all',
+            'employee.documents.library-select',
+            'employee.documents.view',
+            'employee.documents.upload',
         ]);
         $category = personnelDocumentCategory('resume', 'رزومه');
         $employee = Employee::factory()->create();
@@ -121,9 +121,9 @@ describe('document library', function () {
     it('rejects a source document that does not belong to the target employee', function () {
         Storage::fake('local');
         $user = createUserWithPermissions([
-            'document.library-select',
-            'employee.view_all',
-            'document.upload_all',
+            'employee.documents.library-select',
+            'employee.documents.view',
+            'employee.documents.upload',
         ]);
         $category = personnelDocumentCategory('resume', 'رزومه');
         $employee = Employee::factory()->create();
@@ -149,7 +149,7 @@ describe('document library', function () {
     });
 
     it('rejects an unknown source document', function () {
-        $user = createUserWithPermissions(['document.library-select', 'employee.view_all']);
+        $user = createUserWithPermissions(['employee.documents.library-select', 'employee.documents.view']);
         $employee = Employee::factory()->create();
 
         $this->actingAs($user)

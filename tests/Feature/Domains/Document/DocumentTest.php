@@ -21,7 +21,7 @@ describe('document API', function () {
 
     describe('index', function () {
         it('returns empty array when no documents', function () {
-            $user = createUserWithPermissions(['document.view_all', 'document.view_own']);
+            $user = createUserWithPermissions(['employee.documents.view']);
 
             $this->actingAs($user)
                 ->getJson('/api/documents')
@@ -31,7 +31,7 @@ describe('document API', function () {
 
         it('lists usages scoped to the entity and exposes the shared-component shape', function () {
             Storage::fake('local');
-            $user = createUserWithPermissions(['document.view_all', 'document.upload_all']);
+            $user = createUserWithPermissions(['employee.documents.view', 'employee.documents.upload']);
             $employee = Employee::factory()->create();
             $category = personnelDocumentCategory('resume', 'رزومه');
 
@@ -69,7 +69,7 @@ describe('document API', function () {
 
         it('does not leak usages of other employees', function () {
             Storage::fake('local');
-            $user = createUserWithPermissions(['document.view_all', 'document.upload_all']);
+            $user = createUserWithPermissions(['employee.documents.view', 'employee.documents.upload']);
             $employeeA = Employee::factory()->create();
             $employeeB = Employee::factory()->create();
             $category = personnelDocumentCategory('resume');
@@ -97,7 +97,7 @@ describe('document API', function () {
 
     describe('store', function () {
         it('fails without required fields', function () {
-            $user = createUserWithPermissions(['document.upload_all']);
+            $user = createUserWithPermissions(['employee.documents.upload']);
 
             $this->actingAs($user)
                 ->postJson('/api/documents', [])
@@ -106,7 +106,7 @@ describe('document API', function () {
         });
 
         it('rejects an invalid documentable type', function () {
-            $user = createUserWithPermissions(['document.upload_all']);
+            $user = createUserWithPermissions(['employee.documents.upload']);
 
             $this->actingAs($user)
                 ->postJson('/api/documents', [
@@ -121,7 +121,7 @@ describe('document API', function () {
 
         it('persists the category on the document, not only on the usage', function () {
             Storage::fake('local');
-            $user = createUserWithPermissions(['document.upload_all']);
+            $user = createUserWithPermissions(['employee.documents.upload']);
             $employee = Employee::factory()->create();
             $category = personnelDocumentCategory('resume', 'رزومه');
 
@@ -144,7 +144,7 @@ describe('document API', function () {
 
         it('creates a new document per upload instead of deduplicating by hash', function () {
             Storage::fake('local');
-            $user = createUserWithPermissions(['document.upload_all']);
+            $user = createUserWithPermissions(['employee.documents.upload']);
             $employee = Employee::factory()->create();
             $category = personnelDocumentCategory('resume');
 
@@ -177,7 +177,7 @@ describe('document API', function () {
 
         it('keeps document identity isolated across different entities sharing the same file', function () {
             Storage::fake('local');
-            $user = createUserWithPermissions(['document.upload_all']);
+            $user = createUserWithPermissions(['employee.documents.upload']);
             $employeeA = Employee::factory()->create();
             $employeeB = Employee::factory()->create();
             $category = personnelDocumentCategory('resume');
@@ -212,7 +212,7 @@ describe('document API', function () {
 
         it('rejects disallowed mime types', function () {
             Storage::fake('local');
-            $user = createUserWithPermissions(['document.upload_all']);
+            $user = createUserWithPermissions(['employee.documents.upload']);
             $employee = Employee::factory()->create();
             $category = personnelDocumentCategory('resume');
 
@@ -228,7 +228,7 @@ describe('document API', function () {
         });
 
         it('returns 404 when the documentable entity does not exist', function () {
-            $user = createUserWithPermissions(['document.upload_all']);
+            $user = createUserWithPermissions(['employee.documents.upload']);
             $category = personnelDocumentCategory('resume');
 
             $this->actingAs($user)
@@ -245,7 +245,7 @@ describe('document API', function () {
     describe('destroy', function () {
         it('soft-deletes a usage into the trash and keeps the file', function () {
             Storage::fake('local');
-            $user = createUserWithPermissions(['document.view_all', 'document.upload_all', 'document.delete_all']);
+            $user = createUserWithPermissions(['employee.documents.view', 'employee.documents.upload', 'employee.documents.delete']);
             $employee = Employee::factory()->create();
             $category = personnelDocumentCategory('resume');
 
@@ -283,7 +283,7 @@ describe('document API', function () {
         });
 
         it('returns 404 for a non-existent usage', function () {
-            $user = createUserWithPermissions(['document.delete_all']);
+            $user = createUserWithPermissions(['employee.documents.delete']);
 
             $this->actingAs($user)
                 ->deleteJson('/api/documents/99999')
@@ -293,7 +293,7 @@ describe('document API', function () {
 
     describe('trash', function () {
         it('returns empty array when the trash is empty', function () {
-            $user = createUserWithPermissions(['document.view_all', 'document.view_own']);
+            $user = createUserWithPermissions(['employee.documents.view']);
 
             $this->actingAs($user)
                 ->getJson('/api/documents/trash')
@@ -303,7 +303,7 @@ describe('document API', function () {
 
         it('lists only the trashed usages of the requested entity', function () {
             Storage::fake('local');
-            $user = createUserWithPermissions(['document.view_all', 'document.upload_all', 'document.delete_all']);
+            $user = createUserWithPermissions(['employee.documents.view', 'employee.documents.upload', 'employee.documents.delete']);
             $employeeA = Employee::factory()->create();
             $employeeB = Employee::factory()->create();
             $category = personnelDocumentCategory('resume');
@@ -347,7 +347,7 @@ describe('document API', function () {
     describe('restore', function () {
         it('restores a soft-deleted usage back to the active list', function () {
             Storage::fake('local');
-            $user = createUserWithPermissions(['document.view_all', 'document.upload_all', 'document.delete_all']);
+            $user = createUserWithPermissions(['employee.documents.view', 'employee.documents.upload', 'employee.documents.delete']);
             $employee = Employee::factory()->create();
             $category = personnelDocumentCategory('resume');
 
@@ -382,7 +382,7 @@ describe('document API', function () {
         });
 
         it('returns 404 for a non-existent trashed usage', function () {
-            $user = createUserWithPermissions(['document.delete_all']);
+            $user = createUserWithPermissions(['employee.documents.delete']);
 
             $this->actingAs($user)
                 ->postJson('/api/documents/99999/restore')
@@ -393,7 +393,7 @@ describe('document API', function () {
     describe('force destroy', function () {
         it('permanently deletes the usage and the file when it is the last one', function () {
             Storage::fake('local');
-            $user = createUserWithPermissions(['document.view_all', 'document.upload_all', 'document.delete_all']);
+            $user = createUserWithPermissions(['employee.documents.view', 'employee.documents.upload', 'employee.documents.delete']);
             $employee = Employee::factory()->create();
             $category = personnelDocumentCategory('resume');
 
@@ -424,7 +424,7 @@ describe('document API', function () {
         });
 
         it('returns 404 for a non-existent usage', function () {
-            $user = createUserWithPermissions(['document.delete_all']);
+            $user = createUserWithPermissions(['employee.documents.delete']);
 
             $this->actingAs($user)
                 ->deleteJson('/api/documents/99999/force')
@@ -437,7 +437,7 @@ describe('document API', function () {
             Storage::fake('local');
             $category = personnelDocumentCategory('resume');
             $employee = Employee::factory()->create();
-            $user = createUserWithPermissions(['document.upload_all']);
+            $user = createUserWithPermissions(['employee.documents.upload']);
 
             $this->actingAs($user)
                 ->postJson('/api/documents', [
@@ -473,7 +473,7 @@ describe('document API', function () {
             Storage::fake('local');
             $category = personnelDocumentCategory('resume');
             $employee = Employee::factory()->create();
-            $user = createUserWithPermissions(['document.upload_all']);
+            $user = createUserWithPermissions(['employee.documents.upload']);
 
             $this->actingAs($user)
                 ->postJson('/api/documents', [
@@ -498,7 +498,7 @@ describe('document API', function () {
     describe('download', function () {
         it('downloads the stored document under its structure name', function () {
             Storage::fake('local');
-            $user = createUserWithPermissions(['document.view_all', 'document.upload_all', 'document.download_all']);
+            $user = createUserWithPermissions(['employee.documents.view', 'employee.documents.upload', 'employee.documents.download']);
             $employee = Employee::factory()->create();
             $category = personnelDocumentCategory('resume', 'رزومه');
 
@@ -533,8 +533,8 @@ describe('document API', function () {
                 ->assertStatus(403);
         });
 
-        it('denies upload without document.upload permission', function () {
-            $user = createUserWithPermissions(['document.view_all']);
+        it('denies upload without upload permission', function () {
+            $user = createUserWithPermissions(['employee.documents.view']);
 
             $this->actingAs($user)
                 ->postJson('/api/documents', [
@@ -543,8 +543,8 @@ describe('document API', function () {
                 ->assertStatus(403);
         });
 
-        it('denies delete without document.delete permission', function () {
-            $user = createUserWithPermissions(['document.view_all']);
+        it('denies delete without delete permission', function () {
+            $user = createUserWithPermissions(['employee.documents.view']);
 
             $this->actingAs($user)
                 ->deleteJson('/api/documents/1')

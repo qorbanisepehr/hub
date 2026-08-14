@@ -41,27 +41,22 @@ return [
         'employee' => [
             'name' => 'Employee Profile',
             'permissions' => [
-                'employee.view_own' => 'View own profile',
-                'employee.view_all' => 'View any employee profile',
-                'employee.update_own' => 'Update own profile',
-                'employee.update_all' => 'Update any employee profile',
+                'employee.list' => 'List employees',
+                'employee.view' => 'View an employee profile',
                 'employee.create' => 'Create new employees',
+                'employee.update' => 'Update employee profiles',
                 'employee.delete' => 'Delete employees',
             ],
         ],
 
-        'document' => [
-            'name' => 'Documents',
+        'employee.documents' => [
+            'name' => 'Employee Documents',
             'permissions' => [
-                'document.view_own' => 'View own documents',
-                'document.view_all' => "View any employee's documents",
-                'document.upload_own' => 'Upload to own profile',
-                'document.upload_all' => 'Upload to any profile',
-                'document.download_own' => 'Download own documents',
-                'document.download_all' => 'Download any documents',
-                'document.delete_own' => 'Delete own documents',
-                'document.delete_all' => 'Delete any documents',
-                'document.library-select' => 'Select documents from the library',
+                'employee.documents.view' => "View an employee's documents",
+                'employee.documents.upload' => 'Upload documents',
+                'employee.documents.download' => 'Download documents',
+                'employee.documents.delete' => 'Delete documents',
+                'employee.documents.library-select' => 'Select documents from the library',
             ],
         ],
 

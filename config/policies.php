@@ -21,12 +21,12 @@ return [
     'general' => [
         'owner_field' => 'user_id',
         'permissions' => [
-            'viewAny' => ['{group}.view_own', '{group}.view_all'],
-            'view' => ['own' => '{group}.view_own', 'all' => '{group}.view_all'],
+            'viewAny' => '{group}.list',
+            'view' => '{group}.view',
             'create' => '{group}.create',
-            'update' => ['own' => '{group}.update_own', 'all' => '{group}.update_all'],
+            'update' => '{group}.update',
             'delete' => '{group}.delete',
-            'scopeOwn' => ['own' => '{group}.view_own', 'all' => '{group}.view_all'],
+            'scopeOwn' => '{group}.view',
         ],
     ],
 
@@ -58,13 +58,13 @@ return [
         Document::class => [
             'owner_field' => 'uploaded_by',
             'permissions' => [
-                'viewAny' => ['document.view_own', 'document.view_all'],
-                'view' => ['own' => 'document.view_own', 'all' => 'document.view_all'],
-                'create' => ['document.upload_own', 'document.upload_all'],
-                'download' => ['own' => 'document.download_own', 'all' => 'document.download_all'],
-                'update' => ['own' => 'document.update_own', 'all' => 'document.update_all'],
-                'delete' => ['own' => 'document.delete_own', 'all' => 'document.delete_all'],
-                'scopeOwn' => ['own' => 'document.view_own', 'all' => 'document.view_all'],
+                'viewAny' => 'employee.documents.view',
+                'view' => 'employee.documents.view',
+                'create' => 'employee.documents.upload',
+                'download' => 'employee.documents.download',
+                'update' => 'employee.documents.upload',
+                'delete' => 'employee.documents.delete',
+                'scopeOwn' => 'employee.documents.view',
             ],
         ],
 

@@ -19,29 +19,29 @@ Route::middleware('auth:sanctum')->group(function () {
         ->middleware('permission:document-category.manage');
 
     Route::get('documents', [DocumentController::class, 'index'])
-        ->middleware('permission:document.view_own,document.view_all');
+        ->middleware('permission:employee.documents.view');
     Route::post('documents', [DocumentController::class, 'store'])
-        ->middleware('permission:document.upload_own,document.upload_all');
+        ->middleware('permission:employee.documents.upload');
 
     Route::get('documents/trash', [DocumentController::class, 'trashed'])
-        ->middleware('permission:document.view_own,document.view_all');
+        ->middleware('permission:employee.documents.view');
 
     Route::post('documents/from-library', [DocumentController::class, 'storeFromLibrary'])
-        ->middleware('permission:document.library-select');
+        ->middleware('permission:employee.documents.library-select');
     Route::get('documents/{document}', [DocumentController::class, 'show'])
-        ->middleware('permission:document.view_own,document.view_all');
+        ->middleware('permission:employee.documents.view');
     Route::delete('documents/{document}', [DocumentController::class, 'destroy'])
-        ->middleware('permission:document.delete_own,document.delete_all');
+        ->middleware('permission:employee.documents.delete');
 
     Route::delete('documents/{document}/force', [DocumentController::class, 'forceDestroy'])
-        ->middleware('permission:document.delete_own,document.delete_all');
+        ->middleware('permission:employee.documents.delete');
     Route::post('documents/{document}/restore', [DocumentController::class, 'restore'])
-        ->middleware('permission:document.delete_own,document.delete_all');
+        ->middleware('permission:employee.documents.delete');
 
     Route::get('documents/{document}/download', [DocumentController::class, 'download'])
         ->name('documents.download')
-        ->middleware('permission:document.download_own,document.download_all');
+        ->middleware('permission:employee.documents.download');
     Route::get('documents/{document}/serve', [DocumentController::class, 'serve'])
         ->name('documents.serve')
-        ->middleware('permission:document.download_own,document.download_all');
+        ->middleware('permission:employee.documents.download');
 });
