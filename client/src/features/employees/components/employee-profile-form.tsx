@@ -26,6 +26,7 @@ import { ContactInfoSection } from "./sections/contact-info-section";
 import { LinkedUserSection } from "./sections/linked-user-section";
 import { EmploymentSection } from "./sections/employment-section";
 import { DocumentsSection } from "./sections/documents-section";
+import { EmployeeReviewSection } from "./sections/employee-review-section";
 import {
     defaultPersonalInfo,
     toPersonalInfoPayload,
@@ -51,6 +52,7 @@ import { saveEmployeeSection, submitEmployee } from "@/features/employees/api";
 import {
     EMPLOYEE_DOCUMENTS_TAB,
     EMPLOYEE_LINKED_USER_TAB,
+    EMPLOYEE_REVIEW_TAB,
     EMPLOYEE_SECTIONS,
     EMPLOYEE_VALIDATION_SECTIONS,
 } from "@/features/employees/constants";
@@ -166,6 +168,7 @@ export function EmployeeProfileForm({ employee }: EmployeeProfileFormProps) {
             ...EMPLOYEE_SECTIONS,
             EMPLOYEE_DOCUMENTS_TAB,
             EMPLOYEE_LINKED_USER_TAB,
+            EMPLOYEE_REVIEW_TAB,
         ],
         [],
     );
@@ -400,6 +403,14 @@ export function EmployeeProfileForm({ employee }: EmployeeProfileFormProps) {
                 return <DocumentsSection employeeId={employee.id} />;
             case "linked_user":
                 return <LinkedUserSection employee={employee} />;
+            case "review":
+                return (
+                    <EmployeeReviewSection
+                        form={form as never}
+                        employee={employee}
+                        onNavigateToSection={setActiveSection}
+                    />
+                );
             default:
                 return null;
         }

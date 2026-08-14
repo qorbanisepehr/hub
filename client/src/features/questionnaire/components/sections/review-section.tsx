@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { SectionRow } from "@/components/shared/section-row";
 import { useQuestionnaireDocuments } from "@/features/questionnaire/hooks/use-questionnaire-documents";
 import type { QuestionnaireDocument } from "@/features/questionnaire/hooks/use-questionnaire-documents";
 import type { Questionnaire, QuestionnaireFormApi } from "@/features/questionnaire/types";
@@ -17,9 +18,18 @@ import {
     validateDocumentRequirements,
 } from "@/lib/validation-helpers";
 import { toPersianDate } from "@/lib/date-format";
-import { GENDER_MALE, SPOUSE_EMPLOYED } from "@/features/questionnaire/schemas/personal-info.schema";
 import { QuestionnaireDocumentPreview } from "@/components/shared/questionnaire-document-preview";
 import { DocumentViewer } from "@/components/shared/document-viewer";
+import { PersonalInfoView } from "@/components/shared/section-views/personal-info-view";
+import { ContactInfoView } from "@/components/shared/section-views/contact-info-view";
+import { EducationView } from "@/components/shared/section-views/education-view";
+import { WorkExperienceView } from "@/components/shared/section-views/work-experience-view";
+import { SkillsView } from "@/components/shared/section-views/skills-view";
+import { TrainingView } from "@/components/shared/section-views/training-view";
+import { AdditionalInfoView } from "@/components/shared/section-views/additional-info-view";
+import {
+    SectionEditButton,
+} from "@/components/shared/section-views/section-card";
 
 type SectionProps = {
     form: QuestionnaireFormApi;
@@ -27,34 +37,8 @@ type SectionProps = {
     onNavigateToStep?: (step: number) => void;
 };
 
-function DataRow({ label, value }: { label: string; value: React.ReactNode }) {
-    return (
-        <div className="flex flex-col gap-0.5">
-            <span className="text-xs text-muted-foreground">{label}</span>
-            <span className="text-sm">{value || <span className="text-muted-foreground">—</span>}</span>
-        </div>
-    );
-}
-
 function YesNo({ value }: { value: boolean | undefined }) {
-    return <span>{value ? "بلی" : "خیر"}</span>;
-}
-
-function SectionHeader({ title, onEdit }: { title: string; onEdit?: () => void }) {
-    return (
-        <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>{title}</CardTitle>
-            {onEdit && (
-                <button
-                    type="button"
-                    className="text-sm text-primary hover:underline"
-                    onClick={onEdit}
-                >
-                    ویرایش
-                </button>
-            )}
-        </CardHeader>
-    );
+    return <span>{value ? "بله" : "خیر"}</span>;
 }
 
 const SECTION_DOCS: { step: number; label: string; slugs: string[] }[] = [
@@ -106,6 +90,8 @@ export function ReviewSection({ form, questionnaire, onNavigateToStep }: Section
 
     const hasAnyDoc = documents.length > 0;
 
+    const edit = (step: number) => () => onNavigateToStep?.(step);
+
     return (
         <div className="space-y-4">
             <FormValidationSummary
@@ -126,280 +112,113 @@ export function ReviewSection({ form, questionnaire, onNavigateToStep }: Section
                 </CardContent>
             </Card>
 
-            {/* ── مشخصات فردی ── */}
-            <Card>
-                <SectionHeader title="مشخصات فردی" onEdit={() => onNavigateToStep?.(0)} />
-                <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <DataRow label="نام" value={v.first_name} />
-                        <DataRow label="نام خانوادگی" value={v.last_name} />
-                        <DataRow label="نام انگلیسی" value={`${pi.first_name_en ?? ""} ${pi.last_name_en ?? ""}`.trim()} />
-                        <DataRow label="جنسیت" value={pi.gender} />
-                        <DataRow label="گروه خونی" value={pi.blood_group} />
-                        <DataRow label="تاریخ تولد" value={toPersianDate(pi.birth_date)} />
-                        <DataRow label="محل تولد" value={pi.birth_place} />
-                        <DataRow label="شماره شناسنامه" value={pi.birth_certificate_number} />
-                        <DataRow label="نام پدر" value={pi.father_name} />
-                        <DataRow label="مذهب" value={pi.religion} />
-                        <DataRow label="وضعیت تأهل" value={pi.marital_status} />
-                        <DataRow label="تعداد افراد تحت تکفل" value={pi.dependents_count} />
-                        <DataRow label="تعداد فرزندان" value={pi.children_count} />
-                        <DataRow label="وضعیت اشتغال همسر" value={pi.spouse_employment_status} />
-                        {pi.spouse_employment_status === SPOUSE_EMPLOYED && (
-                            <DataRow label="شغل همسر" value={pi.spouse_job} />
-                        )}
-                        <DataRow label="کد ملی" value={pi.id_number} />
-                    </div>
-                    {pi.military_status && pi.gender === GENDER_MALE && (
-                        <div className="mt-4 pt-4 border-t">
-                            <p className="text-sm font-medium mb-2">وضعیت نظام وظیفه</p>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <DataRow label="وضعیت" value={pi.military_status.status} />
-                                <DataRow label="سازمان" value={pi.military_status.organization} />
-                                <DataRow label="از تاریخ" value={toPersianDate(pi.military_status.from)} />
-                                <DataRow label="تا تاریخ" value={toPersianDate(pi.military_status.to)} />
-                                <DataRow label="دلیل" value={pi.military_status.reason} />
-                            </div>
-                        </div>
-                    )}
+            <PersonalInfoView
+                data={{
+                    ...pi,
+                    first_name: v.first_name,
+                    last_name: v.last_name,
+                }}
+                title="مشخصات فردی"
+                action={<SectionEditButton onClick={edit(0)} />}
+                extra={
                     <QuestionnaireDocumentPreview
                         documents={docsForStep(0)}
                         variant="compact"
                         className="mt-4 pt-4 border-t"
                     />
-                </CardContent>
-            </Card>
+                }
+            />
 
-            {/* ── اطلاعات تماس ── */}
-            <Card>
-                <SectionHeader title="اطلاعات تماس" onEdit={() => onNavigateToStep?.(1)} />
-                <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <DataRow label="ایمیل" value={v.email} />
-                        <DataRow label="موبایل" value={v.mobile} />
-                        <DataRow label="تلفن ثابت" value={ci.phone} />
-                        <DataRow label="تلفن اضطراری" value={ci.emergency_phone} />
-                        {ci.address && (
-                            <>
-                                <DataRow label="استان" value={ci.address.province} />
-                                <DataRow label="شهر" value={ci.address.city} />
-                                <DataRow label="محله" value={ci.address.neighborhood} />
-                                <DataRow label="کد پستی" value={ci.address.postal_code} />
-                                <DataRow label="آدرس" value={ci.address.address} />
-                                <DataRow label="پلاک" value={ci.address.plaque} />
-                                <DataRow label="طبقه" value={ci.address.floor} />
-                                <DataRow label="واحد" value={ci.address.unit} />
-                            </>
-                        )}
-                    </div>
-                </CardContent>
-            </Card>
+            <ContactInfoView
+                data={{
+                    ...ci,
+                    email: v.email,
+                    mobile: v.mobile,
+                }}
+                title="اطلاعات تماس"
+                action={<SectionEditButton onClick={edit(1)} />}
+            />
 
-            {/* ── سوابق تحصیلی ── */}
-            <Card>
-                <SectionHeader title="سوابق تحصیلی" onEdit={() => onNavigateToStep?.(2)} />
-                <CardContent className="space-y-4">
-                    {edu.education_records?.length > 0 ? (
-                        edu.education_records.map((rec: any, i: number) => (
-                            <div key={i} className="grid grid-cols-1 md:grid-cols-3 gap-4 p-3 rounded-lg bg-muted/50">
-                                <DataRow label="مدرک" value={rec.degree} />
-                                <DataRow label="رشته" value={rec.field} />
-                                <DataRow label="دانشگاه" value={rec.institution} />
-                                <DataRow label="محل" value={rec.location} />
-                                <DataRow label="از تاریخ" value={toPersianDate(rec.from)} />
-                                <DataRow label="تا تاریخ" value={toPersianDate(rec.to)} />
-                                <DataRow label="معدل" value={rec.gpa} />
-                                <DataRow label="تاریخ فارغ‌التحصیلی" value={toPersianDate(rec.graduation_date)} />
-                                <DataRow label="پایان‌نامه" value={rec.thesis_title} />
-                            </div>
-                        ))
-                    ) : (
-                        <p className="text-sm text-muted-foreground">سابقه تحصیلی ثبت نشده</p>
-                    )}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2 border-t">
-                        <DataRow label="دانشجو هستم" value={<YesNo value={edu.is_student} />} />
-                        {edu.is_student && (
-                            <>
-                                <DataRow label="مقطع" value={edu.student_degree} />
-                                <DataRow label="رشته" value={edu.student_field} />
-                                <DataRow label="دانشگاه" value={edu.student_university} />
-                                <DataRow label="معدل" value={edu.student_gpa} />
-                            </>
-                        )}
-                    </div>
+            <EducationView
+                data={edu}
+                title="سوابق تحصیلی"
+                action={<SectionEditButton onClick={edit(2)} />}
+                extra={
                     <QuestionnaireDocumentPreview
                         documents={docsForStep(2)}
                         variant="compact"
-                        className="pt-2"
+                        className="mt-4 pt-4 border-t"
                     />
-                </CardContent>
-            </Card>
+                }
+            />
 
-            {/* ── سوابق شغلی ── */}
-            <Card>
-                <SectionHeader title="سوابق شغلی" onEdit={() => onNavigateToStep?.(3)} />
-                <CardContent className="space-y-4">
-                    {work.work_experiences?.length > 0 ? (
-                        work.work_experiences.map((exp: any, i: number) => (
-                            <div key={i} className="grid grid-cols-1 md:grid-cols-3 gap-4 p-3 rounded-lg bg-muted/50">
-                                <DataRow label="شرکت" value={exp.company} />
-                                <DataRow label="سمت" value={exp.position} />
-                                <DataRow label="صنعت" value={exp.industry} />
-                                <DataRow label="محل کار" value={exp.location} />
-                                <DataRow label="از تاریخ" value={toPersianDate(exp.from)} />
-                                <DataRow label="تا تاریخ" value={toPersianDate(exp.to)} />
-                                <DataRow label="نوع قرارداد" value={exp.contract_type} />
-                                <DataRow label="آخرین حقوق" value={exp.last_salary} />
-                                <DataRow label="دلیل ترک" value={exp.leave_reason} />
-                            </div>
-                        ))
-                    ) : (
-                        <p className="text-sm text-muted-foreground">سابقه شغلی ثبت نشده</p>
-                    )}
-                    <div className="pt-2 border-t">
-                        <DataRow label="دستاوردها" value={work.achievements} />
-                        <DataRow label="اجازه تماس با مدیران قبلی" value={<YesNo value={work.allow_contact_previous_managers} />} />
-                    </div>
+            <WorkExperienceView
+                data={work}
+                title="سوابق شغلی"
+                action={<SectionEditButton onClick={edit(3)} />}
+                extra={
                     <QuestionnaireDocumentPreview
                         documents={docsForStep(3)}
                         variant="compact"
-                        className="pt-2"
+                        className="mt-4 pt-4 border-t"
                     />
-                </CardContent>
-            </Card>
+                }
+            />
 
-            {/* ── مهارت‌ها ── */}
-            <Card>
-                <SectionHeader title="مهارت‌ها" onEdit={() => onNavigateToStep?.(4)} />
-                <CardContent className="space-y-4">
-                    {skills.languages?.length > 0 && (
-                        <div>
-                            <p className="text-sm font-medium mb-2">زبان‌ها</p>
-                            <div className="space-y-2">
-                                {skills.languages.map((lang: any, i: number) => (
-                                    <div key={i} className="text-sm p-2 rounded bg-muted/50">
-                                        {lang.language}: خواندن {lang.reading}، نوشتن {lang.writing}، صحبت {lang.speaking}، درک مطلب {lang.comprehension}
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-                    {skills.software_skills?.specialized?.length > 0 && (
-                        <div>
-                            <p className="text-sm font-medium mb-2">نرم‌افزارهای تخصصی</p>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                                {skills.software_skills.specialized.map((s: any, i: number) => (
-                                    <div key={i} className="text-sm p-2 rounded bg-muted/50">{s.name} — سطح {s.level}</div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-                    {skills.software_skills?.general?.length > 0 && (
-                        <div>
-                            <p className="text-sm font-medium mb-2">نرم‌افزارهای عمومی</p>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                                {skills.software_skills.general.map((s: any, i: number) => (
-                                    <div key={i} className="text-sm p-2 rounded bg-muted/50">{s.name} — سطح {s.level}</div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-                    {skills.special_skills?.length > 0 && (
-                        <div>
-                            <p className="text-sm font-medium mb-2">مهارت‌های خاص</p>
-                            <div className="flex flex-wrap gap-2">
-                                {skills.special_skills.map((s: string, i: number) => (
-                                    <span key={i} className="text-sm px-2 py-1 rounded bg-muted/50">{s}</span>
-                                ))}
-                            </div>
-                        </div>
-                    )}
+            <SkillsView
+                data={skills}
+                title="مهارت‌ها"
+                action={<SectionEditButton onClick={edit(4)} />}
+                extra={
                     <QuestionnaireDocumentPreview
                         documents={docsForStep(4)}
                         variant="compact"
-                        className="pt-2"
+                        className="mt-4 pt-4 border-t"
                     />
-                </CardContent>
-            </Card>
+                }
+            />
 
-            {/* ── آموزشی و تحقیقاتی ── */}
-            <Card>
-                <SectionHeader title="آموزشی و تحقیقاتی" onEdit={() => onNavigateToStep?.(5)} />
-                <CardContent className="space-y-4">
-                    {training.training_courses?.length > 0 ? (
-                        <div className="space-y-2">
-                            {training.training_courses.map((c: any, i: number) => (
-                                <div key={i} className="text-sm p-2 rounded bg-muted/50">
-                                    {c.course_name} — {c.institution} ({c.duration})
-                                </div>
-                            ))}
-                        </div>
-                    ) : (
-                        <p className="text-sm text-muted-foreground">دوره آموزشی ثبت نشده</p>
-                    )}
-                    <DataRow label="عضویت‌های حرفه‌ای" value={training.professional_memberships} />
-                    {training.researches?.length > 0 && (
-                        <div>
-                            <p className="text-sm font-medium mb-1">تحقیقات و پژوهش‌ها</p>
-                            {training.researches.map((r: any, i: number) => (
-                                <p key={i} className="text-sm">{i + 1}. {r.title}</p>
-                            ))}
-                        </div>
-                    )}
+            <TrainingView
+                data={training}
+                title="آموزشی و تحقیقاتی"
+                action={<SectionEditButton onClick={edit(5)} />}
+                extra={
                     <QuestionnaireDocumentPreview
                         documents={docsForStep(5)}
                         variant="compact"
-                        className="pt-2"
+                        className="mt-4 pt-4 border-t"
                     />
-                </CardContent>
-            </Card>
+                }
+            />
 
-            {/* ── اطلاعات تکمیلی ── */}
-            <Card>
-                <SectionHeader title="اطلاعات تکمیلی" onEdit={() => onNavigateToStep?.(6)} />
-                <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <DataRow label="بیماری مزمن" value={<YesNo value={additional.has_chronic_disease} />} />
-                        <DataRow label="عمل جراحی سنگین" value={<YesNo value={additional.has_major_surgery} />} />
-                        <DataRow label="معلولیت" value={<YesNo value={additional.has_disability} />} />
-                        <DataRow label="وضعیت جسمانی" value={additional.physical_condition} />
-                        <DataRow label="نوع معلولیت" value={additional.disability_type} />
-                        <DataRow label="امکان سفر" value={<YesNo value={additional.can_travel} />} />
-                        <DataRow label="سوءسابقه کیفری" value={<YesNo value={additional.has_criminal_record} />} />
-                    </div>
-                    <div className="grid grid-cols-1 gap-4 mt-4 pt-4 border-t">
-                        <DataRow label="توضیحات بیماری" value={additional.chronic_disease_description} />
-                        <DataRow label="توضیحات جراحی" value={additional.major_surgery_description} />
-                        <DataRow label="دلیل تمایل به همکاری" value={additional.reason_for_joining} />
-                        <DataRow label="توضیحات معلولیت" value={additional.disability_description} />
-                        <DataRow label="توضیحات سفر" value={additional.travel_description} />
-                        <DataRow label="توضیحات سوءسابقه" value={additional.criminal_record_description} />
-                        <DataRow label="نحوه آشنایی با شرکت" value={additional.company_introduction_method} />
-                        <DataRow label="علاقه‌مندی‌ها" value={additional.hobbies} />
-                        <DataRow label="نقاط قوت و زمینه‌های قابل بهبود" value={additional.strengths_and_improvements} />
-                    </div>
-                </CardContent>
-            </Card>
+            <AdditionalInfoView
+                data={additional}
+                title="اطلاعات تکمیلی"
+                action={<SectionEditButton onClick={edit(6)} />}
+            />
 
             {/* ── نوع درخواست همکاری ── */}
             <Card>
-                <SectionHeader title="نوع درخواست همکاری" onEdit={() => onNavigateToStep?.(7)} />
+                <CardHeader className="flex flex-row items-center justify-between">
+                    <CardTitle>نوع درخواست همکاری</CardTitle>
+                    <SectionEditButton onClick={edit(7)} />
+                </CardHeader>
                 <CardContent>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <DataRow label="نوع اشتغال" value={job.employment_type} />
-                        <DataRow label="حقوق ماهانه مورد انتظار" value={job.expected_monthly_salary} />
-                        <DataRow label="حقوق ساعتی مورد انتظار" value={job.expected_hourly_salary} />
-                        <DataRow label="حداقل ساعات کاری در ماه" value={job.minimum_hours_per_month} />
-                        <DataRow label="ارسال رزومه قبلی" value={<YesNo value={job.submitted_resume_before} />} />
-                        <DataRow label="مصاحبه قبلی" value={<YesNo value={job.interviewed_before} />} />
-                        <DataRow label="شاغل در حال حاضر" value={<YesNo value={job.currently_employed} />} />
-                        <DataRow label="تاریخ شروع به کار" value={toPersianDate(job.available_start_date)} />
-                        <DataRow label="محل کار مورد نظر" value={job.preferred_workplace?.join("، ")} />
-                        <DataRow label="اولویت شغلی ۱" value={job.job_priority_1} />
-                        <DataRow label="اولویت شغلی ۲" value={job.job_priority_2} />
+                        <SectionRow variant="column" label="نوع اشتغال" value={job.employment_type} />
+                        <SectionRow variant="column" label="حقوق ماهانه مورد انتظار" value={job.expected_monthly_salary} />
+                        <SectionRow variant="column" label="حقوق ساعتی مورد انتظار" value={job.expected_hourly_salary} />
+                        <SectionRow variant="column" label="حداقل ساعات کاری در ماه" value={job.minimum_hours_per_month} />
+                        <SectionRow variant="column" label="ارسال رزومه قبلی" value={<YesNo value={job.submitted_resume_before} />} />
+                        <SectionRow variant="column" label="مصاحبه قبلی" value={<YesNo value={job.interviewed_before} />} />
+                        <SectionRow variant="column" label="شاغل در حال حاضر" value={<YesNo value={job.currently_employed} />} />
+                        <SectionRow variant="column" label="تاریخ شروع به کار" value={toPersianDate(job.available_start_date)} />
+                        <SectionRow variant="column" label="محل کار مورد نظر" value={job.preferred_workplace?.join("، ")} />
+                        <SectionRow variant="column" label="اولویت شغلی ۱" value={job.job_priority_1} />
+                        <SectionRow variant="column" label="اولویت شغلی ۲" value={job.job_priority_2} />
                     </div>
                     <div className="mt-4 pt-4 border-t">
-                        <DataRow label="سایر اطلاعات" value={job.other_information} />
+                        <SectionRow variant="column" label="سایر اطلاعات" value={job.other_information} />
                     </div>
                     <QuestionnaireDocumentPreview
                         documents={docsForStep(7)}
@@ -412,7 +231,9 @@ export function ReviewSection({ form, questionnaire, onNavigateToStep }: Section
             {/* ── همه مدارک بارگذاری شده ── */}
             {hasAnyDoc && (
                 <Card>
-                    <SectionHeader title="همه مدارک بارگذاری شده" />
+                    <CardHeader>
+                        <CardTitle>همه مدارک بارگذاری شده</CardTitle>
+                    </CardHeader>
                     <CardContent>
                         <DocumentViewer documents={documents} />
                     </CardContent>
@@ -426,7 +247,8 @@ export function ReviewSection({ form, questionnaire, onNavigateToStep }: Section
                 </CardHeader>
                 <CardContent>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <DataRow
+                        <SectionRow
+                            variant="column"
                             label="ایمیل"
                             value={
                                 questionnaire?.email_verified ? (
@@ -436,7 +258,8 @@ export function ReviewSection({ form, questionnaire, onNavigateToStep }: Section
                                 )
                             }
                         />
-                        <DataRow
+                        <SectionRow
+                            variant="column"
                             label="موبایل"
                             value={
                                 questionnaire?.mobile_verified ? (

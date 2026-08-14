@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DocumentFileItem } from "@/components/shared/document-file-item";
 import { SectionRow } from "@/components/shared/section-row";
@@ -15,6 +16,7 @@ type SocialInsuranceHistory = {
 };
 
 type SocialInsuranceData = {
+    social_insurance_number?: string;
     insurance_status?: string;
     insurance_start_date?: string;
     has_insurance_history?: boolean;
@@ -23,11 +25,21 @@ type SocialInsuranceData = {
 
 type SocialInsuranceViewProps = {
     employee: Employee;
+    data?: SocialInsuranceData;
+    title?: string;
+    action?: ReactNode;
+    extra?: ReactNode;
 };
 
-export function SocialInsuranceView({ employee }: SocialInsuranceViewProps) {
-    const section = (employee.section_social_insurance ??
-        {}) as SocialInsuranceData;
+export function SocialInsuranceView({
+    employee,
+    data,
+    title = "بیمه تأمین اجتماعی",
+    action,
+    extra,
+}: SocialInsuranceViewProps) {
+    const section =
+        (data ?? (employee.section_social_insurance ?? {})) as SocialInsuranceData;
 
     const histories = Array.isArray(section.histories) ? section.histories : [];
 
@@ -39,8 +51,9 @@ export function SocialInsuranceView({ employee }: SocialInsuranceViewProps) {
 
     return (
         <Card>
-            <CardHeader>
-                <CardTitle>بیمه تأمین اجتماعی</CardTitle>
+            <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle>{title}</CardTitle>
+                {action}
             </CardHeader>
 
             <CardContent className="space-y-6">
@@ -49,7 +62,10 @@ export function SocialInsuranceView({ employee }: SocialInsuranceViewProps) {
                         variant="between"
                         hideEmpty
                         label="شماره بیمه"
-                        value={employee.social_insurance_number}
+                        value={
+                            section.social_insurance_number ??
+                            employee.social_insurance_number
+                        }
                     />
 
                     <SectionRow
@@ -174,6 +190,7 @@ export function SocialInsuranceView({ employee }: SocialInsuranceViewProps) {
                     )}
                 </div>
             </CardContent>
+            {extra}
         </Card>
     );
 }

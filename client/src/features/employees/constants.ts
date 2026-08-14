@@ -83,6 +83,12 @@ export const EMPLOYEE_LINKED_USER_TAB = {
     description: "اطلاعات حساب کاربری متصل",
 } as const;
 
+export const EMPLOYEE_REVIEW_TAB = {
+    key: "review",
+    label: "بازبینی و تأیید",
+    description: "بررسی خلاصه اطلاعات پروفایل",
+} as const;
+
 // Identity fields live on the real columns, not inside the JSONB section, so
 // they need extra match prefixes when grouping errors by section.
 const EMPLOYEE_SECTION_IDENTITY_MATCH: Record<string, string[]> = {
