@@ -1,5 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DocumentFileItem } from "@/components/shared/document-file-item";
+import { SectionRow } from "@/components/shared/section-row";
 import { useEmployeeDocuments } from "@/features/employees/hooks/use-employee-documents";
 import { toPersianDate } from "@/lib/date-format";
 import type { Employee } from "@/features/employees/types";
@@ -24,34 +25,6 @@ type SocialInsuranceViewProps = {
     employee: Employee;
 };
 
-function Row({ label, value }: { label: string; value: React.ReactNode }) {
-    if (
-        value === null ||
-        value === undefined ||
-        value === "" ||
-        value === "-"
-    ) {
-        return null;
-    }
-
-    return (
-        <div className="flex items-start justify-between gap-6 py-3">
-            <span className="text-sm text-muted-foreground">{label}</span>
-            <span className="text-sm text-end">{value}</span>
-        </div>
-    );
-}
-
-function formatDate(value?: string): string {
-    if (!value) return "-";
-
-    try {
-        return toPersianDate(value);
-    } catch {
-        return value;
-    }
-}
-
 export function SocialInsuranceView({ employee }: SocialInsuranceViewProps) {
     const section = (employee.section_social_insurance ??
         {}) as SocialInsuranceData;
@@ -72,22 +45,30 @@ export function SocialInsuranceView({ employee }: SocialInsuranceViewProps) {
 
             <CardContent className="space-y-6">
                 <div className="divide-y">
-                    <Row
+                    <SectionRow
+                        variant="between"
+                        hideEmpty
                         label="شماره بیمه"
-                        value={employee.social_insurance_number ?? "-"}
+                        value={employee.social_insurance_number}
                     />
 
-                    <Row
+                    <SectionRow
+                        variant="between"
+                        hideEmpty
                         label="وضعیت بیمه"
-                        value={section.insurance_status ?? "-"}
+                        value={section.insurance_status}
                     />
 
-                    <Row
+                    <SectionRow
+                        variant="between"
+                        hideEmpty
                         label="تاریخ شروع بیمه"
-                        value={formatDate(section.insurance_start_date)}
+                        value={toPersianDate(section.insurance_start_date)}
                     />
 
-                    <Row
+                    <SectionRow
+                        variant="between"
+                        hideEmpty
                         label="سابقه بیمه"
                         value={hasHistory ? "دارد" : "ندارد"}
                     />
@@ -105,47 +86,59 @@ export function SocialInsuranceView({ employee }: SocialInsuranceViewProps) {
                                 >
                                     <CardContent className="p-4">
                                         <div className="divide-y">
-                                            <Row
+                                            <SectionRow
+                                                variant="between"
+                                                hideEmpty
                                                 label="کارگاه / کارفرما"
                                                 value={
-                                                    history.workshop_name ?? "-"
+                                                    history.workshop_name
                                                 }
                                             />
 
-                                            <Row
+                                            <SectionRow
+                                                variant="between"
+                                                hideEmpty
                                                 label="کد کارگاه"
                                                 value={
-                                                    history.workshop_code ?? "-"
+                                                    history.workshop_code
                                                 }
                                             />
 
-                                            <Row
+                                            <SectionRow
+                                                variant="between"
+                                                hideEmpty
                                                 label="عنوان شغلی"
-                                                value={history.job_title ?? "-"}
+                                                value={history.job_title}
                                             />
 
-                                            <Row
+                                            <SectionRow
+                                                variant="between"
+                                                hideEmpty
                                                 label="از تاریخ"
-                                                value={formatDate(
+                                                value={toPersianDate(
                                                     history.start_date,
                                                 )}
                                             />
 
-                                            <Row
+                                            <SectionRow
+                                                variant="between"
+                                                hideEmpty
                                                 label="تا تاریخ"
                                                 value={
                                                     history.end_date
-                                                        ? formatDate(
+                                                        ? toPersianDate(
                                                               history.end_date,
                                                           )
                                                         : "ادامه دارد"
                                                 }
                                             />
 
-                                            <Row
+                                            <SectionRow
+                                                variant="between"
+                                                hideEmpty
                                                 label="توضیحات"
                                                 value={
-                                                    history.description ?? "-"
+                                                    history.description
                                                 }
                                             />
                                         </div>

@@ -5,7 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
-import { InfoRow } from "@/components/shared/info-row";
+import { SectionRow } from "@/components/shared/section-row";
+import { SectionRepeaterTable } from "@/components/shared/section-repeater-table";
 import { DocumentSection } from "@/features/documents/components/document-section";
 import { LinkedUserSection } from "@/features/employees/components/sections/linked-user-section";
 import { usePermission } from "@/features/auth/components/permission-guard";
@@ -34,59 +35,6 @@ function stringValue(value: unknown): string | null {
     return String(value);
 }
 
-function Row({ label, value }: { label: string; value: unknown }) {
-    const text = stringValue(value);
-    if (!text) return null;
-    return <InfoRow label={label} value={text} />;
-}
-
-function RepeaterTable({
-    items,
-    columns,
-    emptyLabel,
-}: {
-    items: unknown;
-    columns: {
-        label: string;
-        render: (item: Record<string, unknown>) => unknown;
-    }[];
-    emptyLabel: string;
-}) {
-    const list = Array.isArray(items) ? items.map(asRecord) : [];
-    if (list.length === 0) {
-        return <p className="text-sm text-muted-foreground">{emptyLabel}</p>;
-    }
-    return (
-        <div className="overflow-x-auto rounded-lg border">
-            <table className="w-full text-sm">
-                <thead>
-                    <tr className="border-b bg-muted/50">
-                        {columns.map((column) => (
-                            <th
-                                key={column.label}
-                                className="px-3 py-2 text-right font-medium"
-                            >
-                                {column.label}
-                            </th>
-                        ))}
-                    </tr>
-                </thead>
-                <tbody>
-                    {list.map((item, index) => (
-                        <tr key={index} className="border-b last:border-b-0">
-                            {columns.map((column) => (
-                                <td key={column.label} className="px-3 py-2">
-                                    {stringValue(column.render(item)) ?? "—"}
-                                </td>
-                            ))}
-                        </tr>
-                    ))}
-                </tbody>
-            </table>
-        </div>
-    );
-}
-
 function PersonalInfoView({ employee }: { employee: Employee }) {
     const personal = asRecord(employee.section_personal);
     const military = asRecord(personal.military_status);
@@ -99,34 +47,34 @@ function PersonalInfoView({ employee }: { employee: Employee }) {
                     <CardTitle>اطلاعات هویتی</CardTitle>
                 </CardHeader>
                 <CardContent className="divide-y">
-                    <Row label="کد ملی" value={employee.id_number} />
-                    <Row label="جنسیت" value={employee.gender} />
-                    <Row label="تاریخ تولد" value={employee.birth_date} />
-                    <Row label="وضعیت تأهل" value={employee.marital_status} />
-                    <Row label="نام (انگلیسی)" value={personal.first_name_en} />
-                    <Row
+                    <SectionRow hideEmpty label="کد ملی" value={employee.id_number} />
+                    <SectionRow hideEmpty label="جنسیت" value={employee.gender} />
+                    <SectionRow hideEmpty label="تاریخ تولد" value={employee.birth_date} />
+                    <SectionRow hideEmpty label="وضعیت تأهل" value={employee.marital_status} />
+                    <SectionRow hideEmpty label="نام (انگلیسی)" value={personal.first_name_en} />
+                    <SectionRow hideEmpty
                         label="نام خانوادگی (انگلیسی)"
                         value={personal.last_name_en}
                     />
-                    <Row label="محل تولد" value={personal.birth_place} />
-                    <Row
+                    <SectionRow hideEmpty label="محل تولد" value={personal.birth_place} />
+                    <SectionRow hideEmpty
                         label="شماره شناسنامه"
                         value={personal.birth_certificate_number}
                     />
-                    <Row label="نام پدر" value={personal.father_name} />
-                    <Row label="دین" value={personal.religion} />
-                    <Row label="مذهب" value={personal.religion_sect} />
-                    <Row label="گروه خونی" value={personal.blood_group} />
-                    <Row
+                    <SectionRow hideEmpty label="نام پدر" value={personal.father_name} />
+                    <SectionRow hideEmpty label="دین" value={personal.religion} />
+                    <SectionRow hideEmpty label="مذهب" value={personal.religion_sect} />
+                    <SectionRow hideEmpty label="گروه خونی" value={personal.blood_group} />
+                    <SectionRow hideEmpty
                         label="تعداد افراد تحت تکفل"
                         value={personal.dependents_count}
                     />
-                    <Row
+                    <SectionRow hideEmpty
                         label="تعداد فرزندان"
                         value={personal.children_count}
                     />
                     {spouseEmployed && (
-                        <Row label="شغل همسر" value={personal.spouse_job} />
+                        <SectionRow hideEmpty label="شغل همسر" value={personal.spouse_job} />
                     )}
                 </CardContent>
             </Card>
@@ -138,14 +86,14 @@ function PersonalInfoView({ employee }: { employee: Employee }) {
                             <CardTitle>وضعیت نظام وظیفه</CardTitle>
                         </CardHeader>
                         <CardContent className="divide-y">
-                            <Row label="وضعیت" value={military.status} />
-                            <Row
+                            <SectionRow hideEmpty label="وضعیت" value={military.status} />
+                            <SectionRow hideEmpty
                                 label="محل خدمت"
                                 value={military.organization}
                             />
-                            <Row label="از تاریخ" value={military.from} />
-                            <Row label="تا تاریخ" value={military.to} />
-                            <Row label="توضیحات" value={military.reason} />
+                            <SectionRow hideEmpty label="از تاریخ" value={military.from} />
+                            <SectionRow hideEmpty label="تا تاریخ" value={military.to} />
+                            <SectionRow hideEmpty label="توضیحات" value={military.reason} />
                         </CardContent>
                     </Card>
                 )}
@@ -231,11 +179,11 @@ function EmploymentInfoView({ employee }: { employee: Employee }) {
                     <CardTitle>اطلاعات شغلی</CardTitle>
                 </CardHeader>
                 <CardContent className="divide-y">
-                    <InfoRow
+                    <SectionRow
                         label="کد پرسنلی"
                         value={employee.personnel_code}
                     />
-                    <InfoRow
+                    <SectionRow
                         label="نوع استخدام"
                         value={
                             employee.employment_type
@@ -244,8 +192,8 @@ function EmploymentInfoView({ employee }: { employee: Employee }) {
                                 : "—"
                         }
                     />
-                    <InfoRow label="تاریخ استخدام" value={employee.hire_date} />
-                    <InfoRow
+                    <SectionRow label="تاریخ استخدام" value={employee.hire_date} />
+                    <SectionRow
                         label="وضعیت اشتغال"
                         value={
                             <Badge
@@ -291,18 +239,18 @@ function ContactInfoView({ employee }: { employee: Employee }) {
                 <CardTitle>اطلاعات تماس</CardTitle>
             </CardHeader>
             <CardContent className="divide-y">
-                <Row label="ایمیل" value={employee.email} />
-                <Row label="شماره موبایل" value={employee.mobile} />
-                <Row label="تلفن ثابت" value={contact.phone} />
-                <Row label="تلفن اضطراری" value={contact.emergency_phone} />
-                <Row label="کد پستی" value={address.postal_code} />
-                <Row label="استان" value={address.province} />
-                <Row label="شهر" value={address.city} />
-                <Row label="محله" value={address.neighborhood} />
-                <Row label="آدرس" value={address.address} />
-                <Row label="پلاک" value={address.plaque} />
-                <Row label="طبقه" value={address.floor} />
-                <Row label="واحد" value={address.unit} />
+                <SectionRow hideEmpty label="ایمیل" value={employee.email} />
+                <SectionRow hideEmpty label="شماره موبایل" value={employee.mobile} />
+                <SectionRow hideEmpty label="تلفن ثابت" value={contact.phone} />
+                <SectionRow hideEmpty label="تلفن اضطراری" value={contact.emergency_phone} />
+                <SectionRow hideEmpty label="کد پستی" value={address.postal_code} />
+                <SectionRow hideEmpty label="استان" value={address.province} />
+                <SectionRow hideEmpty label="شهر" value={address.city} />
+                <SectionRow hideEmpty label="محله" value={address.neighborhood} />
+                <SectionRow hideEmpty label="آدرس" value={address.address} />
+                <SectionRow hideEmpty label="پلاک" value={address.plaque} />
+                <SectionRow hideEmpty label="طبقه" value={address.floor} />
+                <SectionRow hideEmpty label="واحد" value={address.unit} />
             </CardContent>
         </Card>
     );
@@ -318,7 +266,7 @@ function EducationView({ employee }: { employee: Employee }) {
                 <CardTitle>سوابق تحصیلی</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
-                <RepeaterTable
+                <SectionRepeaterTable
                     items={education.education_records}
                     emptyLabel="سابقه تحصیلی ثبت نشده است."
                     columns={[
@@ -342,23 +290,23 @@ function EducationView({ employee }: { employee: Employee }) {
                         <div className="grid gap-6 md:grid-cols-2">
                             <Card className="border-0 shadow-none">
                                 <CardContent className="divide-y p-0">
-                                    <Row
+                                    <SectionRow hideEmpty
                                         label="مقطع تحصیلی"
                                         value={education.student_degree}
                                     />
-                                    <Row
+                                    <SectionRow hideEmpty
                                         label="رشته تحصیلی"
                                         value={education.student_field}
                                     />
-                                    <Row
+                                    <SectionRow hideEmpty
                                         label="دانشگاه"
                                         value={education.student_university}
                                     />
-                                    <Row
+                                    <SectionRow hideEmpty
                                         label="کشور"
                                         value={education.student_country}
                                     />
-                                    <Row
+                                    <SectionRow hideEmpty
                                         label="شهر"
                                         value={education.student_city}
                                     />
@@ -366,27 +314,27 @@ function EducationView({ employee }: { employee: Employee }) {
                             </Card>
                             <Card className="border-0 shadow-none">
                                 <CardContent className="divide-y p-0">
-                                    <Row
+                                    <SectionRow hideEmpty
                                         label="ترم فعلی"
                                         value={education.student_semester}
                                     />
-                                    <Row
+                                    <SectionRow hideEmpty
                                         label="واحدهای گذرانده"
                                         value={education.passed_units}
                                     />
-                                    <Row
+                                    <SectionRow hideEmpty
                                         label="واحدهای باقی‌مانده"
                                         value={education.remaining_units}
                                     />
-                                    <Row
+                                    <SectionRow hideEmpty
                                         label="معدل"
                                         value={education.student_gpa}
                                     />
-                                    <Row
+                                    <SectionRow hideEmpty
                                         label="تاریخ شروع"
                                         value={education.study_start}
                                     />
-                                    <Row
+                                    <SectionRow hideEmpty
                                         label="تاریخ فارغ‌التحصیلی مورد انتظار"
                                         value={education.expected_graduation}
                                     />
@@ -394,7 +342,7 @@ function EducationView({ employee }: { employee: Employee }) {
                             </Card>
                         </div>
                         <div className="mt-4">
-                            <Row
+                            <SectionRow hideEmpty
                                 label="ارائه پایان‌نامه"
                                 value={
                                     stringValue(education.thesis_submitted)
@@ -405,17 +353,17 @@ function EducationView({ employee }: { employee: Employee }) {
                                 }
                             />
                         </div>
-                        <Row
+                        <SectionRow hideEmpty
                             label="عنوان پایان‌نامه"
                             value={education.student_thesis_title}
                         />
-                        <Row
+                        <SectionRow hideEmpty
                             label="روزهای آزاد در هفته"
                             value={education.free_days_per_week}
                         />
                     </div>
                 )}
-                <Row
+                <SectionRow hideEmpty
                     label="توضیحات تحصیلی"
                     value={education.education_description}
                 />
@@ -433,7 +381,7 @@ function WorkExperienceView({ employee }: { employee: Employee }) {
                 <CardTitle>سوابق شغلی</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
-                <RepeaterTable
+                <SectionRepeaterTable
                     items={work.work_experiences}
                     emptyLabel="سابقه شغلی ثبت نشده است."
                     columns={[
@@ -444,8 +392,8 @@ function WorkExperienceView({ employee }: { employee: Employee }) {
                         { label: "توضیحات", render: (i) => i.description },
                     ]}
                 />
-                <Row label="دستاوردها" value={work.achievements} />
-                <Row
+                <SectionRow hideEmpty label="دستاوردها" value={work.achievements} />
+                <SectionRow hideEmpty
                     label="مجاز به تماس با مدیران قبلی"
                     value={
                         stringValue(work.allow_contact_previous_managers)
@@ -455,7 +403,7 @@ function WorkExperienceView({ employee }: { employee: Employee }) {
                             : null
                     }
                 />
-                <Row
+                <SectionRow hideEmpty
                     label="توضیحات محدودیت تماس"
                     value={work.contact_restriction_description}
                 />
@@ -476,7 +424,7 @@ function SkillsView({ employee }: { employee: Employee }) {
             <CardContent className="space-y-6">
                 <div>
                     <p className="text-sm font-medium mb-2">زبان‌ها</p>
-                    <RepeaterTable
+                    <SectionRepeaterTable
                         items={skills.languages}
                         emptyLabel="زبانی ثبت نشده است."
                         columns={[
@@ -493,7 +441,7 @@ function SkillsView({ employee }: { employee: Employee }) {
                 </div>
                 <div>
                     <p className="text-sm font-medium mb-2">گواهینامه‌ها</p>
-                    <RepeaterTable
+                    <SectionRepeaterTable
                         items={skills.certificates}
                         emptyLabel="گواهینامه‌ای ثبت نشده است."
                         columns={[
@@ -505,7 +453,7 @@ function SkillsView({ employee }: { employee: Employee }) {
                 </div>
                 <div>
                     <p className="text-sm font-medium mb-2">مهارت‌های ویژه</p>
-                    <RepeaterTable
+                    <SectionRepeaterTable
                         items={skills.special_skills}
                         emptyLabel="مهارت ویژه‌ای ثبت نشده است."
                         columns={[
@@ -518,7 +466,7 @@ function SkillsView({ employee }: { employee: Employee }) {
                     <p className="text-sm font-medium mb-2">
                         مهارت‌های تخصصی نرم‌افزاری
                     </p>
-                    <RepeaterTable
+                    <SectionRepeaterTable
                         items={software.specialized}
                         emptyLabel="مهارت تخصصی ثبت نشده است."
                         columns={[
@@ -531,7 +479,7 @@ function SkillsView({ employee }: { employee: Employee }) {
                     <p className="text-sm font-medium mb-2">
                         مهارت‌های عمومی نرم‌افزاری
                     </p>
-                    <RepeaterTable
+                    <SectionRepeaterTable
                         items={software.general}
                         emptyLabel="مهارت عمومی ثبت نشده است."
                         columns={[
@@ -556,7 +504,7 @@ function TrainingView({ employee }: { employee: Employee }) {
             <CardContent className="space-y-6">
                 <div>
                     <p className="text-sm font-medium mb-2">دوره‌های آموزشی</p>
-                    <RepeaterTable
+                    <SectionRepeaterTable
                         items={training.training_courses}
                         emptyLabel="دوره آموزشی ثبت نشده است."
                         columns={[
@@ -566,13 +514,13 @@ function TrainingView({ employee }: { employee: Employee }) {
                         ]}
                     />
                 </div>
-                <Row
+                <SectionRow hideEmpty
                     label="عضویت‌های حرفه‌ای"
                     value={training.professional_memberships}
                 />
                 <div>
                     <p className="text-sm font-medium mb-2">پژوهش‌ها</p>
-                    <RepeaterTable
+                    <SectionRepeaterTable
                         items={training.researches}
                         emptyLabel="پژوهشی ثبت نشده است."
                         columns={[
@@ -596,7 +544,7 @@ function AdditionalInfoView({ employee }: { employee: Employee }) {
                 <CardTitle>اطلاعات تکمیلی</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
-                <RepeaterTable
+                <SectionRepeaterTable
                     items={info.references}
                     emptyLabel="ارجاعی ثبت نشده است."
                     columns={[
@@ -611,27 +559,27 @@ function AdditionalInfoView({ employee }: { employee: Employee }) {
                 <div className="grid gap-6 md:grid-cols-2">
                     <Card className="border-0 shadow-none">
                         <CardContent className="divide-y p-0">
-                            <Row
+                            <SectionRow hideEmpty
                                 label="بیماری مزمن"
                                 value={info.has_chronic_disease ? "بله" : "خیر"}
                             />
-                            <Row
+                            <SectionRow hideEmpty
                                 label="توضیحات بیماری مزمن"
                                 value={info.chronic_disease_description}
                             />
-                            <Row
+                            <SectionRow hideEmpty
                                 label="جراحی عمده"
                                 value={info.has_major_surgery ? "بله" : "خیر"}
                             />
-                            <Row
+                            <SectionRow hideEmpty
                                 label="توضیحات جراحی"
                                 value={info.major_surgery_description}
                             />
-                            <Row
+                            <SectionRow hideEmpty
                                 label="ناتوانی"
                                 value={info.has_disability ? "بله" : "خیر"}
                             />
-                            <Row
+                            <SectionRow hideEmpty
                                 label="نوع ناتوانی"
                                 value={info.disability_type}
                             />
@@ -639,24 +587,24 @@ function AdditionalInfoView({ employee }: { employee: Employee }) {
                     </Card>
                     <Card className="border-0 shadow-none">
                         <CardContent className="divide-y p-0">
-                            <Row
+                            <SectionRow hideEmpty
                                 label="سابقه کیفری"
                                 value={info.has_criminal_record ? "بله" : "خیر"}
                             />
-                            <Row
+                            <SectionRow hideEmpty
                                 label="توضیحات کیفری"
                                 value={info.criminal_record_description}
                             />
-                            <Row
+                            <SectionRow hideEmpty
                                 label="امکان سفر"
                                 value={info.can_travel ? "بله" : "خیر"}
                             />
-                            <Row
+                            <SectionRow hideEmpty
                                 label="توضیحات سفر"
                                 value={info.travel_description}
                             />
-                            <Row label="علایق" value={info.hobbies} />
-                            <Row
+                            <SectionRow hideEmpty label="علایق" value={info.hobbies} />
+                            <SectionRow hideEmpty
                                 label="نقاط قوت و بهبود"
                                 value={info.strengths_and_improvements}
                             />
