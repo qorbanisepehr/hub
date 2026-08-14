@@ -60,6 +60,26 @@ return [
             ],
         ],
 
+        'cv.documents' => [
+            'name' => 'CV Documents',
+            'permissions' => [
+                'cv.documents.view' => "View a CV's documents",
+                'cv.documents.upload' => 'Upload documents',
+                'cv.documents.download' => 'Download documents',
+                'cv.documents.delete' => 'Delete documents',
+            ],
+        ],
+
+        'questionnaire.documents' => [
+            'name' => 'Questionnaire Documents',
+            'permissions' => [
+                'questionnaire.documents.view' => "View a questionnaire's documents",
+                'questionnaire.documents.upload' => 'Upload documents',
+                'questionnaire.documents.download' => 'Download documents',
+                'questionnaire.documents.delete' => 'Delete documents',
+            ],
+        ],
+
         'document-category' => [
             'name' => 'Document Categories',
             'permissions' => [

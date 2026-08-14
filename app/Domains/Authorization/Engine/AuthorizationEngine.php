@@ -6,6 +6,7 @@ use App\Domains\Authorization\Enums\AccessRuleEffect;
 use App\Domains\Authorization\Models\AccessRule;
 use App\Domains\Authorization\Models\Permission;
 use App\Domains\Authorization\Models\Role;
+use App\Domains\Authorization\Policies\ConditionEvaluator;
 use App\Models\User;
 use Illuminate\Support\Collection;
 
@@ -16,69 +17,141 @@ use Illuminate\Support\Collection;
  *
  * Rules:
  * - Default deny: no matching rule means denied.
- * - Deny precedence: any active deny rule blocks access regardless of allows.
- * - Access rules with a non-null policy cannot be auto-allowed until the policy
- *   engine evaluates them; they resolve to deny for now (safe default).
+ * - Deny precedence: any matched deny rule blocks access regardless of allows.
+ * - A rule without a policy is unconditional; a rule with a policy matches only
+ *   when the condition tree evaluates to true against actor/resource/context.
  */
 final class AuthorizationEngine
 {
+    public function __construct(
+        private readonly ConditionEvaluator $evaluator,
+    ) {}
+
     public function evaluate(
         User $actor,
         string $permission,
         mixed $resource = null,
         ?AuthorizationContext $context = null,
     ): AuthorizationDecision {
+        $rules = $this->rulesForPermission($actor, $permission);
+
+        if ($rules->isEmpty()) {
+            return $this->noRulesDecision($permission, $actor);
+        }
+
+        $matchedDeny = [];
+        $matchedAllow = [];
+        $policyResults = [];
+
+        foreach ($rules as $rule) {
+            $matches = $this->matches($rule, $actor, $resource, $context);
+
+            if ($rule->policy !== null) {
+                $policyResults[] = [
+                    'role_id' => $rule->role_id,
+                    'role_name' => $rule->role?->name,
+                    'effect' => $rule->effect->value,
+                    'priority' => $rule->priority,
+                    'policy' => $rule->policy,
+                    'result' => $matches,
+                ];
+            }
+
+            if ($rule->effect === AccessRuleEffect::Deny) {
+                if ($matches) {
+                    $matchedDeny[] = $rule;
+                }
+            } elseif ($matches) {
+                $matchedAllow[] = $rule;
+            }
+        }
+
+        if ($matchedDeny !== []) {
+            return AuthorizationDecision::deny(
+                reason: 'explicit_deny',
+                deniedRules: $this->describe($matchedDeny),
+                policyResults: $policyResults,
+            );
+        }
+
+        if ($matchedAllow !== []) {
+            return AuthorizationDecision::allow(
+                reason: 'allow',
+                matchedRules: $this->describe($matchedAllow),
+                policyResults: $policyResults,
+            );
+        }
+
+        return AuthorizationDecision::deny(
+            reason: 'no_matching_rule',
+            policyResults: $policyResults,
+        );
+    }
+
+    /**
+     * Every active access rule that applies to the given permission on the
+     * actor's active role chain. Used by can() evaluation and by scope(), which
+     * needs the raw policies to build query constraints.
+     *
+     * @return Collection<int, AccessRule>
+     */
+    public function rulesForPermission(User $actor, string $permission): Collection
+    {
         $permissionModel = Permission::query()
             ->where('name', $permission)
             ->where('is_active', true)
             ->first();
 
         if (! $permissionModel) {
-            return AuthorizationDecision::deny('permission_not_found');
+            return collect();
         }
 
         $role = $this->resolveActiveRole($actor);
 
         if (! $role) {
+            return collect();
+        }
+
+        return $this->rulesFor($role, $permissionModel->id);
+    }
+
+    private function noRulesDecision(string $permission, User $actor): AuthorizationDecision
+    {
+        $permissionExists = Permission::query()
+            ->where('name', $permission)
+            ->where('is_active', true)
+            ->exists();
+
+        if (! $permissionExists) {
+            return AuthorizationDecision::deny('permission_not_found');
+        }
+
+        if ($this->resolveActiveRole($actor) === null) {
             return AuthorizationDecision::deny('no_active_role');
         }
 
-        $rules = $this->rulesFor($role, $permissionModel->id);
-
-        $denyRules = $rules->filter(
-            fn (AccessRule $rule) => $rule->effect === AccessRuleEffect::Deny,
-        );
-
-        if ($denyRules->isNotEmpty()) {
-            return AuthorizationDecision::deny(
-                reason: 'explicit_deny',
-                deniedRules: $this->describe($denyRules),
-            );
-        }
-
-        $allowRules = $rules->filter(
-            fn (AccessRule $rule) => $rule->effect === AccessRuleEffect::Allow,
-        );
-
-        $policyPending = $allowRules->first(
-            fn (AccessRule $rule) => $rule->policy !== null,
-        ) !== null;
-
-        if ($policyPending) {
-            return AuthorizationDecision::deny(
-                reason: 'policy_not_evaluated',
-                policyPending: true,
-            );
-        }
-
-        if ($allowRules->isNotEmpty()) {
-            return AuthorizationDecision::allow(
-                reason: 'allow',
-                matchedRules: $this->describe($allowRules),
-            );
-        }
-
         return AuthorizationDecision::deny('no_matching_rule');
+    }
+
+    private function matches(
+        AccessRule $rule,
+        User $actor,
+        mixed $resource,
+        ?AuthorizationContext $context,
+    ): bool {
+        if ($rule->policy === null) {
+            return true;
+        }
+
+        if ($resource === null) {
+            // No concrete resource (e.g. viewAny/list capability check): the
+            // rule grants the capability and row-level visibility is enforced
+            // by scope(). Evaluating a resource-relative condition here would
+            // wrongly deny list access.
+            return true;
+        }
+
+        return $this->evaluator->evaluates($rule->policy, $actor, $resource, $context);
     }
 
     /**
@@ -112,20 +185,19 @@ final class AuthorizationEngine
     }
 
     /**
-     * @param  Collection<int, AccessRule>  $rules
+     * @param  Collection<int, AccessRule>|array<int, AccessRule>  $rules
      * @return array<int, array<string, mixed>>
      */
-    private function describe(Collection $rules): array
+    private function describe(Collection|array $rules): array
     {
-        return $rules
-            ->map(fn (AccessRule $rule) => [
-                'role_id' => $rule->role_id,
-                'role_name' => $rule->role?->name,
-                'effect' => $rule->effect->value,
-                'priority' => $rule->priority,
-                'has_policy' => $rule->policy !== null,
-            ])
-            ->values()
-            ->all();
+        $rules = $rules instanceof Collection ? $rules->all() : $rules;
+
+        return array_map(fn (AccessRule $rule) => [
+            'role_id' => $rule->role_id,
+            'role_name' => $rule->role?->name,
+            'effect' => $rule->effect->value,
+            'priority' => $rule->priority,
+            'has_policy' => $rule->policy !== null,
+        ], $rules);
     }
 }

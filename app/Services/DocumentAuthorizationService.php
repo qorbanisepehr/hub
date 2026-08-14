@@ -2,22 +2,30 @@
 
 namespace App\Services;
 
+use App\Contracts\Authorization;
+use App\Contracts\Documentable;
 use App\Contracts\DocumentAuthorization;
+use App\Domains\Authorization\Engine\AuthorizationContext;
 use App\Domains\Document\Auth\DocumentAuthorizationContext;
 use App\Domains\Document\Enums\DocumentAction;
+use App\Domains\Employee\Models\Employee;
 use App\Models\User;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Builder;
 
 /**
- * Adapts the current Role-based permissions to the Document authorization
- * contract. This is the only place that knows permission names — the Document
- * domain stays decoupled. Scope/policy dimensions (own vs all) arrive with the
- * policy phase and are resolved here (or in a replacement implementation),
- * never in Document code.
+ * Adapts the Authorization engine to the Document contract. The Document domain
+ * only ever sees actions + context; permission names, policies, and RBAC tables
+ * stay behind this adapter. The engine decides everything: capability (an allow
+ * rule) and restriction (a policy evaluated against the document/usage resource
+ * or translated into query constraints by scope()).
  */
 class DocumentAuthorizationService implements DocumentAuthorization
 {
+    public function __construct(
+        private readonly Authorization $authorization,
+    ) {}
+
     public function authorize(
         Authenticatable $actor,
         DocumentAction $action,
@@ -27,9 +35,20 @@ class DocumentAuthorizationService implements DocumentAuthorization
             return false;
         }
 
-        $permission = $this->permissionName($action);
+        $permission = $this->permissionName($action, $context->owner);
 
-        return $permission !== null && $actor->hasPermissionTo($permission);
+        if ($permission === null) {
+            return false;
+        }
+
+        $resource = $context->usage ?? $context->document;
+
+        return $this->authorization->can(
+            $actor,
+            $permission,
+            $resource,
+            $this->engineContext($context),
+        );
     }
 
     public function scope(
@@ -41,22 +60,78 @@ class DocumentAuthorizationService implements DocumentAuthorization
             ->whereNull('document_usages.deleted_at')
             ->whereHas('document', fn (Builder $q) => $q->whereNull('documents.deleted_at'));
 
-        return $query;
+        if (! $actor instanceof User) {
+            return $query;
+        }
+
+        $permission = $this->permissionName($action, null);
+
+        if ($permission === null) {
+            return $query;
+        }
+
+        return $this->authorization->scope($actor, $permission, $query);
     }
 
     /**
-     * Map an abstract action to its permission name.
+     * Expose the operation's context to policy evaluation as `context.*` values.
      */
-    private function permissionName(DocumentAction $action): ?string
+    private function engineContext(DocumentAuthorizationContext $context): AuthorizationContext
     {
-        return match ($action) {
-            DocumentAction::View => 'employee.documents.view',
-            DocumentAction::Download => 'employee.documents.download',
-            DocumentAction::Upload => 'employee.documents.upload',
-            DocumentAction::Delete, DocumentAction::Restore, DocumentAction::ForceDelete => 'employee.documents.delete',
-            DocumentAction::Replace => 'employee.documents.upload',
-            DocumentAction::LibrarySelect => 'employee.documents.library-select',
+        $values = [];
+
+        if ($context->owner !== null) {
+            $values['owner_id'] = $context->owner->getKey();
+            $values['owner_type'] = get_class($context->owner);
+
+            if ($context->owner instanceof Employee) {
+                $values['employee_id'] = $context->owner->getKey();
+                $values['employee_site_id'] = $context->owner->site_id;
+            }
+        }
+
+        if ($context->category !== null) {
+            $values['category_id'] = $context->category->getKey();
+            $values['category_slug'] = $context->category->slug;
+        }
+
+        $values['section_key'] = $context->sectionKey;
+        $values['field_key'] = $context->fieldKey;
+        $values['trashed'] = $context->trashed;
+
+        return AuthorizationContext::make(array_filter(
+            $values,
+            fn (mixed $value) => $value !== null,
+        ));
+    }
+
+    /**
+     * Map an abstract action to its permission name. The permission namespace
+     * follows the owning entity's route type so CV and questionnaire documents
+     * stay under their own lifecycle and privacy permissions, independent of
+     * employee documents.
+     */
+    private function permissionName(DocumentAction $action, ?Documentable $owner): ?string
+    {
+        $suffix = match ($action) {
+            DocumentAction::View => 'view',
+            DocumentAction::Download => 'download',
+            DocumentAction::Upload, DocumentAction::Replace => 'upload',
+            DocumentAction::Delete, DocumentAction::Restore, DocumentAction::ForceDelete => 'delete',
+            DocumentAction::LibrarySelect => 'library-select',
             DocumentAction::HistoryView, DocumentAction::HistoryDownload => null,
         };
+
+        if ($suffix === null) {
+            return null;
+        }
+
+        $prefix = match ($owner?->getDocumentRouteType()) {
+            'cv' => 'cv.documents',
+            'questionnaire' => 'questionnaire.documents',
+            default => 'employee.documents',
+        };
+
+        return "{$prefix}.{$suffix}";
     }
 }

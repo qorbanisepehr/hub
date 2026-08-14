@@ -30,11 +30,11 @@ class DocumentCapabilities
      * Backend-authoritative set of document actions allowed for an entity. The
      * frontend must not derive these rules from the entity type itself.
      *
-     * For authenticated employee flows the business capability is intersected
-     * with the authorization decision, so capabilities may differ per user,
-     * Employee, category, placement and state. Grant-based flows (cv /
-     * questionnaire) have no authenticated actor and keep their business
-     * capability only — their access is governed by the grant itself.
+     * For authenticated flows the business capability is intersected with the
+     * authorization decision, so capabilities may differ per user, entity,
+     * category, placement and state. Grant-based flows (public cv / questionnaire
+     * submission) have no authenticated actor and keep their business capability
+     * only — their access is governed by the grant itself.
      *
      * @return array<string, bool>
      */
@@ -42,7 +42,7 @@ class DocumentCapabilities
     {
         $business = $this->forRouteType($entity->getDocumentRouteType());
 
-        if ($actor === null || $entity->getDocumentRouteType() !== 'employee') {
+        if ($actor === null) {
             return $business;
         }
 

@@ -2,6 +2,7 @@
 
 namespace App\Domains\Employee\Controllers;
 
+use App\Contracts\Authorization;
 use App\Domains\Employee\Models\Employee;
 use App\Domains\Employee\Requests\SaveEmployeeSectionRequest;
 use App\Domains\Employee\Requests\StoreEmployeeRequest;
@@ -31,13 +32,14 @@ class EmployeeController extends ApiController
 
     public function __construct(
         private EmployeeService $employeeService,
+        private Authorization $authorization,
     ) {}
 
     public function index(Request $request): AnonymousResourceCollection
     {
         $query = Employee::with(['user']);
 
-        $this->scopeQuery($query, $request, 'user_id');
+        $this->authorization->scope($request->user(), 'employee.list', $query);
 
         if ($request->filled('filter')) {
             $filter = $request->input('filter');

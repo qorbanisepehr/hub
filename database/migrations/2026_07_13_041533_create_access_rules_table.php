@@ -16,7 +16,10 @@ return new class extends Migration
             $table->integer('priority')->default(0);
             $table->json('policy')->nullable();
             $table->boolean('is_active')->default(true);
-            $table->unique(['role_id', 'permission_id']);
+            // No unique on (role_id, permission_id): the same role+permission
+            // may carry multiple rules (e.g. ALLOW with one policy and DENY
+            // with another). Rule identity is the primary key.
+            $table->index(['role_id', 'permission_id']);
             $table->timestamps();
         });
     }

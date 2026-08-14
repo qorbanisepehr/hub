@@ -2,6 +2,7 @@
 
 namespace App\Domains\Authorization\Policies;
 
+use App\Contracts\Authorization;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
@@ -94,33 +95,23 @@ class DynamicPolicy
             return false;
         }
 
-        return $this->resolve($user, $permission, $model, $config);
+        // Resource-bound abilities evaluate the policy against the route-bound
+        // model. List/create-style abilities have no concrete resource and are
+        // capability-level checks; row-level visibility is scope()'s job.
+        $resource = in_array($method, ['view', 'update', 'delete', 'download', 'upload'], true)
+            ? $model
+            : null;
+
+        return $this->resolve($user, $permission, $model, $config, $resource);
     }
 
-    protected function resolve(User $user, mixed $permission, Model $model, ?array $config = null): bool
+    protected function resolve(User $user, mixed $permission, Model $model, ?array $config = null, ?Model $resource = null): bool
     {
         return match (true) {
-            is_string($permission) => $user->hasPermissionTo($permission),
-            is_array($permission) && array_key_exists('own', $permission) && array_key_exists('all', $permission) => $this->checkScopedPermission($user, $permission, $model, $config),
+            is_string($permission) => app(Authorization::class)->can($user, $permission, $resource),
             is_array($permission) => $user->hasAnyPermission($permission),
             default => false,
         };
-    }
-
-    protected function checkScopedPermission(User $user, array $permission, Model $model, ?array $config = null): bool
-    {
-        if ($user->hasPermissionTo($permission['all'])) {
-            return true;
-        }
-
-        $ownerField = $config['owner_field'] ?? null;
-
-        if ($ownerField === null) {
-            return false;
-        }
-
-        return $user->hasPermissionTo($permission['own'])
-            && $model->{$ownerField} === $user->id;
     }
 
     public function viewAny(User $user, Model $model): bool
@@ -148,26 +139,14 @@ class DynamicPolicy
         return $this->resolveMethod($user, $model, 'delete');
     }
 
+    /**
+     * Own-scope filtering is handled by the Authorization engine's scope()
+     * query translation, not by a policy ability. This ability always resolves
+     * to false so ApiController::scopeQuery stays a no-op.
+     */
     public function scopeOwn(User $user, Model $model): bool
     {
-        $config = $this->getConfig($model);
-
-        if ($config === null) {
-            return false;
-        }
-
-        $permission = $config['permissions']['scopeOwn'] ?? null;
-
-        if ($permission === null) {
-            return false;
-        }
-
-        return match (true) {
-            is_array($permission) && array_key_exists('own', $permission) && array_key_exists('all', $permission) => $user->hasPermissionTo($permission['own'])
-                    && ! $user->hasPermissionTo($permission['all']),
-            is_string($permission) => false,
-            default => false,
-        };
+        return false;
     }
 
     /**

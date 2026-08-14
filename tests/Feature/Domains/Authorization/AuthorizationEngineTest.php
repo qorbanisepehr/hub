@@ -6,6 +6,7 @@ use App\Domains\Authorization\Enums\AccessRuleEffect;
 use App\Domains\Authorization\Models\Permission;
 use App\Domains\Authorization\Models\PermissionGroup;
 use App\Domains\Authorization\Models\Role;
+use App\Domains\Employee\Models\Employee;
 use App\Models\User;
 
 function makePermission(string $name, string $groupSlug = 'employee'): Permission
@@ -150,23 +151,84 @@ describe('Authorization engine', function () {
         expect($this->engine->evaluate($user, 'employee.view')->allowed)->toBeFalse();
     });
 
-    it('denies allow rules that carry a policy until the policy is evaluated', function () {
+    it('allows an allow rule whose policy matches the resource', function () {
         $permission = makePermission('employee.view');
         $role = Role::create(['name' => 'hr', 'display_name' => 'HR', 'is_active' => true]);
         $role->accessRules()->create([
             'permission_id' => $permission->id,
             'effect' => AccessRuleEffect::Allow,
-            'policy' => ['attribute' => 'department', 'operator' => 'eq', 'value' => 'security'],
+            'policy' => [
+                'all' => [
+                    ['attribute' => 'employee.employment_status', 'operator' => 'equals', 'value_source' => 'literal', 'value' => 'active'],
+                ],
+            ],
         ]);
 
         $user = User::factory()->create();
         $user->assignRole($role->id, true);
 
-        $decision = $this->engine->evaluate($user, 'employee.view');
+        $employee = Employee::factory()->create(['employment_status' => 'active']);
+
+        $decision = $this->engine->evaluate($user, 'employee.view', $employee);
+
+        expect($decision->allowed)->toBeTrue();
+        expect($decision->policyResults)->toHaveCount(1);
+        expect($decision->policyResults[0]['result'])->toBeTrue();
+    });
+
+    it('denies an allow rule whose policy does not match the resource', function () {
+        $permission = makePermission('employee.view');
+        $role = Role::create(['name' => 'hr', 'display_name' => 'HR', 'is_active' => true]);
+        $role->accessRules()->create([
+            'permission_id' => $permission->id,
+            'effect' => AccessRuleEffect::Allow,
+            'policy' => [
+                'all' => [
+                    ['attribute' => 'employee.employment_status', 'operator' => 'equals', 'value_source' => 'literal', 'value' => 'active'],
+                ],
+            ],
+        ]);
+
+        $user = User::factory()->create();
+        $user->assignRole($role->id, true);
+
+        $employee = Employee::factory()->create(['employment_status' => 'terminated']);
+
+        $decision = $this->engine->evaluate($user, 'employee.view', $employee);
 
         expect($decision->allowed)->toBeFalse();
-        expect($decision->reason)->toBe('policy_not_evaluated');
-        expect($decision->policyPending)->toBeTrue();
+        expect($decision->reason)->toBe('no_matching_rule');
+    });
+
+    it('only denies when a deny rule policy matches the resource', function () {
+        $permission = makePermission('employee.view');
+        $role = Role::create(['name' => 'hr', 'display_name' => 'HR', 'is_active' => true]);
+        $role->accessRules()->create([
+            'permission_id' => $permission->id,
+            'effect' => AccessRuleEffect::Allow,
+        ]);
+        $role->accessRules()->create([
+            'permission_id' => $permission->id,
+            'effect' => AccessRuleEffect::Deny,
+            'policy' => [
+                'all' => [
+                    ['attribute' => 'employee.employment_status', 'operator' => 'equals', 'value_source' => 'literal', 'value' => 'security'],
+                ],
+            ],
+        ]);
+
+        $user = User::factory()->create();
+        $user->assignRole($role->id, true);
+
+        $employee = Employee::factory()->create(['employment_status' => 'active']);
+
+        $allowed = $this->engine->evaluate($user, 'employee.view', $employee);
+        $blocked = $this->engine->evaluate($user, 'employee.view', Employee::factory()->create(['employment_status' => 'security']));
+
+        expect($allowed->allowed)->toBeTrue();
+        expect($allowed->reason)->toBe('allow');
+        expect($blocked->allowed)->toBeFalse();
+        expect($blocked->reason)->toBe('explicit_deny');
     });
 
     it('explains matched rules in the decision', function () {

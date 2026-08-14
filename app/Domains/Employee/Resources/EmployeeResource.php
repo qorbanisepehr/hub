@@ -2,6 +2,7 @@
 
 namespace App\Domains\Employee\Resources;
 
+use App\Contracts\Authorization;
 use App\Domains\Employee\Models\Employee;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -45,8 +46,43 @@ class EmployeeResource extends JsonResource
                     ? ['id' => $this->user->activeRole->id, 'display_name' => $this->user->activeRole->display_name]
                     : null,
             ]),
+            'capabilities' => $this->capabilities($request),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
+        ];
+    }
+
+    /**
+     * Backend-authoritative capability set for the current actor and employee.
+     * The frontend derives UI affordances (edit/delete/document actions) from
+     * these instead of re-deriving them from roles or permission names.
+     *
+     * @return array<string, bool>
+     */
+    private function capabilities(Request $request): array
+    {
+        $actor = $request->user();
+
+        if ($actor === null) {
+            return [
+                'view' => false,
+                'edit' => false,
+                'delete' => false,
+                'documents_view' => false,
+                'documents_upload' => false,
+                'documents_delete' => false,
+            ];
+        }
+
+        $authorization = app(Authorization::class);
+
+        return [
+            'view' => $authorization->can($actor, 'employee.view', $this->resource),
+            'edit' => $authorization->can($actor, 'employee.update', $this->resource),
+            'delete' => $authorization->can($actor, 'employee.delete', $this->resource),
+            'documents_view' => $authorization->can($actor, 'employee.documents.view', $this->resource),
+            'documents_upload' => $authorization->can($actor, 'employee.documents.upload', $this->resource),
+            'documents_delete' => $authorization->can($actor, 'employee.documents.delete', $this->resource),
         ];
     }
 }
