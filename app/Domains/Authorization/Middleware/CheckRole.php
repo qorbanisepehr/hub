@@ -29,10 +29,6 @@ class CheckRole
             abort(401, __('auth.inactive'));
         }
 
-        if ($user->isSuperAdmin()) {
-            return $next($request);
-        }
-
         foreach ($roles as $role) {
             if ($user->hasRole($role)) {
                 return $next($request);

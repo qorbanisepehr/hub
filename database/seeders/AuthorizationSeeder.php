@@ -2,9 +2,11 @@
 
 namespace Database\Seeders;
 
+use App\Domains\Authorization\Models\Permission;
 use App\Domains\Authorization\Models\Role;
 use App\Domains\Authorization\Models\RoleInheritance;
 use App\Domains\Authorization\Services\PermissionRegistrySynchronizer;
+use App\Models\User;
 use Illuminate\Database\Seeder;
 
 class AuthorizationSeeder extends Seeder
@@ -25,7 +27,16 @@ class AuthorizationSeeder extends Seeder
             ],
         );
 
-        // ── 3. Organizational Hierarchy (via role_inheritances) ──
+        // ── 3. System Administrator (replaces the email-based super admin) ──
+        $superAdminRole = Role::updateOrCreate(
+            ['name' => 'system.administrator'],
+            [
+                'display_name' => 'مدیر ارشد سامانه',
+                'is_active' => true,
+            ],
+        );
+
+        // ── 4. Organizational Hierarchy (via role_inheritances) ──
         // Level 0 — سرپرست معاونت سرمایه انسانی (root)
         $hrDeputyHead = Role::updateOrCreate(
             ['name' => 'hr-deputy-head'],
@@ -151,7 +162,7 @@ class AuthorizationSeeder extends Seeder
             ],
         );
 
-        // ── 4. Inheritance edges (org chart + permission propagation) ──
+        // ── 5. Inheritance edges (org chart + permission propagation) ──
         $inheritances = [
             'hr-management-head' => 'hr-deputy-head',
             'support-manager' => 'hr-deputy-head',
@@ -181,51 +192,51 @@ class AuthorizationSeeder extends Seeder
             }
         }
 
-        // ── 5. Permission Assignment (example — adjust per business needs) ──
+        // ── 6. Permission Assignment (example — adjust per business needs) ──
 
         // سرپرست معاونت: full HR visibility
         $hrDeputyHead->syncPermissions(array_merge(
             $groupPermissionIds['employee'],
-            $groupPermissionIds['document'],
+            $groupPermissionIds['employee.documents'],
         ));
 
-        // سرپرست مدیریت سرمایه انسانی: employee + document
+        // سرپرست مدیریت سرمایه انسانی: employee + documents
         $hrManagementHead->syncPermissions(array_merge(
             $groupPermissionIds['employee'],
-            $groupPermissionIds['document'],
+            $groupPermissionIds['employee.documents'],
         ));
 
         // رئیس انگیزه و رفاه: view employees + documents
         $motivationWelfareHead->syncPermissions([
-            $permissionModels['employee.view_all']->id,
-            $permissionModels['document.view_all']->id,
-            $permissionModels['document.download_all']->id,
+            $permissionModels['employee.view']->id,
+            $permissionModels['employee.documents.view']->id,
+            $permissionModels['employee.documents.download']->id,
         ]);
 
         // رئیس امور اداری و کارگزینی: full employee + document management
         $adminAffairsHead->syncPermissions(array_merge(
             $groupPermissionIds['employee'],
-            $groupPermissionIds['document'],
+            $groupPermissionIds['employee.documents'],
         ));
 
         // مدیر پشتیبانی: view employees + documents
         $supportManager->syncPermissions([
-            $permissionModels['employee.view_all']->id,
-            $permissionModels['document.view_all']->id,
-            $permissionModels['document.download_all']->id,
+            $permissionModels['employee.view']->id,
+            $permissionModels['employee.documents.view']->id,
+            $permissionModels['employee.documents.download']->id,
         ]);
 
         // رئیس پشتیبانی و خدمات عمومی
         $supportServicesHead->syncPermissions([
-            $permissionModels['employee.view_all']->id,
-            $permissionModels['document.view_all']->id,
-            $permissionModels['document.download_all']->id,
+            $permissionModels['employee.view']->id,
+            $permissionModels['employee.documents.view']->id,
+            $permissionModels['employee.documents.download']->id,
         ]);
 
         // مشاور: view only
         $advisor->syncPermissions([
-            $permissionModels['employee.view_all']->id,
-            $permissionModels['document.view_all']->id,
+            $permissionModels['employee.view']->id,
+            $permissionModels['employee.documents.view']->id,
         ]);
 
         // ── Level 3 roles: own profile + own documents ──
@@ -244,11 +255,11 @@ class AuthorizationSeeder extends Seeder
             $role = Role::where('name', $roleName)->first();
             if ($role) {
                 $role->syncPermissions([
-                    $permissionModels['employee.view_own']->id,
-                    $permissionModels['employee.update_own']->id,
-                    $permissionModels['document.view_own']->id,
-                    $permissionModels['document.upload_own']->id,
-                    $permissionModels['document.download_own']->id,
+                    $permissionModels['employee.view']->id,
+                    $permissionModels['employee.update']->id,
+                    $permissionModels['employee.documents.view']->id,
+                    $permissionModels['employee.documents.upload']->id,
+                    $permissionModels['employee.documents.download']->id,
                 ]);
             }
         }
@@ -257,16 +268,19 @@ class AuthorizationSeeder extends Seeder
         $seniorAdminExpert = Role::where('name', 'senior-admin-expert')->first();
         if ($seniorAdminExpert) {
             $seniorAdminExpert->syncPermissions([
-                $permissionModels['employee.view_own']->id,
-                $permissionModels['employee.view_all']->id,
-                $permissionModels['employee.update_own']->id,
-                $permissionModels['document.view_own']->id,
-                $permissionModels['document.view_all']->id,
-                $permissionModels['document.upload_own']->id,
-                $permissionModels['document.download_own']->id,
-                $permissionModels['document.download_all']->id,
+                $permissionModels['employee.view']->id,
+                $permissionModels['employee.update']->id,
+                $permissionModels['employee.documents.view']->id,
+                $permissionModels['employee.documents.upload']->id,
+                $permissionModels['employee.documents.download']->id,
             ]);
         }
+
+        // system.administrator: every registered permission
+        $superAdminRole->syncPermissions(array_map(
+            fn (Permission $permission) => $permission->id,
+            $permissionModels,
+        ));
 
         // admin: individual permissions (role + user management)
         $adminRole->syncPermissions([
@@ -284,5 +298,19 @@ class AuthorizationSeeder extends Seeder
             $permissionModels['form-options.view']->id,
             $permissionModels['form-options.manage']->id,
         ]);
+
+        // ── 7. Seed user roles (dev admin keeps full access) ──
+        $adminUser = User::where('email', 'admin@local.test')->first();
+
+        if ($adminUser) {
+            $adminUser->roles()->syncWithoutDetaching([
+                $adminRole->id,
+                $superAdminRole->id,
+            ]);
+
+            if ($adminUser->active_role_id === null) {
+                $adminUser->update(['active_role_id' => $superAdminRole->id]);
+            }
+        }
     }
 }

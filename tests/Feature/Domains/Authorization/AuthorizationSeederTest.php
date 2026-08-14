@@ -16,7 +16,8 @@ describe('Authorization seeder', function () {
 
         expect(Role::where('name', 'admin')->exists())->toBeTrue();
         expect(Role::where('name', 'hr-deputy-head')->exists())->toBeTrue();
-        expect(Role::count())->toBe(16);
+        expect(Role::where('name', 'system.administrator')->exists())->toBeTrue();
+        expect(Role::count())->toBe(17);
         expect(RoleInheritance::count())->toBe(14);
 
         $admin = Role::where('name', 'admin')->first();
@@ -24,5 +25,12 @@ describe('Authorization seeder', function () {
         expect($admin->getAllPermissions()->pluck('name'))
             ->toContain('role.view')
             ->toContain('user.delete');
+
+        $systemAdministrator = Role::where('name', 'system.administrator')->first();
+
+        expect($systemAdministrator->getAllPermissions()->pluck('name'))
+            ->toContain('employee.documents.delete')
+            ->toContain('user.delete')
+            ->toHaveCount(Permission::count());
     });
 });

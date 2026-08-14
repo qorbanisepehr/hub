@@ -2,6 +2,7 @@
 
 namespace App\Models\Traits;
 
+use App\Contracts\Authorization;
 use App\Domains\Authorization\Models\Permission;
 use App\Domains\Authorization\Models\Role;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -68,22 +69,18 @@ trait HasRoles
 
     public function hasPermissionTo(string $permissionName): bool
     {
-        if ($this->isSuperAdmin()) {
-            return true;
-        }
-
-        return $this->getAllPermissions()->contains('name', $permissionName);
+        return app(Authorization::class)->can($this, $permissionName);
     }
 
     public function hasAnyPermission(array $permissionNames): bool
     {
-        if ($this->isSuperAdmin()) {
-            return true;
+        foreach ($permissionNames as $permissionName) {
+            if ($this->hasPermissionTo($permissionName)) {
+                return true;
+            }
         }
 
-        $userPermissions = $this->getAllPermissions()->pluck('name')->toArray();
-
-        return ! empty(array_intersect($permissionNames, $userPermissions));
+        return false;
     }
 
     public function getAllPermissions(): Collection
@@ -91,7 +88,7 @@ trait HasRoles
         $this->ensureActiveRole();
 
         $cacheKey = "user_{$this->id}_permissions";
-        $store = Cache::store(config('rbac.cache_store'));
+        $store = Cache::store(config('authorization.cache_store'));
 
         $cached = $store->remember(
             $cacheKey,
@@ -128,7 +125,7 @@ trait HasRoles
 
     public function flushPermissionCache(): void
     {
-        Cache::store(config('rbac.cache_store'))->forget("user_{$this->id}_permissions");
+        Cache::store(config('authorization.cache_store'))->forget("user_{$this->id}_permissions");
     }
 
     private function ensureActiveRole(): void
@@ -158,10 +155,5 @@ trait HasRoles
         }
 
         return $activeRole->getAllPermissions();
-    }
-
-    public function isSuperAdmin(): bool
-    {
-        return $this->email === config('rbac.super_admin_email');
     }
 }

@@ -58,6 +58,6 @@ class PermissionController
         $permission->roles()->detach();
         $permission->delete();
 
-        return response()->json(['message' => __('rbac.permission_deleted')]);
+        return response()->json(['message' => __('authorization.permission_deleted')]);
     }
 }

@@ -24,7 +24,7 @@ class StoreRoleRequest extends FormRequest
             'parent_ids.*' => 'integer|exists:roles,id',
             'matrix_managers' => 'nullable|array',
             'matrix_managers.*.role_id' => 'required|integer|distinct|exists:roles,id',
-            'matrix_managers.*.manager_type' => ['required', 'string', Rule::in(array_keys(config('rbac.matrix_manager_types', [])))],
+            'matrix_managers.*.manager_type' => ['required', 'string', Rule::in(array_keys(config('authorization.matrix_manager_types', [])))],
             'requirements' => 'nullable|array',
             'requirements.min_education' => ['nullable', 'string', Rule::in(array_keys(Role::EDUCATION_LEVELS))],
             'requirements.min_experience_years' => 'nullable|integer|min:0|max:50',

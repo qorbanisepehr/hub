@@ -36,6 +36,6 @@ class PermissionGroupController
     {
         $group->delete();
 
-        return response()->json(['message' => __('rbac.permission_group_deleted')]);
+        return response()->json(['message' => __('authorization.permission_group_deleted')]);
     }
 }
