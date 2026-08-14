@@ -2,8 +2,10 @@
 
 namespace App\Providers;
 
+use App\Contracts\Authorization;
 use App\Contracts\DocumentAuthorization;
 use App\Domains\Authorization\Policies\DynamicPolicy;
+use App\Domains\Authorization\Services\AuthorizationService;
 use App\Domains\Cv\Repositories\CvRepository;
 use App\Domains\Cv\Repositories\CvRepositoryInterface;
 use App\Domains\Document\Repositories\DocumentRepository;
@@ -27,6 +29,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(CvRepositoryInterface::class, CvRepository::class);
         $this->app->bind(DocumentRepositoryInterface::class, DocumentRepository::class);
         $this->app->bind(DocumentAuthorization::class, DocumentAuthorizationService::class);
+        $this->app->bind(Authorization::class, AuthorizationService::class);
 
         $this->app->singleton(SettingsRepositoryInterface::class, FileSettingsRepository::class);
         $this->app->singleton(SettingsService::class);

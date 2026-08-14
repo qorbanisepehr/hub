@@ -2,47 +2,19 @@
 
 namespace Database\Seeders;
 
-use App\Domains\Authorization\Models\Permission;
-use App\Domains\Authorization\Models\PermissionGroup;
 use App\Domains\Authorization\Models\Role;
 use App\Domains\Authorization\Models\RoleInheritance;
-use App\Domains\Authorization\Services\PermissionRegistrar;
+use App\Domains\Authorization\Services\PermissionRegistrySynchronizer;
 use Illuminate\Database\Seeder;
 
 class AuthorizationSeeder extends Seeder
 {
     public function run(): void
     {
-        // ── 1. Sync Permission Groups & Permissions from config ──
-        $groups = PermissionRegistrar::getRegisteredGroups();
-        $permissionModels = [];
-        $groupPermissionIds = [];
-        $sortOrder = 0;
-        $groupModels = [];
-
-        foreach ($groups as $slug => $group) {
-            $permissionGroup = PermissionGroup::updateOrCreate(
-                ['slug' => $slug],
-                [
-                    'name' => $group['name'],
-                    'sort_order' => $sortOrder++,
-                ],
-            );
-
-            $groupModels[$slug] = $permissionGroup;
-
-            foreach ($group['permissions'] as $name => $description) {
-                $permissionModels[$name] = Permission::updateOrCreate(
-                    ['name' => $name],
-                    [
-                        'display_name' => $description,
-                        'group_id' => $permissionGroup->id,
-                    ],
-                );
-            }
-
-            $groupPermissionIds[$slug] = $permissionGroup->permissions()->pluck('id')->all();
-        }
+        // ── 1. Sync Permission Groups & Permissions from the registry ──
+        $sync = (new PermissionRegistrySynchronizer)->sync();
+        $permissionModels = $sync['permission_models'];
+        $groupPermissionIds = $sync['group_permission_ids'];
 
         // ── 2. System Admin (always exists, top-level) ──
         $adminRole = Role::updateOrCreate(

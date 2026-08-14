@@ -295,7 +295,7 @@ class Role extends Model
      *
      * @return array<int, int>
      */
-    private function getInheritedRoleIds(): array
+    public function getInheritedRoleIds(): array
     {
         $ids = [$this->id];
         $seen = [$this->id => true];
