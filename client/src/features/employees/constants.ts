@@ -1,4 +1,8 @@
-import type { ValidationSection } from "@/lib/validation-helpers";
+import { DOC_CATEGORY_SLUGS } from "@/features/questionnaire/constants";
+import type {
+    DocumentRequirement,
+    ValidationSection,
+} from "@/lib/validation-helpers";
 
 export const employmentLabels: Record<string, string> = {
     official: "رسمی",
@@ -88,6 +92,87 @@ export const EMPLOYEE_REVIEW_TAB = {
     label: "بازبینی و تأیید",
     description: "بررسی خلاصه اطلاعات پروفایل",
 } as const;
+
+/**
+ * Maps each employee section to the document categories shown inside its card
+ * on the review tab and the read-only profile view. The same categories drive
+ * the section/field placement rules for employee uploads.
+ */
+export const EMPLOYEE_SECTION_DOCS: { key: string; slugs: string[] }[] = [
+    {
+        key: "personal_info",
+        slugs: [
+            DOC_CATEGORY_SLUGS.PERSONNEL_PHOTO,
+            DOC_CATEGORY_SLUGS.NATIONAL_CARD,
+            DOC_CATEGORY_SLUGS.BIRTH_CERTIFICATE,
+        ],
+    },
+    {
+        key: "employment",
+        slugs: [DOC_CATEGORY_SLUGS.RESUME, DOC_CATEGORY_SLUGS.COVER_LETTER],
+    },
+    {
+        key: "education",
+        slugs: [DOC_CATEGORY_SLUGS.ACADEMIC_DEGREE],
+    },
+    {
+        key: "work_experience",
+        slugs: [DOC_CATEGORY_SLUGS.EMPLOYMENT_CERTIFICATE],
+    },
+    {
+        key: "skills",
+        slugs: [
+            DOC_CATEGORY_SLUGS.LANGUAGE_CERTIFICATE,
+            DOC_CATEGORY_SLUGS.COURSE_CERTIFICATES,
+            DOC_CATEGORY_SLUGS.SKILL_CERTIFICATE,
+        ],
+    },
+    {
+        key: "training",
+        slugs: [
+            DOC_CATEGORY_SLUGS.COURSE_CERTIFICATES,
+            DOC_CATEGORY_SLUGS.RESEARCH_DOCUMENTS,
+        ],
+    },
+];
+
+/**
+ * Per-category document requirements enforced in the review tab's
+ * «بررسی اعتبار» summary. Identity docs are required because the employee
+ * documents section always exposes an upload for them (personnel-photo has no
+ * upload field for employees, so it is intentionally not required).
+ */
+export const EMPLOYEE_DOC_REQUIREMENTS: DocumentRequirement[] = [
+    {
+        slug: DOC_CATEGORY_SLUGS.NATIONAL_CARD,
+        label: "کارت ملی",
+        required: true,
+        max: 1,
+    },
+    {
+        slug: DOC_CATEGORY_SLUGS.BIRTH_CERTIFICATE,
+        label: "شناسنامه",
+        required: true,
+        max: 1,
+    },
+    { slug: DOC_CATEGORY_SLUGS.RESUME, label: "رزومه", required: true },
+    { slug: DOC_CATEGORY_SLUGS.ACADEMIC_DEGREE, label: "مدرک تحصیلی" },
+    { slug: DOC_CATEGORY_SLUGS.LANGUAGE_CERTIFICATE, label: "گواهینامه زبان" },
+    { slug: DOC_CATEGORY_SLUGS.COURSE_CERTIFICATES, label: "گواهینامه دوره" },
+    { slug: DOC_CATEGORY_SLUGS.SKILL_CERTIFICATE, label: "گواهی مهارت", max: 1 },
+    {
+        slug: DOC_CATEGORY_SLUGS.EMPLOYMENT_CERTIFICATE,
+        label: "گواهی اشتغال به کار",
+        max: 1,
+    },
+    {
+        slug: DOC_CATEGORY_SLUGS.RESEARCH_DOCUMENTS,
+        label: "مدارک پژوهشی",
+        max: 1,
+    },
+    { slug: DOC_CATEGORY_SLUGS.COVER_LETTER, label: "نامه پوششی", max: 1 },
+    { slug: DOC_CATEGORY_SLUGS.OTHER_DOCUMENTS, label: "سایر مدارک", max: 3 },
+];
 
 // Identity fields live on the real columns, not inside the JSONB section, so
 // they need extra match prefixes when grouping errors by section.

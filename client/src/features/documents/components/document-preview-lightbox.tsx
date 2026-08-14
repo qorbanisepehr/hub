@@ -207,7 +207,6 @@ export function DocumentPreviewLightbox({
         if (!doc?.url && !doc?.download_url) return;
         const a = document.createElement("a");
         a.href = getDocDownloadUrl(doc);
-        a.download = getDocOriginalName(doc);
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);

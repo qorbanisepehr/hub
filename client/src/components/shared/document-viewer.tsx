@@ -143,7 +143,6 @@ function handleDownload(doc: EntityDocument) {
 
     const a = document.createElement("a");
     a.href = url;
-    a.download = doc.structure_name;
     document.body.appendChild(a);
     a.click();
     a.remove();

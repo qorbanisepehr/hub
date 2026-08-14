@@ -74,6 +74,24 @@ type EmployeeProfileFormProps = {
     employee: Employee;
 };
 
+const PROFILE_TAB_KEYS = new Set<string>([
+    ...EMPLOYEE_SECTIONS.map((section) => section.key),
+    EMPLOYEE_DOCUMENTS_TAB.key,
+    EMPLOYEE_LINKED_USER_TAB.key,
+    EMPLOYEE_REVIEW_TAB.key,
+]);
+
+/** Read the active tab key from the URL hash (e.g. `#review`). */
+function getSectionFromHash(): string {
+    const hash = window.location.hash.replace("#", "");
+    if (PROFILE_TAB_KEYS.has(hash)) return hash;
+    return EMPLOYEE_SECTIONS[0].key;
+}
+
+function setSectionHash(key: string) {
+    window.location.hash = `#${key}`;
+}
+
 const SECTION_PAYLOAD_BUILDERS: Record<
     string,
     (values: EmployeeProfileFormData) => Record<string, unknown>
@@ -177,9 +195,18 @@ export function EmployeeProfileForm({ employee }: EmployeeProfileFormProps) {
         [],
     );
     const [activeSection, setActiveSection] = useState<string>(
-        EMPLOYEE_SECTIONS[0].key,
+        getSectionFromHash,
     );
     const [submitErrors, setSubmitErrors] = useState<string[]>([]);
+
+    useEffect(() => {
+        const onHashChange = () => {
+            const key = getSectionFromHash();
+            setActiveSection((prev) => (prev === key ? prev : key));
+        };
+        window.addEventListener("hashchange", onHashChange);
+        return () => window.removeEventListener("hashchange", onHashChange);
+    }, []);
 
     const saveMutation = useMutation({
         mutationFn: ({
@@ -332,6 +359,12 @@ export function EmployeeProfileForm({ employee }: EmployeeProfileFormProps) {
             persistSection(activeSection);
         }
         setActiveSection(next);
+        setSectionHash(next);
+    };
+
+    const navigateToSection = (key: string) => {
+        setActiveSection(key);
+        setSectionHash(key);
     };
 
     const renderSection = (sectionKey: string) => {
@@ -408,7 +441,7 @@ export function EmployeeProfileForm({ employee }: EmployeeProfileFormProps) {
                     <EmployeeReviewSection
                         form={form as never}
                         employee={employee}
-                        onNavigateToSection={setActiveSection}
+                        onNavigateToSection={navigateToSection}
                     />
                 );
             default:

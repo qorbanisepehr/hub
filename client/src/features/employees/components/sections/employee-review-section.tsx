@@ -1,5 +1,24 @@
+import { useMemo } from "react";
+
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { FormValidationSummary } from "@/components/shared/form-validation-summary";
+import { DocumentViewer } from "@/components/shared/document-viewer";
+import { QuestionnaireDocumentPreview } from "@/components/shared/questionnaire-document-preview";
 import type { Employee, EmployeeFormApi } from "@/features/employees/types";
-import { EMPLOYEE_SECTIONS } from "@/features/employees/constants";
+import {
+    EMPLOYEE_DOC_REQUIREMENTS,
+    EMPLOYEE_DOCUMENTS_TAB,
+    EMPLOYEE_SECTION_DOCS,
+    EMPLOYEE_SECTIONS,
+    EMPLOYEE_VALIDATION_SECTIONS,
+} from "@/features/employees/constants";
+import { useEmployeeDocuments } from "@/features/employees/hooks/use-employee-documents";
+import { useEmployeeSubmitOptions } from "@/features/employees/hooks/use-employee-submit-options";
+import { buildValidateSubmitData } from "@/features/employees/validation";
+import {
+    groupFieldErrorsBySection,
+    validateDocumentRequirements,
+} from "@/lib/validation-helpers";
 import { toPersonalInfoPayload } from "@/features/questionnaire/schemas/personal-info.schema";
 import { toContactInfoPayload } from "@/features/questionnaire/schemas/contact-info.schema";
 import { toEmploymentPayload } from "@/features/employees/schemas/employment.schema";
@@ -35,6 +54,46 @@ export function EmployeeReviewSection({
 }: EmployeeReviewSectionProps) {
     const values = form.state.values as Record<string, unknown>;
 
+    const { documents, isLoading: documentsLoading, getDocumentsBySlug } =
+        useEmployeeDocuments(employee.id);
+
+    const { submitOptions } = useEmployeeSubmitOptions();
+
+    const validateSubmit = useMemo(
+        () => buildValidateSubmitData(submitOptions),
+        [submitOptions],
+    );
+
+    const validation = validateSubmit(values);
+    const docMessages = documentsLoading
+        ? []
+        : validateDocumentRequirements(documents, EMPLOYEE_DOC_REQUIREMENTS);
+    const validationGroups = groupFieldErrorsBySection(
+        validation.fieldErrors,
+        EMPLOYEE_VALIDATION_SECTIONS,
+    );
+
+    const reviewSteps = [
+        ...EMPLOYEE_SECTIONS.map((section, index) => ({
+            id: index,
+            key: section.key,
+            label: section.label,
+        })),
+        {
+            id: EMPLOYEE_SECTIONS.length,
+            key: EMPLOYEE_DOCUMENTS_TAB.key,
+            label: EMPLOYEE_DOCUMENTS_TAB.label,
+        },
+    ];
+
+    function docsFor(key: string) {
+        return EMPLOYEE_SECTION_DOCS.find((entry) => entry.key === key)?.slugs.flatMap(
+            (slug) => getDocumentsBySlug(slug),
+        ) ?? [];
+    }
+
+    const hasAnyDoc = documents.length > 0;
+
     const edit = (key: string) => () => onNavigateToSection(key);
 
     const label = (key: string) =>
@@ -42,10 +101,26 @@ export function EmployeeReviewSection({
 
     return (
         <div className="space-y-4">
+            <FormValidationSummary
+                groups={validationGroups}
+                docMessages={docMessages}
+                steps={reviewSteps}
+                onNavigateToStep={(id) =>
+                    onNavigateToSection(reviewSteps[id]?.key ?? "")
+                }
+            />
+
             <PersonalInfoView
                 data={toPersonalInfoPayload(values)}
                 title={label("personal_info")}
                 action={<SectionEditButton onClick={edit("personal_info")} />}
+                extra={
+                    <QuestionnaireDocumentPreview
+                        documents={docsFor("personal_info")}
+                        variant="compact"
+                        className="mt-4 pt-4 border-t"
+                    />
+                }
             />
 
             <ContactInfoView
@@ -59,12 +134,26 @@ export function EmployeeReviewSection({
                 user={employee.user}
                 title={label("employment")}
                 action={<SectionEditButton onClick={edit("employment")} />}
+                extra={
+                    <QuestionnaireDocumentPreview
+                        documents={docsFor("employment")}
+                        variant="compact"
+                        className="mt-4 pt-4 border-t"
+                    />
+                }
             />
 
             <EducationView
                 data={sectionValue(values, "education")}
                 title={label("education")}
                 action={<SectionEditButton onClick={edit("education")} />}
+                extra={
+                    <QuestionnaireDocumentPreview
+                        documents={docsFor("education")}
+                        variant="compact"
+                        className="mt-4 pt-4 border-t"
+                    />
+                }
             />
 
             <SocialInsuranceView
@@ -82,18 +171,39 @@ export function EmployeeReviewSection({
                 action={
                     <SectionEditButton onClick={edit("work_experience")} />
                 }
+                extra={
+                    <QuestionnaireDocumentPreview
+                        documents={docsFor("work_experience")}
+                        variant="compact"
+                        className="mt-4 pt-4 border-t"
+                    />
+                }
             />
 
             <SkillsView
                 data={sectionValue(values, "skills")}
                 title={label("skills")}
                 action={<SectionEditButton onClick={edit("skills")} />}
+                extra={
+                    <QuestionnaireDocumentPreview
+                        documents={docsFor("skills")}
+                        variant="compact"
+                        className="mt-4 pt-4 border-t"
+                    />
+                }
             />
 
             <TrainingView
                 data={sectionValue(values, "training")}
                 title={label("training")}
                 action={<SectionEditButton onClick={edit("training")} />}
+                extra={
+                    <QuestionnaireDocumentPreview
+                        documents={docsFor("training")}
+                        variant="compact"
+                        className="mt-4 pt-4 border-t"
+                    />
+                }
             />
 
             <AdditionalInfoView
@@ -103,6 +213,17 @@ export function EmployeeReviewSection({
                     <SectionEditButton onClick={edit("additional_info")} />
                 }
             />
+
+            {hasAnyDoc && (
+                <Card>
+                    <CardHeader>
+                        <CardTitle>همه مدارک بارگذاری شده</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <DocumentViewer documents={documents} />
+                    </CardContent>
+                </Card>
+            )}
         </div>
     );
 }
