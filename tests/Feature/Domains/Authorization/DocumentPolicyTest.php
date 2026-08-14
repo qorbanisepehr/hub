@@ -10,6 +10,7 @@ use App\Domains\Document\Enums\DocumentAction;
 use App\Domains\Document\Models\Document;
 use App\Domains\Document\Models\DocumentCategory;
 use App\Domains\Document\Models\DocumentUsage;
+use App\Domains\Document\Services\DocumentCapabilities;
 use App\Domains\Employee\Models\Employee;
 use App\Models\User;
 
@@ -130,4 +131,28 @@ it('denies when no access rule grants the permission', function () {
     $usage = policyUsage('employment');
 
     expect($this->documentAuthorization->authorize($user, DocumentAction::Download, DocumentAuthorizationContext::forUsage($usage)))->toBeFalse();
+});
+
+it('authorizes history view under the history-view permission', function () {
+    $user = User::factory()->create();
+    documentScopedRole($user, 'employee.documents.history-view');
+
+    $usage = policyUsage('employment');
+
+    expect($this->documentAuthorization->authorize($user, DocumentAction::HistoryView, DocumentAuthorizationContext::forUsage($usage)))->toBeTrue();
+    expect($this->documentAuthorization->authorize($user, DocumentAction::HistoryDownload, DocumentAuthorizationContext::forUsage($usage)))->toBeFalse();
+});
+
+it('keeps history capability authorization-backed', function () {
+    $employee = Employee::factory()->create();
+    $capabilities = app(DocumentCapabilities::class);
+
+    $granted = User::factory()->create();
+    documentScopedRole($granted, 'employee.documents.history-view');
+
+    $ungranted = User::factory()->create();
+    documentScopedRole($ungranted, 'employee.documents.view');
+
+    expect($capabilities->forEntity($granted, $employee)['history'])->toBeTrue();
+    expect($capabilities->forEntity($ungranted, $employee)['history'])->toBeFalse();
 });

@@ -55,7 +55,11 @@ describe('employee document replacement', function () {
     });
 
     it('exposes backend-authoritative capabilities on the employee index', function () {
-        $user = createUserWithPermissions(['employee.documents.view', 'employee.documents.download']);
+        $user = createUserWithPermissions([
+            'employee.documents.view',
+            'employee.documents.download',
+            'employee.documents.history-view',
+        ]);
         $employee = Employee::factory()->create();
 
         $this->actingAs($user)

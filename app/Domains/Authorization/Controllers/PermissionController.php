@@ -7,6 +7,7 @@ use App\Domains\Authorization\Models\PermissionGroup;
 use App\Domains\Authorization\Requests\StorePermissionRequest;
 use App\Domains\Authorization\Resources\PermissionGroupResource;
 use App\Domains\Authorization\Resources\PermissionResource;
+use App\Domains\Authorization\Services\AuthorizationVersion;
 use App\Domains\Authorization\Services\PermissionRegistrar;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -50,6 +51,8 @@ class PermissionController
     {
         $permission = Permission::create($request->validated());
 
+        app(AuthorizationVersion::class)->bump();
+
         return new PermissionResource($permission);
     }
 
@@ -57,6 +60,8 @@ class PermissionController
     {
         $permission->roles()->detach();
         $permission->delete();
+
+        app(AuthorizationVersion::class)->bump();
 
         return response()->json(['message' => __('authorization.permission_deleted')]);
     }

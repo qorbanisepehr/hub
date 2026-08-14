@@ -4,7 +4,6 @@ namespace App\Domains\Employee\Models;
 
 use App\Contracts\Documentable;
 use App\Contracts\DocumentableTrait;
-use App\Domains\Site\Models\Site;
 use App\Models\User;
 use Database\Factories\EmployeeFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -29,7 +28,6 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     'hire_date',
     'employment_status',
     'user_id',
-    'site_id',
     'section_personal',
     'section_contact_address',
     'section_education',
@@ -51,12 +49,6 @@ class Employee extends Model implements Documentable
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
-    }
-
-    /** @return BelongsTo<Site, $this> */
-    public function site(): BelongsTo
-    {
-        return $this->belongsTo(Site::class);
     }
 
     protected function casts(): array

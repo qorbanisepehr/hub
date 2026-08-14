@@ -2,6 +2,7 @@
 
 namespace App\Domains\Cv\Resources;
 
+use App\Contracts\Authorization;
 use App\Domains\Cv\Enums\CvStatus;
 use App\Domains\Document\Models\Document;
 use App\Domains\Document\Models\DocumentUsage;
@@ -57,6 +58,7 @@ class CvResource extends JsonResource
                 ? $this->reviewerSummary($this->reviewer)
                 : null,
             'lifecycle' => $this->enrichLifecycle($this->lifecycle),
+            'capabilities' => $this->capabilities($request),
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),
         ];
@@ -218,5 +220,33 @@ class CvResource extends JsonResource
     private function structureName(Document $document, DocumentUsage $usage): string
     {
         return app(DocumentService::class)->structureName($document, $usage);
+    }
+
+    /**
+     * Backend-authoritative capability set for the current actor and CV. The
+     * frontend derives review UI affordances (approve/reject/create-questionnaire)
+     * from these instead of re-deriving them from permission names.
+     *
+     * @return array<string, bool>
+     */
+    private function capabilities(Request $request): array
+    {
+        $actor = $request->user();
+
+        if ($actor === null) {
+            return [
+                'approve' => false,
+                'reject' => false,
+                'create_questionnaire' => false,
+            ];
+        }
+
+        $authorization = app(Authorization::class);
+
+        return [
+            'approve' => $authorization->can($actor, 'cv.approve', $this->resource),
+            'reject' => $authorization->can($actor, 'cv.reject', $this->resource),
+            'create_questionnaire' => $authorization->can($actor, 'cv.create-questionnaire', $this->resource),
+        ];
     }
 }

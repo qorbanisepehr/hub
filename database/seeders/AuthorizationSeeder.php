@@ -2,7 +2,6 @@
 
 namespace Database\Seeders;
 
-use App\Domains\Authorization\Enums\AccessRuleEffect;
 use App\Domains\Authorization\Models\Permission;
 use App\Domains\Authorization\Models\Role;
 use App\Domains\Authorization\Models\RoleInheritance;
@@ -231,6 +230,7 @@ class AuthorizationSeeder extends Seeder
             $permissionModels['employee.view']->id,
             $permissionModels['employee.documents.view']->id,
             $permissionModels['employee.documents.download']->id,
+            $permissionModels['employee.documents.history-view']->id,
         ]);
 
         // رئیس پشتیبانی و خدمات عمومی
@@ -238,12 +238,14 @@ class AuthorizationSeeder extends Seeder
             $permissionModels['employee.view']->id,
             $permissionModels['employee.documents.view']->id,
             $permissionModels['employee.documents.download']->id,
+            $permissionModels['employee.documents.history-view']->id,
         ]);
 
         // مشاور: view only
         $advisor->syncPermissions([
             $permissionModels['employee.view']->id,
             $permissionModels['employee.documents.view']->id,
+            $permissionModels['employee.documents.history-view']->id,
         ]);
 
         // ── Level 3 roles: own profile + own documents ──
@@ -318,41 +320,6 @@ class AuthorizationSeeder extends Seeder
             if ($adminUser->active_role_id === null) {
                 $adminUser->update(['active_role_id' => $superAdminRole->id]);
             }
-        }
-
-        // ── 8. Site HR — site-scoped employee visibility (flagship policy) ──
-        // ALLOW employee.view WHERE employee.site_id == actor.site_id
-        $siteHr = Role::updateOrCreate(
-            ['name' => 'site.hr'],
-            [
-                'display_name' => 'کارشناس منابع انسانی سایت',
-                'is_active' => true,
-            ],
-        );
-
-        $sitePolicy = [
-            'all' => [
-                [
-                    'attribute' => 'employee.site_id',
-                    'operator' => 'equals',
-                    'value_source' => 'actor',
-                    'value' => 'site_id',
-                ],
-            ],
-        ];
-
-        foreach (['employee.list', 'employee.view', 'employee.update'] as $permissionName) {
-            $siteHr->accessRules()->updateOrCreate(
-                [
-                    'permission_id' => $permissionModels[$permissionName]->id,
-                    'effect' => AccessRuleEffect::Allow->value,
-                ],
-                [
-                    'policy' => $sitePolicy,
-                    'priority' => 0,
-                    'is_active' => true,
-                ],
-            );
         }
     }
 }

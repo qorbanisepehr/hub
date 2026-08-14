@@ -1,6 +1,5 @@
 <?php
 
-use App\Domains\Authorization\Enums\AccessRuleEffect;
 use App\Domains\Authorization\Models\Permission;
 use App\Domains\Authorization\Models\PermissionGroup;
 use App\Domains\Authorization\Models\Role;
@@ -20,8 +19,7 @@ describe('Authorization seeder', function () {
         expect(Role::where('name', 'admin')->exists())->toBeTrue();
         expect(Role::where('name', 'hr-deputy-head')->exists())->toBeTrue();
         expect(Role::where('name', 'system.administrator')->exists())->toBeTrue();
-        expect(Role::where('name', 'site.hr')->exists())->toBeTrue();
-        expect(Role::count())->toBe(18);
+        expect(Role::count())->toBe(17);
         expect(RoleInheritance::count())->toBe(14);
 
         $admin = Role::where('name', 'admin')->first();
@@ -36,20 +34,6 @@ describe('Authorization seeder', function () {
             ->toContain('employee.documents.delete')
             ->toContain('user.delete')
             ->toHaveCount(Permission::count());
-
-        $siteHr = Role::where('name', 'site.hr')->first();
-
-        expect($siteHr->accessRules->map(fn ($rule) => $rule->effect->value)->unique()->all())->toBe([AccessRuleEffect::Allow->value]);
-        expect($siteHr->accessRules->first()->policy)->toBe([
-            'all' => [
-                [
-                    'attribute' => 'employee.site_id',
-                    'operator' => 'equals',
-                    'value_source' => 'actor',
-                    'value' => 'site_id',
-                ],
-            ],
-        ]);
 
         $hrDeputyHead = Role::where('name', 'hr-deputy-head')->first();
         $adminAffairsHead = Role::where('name', 'admin-affairs-head')->first();

@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Config;
 
 /**
- * Resolves policy attribute keys (e.g. `employee.site_id`) to concrete values
+ * Resolves policy attribute keys (e.g. `employee.employment_status`) to concrete values
  * on resource models. Definitions come from config/authorization-attributes.php.
  *
  * The engine stays independent of the domains: it only asks this registry
@@ -27,6 +27,7 @@ final class AttributeRegistry
                     type: $definition['type'] ?? 'string',
                     queryable: $definition['queryable'] ?? false,
                     column: $definition['column'] ?? null,
+                    relations: $definition['relations'] ?? [],
                 );
             }
         }

@@ -104,6 +104,60 @@ final class QueryTranslator
             throw new \InvalidArgumentException("Unknown authorization operator [{$operatorName}].");
         }
 
+        if ($definition->relations !== []) {
+            return $this->whereRelation($query, $definition->relations, $boolean, $column, $operator, $value);
+        }
+
+        return $this->applyColumn($query, $boolean, $column, $operator, $value);
+    }
+
+    /**
+     * Translate a leaf whose column lives on a related model into nested
+     * whereHas constraints (e.g. `document_usage.document.category.slug`).
+     *
+     * @param  array<int, string>  $relations
+     */
+    private function whereRelation(
+        Builder $query,
+        array $relations,
+        string $boolean,
+        string $column,
+        Operator $operator,
+        mixed $value,
+    ): Builder {
+        $apply = function (Builder $inner) use ($column, $operator, $value): void {
+            $this->applyColumn($inner, 'where', $column, $operator, $value);
+        };
+
+        if ($boolean === 'orWhere') {
+            return $query->orWhereHas($relations[0], function (Builder $inner) use ($relations, $apply): void {
+                $this->whereRelationNested($inner, array_slice($relations, 1), $apply);
+            });
+        }
+
+        return $query->whereHas($relations[0], function (Builder $inner) use ($relations, $apply): void {
+            $this->whereRelationNested($inner, array_slice($relations, 1), $apply);
+        });
+    }
+
+    /**
+     * @param  array<int, string>  $relations
+     */
+    private function whereRelationNested(Builder $query, array $relations, \Closure $apply): void
+    {
+        if ($relations === []) {
+            $apply($query);
+
+            return;
+        }
+
+        $query->whereHas($relations[0], function (Builder $inner) use ($relations, $apply): void {
+            $this->whereRelationNested($inner, array_slice($relations, 1), $apply);
+        });
+    }
+
+    private function applyColumn(Builder $query, string $boolean, string $column, Operator $operator, mixed $value): Builder
+    {
         return match ($operator) {
             Operator::Equals => $query->{$boolean}($column, '=', $value),
             Operator::NotEquals => $query->{$boolean}($column, '!=', $value),

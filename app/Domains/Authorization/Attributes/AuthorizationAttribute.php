@@ -9,11 +9,15 @@ namespace App\Domains\Authorization\Attributes;
  */
 final class AuthorizationAttribute
 {
+    /**
+     * @param  array<int, string>  $relations
+     */
     public function __construct(
         public readonly string $key,
         public readonly string $label,
         public readonly string $type,
         public readonly bool $queryable = false,
         public readonly ?string $column = null,
+        public readonly array $relations = [],
     ) {}
 }

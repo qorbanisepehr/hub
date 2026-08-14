@@ -23,7 +23,7 @@ class UserResource extends JsonResource
             'username' => $this->username,
             'is_active' => $this->is_active,
             'active_role_id' => $this->active_role_id,
-            'is_super_admin' => $this->hasRole('system.administrator'),
+            'is_super_admin' => $this->isSuperAdministrator(),
             'roles' => RoleResource::collection($this->whenLoaded('roles')),
             'active_role' => new RoleResource($this->whenLoaded('activeRole')),
             'permissions' => $this->when(

@@ -86,7 +86,6 @@ class DocumentAuthorizationService implements DocumentAuthorization
 
             if ($context->owner instanceof Employee) {
                 $values['employee_id'] = $context->owner->getKey();
-                $values['employee_site_id'] = $context->owner->site_id;
             }
         }
 
@@ -119,7 +118,8 @@ class DocumentAuthorizationService implements DocumentAuthorization
             DocumentAction::Upload, DocumentAction::Replace => 'upload',
             DocumentAction::Delete, DocumentAction::Restore, DocumentAction::ForceDelete => 'delete',
             DocumentAction::LibrarySelect => 'library-select',
-            DocumentAction::HistoryView, DocumentAction::HistoryDownload => null,
+            DocumentAction::HistoryView => 'history-view',
+            DocumentAction::HistoryDownload => 'history-download',
         };
 
         if ($suffix === null) {

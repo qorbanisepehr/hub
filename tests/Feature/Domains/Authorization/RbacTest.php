@@ -4,6 +4,7 @@ use App\Domains\Authorization\Models\Permission;
 use App\Domains\Authorization\Models\PermissionGroup;
 use App\Domains\Authorization\Models\Role;
 use App\Domains\Authorization\Policies\DynamicPolicy;
+use App\Domains\Authorization\Services\AuthorizationVersion;
 use App\Domains\Document\Models\Document;
 use App\Domains\Document\Models\DocumentCategory;
 use App\Domains\Employee\Models\Employee;
@@ -195,7 +196,8 @@ describe('RBAC', function () {
             $role->permissions()->attach($permission->id);
             $user->assignRole($role->id, true);
 
-            $cached = Cache::store('array')->get("user_{$user->id}_permissions");
+            $key = "authorization:user:{$user->id}:role:{$role->id}:v".app(AuthorizationVersion::class)->current();
+            $cached = Cache::store('array')->get($key);
 
             expect($cached)->toBeArray();
             $names = array_column($cached, 'name');
@@ -215,13 +217,58 @@ describe('RBAC', function () {
             $role->permissions()->attach($permission->id);
             $user->assignRole($role->id, true);
 
-            $cached = Cache::store('array')->get("user_{$user->id}_permissions");
+            $version = app(AuthorizationVersion::class)->current();
+            $key = "authorization:user:{$user->id}:role:{$role->id}:v{$version}";
+            $cached = Cache::store('array')->get($key);
             $names = array_column($cached, 'name');
             expect($names)->toContain('employee.view');
 
             $user->removeRole($role->id);
 
-            expect(Cache::store('array')->get("user_{$user->id}_permissions"))->toBe([]);
+            $flushedKey = "authorization:user:{$user->id}:role:none:v{$version}";
+            expect(Cache::store('array')->get($flushedKey))->toBe([]);
+        });
+
+        it('binds the permission cache to the active role', function () {
+            config(['authorization.cache_store' => 'array']);
+            $group = PermissionGroup::create(['name' => 'Employees', 'slug' => 'employee']);
+            $permA = Permission::create(['name' => 'employee.view', 'display_name' => 'View All', 'group_id' => $group->id]);
+            $permB = Permission::create(['name' => 'employee.delete', 'display_name' => 'Delete', 'group_id' => $group->id]);
+            $roleA = Role::create(['name' => 'role-a', 'display_name' => 'Role A', 'is_active' => true]);
+            $roleA->permissions()->attach($permA->id);
+            $roleB = Role::create(['name' => 'role-b', 'display_name' => 'Role B', 'is_active' => true]);
+            $roleB->permissions()->attach($permB->id);
+            $user = User::factory()->create();
+            $user->assignRole($roleA->id, true);
+            $user->assignRole($roleB->id, false);
+
+            expect($user->getAllPermissions()->pluck('name'))->toContain('employee.view');
+
+            $user->setActiveRole($roleB->id);
+
+            expect($user->getAllPermissions()->pluck('name'))->toContain('employee.delete')
+                ->not->toContain('employee.view');
+        });
+
+        it('does not serve stale permissions after a version bump', function () {
+            config(['authorization.cache_store' => 'array']);
+            Cache::store('array')->forget('authorization:version');
+            $admin = createUserWithPermissions(['role.update']);
+            $group = PermissionGroup::create(['name' => 'Employees', 'slug' => 'employee']);
+            $permission = Permission::create(['name' => 'employee.view', 'display_name' => 'View All', 'group_id' => $group->id]);
+            $role = Role::create(['name' => 'test', 'display_name' => 'Test', 'is_active' => true]);
+            $role->permissions()->attach($permission->id);
+            $target = User::factory()->create();
+            $target->assignRole($role->id, true);
+
+            expect($target->getAllPermissions())->toHaveCount(1);
+
+            $this->actingAs($admin)
+                ->putJson('/api/roles/'.$role->id, ['permission_ids' => []])
+                ->assertStatus(200);
+
+            expect($target->fresh()->getAllPermissions())->toBeEmpty();
+            expect($target->fresh()->hasPermissionTo('employee.view'))->toBeFalse();
         });
     });
 
@@ -640,6 +687,42 @@ describe('RBAC', function () {
                 ->getJson('/api/auth/me')
                 ->assertStatus(200)
                 ->assertJsonPath('data.is_super_admin', true);
+        });
+
+        it('only flags is_super_admin when the system administrator role is active', function () {
+            $superAdminRole = Role::create(['name' => 'system.administrator', 'display_name' => 'System Administrator', 'is_active' => true]);
+            $regularRole = Role::create(['name' => 'employee', 'display_name' => 'Employee', 'is_active' => true]);
+            $user = User::factory()->create();
+            $user->assignRole($superAdminRole->id, false);
+            $user->assignRole($regularRole->id, true);
+
+            $this->actingAs($user)
+                ->getJson('/api/auth/me')
+                ->assertStatus(200)
+                ->assertJsonPath('data.is_super_admin', false);
+        });
+
+        it('explains an authorization decision through the debug endpoint', function () {
+            $user = createUserWithPermissions(['role.view', 'employee.view']);
+
+            $this->actingAs($user)
+                ->postJson('/api/authorization/explain', ['permission' => 'employee.view'])
+                ->assertStatus(200)
+                ->assertJsonPath('allowed', true)
+                ->assertJsonStructure(['allowed', 'reason', 'matched_rules', 'denied_rules', 'policy_results', 'policy_pending']);
+
+            $this->actingAs($user)
+                ->postJson('/api/authorization/explain', ['permission' => 'employee.delete'])
+                ->assertStatus(200)
+                ->assertJsonPath('allowed', false);
+        });
+
+        it('denies the explain endpoint without role.view', function () {
+            $user = createUserWithPermissions([]);
+
+            $this->actingAs($user)
+                ->postJson('/api/authorization/explain', ['permission' => 'employee.view'])
+                ->assertStatus(403);
         });
 
         it('returns 401 from me endpoint for inactive user', function () {

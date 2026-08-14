@@ -93,3 +93,28 @@ it('keeps the business capability for grant-based (anonymous) flows', function (
     expect($capabilities['download'])->toBeTrue();
     expect($capabilities['replace'])->toBeFalse();
 });
+
+it('maps history actions onto the cv/questionnaire permission namespaces', function () {
+    $cvUser = createUserWithPermissions(['cv.documents.history-view']);
+    $cv = Cv::create([]);
+
+    expect($this->documentAuthorization->authorize(
+        $cvUser,
+        DocumentAction::HistoryView,
+        DocumentAuthorizationContext::forOwner($cv),
+    ))->toBeTrue();
+    expect($this->documentAuthorization->authorize(
+        $cvUser,
+        DocumentAction::HistoryDownload,
+        DocumentAuthorizationContext::forOwner($cv),
+    ))->toBeFalse();
+
+    $questionnaireUser = createUserWithPermissions(['questionnaire.documents.history-download']);
+    $questionnaire = Questionnaire::create([]);
+
+    expect($this->documentAuthorization->authorize(
+        $questionnaireUser,
+        DocumentAction::HistoryDownload,
+        DocumentAuthorizationContext::forOwner($questionnaire),
+    ))->toBeTrue();
+});

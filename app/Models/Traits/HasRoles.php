@@ -5,6 +5,7 @@ namespace App\Models\Traits;
 use App\Contracts\Authorization;
 use App\Domains\Authorization\Models\Permission;
 use App\Domains\Authorization\Models\Role;
+use App\Domains\Authorization\Services\AuthorizationVersion;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Collection;
@@ -67,6 +68,17 @@ trait HasRoles
         return $this->roles()->where('name', $roleName)->exists();
     }
 
+    public function isSuperAdministrator(): bool
+    {
+        $activeRole = $this->activeRole;
+
+        if ($activeRole === null && $this->active_role_id === null) {
+            $activeRole = $this->roles()->where('is_active', true)->first();
+        }
+
+        return $activeRole?->name === Role::SYSTEM_ADMINISTRATOR;
+    }
+
     public function hasPermissionTo(string $permissionName): bool
     {
         return app(Authorization::class)->can($this, $permissionName);
@@ -87,7 +99,7 @@ trait HasRoles
     {
         $this->ensureActiveRole();
 
-        $cacheKey = "user_{$this->id}_permissions";
+        $cacheKey = $this->permissionCacheKey();
         $store = Cache::store(config('authorization.cache_store'));
 
         $cached = $store->remember(
@@ -125,7 +137,23 @@ trait HasRoles
 
     public function flushPermissionCache(): void
     {
-        Cache::store(config('authorization.cache_store'))->forget("user_{$this->id}_permissions");
+        $this->ensureActiveRole();
+
+        Cache::store(config('authorization.cache_store'))->forget($this->permissionCacheKey());
+    }
+
+    /**
+     * The cache key binds the permission set to the active role and the global
+     * authorization version, so structural changes can never serve stale data.
+     */
+    private function permissionCacheKey(): string
+    {
+        return implode(':', [
+            'authorization',
+            'user', (string) $this->id,
+            'role', (string) ($this->active_role_id ?? 'none'),
+            'v'.app(AuthorizationVersion::class)->current(),
+        ]);
     }
 
     private function ensureActiveRole(): void

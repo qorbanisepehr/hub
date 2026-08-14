@@ -12,6 +12,8 @@ use Illuminate\Support\Facades\DB;
 
 class Role extends Model
 {
+    public const SYSTEM_ADMINISTRATOR = 'system.administrator';
+
     /** @var array<string, string> */
     public const EDUCATION_LEVELS = [
         'diploma' => 'دیپلم',

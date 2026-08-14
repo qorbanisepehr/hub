@@ -2,14 +2,18 @@
 
 namespace App\Domains\Document\Models;
 
+use Database\Factories\DocumentUsageFactory;
+use Illuminate\Database\Eloquent\Attributes\UseFactory;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use InvalidArgumentException;
 
+#[UseFactory(DocumentUsageFactory::class)]
 class DocumentUsage extends Model
 {
-    use SoftDeletes;
+    use HasFactory, SoftDeletes;
 
     protected $fillable = [
         'document_id',

@@ -13,6 +13,7 @@ use App\Domains\Authorization\Policies\PolicyValidator;
 use App\Domains\Authorization\Policies\QueryTranslator;
 use App\Domains\Document\Models\Document;
 use App\Domains\Document\Models\DocumentCategory;
+use App\Domains\Document\Models\DocumentUsage;
 use App\Domains\Employee\Models\Employee;
 use App\Models\User;
 
@@ -239,13 +240,27 @@ describe('Query translator', function () {
         expect($sql)->toContain('or "employment_status" = ?');
     });
 
-    it('throws on a non-queryable attribute', function () {
+    it('translates a related attribute into a whereHas constraint', function () {
         $query = Document::query();
         $node = ['all' => [
             ['attribute' => 'document.category.slug', 'operator' => 'equals', 'value_source' => 'literal', 'value' => 'insurance'],
         ]];
 
-        expect(fn () => $this->translator->apply($query, $this->user, 'document', $node, null))
+        $this->translator->apply($query, $this->user, 'document', $node, null);
+
+        $sql = $query->toSql();
+        expect($sql)->toContain('exists')
+            ->toContain('"slug" = ?');
+        expect($query->getBindings())->toContain('insurance');
+    });
+
+    it('throws on a non-queryable attribute', function () {
+        $query = User::query();
+        $node = ['all' => [
+            ['attribute' => 'user.employee.id', 'operator' => 'equals', 'value_source' => 'literal', 'value' => 1],
+        ]];
+
+        expect(fn () => $this->translator->apply($query, $this->user, 'user', $node, null))
             ->toThrow(AuthorizationScopeException::class);
     });
 });
@@ -337,18 +352,45 @@ describe('scope()', function () {
     });
 
     it('throws when an allow policy is not queryable', function () {
+        policyPermission('user.view', 'user');
+        $role = Role::create(['name' => 'hr', 'display_name' => 'HR', 'is_active' => true]);
+        $role->accessRules()->create([
+            'permission_id' => Permission::where('name', 'user.view')->first()->id,
+            'effect' => AccessRuleEffect::Allow,
+            'policy' => ['all' => [
+                ['attribute' => 'user.employee.id', 'operator' => 'equals', 'value_source' => 'literal', 'value' => 1],
+            ]],
+        ]);
+        $this->user->assignRole($role->id, true);
+
+        expect(fn () => $this->authorization->scope($this->user, 'user.view', User::query()))
+            ->toThrow(AuthorizationScopeException::class);
+    });
+
+    it('scopes document usages by the related document category', function () {
+        $categoryA = DocumentCategory::create(['name' => 'Insurance', 'slug' => 'insurance']);
+        $categoryB = DocumentCategory::create(['name' => 'Contract', 'slug' => 'contract']);
+
+        $documentA = Document::factory()->create(['category_id' => $categoryA->id]);
+        $documentB = Document::factory()->create(['category_id' => $categoryB->id]);
+
+        $usageA = DocumentUsage::factory()->create(['document_id' => $documentA->id]);
+        DocumentUsage::factory()->create(['document_id' => $documentB->id]);
+
         policyPermission('document.view', 'document');
         $role = Role::create(['name' => 'hr', 'display_name' => 'HR', 'is_active' => true]);
         $role->accessRules()->create([
             'permission_id' => Permission::where('name', 'document.view')->first()->id,
             'effect' => AccessRuleEffect::Allow,
             'policy' => ['all' => [
-                ['attribute' => 'document.category.slug', 'operator' => 'equals', 'value_source' => 'literal', 'value' => 'insurance'],
+                ['attribute' => 'document_usage.document.category_id', 'operator' => 'equals', 'value_source' => 'literal', 'value' => $categoryA->id],
             ]],
         ]);
         $this->user->assignRole($role->id, true);
 
-        expect(fn () => $this->authorization->scope($this->user, 'document.view', Document::query()))
-            ->toThrow(AuthorizationScopeException::class);
+        $result = $this->authorization->scope($this->user, 'document.view', DocumentUsage::query());
+
+        expect($result->pluck('id'))->toContain($usageA->id);
+        expect($result->count())->toBe(1);
     });
 });

@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Domains\Authorization\Services\AuthorizationVersion;
 use App\Domains\Authorization\Services\PermissionRegistrySynchronizer;
 use Illuminate\Console\Command;
 
@@ -48,6 +49,8 @@ class AuthorizationSync extends Command
 
         if ($totalChanges === 0) {
             $this->info('The permission registry is already synchronized.');
+        } else {
+            app(AuthorizationVersion::class)->bump();
         }
 
         return self::SUCCESS;

@@ -896,6 +896,32 @@ describe('CV bank', function () {
             ->assertJsonPath('data.id', $cv->id);
     });
 
+    it('advertises review capabilities for the acting user', function () {
+        $cv = Cv::create([
+            'first_name' => 'Ali',
+            'last_name' => 'Rezaei',
+            'mobile' => '09121234567',
+            'status' => 'submitted',
+        ]);
+
+        $reviewer = createUserWithPermissions(['cv.approve', 'cv.reject', 'cv.create-questionnaire', 'cv.view']);
+        $viewer = createUserWithPermissions(['cv.view']);
+
+        $this->actingAs($reviewer)
+            ->getJson("/api/cv/bank/{$cv->id}")
+            ->assertOk()
+            ->assertJsonPath('data.capabilities.approve', true)
+            ->assertJsonPath('data.capabilities.reject', true)
+            ->assertJsonPath('data.capabilities.create_questionnaire', true);
+
+        $this->actingAs($viewer)
+            ->getJson("/api/cv/bank/{$cv->id}")
+            ->assertOk()
+            ->assertJsonPath('data.capabilities.approve', false)
+            ->assertJsonPath('data.capabilities.reject', false)
+            ->assertJsonPath('data.capabilities.create_questionnaire', false);
+    });
+
     it('embeds the uploaded documents in the bank detail and the resume download url in the list', function () {
         $user = createUserWithPermissions(['cv.view']);
         $cv = Cv::create([

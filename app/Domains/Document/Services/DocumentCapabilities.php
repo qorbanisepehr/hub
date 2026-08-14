@@ -20,6 +20,7 @@ class DocumentCapabilities
         'restore' => DocumentAction::Restore,
         'force_delete' => DocumentAction::ForceDelete,
         'library_select' => DocumentAction::LibrarySelect,
+        'history' => DocumentAction::HistoryView,
     ];
 
     public function __construct(
@@ -116,9 +117,8 @@ class DocumentCapabilities
                 continue;
             }
 
-            // Capabilities without an authorization dimension yet (e.g. the
-            // deferred employee `history` feature) pass their business value
-            // through untouched.
+            // Every business capability maps to a document action; the
+            // authorization decision is the final gate.
             if ($action === null) {
                 $result[$key] = true;
 

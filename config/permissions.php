@@ -57,6 +57,8 @@ return [
                 'employee.documents.download' => 'Download documents',
                 'employee.documents.delete' => 'Delete documents',
                 'employee.documents.library-select' => 'Select documents from the library',
+                'employee.documents.history-view' => 'View document history',
+                'employee.documents.history-download' => 'Download documents from history',
             ],
         ],
 
@@ -67,6 +69,8 @@ return [
                 'cv.documents.upload' => 'Upload documents',
                 'cv.documents.download' => 'Download documents',
                 'cv.documents.delete' => 'Delete documents',
+                'cv.documents.history-view' => 'View document history',
+                'cv.documents.history-download' => 'Download documents from history',
             ],
         ],
 
@@ -77,6 +81,8 @@ return [
                 'questionnaire.documents.upload' => 'Upload documents',
                 'questionnaire.documents.download' => 'Download documents',
                 'questionnaire.documents.delete' => 'Delete documents',
+                'questionnaire.documents.history-view' => 'View document history',
+                'questionnaire.documents.history-download' => 'Download documents from history',
             ],
         ],
 

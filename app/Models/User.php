@@ -4,20 +4,18 @@ namespace App\Models;
 
 use App\Contracts\OtpVerifiable;
 use App\Domains\Employee\Models\Employee;
-use App\Domains\Site\Models\Site;
 use App\Models\Traits\HasRoles;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\HasApiTokens;
 
-#[Fillable(['name', 'avatar_url', 'email', 'phone', 'username', 'is_active', 'password', 'site_id', 'active_role_id'])]
+#[Fillable(['name', 'avatar_url', 'email', 'phone', 'username', 'is_active', 'password', 'active_role_id'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable implements OtpVerifiable
 {
@@ -56,12 +54,6 @@ class User extends Authenticatable implements OtpVerifiable
     public function employee(): HasOne
     {
         return $this->hasOne(Employee::class);
-    }
-
-    /** @return BelongsTo<Site, $this> */
-    public function site(): BelongsTo
-    {
-        return $this->belongsTo(Site::class);
     }
 
     public function getAvatarDisk(): string

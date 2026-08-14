@@ -9,6 +9,7 @@ use App\Domains\Authorization\Models\RoleInheritance;
 use App\Domains\Authorization\Requests\StoreRoleRequest;
 use App\Domains\Authorization\Requests\UpdateRoleRequest;
 use App\Domains\Authorization\Resources\RoleResource;
+use App\Domains\Authorization\Services\AuthorizationVersion;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -111,6 +112,8 @@ class RoleController
         $this->syncPermissions($role, $request);
         $this->syncHierarchy($role, $request);
 
+        app(AuthorizationVersion::class)->bump();
+
         return new RoleResource($this->loadRelations($role));
     }
 
@@ -126,6 +129,8 @@ class RoleController
         $this->syncPermissions($role, $request);
         $this->syncHierarchy($role, $request);
 
+        app(AuthorizationVersion::class)->bump();
+
         return new RoleResource($this->loadRelations($role));
     }
 
@@ -136,6 +141,8 @@ class RoleController
             $role->users()->detach();
             $role->delete();
         });
+
+        app(AuthorizationVersion::class)->bump();
 
         return response()->json(['message' => __('authorization.role_deleted')]);
     }
@@ -159,12 +166,16 @@ class RoleController
             $this->flushRoleUsersCaches($role);
         }
 
+        app(AuthorizationVersion::class)->bump();
+
         return response()->json(['message' => __('authorization.permissions_assigned')]);
     }
 
     public function toggle(Role $role): RoleResource
     {
         $role->update(['is_active' => ! $role->is_active]);
+
+        app(AuthorizationVersion::class)->bump();
 
         return new RoleResource($this->loadRelations($role));
     }

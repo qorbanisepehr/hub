@@ -5,7 +5,6 @@ use App\Domains\Authorization\Models\Permission;
 use App\Domains\Authorization\Models\PermissionGroup;
 use App\Domains\Authorization\Models\Role;
 use App\Domains\Employee\Models\Employee;
-use App\Domains\Site\Models\Site;
 use App\Models\User;
 
 function employeeUpdateScopedRole(User $user): Role
@@ -32,7 +31,7 @@ function employeeUpdateScopedRole(User $user): Role
         'effect' => AccessRuleEffect::Allow,
         'policy' => [
             'all' => [
-                ['attribute' => 'employee.site_id', 'operator' => 'equals', 'value_source' => 'actor', 'value' => 'site_id'],
+                ['attribute' => 'employee.employment_status', 'operator' => 'equals', 'value_source' => 'literal', 'value' => 'active'],
             ],
         ],
     ]);
@@ -66,23 +65,20 @@ it('keeps capabilities false for a user without the permissions', function () {
         ->assertJsonPath('data.capabilities.documents_upload', false);
 });
 
-it('derives capabilities from the site policy per employee', function () {
-    $siteA = Site::factory()->create();
-    $siteB = Site::factory()->create();
-
-    $user = User::factory()->create(['site_id' => $siteA->id]);
+it('derives capabilities from the policy per employee', function () {
+    $user = User::factory()->create();
     employeeUpdateScopedRole($user);
 
-    $inSite = Employee::factory()->create(['site_id' => $siteA->id]);
-    $otherSite = Employee::factory()->create(['site_id' => $siteB->id]);
+    $inScope = Employee::factory()->create(['employment_status' => 'active']);
+    $outOfScope = Employee::factory()->create(['employment_status' => 'resigned']);
 
     $this->actingAs($user)
-        ->getJson("/api/employees/{$inSite->id}")
+        ->getJson("/api/employees/{$inScope->id}")
         ->assertStatus(200)
         ->assertJsonPath('data.capabilities.edit', true);
 
     $this->actingAs($user)
-        ->getJson("/api/employees/{$otherSite->id}")
+        ->getJson("/api/employees/{$outOfScope->id}")
         ->assertJsonPath('data.capabilities.edit', false);
 });
 
