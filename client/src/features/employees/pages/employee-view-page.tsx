@@ -65,7 +65,7 @@ export function EmployeeViewPage() {
                 backTo="/employees"
             >
                 <div className="flex items-center gap-2">
-                    <PermissionGuard permission={[PERMISSIONS.EMPLOYEE_UPDATE_OWN, PERMISSIONS.EMPLOYEE_UPDATE_ALL]}>
+                    <PermissionGuard permission={PERMISSIONS.EMPLOYEE_UPDATE}>
                         <Button
                             variant="outline"
                             nativeButton={false}

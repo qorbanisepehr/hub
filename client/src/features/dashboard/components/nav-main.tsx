@@ -35,10 +35,7 @@ const items: NavItem[] = [
         title: "کارمندان",
         url: "/employees",
         icon: <IconIdBadge2 />,
-        permission: [
-            PERMISSIONS.EMPLOYEE_VIEW_OWN,
-            PERMISSIONS.EMPLOYEE_VIEW_ALL,
-        ],
+        permission: PERMISSIONS.EMPLOYEE_LIST,
     },
     {
         title: "کاربران",

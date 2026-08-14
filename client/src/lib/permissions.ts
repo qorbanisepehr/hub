@@ -1,22 +1,17 @@
 export const PERMISSIONS = {
     // Employee
-    EMPLOYEE_VIEW_OWN: "employee.view_own",
-    EMPLOYEE_VIEW_ALL: "employee.view_all",
+    EMPLOYEE_LIST: "employee.list",
+    EMPLOYEE_VIEW: "employee.view",
     EMPLOYEE_CREATE: "employee.create",
-    EMPLOYEE_UPDATE_OWN: "employee.update_own",
-    EMPLOYEE_UPDATE_ALL: "employee.update_all",
+    EMPLOYEE_UPDATE: "employee.update",
     EMPLOYEE_DELETE: "employee.delete",
 
-    // Document
-    DOCUMENT_VIEW_OWN: "document.view_own",
-    DOCUMENT_VIEW_ALL: "document.view_all",
-    DOCUMENT_UPLOAD_OWN: "document.upload_own",
-    DOCUMENT_UPLOAD_ALL: "document.upload_all",
-    DOCUMENT_DOWNLOAD_OWN: "document.download_own",
-    DOCUMENT_DOWNLOAD_ALL: "document.download_all",
-    DOCUMENT_DELETE_OWN: "document.delete_own",
-    DOCUMENT_DELETE_ALL: "document.delete_all",
-    DOCUMENT_LIBRARY_SELECT: "document.library-select",
+    // Employee Documents
+    EMPLOYEE_DOCUMENTS_VIEW: "employee.documents.view",
+    EMPLOYEE_DOCUMENTS_UPLOAD: "employee.documents.upload",
+    EMPLOYEE_DOCUMENTS_DOWNLOAD: "employee.documents.download",
+    EMPLOYEE_DOCUMENTS_DELETE: "employee.documents.delete",
+    EMPLOYEE_DOCUMENTS_LIBRARY_SELECT: "employee.documents.library-select",
 
     // User
     USER_VIEW: "user.view",

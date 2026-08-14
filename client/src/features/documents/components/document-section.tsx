@@ -34,7 +34,7 @@ export function DocumentSection({
     const [internalSelectedIds, setInternalSelectedIds] = React.useState<number[]>([]);
 
     const canSelectFromLibrary = usePermission(
-        PERMISSIONS.DOCUMENT_LIBRARY_SELECT,
+        PERMISSIONS.EMPLOYEE_DOCUMENTS_LIBRARY_SELECT,
     );
 
     const selectedIds = externalSelectedIds ?? internalSelectedIds;

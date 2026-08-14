@@ -31,10 +31,8 @@ export function EmployeeProfileView({ employee }: EmployeeProfileViewProps) {
         EMPLOYEE_SECTIONS[0].key,
     );
     const canManageDocuments = usePermission([
-        PERMISSIONS.DOCUMENT_UPLOAD_OWN,
-        PERMISSIONS.DOCUMENT_UPLOAD_ALL,
-        PERMISSIONS.DOCUMENT_DELETE_OWN,
-        PERMISSIONS.DOCUMENT_DELETE_ALL,
+        PERMISSIONS.EMPLOYEE_DOCUMENTS_UPLOAD,
+        PERMISSIONS.EMPLOYEE_DOCUMENTS_DELETE,
     ]);
     const { getDocumentsBySlug } = useEmployeeDocuments(employee.id);
     const tabs = [

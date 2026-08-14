@@ -100,12 +100,7 @@ export const employeeColumns: ColumnDef<StockFeatures, Employee>[] = [
                 >
                     <IconEye className="size-4" />
                 </Button>
-                <PermissionGuard
-                    permission={[
-                        PERMISSIONS.EMPLOYEE_UPDATE_OWN,
-                        PERMISSIONS.EMPLOYEE_UPDATE_ALL,
-                    ]}
-                >
+                <PermissionGuard permission={PERMISSIONS.EMPLOYEE_UPDATE}>
                     <Button
                         variant="ghost"
                         size="icon-sm"

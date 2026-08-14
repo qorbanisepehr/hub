@@ -18,6 +18,6 @@ export const Route = createRoute({
     getParentRoute: () => ProtectedRoute,
     path: "/employees",
     validateSearch: employeesSearchSchema,
-    beforeLoad: requirePermission([PERMISSIONS.EMPLOYEE_VIEW_OWN, PERMISSIONS.EMPLOYEE_VIEW_ALL]),
+    beforeLoad: requirePermission(PERMISSIONS.EMPLOYEE_LIST),
     component: EmployeesPage,
 });

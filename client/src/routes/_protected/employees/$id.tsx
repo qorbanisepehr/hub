@@ -7,6 +7,6 @@ import { PERMISSIONS } from "@/lib/permissions";
 export const Route = createRoute({
     getParentRoute: () => ProtectedRoute,
     path: "/employees/$id",
-    beforeLoad: requirePermission([PERMISSIONS.EMPLOYEE_VIEW_OWN, PERMISSIONS.EMPLOYEE_VIEW_ALL]),
+    beforeLoad: requirePermission(PERMISSIONS.EMPLOYEE_VIEW),
     component: EmployeeViewPage,
 });
