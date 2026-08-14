@@ -8,8 +8,6 @@ import { ConfirmDeleteButton } from "@/components/ui/confirm-delete-button";
 import { fetchEmployee, deleteEmployee } from "@/features/employees/api";
 import { getApiError } from "@/lib/error-utils";
 import { EmployeeProfileView } from "@/features/employees/components/employee-profile-view";
-import { PermissionGuard } from "@/features/auth/components/permission-guard";
-import { PERMISSIONS } from "@/lib/permissions";
 import { ViewSkeleton } from "@/components/shared/view-skeleton";
 import { PageLayout } from "@/components/shared/page-layout";
 import { ErrorPage } from "@/components/shared/error-page";
@@ -65,7 +63,7 @@ export function EmployeeViewPage() {
                 backTo="/employees"
             >
                 <div className="flex items-center gap-2">
-                    <PermissionGuard permission={PERMISSIONS.EMPLOYEE_UPDATE}>
+                    {employee.capabilities.edit && (
                         <Button
                             variant="outline"
                             nativeButton={false}
@@ -79,13 +77,13 @@ export function EmployeeViewPage() {
                             <IconPencil className="size-4" />
                             ویرایش
                         </Button>
-                    </PermissionGuard>
-                    <PermissionGuard permission={PERMISSIONS.EMPLOYEE_DELETE}>
+                    )}
+                    {employee.capabilities.delete && (
                         <ConfirmDeleteButton
                             onConfirm={() => deleteMutation.mutate()}
                             isPending={deleteMutation.isPending}
                         />
-                    </PermissionGuard>
+                    )}
                 </div>
             </PageHeader>
 

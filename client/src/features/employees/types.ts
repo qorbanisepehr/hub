@@ -1,3 +1,12 @@
+export type EmployeeCapabilities = {
+    view: boolean;
+    edit: boolean;
+    delete: boolean;
+    documents_view: boolean;
+    documents_upload: boolean;
+    documents_delete: boolean;
+};
+
 export type Employee = {
     id: number;
     personnel_code: string;
@@ -29,6 +38,7 @@ export type Employee = {
         username: string | null;
         active_role: { id: number; display_name: string } | null;
     } | null;
+    capabilities: EmployeeCapabilities;
     created_at: string;
     updated_at: string;
 };

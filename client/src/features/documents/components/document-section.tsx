@@ -8,6 +8,7 @@ import { fetchTrashedDocuments } from "@/features/documents/api";
 import { documentKeys } from "@/lib/query-keys";
 import { PERMISSIONS } from "@/lib/permissions";
 import { usePermission } from "@/features/auth/components/permission-guard";
+import type { DocumentCapabilities } from "@/hooks/use-entity-documents";
 import { DocumentList } from "./document-list";
 import { DocumentUploadModal } from "./document-upload-modal";
 import { DocumentTrashModal } from "./document-trash-modal";
@@ -17,6 +18,8 @@ type DocumentSectionProps = {
     documentableType: string;
     documentableId: number;
     showActions?: boolean;
+    /** Backend-derived per-action capabilities; when present they gate each action button. */
+    capabilities?: DocumentCapabilities;
     selectedIds?: number[];
     onSelectionChange?: (ids: number[]) => void;
 };
@@ -25,6 +28,7 @@ export function DocumentSection({
     documentableType,
     documentableId,
     showActions = true,
+    capabilities,
     selectedIds: externalSelectedIds,
     onSelectionChange: externalOnSelectionChange,
 }: DocumentSectionProps) {
@@ -55,22 +59,24 @@ export function DocumentSection({
         <div className="space-y-4">
             {showActions && (
                 <div className="flex items-center justify-end gap-2">
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setTrashOpen(true)}
-                    >
-                        <IconTrash className="size-4" />
-                        سطل زباله
-                        {trashCount > 0 && (
-                            <Badge
-                                variant="secondary"
-                                className="ml-1 px-1.5 py-0 text-xs"
-                            >
-                                {trashCount}
-                            </Badge>
-                        )}
-                    </Button>
+                    {(capabilities?.delete ?? true) && (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setTrashOpen(true)}
+                        >
+                            <IconTrash className="size-4" />
+                            سطل زباله
+                            {trashCount > 0 && (
+                                <Badge
+                                    variant="secondary"
+                                    className="ml-1 px-1.5 py-0 text-xs"
+                                >
+                                    {trashCount}
+                                </Badge>
+                            )}
+                        </Button>
+                    )}
                     {canSelectFromLibrary && (
                         <Button
                             variant="outline"
@@ -81,10 +87,12 @@ export function DocumentSection({
                             کتابخانه
                         </Button>
                     )}
-                    <Button size="sm" onClick={() => setUploadOpen(true)}>
-                        <IconFileUpload className="size-4" />
-                        آپلود مدرک
-                    </Button>
+                    {(capabilities?.upload ?? true) && (
+                        <Button size="sm" onClick={() => setUploadOpen(true)}>
+                            <IconFileUpload className="size-4" />
+                            آپلود مدرک
+                        </Button>
+                    )}
                 </div>
             )}
 

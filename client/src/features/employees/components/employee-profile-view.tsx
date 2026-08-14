@@ -3,8 +3,6 @@ import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DocumentSection } from "@/features/documents/components/document-section";
 import { LinkedUserSection } from "@/features/employees/components/sections/linked-user-section";
-import { usePermission } from "@/features/auth/components/permission-guard";
-import { PERMISSIONS } from "@/lib/permissions";
 import {
     EMPLOYEE_DOCUMENTS_TAB,
     EMPLOYEE_LINKED_USER_TAB,
@@ -30,11 +28,9 @@ export function EmployeeProfileView({ employee }: EmployeeProfileViewProps) {
     const [activeTab, setActiveTab] = useState<string>(
         EMPLOYEE_SECTIONS[0].key,
     );
-    const canManageDocuments = usePermission([
-        PERMISSIONS.EMPLOYEE_DOCUMENTS_UPLOAD,
-        PERMISSIONS.EMPLOYEE_DOCUMENTS_DELETE,
-    ]);
-    const { getDocumentsBySlug } = useEmployeeDocuments(employee.id);
+    const { getDocumentsBySlug, capabilities } = useEmployeeDocuments(
+        employee.id,
+    );
     const tabs = [
         ...EMPLOYEE_SECTIONS,
         EMPLOYEE_DOCUMENTS_TAB,
@@ -126,7 +122,8 @@ export function EmployeeProfileView({ employee }: EmployeeProfileViewProps) {
                 <DocumentSection
                     documentableType="employee"
                     documentableId={employee.id}
-                    showActions={canManageDocuments}
+                    showActions={capabilities.upload || capabilities.delete}
+                    capabilities={capabilities}
                 />
             );
         }

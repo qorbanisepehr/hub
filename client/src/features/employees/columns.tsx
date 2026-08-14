@@ -4,8 +4,6 @@ import { IconEye, IconPencil } from "@tabler/icons-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DataTableColumnHeader } from "@/components/data-table";
-import { PermissionGuard } from "@/features/auth/components/permission-guard";
-import { PERMISSIONS } from "@/lib/permissions";
 import {
     statusLabels,
     statusVariants,
@@ -100,7 +98,7 @@ export const employeeColumns: ColumnDef<StockFeatures, Employee>[] = [
                 >
                     <IconEye className="size-4" />
                 </Button>
-                <PermissionGuard permission={PERMISSIONS.EMPLOYEE_UPDATE}>
+                {row.original.capabilities.edit && (
                     <Button
                         variant="ghost"
                         size="icon-sm"
@@ -114,7 +112,7 @@ export const employeeColumns: ColumnDef<StockFeatures, Employee>[] = [
                     >
                         <IconPencil className="size-4" />
                     </Button>
-                </PermissionGuard>
+                )}
             </div>
         ),
         enableSorting: false,
