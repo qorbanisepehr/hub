@@ -974,4 +974,35 @@ describe('RBAC', function () {
             $this->postJson('/api/authorization/check', ['permission' => 'role.view'])->assertStatus(401);
         });
     });
+
+    describe('user effective authorization endpoint', function () {
+        it('returns the active role and allowed permissions for the target user', function () {
+            $admin = createUserWithPermissions(['user.view']);
+            $target = createUserWithPermissions(['role.view', 'user.update']);
+            $role = $target->activeRole;
+
+            $this->actingAs($admin)
+                ->getJson("/api/users/{$target->id}/authorization")
+                ->assertStatus(200)
+                ->assertJsonPath('data.role.id', $role->id)
+                ->assertJsonPath('data.role.name', $role->name)
+                ->assertJson([
+                    'data' => [
+                        'permissions' => [
+                            'role.view' => ['allowed' => true],
+                            'user.update' => ['allowed' => true],
+                        ],
+                    ],
+                ]);
+        });
+
+        it('requires the user.view permission', function () {
+            $user = createUserWithPermissions(['role.view']);
+            $target = createUserWithPermissions([]);
+
+            $this->actingAs($user)
+                ->getJson("/api/users/{$target->id}/authorization")
+                ->assertStatus(403);
+        });
+    });
 });

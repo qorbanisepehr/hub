@@ -56,6 +56,8 @@ Route::middleware('auth:sanctum')->group(function () {
         ->middleware('permission:user.create');
     Route::get('users/{user}', [UserController::class, 'show'])
         ->middleware('permission:user.view');
+    Route::get('users/{user}/authorization', [UserController::class, 'authorization'])
+        ->middleware('permission:user.view');
     Route::put('users/{user}', [UserController::class, 'update'])
         ->middleware('permission:user.update');
 

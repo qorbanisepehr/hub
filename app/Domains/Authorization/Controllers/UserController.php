@@ -2,6 +2,7 @@
 
 namespace App\Domains\Authorization\Controllers;
 
+use App\Contracts\Authorization;
 use App\Domains\Auth\Resources\UserResource;
 use App\Domains\Authorization\Requests\StoreUserRequest;
 use App\Domains\Authorization\Requests\UpdateUserRequest;
@@ -76,6 +77,13 @@ class UserController
         $user->load(['roles', 'activeRole', self::EMPLOYEE_COLUMNS]);
 
         return new UserResource($user);
+    }
+
+    public function authorization(User $user, Authorization $authorization): JsonResponse
+    {
+        return response()->json([
+            'data' => $authorization->effectivePermissions($user),
+        ]);
     }
 
     public function update(UpdateUserRequest $request, User $user): JsonResponse
