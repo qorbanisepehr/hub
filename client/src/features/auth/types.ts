@@ -25,4 +25,13 @@ export type LoginResponse = {
     code_sent?: boolean;
 };
 
+export type EffectivePermission = {
+    allowed: boolean;
+};
+
+export type AuthorizationResponse = {
+    role: Role | null;
+    permissions: Record<string, EffectivePermission>;
+};
+
 export type LoginMode = "otp" | "password";

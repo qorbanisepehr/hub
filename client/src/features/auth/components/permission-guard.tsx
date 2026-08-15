@@ -1,12 +1,11 @@
 import type { ReactNode } from "react";
-import { useAuth } from "@/features/auth/useAuth";
-import { hasAnyPermission, hasAllPermissions } from "@/features/auth/permissions";
+import { useAuthorization } from "@/features/auth/useAuthorization";
 
 export function usePermission(permission: string | string[]): boolean {
-    const { user } = useAuth();
-    if (user?.is_super_admin) return true;
+    const { canAny } = useAuthorization();
     const names = Array.isArray(permission) ? permission : [permission];
-    return hasAnyPermission(user?.permissions, names);
+
+    return canAny(names);
 }
 
 interface PermissionGuardProps {
@@ -22,14 +21,10 @@ export function PermissionGuard({
     children,
     fallback = null,
 }: PermissionGuardProps) {
-    const { user } = useAuth();
+    const { canAny, canAll } = useAuthorization();
     const names = Array.isArray(permission) ? permission : [permission];
 
-    const allowed = user?.is_super_admin
-        ? true
-        : mode === "all"
-            ? hasAllPermissions(user?.permissions, names)
-            : hasAnyPermission(user?.permissions, names);
+    const allowed = mode === "all" ? canAll(names) : canAny(names);
 
     if (!allowed) {
         return <>{fallback}</>;

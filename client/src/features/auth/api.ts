@@ -1,5 +1,9 @@
 import { api } from "@/lib/api";
-import type { LoginResponse, User } from "@/features/auth/types";
+import type {
+    AuthorizationResponse,
+    LoginResponse,
+    User,
+} from "@/features/auth/types";
 
 export function requestOtp(identifier: string) {
     return api.post<LoginResponse>("/auth/login", { identifier });
@@ -22,6 +26,18 @@ export function logout() {
 
 export function fetchMe() {
     return api.get<{ data: User }>("/auth/me");
+}
+
+export function fetchEffectivePermissions() {
+    return api.get<{ data: AuthorizationResponse }>("/auth/me/authorization");
+}
+
+export function checkPermission(data: {
+    permission: string;
+    resource_type?: string;
+    resource_id?: number;
+}) {
+    return api.post<{ allowed: boolean }>("/authorization/check", data);
 }
 
 export function updateProfile(data: { name?: string; email?: string; phone?: string }) {

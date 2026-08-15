@@ -21,7 +21,7 @@ export function RoleSwitcher() {
     const roleMutation = useMutation({
         mutationFn: (roleId: number) => switchActiveRole(roleId),
         onSuccess: async () => {
-            await queryClient.invalidateQueries({ queryKey: authKeys.me() });
+            await queryClient.invalidateQueries({ queryKey: authKeys.all });
             toast.success("نقش فعال تغییر کرد.");
         },
         onError: (err) => {
