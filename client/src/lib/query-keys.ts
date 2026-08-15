@@ -58,6 +58,7 @@ export const userKeys = {
     select: (search: string, hasEmployee?: boolean) =>
         [...userKeys.all, "select", search, hasEmployee] as const,
     roles: (id: number) => ["user-roles", id] as const,
+    authorization: (id: number) => [...userKeys.all, "authorization", id] as const,
 };
 
 export const permissionKeys = {

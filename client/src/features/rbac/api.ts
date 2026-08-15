@@ -1,6 +1,7 @@
 import { api } from "@/lib/api";
 import { PAGINATION } from "@/lib/constants";
 import type { PaginatedResponse, PaginatedListParams } from "@/lib/types";
+import type { AuthorizationResponse } from "@/features/auth/types";
 import type {
     Role,
     Permission,
@@ -99,6 +100,12 @@ export function createUser(data: CreateUserData) {
 
 export function fetchUser(userId: number) {
     return api.get<{ data: UserDetail }>(`/users/${userId}`);
+}
+
+export function fetchUserAuthorization(userId: number) {
+    return api.get<{ data: AuthorizationResponse }>(
+        `/users/${userId}/authorization`,
+    );
 }
 
 export function updateUser(userId: number, data: UpdateUserData) {

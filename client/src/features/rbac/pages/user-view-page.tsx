@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
     IconPencil,
     IconMasksTheater,
+    IconShieldCheck,
 } from "@tabler/icons-react";
 
 import { Button } from "@/components/ui/button";
@@ -19,6 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { fetchUser } from "@/features/rbac/api";
 import { RoleBadge } from "@/features/rbac/components/role-badge";
 import { UserRoleManager } from "@/features/rbac/components/user-role-manager";
+import { EffectivePermissionsView } from "@/features/rbac/components/effective-permissions-view";
 import { getUserDisplayName } from "@/lib/user-display";
 import { PermissionGuard } from "@/features/auth/components/permission-guard";
 import { PERMISSIONS } from "@/lib/permissions";
@@ -170,6 +172,21 @@ export function UserViewPage() {
                     </CardContent>
                 </Card>
             </div>
+
+            <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                        <IconShieldCheck className="size-5" />
+                        مجوزهای مؤثر
+                    </CardTitle>
+                    <CardDescription>
+                        دسترسی‌های نهایی نقش فعال کاربر
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <EffectivePermissionsView userId={user.id} />
+                </CardContent>
+            </Card>
 
             <ResponsiveDialog
                 open={rolesOpen}
