@@ -1,6 +1,5 @@
 <?php
 
-use App\Domains\Authorization\Enums\AccessRuleEffect;
 use App\Domains\Authorization\Models\Permission;
 use App\Domains\Authorization\Models\PermissionGroup;
 use App\Domains\Authorization\Models\Role;
@@ -419,8 +418,14 @@ describe('auth endpoints', function () {
                 ->assertStatus(200)
                 ->assertJsonPath('data.role.id', $role->id)
                 ->assertJsonPath('data.role.name', $role->name)
-                ->assertJsonPath('data.permissions.user.view.allowed', true)
-                ->assertJsonPath('data.permissions.role.view.allowed', true);
+                ->assertJson([
+                    'data' => [
+                        'permissions' => [
+                            'user.view' => ['allowed' => true],
+                            'role.view' => ['allowed' => true],
+                        ],
+                    ],
+                ]);
         });
 
         it('applies deny precedence over allow rules', function () {
@@ -438,7 +443,13 @@ describe('auth endpoints', function () {
             $this->actingAs($user)
                 ->getJson('/api/auth/me/authorization')
                 ->assertStatus(200)
-                ->assertJsonPath('data.permissions.user.update.allowed', false);
+                ->assertJson([
+                    'data' => [
+                        'permissions' => [
+                            'user.update' => ['allowed' => false],
+                        ],
+                    ],
+                ]);
         });
 
         it('returns a null role and empty map for a user without roles', function () {

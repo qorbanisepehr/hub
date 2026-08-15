@@ -879,4 +879,99 @@ describe('RBAC', function () {
             expect($policy->viewAny($user, $roleModel))->toBeFalse();
         });
     });
+
+    describe('authorization check endpoint', function () {
+        it('allows a granted permission', function () {
+            $user = createUserWithPermissions(['role.view']);
+
+            $this->actingAs($user)
+                ->postJson('/api/authorization/check', ['permission' => 'role.view'])
+                ->assertStatus(200)
+                ->assertJsonPath('allowed', true);
+        });
+
+        it('denies an ungranted permission', function () {
+            $user = createUserWithPermissions(['role.view']);
+
+            $this->actingAs($user)
+                ->postJson('/api/authorization/check', ['permission' => 'role.delete'])
+                ->assertStatus(200)
+                ->assertJsonPath('allowed', false);
+        });
+
+        it('denies when the permission has a deny rule', function () {
+            $user = User::factory()->create();
+            $group = PermissionGroup::firstOrCreate(['slug' => 'test'], ['name' => 'Test Group']);
+            $permission = Permission::firstOrCreate(
+                ['name' => 'role.delete'],
+                ['display_name' => 'Delete role', 'group_id' => $group->id],
+            );
+            $role = Role::create(['name' => 'deny-check', 'display_name' => 'Deny Check', 'is_active' => true]);
+            $role->permissions()->attach($permission);
+            $role->denyPermission($permission->id);
+            $user->assignRole($role->id, true);
+
+            $this->actingAs($user)
+                ->postJson('/api/authorization/check', ['permission' => 'role.delete'])
+                ->assertStatus(200)
+                ->assertJsonPath('allowed', false);
+        });
+
+        it('evaluates policy rules against the given resource', function () {
+            $activeEmployee = Employee::factory()->create(['employment_status' => 'active']);
+            $inactiveEmployee = Employee::factory()->create(['employment_status' => 'inactive']);
+            $user = User::factory()->create();
+
+            $group = PermissionGroup::updateOrCreate(['slug' => 'employee'], ['name' => 'Employee']);
+            $permission = Permission::updateOrCreate(
+                ['name' => 'employee.update'],
+                ['display_name' => 'Update employee', 'group_id' => $group->id],
+            );
+            $role = Role::create(['name' => 'scoped-check', 'display_name' => 'Scoped Check', 'is_active' => true]);
+            $role->accessRules()->create([
+                'permission_id' => $permission->id,
+                'effect' => AccessRuleEffect::Allow,
+                'policy' => [
+                    'all' => [
+                        ['attribute' => 'employee.employment_status', 'operator' => 'equals', 'value_source' => 'literal', 'value' => 'active'],
+                    ],
+                ],
+            ]);
+            $user->assignRole($role->id, true);
+
+            $this->actingAs($user)
+                ->postJson('/api/authorization/check', [
+                    'permission' => 'employee.update',
+                    'resource_type' => 'employee',
+                    'resource_id' => $activeEmployee->id,
+                ])
+                ->assertStatus(200)
+                ->assertJsonPath('allowed', true);
+
+            $this->actingAs($user)
+                ->postJson('/api/authorization/check', [
+                    'permission' => 'employee.update',
+                    'resource_type' => 'employee',
+                    'resource_id' => $inactiveEmployee->id,
+                ])
+                ->assertStatus(200)
+                ->assertJsonPath('allowed', false);
+        });
+
+        it('returns 422 for an unknown resource type', function () {
+            $user = createUserWithPermissions(['role.view']);
+
+            $this->actingAs($user)
+                ->postJson('/api/authorization/check', [
+                    'permission' => 'role.view',
+                    'resource_type' => 'unknown_type',
+                    'resource_id' => 1,
+                ])
+                ->assertStatus(422);
+        });
+
+        it('requires authentication', function () {
+            $this->postJson('/api/authorization/check', ['permission' => 'role.view'])->assertStatus(401);
+        });
+    });
 });
