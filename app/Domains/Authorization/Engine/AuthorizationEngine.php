@@ -33,10 +33,17 @@ final class AuthorizationEngine
         mixed $resource = null,
         ?AuthorizationContext $context = null,
     ): AuthorizationDecision {
-        $rules = $this->rulesForPermission($actor, $permission);
+        $permissionModel = $this->findPermission($permission);
+        $role = $permissionModel !== null ? $this->resolveActiveRole($actor) : null;
+
+        if ($permissionModel === null || $role === null) {
+            return $this->noRulesDecision($permissionModel, $role);
+        }
+
+        $rules = $this->rulesFor($role, $permissionModel->id);
 
         if ($rules->isEmpty()) {
-            return $this->noRulesDecision($permission, $actor);
+            return $this->noRulesDecision($permissionModel, $role);
         }
 
         $matchedDeny = [];
@@ -97,10 +104,7 @@ final class AuthorizationEngine
      */
     public function rulesForPermission(User $actor, string $permission): Collection
     {
-        $permissionModel = Permission::query()
-            ->where('name', $permission)
-            ->where('is_active', true)
-            ->first();
+        $permissionModel = $this->findPermission($permission);
 
         if (! $permissionModel) {
             return collect();
@@ -115,18 +119,23 @@ final class AuthorizationEngine
         return $this->rulesFor($role, $permissionModel->id);
     }
 
-    private function noRulesDecision(string $permission, User $actor): AuthorizationDecision
+    private function findPermission(string $permission): ?Permission
     {
-        $permissionExists = Permission::query()
+        return Permission::query()
             ->where('name', $permission)
             ->where('is_active', true)
-            ->exists();
+            ->first();
+    }
 
-        if (! $permissionExists) {
+    private function noRulesDecision(
+        ?Permission $permissionModel,
+        ?Role $role,
+    ): AuthorizationDecision {
+        if ($permissionModel === null) {
             return AuthorizationDecision::deny('permission_not_found');
         }
 
-        if ($this->resolveActiveRole($actor) === null) {
+        if ($role === null) {
             return AuthorizationDecision::deny('no_active_role');
         }
 
