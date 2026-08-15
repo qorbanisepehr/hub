@@ -1,18 +1,4 @@
 export const PERMISSIONS = {
-    // Employee
-    EMPLOYEE_LIST: "employee.list",
-    EMPLOYEE_VIEW: "employee.view",
-    EMPLOYEE_CREATE: "employee.create",
-    EMPLOYEE_UPDATE: "employee.update",
-    EMPLOYEE_DELETE: "employee.delete",
-
-    // Employee Documents
-    EMPLOYEE_DOCUMENTS_VIEW: "employee.documents.view",
-    EMPLOYEE_DOCUMENTS_UPLOAD: "employee.documents.upload",
-    EMPLOYEE_DOCUMENTS_DOWNLOAD: "employee.documents.download",
-    EMPLOYEE_DOCUMENTS_DELETE: "employee.documents.delete",
-    EMPLOYEE_DOCUMENTS_LIBRARY_SELECT: "employee.documents.library-select",
-
     // User
     USER_VIEW: "user.view",
     USER_CREATE: "user.create",
@@ -25,6 +11,41 @@ export const PERMISSIONS = {
     ROLE_CREATE: "role.create",
     ROLE_UPDATE: "role.update",
     ROLE_DELETE: "role.delete",
+
+    // Employee
+    EMPLOYEE_LIST: "employee.list",
+    EMPLOYEE_VIEW: "employee.view",
+    EMPLOYEE_CREATE: "employee.create",
+    EMPLOYEE_UPDATE: "employee.update",
+    EMPLOYEE_DELETE: "employee.delete",
+
+    // Employee Documents
+    EMPLOYEE_DOCUMENTS_VIEW: "employee.documents.view",
+    EMPLOYEE_DOCUMENTS_UPLOAD: "employee.documents.upload",
+    EMPLOYEE_DOCUMENTS_REPLACE: "employee.documents.replace",
+    EMPLOYEE_DOCUMENTS_DOWNLOAD: "employee.documents.download",
+    EMPLOYEE_DOCUMENTS_DELETE: "employee.documents.delete",
+    EMPLOYEE_DOCUMENTS_RESTORE: "employee.documents.restore",
+    EMPLOYEE_DOCUMENTS_FORCE_DELETE: "employee.documents.force-delete",
+    EMPLOYEE_DOCUMENTS_LIBRARY_SELECT: "employee.documents.library-select",
+    EMPLOYEE_DOCUMENTS_HISTORY_VIEW: "employee.documents.history-view",
+    EMPLOYEE_DOCUMENTS_HISTORY_DOWNLOAD: "employee.documents.history-download",
+
+    // CV Documents
+    CV_DOCUMENTS_VIEW: "cv.documents.view",
+    CV_DOCUMENTS_UPLOAD: "cv.documents.upload",
+    CV_DOCUMENTS_DOWNLOAD: "cv.documents.download",
+    CV_DOCUMENTS_DELETE: "cv.documents.delete",
+    CV_DOCUMENTS_HISTORY_VIEW: "cv.documents.history-view",
+    CV_DOCUMENTS_HISTORY_DOWNLOAD: "cv.documents.history-download",
+
+    // Questionnaire Documents
+    QUESTIONNAIRE_DOCUMENTS_VIEW: "questionnaire.documents.view",
+    QUESTIONNAIRE_DOCUMENTS_UPLOAD: "questionnaire.documents.upload",
+    QUESTIONNAIRE_DOCUMENTS_DOWNLOAD: "questionnaire.documents.download",
+    QUESTIONNAIRE_DOCUMENTS_DELETE: "questionnaire.documents.delete",
+    QUESTIONNAIRE_DOCUMENTS_HISTORY_VIEW: "questionnaire.documents.history-view",
+    QUESTIONNAIRE_DOCUMENTS_HISTORY_DOWNLOAD: "questionnaire.documents.history-download",
 
     // Document Category
     DOCUMENT_CATEGORY_VIEW: "document-category.view",
