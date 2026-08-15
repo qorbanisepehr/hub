@@ -1,6 +1,7 @@
 import axios from "axios";
 import { toast } from "sonner";
 import { authClient } from "@/features/auth/auth-client";
+import { queryClient } from "@/lib/query-client";
 
 export const api = axios.create({
     baseURL: "/api",
@@ -23,6 +24,16 @@ api.interceptors.response.use(
 
         if (status === 401) {
             authClient.clearSession();
+            queryClient.clear();
+
+            if (!window.location.pathname.startsWith("/login")) {
+                const redirect = `${window.location.pathname}${window.location.search}`;
+                const target = redirect
+                    ? `/login?redirect=${encodeURIComponent(redirect)}`
+                    : "/login";
+                window.location.assign(target);
+            }
+
             return Promise.reject(error);
         }
 
