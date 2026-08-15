@@ -1,13 +1,46 @@
 import { redirect } from "@tanstack/react-router";
 import { authClient } from "@/features/auth/auth-client";
 import { queryClient } from "@/lib/query-client";
-import { fetchMe } from "@/features/auth/api";
-import type { User } from "@/features/auth/types";
+import { fetchEffectivePermissions, fetchMe } from "@/features/auth/api";
+import type { AuthorizationResponse, User } from "@/features/auth/types";
 import { authKeys } from "@/lib/query-keys";
-import { hasAnyPermission } from "@/features/auth/permissions";
 
 function getCachedUser(): User | null {
     return queryClient.getQueryData<User>(authKeys.me()) ?? null;
+}
+
+async function resolveUser(): Promise<User> {
+    const cached = getCachedUser();
+
+    if (cached) {
+        return cached;
+    }
+
+    try {
+        const res = await fetchMe();
+
+        return res.data.data;
+    } catch {
+        throw redirect({ to: "/login" });
+    }
+}
+
+async function getEffectiveAuthorization(user: User): Promise<AuthorizationResponse | null> {
+    const key = [...authKeys.authorization(), user.active_role_id ?? null];
+    const cached = queryClient.getQueryData<AuthorizationResponse>(key);
+
+    if (cached) {
+        return cached;
+    }
+
+    try {
+        const res = await fetchEffectivePermissions();
+        queryClient.setQueryData(key, res.data.data);
+
+        return res.data.data;
+    } catch {
+        return null;
+    }
 }
 
 export function requireAuth(location: { href: string }) {
@@ -21,30 +54,20 @@ export function requireAuth(location: { href: string }) {
 
 export function requirePermission(permission: string | string[]) {
     return async () => {
-        let user = getCachedUser();
-
-        if (!user) {
-            try {
-                user = await queryClient.fetchQuery({
-                    queryKey: authKeys.me(),
-                    queryFn: async () => {
-                        const res = await fetchMe();
-                        return res.data.data;
-                    },
-                    retry: false,
-                });
-            } catch {
-                throw redirect({ to: "/login" });
-            }
-        }
-
-        const names = Array.isArray(permission) ? permission : [permission];
+        const user = await resolveUser();
 
         if (user?.is_super_admin) {
             return;
         }
 
-        if (!hasAnyPermission(user?.permissions, names)) {
+        const names = Array.isArray(permission) ? permission : [permission];
+        const authorization = await getEffectiveAuthorization(user);
+
+        const allowed = authorization
+            ? names.some((name) => authorization.permissions[name]?.allowed === true)
+            : false;
+
+        if (!allowed) {
             throw redirect({ to: "/unauthorized" });
         }
     };
