@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Route;
 // Signed document serving stays public because <img> can't send headers.
 Route::get('employees/documents/{uuid}/serve', [EmployeeDocumentController::class, 'serve'])
     ->name('employee.documents.serve')
-    ->middleware('signed:thumbnail');
+    ->middleware('signed:relative,thumbnail');
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('employees', [EmployeeController::class, 'index'])
@@ -37,12 +37,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('employees/{employee}/documents/{usageId}', [EmployeeDocumentController::class, 'destroy'])
         ->middleware('permission:employee.documents.delete');
     Route::post('employees/{employee}/documents/{usageId}/replace', [EmployeeDocumentController::class, 'replace'])
-        ->middleware('permission:employee.documents.upload')
+        ->middleware('permission:employee.documents.replace')
         ->middleware('throttle:30,1');
     Route::post('employees/{employee}/documents/{usageId}/restore', [EmployeeDocumentController::class, 'restore'])
-        ->middleware('permission:employee.documents.delete');
+        ->middleware('permission:employee.documents.restore');
     Route::delete('employees/{employee}/documents/{usageId}/force', [EmployeeDocumentController::class, 'forceDestroy'])
-        ->middleware('permission:employee.documents.delete');
+        ->middleware('permission:employee.documents.force-delete');
     Route::delete('employees/{employee}', [EmployeeController::class, 'destroy'])
         ->middleware('permission:employee.delete');
 });

@@ -57,7 +57,7 @@ class RoleController
     public function chart(): JsonResponse
     {
         $roles = Role::withCount(['users', 'childRoles as children_count'])
-            ->with('users:id,name,avatar_url')
+            ->with(['users:id,name,avatar_url', 'users.employee:id,user_id,first_name,last_name,personnel_code'])
             ->orderBy('display_name')
             ->get();
 
@@ -94,7 +94,13 @@ class RoleController
                 ->map(fn (User $user) => [
                     'id' => $user->id,
                     'name' => $user->name,
-                    'avatar_url' => $user->avatar_url,
+                    'avatar_url' => $user->getServeAvatarUrl(),
+                    'employee' => $user->employee ? [
+                        'id' => $user->employee->id,
+                        'first_name' => $user->employee->first_name,
+                        'last_name' => $user->employee->last_name,
+                        'personnel_code' => $user->employee->personnel_code,
+                    ] : null,
                 ])
                 ->values()
                 ->all(),
@@ -201,8 +207,8 @@ class RoleController
 
     private function syncPermissions(Role $role, Request $request): void
     {
-        if ($request->has('permission_ids') || $request->has('permission_group_ids')) {
-            $role->syncPermissions($this->resolvePermissionIds($request));
+        if ($request->has('permission_ids')) {
+            $role->syncPermissions($this->permissionIds($request));
             $this->flushRoleUsersCaches($role);
         }
     }
@@ -221,7 +227,7 @@ class RoleController
      */
     private function resolvePermissionIds(Request $request): array
     {
-        $ids = array_map(fn ($id) => (int) $id, $request->input('permission_ids', []));
+        $ids = $this->permissionIds($request);
 
         foreach ($request->input('permission_group_ids', []) as $groupId) {
             foreach (PermissionGroup::findOrFail($groupId)->permissions()->pluck('id') as $permissionId) {
@@ -230,6 +236,19 @@ class RoleController
         }
 
         return array_values(array_unique($ids));
+    }
+
+    /**
+     * Cast the plain permission id list from the request.
+     *
+     * @return array<int, int>
+     */
+    private function permissionIds(Request $request): array
+    {
+        return array_map(
+            fn ($id) => (int) $id,
+            $request->input('permission_ids', []),
+        );
     }
 
     /**

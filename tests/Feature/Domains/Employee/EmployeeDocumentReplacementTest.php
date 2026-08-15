@@ -11,6 +11,7 @@ describe('employee document replacement', function () {
         Storage::fake('local');
         $user = createUserWithPermissions([
             'employee.documents.upload',
+            'employee.documents.replace',
             'employee.documents.view',
         ]);
         $employee = Employee::factory()->create();
@@ -81,7 +82,10 @@ describe('employee document replacement', function () {
             'employee.documents.view',
             'employee.documents.download',
             'employee.documents.upload',
+            'employee.documents.replace',
             'employee.documents.delete',
+            'employee.documents.restore',
+            'employee.documents.force-delete',
         ]);
         $employee = Employee::factory()->create();
 

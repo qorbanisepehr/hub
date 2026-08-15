@@ -12,6 +12,7 @@ Route::prefix('auth')->group(function () {
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('logout', [AuthController::class, 'logout']);
         Route::get('me', [AuthController::class, 'me']);
+        Route::get('me/authorization', [AuthController::class, 'authorization'])->name('auth.me.authorization');
 
         Route::put('profile', [ProfileController::class, 'update']);
         Route::post('avatar', [ProfileController::class, 'updateAvatar']);

@@ -44,6 +44,20 @@ final class AttributeRegistry
         return is_string($type) ? $type : null;
     }
 
+    /**
+     * Resolve the model class registered for a resource type key (e.g. "employee").
+     */
+    public function modelForResourceType(string $resourceType): ?string
+    {
+        foreach (Config::get('authorization-attributes.models', []) as $modelClass => $type) {
+            if ($type === $resourceType) {
+                return $modelClass;
+            }
+        }
+
+        return null;
+    }
+
     public function has(string $resourceType, string $key): bool
     {
         return isset($this->attributes[$resourceType][$key]);

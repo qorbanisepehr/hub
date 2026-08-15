@@ -5,6 +5,7 @@ use App\Domains\Cv\Services\CvService;
 use App\Domains\Document\Models\Document;
 use App\Domains\Document\Models\DocumentCategory;
 use App\Domains\Document\Models\DocumentUsage;
+use App\Domains\Employee\Models\Employee;
 use App\Domains\Questionnaire\Models\Questionnaire;
 use App\Enums\GrantPurpose;
 use App\Enums\OtpContext;
@@ -741,6 +742,32 @@ describe('CV admin review/reject', function () {
             ->and($cv->lastLifecycleEvent()['by'])->toBe($user->id);
     });
 
+    it('includes reviewer employee data in bank detail and lifecycle', function () {
+        $reviewer = createUserWithPermissions(['cv.approve', 'cv.view']);
+        $employee = Employee::factory()->create();
+        $reviewer->employee()->save($employee);
+        $uuid = createCvDraft();
+        Cv::where('uuid', $uuid)->update(['status' => 'submitted']);
+
+        $this->actingAs($reviewer)
+            ->postJson("/api/cv/{$uuid}/approve")
+            ->assertOk();
+
+        $response = $this->actingAs($reviewer)
+            ->getJson("/api/cv/bank/{$uuid}")
+            ->assertOk()
+            ->assertJsonPath('data.reviewer.id', $reviewer->id)
+            ->assertJsonPath('data.reviewer.employee.first_name', $employee->first_name)
+            ->assertJsonPath('data.reviewer.employee.last_name', $employee->last_name)
+            ->assertJsonPath('data.reviewer.employee.personnel_code', $employee->personnel_code);
+
+        $approveEvent = collect($response->json('data.lifecycle'))
+            ->firstWhere('event', 'approved');
+
+        expect($approveEvent['by_user']['id'])->toBe($reviewer->id)
+            ->and($approveEvent['by_user']['employee']['first_name'])->toBe($employee->first_name);
+    });
+
     it('requires a reason when rejecting', function () {
         $user = createUserWithPermissions(['cv.reject']);
         $uuid = createCvDraft();
@@ -964,8 +991,8 @@ describe('CV bank', function () {
             ->assertJsonPath('data.resume_document.category.slug', 'resume')
             ->assertJsonPath('data.resume_document.structure_name', 'resume')
             ->assertJsonPath('data.resume_document.uuid', $resume->uuid)
-            ->assertJsonPath('data.resume_document.url', URL::signedRoute('cv.documents.serve', ['uuid' => $resume->uuid]))
-            ->assertJsonPath('data.resume_document.download_url', URL::signedRoute('cv.documents.serve', ['uuid' => $resume->uuid, 'download' => 1]));
+            ->assertJsonPath('data.resume_document.url', URL::signedRoute('cv.documents.serve', ['uuid' => $resume->uuid], null, false))
+            ->assertJsonPath('data.resume_document.download_url', URL::signedRoute('cv.documents.serve', ['uuid' => $resume->uuid, 'download' => 1], null, false));
 
         $this->actingAs($user)
             ->getJson('/api/cv/bank')
@@ -1199,8 +1226,8 @@ describe('CV documents', function () {
 
         $document = Document::first();
 
-        $inlineUrl = URL::signedRoute('cv.documents.serve', ['uuid' => $document->uuid]);
-        $downloadUrl = URL::signedRoute('cv.documents.serve', ['uuid' => $document->uuid, 'download' => 1]);
+        $inlineUrl = URL::signedRoute('cv.documents.serve', ['uuid' => $document->uuid], null, false);
+        $downloadUrl = URL::signedRoute('cv.documents.serve', ['uuid' => $document->uuid, 'download' => 1], null, false);
 
         $inline = $this->get($inlineUrl)->assertOk();
         expect($inline->headers->get('Content-Disposition'))->toContain('inline');

@@ -34,9 +34,9 @@ Route::middleware('auth:sanctum')->group(function () {
         ->middleware('permission:employee.documents.delete');
 
     Route::delete('documents/{document}/force', [DocumentController::class, 'forceDestroy'])
-        ->middleware('permission:employee.documents.delete');
+        ->middleware('permission:employee.documents.force-delete');
     Route::post('documents/{document}/restore', [DocumentController::class, 'restore'])
-        ->middleware('permission:employee.documents.delete');
+        ->middleware('permission:employee.documents.restore');
 
     Route::get('documents/{document}/download', [DocumentController::class, 'download'])
         ->name('documents.download')

@@ -58,22 +58,22 @@ class DocumentResource extends JsonResource
             'metadata' => $metadata,
             'serve_url' => $document->id
                 ? Route::has('documents.serve')
-                    ? route('documents.serve', $document->id)
+                    ? route('documents.serve', $document->id, false)
                     : "/api/documents/{$document->id}/serve"
                 : null,
             'thumbnail_url' => $document->id
                 ? Route::has('documents.serve')
-                    ? route('documents.serve', ['document' => $document->id, 'thumbnail' => 1])
+                    ? route('documents.serve', ['document' => $document->id, 'thumbnail' => 1], false)
                     : "/api/documents/{$document->id}/serve?thumbnail=1"
                 : null,
             'download_url' => $document->id
                 ? Route::has('documents.download')
-                    ? route('documents.download', $document->id)
+                    ? route('documents.download', $document->id, false)
                     : "/api/documents/{$document->id}/download"
                 : null,
             'url' => $document->id
                 ? (Route::has('documents.serve')
-                    ? route('documents.serve', $document->id)
+                    ? route('documents.serve', $document->id, false)
                     : "/api/documents/{$document->id}/serve")
                 : null,
             'created_at' => $document->created_at,

@@ -1,5 +1,6 @@
 <?php
 
+use App\Domains\Authorization\Controllers\AuthorizationCheckController;
 use App\Domains\Authorization\Controllers\AuthorizationExplainController;
 use App\Domains\Authorization\Controllers\PermissionController;
 use App\Domains\Authorization\Controllers\PermissionGroupController;
@@ -11,6 +12,7 @@ use Illuminate\Support\Facades\Route;
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('authorization/explain', AuthorizationExplainController::class)
         ->middleware('permission:role.view');
+    Route::post('authorization/check', AuthorizationCheckController::class);
     Route::get('roles', [RoleController::class, 'index'])
         ->middleware('permission:role.view');
     Route::post('roles', [RoleController::class, 'store'])

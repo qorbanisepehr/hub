@@ -19,7 +19,7 @@ class ProfileController
     {
         $user = $request->user();
         $user->update($request->validated());
-        $user->load(['roles', 'activeRole']);
+        $user->load(['roles', 'activeRole', 'employee']);
 
         return response()->json([
             'data' => new UserResource($user),
@@ -34,7 +34,7 @@ class ProfileController
 
         $request->user()->storeAvatar($contents, $extension);
 
-        $user = $request->user()->load(['roles', 'activeRole']);
+        $user = $request->user()->load(['roles', 'activeRole', 'employee']);
 
         return response()->json([
             'data' => new UserResource($user),
@@ -45,7 +45,7 @@ class ProfileController
     {
         $request->user()->deleteAvatarFromDisk();
 
-        $user = $request->user()->load(['roles', 'activeRole']);
+        $user = $request->user()->load(['roles', 'activeRole', 'employee']);
 
         return response()->json([
             'data' => new UserResource($user),
@@ -56,7 +56,7 @@ class ProfileController
     {
         $user = $request->user();
         $user->setActiveRole($request->validated('role_id'));
-        $user->load(['roles', 'activeRole']);
+        $user->load(['roles', 'activeRole', 'employee']);
 
         return response()->json([
             'data' => new UserResource($user),

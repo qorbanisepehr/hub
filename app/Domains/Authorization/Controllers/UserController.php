@@ -19,9 +19,11 @@ class UserController
         'created_at' => 'created_at',
     ];
 
+    private const EMPLOYEE_COLUMNS = 'employee:id,user_id,first_name,last_name,personnel_code';
+
     public function index(Request $request): AnonymousResourceCollection
     {
-        $query = User::with(['roles', 'activeRole']);
+        $query = User::with(['roles', 'activeRole', self::EMPLOYEE_COLUMNS]);
 
         if ($request->filled('filter')) {
             $filter = $request->input('filter');
@@ -62,7 +64,7 @@ class UserController
     public function store(StoreUserRequest $request): JsonResponse
     {
         $user = User::create($request->validated());
-        $user->load(['roles', 'activeRole']);
+        $user->load(['roles', 'activeRole', self::EMPLOYEE_COLUMNS]);
 
         return response()->json([
             'data' => new UserResource($user),
@@ -71,7 +73,7 @@ class UserController
 
     public function show(User $user): UserResource
     {
-        $user->load(['roles', 'activeRole']);
+        $user->load(['roles', 'activeRole', self::EMPLOYEE_COLUMNS]);
 
         return new UserResource($user);
     }
@@ -89,7 +91,7 @@ class UserController
 
         $user->update($data);
 
-        $user->load(['roles', 'activeRole']);
+        $user->load(['roles', 'activeRole', self::EMPLOYEE_COLUMNS]);
 
         return response()->json([
             'data' => new UserResource($user),

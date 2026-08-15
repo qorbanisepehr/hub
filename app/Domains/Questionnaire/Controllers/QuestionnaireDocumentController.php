@@ -198,6 +198,8 @@ class QuestionnaireDocumentController extends Controller
             'url' => URL::signedRoute(
                 'questionnaire.documents.serve',
                 ['uuid' => $document->uuid],
+                null,
+                false,
             ),
         ];
     }

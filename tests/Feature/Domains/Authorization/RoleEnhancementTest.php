@@ -1,6 +1,7 @@
 <?php
 
 use App\Domains\Authorization\Models\Role;
+use App\Domains\Employee\Models\Employee;
 use App\Models\User;
 
 describe('RBAC matrix managers & requirements', function () {
@@ -346,7 +347,25 @@ describe('RBAC matrix managers & requirements', function () {
                 ->assertStatus(200)
                 ->assertJsonPath('data.0.user_count', 1)
                 ->assertJsonPath('data.0.users.0.id', $member->id)
-                ->assertJsonPath('data.0.users.0.name', 'Alex Dev');
+                ->assertJsonPath('data.0.users.0.name', 'Alex Dev')
+                ->assertJsonPath('data.0.users.0.employee', null);
+        });
+
+        it('includes linked employee data in chart users', function () {
+            $user = createUserWithPermissions(['role.view']);
+            $role = Role::create(['name' => 'dev', 'display_name' => 'Developer', 'is_active' => true]);
+            $member = User::factory()->create(['name' => 'Alex Dev']);
+            $employee = Employee::factory()->create();
+            $member->employee()->save($employee);
+            $member->roles()->attach($role->id);
+
+            $this->actingAs($user)
+                ->getJson('/api/roles/chart')
+                ->assertStatus(200)
+                ->assertJsonPath('data.0.users.0.employee.id', $employee->id)
+                ->assertJsonPath('data.0.users.0.employee.first_name', $employee->first_name)
+                ->assertJsonPath('data.0.users.0.employee.last_name', $employee->last_name)
+                ->assertJsonPath('data.0.users.0.employee.personnel_code', $employee->personnel_code);
         });
 
         it('requires role.view permission', function () {

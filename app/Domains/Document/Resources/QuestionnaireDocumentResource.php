@@ -18,12 +18,14 @@ class QuestionnaireDocumentResource extends DocumentResource
             'questionnaire.documents.serve',
             now()->addHours(24),
             ['documentId' => $this->id],
+            false,
         );
 
         $data['thumbnail_url'] = URL::temporarySignedRoute(
             'questionnaire.documents.serve',
             now()->addHours(24),
             ['documentId' => $this->id, 'thumbnail' => 1],
+            false,
         );
 
         return $data;

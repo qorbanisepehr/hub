@@ -57,7 +57,7 @@ Route::middleware('grant.access:questionnaire,edit')->group(function () {
 // Signed document serving stays public because <img> can't send headers.
 Route::get('questionnaire/documents/{uuid}/serve', [QuestionnaireDocumentController::class, 'serve'])
     ->name('questionnaire.documents.serve')
-    ->middleware('signed:thumbnail');
+    ->middleware('signed:relative,thumbnail');
 
 // Protected routes (HR management)
 Route::middleware('auth:sanctum')->group(function () {

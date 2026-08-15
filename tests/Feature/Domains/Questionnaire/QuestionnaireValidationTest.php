@@ -1917,6 +1917,7 @@ describe('document serve via uuid', function () {
             'questionnaire.documents.serve',
             now()->addHours(2),
             ['uuid' => Str::uuid()->toString()],
+            false,
         );
 
         $this->get($url)->assertStatus(404);

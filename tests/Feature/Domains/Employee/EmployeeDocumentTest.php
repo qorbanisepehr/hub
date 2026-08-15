@@ -113,7 +113,7 @@ describe('employee documents', function () {
         expect($inline->headers->get('Content-Disposition'))->toContain('inline');
 
         $download = $this->actingAs($user)
-            ->get(URL::signedRoute('employee.documents.serve', ['uuid' => $document->uuid, 'download' => 1]))
+            ->get(URL::signedRoute('employee.documents.serve', ['uuid' => $document->uuid, 'download' => 1], null, false))
             ->assertOk();
         $disposition = rawurldecode($download->headers->get('Content-Disposition') ?? '');
 
@@ -198,7 +198,7 @@ describe('employee documents', function () {
 
     it('restores a trashed usage back to the active list', function () {
         Storage::fake('local');
-        $user = createUserWithPermissions(['employee.documents.upload', 'employee.documents.delete', 'employee.documents.view']);
+        $user = createUserWithPermissions(['employee.documents.upload', 'employee.documents.delete', 'employee.documents.restore', 'employee.documents.view']);
         $employee = Employee::factory()->create();
         $category = employeeDocumentCategory('resume');
 
@@ -232,7 +232,7 @@ describe('employee documents', function () {
 
     it('force deletes a trashed usage and removes the file when it is the last one', function () {
         Storage::fake('local');
-        $user = createUserWithPermissions(['employee.documents.upload', 'employee.documents.delete', 'employee.documents.view']);
+        $user = createUserWithPermissions(['employee.documents.upload', 'employee.documents.delete', 'employee.documents.force-delete', 'employee.documents.view']);
         $employee = Employee::factory()->create();
         $category = employeeDocumentCategory('resume');
 
@@ -262,7 +262,7 @@ describe('employee documents', function () {
 
     it('404s trash and restore operations on a usage belonging to another employee', function () {
         Storage::fake('local');
-        $user = createUserWithPermissions(['employee.documents.upload', 'employee.documents.delete', 'employee.documents.view']);
+        $user = createUserWithPermissions(['employee.documents.upload', 'employee.documents.delete', 'employee.documents.restore', 'employee.documents.force-delete', 'employee.documents.view']);
         $employeeA = Employee::factory()->create();
         $employeeB = Employee::factory()->create();
         $category = employeeDocumentCategory('resume');

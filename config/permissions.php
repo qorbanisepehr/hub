@@ -54,8 +54,11 @@ return [
             'permissions' => [
                 'employee.documents.view' => "View an employee's documents",
                 'employee.documents.upload' => 'Upload documents',
+                'employee.documents.replace' => 'Replace documents',
                 'employee.documents.download' => 'Download documents',
                 'employee.documents.delete' => 'Delete documents',
+                'employee.documents.restore' => 'Restore documents from the trash',
+                'employee.documents.force-delete' => 'Permanently delete documents',
                 'employee.documents.library-select' => 'Select documents from the library',
                 'employee.documents.history-view' => 'View document history',
                 'employee.documents.history-download' => 'Download documents from history',

@@ -38,8 +38,6 @@ class StoreRoleRequest extends FormRequest
             'requirements.languages.*' => ['string', Rule::in(array_keys(Role::LANGUAGE_LEVELS))],
             'permission_ids' => 'nullable|array',
             'permission_ids.*' => 'exists:permissions,id',
-            'permission_group_ids' => 'nullable|array',
-            'permission_group_ids.*' => 'exists:permission_groups,id',
         ];
     }
 
@@ -61,7 +59,6 @@ class StoreRoleRequest extends FormRequest
             'requirements.min_experience_years.max' => 'سابقه کار نباید بیشتر از ۵۰ سال باشد.',
             'requirements.languages.*.in' => 'سطح زبان نامعتبر است.',
             'permission_ids.*.exists' => 'یکی از مجوزها نامعتبر است.',
-            'permission_group_ids.*.exists' => 'یکی از گروه‌های مجوز نامعتبر است.',
         ];
     }
 }

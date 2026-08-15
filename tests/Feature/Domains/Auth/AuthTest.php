@@ -1,5 +1,10 @@
 <?php
 
+use App\Domains\Authorization\Enums\AccessRuleEffect;
+use App\Domains\Authorization\Models\Permission;
+use App\Domains\Authorization\Models\PermissionGroup;
+use App\Domains\Authorization\Models\Role;
+use App\Domains\Employee\Models\Employee;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
@@ -387,6 +392,67 @@ describe('auth endpoints', function () {
 
         it('fails without authentication', function () {
             $this->getJson('/api/auth/me')->assertStatus(401);
+        });
+
+        it('includes linked employee data', function () {
+            $user = User::factory()->create();
+            $employee = Employee::factory()->create();
+            $user->employee()->save($employee);
+
+            $this->actingAs($user)
+                ->getJson('/api/auth/me')
+                ->assertStatus(200)
+                ->assertJsonPath('data.employee.id', $employee->id)
+                ->assertJsonPath('data.employee.first_name', $employee->first_name)
+                ->assertJsonPath('data.employee.last_name', $employee->last_name)
+                ->assertJsonPath('data.employee.personnel_code', $employee->personnel_code);
+        });
+    });
+
+    describe('authorization', function () {
+        it('returns the active role and allowed permissions map', function () {
+            $user = createUserWithPermissions(['user.view', 'role.view']);
+            $role = $user->activeRole;
+
+            $this->actingAs($user)
+                ->getJson('/api/auth/me/authorization')
+                ->assertStatus(200)
+                ->assertJsonPath('data.role.id', $role->id)
+                ->assertJsonPath('data.role.name', $role->name)
+                ->assertJsonPath('data.permissions.user.view.allowed', true)
+                ->assertJsonPath('data.permissions.role.view.allowed', true);
+        });
+
+        it('applies deny precedence over allow rules', function () {
+            $user = User::factory()->create();
+            $group = PermissionGroup::firstOrCreate(['slug' => 'test'], ['name' => 'Test Group']);
+            $permission = Permission::firstOrCreate(
+                ['name' => 'user.update'],
+                ['display_name' => 'Update user', 'group_id' => $group->id],
+            );
+            $role = Role::create(['name' => 'deny-test', 'display_name' => 'Deny Test', 'is_active' => true]);
+            $role->permissions()->attach($permission);
+            $role->denyPermission($permission->id);
+            $user->assignRole($role->id, true);
+
+            $this->actingAs($user)
+                ->getJson('/api/auth/me/authorization')
+                ->assertStatus(200)
+                ->assertJsonPath('data.permissions.user.update.allowed', false);
+        });
+
+        it('returns a null role and empty map for a user without roles', function () {
+            $user = User::factory()->create();
+
+            $this->actingAs($user)
+                ->getJson('/api/auth/me/authorization')
+                ->assertStatus(200)
+                ->assertJsonPath('data.role', null)
+                ->assertJsonPath('data.permissions', []);
+        });
+
+        it('requires authentication', function () {
+            $this->getJson('/api/auth/me/authorization')->assertStatus(401);
         });
     });
 

@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\URL;
 use Laravel\Sanctum\HasApiTokens;
 
 #[Fillable(['name', 'avatar_url', 'email', 'phone', 'username', 'is_active', 'password', 'active_role_id'])]
@@ -79,6 +80,20 @@ class User extends Authenticatable implements OtpVerifiable
         }
 
         return $this->getAvatarStoragePath().'/'.$this->avatar_url;
+    }
+
+    public function getServeAvatarUrl(): ?string
+    {
+        if (! $this->avatar_url) {
+            return null;
+        }
+
+        return URL::temporarySignedRoute(
+            'auth.avatar.serve',
+            now()->addHours(24),
+            ['user' => $this->id],
+            false,
+        );
     }
 
     public function storeAvatar(string $contents, string $extension): string

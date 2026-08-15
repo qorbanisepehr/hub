@@ -115,8 +115,11 @@ class DocumentAuthorizationService implements DocumentAuthorization
         $suffix = match ($action) {
             DocumentAction::View => 'view',
             DocumentAction::Download => 'download',
-            DocumentAction::Upload, DocumentAction::Replace => 'upload',
-            DocumentAction::Delete, DocumentAction::Restore, DocumentAction::ForceDelete => 'delete',
+            DocumentAction::Upload => 'upload',
+            DocumentAction::Replace => 'replace',
+            DocumentAction::Delete => 'delete',
+            DocumentAction::Restore => 'restore',
+            DocumentAction::ForceDelete => 'force-delete',
             DocumentAction::LibrarySelect => 'library-select',
             DocumentAction::HistoryView => 'history-view',
             DocumentAction::HistoryDownload => 'history-download',

@@ -105,14 +105,14 @@ class CvResource extends JsonResource
         }
 
         return User::query()
-            ->with('activeRole')
+            ->with(['activeRole', 'employee'])
             ->whereIn('id', $userIds)
             ->get()
             ->keyBy('id');
     }
 
     /**
-     * @return array{id: int, name: string, role: string|null}
+     * @return array{id: int, name: string, role: string|null, employee: array<string, mixed>|null}
      */
     private function reviewerSummary(User $user): array
     {
@@ -120,6 +120,12 @@ class CvResource extends JsonResource
             'id' => $user->id,
             'name' => $user->name,
             'role' => $user->activeRole?->display_name ?? $user->activeRole?->name ?? null,
+            'employee' => $user->employee ? [
+                'id' => $user->employee->id,
+                'first_name' => $user->employee->first_name,
+                'last_name' => $user->employee->last_name,
+                'personnel_code' => $user->employee->personnel_code,
+            ] : null,
         ];
     }
 
@@ -209,10 +215,14 @@ class CvResource extends JsonResource
             'url' => URL::signedRoute(
                 'cv.documents.serve',
                 ['uuid' => $document->uuid],
+                null,
+                false,
             ),
             'download_url' => URL::signedRoute(
                 'cv.documents.serve',
                 ['uuid' => $document->uuid, 'download' => 1],
+                null,
+                false,
             ),
         ];
     }

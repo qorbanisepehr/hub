@@ -347,7 +347,7 @@ describe('document API', function () {
     describe('restore', function () {
         it('restores a soft-deleted usage back to the active list', function () {
             Storage::fake('local');
-            $user = createUserWithPermissions(['employee.documents.view', 'employee.documents.upload', 'employee.documents.delete']);
+            $user = createUserWithPermissions(['employee.documents.view', 'employee.documents.upload', 'employee.documents.delete', 'employee.documents.restore']);
             $employee = Employee::factory()->create();
             $category = personnelDocumentCategory('resume');
 
@@ -356,7 +356,7 @@ describe('document API', function () {
                     'documentable_type' => 'employee',
                     'documentable_id' => $employee->id,
                     'document_category_id' => $category->id,
-                    'file' => UploadedFile::fake()->createWithContent('cv.pdf', 'document-content'),
+                    'file' => UploadedFile::fake()->createWithContent('cv.pdf', 'restore-content'),
                 ])
                 ->assertCreated()
                 ->json('data');
@@ -382,7 +382,7 @@ describe('document API', function () {
         });
 
         it('returns 404 for a non-existent trashed usage', function () {
-            $user = createUserWithPermissions(['employee.documents.delete']);
+            $user = createUserWithPermissions(['employee.documents.delete', 'employee.documents.restore']);
 
             $this->actingAs($user)
                 ->postJson('/api/documents/99999/restore')
@@ -393,7 +393,7 @@ describe('document API', function () {
     describe('force destroy', function () {
         it('permanently deletes the usage and the file when it is the last one', function () {
             Storage::fake('local');
-            $user = createUserWithPermissions(['employee.documents.view', 'employee.documents.upload', 'employee.documents.delete']);
+            $user = createUserWithPermissions(['employee.documents.view', 'employee.documents.upload', 'employee.documents.delete', 'employee.documents.force-delete']);
             $employee = Employee::factory()->create();
             $category = personnelDocumentCategory('resume');
 
@@ -424,7 +424,7 @@ describe('document API', function () {
         });
 
         it('returns 404 for a non-existent usage', function () {
-            $user = createUserWithPermissions(['employee.documents.delete']);
+            $user = createUserWithPermissions(['employee.documents.delete', 'employee.documents.force-delete']);
 
             $this->actingAs($user)
                 ->deleteJson('/api/documents/99999/force')

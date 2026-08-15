@@ -61,7 +61,7 @@ Route::middleware('grant.access:cv,edit')->group(function () {
 // Signed document serving stays public because <img> can't send headers.
 Route::get('cv/documents/{uuid}/serve', [CvDocumentController::class, 'serve'])
     ->name('cv.documents.serve')
-    ->middleware('signed:thumbnail');
+    ->middleware('signed:relative,thumbnail');
 
 // Protected routes (HR management)
 Route::middleware('auth:sanctum')->group(function () {

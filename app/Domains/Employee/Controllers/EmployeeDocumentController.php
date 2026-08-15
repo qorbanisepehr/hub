@@ -382,10 +382,14 @@ class EmployeeDocumentController extends Controller
             'url' => URL::signedRoute(
                 'employee.documents.serve',
                 ['uuid' => $document->uuid],
+                null,
+                false,
             ),
             'download_url' => URL::signedRoute(
                 'employee.documents.serve',
                 ['uuid' => $document->uuid, 'download' => 1],
+                null,
+                false,
             ),
         ];
     }

@@ -1,5 +1,6 @@
 <?php
 
+use App\Domains\Authorization\Enums\AccessRuleEffect;
 use App\Domains\Authorization\Models\Permission;
 use App\Domains\Authorization\Models\PermissionGroup;
 use App\Domains\Authorization\Models\Role;
@@ -269,6 +270,25 @@ describe('RBAC', function () {
 
             expect($target->fresh()->getAllPermissions())->toBeEmpty();
             expect($target->fresh()->hasPermissionTo('employee.view'))->toBeFalse();
+        });
+
+        it('persists removed permissions when updating a role permission subset', function () {
+            $admin = createUserWithPermissions(['role.update']);
+            $group = PermissionGroup::create(['name' => 'Employees', 'slug' => 'employee']);
+            $permA = Permission::create(['name' => 'employee.view', 'display_name' => 'View', 'group_id' => $group->id]);
+            $permB = Permission::create(['name' => 'employee.delete', 'display_name' => 'Delete', 'group_id' => $group->id]);
+            $role = Role::create(['name' => 'test', 'display_name' => 'Test', 'is_active' => true]);
+            $role->grantPermissions([$permA->id, $permB->id]);
+
+            $this->actingAs($admin)
+                ->putJson('/api/roles/'.$role->id, [
+                    'permission_ids' => [$permA->id],
+                ])
+                ->assertStatus(200);
+
+            expect($role->fresh()->permissions->pluck('id'))->toHaveCount(1)
+                ->toContain($permA->id)
+                ->not->toContain($permB->id);
         });
     });
 
@@ -573,7 +593,7 @@ describe('RBAC', function () {
                 ->assertStatus(200)
                 ->assertJsonPath('data.is_active', true)
                 ->assertJson(fn (AssertableJson $json) => $json
-                    ->where('data.avatar_url', fn ($url) => str_starts_with((string) $url, 'http'))
+                    ->where('data.avatar_url', fn ($url) => str_starts_with((string) $url, '/api/auth/avatar/'))
                     ->etc(),
                 );
         });
@@ -608,9 +628,42 @@ describe('RBAC', function () {
                 ->assertStatus(200)
                 ->assertJsonPath('data.is_active', false)
                 ->assertJson(fn (AssertableJson $json) => $json
-                    ->where('data.avatar_url', fn ($url) => str_starts_with((string) $url, 'http'))
+                    ->where('data.avatar_url', fn ($url) => str_starts_with((string) $url, '/api/auth/avatar/'))
                     ->etc(),
                 );
+        });
+
+        it('includes linked employee data in user list and show', function () {
+            $user = createUserWithPermissions(['user.view']);
+            $employee = Employee::factory()->create();
+            $target = User::factory()->create();
+            $target->employee()->save($employee);
+
+            $response = $this->actingAs($user)
+                ->getJson('/api/users')
+                ->assertStatus(200);
+
+            $listData = collect($response->json('data'))->firstWhere('id', $target->id);
+            expect($listData['employee'])->not->toBeNull()
+                ->and($listData['employee']['first_name'])->toBe($employee->first_name)
+                ->and($listData['employee']['last_name'])->toBe($employee->last_name)
+                ->and($listData['employee']['personnel_code'])->toBe($employee->personnel_code);
+
+            $this->actingAs($user)
+                ->getJson('/api/users/'.$target->id)
+                ->assertStatus(200)
+                ->assertJsonPath('data.employee.id', $employee->id)
+                ->assertJsonPath('data.employee.personnel_code', $employee->personnel_code);
+        });
+
+        it('omits employee data when user is not linked', function () {
+            $user = createUserWithPermissions(['user.view']);
+            $target = User::factory()->create();
+
+            $this->actingAs($user)
+                ->getJson('/api/users/'.$target->id)
+                ->assertStatus(200)
+                ->assertJsonPath('data.employee', null);
         });
     });
 
@@ -824,38 +877,6 @@ describe('RBAC', function () {
             $roleModel = Role::create(['name' => 'test', 'display_name' => 'Test', 'is_active' => true]);
 
             expect($policy->viewAny($user, $roleModel))->toBeFalse();
-        });
-
-        it('scopeOwn returns false until the policy phase introduces scoping', function () {
-            $user = User::factory()->create();
-            $employee = Employee::factory()->create(['user_id' => $user->id]);
-            $role = Role::create(['name' => 'test', 'display_name' => 'Test', 'is_active' => true]);
-            $group = PermissionGroup::create(['name' => 'Employees', 'slug' => 'employee']);
-            Permission::create(['name' => 'employee.update', 'display_name' => 'View Own', 'group_id' => $group->id]);
-            $role->permissions()->attach(Permission::where('name', 'employee.update')->first()->id);
-            $user->assignRole($role->id, true);
-
-            $policy = app(DynamicPolicy::class);
-
-            expect($policy->scopeOwn($user, $employee))->toBeFalse();
-        });
-
-        it('scopeOwn returns false when user has all permission', function () {
-            $user = User::factory()->create();
-            $employee = Employee::factory()->create(['user_id' => $user->id]);
-            $role = Role::create(['name' => 'test', 'display_name' => 'Test', 'is_active' => true]);
-            $group = PermissionGroup::create(['name' => 'Employees', 'slug' => 'employee']);
-            Permission::create(['name' => 'employee.update', 'display_name' => 'View Own', 'group_id' => $group->id]);
-            Permission::create(['name' => 'employee.view', 'display_name' => 'View All', 'group_id' => $group->id]);
-            $role->permissions()->attach([
-                Permission::where('name', 'employee.update')->first()->id,
-                Permission::where('name', 'employee.view')->first()->id,
-            ]);
-            $user->assignRole($role->id, true);
-
-            $policy = app(DynamicPolicy::class);
-
-            expect($policy->scopeOwn($user, $employee))->toBeFalse();
         });
     });
 });

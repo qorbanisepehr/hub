@@ -10,6 +10,7 @@ use App\Domains\Authorization\Engine\AuthorizationEngine;
 use App\Domains\Authorization\Enums\AccessRuleEffect;
 use App\Domains\Authorization\Exceptions\AuthorizationScopeException;
 use App\Domains\Authorization\Models\AccessRule;
+use App\Domains\Authorization\Models\Permission;
 use App\Domains\Authorization\Policies\QueryTranslator;
 use App\Models\User;
 use Illuminate\Contracts\Auth\Authenticatable;
@@ -119,6 +120,50 @@ final class AuthorizationService implements Authorization
         ?AuthorizationContext $context = null,
     ): AuthorizationDecision {
         return $this->decision($actor, $permission, $resource, $context);
+    }
+
+    public function effectivePermissions(User $actor): array
+    {
+        $role = $this->engine->resolveActiveRole($actor);
+
+        if ($role === null) {
+            return [
+                'role' => null,
+                'permissions' => [],
+            ];
+        }
+
+        $permissions = Permission::query()->where('is_active', true)->get();
+
+        $rules = AccessRule::query()
+            ->whereIn('role_id', $role->getInheritedRoleIds())
+            ->where('is_active', true)
+            ->get();
+
+        $allowedIds = $rules
+            ->where('effect', AccessRuleEffect::Allow)
+            ->pluck('permission_id')
+            ->flip();
+
+        $deniedIds = $rules
+            ->where('effect', AccessRuleEffect::Deny)
+            ->pluck('permission_id')
+            ->flip();
+
+        return [
+            'role' => [
+                'id' => $role->id,
+                'name' => $role->name,
+                'display_name' => $role->display_name,
+            ],
+            'permissions' => $permissions
+                ->mapWithKeys(fn (Permission $permission) => [
+                    $permission->name => [
+                        'allowed' => $allowedIds->has($permission->id) && ! $deniedIds->has($permission->id),
+                    ],
+                ])
+                ->all(),
+        ];
     }
 
     private function decision(

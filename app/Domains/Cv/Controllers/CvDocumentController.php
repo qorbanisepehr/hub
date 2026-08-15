@@ -200,10 +200,14 @@ class CvDocumentController extends Controller
             'url' => URL::signedRoute(
                 'cv.documents.serve',
                 ['uuid' => $document->uuid],
+                null,
+                false,
             ),
             'download_url' => URL::signedRoute(
                 'cv.documents.serve',
                 ['uuid' => $document->uuid, 'download' => 1],
+                null,
+                false,
             ),
         ];
     }

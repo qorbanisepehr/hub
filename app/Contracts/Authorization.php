@@ -4,6 +4,7 @@ namespace App\Contracts;
 
 use App\Domains\Authorization\Engine\AuthorizationContext;
 use App\Domains\Authorization\Engine\AuthorizationDecision;
+use App\Models\User;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -53,4 +54,12 @@ interface Authorization
         mixed $resource = null,
         ?AuthorizationContext $context = null,
     ): AuthorizationDecision;
+
+    /**
+     * Aggregate the actor's effective permissions under the active role:
+     * every active permission mapped to an allowed flag (deny precedence).
+     *
+     * @return array{role: array<string, mixed>|null, permissions: array<string, array{allowed: bool}>}
+     */
+    public function effectivePermissions(User $actor): array;
 }

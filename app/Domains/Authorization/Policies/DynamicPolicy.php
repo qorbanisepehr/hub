@@ -9,7 +9,7 @@ use Illuminate\Support\Str;
 
 class DynamicPolicy
 {
-    private const KNOWN_ABILITIES = ['viewAny', 'view', 'create', 'update', 'delete', 'scopeOwn', 'upload', 'download'];
+    private const KNOWN_ABILITIES = ['viewAny', 'view', 'create', 'update', 'delete', 'upload', 'download'];
 
     /**
      * Resolve the full config for a model.
@@ -137,16 +137,6 @@ class DynamicPolicy
     public function delete(User $user, Model $model): bool
     {
         return $this->resolveMethod($user, $model, 'delete');
-    }
-
-    /**
-     * Own-scope filtering is handled by the Authorization engine's scope()
-     * query translation, not by a policy ability. This ability always resolves
-     * to false so ApiController::scopeQuery stays a no-op.
-     */
-    public function scopeOwn(User $user, Model $model): bool
-    {
-        return false;
     }
 
     /**

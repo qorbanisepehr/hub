@@ -2,6 +2,7 @@
 
 namespace App\Domains\Auth\Controllers;
 
+use App\Contracts\Authorization;
 use App\Domains\Auth\Requests\LoginRequest;
 use App\Domains\Auth\Requests\LoginWithPasswordRequest;
 use App\Domains\Auth\Requests\VerifyOtpRequest;
@@ -22,6 +23,7 @@ class AuthController
 
     public function __construct(
         private OtpService $otpService,
+        private Authorization $authorizationService,
     ) {}
 
     public function login(LoginRequest $request): JsonResponse
@@ -132,9 +134,22 @@ class AuthController
             ], 401);
         }
 
-        $user->load(['roles', 'activeRole']);
+        $user->load(['roles', 'activeRole', 'employee']);
 
         return new UserResource($user);
+    }
+
+    public function authorization(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        if (! $user instanceof User) {
+            return response()->json(['message' => __('auth.unauthorized')], 401);
+        }
+
+        return response()->json([
+            'data' => $this->authorizationService->effectivePermissions($user),
+        ]);
     }
 
     private function authenticate(Request $request, User $user): JsonResponse
@@ -144,14 +159,14 @@ class AuthController
             $request->session()->regenerate();
 
             return response()->json([
-                'user' => new UserResource($user->load(['roles', 'activeRole'])),
+                'user' => new UserResource($user->load(['roles', 'activeRole', 'employee'])),
             ]);
         }
 
         $token = $this->createToken($user, $request);
 
         return response()->json([
-            'user' => new UserResource($user->load(['roles', 'activeRole'])),
+            'user' => new UserResource($user->load(['roles', 'activeRole', 'employee'])),
             'token' => $token,
         ]);
     }

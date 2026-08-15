@@ -20,7 +20,9 @@ class CvBankController extends Controller
 
     public function index(Request $request): AnonymousResourceCollection
     {
-        $query = Cv::query()->with('documentUsages.document');
+        $query = Cv::query()
+            ->with('documentUsages.document')
+            ->with('reviewer.employee');
 
         if ($request->filled('filter')) {
             $filter = $request->input('filter');
@@ -52,8 +54,8 @@ class CvBankController extends Controller
         // A UUID literal can't be compared against the uuid column by Postgres
         // when the route receives the numeric id, so branch on the value type.
         $model = Str::isUuid($cv)
-            ? Cv::with('questionnaire')->with('documentUsages.document')->where('uuid', $cv)->firstOrFail()
-            : Cv::with('questionnaire')->with('documentUsages.document')->where('id', $cv)->firstOrFail();
+            ? Cv::with('questionnaire')->with('documentUsages.document')->with('reviewer.employee')->where('uuid', $cv)->firstOrFail()
+            : Cv::with('questionnaire')->with('documentUsages.document')->with('reviewer.employee')->where('id', $cv)->firstOrFail();
 
         return response()->json([
             'data' => new CvResource($model),

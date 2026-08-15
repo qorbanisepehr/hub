@@ -2,10 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\Relation;
-use Illuminate\Http\Request;
 use Illuminate\Routing\Controller as BaseController;
 use Illuminate\Support\Facades\Gate;
 
@@ -45,21 +42,6 @@ abstract class ApiController extends BaseController
         }
 
         return parent::callAction($method, $parameters);
-    }
-
-    /**
-     * Apply own/all scope to a query based on the model's policy.
-     * Call this in index/trashed methods.
-     */
-    protected function scopeQuery(Builder|Relation $query, Request $request, string $ownerColumn, ?string $userColumn = 'id'): void
-    {
-        if ($this->model === null) {
-            return;
-        }
-
-        if (Gate::forUser($request->user())->allows('scopeOwn', new $this->model)) {
-            $query->where($ownerColumn, $request->user()->$userColumn);
-        }
     }
 
     /**

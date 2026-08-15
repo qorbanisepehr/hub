@@ -158,7 +158,7 @@ final class AuthorizationEngine
      * The role the actor currently acts under: the active role when set,
      * otherwise the first active assigned role.
      */
-    private function resolveActiveRole(User $actor): ?Role
+    public function resolveActiveRole(User $actor): ?Role
     {
         $activeRole = $actor->activeRole;
 
