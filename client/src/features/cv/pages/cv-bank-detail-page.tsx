@@ -42,6 +42,7 @@ import {
 import { cvKeys } from "@/lib/query-keys";
 import { getApiError } from "@/lib/error-utils";
 import { toPersianDate } from "@/lib/date-format";
+import { getUserDisplayName } from "@/lib/user-display";
 
 function MetaRow({ label, value }: { label: string; value: ReactNode }) {
     return (
@@ -243,9 +244,9 @@ export function CvBankDetailPage() {
                         <Badge variant="outline">
                             نسخه {cv.version}
                         </Badge>
-                        {cv.reviewer?.name && (
+                        {cv.reviewer && (
                             <span className="text-xs text-muted-foreground">
-                                تأیید توسط {cv.reviewer.name}
+                                تأیید توسط {getUserDisplayName(cv.reviewer)}
                                 {cv.reviewer.role
                                     ? ` (${cv.reviewer.role})`
                                     : ""}

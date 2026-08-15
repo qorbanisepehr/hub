@@ -28,7 +28,6 @@ interface PermissionAddModalProps {
     onOpenChange: (open: boolean) => void;
     selectedPermissionIds: number[];
     onGroupToggle: (groupId: number, permissionIds: number[]) => void;
-    onGroupRemove: (groupId: number, permissionIds: number[]) => void;
     onPermissionToggle: (permissionId: number, groupId: number) => void;
 }
 
@@ -75,11 +74,9 @@ const PermissionsSkeleton = memo(function PermissionsSkeleton() {
 function GroupsTab({
     selectedPermissionIds,
     onGroupToggle,
-    onGroupRemove,
 }: {
     selectedPermissionIds: number[];
     onGroupToggle: (groupId: number, permissionIds: number[]) => void;
-    onGroupRemove: (groupId: number, permissionIds: number[]) => void;
 }) {
     const { data: groups, isLoading } = usePermissions();
     const [search, setSearch] = useState("");
@@ -142,9 +139,7 @@ function GroupsTab({
                                 key={group.id}
                                 type="button"
                                 onClick={() =>
-                                    isAllSelected
-                                        ? onGroupRemove(group.id, groupPermIds)
-                                        : onGroupToggle(group.id, groupPermIds)
+                                    onGroupToggle(group.id, groupPermIds)
                                 }
                                 className={`flex w-full items-center gap-3 rounded-lg px-2 py-2 text-start text-sm transition-colors outline-none hover:bg-accent hover:text-accent-foreground ${
                                     isAllSelected || isSomeSelected
@@ -329,7 +324,6 @@ export function PermissionAddModal({
     onOpenChange,
     selectedPermissionIds,
     onGroupToggle,
-    onGroupRemove,
     onPermissionToggle,
 }: PermissionAddModalProps) {
     const [tab, setTab] = useState("groups");
@@ -370,7 +364,6 @@ export function PermissionAddModal({
                             <GroupsTab
                                 selectedPermissionIds={selectedPermissionIds}
                                 onGroupToggle={onGroupToggle}
-                                onGroupRemove={onGroupRemove}
                             />
                         </TabsContent>
                         <TabsContent value="permissions">

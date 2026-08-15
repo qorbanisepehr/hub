@@ -99,7 +99,6 @@ export const roleSchema = z.object({
     inherits_permissions: z.boolean(),
     is_active: z.boolean(),
     permission_ids: z.array(z.number()),
-    permission_group_ids: z.array(z.number()),
     matrix_managers: z
         .array(
             z.object({
@@ -247,7 +246,6 @@ export function RoleForm({
             inherits_permissions: false,
             is_active: true,
             permission_ids: [],
-            permission_group_ids: [],
             matrix_managers: [],
             ...defaultValues,
             requirements: {
@@ -415,83 +413,42 @@ export function RoleForm({
                     </CardContent>
                 </Card>
 
-                <form.Field name="permission_group_ids">
-                    {(groupField) => (
-                        <form.Field name="permission_ids">
-                            {(permField) => (
-                                <PermissionSelector
-                                    selectedGroupIds={groupField.state.value}
-                                    selectedPermissionIds={
-                                        permField.state.value
-                                    }
-                                    inheritedPermissionIds={
-                                        inheritedPermissionIds
-                                    }
-                                    onGroupToggle={(groupId, permIds) => {
-                                        const groups = groupField.state.value;
-                                        const perms = permField.state.value;
-                                        const allSelected = permIds.every(
-                                            (id) => perms.includes(id),
-                                        );
+                <form.Field name="permission_ids">
+                    {(permField) => (
+                        <PermissionSelector
+                            selectedPermissionIds={permField.state.value}
+                            inheritedPermissionIds={inheritedPermissionIds}
+                            onGroupToggle={(groupId, permIds) => {
+                                const perms = permField.state.value;
+                                const allSelected = permIds.every((id) =>
+                                    perms.includes(id),
+                                );
 
-                                        permField.handleChange(
-                                            allSelected
-                                                ? perms.filter(
-                                                      (id) =>
-                                                          !permIds.includes(id),
-                                                  )
-                                                : [
-                                                      ...new Set([
-                                                          ...perms,
-                                                          ...permIds,
-                                                      ]),
-                                                  ],
-                                        );
+                                permField.handleChange(
+                                    allSelected
+                                        ? perms.filter(
+                                              (id) => !permIds.includes(id),
+                                          )
+                                        : [
+                                              ...new Set([
+                                                  ...perms,
+                                                  ...permIds,
+                                              ]),
+                                          ],
+                                );
+                            }}
+                            onPermissionToggle={(permId) => {
+                                const perms = permField.state.value;
 
-                                        if (
-                                            !allSelected &&
-                                            !groups.includes(groupId)
-                                        ) {
-                                            groupField.handleChange([
-                                                ...groups,
-                                                groupId,
-                                            ]);
-                                        }
-                                    }}
-                                    onGroupRemove={(groupId, permIds) => {
-                                        const groups = groupField.state.value;
-                                        const perms = permField.state.value;
-
-                                        groupField.handleChange(
-                                            groups.filter(
-                                                (id) => id !== groupId,
-                                            ),
-                                        );
-                                        permField.handleChange(
-                                            perms.filter(
-                                                (id) => !permIds.includes(id),
-                                            ),
-                                        );
-                                    }}
-                                    onPermissionToggle={(permId, _groupId) => {
-                                        const perms = permField.state.value;
-
-                                        if (perms.includes(permId)) {
-                                            permField.handleChange(
-                                                perms.filter(
-                                                    (id) => id !== permId,
-                                                ),
-                                            );
-                                        } else {
-                                            permField.handleChange([
-                                                ...perms,
-                                                permId,
-                                            ]);
-                                        }
-                                    }}
-                                />
-                            )}
-                        </form.Field>
+                                if (perms.includes(permId)) {
+                                    permField.handleChange(
+                                        perms.filter((id) => id !== permId),
+                                    );
+                                } else {
+                                    permField.handleChange([...perms, permId]);
+                                }
+                            }}
+                        />
                     )}
                 </form.Field>
             </div>

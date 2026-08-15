@@ -7,6 +7,7 @@ import {
 } from "@/components/ui/sidebar";
 import { UserMenu } from "@/components/shared/user-menu";
 import { useAuth } from "@/features/auth/useAuth";
+import { getUserDisplayName } from "@/lib/user-display";
 
 export function NavUser() {
     const { isMobile } = useSidebar();
@@ -14,7 +15,9 @@ export function NavUser() {
 
     if (!user) return null;
 
-    const initials = user.name
+    const displayName = getUserDisplayName(user);
+
+    const initials = displayName
         ?.split(" ")
         .map((n: string) => n[0])
         .join("")
@@ -37,7 +40,7 @@ export function NavUser() {
                         {user.avatar_url && (
                             <AvatarImage
                                 src={user.avatar_url}
-                                alt={user.name}
+                                alt={displayName}
                                 className="rounded-lg"
                             />
                         )}
@@ -47,7 +50,7 @@ export function NavUser() {
                     </Avatar>
                     <div className="grid flex-1 text-start text-sm leading-tight">
                         <span className="truncate font-medium">
-                            {user.name}
+                            {displayName}
                         </span>
                         <span className="truncate text-xs text-foreground/70">
                             {user.active_role?.display_name ?? user.email}

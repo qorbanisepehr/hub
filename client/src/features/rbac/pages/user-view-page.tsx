@@ -19,6 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { fetchUser } from "@/features/rbac/api";
 import { RoleBadge } from "@/features/rbac/components/role-badge";
 import { UserRoleManager } from "@/features/rbac/components/user-role-manager";
+import { getUserDisplayName } from "@/lib/user-display";
 import { PermissionGuard } from "@/features/auth/components/permission-guard";
 import { PERMISSIONS } from "@/lib/permissions";
 import { ResponsiveDialog } from "@/components/ui/responsive-dialog";
@@ -61,10 +62,12 @@ export function UserViewPage() {
         );
     }
 
+    const displayName = getUserDisplayName(user);
+
     return (
         <PageLayout>
             <PageHeader
-                title={user.name}
+                title={displayName}
                 description={user.email}
                 backTo="/users"
             >
@@ -101,14 +104,19 @@ export function UserViewPage() {
                     <CardHeader>
                         <div className="flex items-center gap-3">
                             <Avatar size="lg">
-                                <AvatarImage src={user.avatar_url ?? undefined} alt={user.name} />
+                                <AvatarImage src={user.avatar_url ?? undefined} alt={displayName} />
                                 <AvatarFallback>
-                                    {user.name.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase()}
+                                    {displayName.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase()}
                                 </AvatarFallback>
                             </Avatar>
                             <div className="space-y-0.5">
-                                <CardTitle>{user.name}</CardTitle>
+                                <CardTitle>{displayName}</CardTitle>
                                 <div className="flex items-center gap-2">
+                                    {user.employee && (
+                                        <Badge variant="outline">
+                                            کارمند
+                                        </Badge>
+                                    )}
                                     <Badge variant={user.is_active ? "default" : "secondary"}>
                                         {user.is_active ? "فعال" : "غیرفعال"}
                                     </Badge>
@@ -118,7 +126,13 @@ export function UserViewPage() {
                         <CardDescription>اطلاعات هویتی کاربر</CardDescription>
                     </CardHeader>
                     <CardContent className="divide-y">
-                        <InfoRow label="نام" value={user.name} />
+                        <InfoRow label="نام" value={displayName} />
+                        {user.employee?.personnel_code && (
+                            <InfoRow
+                                label="کد پرسنلی"
+                                value={<span dir="ltr">{user.employee.personnel_code}</span>}
+                            />
+                        )}
                         <InfoRow
                             label="ایمیل"
                             value={<span dir="ltr">{user.email}</span>}
@@ -161,7 +175,7 @@ export function UserViewPage() {
                 open={rolesOpen}
                 onOpenChange={setRolesOpen}
                 title="مدیریت نقش کاربر"
-                description={`تخصیص و مدیریت نقش‌های ${user.name}`}
+                description={`تخصیص و مدیریت نقش‌های ${displayName}`}
             >
                 <UserRoleManager
                     userId={user.id}

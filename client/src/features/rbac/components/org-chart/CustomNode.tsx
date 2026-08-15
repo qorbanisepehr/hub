@@ -7,8 +7,18 @@ import {
     IconMasksTheater,
     IconUsers,
 } from "@tabler/icons-react";
+import {
+    Avatar,
+    AvatarFallback,
+    AvatarGroup,
+    AvatarGroupCount,
+    AvatarImage,
+} from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
+import { getUserDisplayName } from "@/lib/user-display";
 import type { RoleChartRole } from "@/features/rbac/types";
+
+const MAX_AVATARS = 4;
 
 type CustomNodeData = {
     role: RoleChartRole;
@@ -22,6 +32,14 @@ type CustomNodeData = {
 };
 
 type RoleNode = Node<CustomNodeData, "customNode">;
+
+function getInitials(name: string): string {
+    const parts = name.trim().split(/\s+/);
+    return parts
+        .slice(0, 2)
+        .map((part) => part[0] ?? "")
+        .join("");
+}
 
 function stopPropagation(handler?: (id: number) => void, id?: number) {
     return (event: React.MouseEvent) => {
@@ -46,6 +64,9 @@ export default function CustomNode({ data, selected }: NodeProps<RoleNode>) {
     } = data;
 
     const matrixManagerCount = role.matrix_manager_roles?.length ?? 0;
+    const users = role.users ?? [];
+    const visibleUsers = users.slice(0, MAX_AVATARS);
+    const hiddenCount = users.length - visibleUsers.length;
 
     return (
         <>
@@ -125,6 +146,29 @@ export default function CustomNode({ data, selected }: NodeProps<RoleNode>) {
                             )}
                         </div>
                     </div>
+
+                    {users.length > 0 && (
+                        <div className="border-t pt-2.5">
+                            <AvatarGroup>
+                                {visibleUsers.map((user) => (
+                                    <Avatar key={user.id} size="sm">
+                                        <AvatarImage
+                                            src={user.avatar_url ?? undefined}
+                                            alt={getUserDisplayName(user)}
+                                        />
+                                        <AvatarFallback>
+                                            {getInitials(getUserDisplayName(user))}
+                                        </AvatarFallback>
+                                    </Avatar>
+                                ))}
+                                {hiddenCount > 0 && (
+                                    <AvatarGroupCount>
+                                        +{hiddenCount}
+                                    </AvatarGroupCount>
+                                )}
+                            </AvatarGroup>
+                        </div>
+                    )}
                 </div>
 
                 {hasChildren && (

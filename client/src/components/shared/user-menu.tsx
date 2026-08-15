@@ -16,6 +16,7 @@ import { useAuth } from "@/features/auth/useAuth";
 import { authKeys } from "@/lib/query-keys";
 import { switchActiveRole } from "@/features/auth/api";
 import { getApiError } from "@/lib/error-utils";
+import { getUserDisplayName } from "@/lib/user-display";
 import { Link, useNavigate } from "@tanstack/react-router";
 import {
     IconMasksTheater,
@@ -57,7 +58,9 @@ export function UserMenu({
 
     if (!user) return null;
 
-    const initials = user.name
+    const displayName = getUserDisplayName(user);
+
+    const initials = displayName
         ?.split(" ")
         .map((n: string) => n[0])
         .join("")
@@ -83,7 +86,7 @@ export function UserMenu({
                         {user.avatar_url && (
                             <AvatarImage
                                 src={user.avatar_url}
-                                alt={user.name}
+                                alt={displayName}
                                 className="rounded-lg"
                             />
                         )}
@@ -102,7 +105,7 @@ export function UserMenu({
                 <DropdownMenuGroup>
                     <DropdownMenuLabel className="font-normal">
                         <div className="flex flex-col gap-1">
-                            <p className="text-sm font-medium">{user.name}</p>
+                            <p className="text-sm font-medium">{displayName}</p>
                             <p className="text-xs text-muted-foreground">
                                 {user.active_role?.display_name ?? user.email}
                             </p>

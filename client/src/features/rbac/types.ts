@@ -72,6 +72,7 @@ export type RoleChartUser = {
     id: number;
     name: string;
     avatar_url: string | null;
+    employee: LinkedEmployee | null;
 };
 
 export type RoleChartChild = {
@@ -108,10 +109,16 @@ export type CreateRoleData = {
     matrix_managers?: MatrixManager[];
     requirements?: RoleRequirements | null;
     permission_ids?: number[];
-    permission_group_ids?: number[];
 };
 
 export type UpdateRoleData = Partial<CreateRoleData>;
+
+export type LinkedEmployee = {
+    id: number;
+    first_name: string;
+    last_name: string;
+    personnel_code: string | null;
+};
 
 export type UserListItem = {
     id: number;
@@ -122,6 +129,7 @@ export type UserListItem = {
     is_super_admin: boolean;
     roles: Role[];
     active_role: Role | null;
+    employee: LinkedEmployee | null;
 };
 
 export type UserDetail = {
@@ -135,6 +143,7 @@ export type UserDetail = {
     is_super_admin: boolean;
     roles: Role[];
     active_role: Role | null;
+    employee: LinkedEmployee | null;
 };
 
 export type UpdateUserData = {

@@ -17,6 +17,7 @@ import {
     AvatarImage,
 } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
+import { getUserDisplayName } from "@/lib/user-display";
 import type { RoleChartRole } from "@/features/rbac/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -146,10 +147,10 @@ export default function UsersNode({ data, selected }: NodeProps<UsersNode>) {
                                                 src={
                                                     user.avatar_url ?? undefined
                                                 }
-                                                alt={user.name}
+                                                alt={getUserDisplayName(user)}
                                             />
                                             <AvatarFallback>
-                                                {getInitials(user.name)}
+                                                {getInitials(getUserDisplayName(user))}
                                             </AvatarFallback>
                                         </Avatar>
                                     ))}
@@ -162,7 +163,7 @@ export default function UsersNode({ data, selected }: NodeProps<UsersNode>) {
                                 <div className="min-w-0 flex-1">
                                     <p className="truncate text-xs font-medium leading-tight text-card-foreground">
                                         {visibleUsers.length === 1
-                                            ? visibleUsers[0].name
+                                            ? getUserDisplayName(visibleUsers[0])
                                             : `${users.length} کاربر`}
                                     </p>
                                 </div>

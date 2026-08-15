@@ -53,6 +53,12 @@ export interface ReviewerSummary {
     id: number;
     name: string;
     role: string | null;
+    employee: {
+        id: number;
+        first_name: string;
+        last_name: string;
+        personnel_code: string | null;
+    } | null;
 }
 
 export interface CvLifecycleEvent {

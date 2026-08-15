@@ -1,4 +1,4 @@
-import type { Role, Permission } from "@/features/rbac/types";
+import type { Role, Permission, LinkedEmployee } from "@/features/rbac/types";
 
 export type User = {
     id: number;
@@ -13,6 +13,7 @@ export type User = {
     roles?: Role[];
     active_role?: Role | null;
     permissions?: Permission[];
+    employee: LinkedEmployee | null;
 };
 
 export type LoginResponse = {

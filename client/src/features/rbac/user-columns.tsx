@@ -13,6 +13,7 @@ import { PERMISSIONS } from "@/lib/permissions";
 import { RoleBadge } from "@/features/rbac/components/role-badge";
 import { UserRoleManager } from "@/features/rbac/components/user-role-manager";
 import { ResponsiveDialog } from "@/components/ui/responsive-dialog";
+import { getUserDisplayName } from "@/lib/user-display";
 import type { UserListItem } from "@/features/rbac/types";
 
 function UserAvatar({ name, avatarUrl }: { name: string; avatarUrl: string | null }) {
@@ -38,7 +39,7 @@ export function getUserColumns(): ColumnDef<StockFeatures, UserListItem>[] {
             header: "",
             cell: ({ row }) => (
                 <UserAvatar
-                    name={row.original.name}
+                    name={getUserDisplayName(row.original)}
                     avatarUrl={row.original.avatar_url}
                 />
             ),
@@ -57,7 +58,7 @@ export function getUserColumns(): ColumnDef<StockFeatures, UserListItem>[] {
                     params={{ userId: String(row.original.id) }}
                     className="text-sm font-medium hover:text-primary transition-colors"
                 >
-                    {row.getValue("name")}
+                    {getUserDisplayName(row.original)}
                 </Link>
             ),
             meta: { displayName: "نام" },
@@ -159,7 +160,7 @@ function UserRowActions({ user }: { user: UserListItem }) {
                 open={rolesOpen}
                 onOpenChange={setRolesOpen}
                 title="مدیریت نقش کاربر"
-                description={`تخصیص و مدیریت نقش‌های ${user.name}`}
+                description={`تخصیص و مدیریت نقش‌های ${getUserDisplayName(user)}`}
             >
                 <UserRoleManager userId={user.id} />
             </ResponsiveDialog>

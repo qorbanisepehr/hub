@@ -6,6 +6,7 @@ import { SearchSelectModal } from "@/components/shared/search-select-modal";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { userKeys } from "@/lib/query-keys";
 import { PAGINATION, DEBOUNCE } from "@/lib/constants";
+import { getUserDisplayName } from "@/lib/user-display";
 import type { UserListItem } from "@/features/rbac/types";
 
 type UserSearchSelectProps = {
@@ -76,7 +77,7 @@ export function UserSearchSelect({
             emptyText="کاربری یافت نشد"
             disabled={disabled}
             getItemKey={(u) => u.id}
-            getItemLabel={(u) => u.name}
+            getItemLabel={(u) => getUserDisplayName(u)}
             getItemSubLabel={(u) => u.email}
             getItemDisabled={(u) => !u.is_active}
             className={className}

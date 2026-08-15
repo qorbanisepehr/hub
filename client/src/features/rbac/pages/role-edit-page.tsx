@@ -90,7 +90,6 @@ export function RoleEditPage() {
                     inherits_permissions: role?.inherits_permissions ?? false,
                     is_active: role?.is_active ?? true,
                     permission_ids: role?.permissions?.map((p) => p.id) ?? [],
-                    permission_group_ids: role?.permission_groups?.map((g) => g.id) ?? [],
                     matrix_managers: role?.matrix_managers ?? [],
                     requirements: {
                         min_education: role?.requirements?.min_education ?? null,

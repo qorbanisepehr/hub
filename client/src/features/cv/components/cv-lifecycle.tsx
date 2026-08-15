@@ -17,6 +17,7 @@ import { ResponsiveDialog } from "@/components/ui/responsive-dialog";
 import { Timeline, type TimelineItem } from "@/components/shared/timeline";
 import type { Cv, CvLifecycleEvent } from "@/features/cv/types";
 import { toPersianDate } from "@/lib/date-format";
+import { getUserDisplayName } from "@/lib/user-display";
 
 const EVENT_META: Record<
     CvLifecycleEvent["event"],
@@ -51,9 +52,9 @@ function cvLifecycleItems(
         if (event.event === "submitted") {
             description.push(`نسخه ${event.version}`);
         }
-        if (event.by_user?.name) {
+        if (event.by_user) {
             const role = event.by_user.role ? ` (${event.by_user.role})` : "";
-            description.push(`توسط ${event.by_user.name}${role}`);
+            description.push(`توسط ${getUserDisplayName(event.by_user)}${role}`);
         }
         if (event.reason) {
             description.push(`دلیل: ${event.reason}`);
@@ -142,8 +143,8 @@ export function CvFeedbackMenu({ cv }: { cv: Cv }) {
                                 )}
                                 <p className="mt-2 text-xs text-muted-foreground">
                                     {toPersianDate(rejection.at)}
-                                    {rejection.by_user?.name
-                                        ? ` · ${rejection.by_user.name}`
+                                    {rejection.by_user
+                                        ? ` · ${getUserDisplayName(rejection.by_user)}`
                                         : ""}
                                 </p>
                             </div>

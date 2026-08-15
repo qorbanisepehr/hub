@@ -1,5 +1,6 @@
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/features/auth/useAuth";
+import { getUserDisplayName } from "@/lib/user-display";
 
 export function DashboardPage() {
     const { user, isLoading } = useAuth();
@@ -26,7 +27,7 @@ export function DashboardPage() {
     return (
         <div className="flex flex-1 flex-col items-center justify-center p-6">
             <div className="text-center">
-                <p className="text-lg font-medium">خوش آمدید، {user.name}</p>
+                <p className="text-lg font-medium">خوش آمدید، {getUserDisplayName(user)}</p>
                 <p className="text-sm text-muted-foreground mt-1">{user.email}</p>
             </div>
         </div>
