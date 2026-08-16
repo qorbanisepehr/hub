@@ -2,6 +2,7 @@
 
 namespace App\Domains\Authorization\Resources;
 
+use App\Domains\Authorization\Models\AccessRule;
 use App\Domains\Authorization\Models\Permission;
 use App\Domains\Authorization\Models\PermissionGroup;
 use App\Domains\Authorization\Models\Role;
@@ -37,6 +38,22 @@ class RoleResource extends JsonResource
                 $this->whenLoaded('permissions', fn () => $this->derivePermissionGroups()),
             ),
             'permissions' => PermissionResource::collection($this->whenLoaded('permissions')),
+            'access_rules' => $this->whenLoaded('accessRules', fn () => $this->accessRules
+                ->map(fn (AccessRule $rule) => [
+                    'id' => $rule->id,
+                    'permission_id' => $rule->permission_id,
+                    'permission' => $rule->permission !== null ? [
+                        'id' => $rule->permission->id,
+                        'name' => $rule->permission->name,
+                        'display_name' => $rule->permission->display_name,
+                        'resource' => $rule->permission->resource,
+                    ] : null,
+                    'effect' => $rule->effect->value,
+                    'priority' => $rule->priority,
+                    'policy' => $rule->policy,
+                    'is_active' => $rule->is_active,
+                ])
+                ->values()),
             'children' => self::collection($this->whenLoaded('childRoles')),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,

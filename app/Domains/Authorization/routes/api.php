@@ -5,6 +5,8 @@ use App\Domains\Authorization\Controllers\AuthorizationExplainController;
 use App\Domains\Authorization\Controllers\PermissionController;
 use App\Domains\Authorization\Controllers\PermissionGroupController;
 use App\Domains\Authorization\Controllers\RoleController;
+use App\Domains\Authorization\Controllers\RuleBuilderMetaController;
+use App\Domains\Authorization\Controllers\RulePreviewController;
 use App\Domains\Authorization\Controllers\UserController;
 use App\Domains\Authorization\Controllers\UserRoleController;
 use Illuminate\Support\Facades\Route;
@@ -13,6 +15,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('authorization/explain', AuthorizationExplainController::class)
         ->middleware('permission:role.view');
     Route::post('authorization/check', AuthorizationCheckController::class);
+    Route::get('authorization/rule-builder-meta', RuleBuilderMetaController::class)
+        ->middleware('permission:role.view');
+    Route::post('authorization/rule-preview', RulePreviewController::class)
+        ->middleware('permission:role.view');
     Route::get('roles', [RoleController::class, 'index'])
         ->middleware('permission:role.view');
     Route::post('roles', [RoleController::class, 'store'])

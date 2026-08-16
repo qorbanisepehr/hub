@@ -9,6 +9,9 @@ export type Permission = {
     name: string;
     display_name: string;
     group_id: number;
+    resource: string | null;
+    action: string | null;
+    policy_resource: string | null;
     group?: PermissionGroup;
     created_at: string;
     updated_at: string;
@@ -58,9 +61,91 @@ export type Role = {
     parent?: Role;
     permission_groups?: PermissionGroup[];
     permissions?: Permission[];
+    access_rules?: AccessRule[];
     children?: Role[];
     created_at: string;
     updated_at: string;
+};
+
+export type AccessRuleEffect = "allow" | "deny";
+
+export type AccessRulePolicyCondition = {
+    attribute: string;
+    operator: string;
+    value_source: string;
+    value?: unknown;
+};
+
+export type AccessRulePolicy = {
+    all?: AccessRulePolicyCondition[];
+    any?: AccessRulePolicyCondition[];
+    not?: AccessRulePolicyCondition[];
+};
+
+export type AccessRule = {
+    id: number;
+    permission_id: number;
+    permission?: {
+        id: number;
+        name: string;
+        display_name: string;
+        resource: string | null;
+    } | null;
+    effect: AccessRuleEffect;
+    priority: number | null;
+    policy: AccessRulePolicy | null;
+    is_active: boolean;
+};
+
+export type AccessRuleInput = {
+    permission_id: number;
+    effect: AccessRuleEffect;
+    priority?: number | null;
+    is_active?: boolean;
+    policy?: AccessRulePolicy | null;
+};
+
+export type RuleBuilderAttribute = {
+    key: string;
+    label: string;
+    type: string;
+    queryable: boolean;
+    operators: string[];
+};
+
+export type RuleBuilderResourceType = {
+    key: string;
+    label: string;
+    attributes: RuleBuilderAttribute[];
+};
+
+export type RuleBuilderOperator = { key: string; label: string };
+export type RuleBuilderValueSource = { key: string; label: string };
+
+export type RuleBuilderMeta = {
+    resource_types: RuleBuilderResourceType[];
+    operators: RuleBuilderOperator[];
+    value_sources: RuleBuilderValueSource[];
+};
+
+export type RulePreviewRequest = {
+    permission: string;
+    policy?: AccessRulePolicy | null;
+    user_id: number;
+    resource_type?: string | null;
+    resource_id?: number | null;
+};
+
+export type RulePreviewResult = {
+    rule_matches: boolean;
+    effective: {
+        allowed: boolean;
+        reason: string;
+        matched_rules: Array<Record<string, unknown>>;
+        denied_rules: Array<Record<string, unknown>>;
+        policy_results: Array<Record<string, unknown>>;
+        policy_pending: boolean;
+    };
 };
 
 export type UserRoleAssignment = {
@@ -109,6 +194,7 @@ export type CreateRoleData = {
     matrix_managers?: MatrixManager[];
     requirements?: RoleRequirements | null;
     permission_ids?: number[];
+    access_rules?: AccessRuleInput[];
 };
 
 export type UpdateRoleData = Partial<CreateRoleData>;

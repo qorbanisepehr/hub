@@ -139,6 +139,31 @@ class Role extends Model
     }
 
     /**
+     * Replace every access rule for this role with the given rule set. Rules
+     * express allow/deny effects and optional policy condition trees, so this is
+     * the canonical write path for the rule builder (unlike syncPermissions,
+     * which only understands plain allow rules).
+     *
+     * @param  array<int, array{permission_id: int, effect: string, priority?: int|null, policy?: array<mixed>|null, is_active?: bool}>  $rules
+     */
+    public function syncAccessRules(array $rules): void
+    {
+        DB::transaction(function () use ($rules) {
+            $this->accessRules()->delete();
+
+            foreach ($rules as $rule) {
+                $this->accessRules()->create([
+                    'permission_id' => (int) $rule['permission_id'],
+                    'effect' => AccessRuleEffect::from($rule['effect']),
+                    'priority' => (int) ($rule['priority'] ?? 0),
+                    'policy' => isset($rule['policy']) && is_array($rule['policy']) ? $rule['policy'] : null,
+                    'is_active' => (bool) ($rule['is_active'] ?? true),
+                ]);
+            }
+        });
+    }
+
+    /**
      * Set an explicit deny rule (highest priority) for a permission.
      */
     public function denyPermission(int $permissionId): void

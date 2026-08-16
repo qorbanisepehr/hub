@@ -58,6 +58,29 @@ final class AttributeRegistry
         return null;
     }
 
+    /**
+     * Resource type keys that have at least one registered attribute.
+     *
+     * @return array<int, string>
+     */
+    public function resourceTypes(): array
+    {
+        return array_keys($this->attributes);
+    }
+
+    public function resourceTypeRegistered(string $resourceType): bool
+    {
+        return isset($this->attributes[$resourceType]);
+    }
+
+    /** Human readable label for a resource type, or null when unknown. */
+    public function resourceTypeLabel(string $resourceType): ?string
+    {
+        $label = Config::get('authorization-attributes.resource_types.'.$resourceType.'.label');
+
+        return is_string($label) ? $label : null;
+    }
+
     public function has(string $resourceType, string $key): bool
     {
         return isset($this->attributes[$resourceType][$key]);

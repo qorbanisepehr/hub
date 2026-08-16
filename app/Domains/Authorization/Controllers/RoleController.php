@@ -207,7 +207,7 @@ class RoleController
 
     private function loadRelations(Role $role, array $extra = []): Role
     {
-        $role->load(array_merge(['parentRoles', 'permissions.group'], $extra));
+        $role->load(array_merge(['parentRoles', 'permissions.group', 'accessRules.permission'], $extra));
 
         $managerRoles = $role->getMatrixManagersCollection();
 
@@ -226,6 +226,13 @@ class RoleController
 
     private function syncPermissions(Role $role, Request $request): void
     {
+        if ($request->has('access_rules')) {
+            $role->syncAccessRules($request->input('access_rules'));
+            $this->flushRoleUsersCaches($role);
+
+            return;
+        }
+
         if ($request->has('permission_ids')) {
             $role->syncPermissions($this->permissionIds($request));
             $this->flushRoleUsersCaches($role);

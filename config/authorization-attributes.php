@@ -38,6 +38,29 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Resource Type Labels
+    |--------------------------------------------------------------------------
+    |
+    | Human readable labels for each registered resource type. Used by the rule
+    | builder metadata API so the admin UI can render resource type groups
+    | without hardcoding the vocabulary.
+    |
+    */
+
+    'resource_types' => [
+        'user' => ['label' => 'کاربر'],
+        'employee' => ['label' => 'کارمند'],
+        'role' => ['label' => 'نقش'],
+        'document' => ['label' => 'سند'],
+        'document_category' => ['label' => 'دسته‌بندی سند'],
+        'document_usage' => ['label' => 'استفاده سند'],
+        'form_option' => ['label' => 'گزینه فرم'],
+        'questionnaire' => ['label' => 'پرسشنامه'],
+        'cv' => ['label' => 'رزومه'],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Attribute Definitions
     |--------------------------------------------------------------------------
     |

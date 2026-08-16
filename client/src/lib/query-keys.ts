@@ -70,6 +70,11 @@ export const permissionKeys = {
         ["permissions-search", search] as const,
 };
 
+export const ruleBuilderKeys = {
+    all: ["rule-builder"] as const,
+    meta: () => [...ruleBuilderKeys.all, "meta"] as const,
+};
+
 export const cvKeys = {
     all: ["cvs"] as const,
     lists: () => [...cvKeys.all, "list"] as const,

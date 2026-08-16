@@ -3,12 +3,15 @@
 namespace App\Domains\Authorization\Requests;
 
 use App\Domains\Authorization\Models\Role;
+use App\Domains\Authorization\Requests\Concerns\ValidatesAccessRules;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 class UpdateRoleRequest extends FormRequest
 {
+    use ValidatesAccessRules;
+
     public function authorize(): bool
     {
         return true;
@@ -65,6 +68,8 @@ class UpdateRoleRequest extends FormRequest
             'requirements.languages.*' => ['string', Rule::in(array_keys(Role::LANGUAGE_LEVELS))],
             'permission_ids' => 'nullable|array',
             'permission_ids.*' => 'exists:permissions,id',
+            'access_rules' => 'nullable|array',
+            ...$this->accessRuleRules(),
         ];
     }
 

@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/select";
 import { RoleSearchSelect } from "@/features/rbac/components/role-search-select";
 import { PermissionSelector } from "@/features/rbac/components/permission-selector";
+import { RuleBuilder } from "@/features/rbac/components/rule-builder";
 import { FormRepeater } from "@/components/shared/form-repeater";
 import {
     FormTextField,
@@ -83,6 +84,14 @@ const minExperienceYearsValidator = z
     .or(z.literal(""))
     .transform((value) => (value === "" ? null : value));
 
+const accessRuleSchema = z.object({
+    permission_id: z.number().int().positive(),
+    effect: z.enum(["allow", "deny"]),
+    priority: z.number().int().min(0).nullable().optional(),
+    is_active: z.boolean().optional(),
+    policy: z.any().nullable().optional(),
+});
+
 export const roleSchema = z.object({
     name: z
         .string()
@@ -98,7 +107,7 @@ export const roleSchema = z.object({
     parent_id: z.number().nullable(),
     inherits_permissions: z.boolean(),
     is_active: z.boolean(),
-    permission_ids: z.array(z.number()),
+    access_rules: z.array(accessRuleSchema),
     matrix_managers: z
         .array(
             z.object({
@@ -245,7 +254,7 @@ export function RoleForm({
             parent_id: null,
             inherits_permissions: false,
             is_active: true,
-            permission_ids: [],
+            access_rules: [],
             matrix_managers: [],
             ...defaultValues,
             requirements: {
@@ -413,43 +422,110 @@ export function RoleForm({
                     </CardContent>
                 </Card>
 
-                <form.Field name="permission_ids">
-                    {(permField) => (
-                        <PermissionSelector
-                            selectedPermissionIds={permField.state.value}
-                            inheritedPermissionIds={inheritedPermissionIds}
-                            onGroupToggle={(groupId, permIds) => {
-                                const perms = permField.state.value;
-                                const allSelected = permIds.every((id) =>
-                                    perms.includes(id),
-                                );
+                <form.Field name="access_rules">
+                    {(rulesField) => {
+                        const allowedPermissionIds = rulesField.state.value
+                            .filter((rule) => rule.effect === "allow")
+                            .filter((rule) => rule.is_active !== false)
+                            .map((rule) => rule.permission_id);
 
-                                permField.handleChange(
-                                    allSelected
-                                        ? perms.filter(
-                                              (id) => !permIds.includes(id),
-                                          )
-                                        : [
-                                              ...new Set([
-                                                  ...perms,
-                                                  ...permIds,
-                                              ]),
-                                          ],
-                                );
-                            }}
-                            onPermissionToggle={(permId) => {
-                                const perms = permField.state.value;
+                        const togglePermission = (permId: number) => {
+                            const rules = rulesField.state.value;
+                            const existing = rules.find(
+                                (rule) =>
+                                    rule.permission_id === permId &&
+                                    rule.effect === "allow",
+                            );
 
-                                if (perms.includes(permId)) {
-                                    permField.handleChange(
-                                        perms.filter((id) => id !== permId),
-                                    );
-                                } else {
-                                    permField.handleChange([...perms, permId]);
-                                }
-                            }}
-                        />
-                    )}
+                            rulesField.handleChange(
+                                existing
+                                    ? rules.filter(
+                                          (rule) =>
+                                              !(
+                                                  rule.permission_id ===
+                                                      permId &&
+                                                  rule.effect === "allow"
+                                              ),
+                                      )
+                                    : [
+                                          ...rules,
+                                          {
+                                              permission_id: permId,
+                                              effect: "allow" as const,
+                                              is_active: true,
+                                          },
+                                      ],
+                            );
+                        };
+
+                        const toggleGroup = (
+                            _groupId: number,
+                            permIds: number[],
+                        ) => {
+                            const rules = rulesField.state.value;
+                            const allAllowed = permIds.every((id) =>
+                                rules.some(
+                                    (rule) =>
+                                        rule.permission_id === id &&
+                                        rule.effect === "allow",
+                                ),
+                            );
+
+                            if (allAllowed) {
+                                const removed = new Set(permIds);
+                                rulesField.handleChange(
+                                    rules.filter(
+                                        (rule) =>
+                                            !(
+                                                rule.effect === "allow" &&
+                                                removed.has(
+                                                    rule.permission_id,
+                                                )
+                                            ),
+                                    ),
+                                );
+                            } else {
+                                const existingAllowIds = new Set(
+                                    rules
+                                        .filter(
+                                            (rule) =>
+                                                rule.effect === "allow",
+                                        )
+                                        .map((rule) => rule.permission_id),
+                                );
+                                const toAdd = permIds.filter(
+                                    (id) => !existingAllowIds.has(id),
+                                );
+                                rulesField.handleChange([
+                                    ...rules,
+                                    ...toAdd.map((id) => ({
+                                        permission_id: id,
+                                        effect: "allow" as const,
+                                        is_active: true,
+                                    })),
+                                ]);
+                            }
+                        };
+
+                        return (
+                            <div className="space-y-6">
+                                <PermissionSelector
+                                    selectedPermissionIds={allowedPermissionIds}
+                                    inheritedPermissionIds={
+                                        inheritedPermissionIds
+                                    }
+                                    onGroupToggle={toggleGroup}
+                                    onPermissionToggle={togglePermission}
+                                />
+                                <RuleBuilder
+                                    value={rulesField.state.value}
+                                    onChange={(rules) =>
+                                        rulesField.handleChange(rules)
+                                    }
+                                />
+                            </div>
+                        );
+                    }}
                 </form.Field>
             </div>
 

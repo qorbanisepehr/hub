@@ -3,6 +3,7 @@
 namespace App\Domains\Authorization\Policies;
 
 use App\Domains\Authorization\Attributes\AttributeRegistry;
+use App\Domains\Authorization\Models\Permission;
 
 /**
  * Structural and vocabulary validation for a policy condition tree. Used before
@@ -19,7 +20,7 @@ final class PolicyValidator
         'boolean' => ['equals', 'not_equals', 'is_null', 'is_not_null', 'exists', 'not_exists'],
     ];
 
-    private const VALUE_SOURCES = ['literal', 'actor', 'resource', 'context', 'related'];
+    public const VALUE_SOURCES = ['literal', 'actor', 'resource', 'context', 'related'];
 
     public function __construct(private readonly AttributeRegistry $attributes) {}
 
@@ -32,6 +33,36 @@ final class PolicyValidator
     public function errors(mixed $node, string $resourceType): array
     {
         return $this->validateNode($node, $resourceType, '$');
+    }
+
+    /**
+     * Validate a condition tree against the resource type the permission
+     * resolves to. Permissions without a registered attribute resource type
+     * cannot carry a policy.
+     *
+     * @return list<string>
+     */
+    public function errorsForPermission(mixed $node, int $permissionId): array
+    {
+        $permission = Permission::query()->where('id', $permissionId)->where('is_active', true)->first();
+
+        if ($permission === null) {
+            return ['Permission not found.'];
+        }
+
+        $resourceType = $permission->policyResourceType();
+
+        if ($resourceType === null || ! $this->attributes->resourceTypeRegistered($resourceType)) {
+            return ['این مجوز قابلیت تعریف قانون (Condition) ندارد.'];
+        }
+
+        return $this->errors($node, $resourceType);
+    }
+
+    /** Operators allowed for an attribute type. */
+    public function operatorsForType(string $type): array
+    {
+        return self::OPERATORS_BY_TYPE[$type] ?? [];
     }
 
     public function assertValid(mixed $node, string $resourceType): void

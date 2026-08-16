@@ -20,6 +20,9 @@ class PermissionResource extends JsonResource
             'name' => $this->name,
             'display_name' => $this->display_name,
             'group_id' => $this->group_id,
+            'resource' => $this->resource,
+            'action' => $this->action,
+            'policy_resource' => $this->policyResourceType(),
             'group' => new PermissionGroupResource($this->whenLoaded('group')),
         ];
     }

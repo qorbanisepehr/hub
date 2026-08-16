@@ -14,6 +14,9 @@ import type {
     UpdateUserData,
     CreateUserData,
     RoleChartRole,
+    RuleBuilderMeta,
+    RulePreviewRequest,
+    RulePreviewResult,
 } from "./types";
 
 export type { PaginatedResponse };
@@ -86,6 +89,21 @@ export function fetchRegisteredPermissions() {
     return api.get<
         Record<string, { name: string; permissions: Record<string, string> }>
     >("/permissions/registered");
+}
+
+// ── Rule builder ──
+
+export function fetchRuleBuilderMeta() {
+    return api.get<{ data: RuleBuilderMeta }>(
+        "/authorization/rule-builder-meta",
+    );
+}
+
+export function previewRule(data: RulePreviewRequest) {
+    return api.post<{ data: RulePreviewResult }>(
+        "/authorization/rule-preview",
+        data,
+    );
 }
 
 // ── Users ──
