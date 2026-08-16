@@ -1,9 +1,12 @@
 <?php
 
+use App\Domains\Authorization\Models\Role;
 use App\Domains\Cv\Models\Cv;
 use App\Domains\Document\Models\Document;
+use App\Domains\Document\Models\DocumentCategory;
 use App\Domains\Document\Models\DocumentUsage;
 use App\Domains\Employee\Models\Employee;
+use App\Domains\FormOptions\Models\FormOption;
 use App\Domains\Questionnaire\Models\Questionnaire;
 use App\Models\User;
 
@@ -24,8 +27,11 @@ return [
     'models' => [
         User::class => 'user',
         Employee::class => 'employee',
+        Role::class => 'role',
         Document::class => 'document',
+        DocumentCategory::class => 'document_category',
         DocumentUsage::class => 'document_usage',
+        FormOption::class => 'form_option',
         Questionnaire::class => 'questionnaire',
         Cv::class => 'cv',
     ],
@@ -123,6 +129,32 @@ return [
             'cv.mobile' => ['label' => 'موبایل', 'type' => 'string', 'queryable' => true, 'column' => 'mobile'],
             'cv.created_at' => ['label' => 'تاریخ ایجاد', 'type' => 'date', 'queryable' => true, 'column' => 'created_at'],
             'cv.reviewed_by' => ['label' => 'بازبین', 'type' => 'integer', 'queryable' => true, 'column' => 'reviewed_by'],
+        ],
+
+        'role' => [
+            'role.id' => ['label' => 'شناسه نقش', 'type' => 'integer', 'queryable' => true, 'column' => 'id'],
+            'role.name' => ['label' => 'نام نقش', 'type' => 'string', 'queryable' => true, 'column' => 'name'],
+            'role.display_name' => ['label' => 'نام نمایشی', 'type' => 'string', 'queryable' => true, 'column' => 'display_name'],
+            'role.is_active' => ['label' => 'وضعیت فعال', 'type' => 'boolean', 'queryable' => true, 'column' => 'is_active'],
+            'role.created_at' => ['label' => 'تاریخ ایجاد', 'type' => 'date', 'queryable' => true, 'column' => 'created_at'],
+        ],
+
+        'document_category' => [
+            'document_category.id' => ['label' => 'شناسه دسته‌بندی', 'type' => 'integer', 'queryable' => true, 'column' => 'id'],
+            'document_category.name' => ['label' => 'نام', 'type' => 'string', 'queryable' => true, 'column' => 'name'],
+            'document_category.slug' => ['label' => 'اسلاگ', 'type' => 'string', 'queryable' => true, 'column' => 'slug'],
+            'document_category.type' => ['label' => 'نوع', 'type' => 'string', 'queryable' => true, 'column' => 'type'],
+            'document_category.parent_id' => ['label' => 'دسته والد', 'type' => 'integer', 'queryable' => true, 'column' => 'parent_id'],
+            'document_category.sort_order' => ['label' => 'ترتیب', 'type' => 'integer', 'queryable' => true, 'column' => 'sort_order'],
+        ],
+
+        'form_option' => [
+            'form_option.id' => ['label' => 'شناسه گزینه', 'type' => 'integer', 'queryable' => true, 'column' => 'id'],
+            'form_option.group' => ['label' => 'گروه', 'type' => 'string', 'queryable' => true, 'column' => 'group'],
+            'form_option.value' => ['label' => 'مقدار', 'type' => 'string', 'queryable' => true, 'column' => 'value'],
+            'form_option.label' => ['label' => 'برچسب', 'type' => 'string', 'queryable' => true, 'column' => 'label'],
+            'form_option.sort_order' => ['label' => 'ترتیب', 'type' => 'integer', 'queryable' => true, 'column' => 'sort_order'],
+            'form_option.is_active' => ['label' => 'وضعیت فعال', 'type' => 'boolean', 'queryable' => true, 'column' => 'is_active'],
         ],
 
     ],

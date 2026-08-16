@@ -2,6 +2,7 @@
 
 namespace App\Domains\Authorization\Controllers;
 
+use App\Contracts\Authorization;
 use App\Domains\Authorization\Exports\RoleChartCsvExporter;
 use App\Domains\Authorization\Models\PermissionGroup;
 use App\Domains\Authorization\Models\Role;
@@ -19,6 +20,10 @@ use Illuminate\Support\Facades\DB;
 
 class RoleController
 {
+    public function __construct(
+        private Authorization $authorization,
+    ) {}
+
     /** @var array<string, string> */
     private array $sortable = [
         'name' => 'name',
@@ -30,6 +35,8 @@ class RoleController
     public function index(Request $request): AnonymousResourceCollection
     {
         $query = Role::with(['parentRoles', 'permissions.group']);
+
+        $this->authorization->scope($request->user(), 'role.view', $query);
 
         if ($request->filled('filter')) {
             $filter = $request->input('filter');
@@ -54,12 +61,15 @@ class RoleController
         return RoleResource::collection($roles);
     }
 
-    public function chart(): JsonResponse
+    public function chart(Request $request): JsonResponse
     {
         $roles = Role::withCount(['users', 'childRoles as children_count'])
             ->with(['users:id,name,avatar_url', 'users.employee:id,user_id,first_name,last_name,personnel_code'])
-            ->orderBy('display_name')
-            ->get();
+            ->orderBy('display_name');
+
+        $this->authorization->scope($request->user(), 'role.view', $roles);
+
+        $roles = $roles->get();
 
         $parentByRole = $this->parentMap();
 
@@ -123,13 +133,17 @@ class RoleController
         return new RoleResource($this->loadRelations($role));
     }
 
-    public function show(Role $role): RoleResource
+    public function show(Request $request, Role $role): RoleResource
     {
+        $this->authorization->authorize($request->user(), 'role.view', $role);
+
         return new RoleResource($this->loadRelations($role, ['permissions.group', 'childRoles', 'parentRoles.permissions.group']));
     }
 
     public function update(UpdateRoleRequest $request, Role $role): RoleResource
     {
+        $this->authorization->authorize($request->user(), 'role.update', $role);
+
         $role->update($this->withJsonFields($request, $request->validated()));
 
         $this->syncPermissions($role, $request);
@@ -140,8 +154,10 @@ class RoleController
         return new RoleResource($this->loadRelations($role));
     }
 
-    public function destroy(Role $role): JsonResponse
+    public function destroy(Request $request, Role $role): JsonResponse
     {
+        $this->authorization->authorize($request->user(), 'role.delete', $role);
+
         DB::transaction(function () use ($role) {
             User::where('active_role_id', $role->id)->update(['active_role_id' => null]);
             $role->users()->detach();
@@ -168,6 +184,7 @@ class RoleController
         $permissionIds = $this->resolvePermissionIds($request);
 
         foreach ($roles as $role) {
+            $this->authorization->authorize($request->user(), 'role.update', $role);
             $role->grantPermissions($permissionIds);
             $this->flushRoleUsersCaches($role);
         }
@@ -177,8 +194,10 @@ class RoleController
         return response()->json(['message' => __('authorization.permissions_assigned')]);
     }
 
-    public function toggle(Role $role): RoleResource
+    public function toggle(Request $request, Role $role): RoleResource
     {
+        $this->authorization->authorize($request->user(), 'role.update', $role);
+
         $role->update(['is_active' => ! $role->is_active]);
 
         app(AuthorizationVersion::class)->bump();
@@ -285,8 +304,9 @@ class RoleController
             return response()->json(['message' => 'برای خروجی زیرمجموعه، انتخاب نقش ریشه الزامی است.'], 422);
         }
 
-        if ($rootId !== null && ! Role::whereKey($rootId)->exists()) {
-            return response()->json(['message' => 'نقش ریشه یافت نشد.'], 404);
+        if ($rootId !== null) {
+            $rootRole = Role::findOrFail($rootId);
+            $this->authorization->authorize($request->user(), 'role.view', $rootRole);
         }
 
         $csv = (new RoleChartCsvExporter)->export($rootId, $fields);

@@ -13,6 +13,10 @@ use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class UserController
 {
+    public function __construct(
+        private Authorization $authorization,
+    ) {}
+
     /** @var array<string, string> */
     private array $sortable = [
         'name' => 'name',
@@ -25,6 +29,8 @@ class UserController
     public function index(Request $request): AnonymousResourceCollection
     {
         $query = User::with(['roles', 'activeRole', self::EMPLOYEE_COLUMNS]);
+
+        $this->authorization->scope($request->user(), 'user.view', $query);
 
         if ($request->filled('filter')) {
             $filter = $request->input('filter');
@@ -72,15 +78,19 @@ class UserController
         ]);
     }
 
-    public function show(User $user): UserResource
+    public function show(Request $request, User $user): UserResource
     {
+        $this->authorization->authorize($request->user(), 'user.view', $user);
+
         $user->load(['roles', 'activeRole', self::EMPLOYEE_COLUMNS]);
 
         return new UserResource($user);
     }
 
-    public function authorization(User $user, Authorization $authorization): JsonResponse
+    public function authorization(Request $request, User $user, Authorization $authorization): JsonResponse
     {
+        $this->authorization->authorize($request->user(), 'user.view', $user);
+
         return response()->json([
             'data' => $authorization->effectivePermissions($user),
         ]);
@@ -88,6 +98,8 @@ class UserController
 
     public function update(UpdateUserRequest $request, User $user): JsonResponse
     {
+        $this->authorization->authorize($request->user(), 'user.update', $user);
+
         $data = $request->validated();
 
         if (! empty($data['password'])) {

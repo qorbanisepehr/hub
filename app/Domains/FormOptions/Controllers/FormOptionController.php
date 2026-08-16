@@ -2,6 +2,7 @@
 
 namespace App\Domains\FormOptions\Controllers;
 
+use App\Contracts\Authorization;
 use App\Domains\FormOptions\Models\FormOption;
 use App\Domains\FormOptions\Requests\StoreFormOptionRequest;
 use App\Domains\FormOptions\Requests\UpdateFormOptionRequest;
@@ -15,6 +16,7 @@ class FormOptionController
 {
     public function __construct(
         private readonly FormOptionService $service,
+        private Authorization $authorization,
     ) {}
 
     /**
@@ -65,18 +67,24 @@ class FormOptionController
 
     public function update(UpdateFormOptionRequest $request, FormOption $option): FormOptionResource
     {
+        $this->authorization->authorize($request->user(), 'form-options.manage', $option);
+
         return new FormOptionResource($this->service->update($option, $request->validated()));
     }
 
-    public function destroy(FormOption $option): JsonResponse
+    public function destroy(Request $request, FormOption $option): JsonResponse
     {
+        $this->authorization->authorize($request->user(), 'form-options.manage', $option);
+
         $this->service->delete($option);
 
         return response()->json(null, 204);
     }
 
-    public function toggleActive(FormOption $option): FormOptionResource
+    public function toggleActive(Request $request, FormOption $option): FormOptionResource
     {
+        $this->authorization->authorize($request->user(), 'form-options.manage', $option);
+
         return new FormOptionResource($this->service->toggleActive($option));
     }
 
@@ -89,6 +97,8 @@ class FormOptionController
         } else {
             $query->whereNotIn('group', FormOptionService::LOCATION_GROUPS);
         }
+
+        $this->authorization->scope($request->user(), 'form-options.manage', $query);
 
         return FormOptionResource::collection($query->ordered()->get());
     }
