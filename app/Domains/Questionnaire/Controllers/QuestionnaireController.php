@@ -2,6 +2,7 @@
 
 namespace App\Domains\Questionnaire\Controllers;
 
+use App\Contracts\Authorization;
 use App\Domains\Questionnaire\Models\Questionnaire;
 use App\Domains\Questionnaire\Requests\InitQuestionnaireRequest;
 use App\Domains\Questionnaire\Requests\SectionSaveRequest;
@@ -29,6 +30,7 @@ class QuestionnaireController extends Controller
     public function __construct(
         private QuestionnaireService $questionnaireService,
         private OtpService $otpService,
+        private Authorization $authorization,
     ) {}
 
     public function init(InitQuestionnaireRequest $request): JsonResponse
@@ -282,9 +284,11 @@ class QuestionnaireController extends Controller
         ]);
     }
 
-    public function review(string $uuid): JsonResponse
+    public function review(Request $request, string $uuid): JsonResponse
     {
         $questionnaire = $this->questionnaireService->findByUuidOrFail($uuid);
+
+        $this->authorization->authorize($request->user(), 'questionnaire.review', $questionnaire);
 
         if (! $questionnaire->isSubmitted()) {
             return response()->json([
@@ -300,9 +304,11 @@ class QuestionnaireController extends Controller
         ]);
     }
 
-    public function reject(string $uuid): JsonResponse
+    public function reject(Request $request, string $uuid): JsonResponse
     {
         $questionnaire = $this->questionnaireService->findByUuidOrFail($uuid);
+
+        $this->authorization->authorize($request->user(), 'questionnaire.reject', $questionnaire);
 
         if (! $questionnaire->isSubmitted()) {
             return response()->json([

@@ -61,8 +61,12 @@ Route::get('questionnaire/documents/{uuid}/serve', [QuestionnaireDocumentControl
 
 // Protected routes (HR management)
 Route::middleware('auth:sanctum')->group(function () {
-    Route::get('questionnaires', [QuestionnaireManagementController::class, 'index']);
-    Route::get('questionnaires/{questionnaire}', [QuestionnaireManagementController::class, 'show']);
-    Route::post('questionnaire/{uuid}/review', [QuestionnaireController::class, 'review']);
-    Route::post('questionnaire/{uuid}/reject', [QuestionnaireController::class, 'reject']);
+    Route::get('questionnaires', [QuestionnaireManagementController::class, 'index'])
+        ->middleware('permission:questionnaire.view');
+    Route::get('questionnaires/{questionnaire}', [QuestionnaireManagementController::class, 'show'])
+        ->middleware('permission:questionnaire.view');
+    Route::post('questionnaire/{uuid}/review', [QuestionnaireController::class, 'review'])
+        ->middleware('permission:questionnaire.review');
+    Route::post('questionnaire/{uuid}/reject', [QuestionnaireController::class, 'reject'])
+        ->middleware('permission:questionnaire.reject');
 });

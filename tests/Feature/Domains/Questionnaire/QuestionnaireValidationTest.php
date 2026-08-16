@@ -1514,7 +1514,7 @@ describe('admin review/reject authorization', function () {
     });
 
     it('reviews a submitted questionnaire when authenticated', function () {
-        $user = createUserWithPermissions();
+        $user = createUserWithPermissions(['questionnaire.review']);
         $uuid = createDraft();
         Questionnaire::where('uuid', $uuid)->update(['status' => 'submitted']);
 
@@ -1525,7 +1525,7 @@ describe('admin review/reject authorization', function () {
     });
 
     it('rejects a submitted questionnaire when authenticated', function () {
-        $user = createUserWithPermissions();
+        $user = createUserWithPermissions(['questionnaire.reject']);
         $uuid = createDraft();
         Questionnaire::where('uuid', $uuid)->update(['status' => 'submitted']);
 

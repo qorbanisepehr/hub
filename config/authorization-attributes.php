@@ -3,6 +3,7 @@
 use App\Domains\Document\Models\Document;
 use App\Domains\Document\Models\DocumentUsage;
 use App\Domains\Employee\Models\Employee;
+use App\Domains\Questionnaire\Models\Questionnaire;
 use App\Models\User;
 
 return [
@@ -24,6 +25,7 @@ return [
         Employee::class => 'employee',
         Document::class => 'document',
         DocumentUsage::class => 'document_usage',
+        Questionnaire::class => 'questionnaire',
     ],
 
     /*
@@ -95,6 +97,18 @@ return [
             'document_usage.deleted_at' => ['label' => 'در سطل زباله', 'type' => 'date', 'queryable' => true, 'column' => 'deleted_at'],
             'document_usage.document.category_id' => ['label' => 'دسته‌بندی سند', 'type' => 'integer', 'queryable' => true, 'relations' => ['document'], 'column' => 'category_id'],
             'document_usage.document.category.slug' => ['label' => 'اسلاگ دسته‌بندی سند', 'type' => 'string', 'queryable' => true, 'relations' => ['document', 'category'], 'column' => 'slug'],
+        ],
+
+        'questionnaire' => [
+            'questionnaire.id' => ['label' => 'شناسه پرسشنامه', 'type' => 'integer', 'queryable' => true, 'column' => 'id'],
+            'questionnaire.uuid' => ['label' => 'شناسه یکتا', 'type' => 'string', 'queryable' => true, 'column' => 'uuid'],
+            'questionnaire.status' => ['label' => 'وضعیت', 'type' => 'string', 'queryable' => true, 'column' => 'status'],
+            'questionnaire.first_name' => ['label' => 'نام', 'type' => 'string', 'queryable' => true, 'column' => 'first_name'],
+            'questionnaire.last_name' => ['label' => 'نام خانوادگی', 'type' => 'string', 'queryable' => true, 'column' => 'last_name'],
+            'questionnaire.email' => ['label' => 'ایمیل', 'type' => 'string', 'queryable' => true, 'column' => 'email'],
+            'questionnaire.mobile' => ['label' => 'موبایل', 'type' => 'string', 'queryable' => true, 'column' => 'mobile'],
+            'questionnaire.created_at' => ['label' => 'تاریخ ایجاد', 'type' => 'date', 'queryable' => true, 'column' => 'created_at'],
+            'questionnaire.reviewed_by' => ['label' => 'بازبین', 'type' => 'integer', 'queryable' => true, 'column' => 'reviewed_by'],
         ],
 
     ],

@@ -116,6 +116,15 @@ return [
             ],
         ],
 
+        'questionnaire' => [
+            'name' => 'Questionnaire Bank',
+            'permissions' => [
+                'questionnaire.view' => 'View questionnaires',
+                'questionnaire.review' => 'Review questionnaires',
+                'questionnaire.reject' => 'Reject questionnaires',
+            ],
+        ],
+
         'branding' => [
             'name' => 'Branding',
             'permissions' => [
