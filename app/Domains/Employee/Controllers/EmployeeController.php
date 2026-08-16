@@ -76,8 +76,10 @@ class EmployeeController extends ApiController
         return new EmployeeResource($employee);
     }
 
-    public function show(Employee $employee): EmployeeResource
+    public function show(Request $request, Employee $employee): EmployeeResource
     {
+        $this->authorization->authorize($request->user(), 'employee.view', $employee);
+
         $employee->load(['user']);
 
         return new EmployeeResource($employee);
@@ -85,6 +87,8 @@ class EmployeeController extends ApiController
 
     public function update(UpdateEmployeeRequest $request, Employee $employee): EmployeeResource
     {
+        $this->authorization->authorize($request->user(), 'employee.update', $employee);
+
         $employee->update($request->validated());
         $employee->load(['user']);
 
@@ -93,6 +97,8 @@ class EmployeeController extends ApiController
 
     public function saveSection(Employee $employee, string $section, SaveEmployeeSectionRequest $request): EmployeeResource
     {
+        $this->authorization->authorize($request->user(), 'employee.update', $employee);
+
         $employee = $this->employeeService->saveSection($employee, $section, $request->validated());
         $employee->load(['user']);
 
@@ -101,14 +107,18 @@ class EmployeeController extends ApiController
 
     public function submit(Employee $employee, SubmitEmployeeRequest $request): EmployeeResource
     {
+        $this->authorization->authorize($request->user(), 'employee.update', $employee);
+
         $employee = $this->employeeService->submit($employee);
         $employee->load(['user']);
 
         return new EmployeeResource($employee);
     }
 
-    public function destroy(Employee $employee): JsonResponse
+    public function destroy(Request $request, Employee $employee): JsonResponse
     {
+        $this->authorization->authorize($request->user(), 'employee.delete', $employee);
+
         $employee->delete();
 
         return response()->json(['message' => __('employee.deleted')]);

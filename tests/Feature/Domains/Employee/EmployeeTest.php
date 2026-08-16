@@ -1,7 +1,37 @@
 <?php
 
+use App\Domains\Authorization\Enums\AccessRuleEffect;
+use App\Domains\Authorization\Models\Permission;
+use App\Domains\Authorization\Models\PermissionGroup;
 use App\Domains\Employee\Models\Employee;
 use App\Models\User;
+
+/**
+ * Grant the given permission and immediately add a deny rule for it on the
+ * active role, so resource-level authorize() / scope() must reject the actor
+ * even though the permission row exists.
+ */
+function denyEmployeePermission(User $user, string $permissionName): void
+{
+    $group = PermissionGroup::firstOrCreate(
+        ['slug' => 'test'],
+        ['name' => 'Test Group', 'sort_order' => 999],
+    );
+
+    $permission = Permission::firstOrCreate(
+        ['name' => $permissionName],
+        ['display_name' => $permissionName, 'group_id' => $group->id],
+    );
+
+    $user->activeRole?->accessRules()->updateOrCreate(
+        ['permission_id' => $permission->id],
+        [
+            'effect' => AccessRuleEffect::Deny,
+            'priority' => 100,
+            'is_active' => true,
+        ],
+    );
+}
 
 function employeeData(array $overrides = []): array
 {
@@ -194,15 +224,14 @@ describe('employee CRUD', function () {
                 ->assertJsonPath('meta.total', 3);
         });
 
-        it('lists all employees until the policy phase introduces scoping', function () {
+        it('denies the list when a deny rule blocks the employee.list permission', function () {
             $user = createUserWithPermissions(['employee.list']);
-            $ownEmployee = Employee::factory()->create(['user_id' => $user->id]);
-            Employee::factory()->create();
+            denyEmployeePermission($user, 'employee.list');
+            Employee::factory()->count(2)->create();
 
             $this->actingAs($user)
                 ->getJson('/api/employees')
-                ->assertStatus(200)
-                ->assertJsonPath('meta.total', 2);
+                ->assertStatus(403);
         });
     });
 
@@ -298,13 +327,14 @@ describe('employee CRUD', function () {
                 ->assertStatus(404);
         });
 
-        it('allows access to any employee profile until the policy phase introduces scoping', function () {
+        it('denies access when a deny rule blocks the employee.view permission', function () {
             $user = createUserWithPermissions(['employee.view']);
+            denyEmployeePermission($user, 'employee.view');
             $employee = Employee::factory()->create();
 
             $this->actingAs($user)
                 ->getJson('/api/employees/'.$employee->id)
-                ->assertStatus(200);
+                ->assertStatus(403);
         });
     });
 
@@ -354,8 +384,9 @@ describe('employee CRUD', function () {
                 ->assertJsonValidationErrors(['personnel_code']);
         });
 
-        it('allows update on any employee until the policy phase introduces scoping', function () {
+        it('denies update when a deny rule blocks the employee.update permission', function () {
             $user = createUserWithPermissions(['employee.update']);
+            denyEmployeePermission($user, 'employee.update');
             $employee = Employee::factory()->create();
 
             $this->actingAs($user)
@@ -365,7 +396,7 @@ describe('employee CRUD', function () {
                     'last_name' => $employee->last_name,
                     'gender' => $employee->gender,
                 ])
-                ->assertStatus(200);
+                ->assertStatus(403);
         });
 
         it('links a user via partial update without identity fields', function () {
