@@ -25,10 +25,13 @@ interface DocumentAuthorization
     /**
      * Narrow a document query to what the actor may operate on. Used for
      * collections (library, lists) where per-row policy checks are not enough.
+     * Pass `$trashed = true` for trash listings: the active-only guard is
+     * skipped so soft-deleted usages can be scoped by the same policies.
      */
     public function scope(
         Authenticatable $actor,
         DocumentAction $action,
         Builder $query,
+        bool $trashed = false,
     ): Builder;
 }

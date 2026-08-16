@@ -15,15 +15,15 @@ use App\Domains\Document\Resources\DocumentResource;
 use App\Domains\Document\Services\DocumentService;
 use App\Domains\Employee\Models\Employee;
 use App\Domains\Questionnaire\Models\Questionnaire;
-use App\Http\Controllers\ApiController;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
-class DocumentController extends ApiController
+class DocumentController extends Controller
 {
     private const ROUTE_TYPE_MAP = [
         'employee' => Employee::class,
@@ -33,9 +33,7 @@ class DocumentController extends ApiController
     public function __construct(
         private readonly DocumentService $documentService,
         private readonly DocumentAuthorization $documentAuthorization,
-    ) {
-        $this->model = Document::class;
-    }
+    ) {}
 
     public function index(Request $request): AnonymousResourceCollection
     {
@@ -44,6 +42,12 @@ class DocumentController extends ApiController
             ->whereNull('document_usages.deleted_at');
 
         $this->applyEntityScope($query, $request);
+
+        $query = $this->documentAuthorization->scope(
+            $request->user(),
+            DocumentAction::View,
+            $query,
+        );
 
         return DocumentResource::collection(
             $query->latest('document_usages.id')->paginate($request->input('per_page', 50)),
@@ -64,6 +68,12 @@ class DocumentController extends ApiController
 
         $category = DocumentCategory::findOrFail(
             $request->input('document_category_id'),
+        );
+
+        $this->authorizeRequest(
+            $request,
+            DocumentAction::Upload,
+            DocumentAuthorizationContext::forOwner($owner),
         );
 
         $metadata = [];
@@ -141,8 +151,10 @@ class DocumentController extends ApiController
         return new DocumentResource($document);
     }
 
-    public function show(Document $document): DocumentResource
+    public function show(Request $request, Document $document): DocumentResource
     {
+        $this->authorizeDocument($request, $document, DocumentAction::View);
+
         $document->load('usages');
 
         return new DocumentResource($document);
@@ -152,13 +164,20 @@ class DocumentController extends ApiController
      * Move a single usage (identified by its id, exposed as `id` in the
      * resource) to the trash. The file is kept so it can be restored later.
      */
-    public function destroy(int $document): JsonResponse
+    public function destroy(Request $request, int $document): JsonResponse
     {
-        $entity = $this->resolveUsageEntity(DocumentUsage::find($document));
+        $usage = DocumentUsage::find($document);
+        $entity = $this->resolveUsageEntity($usage);
 
         if ($entity === null) {
             abort(404);
         }
+
+        $this->authorizeRequest(
+            $request,
+            DocumentAction::Delete,
+            DocumentAuthorizationContext::forUsage($usage),
+        );
 
         $this->documentService->trashUsage($document, $entity);
 
@@ -173,31 +192,52 @@ class DocumentController extends ApiController
 
         $this->applyEntityScope($query, $request);
 
+        $query = $this->documentAuthorization->scope(
+            $request->user(),
+            DocumentAction::View,
+            $query,
+            trashed: true,
+        );
+
         return DocumentResource::collection(
             $query->latest('document_usages.id')->paginate($request->input('per_page', 50)),
         );
     }
 
-    public function restore(int $document): JsonResponse
+    public function restore(Request $request, int $document): JsonResponse
     {
-        $entity = $this->resolveUsageEntity(DocumentUsage::onlyTrashed()->find($document));
+        $usage = DocumentUsage::onlyTrashed()->find($document);
+        $entity = $this->resolveUsageEntity($usage);
 
         if ($entity === null) {
             abort(404);
         }
+
+        $this->authorizeRequest(
+            $request,
+            DocumentAction::Restore,
+            DocumentAuthorizationContext::forUsage($usage),
+        );
 
         $this->documentService->restoreUsage($document, $entity);
 
         return response()->json(['message' => __('document.document_restored')]);
     }
 
-    public function forceDestroy(int $document): JsonResponse
+    public function forceDestroy(Request $request, int $document): JsonResponse
     {
-        $entity = $this->resolveUsageEntity(DocumentUsage::withTrashed()->find($document));
+        $usage = DocumentUsage::withTrashed()->find($document);
+        $entity = $this->resolveUsageEntity($usage);
 
         if ($entity === null) {
             abort(404);
         }
+
+        $this->authorizeRequest(
+            $request,
+            DocumentAction::ForceDelete,
+            DocumentAuthorizationContext::forUsage($usage),
+        );
 
         $this->documentService->forceDeleteUsage($document, $entity);
 
@@ -206,6 +246,8 @@ class DocumentController extends ApiController
 
     public function serve(Document $document, Request $request): StreamedResponse
     {
+        $this->authorizeDocument($request, $document, DocumentAction::Download);
+
         $disk = $document->disk;
         $path = $document->path;
 
@@ -226,6 +268,8 @@ class DocumentController extends ApiController
 
     public function download(Document $document, Request $request): StreamedResponse
     {
+        $this->authorizeDocument($request, $document, DocumentAction::Download);
+
         $disk = $document->disk;
         $path = $document->path;
 
@@ -262,6 +306,52 @@ class DocumentController extends ApiController
         $entity = $usage->resolveEntity();
 
         return $entity instanceof Documentable ? $entity : null;
+    }
+
+    /**
+     * Authorize an operation against a resource context, mapping a 403 onto a
+     * `permission_denied` message. The route middleware already guarantees a
+     * capability; this is the resource-level (policy) check.
+     */
+    private function authorizeRequest(
+        Request $request,
+        DocumentAction $action,
+        DocumentAuthorizationContext $context,
+    ): void {
+        $actor = $request->user();
+
+        if ($actor === null) {
+            abort(401);
+        }
+
+        if (! $this->documentAuthorization->authorize($actor, $action, $context)) {
+            abort(403, __('messages.permission_denied'));
+        }
+    }
+
+    /**
+     * Authorize a document-level operation against its first usage, falling
+     * back to the bare document when no usage exists yet. Usage-level policies
+     * (section_key, field_key) evaluate against the usage resource.
+     */
+    private function authorizeDocument(
+        Request $request,
+        Document $document,
+        DocumentAction $action,
+    ): void {
+        if ($document->relationLoaded('usages')) {
+            $usage = $document->usages->first();
+        } else {
+            $usage = $document->usages()->whereNull('document_usages.deleted_at')->first();
+        }
+
+        $this->authorizeRequest(
+            $request,
+            $action,
+            $usage !== null
+                ? DocumentAuthorizationContext::forUsage($usage)
+                : DocumentAuthorizationContext::forDocument($document),
+        );
     }
 
     private function getThumbnailPath(string $originalPath): string

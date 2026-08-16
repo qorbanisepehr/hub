@@ -55,10 +55,13 @@ class DocumentAuthorizationService implements DocumentAuthorization
         Authenticatable $actor,
         DocumentAction $action,
         Builder $query,
+        bool $trashed = false,
     ): Builder {
-        $query
-            ->whereNull('document_usages.deleted_at')
-            ->whereHas('document', fn (Builder $q) => $q->whereNull('documents.deleted_at'));
+        if (! $trashed) {
+            $query->whereNull('document_usages.deleted_at');
+        }
+
+        $query->whereHas('document', fn (Builder $q) => $q->whereNull('documents.deleted_at'));
 
         if (! $actor instanceof User) {
             return $query;
