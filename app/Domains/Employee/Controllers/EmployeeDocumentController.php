@@ -30,10 +30,13 @@ class EmployeeDocumentController extends Controller
         private DocumentRepositoryInterface $documentRepository,
         private EmployeeService $employeeService,
         private DocumentCapabilities $documentCapabilities,
+        private DocumentAuthorization $documentAuthorization,
     ) {}
 
     public function index(Request $request, Employee $employee): JsonResponse
     {
+        $this->authorizeEmployee($request, $employee, DocumentAction::View);
+
         $documents = $this->documentService->getForEntity($employee);
 
         return response()->json([
@@ -59,7 +62,7 @@ class EmployeeDocumentController extends Controller
      * document library). The query is authorized server-side and may be further
      * narrowed to the categories compatible with a target placement.
      */
-    public function library(Request $request, Employee $employee, DocumentAuthorization $authorization): JsonResponse
+    public function library(Request $request, Employee $employee): JsonResponse
     {
         $actor = $request->user();
 
@@ -67,7 +70,7 @@ class EmployeeDocumentController extends Controller
             abort(401);
         }
 
-        if (! $authorization->authorize(
+        if (! $this->documentAuthorization->authorize(
             $actor,
             DocumentAction::LibrarySelect,
             DocumentAuthorizationContext::forOwner($employee),
@@ -85,7 +88,7 @@ class EmployeeDocumentController extends Controller
             ->where('entity_type', Employee::class)
             ->where('entity_id', $employee->getKey());
 
-        $query = $authorization->scope($actor, DocumentAction::LibrarySelect, $query);
+        $query = $this->documentAuthorization->scope($actor, DocumentAction::LibrarySelect, $query);
 
         if ($categoryIds !== null) {
             $query->whereHas(
@@ -105,6 +108,8 @@ class EmployeeDocumentController extends Controller
 
     public function store(StoreEmployeeDocumentRequest $request, Employee $employee): JsonResponse
     {
+        $this->authorizeEmployee($request, $employee, DocumentAction::Upload);
+
         $file = $request->file('file');
         $category = DocumentCategory::where('id', $request->document_category_id)->firstOrFail();
 
@@ -188,6 +193,8 @@ class EmployeeDocumentController extends Controller
             ->whereNull('deleted_at')
             ->firstOrFail();
 
+        $this->authorizeEmployee($request, $employee, DocumentAction::Replace, $oldUsage);
+
         $category = $oldUsage->document->category;
 
         if ($category === null) {
@@ -241,8 +248,10 @@ class EmployeeDocumentController extends Controller
         ], 201);
     }
 
-    public function destroy(Employee $employee, int $usageId): JsonResponse
+    public function destroy(Request $request, Employee $employee, int $usageId): JsonResponse
     {
+        $this->authorizeEmployee($request, $employee, DocumentAction::Delete);
+
         $deleted = $this->documentService->trashUsage($usageId, $employee);
 
         if (! $deleted) {
@@ -254,6 +263,8 @@ class EmployeeDocumentController extends Controller
 
     public function trashed(Request $request, Employee $employee): JsonResponse
     {
+        $this->authorizeEmployee($request, $employee, DocumentAction::View);
+
         $usages = DocumentUsage::query()
             ->withTrashed()
             ->whereNotNull('deleted_at')
@@ -271,8 +282,10 @@ class EmployeeDocumentController extends Controller
         ]);
     }
 
-    public function restore(Employee $employee, int $usageId): JsonResponse
+    public function restore(Request $request, Employee $employee, int $usageId): JsonResponse
     {
+        $this->authorizeEmployee($request, $employee, DocumentAction::Restore);
+
         $restored = $this->documentService->restoreUsage($usageId, $employee);
 
         if (! $restored) {
@@ -282,8 +295,10 @@ class EmployeeDocumentController extends Controller
         return response()->json(['message' => __('employee.documents.restored')]);
     }
 
-    public function forceDestroy(Employee $employee, int $usageId): JsonResponse
+    public function forceDestroy(Request $request, Employee $employee, int $usageId): JsonResponse
     {
+        $this->authorizeEmployee($request, $employee, DocumentAction::ForceDelete);
+
         $deleted = $this->documentService->forceDeleteUsage($usageId, $employee);
 
         if (! $deleted) {
@@ -320,6 +335,28 @@ class EmployeeDocumentController extends Controller
         }
 
         return Storage::disk($disk)->response($path);
+    }
+
+    /**
+     * Resource-level authorization for an employee document operation. The route
+     * middleware only checks the capability; this enforces the rule against the
+     * actual owner (and optionally the target usage for policy evaluation).
+     */
+    private function authorizeEmployee(Request $request, Employee $employee, DocumentAction $action, ?DocumentUsage $usage = null): void
+    {
+        $actor = $request->user();
+
+        if ($actor === null) {
+            abort(401);
+        }
+
+        $context = $usage !== null
+            ? DocumentAuthorizationContext::forUsage($usage)
+            : DocumentAuthorizationContext::forOwner($employee);
+
+        if (! $this->documentAuthorization->authorize($actor, $action, $context)) {
+            abort(403, __('messages.permission_denied'));
+        }
     }
 
     /**
