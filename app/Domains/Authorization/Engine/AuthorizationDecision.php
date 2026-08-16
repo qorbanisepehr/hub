@@ -8,6 +8,8 @@ namespace App\Domains\Authorization\Engine;
  */
 final class AuthorizationDecision
 {
+    public const REASON_EXPLICIT_DENY = 'explicit_deny';
+
     /**
      * @param  array<int, array<string, mixed>>  $matchedRules  allow rules that granted access
      * @param  array<int, array<string, mixed>>  $deniedRules  deny rules that blocked access

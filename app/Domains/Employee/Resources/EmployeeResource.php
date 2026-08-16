@@ -3,6 +3,7 @@
 namespace App\Domains\Employee\Resources;
 
 use App\Contracts\Authorization;
+use App\Domains\Authorization\Services\FieldAccess;
 use App\Domains\Employee\Models\Employee;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -13,7 +14,7 @@ class EmployeeResource extends JsonResource
     /** @return array<string, mixed> */
     public function toArray(Request $request): array
     {
-        return [
+        $fields = [
             'id' => $this->id,
             'personnel_code' => $this->personnel_code,
             'first_name' => $this->first_name,
@@ -50,6 +51,14 @@ class EmployeeResource extends JsonResource
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];
+
+        $actor = $request->user();
+
+        if ($actor !== null) {
+            $fields = app(FieldAccess::class)->filter($actor, 'employee', $this->resource, $fields);
+        }
+
+        return $fields;
     }
 
     /**
