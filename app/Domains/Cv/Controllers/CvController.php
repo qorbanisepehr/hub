@@ -2,6 +2,7 @@
 
 namespace App\Domains\Cv\Controllers;
 
+use App\Contracts\Authorization;
 use App\Domains\Cv\Models\Cv;
 use App\Domains\Cv\Requests\InitCvRequest;
 use App\Domains\Cv\Requests\RejectCvRequest;
@@ -28,6 +29,7 @@ class CvController extends Controller
     use OtpResponder;
 
     public function __construct(
+        private Authorization $authorization,
         private CvService $cvService,
         private OtpService $otpService,
     ) {}
@@ -278,6 +280,8 @@ class CvController extends Controller
     {
         $cv = $this->cvService->findByUuidOrFail($uuid);
 
+        $this->authorization->authorize($request->user(), 'cv.approve', $cv);
+
         if (! $cv->isSubmitted()) {
             return response()->json([
                 'message' => __('cv.only_submitted_approvable'),
@@ -295,6 +299,8 @@ class CvController extends Controller
     public function reject(RejectCvRequest $request, string $uuid): JsonResponse
     {
         $cv = $this->cvService->findByUuidOrFail($uuid);
+
+        $this->authorization->authorize($request->user(), 'cv.reject', $cv);
 
         if (! $cv->isSubmitted() && ! $cv->isApproved()) {
             return response()->json([

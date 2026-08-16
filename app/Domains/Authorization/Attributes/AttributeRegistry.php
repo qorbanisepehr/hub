@@ -97,6 +97,10 @@ final class AttributeRegistry
             $current = $current->getAttribute($segment);
         }
 
+        if ($current instanceof \BackedEnum) {
+            return $current->value;
+        }
+
         return $current;
     }
 }

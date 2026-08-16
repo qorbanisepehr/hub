@@ -2,6 +2,7 @@
 
 namespace App\Domains\Cv\Controllers;
 
+use App\Contracts\Authorization;
 use App\Domains\Cv\Models\Cv;
 use App\Domains\Cv\Resources\CvResource;
 use App\Domains\Cv\Services\CvService;
@@ -15,6 +16,7 @@ use Illuminate\Support\Str;
 class CvBankController extends Controller
 {
     public function __construct(
+        private Authorization $authorization,
         private CvService $cvService,
     ) {}
 
@@ -23,6 +25,8 @@ class CvBankController extends Controller
         $query = Cv::query()
             ->with('documentUsages.document')
             ->with('reviewer.employee');
+
+        $this->authorization->scope($request->user(), 'cv.view', $query);
 
         if ($request->filled('filter')) {
             $filter = $request->input('filter');
@@ -49,13 +53,15 @@ class CvBankController extends Controller
         return CvResource::collection($query->paginate($perPage));
     }
 
-    public function show(string $cv): JsonResponse
+    public function show(Request $request, string $cv): JsonResponse
     {
         // A UUID literal can't be compared against the uuid column by Postgres
         // when the route receives the numeric id, so branch on the value type.
         $model = Str::isUuid($cv)
             ? Cv::with('questionnaire')->with('documentUsages.document')->with('reviewer.employee')->where('uuid', $cv)->firstOrFail()
             : Cv::with('questionnaire')->with('documentUsages.document')->with('reviewer.employee')->where('id', $cv)->firstOrFail();
+
+        $this->authorization->authorize($request->user(), 'cv.view', $model);
 
         return response()->json([
             'data' => new CvResource($model),
@@ -65,6 +71,8 @@ class CvBankController extends Controller
     public function createQuestionnaire(Request $request, string $cv): JsonResponse
     {
         $model = Cv::where('uuid', $cv)->firstOrFail();
+
+        $this->authorization->authorize($request->user(), 'cv.create-questionnaire', $model);
 
         $questionnaire = $this->cvService->createQuestionnaireFromCv(
             $model,

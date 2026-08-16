@@ -1,5 +1,6 @@
 <?php
 
+use App\Domains\Cv\Models\Cv;
 use App\Domains\Document\Models\Document;
 use App\Domains\Document\Models\DocumentUsage;
 use App\Domains\Employee\Models\Employee;
@@ -26,6 +27,7 @@ return [
         Document::class => 'document',
         DocumentUsage::class => 'document_usage',
         Questionnaire::class => 'questionnaire',
+        Cv::class => 'cv',
     ],
 
     /*
@@ -109,6 +111,18 @@ return [
             'questionnaire.mobile' => ['label' => 'موبایل', 'type' => 'string', 'queryable' => true, 'column' => 'mobile'],
             'questionnaire.created_at' => ['label' => 'تاریخ ایجاد', 'type' => 'date', 'queryable' => true, 'column' => 'created_at'],
             'questionnaire.reviewed_by' => ['label' => 'بازبین', 'type' => 'integer', 'queryable' => true, 'column' => 'reviewed_by'],
+        ],
+
+        'cv' => [
+            'cv.id' => ['label' => 'شناسه رزومه', 'type' => 'integer', 'queryable' => true, 'column' => 'id'],
+            'cv.uuid' => ['label' => 'شناسه یکتا', 'type' => 'string', 'queryable' => true, 'column' => 'uuid'],
+            'cv.status' => ['label' => 'وضعیت', 'type' => 'string', 'queryable' => true, 'column' => 'status'],
+            'cv.first_name' => ['label' => 'نام', 'type' => 'string', 'queryable' => true, 'column' => 'first_name'],
+            'cv.last_name' => ['label' => 'نام خانوادگی', 'type' => 'string', 'queryable' => true, 'column' => 'last_name'],
+            'cv.email' => ['label' => 'ایمیل', 'type' => 'string', 'queryable' => true, 'column' => 'email'],
+            'cv.mobile' => ['label' => 'موبایل', 'type' => 'string', 'queryable' => true, 'column' => 'mobile'],
+            'cv.created_at' => ['label' => 'تاریخ ایجاد', 'type' => 'date', 'queryable' => true, 'column' => 'created_at'],
+            'cv.reviewed_by' => ['label' => 'بازبین', 'type' => 'integer', 'queryable' => true, 'column' => 'reviewed_by'],
         ],
 
     ],
