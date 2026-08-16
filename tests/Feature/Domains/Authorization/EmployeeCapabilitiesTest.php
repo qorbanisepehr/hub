@@ -41,6 +41,35 @@ function employeeUpdateScopedRole(User $user): Role
     return $role;
 }
 
+function employeeScopedRole(User $user, string $permissionName, string $visibleStatus): Role
+{
+    $group = PermissionGroup::updateOrCreate(['slug' => 'employee'], ['name' => 'Employee']);
+    $permission = Permission::updateOrCreate(
+        ['name' => $permissionName],
+        ['display_name' => ucfirst($permissionName), 'group_id' => $group->id],
+    );
+
+    $role = Role::create([
+        'name' => 'employee-scoped-'.uniqid(),
+        'display_name' => 'Scoped',
+        'is_active' => true,
+    ]);
+
+    $role->accessRules()->create([
+        'permission_id' => $permission->id,
+        'effect' => AccessRuleEffect::Allow,
+        'policy' => [
+            'all' => [
+                ['attribute' => 'employee.employment_status', 'operator' => 'equals', 'value_source' => 'literal', 'value' => $visibleStatus],
+            ],
+        ],
+    ]);
+
+    $user->assignRole($role->id, true);
+
+    return $role;
+}
+
 it('exposes edit and delete capabilities for a user with the permissions', function () {
     $employee = Employee::factory()->create();
     $user = createUserWithPermissions(['employee.view', 'employee.update', 'employee.delete']);
@@ -97,4 +126,55 @@ it('carries per-row capabilities on the employee index', function () {
                 ],
             ],
         ]);
+});
+
+it('returns only the employees matching the list policy', function () {
+    $user = User::factory()->create();
+    employeeScopedRole($user, 'employee.list', 'active');
+
+    Employee::factory()->create(['employment_status' => 'active']);
+    Employee::factory()->create(['employment_status' => 'inactive']);
+
+    $this->actingAs($user)
+        ->getJson('/api/employees')
+        ->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.employment_status', 'active');
+});
+
+it('updates an employee inside the policy scope', function () {
+    $user = User::factory()->create();
+    employeeScopedRole($user, 'employee.update', 'active');
+    $inScope = Employee::factory()->create(['employment_status' => 'active']);
+
+    $this->actingAs($user)
+        ->putJson("/api/employees/{$inScope->id}", ['employment_status' => 'active'])
+        ->assertOk();
+});
+
+it('forbids updating an employee outside the policy scope', function () {
+    $user = User::factory()->create();
+    employeeScopedRole($user, 'employee.update', 'active');
+    $outOfScope = Employee::factory()->create(['employment_status' => 'inactive']);
+
+    $this->actingAs($user)
+        ->putJson("/api/employees/{$outOfScope->id}", ['employment_status' => 'inactive'])
+        ->assertStatus(403);
+});
+
+it('forbids deleting an employee outside the policy scope', function () {
+    $user = User::factory()->create();
+    employeeScopedRole($user, 'employee.delete', 'active');
+    $inScope = Employee::factory()->create(['employment_status' => 'active']);
+    $outOfScope = Employee::factory()->create(['employment_status' => 'inactive']);
+
+    $this->actingAs($user)
+        ->deleteJson("/api/employees/{$inScope->id}")
+        ->assertOk();
+
+    $this->actingAs($user)
+        ->deleteJson("/api/employees/{$outOfScope->id}")
+        ->assertStatus(403);
+
+    expect(Employee::find($outOfScope->id))->not->toBeNull();
 });
