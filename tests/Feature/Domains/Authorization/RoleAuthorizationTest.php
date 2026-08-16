@@ -70,6 +70,20 @@ describe('role endpoint resource authorization', function () {
             ->assertJsonPath('data.0.name', 'visible-role');
     });
 
+    it('scopes the role chart export to roles matching the policy', function () {
+        $user = scopedRolePermissionUser('role.view', 'visible-role');
+        roleRecord('visible-role');
+        roleRecord('hidden-role');
+
+        $csv = $this->actingAs($user)
+            ->get('/api/roles/chart/export')
+            ->assertOk()
+            ->getContent();
+
+        expect($csv)->toContain('Visible-role')
+            ->and($csv)->not->toContain('Hidden-role');
+    });
+
     it('shows a role matching the policy', function () {
         $user = scopedRolePermissionUser('role.view', 'visible-role');
         $visible = roleRecord('visible-role');

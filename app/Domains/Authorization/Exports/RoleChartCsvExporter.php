@@ -40,12 +40,18 @@ class RoleChartCsvExporter
      *
      * @param  int|null  $rootId  ریشه زیرمجموعه؛ null یعنی کل چارت.
      * @param  array<int, string>  $fields  کلید فیلدهای اضافی.
+     * @param  array<int, int>|null  $allowedRoleIds  فقط این نقش‌ها در خروجی می‌مانند؛ null یعنی همه.
      */
-    public function export(?int $rootId, array $fields): string
+    public function export(?int $rootId, array $fields, ?array $allowedRoleIds = null): string
     {
         $fields = array_values(array_intersect($fields, array_keys(self::FIELDS)));
 
         $allRoles = Role::query()->withCount('users')->with('users.employee')->get();
+
+        if ($allowedRoleIds !== null) {
+            $allRoles = $allRoles->whereIn('id', $allowedRoleIds);
+        }
+
         $rolesById = $allRoles->keyBy('id');
 
         $parentByRole = [];

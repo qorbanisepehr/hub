@@ -35,17 +35,28 @@ class EmployeeDocumentController extends Controller
 
     public function index(Request $request, Employee $employee): JsonResponse
     {
+        $actor = $request->user();
+
+        if ($actor === null) {
+            abort(401);
+        }
+
         $this->authorizeEmployee($request, $employee, DocumentAction::View);
 
-        $documents = $this->documentService->getForEntity($employee);
+        $query = DocumentUsage::query()
+            ->with('document')
+            ->where('entity_type', Employee::class)
+            ->where('entity_id', $employee->getKey());
+
+        $query = $this->documentAuthorization->scope($actor, DocumentAction::View, $query);
+
+        $usages = $query->latest('document_usages.id')->get();
 
         return response()->json([
-            'data' => $documents
-                ->flatMap(fn (Document $document) => $document->usages->map(
-                    fn (DocumentUsage $usage) => $this->documentPayload($document, $usage),
-                ))
-                ->values(),
-            'capabilities' => $this->documentCapabilities->forEntity($request->user(), $employee),
+            'data' => $usages->map(
+                fn (DocumentUsage $usage) => $this->documentPayload($usage->document, $usage),
+            )->values(),
+            'capabilities' => $this->documentCapabilities->forEntity($actor, $employee),
         ]);
     }
 
@@ -250,7 +261,18 @@ class EmployeeDocumentController extends Controller
 
     public function destroy(Request $request, Employee $employee, int $usageId): JsonResponse
     {
-        $this->authorizeEmployee($request, $employee, DocumentAction::Delete);
+        $usage = DocumentUsage::query()
+            ->whereKey($usageId)
+            ->where('entity_type', Employee::class)
+            ->where('entity_id', $employee->getKey())
+            ->whereNull('deleted_at')
+            ->first();
+
+        if ($usage === null) {
+            abort(404);
+        }
+
+        $this->authorizeEmployee($request, $employee, DocumentAction::Delete, $usage);
 
         $deleted = $this->documentService->trashUsage($usageId, $employee);
 
@@ -263,28 +285,48 @@ class EmployeeDocumentController extends Controller
 
     public function trashed(Request $request, Employee $employee): JsonResponse
     {
+        $actor = $request->user();
+
+        if ($actor === null) {
+            abort(401);
+        }
+
         $this->authorizeEmployee($request, $employee, DocumentAction::View);
 
-        $usages = DocumentUsage::query()
+        $query = DocumentUsage::query()
             ->withTrashed()
-            ->whereNotNull('deleted_at')
+            ->whereNotNull('document_usages.deleted_at')
             ->where('entity_type', Employee::class)
             ->where('entity_id', $employee->getKey())
-            ->with('document')
-            ->latest('deleted_at')
-            ->get();
+            ->with('document');
+
+        $query = $this->documentAuthorization->scope($actor, DocumentAction::View, $query, trashed: true);
+
+        $usages = $query->latest('document_usages.deleted_at')->get();
 
         return response()->json([
             'data' => $usages->map(
                 fn (DocumentUsage $usage) => $this->documentPayload($usage->document, $usage),
             )->values(),
-            'capabilities' => $this->documentCapabilities->forEntity($request->user(), $employee),
+            'capabilities' => $this->documentCapabilities->forEntity($actor, $employee),
         ]);
     }
 
     public function restore(Request $request, Employee $employee, int $usageId): JsonResponse
     {
-        $this->authorizeEmployee($request, $employee, DocumentAction::Restore);
+        $usage = DocumentUsage::query()
+            ->withTrashed()
+            ->whereKey($usageId)
+            ->where('entity_type', Employee::class)
+            ->where('entity_id', $employee->getKey())
+            ->whereNotNull('deleted_at')
+            ->first();
+
+        if ($usage === null) {
+            abort(404);
+        }
+
+        $this->authorizeEmployee($request, $employee, DocumentAction::Restore, $usage);
 
         $restored = $this->documentService->restoreUsage($usageId, $employee);
 
@@ -297,7 +339,19 @@ class EmployeeDocumentController extends Controller
 
     public function forceDestroy(Request $request, Employee $employee, int $usageId): JsonResponse
     {
-        $this->authorizeEmployee($request, $employee, DocumentAction::ForceDelete);
+        $usage = DocumentUsage::query()
+            ->withTrashed()
+            ->whereKey($usageId)
+            ->where('entity_type', Employee::class)
+            ->where('entity_id', $employee->getKey())
+            ->whereNotNull('deleted_at')
+            ->first();
+
+        if ($usage === null) {
+            abort(404);
+        }
+
+        $this->authorizeEmployee($request, $employee, DocumentAction::ForceDelete, $usage);
 
         $deleted = $this->documentService->forceDeleteUsage($usageId, $employee);
 

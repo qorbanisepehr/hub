@@ -316,7 +316,11 @@ class RoleController
             $this->authorization->authorize($request->user(), 'role.view', $rootRole);
         }
 
-        $csv = (new RoleChartCsvExporter)->export($rootId, $fields);
+        $rolesQuery = Role::query();
+        $this->authorization->scope($request->user(), 'role.view', $rolesQuery);
+        $allowedRoleIds = $rolesQuery->pluck('id')->all();
+
+        $csv = (new RoleChartCsvExporter)->export($rootId, $fields, $allowedRoleIds);
         $filename = 'org-chart-roles-'.now()->format('Y-m-d-His').'.csv';
 
         // مهم: حتماً از response() با محتوای خام استفاده کنید، نه response()->json()
