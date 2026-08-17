@@ -67,7 +67,8 @@ describe('authorization:sync command', function () {
 
         $this->artisan('authorization:sync --prune')->assertSuccessful();
 
-        expect(PermissionGroup::where('slug', 'stale')->exists())->toBeFalse();
+        expect(PermissionGroup::where('slug', 'stale')->where('is_active', true)->exists())->toBeFalse();
+        expect(PermissionGroup::where('slug', 'stale')->where('is_active', false)->exists())->toBeTrue();
     });
 
     it('prunes stale permissions inside registered groups', function () {
@@ -76,7 +77,8 @@ describe('authorization:sync command', function () {
 
         $this->artisan('authorization:sync --prune')->assertSuccessful();
 
-        expect(Permission::where('name', 'user.stale')->exists())->toBeFalse();
+        expect(Permission::where('name', 'user.stale')->where('is_active', true)->exists())->toBeFalse();
+        expect(Permission::where('name', 'user.stale')->where('is_active', false)->exists())->toBeTrue();
     });
 
     it('does not prune without the prune flag', function () {

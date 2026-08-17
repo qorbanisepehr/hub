@@ -1,5 +1,6 @@
 <?php
 
+use App\Contracts\Authorization;
 use App\Domains\Authorization\Enums\AccessRuleEffect;
 use App\Domains\Authorization\Models\Permission;
 use App\Domains\Authorization\Models\PermissionGroup;
@@ -62,6 +63,29 @@ describe('RBAC', function () {
             expect($allPermissions)->toHaveCount(2);
             expect($allPermissions->pluck('name'))->toContain('employee.update');
             expect($allPermissions->pluck('name'))->toContain('employee.view');
+        });
+
+        it('resolves three-level inheritance through the engine', function () {
+            $group = PermissionGroup::create(['name' => 'Employees', 'slug' => 'employee']);
+            $perm = Permission::create(['name' => 'employee.view', 'display_name' => 'View', 'group_id' => $group->id]);
+
+            $grandparent = Role::create(['name' => 'director', 'display_name' => 'Director', 'is_active' => true]);
+            $grandparent->permissions()->attach($perm->id);
+
+            $parent = Role::create(['name' => 'vp', 'display_name' => 'VP', 'is_active' => true]);
+            $parent->parentRoles()->attach($grandparent->id);
+
+            $child = Role::create(['name' => 'lead', 'display_name' => 'Lead', 'is_active' => true]);
+            $child->parentRoles()->attach($parent->id);
+
+            $user = User::factory()->create();
+            $user->assignRole($child->id, true);
+
+            $allPermissions = $child->getAllPermissions();
+            expect($allPermissions->pluck('name'))->toContain('employee.view');
+
+            $decision = app(Authorization::class)->can($user, 'employee.view');
+            expect($decision)->toBeTrue();
         });
 
         it('does not inherit permissions from unrelated roles', function () {
@@ -729,6 +753,22 @@ describe('RBAC', function () {
             $this->actingAs($user)
                 ->getJson('/api/employees')
                 ->assertStatus(401);
+        });
+
+        it('denies access when a role is assigned but not active', function () {
+            $permission = Permission::create(['name' => 'employee.list', 'display_name' => 'List', 'group_id' => PermissionGroup::create(['name' => 'Employees', 'slug' => 'employee'])->id]);
+
+            $activeRole = Role::create(['name' => 'regular', 'display_name' => 'Regular', 'is_active' => true]);
+            $inactiveRole = Role::create(['name' => 'limited', 'display_name' => 'Limited', 'is_active' => true]);
+            $inactiveRole->permissions()->attach($permission->id);
+
+            $user = User::factory()->create();
+            $user->assignRole($activeRole->id, true);
+            $user->assignRole($inactiveRole->id, false);
+
+            $this->actingAs($user)
+                ->getJson('/api/employees')
+                ->assertStatus(403);
         });
 
         it('flags the system administrator role on me endpoint', function () {

@@ -312,4 +312,24 @@ describe('employee document authorization', function () {
             ->deleteJson("/api/employees/{$employee->id}/documents/{$usage->id}/force")
             ->assertStatus(403);
     });
+
+    it('rejects downloading a document when the usage fails the download policy', function () {
+        $user = User::factory()->create();
+        documentScopedRole($user, 'employee.documents.download');
+
+        $employee = Employee::factory()->create();
+        $category = personnelDocumentCategory('resume');
+        $document = Document::factory()->create(['category_id' => $category->id]);
+        DocumentUsage::create([
+            'document_id' => $document->id,
+            'entity_type' => Employee::class,
+            'entity_id' => $employee->id,
+            'section_key' => 'insurance',
+            'field_key' => 'card',
+        ]);
+
+        $this->actingAs($user)
+            ->getJson("/api/documents/{$document->id}/download")
+            ->assertStatus(403);
+    });
 });

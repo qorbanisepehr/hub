@@ -18,6 +18,8 @@ export const PERMISSIONS = {
     EMPLOYEE_CREATE: "employee.create",
     EMPLOYEE_UPDATE: "employee.update",
     EMPLOYEE_DELETE: "employee.delete",
+    EMPLOYEE_PERSONAL_INFO_VIEW: "employee.personal_info.view",
+    EMPLOYEE_EMPLOYMENT_INFO_VIEW: "employee.employment_info.view",
 
     // Employee Documents
     EMPLOYEE_DOCUMENTS_VIEW: "employee.documents.view",
@@ -46,6 +48,11 @@ export const PERMISSIONS = {
     QUESTIONNAIRE_DOCUMENTS_DELETE: "questionnaire.documents.delete",
     QUESTIONNAIRE_DOCUMENTS_HISTORY_VIEW: "questionnaire.documents.history-view",
     QUESTIONNAIRE_DOCUMENTS_HISTORY_DOWNLOAD: "questionnaire.documents.history-download",
+
+    // Questionnaire
+    QUESTIONNAIRE_VIEW: "questionnaire.view",
+    QUESTIONNAIRE_REVIEW: "questionnaire.review",
+    QUESTIONNAIRE_REJECT: "questionnaire.reject",
 
     // Document Category
     DOCUMENT_CATEGORY_VIEW: "document-category.view",

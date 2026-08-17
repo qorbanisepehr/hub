@@ -316,11 +316,11 @@ class RoleController
             $this->authorization->authorize($request->user(), 'role.view', $rootRole);
         }
 
-        $rolesQuery = Role::query();
+        $rolesQuery = Role::query()->withCount('users')->with('users.employee');
         $this->authorization->scope($request->user(), 'role.view', $rolesQuery);
-        $allowedRoleIds = $rolesQuery->pluck('id')->all();
+        $scopedRoles = $rolesQuery->get();
 
-        $csv = (new RoleChartCsvExporter)->export($rootId, $fields, $allowedRoleIds);
+        $csv = (new RoleChartCsvExporter)->export($rootId, $fields, $scopedRoles);
         $filename = 'org-chart-roles-'.now()->format('Y-m-d-His').'.csv';
 
         // مهم: حتماً از response() با محتوای خام استفاده کنید، نه response()->json()

@@ -171,7 +171,7 @@ final class PermissionRegistrySynchronizer
 
         foreach ($staleGroups as $group) {
             $result['pruned_groups'][] = $group->slug;
-            $group->delete();
+            $group->update(['is_active' => false]);
         }
 
         $registeredGroupIds = PermissionGroup::whereIn('slug', $registeredSlugs)->pluck('id')->all();
@@ -182,7 +182,7 @@ final class PermissionRegistrySynchronizer
 
         foreach ($stalePermissions as $permission) {
             $result['pruned_permissions'][] = $permission->name;
-            $permission->delete();
+            $permission->update(['is_active' => false]);
         }
     }
 

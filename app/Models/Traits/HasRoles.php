@@ -65,7 +65,13 @@ trait HasRoles
 
     public function hasRole(string $roleName): bool
     {
-        return $this->roles()->where('name', $roleName)->exists();
+        $activeRole = $this->activeRole;
+
+        if ($activeRole === null && $this->active_role_id === null) {
+            $activeRole = $this->roles()->where('is_active', true)->first();
+        }
+
+        return $activeRole?->name === $roleName;
     }
 
     public function isSuperAdministrator(): bool

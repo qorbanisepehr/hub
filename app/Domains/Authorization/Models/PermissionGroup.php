@@ -13,10 +13,12 @@ class PermissionGroup extends Model
         'name',
         'slug',
         'sort_order',
+        'is_active',
     ];
 
     protected $casts = [
         'sort_order' => 'integer',
+        'is_active' => 'boolean',
     ];
 
     /** @return HasMany<Permission> */

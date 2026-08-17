@@ -159,4 +159,42 @@ describe('role endpoint resource authorization', function () {
             ])
             ->assertStatus(403);
     });
+
+    it('rejects creating a role with circular parent inheritance', function () {
+        $admin = Role::create(['name' => 'admin', 'display_name' => 'Admin', 'is_active' => true]);
+        $manager = Role::create(['name' => 'manager', 'display_name' => 'Manager', 'is_active' => true]);
+        $manager->parentRoles()->attach($admin->id);
+
+        $user = createUserWithPermissions(['role.create', 'role.update']);
+
+        // Create a role whose parent is manager
+        $this->actingAs($user)
+            ->postJson('/api/roles', [
+                'name' => 'new-role',
+                'display_name' => 'New Role',
+                'parent_ids' => [$manager->id],
+            ])
+            ->assertSuccessful();
+
+        $newRole = Role::where('name', 'new-role')->firstOrFail();
+
+        // new-role → manager → admin. Now setting admin's parent to new-role would create a cycle.
+        // But we can test: try to make new-role a parent of admin (admin → new-role → manager → admin)
+        $this->actingAs($user)
+            ->putJson("/api/roles/{$admin->id}", [
+                'parent_ids' => [$newRole->id],
+            ])
+            ->assertStatus(422);
+    });
+
+    it('rejects setting a role as its own parent on update', function () {
+        $role = roleRecord('self-parent-test');
+        $user = createUserWithPermissions(['role.update']);
+
+        $this->actingAs($user)
+            ->putJson("/api/roles/{$role->id}", [
+                'parent_ids' => [$role->id],
+            ])
+            ->assertStatus(422);
+    });
 });
