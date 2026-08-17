@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { isAxiosError } from "axios";
 import { Badge } from "@/components/ui/badge";
 import { ViewSkeleton } from "@/components/shared/view-skeleton";
 import { fetchUserAuthorization } from "@/features/rbac/api";
@@ -33,6 +34,7 @@ export function EffectivePermissionsView({ userId }: EffectivePermissionsViewPro
         data: authorization,
         isLoading,
         isError,
+        error,
     } = useQuery({
         queryKey: userKeys.authorization(userId),
         queryFn: async () => {
@@ -45,7 +47,21 @@ export function EffectivePermissionsView({ userId }: EffectivePermissionsViewPro
         return <ViewSkeleton leftRows={3} />;
     }
 
-    if (isError || !authorization) {
+    if (isError) {
+        const message = isAxiosError(error)
+            ? error.response?.status === 403
+                ? "دسترسی به اطلاعات مجوزها غیرمجاز است"
+                : "خطا در دریافت مجوزهای مؤثر"
+            : "خطا در دریافت مجوزهای مؤثر";
+
+        return (
+            <p className="text-sm text-destructive text-center py-6">
+                {message}
+            </p>
+        );
+    }
+
+    if (!authorization) {
         return (
             <p className="text-sm text-muted-foreground text-center py-6">
                 امکان دریافت مجوزهای مؤثر وجود ندارد
