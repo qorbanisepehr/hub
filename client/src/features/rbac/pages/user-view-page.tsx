@@ -6,6 +6,7 @@ import {
     IconMasksTheater,
     IconShieldCheck,
 } from "@tabler/icons-react";
+import { isAxiosError } from "axios";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -18,6 +19,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { fetchUser } from "@/features/rbac/api";
+import { getApiError } from "@/lib/error-utils";
 import { RoleBadge } from "@/features/rbac/components/role-badge";
 import { UserRoleManager } from "@/features/rbac/components/user-role-manager";
 import { EffectivePermissionsView } from "@/features/rbac/components/effective-permissions-view";
@@ -40,6 +42,7 @@ export function UserViewPage() {
         data: user,
         isLoading,
         isError,
+        error,
         refetch,
     } = useQuery({
         queryKey: userKeys.detail(Number(userId)),
@@ -53,7 +56,20 @@ export function UserViewPage() {
         return <ViewSkeleton leftRows={4} rightRows={2} />;
     }
 
-    if (isError || !user) {
+    if (isError) {
+        const status = isAxiosError(error) ? error.response?.status : undefined;
+
+        return (
+            <ErrorPage
+                status={status}
+                title={getApiError(error) ?? undefined}
+                homeTo="/users"
+                homeLabel="بازگشت به لیست"
+            />
+        );
+    }
+
+    if (!user) {
         return (
             <ErrorPage
                 status={404}

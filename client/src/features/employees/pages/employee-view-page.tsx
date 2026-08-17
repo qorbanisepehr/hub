@@ -1,6 +1,7 @@
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { IconPencil } from "@tabler/icons-react";
+import { isAxiosError } from "axios";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -20,7 +21,7 @@ export function EmployeeViewPage() {
     const queryClient = useQueryClient();
     const employeeId = Number(id);
 
-    const { data: employee, isLoading } = useQuery({
+    const { data: employee, isLoading, isError, error } = useQuery({
         queryKey: employeeKeys.detail(employeeId),
         queryFn: async () => {
             const { data } = await fetchEmployee(employeeId);
@@ -42,6 +43,19 @@ export function EmployeeViewPage() {
 
     if (isLoading) {
         return <ViewSkeleton leftRows={6} rightRows={6} />;
+    }
+
+    if (isError) {
+        const status = isAxiosError(error) ? error.response?.status : undefined;
+
+        return (
+            <ErrorPage
+                status={status}
+                title={getApiError(error) ?? undefined}
+                homeTo="/employees"
+                homeLabel="بازگشت به لیست"
+            />
+        );
     }
 
     if (!employee) {

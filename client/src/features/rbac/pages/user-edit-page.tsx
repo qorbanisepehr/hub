@@ -1,5 +1,6 @@
 import { Link, useParams } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { isAxiosError } from "axios";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -21,6 +22,7 @@ export function UserEditPage() {
         data: user,
         isLoading,
         isError,
+        error,
     } = useQuery({
         queryKey: userKeys.detail(Number(userId)),
         queryFn: async () => {
@@ -46,7 +48,20 @@ export function UserEditPage() {
         return <PageSkeleton />;
     }
 
-    if (isError || !user) {
+    if (isError) {
+        const status = isAxiosError(error) ? error.response?.status : undefined;
+
+        return (
+            <ErrorPage
+                status={status}
+                title={getApiError(error) ?? undefined}
+                homeTo="/users"
+                homeLabel="بازگشت به لیست"
+            />
+        );
+    }
+
+    if (!user) {
         return (
             <ErrorPage
                 status={404}
