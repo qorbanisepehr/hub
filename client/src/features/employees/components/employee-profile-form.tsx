@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useForm, useStore } from "@tanstack/react-form";
 import { isAxiosError } from "axios";
 import { toast } from "sonner";
 import {
@@ -59,6 +58,7 @@ import {
 import { useEmployeeSubmitOptions } from "@/features/employees/hooks/use-employee-submit-options";
 import { buildValidateSubmitData } from "@/features/employees/validation";
 import { useInjectedFieldErrors } from "@/hooks/use-injected-field-errors";
+import { useSectionForm } from "@/hooks/use-section-form";
 import {
     countSectionFieldErrors,
     scrollToFirstInvalidField,
@@ -208,25 +208,27 @@ export function EmployeeProfileForm({ employee }: EmployeeProfileFormProps) {
         return () => window.removeEventListener("hashchange", onHashChange);
     }, []);
 
-    const saveMutation = useMutation({
-        mutationFn: ({
-            section,
-            data,
-        }: {
-            section: string;
-            data: Record<string, unknown>;
-        }) => saveEmployeeSection(employee.id, section, data),
-        onSuccess: (response) => {
-            queryClient.invalidateQueries({
-                queryKey: employeeKeys.detail(employee.id),
-            });
-            form.reset(buildDefaultValues(response.data.data));
-            toast.success("بخش ذخیره شد.");
+    const { form, saveMutation, persistSection, isDirty } = useSectionForm<
+        Employee,
+        EmployeeProfileFormData
+    >({
+        entity: employee,
+        buildDefaultValues,
+        extractSectionData,
+        saveSection: (section, data) => saveEmployeeSection(employee.id, section, data),
+        detailQueryKey: () => employeeKeys.detail(employee.id),
+        sectionTopLevelKeys: {
+            personal_info: ["first_name", "last_name"],
+            contact_info: ["email", "mobile"],
         },
-        onError: (error) => {
-            toast.error(getApiError(error) ?? "خطا در ذخیره‌سازی");
-        },
+        successMessage: "بخش ذخیره شد.",
     });
+
+    const handlePersist = useCallback(() => {
+        persistSection(activeSection);
+    }, [activeSection, persistSection]);
+
+    const { submitOptions, optionsReady } = useEmployeeSubmitOptions();
 
     const submitMutation = useMutation({
         mutationFn: () => submitEmployee(employee.id),
@@ -252,33 +254,6 @@ export function EmployeeProfileForm({ employee }: EmployeeProfileFormProps) {
             }
         },
     });
-
-    const form = useForm({
-        defaultValues: buildDefaultValues(employee),
-        onSubmit: async ({ value }) => {
-            const data = extractSectionData(value, activeSection);
-            saveMutation.mutate({ section: activeSection, data });
-        },
-    });
-
-    const isDirty = useStore(form.store, (s) => s.isDirty);
-
-    const persistSection = useCallback(
-        (
-            sectionKey: string,
-            values: EmployeeProfileFormData = form.state.values,
-        ) => {
-            const data = extractSectionData(values, sectionKey);
-            saveMutation.mutate({ section: sectionKey, data });
-        },
-        [form, saveMutation],
-    );
-
-    const handlePersist = useCallback(() => {
-        persistSection(activeSection);
-    }, [activeSection, persistSection]);
-
-    const { submitOptions, optionsReady } = useEmployeeSubmitOptions();
 
     const validateSubmit = useMemo(
         () => buildValidateSubmitData(submitOptions),

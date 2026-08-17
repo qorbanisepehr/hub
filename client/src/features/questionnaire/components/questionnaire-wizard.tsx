@@ -1,6 +1,5 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useForm, useStore } from "@tanstack/react-form";
 import { isAxiosError } from "axios";
 import { toast } from "sonner";
 import {
@@ -40,6 +39,7 @@ import { useQuestionnaireDocuments } from "@/features/questionnaire/hooks/use-qu
 import { useQuestionnaireSubmitOptions } from "@/features/questionnaire/hooks/use-questionnaire-submit-options";
 import { buildValidateSubmitData } from "@/features/questionnaire/validation";
 import { useInjectedFieldErrors } from "@/hooks/use-injected-field-errors";
+import { useSectionForm } from "@/hooks/use-section-form";
 import {
     countSectionFieldErrors,
     scrollToFirstInvalidField,
@@ -179,22 +179,19 @@ export function QuestionnaireWizard({
         return () => window.removeEventListener("hashchange", onHashChange);
     }, [currentStep]);
 
-    const saveMutation = useMutation({
-        mutationFn: ({
-            section,
-            data,
-        }: {
-            section: string;
-            data: Record<string, unknown>;
-        }) => saveQuestionnaireSection(questionnaire.uuid, section, data),
-        onSuccess: (response) => {
-            queryClient.invalidateQueries({
-                queryKey: ["questionnaire", questionnaire.uuid],
-            });
-            form.reset(buildDefaultValues(response.data.data));
-        },
-        onError: () => {
-            toast.error("خطا در ذخیره‌سازی");
+    const { form, saveMutation, persistSection, isDirty } = useSectionForm<
+        Questionnaire,
+        WizardFormValues
+    >({
+        entity: questionnaire,
+        buildDefaultValues,
+        extractSectionData,
+        saveSection: (section, data) =>
+            saveQuestionnaireSection(questionnaire.uuid, section, data),
+        detailQueryKey: () => ["questionnaire", questionnaire.uuid],
+        sectionTopLevelKeys: {
+            personal_info: ["first_name", "last_name"],
+            contact_info: ["email", "mobile"],
         },
     });
 
@@ -230,28 +227,13 @@ export function QuestionnaireWizard({
         [submitOptions],
     );
 
-    const form = useForm({
-        defaultValues: buildDefaultValues(questionnaire),
-        onSubmit: async ({ value }) => {
-            const sectionKey = WIZARD_STEPS[currentStep]?.key;
-            if (!sectionKey || sectionKey === "summary" || sectionKey === "documents") {
-                return;
-            }
-            const data = extractSectionData(value, sectionKey);
-            saveMutation.mutate({ section: sectionKey, data });
-        },
-    });
-
     const handlePersist = useCallback(() => {
         const sectionKey = WIZARD_STEPS[currentStep]?.key;
         if (!sectionKey || sectionKey === "summary" || sectionKey === "documents") {
             return;
         }
-        const data = extractSectionData(form.state.values, sectionKey);
-        saveMutation.mutate({ section: sectionKey, data });
-    }, [currentStep, form, saveMutation]);
-
-    const isDirty = useStore(form.store, (s) => s.isDirty);
+        persistSection(sectionKey);
+    }, [currentStep, persistSection]);
 
     useEffect(() => {
         if (isDirty) {

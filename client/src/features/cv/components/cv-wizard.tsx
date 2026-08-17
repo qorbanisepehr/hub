@@ -1,6 +1,5 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useForm, useStore } from "@tanstack/react-form";
 import { isAxiosError } from "axios";
 import { toast } from "sonner";
 import {
@@ -37,6 +36,7 @@ import { useCvDocuments } from "@/features/cv/hooks/use-cv-documents";
 import { useCvSubmitOptions } from "@/features/cv/hooks/use-cv-submit-options";
 import { buildValidateSubmitData } from "@/features/cv/validation";
 import { useInjectedFieldErrors } from "@/hooks/use-injected-field-errors";
+import { useSectionForm } from "@/hooks/use-section-form";
 import {
     countSectionFieldErrors,
     scrollToFirstInvalidField,
@@ -231,22 +231,18 @@ export function CvWizard({ cv }: CvWizardProps) {
         return () => window.removeEventListener("hashchange", onHashChange);
     }, [currentStep]);
 
-    const saveMutation = useMutation({
-        mutationFn: ({
-            section,
-            data,
-        }: {
-            section: string;
-            data: Record<string, unknown>;
-        }) => saveCvSection(cv.uuid, section, data),
-        onSuccess: (response) => {
-            queryClient.invalidateQueries({
-                queryKey: cvKeys.detail(cv.uuid),
-            });
-            form.reset(buildDefaultValues(response.data.data));
-        },
-        onError: () => {
-            toast.error("خطا در ذخیره‌سازی");
+    const { form, saveMutation, persistSection, isDirty } = useSectionForm<
+        Cv,
+        WizardFormValues
+    >({
+        entity: cv,
+        buildDefaultValues,
+        extractSectionData,
+        saveSection: (section, data) => saveCvSection(cv.uuid, section, data),
+        detailQueryKey: () => cvKeys.detail(cv.uuid),
+        sectionTopLevelKeys: {
+            personal_info: ["first_name", "last_name"],
+            contact_info: ["email", "mobile"],
         },
     });
 
@@ -275,22 +271,6 @@ export function CvWizard({ cv }: CvWizardProps) {
         },
     });
 
-    const form = useForm({
-        defaultValues: buildDefaultValues(cv),
-        onSubmit: async ({ value }) => {
-            const sectionKey = CV_WIZARD_STEPS[currentStep]?.key;
-            if (
-                !sectionKey ||
-                sectionKey === "summary" ||
-                sectionKey === "documents"
-            ) {
-                return;
-            }
-            const data = extractSectionData(value, sectionKey);
-            saveMutation.mutate({ section: sectionKey, data });
-        },
-    });
-
     const handlePersist = useCallback(() => {
         const sectionKey = CV_WIZARD_STEPS[currentStep]?.key;
         if (
@@ -300,11 +280,8 @@ export function CvWizard({ cv }: CvWizardProps) {
         ) {
             return;
         }
-        const data = extractSectionData(form.state.values, sectionKey);
-        saveMutation.mutate({ section: sectionKey, data });
-    }, [currentStep, form, saveMutation]);
-
-    const isDirty = useStore(form.store, (s) => s.isDirty);
+        persistSection(sectionKey);
+    }, [currentStep, persistSection]);
 
     useEffect(() => {
         if (isDirty) {
