@@ -11,6 +11,7 @@ import {
     IconShare,
     IconX,
 } from "@tabler/icons-react";
+import { isAxiosError } from "axios";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -66,7 +67,7 @@ export function CvBankDetailPage() {
         string | null
     >(null);
 
-    const { data, isLoading, isError } = useQuery({
+    const { data, isLoading, isError, error } = useQuery({
         queryKey: cvKeys.bankDetail(id),
         queryFn: () => getCvBankDetail(id),
     });
@@ -116,11 +117,23 @@ export function CvBankDetailPage() {
         return <ViewSkeleton columns={1} />;
     }
 
-    if (isError || !cv) {
+    if (isError) {
+        const status = isAxiosError(error) ? error.response?.status : undefined;
+
         return (
             <ErrorPage
-                title="خطا در بارگذاری رزومه"
-                description="رزومه مورد نظر یافت نشد."
+                status={status}
+                title={getApiError(error) ?? undefined}
+                homeTo="/cvs"
+            />
+        );
+    }
+
+    if (!cv) {
+        return (
+            <ErrorPage
+                status={404}
+                title="رزومه مورد نظر یافت نشد"
                 homeTo="/cvs"
             />
         );
