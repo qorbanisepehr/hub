@@ -21,6 +21,8 @@ import { TrainingView } from "@/components/shared/section-views/training-view";
 import { AdditionalInfoView } from "@/components/shared/section-views/additional-info-view";
 import { EmploymentInfoView } from "./views/employment-info-view";
 import { SocialInsuranceView } from "./views/social-insurance-view";
+import { DOC_CATEGORY_SLUGS } from "@/features/questionnaire/constants";
+import { FileThumbnail } from "@/components/ui/file-thumbnail";
 
 const DOC_EXTRA_CLASS = "mt-4 pt-4 border-t";
 
@@ -60,9 +62,11 @@ export function EmployeeProfileView({ employee }: EmployeeProfileViewProps) {
     };
 
     function docsFor(key: string) {
-        return EMPLOYEE_SECTION_DOCS.find((entry) => entry.key === key)?.slugs.flatMap(
-            (slug) => getDocumentsBySlug(slug),
-        ) ?? [];
+        return (
+            EMPLOYEE_SECTION_DOCS.find(
+                (entry) => entry.key === key,
+            )?.slugs.flatMap((slug) => getDocumentsBySlug(slug)) ?? []
+        );
     }
 
     const docExtra = (key: string) => (
@@ -74,15 +78,33 @@ export function EmployeeProfileView({ employee }: EmployeeProfileViewProps) {
     );
 
     const sectionViews: Record<string, () => React.ReactNode> = {
-        personal_info: () => (
-            <PersonalInfoView
-                data={sectionData.personal_info}
-                extra={docExtra("personal_info")}
-            />
-        ),
-        contact_info: () => (
-            <ContactInfoView data={sectionData.contact_info} />
-        ),
+        personal_info: () => {
+            const personnelPhoto = getDocumentsBySlug(
+                DOC_CATEGORY_SLUGS.PERSONNEL_PHOTO,
+            )[0];
+            return (
+                <PersonalInfoView
+                    data={sectionData.personal_info}
+                    topRight={
+                        personnelPhoto && (
+                            <div className="shrink-0">
+                                <FileThumbnail
+                                    file={{
+                                        name: personnelPhoto.structure_name,
+                                        type: personnelPhoto.mime_type,
+                                    }}
+                                    previewImageUrl={personnelPhoto.url}
+                                    className="w-28 rounded-xl overflow-hidden"
+                                    previewAspectRatio={3 / 4}
+                                />
+                            </div>
+                        )
+                    }
+                    extra={docExtra("personal_info")}
+                />
+            );
+        },
+        contact_info: () => <ContactInfoView data={sectionData.contact_info} />,
         employment: () => (
             <EmploymentInfoView
                 data={{
@@ -96,7 +118,10 @@ export function EmployeeProfileView({ employee }: EmployeeProfileViewProps) {
             />
         ),
         education: () => (
-            <EducationView data={sectionData.education} extra={docExtra("education")} />
+            <EducationView
+                data={sectionData.education}
+                extra={docExtra("education")}
+            />
         ),
         work_experience: () => (
             <WorkExperienceView
@@ -109,7 +134,10 @@ export function EmployeeProfileView({ employee }: EmployeeProfileViewProps) {
             <SkillsView data={sectionData.skills} extra={docExtra("skills")} />
         ),
         training: () => (
-            <TrainingView data={sectionData.training} extra={docExtra("training")} />
+            <TrainingView
+                data={sectionData.training}
+                extra={docExtra("training")}
+            />
         ),
         additional_info: () => (
             <AdditionalInfoView data={sectionData.additional_info} />

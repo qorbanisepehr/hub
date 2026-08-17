@@ -20,6 +20,10 @@ import {
     IconFold,
     IconMasksTheater,
     IconMaximize,
+    IconMinimize,
+    IconViewportShort,
+    IconViewportTall,
+    IconZoomScan,
 } from "@tabler/icons-react";
 import CustomNode from "./CustomNode";
 import UsersNode from "./UsersNode";
@@ -33,11 +37,17 @@ import {
     layoutNodes,
     type ChartDirection,
 } from "./layoutUtils";
-import type { ChartStatusFilter, ChartUserFilter, ChartViewMode, RoleChartRole } from "@/features/rbac/types";
+import type {
+    ChartStatusFilter,
+    ChartUserFilter,
+    ChartViewMode,
+    RoleChartRole,
+} from "@/features/rbac/types";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ErrorSection } from "@/components/shared/error-section";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useFullscreen } from "@/hooks/use-full-screen";
 
 const nodeTypes = { customNode: CustomNode };
 const usersNodeTypes = { customNode: UsersNode };
@@ -61,11 +71,23 @@ function RoleOrgChartInner({
 }) {
     const [collapsedSet, setCollapsedSet] = useState<Set<number>>(new Set());
     const [subtreeRootId, setSubtreeRootId] = useState<number | null>(null);
-    const [layoutDirection, setLayoutDirection] = useState<ChartDirection>("TB");
+    const [layoutDirection, setLayoutDirection] =
+        useState<ChartDirection>("TB");
     const [selectedRoleId, setSelectedRoleId] = useState<number | null>(null);
     const [modalOpen, setModalOpen] = useState(false);
     const { fitView } = useReactFlow();
     const togglingRef = useRef(false);
+    const flowRef = useRef<HTMLDivElement>(null);
+    const { isFullscreen, toggle: toggleFullscreen } = useFullscreen(
+        flowRef,
+        (active) => {
+            // React Flow بعد از تغییر اندازه کانتینر نیاز به یک fitView مجدد دارد
+            setTimeout(
+                () => fitView({ padding: 0.3, duration: 300 }),
+                active ? 200 : 100,
+            );
+        },
+    );
 
     const filteredRoles = useMemo(() => {
         const byUser = (role: RoleChartRole) => {
@@ -100,44 +122,53 @@ function RoleOrgChartInner({
         setLayoutDirection(direction);
     }, []);
 
-    const onToggle = useCallback((roleId: number) => {
-        if (togglingRef.current) {
-            return;
-        }
-        togglingRef.current = true;
-        setCollapsedSet((prev) => {
-            const next = new Set(prev);
-            if (next.has(roleId)) {
-                next.delete(roleId);
-            } else {
-                const descendants = getDescendantIds(roleId, chartRoles);
-                next.add(roleId);
-                for (const descendant of descendants) {
-                    next.delete(descendant);
-                }
+    const onToggle = useCallback(
+        (roleId: number) => {
+            if (togglingRef.current) {
+                return;
             }
-            return next;
-        });
-        requestAnimationFrame(() => {
-            togglingRef.current = false;
-        });
-    }, [chartRoles]);
+            togglingRef.current = true;
+            setCollapsedSet((prev) => {
+                const next = new Set(prev);
+                if (next.has(roleId)) {
+                    next.delete(roleId);
+                } else {
+                    const descendants = getDescendantIds(roleId, chartRoles);
+                    next.add(roleId);
+                    for (const descendant of descendants) {
+                        next.delete(descendant);
+                    }
+                }
+                return next;
+            });
+            requestAnimationFrame(() => {
+                togglingRef.current = false;
+            });
+        },
+        [chartRoles],
+    );
 
     const onToggleRef = useRef(onToggle);
     onToggleRef.current = onToggle;
 
-    const onFocus = useCallback((roleId: number) => {
-        setSubtreeRootId(null);
-        setCollapsedSet(getFocusCollapsedSet(roleId, chartRoles));
-    }, [chartRoles]);
+    const onFocus = useCallback(
+        (roleId: number) => {
+            setSubtreeRootId(null);
+            setCollapsedSet(getFocusCollapsedSet(roleId, chartRoles));
+        },
+        [chartRoles],
+    );
 
     const onFocusRef = useRef(onFocus);
     onFocusRef.current = onFocus;
 
-    const onShowAncestors = useCallback((roleId: number) => {
-        setSubtreeRootId(null);
-        setCollapsedSet(getAncestorCollapsedSet(roleId, chartRoles));
-    }, [chartRoles]);
+    const onShowAncestors = useCallback(
+        (roleId: number) => {
+            setSubtreeRootId(null);
+            setCollapsedSet(getAncestorCollapsedSet(roleId, chartRoles));
+        },
+        [chartRoles],
+    );
 
     const onShowAncestorsRef = useRef(onShowAncestors);
     onShowAncestorsRef.current = onShowAncestors;
@@ -166,7 +197,10 @@ function RoleOrgChartInner({
     }, [fitView]);
 
     useEffect(() => {
-        if (subtreeRootId != null && !chartRoles.some((role) => role.id === subtreeRootId)) {
+        if (
+            subtreeRootId != null &&
+            !chartRoles.some((role) => role.id === subtreeRootId)
+        ) {
             setSubtreeRootId(null);
         }
     }, [chartRoles, subtreeRootId]);
@@ -192,7 +226,13 @@ function RoleOrgChartInner({
     );
 
     const layoutedNodes = useMemo(
-        () => layoutNodes(nodesWithToggle, rawEdges, layoutDirection, viewMode === "users" ? 180 : 150),
+        () =>
+            layoutNodes(
+                nodesWithToggle,
+                rawEdges,
+                layoutDirection,
+                viewMode === "users" ? 180 : 150,
+            ),
         [nodesWithToggle, rawEdges, layoutDirection, viewMode],
     );
 
@@ -206,7 +246,10 @@ function RoleOrgChartInner({
 
     useEffect(() => {
         if (nodes.length > 0) {
-            const timer = setTimeout(() => fitView({ padding: 0.3, duration: 300 }), 100);
+            const timer = setTimeout(
+                () => fitView({ padding: 0.3, duration: 300 }),
+                100,
+            );
             return () => clearTimeout(timer);
         }
     }, [nodes.length, viewMode, userFilter, statusFilter, fitView]);
@@ -241,13 +284,20 @@ function RoleOrgChartInner({
     if (chartRoles.length === 0) {
         return (
             <div className="flex size-full items-center justify-center">
-                <EmptyState icon={IconMasksTheater} message="نقشی برای نمایش وجود ندارد" />
+                <EmptyState
+                    icon={IconMasksTheater}
+                    message="نقشی برای نمایش وجود ندارد"
+                />
             </div>
         );
     }
 
     return (
-        <div dir="rtl" className="relative size-full overflow-hidden rounded-xl border bg-background">
+        <div
+            ref={flowRef}
+            dir="rtl"
+            className="relative size-full overflow-hidden rounded-xl border bg-background"
+        >
             <ReactFlow
                 nodes={nodes}
                 edges={edges}
@@ -274,6 +324,22 @@ function RoleOrgChartInner({
                     <Button
                         variant="outline"
                         size="icon"
+                        onClick={toggleFullscreen}
+                        title={
+                            isFullscreen
+                                ? "خروج از تمام‌صفحه"
+                                : "نمایش تمام‌صفحه"
+                        }
+                    >
+                        {isFullscreen ? (
+                            <IconMinimize className="size-4" />
+                        ) : (
+                            <IconMaximize className="size-4" />
+                        )}
+                    </Button>
+                    <Button
+                        variant="outline"
+                        size="icon"
                         onClick={() => handleLayoutChange("TB")}
                         title="چیدمان عمودی"
                     >
@@ -293,7 +359,8 @@ function RoleOrgChartInner({
                         onClick={onExpandAll}
                         title="بازکردن همه"
                     >
-                        <IconArrowsMaximize className="size-4" />
+                        {/* <IconArrowsMaximize className="size-4" /> */}
+                        <IconViewportTall className="size-4" />
                     </Button>
                     <Button
                         variant="outline"
@@ -301,7 +368,8 @@ function RoleOrgChartInner({
                         onClick={onCollapseAll}
                         title="جمع‌کردن همه"
                     >
-                        <IconFold className="size-4" />
+                        {/* <IconFold className="size-4" /> */}
+                        <IconViewportShort className="size-4" />
                     </Button>
                     <Button
                         variant="outline"
@@ -309,15 +377,17 @@ function RoleOrgChartInner({
                         onClick={onResetView}
                         title="بازآرایی نمای کامل"
                     >
-                        <IconMaximize className="size-4" />
+                        <IconZoomScan className="size-4" />
                     </Button>
                 </div>
                 <MiniMap
                     nodeStrokeColor="var(--border)"
                     nodeColor="var(--muted)"
                     nodeBorderRadius={4}
-                    maskColor="var(--background)"
-                    className="!rounded-lg !border !border-border !shadow-sm"
+                    maskColor="var(--color-minimap-mask)"
+                    className="rounded-lg! border! border-border! shadow-sm! cursor-move bg-background! [&>svg]:p-0.5!"
+                    pannable={true}
+                    offsetScale={1}
                 />
 
                 {subtreeRootId != null && (
@@ -336,16 +406,20 @@ function RoleOrgChartInner({
 
                 <div className="absolute top-4 right-4 z-10 rounded-lg border bg-card/90 p-2.5 text-xs shadow-sm backdrop-blur">
                     <div className="space-y-1">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center justify-between gap-2">
                             <div className="h-0.5 w-6 rounded bg-foreground opacity-45" />
-                            <span className="text-muted-foreground">سلسله‌مراتب (والد)</span>
+                            <span className="text-muted-foreground">
+                                روابط مستقیم
+                            </span>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center justify-between gap-2">
                             <div
                                 className="w-6 border-t border-dashed"
                                 style={{ borderColor: "var(--primary)" }}
                             />
-                            <span className="text-muted-foreground">مدیر ماتریسی</span>
+                            <span className="text-muted-foreground">
+                                روابط غیرمستقیم
+                            </span>
                         </div>
                     </div>
                 </div>

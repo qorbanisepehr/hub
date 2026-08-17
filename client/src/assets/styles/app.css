@@ -73,6 +73,7 @@
     --color-background: var(--background);
     --color-brand: var(--brand, #db7868);
     --color-brand-secondary: var(--brand-secondary, #1c2538);
+    --color-minimap-mask: color-mix(in oklch, var(--primary) 5%, transparent);
     --radius-sm: calc(var(--radius) * 0.6);
     --radius-md: calc(var(--radius) * 0.8);
     --radius-lg: var(--radius);
