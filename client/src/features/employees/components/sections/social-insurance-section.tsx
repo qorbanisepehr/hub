@@ -40,7 +40,7 @@ export function SocialInsuranceSection({ form, uuid }: SectionProps) {
 
     useEffect(() => {
         if (!hasHistory) {
-            form.setFieldValue("social_insurance.histories", []);
+            form.setFieldValue("social_insurance.histories", [], { dontUpdateMeta: true });
         }
     }, [hasHistory, form]);
 

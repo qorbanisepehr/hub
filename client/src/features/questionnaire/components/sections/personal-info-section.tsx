@@ -122,7 +122,7 @@ export function PersonalInfoSection({
 
     useEffect(() => {
         if (isSingle && spouseField) {
-            form.setFieldValue("personal_info.spouse_employment_status", "");
+            form.setFieldValue("personal_info.spouse_employment_status", "", { dontUpdateMeta: true });
         } else if (!isSingle && !spouseField) {
             const defaultSpouseValue =
                 spouseOptions?.find((option) => option.value === "housewife")?.label ??
@@ -131,6 +131,7 @@ export function PersonalInfoSection({
             form.setFieldValue(
                 "personal_info.spouse_employment_status",
                 defaultSpouseValue,
+                { dontUpdateMeta: true },
             );
         }
     }, [isSingle, spouseField, spouseOptions, form]);
@@ -140,7 +141,7 @@ export function PersonalInfoSection({
             gender === GENDER_FEMALE &&
             form.state.values.personal_info?.military_status
         ) {
-            form.setFieldValue("personal_info.military_status", undefined);
+            form.setFieldValue("personal_info.military_status", undefined, { dontUpdateMeta: true });
         } else if (
             gender === GENDER_MALE &&
             !form.state.values.personal_info?.military_status
@@ -151,7 +152,7 @@ export function PersonalInfoSection({
                 from: "",
                 to: "",
                 reason: "",
-            });
+            }, { dontUpdateMeta: true });
         }
     }, [gender, form]);
 
@@ -162,7 +163,7 @@ export function PersonalInfoSection({
         if (!currentSect) return;
         const validSects = religionSectOptionsUi.map((option) => option.value);
         if (!validSects.includes(currentSect)) {
-            form.setFieldValue("personal_info.religion_sect", "");
+            form.setFieldValue("personal_info.religion_sect", "", { dontUpdateMeta: true });
         }
     }, [religion, religionSectOptionsUi, form]);
 

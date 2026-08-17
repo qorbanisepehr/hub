@@ -39,7 +39,7 @@ export function YesNoWithDescription({
 
     useEffect(() => {
         if (prevIsYesRef.current && !isYes) {
-            form.setFieldValue(descriptionField, "");
+            form.setFieldValue(descriptionField, "", { dontUpdateMeta: true });
         }
         prevIsYesRef.current = isYes;
     }, [isYes, form, descriptionField]);

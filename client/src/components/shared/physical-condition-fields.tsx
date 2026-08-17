@@ -58,7 +58,7 @@ export function PhysicalConditionFields({
 
     useEffect(() => {
         if (!showDisability) {
-            form.setFieldValue(typeField, "");
+            form.setFieldValue(typeField, "", { dontUpdateMeta: true });
         }
     }, [showDisability, form, typeField]);
 

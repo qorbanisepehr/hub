@@ -67,7 +67,7 @@ export function PersonalInfoSection({ form, cv, uuid }: SectionProps) {
             gender === GENDER_FEMALE &&
             form.state.values.personal_info?.military_status
         ) {
-            form.setFieldValue("personal_info.military_status", undefined);
+            form.setFieldValue("personal_info.military_status", undefined, { dontUpdateMeta: true });
         } else if (
             gender === GENDER_MALE &&
             !form.state.values.personal_info?.military_status
@@ -78,7 +78,7 @@ export function PersonalInfoSection({ form, cv, uuid }: SectionProps) {
                 from: "",
                 to: "",
                 reason: "",
-            });
+            }, { dontUpdateMeta: true });
         }
     }, [gender, form]);
 
