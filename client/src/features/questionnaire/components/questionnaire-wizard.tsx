@@ -8,7 +8,6 @@ import {
     IconArrowRight,
     IconArrowLeft,
     IconSend,
-    IconAlertTriangle,
     IconClipboardCheck,
 } from "@tabler/icons-react";
 
@@ -25,6 +24,7 @@ import {
     StepperPanel,
     StepperContent,
 } from "@/components/reui/stepper";
+import { useWizardState, SubmitErrors } from "@/components/wizards";
 import {
     saveQuestionnaireSection,
     submitQuestionnaire,
@@ -137,36 +137,12 @@ function extractSectionData(
     return {};
 }
 
-function getStepFromHash(): number {
-    const hash = window.location.hash.replace("#", "");
-    const step = parseInt(hash, 10);
-    if (!isNaN(step) && step >= 0 && step < WIZARD_STEPS.length) {
-        return step;
-    }
-    return 0;
-}
-
-function setStepHash(step: number) {
-    window.location.hash = `#${step}`;
-}
-
 export function QuestionnaireWizard({
     questionnaire,
 }: QuestionnaireWizardProps) {
     const queryClient = useQueryClient();
-    const [currentStep, setCurrentStep] = useState(getStepFromHash);
+    const { currentStep, goToStep: setStep } = useWizardState(WIZARD_STEPS);
     const [submitErrors, setSubmitErrors] = useState<string[]>([]);
-
-    useEffect(() => {
-        const onHashChange = () => {
-            const step = getStepFromHash();
-            if (step !== currentStep) {
-                setCurrentStep(step);
-            }
-        };
-        window.addEventListener("hashchange", onHashChange);
-        return () => window.removeEventListener("hashchange", onHashChange);
-    }, [currentStep]);
 
     const { form, saveMutation, persistSection, isDirty, isSectionDirty } = useSectionForm<
         Questionnaire,
@@ -327,17 +303,12 @@ export function QuestionnaireWizard({
             const data = extractSectionData(form.state.values, sectionKey);
             await saveMutation.mutateAsync({ section: sectionKey, data });
         }
-        setCurrentStep(step);
-        setStepHash(step);
-    };
-
-    const handleStepChange = (step: number) => {
-        goToStep(step);
+        setStep(step);
     };
 
     return (
         <div className="space-y-6" dir="rtl">
-            <Stepper value={currentStep} onValueChange={handleStepChange}>
+            <Stepper value={currentStep} onValueChange={goToStep}>
                 <StepperNav className="mb-4 gap-5">
                     {WIZARD_STEPS.map((step, index) => (
                         <StepperItem
@@ -416,22 +387,7 @@ export function QuestionnaireWizard({
                     message={getApiError(saveMutation.error) ?? "خطای ناشناخته"}
                 />
             )}
-            {submitErrors.length > 0 && (
-                <div className="flex items-start gap-3 rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
-                    <IconAlertTriangle className="mt-0.5 size-4 shrink-0" />
-                    <div className="flex-1">
-                        {submitErrors.length === 1 ? (
-                            <p>{submitErrors[0]}</p>
-                        ) : (
-                            <ul className="space-y-1 list-disc ms-4">
-                                {submitErrors.map((err, i) => (
-                                    <li key={i}>{err}</li>
-                                ))}
-                            </ul>
-                        )}
-                    </div>
-                </div>
-            )}
+            <SubmitErrors errors={submitErrors} />
 
             {/* Navigation */}
             <div className="flex items-center justify-between">
