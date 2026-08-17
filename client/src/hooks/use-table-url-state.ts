@@ -239,31 +239,27 @@ export function useTableUrlState(
         [],
     );
 
+    const handleGlobalFilterChange: OnChangeFn<string> = useCallback(
+        (updater) => {
+            const current = globalFilterRef.current ?? "";
+            const next =
+                typeof updater === "function" ? updater(current) : updater;
+            const keys = keysRef.current;
+            const value = keys.trimGlobal ? next.trim() : next;
+            setGlobalFilter(value);
+            navigateRef.current({
+                search: (prev) => ({
+                    ...(prev as SearchRecord),
+                    [keys.pageKey]: undefined,
+                    [keys.globalFilterKey]: value ? value : undefined,
+                }),
+            });
+        },
+        [],
+    );
+
     const onGlobalFilterChange: OnChangeFn<string> | undefined =
-        globalFilterEnabled
-            ? useCallback(
-                  (updater) => {
-                      const current = globalFilterRef.current ?? "";
-                      const next =
-                          typeof updater === "function"
-                              ? updater(current)
-                              : updater;
-                      const keys = keysRef.current;
-                      const value = keys.trimGlobal ? next.trim() : next;
-                      setGlobalFilter(value);
-                      navigateRef.current({
-                          search: (prev) => ({
-                              ...(prev as SearchRecord),
-                              [keys.pageKey]: undefined,
-                              [keys.globalFilterKey]: value
-                                  ? value
-                                  : undefined,
-                          }),
-                      });
-                  },
-                  [globalFilterEnabled],
-              )
-            : undefined;
+        globalFilterEnabled ? handleGlobalFilterChange : undefined;
 
     const onColumnFiltersChange: OnChangeFn<ColumnFiltersState> = useCallback(
         (updater) => {

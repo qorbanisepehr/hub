@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, getRouteApi } from "@tanstack/react-router";
 import {
@@ -150,11 +150,14 @@ export function UsersPage() {
         }
     }, [table, ensurePageInRange, isLoading, meta]);
 
-    const roleFilterOptions =
-        rolesData?.map((r) => ({
-            label: r.display_name,
-            value: String(r.id),
-        })) ?? [];
+    const roleFilterOptions = useMemo(
+        () =>
+            rolesData?.map((r) => ({
+                label: r.display_name,
+                value: String(r.id),
+            })) ?? [],
+        [rolesData],
+    );
 
     return (
         <DataTablePage

@@ -76,17 +76,6 @@ type QuestionnaireWizardProps = {
     questionnaire: Questionnaire;
 };
 
-const SECTION_COMPONENTS = [
-    PersonalInfoSection,
-    ContactInfoSection,
-    EducationSection,
-    WorkExperienceSection,
-    SkillsSection,
-    TrainingSection,
-    AdditionalInfoSection,
-    JobRequestSection,
-];
-
 type WizardFormValues = {
     first_name?: string;
     last_name?: string;

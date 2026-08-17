@@ -23,9 +23,10 @@ type StepperProps = React.ComponentProps<"div"> & {
 
 function Stepper({ value, onValueChange, className, children, ...props }: StepperProps) {
   const totalSteps = React.Children.count(children)
+  const contextValue = React.useMemo(() => ({ value, onValueChange, totalSteps }), [value, onValueChange, totalSteps])
 
   return (
-    <StepperContext.Provider value={{ value, onValueChange, totalSteps }}>
+    <StepperContext.Provider value={contextValue}>
       <div
         data-slot="stepper"
         className={cn("flex flex-col gap-6", className)}

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { IconDownload, IconLoader2 } from "@tabler/icons-react";
@@ -56,9 +56,13 @@ export function ExportChartDialog({
         }
     }, [open]);
 
-    const rootOptions = (roles ?? [])
-        .slice()
-        .sort((a, b) => a.display_name.localeCompare(b.display_name, "fa"));
+    const rootOptions = useMemo(
+        () =>
+            (roles ?? [])
+                .slice()
+                .sort((a, b) => a.display_name.localeCompare(b.display_name, "fa")),
+        [roles],
+    );
 
     const toggleField = (key: string) => {
         setSelectedFields((prev) =>

@@ -118,16 +118,6 @@ export default function UsersNode({ data, selected }: NodeProps<UsersNode>) {
                     </div>
 
                     <div>
-                        {/* <span
-                            className={cn(
-                                "inline-flex items-center rounded-md border px-2 py-0.5 text-[10px] font-semibold",
-                                role.is_active
-                                    ? "border-primary/20 bg-primary/10 text-primary"
-                                    : "border-border bg-muted text-muted-foreground",
-                            )}
-                        >
-                            {role.is_active ? "فعال" : "غیرفعال"}
-                        </span> */}
                         <Badge
                             variant={role.is_active ? "default" : "secondary"}
                         >
@@ -183,12 +173,6 @@ export default function UsersNode({ data, selected }: NodeProps<UsersNode>) {
                         <p className="truncate text-sm font-semibold leading-tight text-card-foreground">
                             {role.display_name}
                         </p>
-                        {/* <p
-                            dir="ltr"
-                            className="mt-0.5 truncate text-right text-[11px] text-muted-foreground"
-                        >
-                            {role.name}
-                        </p> */}
                     </div>
                 </div>
 
@@ -206,11 +190,6 @@ export default function UsersNode({ data, selected }: NodeProps<UsersNode>) {
                                 <IconMinus className="size-3.5 transition-transform duration-200" />
                             )}
                         </Button>
-                        {/* <span>
-                            {collapsed
-                                ? `نمایش زیرمجموعه (${childCount})`
-                                : "جمع‌کردن"}
-                        </span> */}
                     </div>
                 )}
             </div>
