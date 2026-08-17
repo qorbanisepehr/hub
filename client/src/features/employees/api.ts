@@ -20,7 +20,10 @@ export function createEmployee(data: EmployeeBaseFormData) {
     return api.post<{ data: Employee }>("/employees", data);
 }
 
-export function updateEmployee(id: number, data: Partial<EmployeeBaseFormData>) {
+export function updateEmployee(
+    id: number,
+    data: Partial<EmployeeBaseFormData>,
+) {
     return api.put<{ data: Employee }>(`/employees/${id}`, data);
 }
 
@@ -34,7 +37,10 @@ export function saveEmployeeSection(
     section: string,
     data: Record<string, unknown>,
 ) {
-    return api.post<{ data: Employee }>(`/employees/${id}/sections/${section}`, data);
+    return api.post<{ data: Employee }>(
+        `/employees/${id}/sections/${section}`,
+        data,
+    );
 }
 
 /** Submit the profile (completion validation across all sections). */

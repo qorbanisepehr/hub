@@ -54,7 +54,7 @@ class EmployeeController extends ApiController
             $query->where('employment_status', $request->input('status'));
         }
 
-        $sortField = $request->input('sort', 'created_at');
+        $sortField = $request->input('sort', 'personnel_code');
         $sortDirection = $request->input('order', 'desc') === 'asc' ? 'asc' : 'desc';
         $query->orderBy($this->sortable[$sortField] ?? 'created_at', $sortDirection);
 

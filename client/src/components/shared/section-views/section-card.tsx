@@ -4,12 +4,18 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 type SectionCardProps = {
     title: string;
     action?: ReactNode;
+    className?: string;
     children: ReactNode;
 };
 
-export function SectionCard({ title, action, children }: SectionCardProps) {
+export function SectionCard({
+    title,
+    className,
+    action,
+    children,
+}: SectionCardProps) {
     return (
-        <Card>
+        <Card className={className}>
             <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle>{title}</CardTitle>
                 {action}
