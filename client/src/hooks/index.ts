@@ -8,3 +8,4 @@ export { useFullscreen } from './use-full-screen';
 export { useMediaQuery } from './use-media-query';
 export { useIsMobile } from './use-mobile';
 export { useOtpVerification } from './use-otp-verification';
+export { useInfiniteScroll } from './use-infinite-scroll';

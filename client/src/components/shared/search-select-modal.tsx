@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useState, useRef } from "react";
+import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import {
     IconChevronDown,
     IconPlus,
@@ -17,6 +17,7 @@ import {
     DialogDescription,
     DialogTrigger,
 } from "@/components/ui/dialog";
+import { useInfiniteScroll } from "@/hooks/use-infinite-scroll";
 
 type SearchSelectModalProps<T> = {
     items: T[];
@@ -142,40 +143,12 @@ export function SearchSelectModal<T>({
     className,
 }: SearchSelectModalProps<T>) {
     const [open, setOpen] = useState(false);
-    const [scrollEl, setScrollEl] = useState<HTMLDivElement | null>(null);
 
-    const fetchRef = useRef(fetchNextPage);
-    const hasNextPageRef = useRef(hasNextPage);
-    const isFetchingRef = useRef(isFetchingNextPage);
-
-    useEffect(() => { fetchRef.current = fetchNextPage; }, [fetchNextPage]);
-    useEffect(() => { hasNextPageRef.current = hasNextPage; }, [hasNextPage]);
-    useEffect(() => { isFetchingRef.current = isFetchingNextPage; }, [isFetchingNextPage]);
-
-    useEffect(() => {
-        if (!scrollEl) return;
-
-        let rafId = 0;
-        const onScroll = () => {
-            if (rafId) return;
-            rafId = requestAnimationFrame(() => {
-                rafId = 0;
-                if (
-                    hasNextPageRef.current &&
-                    !isFetchingRef.current &&
-                    scrollEl.scrollTop + scrollEl.clientHeight >= scrollEl.scrollHeight - 60
-                ) {
-                    fetchRef.current?.();
-                }
-            });
-        };
-
-        scrollEl.addEventListener("scroll", onScroll, { passive: true });
-        return () => {
-            scrollEl.removeEventListener("scroll", onScroll);
-            if (rafId) cancelAnimationFrame(rafId);
-        };
-    }, [scrollEl]);
+    const { scrollRef } = useInfiniteScroll({
+        hasNextPage: hasNextPage ?? false,
+        isFetchingNextPage: isFetchingNextPage ?? false,
+        fetchNextPage: fetchNextPage ?? (() => {}),
+    });
 
     const selectedItemMap = useMemo(() => {
         const map = new Map<number | string, T>();
@@ -212,7 +185,6 @@ export function SearchSelectModal<T>({
             setOpen(nextOpen);
             if (!nextOpen) {
                 onSearchChange("");
-                setScrollEl(null);
             }
         },
         [onSearchChange],
@@ -272,7 +244,7 @@ export function SearchSelectModal<T>({
                 </div>
 
                 <div
-                    ref={setScrollEl}
+                    ref={scrollRef}
                     className="max-h-72 overflow-y-auto overscroll-contain px-2 pb-2"
                 >
                     {isLoading ? (
