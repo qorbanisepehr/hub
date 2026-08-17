@@ -37,17 +37,33 @@ export const additionalInfoFieldSchema = z
     })
     .superRefine((data, ctx) => {
         const conditions: [boolean | undefined, string, string][] = [
-            [data.has_chronic_disease, "chronic_disease_description", "توضیحات بیماری مزمن الزامی است."],
-            [data.has_major_surgery, "major_surgery_description", "توضیحات جراحی الزامی است."],
-            [data.has_disability, "disability_description", "توضیحات معلولیت الزامی است."],
+            [
+                data.has_chronic_disease,
+                "chronic_disease_description",
+                "توضیحات بیماری مزمن الزامی است.",
+            ],
+            [
+                data.has_major_surgery,
+                "major_surgery_description",
+                "توضیحات جراحی الزامی است.",
+            ],
+            [
+                data.has_disability,
+                "disability_description",
+                "توضیحات معلولیت الزامی است.",
+            ],
             [data.can_travel, "travel_description", "توضیحات سفر الزامی است."],
-            [data.has_criminal_record, "criminal_record_description", "توضیحات سوءسابقه الزامی است."],
+            [
+                data.has_criminal_record,
+                "criminal_record_description",
+                "توضیحات سوءسابقه الزامی است.",
+            ],
         ];
 
         for (const [condition, field, message] of conditions) {
             if (condition === true && !data[field as keyof typeof data]) {
                 ctx.addIssue({
-                    code: z.ZodIssueCode.custom,
+                    code: "custom",
                     message,
                     path: [field],
                 });
@@ -60,7 +76,7 @@ export const additionalInfoFieldSchema = z
             !data.disability_type
         ) {
             ctx.addIssue({
-                code: z.ZodIssueCode.custom,
+                code: "custom",
                 message: "نوع معلولیت الزامی است.",
                 path: ["disability_type"],
             });

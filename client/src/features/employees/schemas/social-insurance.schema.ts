@@ -14,26 +14,31 @@ const historySchema = z.object({
         .string()
         .regex(dateRegex, "فرمت تاریخ نامعتبر است (YYYY-MM-DD)")
         .or(z.literal("")),
-    description: z.string().max(1000).or(z.literal("")),
+    description: z.string().max(1000).or(z.literal("")).default(""),
 });
 
 export const socialInsuranceFieldSchema = z.object({
     social_insurance_number: z
         .string()
         .max(30, "شماره بیمه حداکثر ۳۰ کاراکتر است")
-        .or(z.literal("")),
+        .or(z.literal(""))
+        .default(""),
 
     // TODO: Replace free-form validation when the canonical vocabulary
     // is confirmed with domain specialists.
     insurance_status: z
         .string()
         .max(100, "وضعیت بیمه حداکثر ۱۰۰ کاراکتر است")
-        .or(z.literal("")),
+        .or(z.literal(""))
+        .nullable()
+        // .optional()
+        .transform((value) => value ?? ""),
 
     insurance_start_date: z
         .string()
         .regex(dateRegex, "فرمت تاریخ نامعتبر است (YYYY-MM-DD)")
-        .or(z.literal("")),
+        .or(z.literal(""))
+        .default(""),
 
     has_insurance_history: z.boolean(),
 
@@ -130,5 +135,7 @@ export function defaultSocialInsurance() {
 export function toSocialInsurancePayload(values: {
     social_insurance?: unknown;
 }): Record<string, unknown> {
-    return (values.social_insurance as Record<string, unknown> | undefined) ?? {};
+    return (
+        (values.social_insurance as Record<string, unknown> | undefined) ?? {}
+    );
 }
