@@ -1,9 +1,6 @@
 import { Handle, Position, type Node, type NodeProps } from "@xyflow/react";
 import {
-    IconArrowUp,
     IconChevronDown,
-    IconCrosshair,
-    IconGitBranch,
     IconMasksTheater,
     IconUsers,
 } from "@tabler/icons-react";
@@ -17,6 +14,8 @@ import {
 import { cn } from "@/lib/utils";
 import { getUserDisplayName } from "@/lib/user-display";
 import type { RoleChartRole } from "@/features/rbac/types";
+import { getInitials, stopPropagation } from "./utils";
+import { NodeToolbarActions } from "./node-toolbar-actions";
 
 const MAX_AVATARS = 4;
 
@@ -32,24 +31,6 @@ type CustomNodeData = {
 };
 
 type RoleNode = Node<CustomNodeData, "customNode">;
-
-function getInitials(name: string): string {
-    const parts = name.trim().split(/\s+/);
-    return parts
-        .slice(0, 2)
-        .map((part) => part[0] ?? "")
-        .join("");
-}
-
-function stopPropagation(handler?: (id: number) => void, id?: number) {
-    return (event: React.MouseEvent) => {
-        event.stopPropagation();
-        event.preventDefault();
-        if (handler && id != null) {
-            handler(id);
-        }
-    };
-}
 
 export default function CustomNode({ data, selected }: NodeProps<RoleNode>) {
     const {
@@ -85,27 +66,12 @@ export default function CustomNode({ data, selected }: NodeProps<RoleNode>) {
                 )}
             >
                 <div className="absolute top-1.5 left-1.5 z-10 flex items-center gap-0.5">
-                    <button
-                        onClick={stopPropagation(onShowAncestors, role.id)}
-                        className="flex size-5 items-center justify-center rounded-md border bg-card text-muted-foreground transition-all cursor-pointer hover:bg-accent hover:text-foreground"
-                        title="نمایش مسیر تا نقش ریشه"
-                    >
-                        <IconArrowUp className="size-3" />
-                    </button>
-                    <button
-                        onClick={stopPropagation(onShowSubtree, role.id)}
-                        className="flex size-5 items-center justify-center rounded-md border bg-card text-muted-foreground transition-all cursor-pointer hover:bg-accent hover:text-foreground"
-                        title="نمایش زیرمجموعه به عنوان ریشه"
-                    >
-                        <IconGitBranch className="size-3" />
-                    </button>
-                    <button
-                        onClick={stopPropagation(onFocus, role.id)}
-                        className="flex size-5 items-center justify-center rounded-md border bg-card text-muted-foreground transition-all cursor-pointer hover:bg-accent hover:text-foreground"
-                        title="تمرکز روی این نقش"
-                    >
-                        <IconCrosshair className="size-3" />
-                    </button>
+                    <NodeToolbarActions
+                        roleId={role.id}
+                        onShowAncestors={onShowAncestors}
+                        onShowSubtree={onShowSubtree}
+                        onFocus={onFocus}
+                    />
                 </div>
 
                 <div className="p-3 space-y-2.5">

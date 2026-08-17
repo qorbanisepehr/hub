@@ -12,6 +12,7 @@ import { PERMISSIONS } from "@/lib/permissions";
 import { roleKeys, userKeys } from "@/lib/query-keys";
 import { getUserDisplayName } from "@/lib/user-display";
 import { cn } from "@/lib/utils";
+import { getInitials } from "./utils";
 import {
     IconBuilding,
     IconInfoCircle,
@@ -28,14 +29,6 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-
-function getInitials(name: string): string {
-    const parts = name.trim().split(/\s+/);
-    return parts
-        .slice(0, 2)
-        .map((part) => part[0] ?? "")
-        .join("");
-}
 
 function UserAvatar({
     user,
