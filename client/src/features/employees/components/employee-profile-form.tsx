@@ -208,7 +208,7 @@ export function EmployeeProfileForm({ employee }: EmployeeProfileFormProps) {
         return () => window.removeEventListener("hashchange", onHashChange);
     }, []);
 
-    const { form, saveMutation, persistSection, isDirty } = useSectionForm<
+    const { form, saveMutation, persistSection, isDirty, isSectionDirty } = useSectionForm<
         Employee,
         EmployeeProfileFormData
     >({
@@ -328,7 +328,7 @@ export function EmployeeProfileForm({ employee }: EmployeeProfileFormProps) {
         const next = String(value);
         if (
             next !== activeSection &&
-            isDirty &&
+            isSectionDirty(activeSection) &&
             formSectionKeys.has(activeSection)
         ) {
             persistSection(activeSection);

@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useMemo, useRef } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm, useStore } from "@tanstack/react-form";
 import { toast } from "sonner";
@@ -26,6 +26,30 @@ type UseSectionFormOptions<TEntity, TFormValues> = {
     errorMessage?: string;
 };
 
+function shallowEqual(a: unknown, b: unknown): boolean {
+    if (a === b) return true;
+    if (
+        a == null ||
+        b == null ||
+        typeof a !== "object" ||
+        typeof b !== "object"
+    ) {
+        return a === b;
+    }
+    const keysA = Object.keys(a as Record<string, unknown>);
+    const keysB = Object.keys(b as Record<string, unknown>);
+    if (keysA.length !== keysB.length) return false;
+    for (const key of keysA) {
+        if (
+            (a as Record<string, unknown>)[key] !==
+            (b as Record<string, unknown>)[key]
+        ) {
+            return false;
+        }
+    }
+    return true;
+}
+
 /**
  * Shared plumbing for multi-section forms (employee profile, questionnaire
  * wizard, CV wizard). Each section is saved independently; after a successful
@@ -38,6 +62,11 @@ type UseSectionFormOptions<TEntity, TFormValues> = {
  * the next tab/step), so reconciliation spreads the current values and replaces
  * just the saved section. The detail query is invalidated so other consumers
  * re-fetch the fresh entity.
+ *
+ * Dirty tracking is section-level: a `lastSavedRef` stores the form snapshot
+ * after each successful save. `isSectionDirty(key)` compares current values
+ * against that snapshot, so saved sections are never falsely dirty even if the
+ * server normalises values.
  */
 export function useSectionForm<TEntity, TFormValues>({
     entity,
@@ -54,6 +83,8 @@ export function useSectionForm<TEntity, TFormValues>({
     const form = useForm({
         defaultValues: buildDefaultValues(entity),
     });
+
+    const lastSavedRef = useRef<TFormValues>(buildDefaultValues(entity));
 
     const saveMutation = useMutation({
         mutationFn: ({
@@ -80,7 +111,9 @@ export function useSectionForm<TEntity, TFormValues>({
             for (const key of topLevelKeys) {
                 reconciled[key as string] = serverValues[key];
             }
-            form.reset(reconciled as TFormValues);
+            const reconciledValues = reconciled as TFormValues;
+            form.reset(reconciledValues);
+            lastSavedRef.current = reconciledValues;
 
             if (successMessage) {
                 toast.success(successMessage);
@@ -99,7 +132,16 @@ export function useSectionForm<TEntity, TFormValues>({
         [extractSectionData, form, saveMutation],
     );
 
+    const isSectionDirty = useCallback(
+        (sectionKey: string): boolean => {
+            const current = extractSectionData(form.state.values, sectionKey);
+            const saved = extractSectionData(lastSavedRef.current, sectionKey);
+            return !shallowEqual(current, saved);
+        },
+        [extractSectionData, form],
+    );
+
     const isDirty = useStore(form.store, (s) => s.isDirty);
 
-    return { form, saveMutation, persistSection, isDirty };
+    return { form, saveMutation, persistSection, isDirty, isSectionDirty };
 }

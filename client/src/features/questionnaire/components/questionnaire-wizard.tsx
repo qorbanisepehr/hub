@@ -179,7 +179,7 @@ export function QuestionnaireWizard({
         return () => window.removeEventListener("hashchange", onHashChange);
     }, [currentStep]);
 
-    const { form, saveMutation, persistSection, isDirty } = useSectionForm<
+    const { form, saveMutation, persistSection, isDirty, isSectionDirty } = useSectionForm<
         Questionnaire,
         WizardFormValues
     >({
@@ -328,16 +328,18 @@ export function QuestionnaireWizard({
     };
 
     const goToStep = async (step: number) => {
-        if (isDirty) {
-            const sectionKey = WIZARD_STEPS[currentStep]?.key;
-            if (sectionKey && sectionKey !== "summary" && sectionKey !== "documents") {
-                const data = extractSectionData(form.state.values, sectionKey);
-                await saveMutation.mutateAsync({ section: sectionKey, data });
-            }
+        const sectionKey = WIZARD_STEPS[currentStep]?.key;
+        if (
+            sectionKey &&
+            sectionKey !== "summary" &&
+            sectionKey !== "documents" &&
+            isSectionDirty(sectionKey)
+        ) {
+            const data = extractSectionData(form.state.values, sectionKey);
+            await saveMutation.mutateAsync({ section: sectionKey, data });
         }
         setCurrentStep(step);
         setStepHash(step);
-        form.reset(form.state.values);
     };
 
     const handleStepChange = (step: number) => {
