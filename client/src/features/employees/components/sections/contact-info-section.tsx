@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { FormTextField } from "@/components/shared/form-fields";
-import { AddressForm } from "@/components/shared/address-form";
+import { FormTextField } from "@/components/forms";
+import { AddressForm } from "@/components/forms";
 import { zodFieldValidators } from "@/lib/validation-helpers";
 import { optionalEmail } from "@/lib/field-rules";
 import { fieldSchemas } from "@/features/questionnaire/schemas/contact-info.schema";

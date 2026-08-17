@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { FileUploadField } from "@/components/shared/file-upload-field";
+import { FileUploadField } from "@/components/documents";
 import { CV_DOC_CATEGORY_SLUGS } from "@/features/cv/constants";
 
 type SectionProps = {

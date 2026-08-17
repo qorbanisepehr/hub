@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { DocumentFileItem } from "@/components/shared/document-file-item";
+import { DocumentFileItem } from "@/components/documents";
 import { SectionRow } from "@/components/shared/section-row";
 import { useEmployeeDocuments } from "@/features/employees/hooks/use-employee-documents";
 import { toPersianDate } from "@/lib/date-format";

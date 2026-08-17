@@ -9,7 +9,7 @@ import {
     CardTitle,
     CardDescription,
 } from "@/components/ui/card";
-import { useAuth } from "@/features/auth/useAuth";
+import { useAuth } from "@/features/auth";
 import { authKeys } from "@/lib/query-keys";
 import { switchActiveRole } from "@/features/auth/api";
 import { getApiError } from "@/lib/error-utils";

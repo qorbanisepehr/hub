@@ -6,10 +6,10 @@ import {
     FormRadioGroup,
     FormTextField,
     FormTextarea,
-} from "@/components/shared/form-fields";
-import { FileUploadField } from "@/components/shared/file-upload-field";
-import { FormRepeater } from "@/components/shared/form-repeater";
-import type { TableColumn } from "@/components/shared/form-repeater";
+} from "@/components/forms";
+import { FileUploadField } from "@/components/documents";
+import { FormRepeater } from "@/components/forms";
+import type { TableColumn } from "@/components/forms";
 import {
     YES_NO_OPTIONS,
     parseBoolean,

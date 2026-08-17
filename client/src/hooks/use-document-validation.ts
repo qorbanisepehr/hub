@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 import type { DocumentRequirement } from "@/features/documents/types";
-import { formatBytes } from "@/lib/file-size";
+import { formatBytes } from "@/lib/file-utils";
 
 export function useDocumentValidation(requirement: DocumentRequirement | null) {
     const validateFile = useCallback(

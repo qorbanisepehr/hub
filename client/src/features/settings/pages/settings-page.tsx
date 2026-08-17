@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { getRouteApi } from "@tanstack/react-router";
 
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { PageLayout } from "@/components/shared/page-layout";
+import { PageLayout } from "@/components/layout";
 import {
     PermissionGuard,
     usePermission,

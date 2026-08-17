@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useStore } from "@tanstack/react-form";
-import { FormTextField, FormDatePicker } from "@/components/shared/form-fields";
-import { FormOptionSelectField } from "@/components/shared/form-option-fields";
+import { FormTextField, FormDatePicker } from "@/components/forms";
+import { FormOptionSelectField } from "@/components/forms";
 import { optionEnum } from "@/features/form-options/schema";
 import { useFormOptionsByGroup } from "@/features/form-options/hooks/use-form-options";
 import {

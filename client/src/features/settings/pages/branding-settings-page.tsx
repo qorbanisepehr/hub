@@ -18,13 +18,13 @@ import {
     CardHeader,
     CardTitle,
 } from "@/components/ui/card";
-import { UnsavedChangesDialog } from "@/components/shared/unsaved-changes-dialog";
+import { UnsavedChangesDialog } from "@/components/layout";
 import {
     FormColorField,
     FormTextField,
-} from "@/components/shared/form-fields";
+} from "@/components/forms";
 import { ImageUpload } from "@/components/shared/image-upload";
-import { Logo, LogoType } from "@/components/shared/logo";
+import { Logo, LogoType } from "@/components/navigation";
 import type { BrandingImageKind } from "@/features/settings/api";
 import type { BrandingSettings } from "@/features/settings/types";
 import {

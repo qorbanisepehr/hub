@@ -5,8 +5,8 @@ import { toast } from "sonner";
 import { EmployeeForm } from "@/features/employees/components/employee-form";
 import { createEmployee } from "@/features/employees/api";
 import { getApiError } from "@/lib/error-utils";
-import { PageLayout } from "@/components/shared/page-layout";
-import { PageHeader } from "@/components/shared/page-header";
+import { PageLayout } from "@/components/layout";
+import { PageHeader } from "@/components/layout";
 import { employeeKeys } from "@/lib/query-keys";
 
 export function EmployeeCreatePage() {

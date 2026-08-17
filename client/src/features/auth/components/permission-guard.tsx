@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { useAuthorization } from "@/features/auth/useAuthorization";
+import { useAuthorization } from "@/features/auth";
 
 export function usePermission(permission: string | string[]): boolean {
     const { canAny } = useAuthorization();

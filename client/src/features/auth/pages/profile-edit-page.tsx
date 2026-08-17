@@ -15,7 +15,7 @@ import {
     CardTitle,
     CardDescription,
 } from "@/components/ui/card";
-import { useAuth } from "@/features/auth/useAuth";
+import { useAuth } from "@/features/auth";
 import { authKeys } from "@/lib/query-keys";
 import {
     updateProfile,
@@ -24,14 +24,14 @@ import {
     changePassword,
 } from "@/features/auth/api";
 import { AvatarUpload } from "@/components/shared/avatar-upload";
-import { FormTextField } from "@/components/shared/form-fields";
+import { FormTextField } from "@/components/forms";
 import { PasswordField } from "@/features/auth/components/password-field";
-import { ErrorBanner } from "@/components/shared/error-banner";
-import { UnsavedChangesDialog } from "@/components/shared/unsaved-changes-dialog";
-import { PageLayout } from "@/components/shared/page-layout";
-import { PageHeader } from "@/components/shared/page-header";
-import { PageSkeleton } from "@/components/shared/page-skeleton";
-import { ErrorPage } from "@/components/shared/error-page";
+import { ErrorBanner } from "@/components/layout";
+import { UnsavedChangesDialog } from "@/components/layout";
+import { PageLayout } from "@/components/layout";
+import { PageHeader } from "@/components/layout";
+import { PageSkeleton } from "@/components/layout";
+import { ErrorPage } from "@/components/layout";
 
 const profileSchema = z.object({
     name: z

@@ -1,8 +1,8 @@
 import { useParams } from "@tanstack/react-router";
 
 import { UserRoleManager } from "@/features/rbac/components/user-role-manager";
-import { PageLayout } from "@/components/shared/page-layout";
-import { PageHeader } from "@/components/shared/page-header";
+import { PageLayout } from "@/components/layout";
+import { PageHeader } from "@/components/layout";
 
 export function UserRolesPage() {
     const { userId } = useParams({ from: "/protected/users/$userId/roles" });

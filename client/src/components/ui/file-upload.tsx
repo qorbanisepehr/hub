@@ -9,9 +9,9 @@ import {
 } from "@tabler/icons-react";
 
 import { cn } from "@/lib/utils";
-import { getFileIcon } from "@/lib/file-icon";
-import { getFileColorClasses } from "@/lib/file-colors";
-import { formatBytes } from "@/lib/file-size";
+import { getFileIcon } from "@/lib/file-utils";
+import { getFileColorClasses } from "@/lib/file-utils";
+import { formatBytes } from "@/lib/file-utils";
 import { Card } from "@/components/ui/card";
 import { FileThumbnail } from "@/components/ui/file-thumbnail";
 

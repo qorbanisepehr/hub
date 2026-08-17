@@ -7,15 +7,15 @@ import {
     FormTextarea,
     FormRadioGroup,
     FormDatePicker,
-} from "@/components/shared/form-fields";
+} from "@/components/forms";
 import {
     FormOptionSelectField,
     FormOptionComboboxField,
-} from "@/components/shared/form-option-fields";
-import { FileUploadField } from "@/components/shared/file-upload-field";
-import { repeaterAttachmentColumn } from "@/components/shared/repeater-attachment-cell";
-import { FormRepeater } from "@/components/shared/form-repeater";
-import type { TableColumn } from "@/components/shared/form-repeater";
+} from "@/components/forms";
+import { FileUploadField } from "@/components/documents";
+import { repeaterAttachmentColumn } from "@/components/forms";
+import { FormRepeater } from "@/components/forms";
+import type { TableColumn } from "@/components/forms";
 import {
     YES_NO_OPTIONS,
     parseBoolean,

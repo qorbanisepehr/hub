@@ -5,8 +5,8 @@ import { toast } from "sonner";
 import { createUser } from "@/features/rbac/api";
 import { UserForm } from "@/features/rbac/components/user-form";
 import { getApiError } from "@/lib/error-utils";
-import { PageLayout } from "@/components/shared/page-layout";
-import { PageHeader } from "@/components/shared/page-header";
+import { PageLayout } from "@/components/layout";
+import { PageHeader } from "@/components/layout";
 
 export function UserCreatePage() {
     const navigate = useNavigate();

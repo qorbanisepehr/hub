@@ -17,9 +17,9 @@ import {
     statusLabels,
 } from "@/features/employees/constants";
 import { Link } from "@tanstack/react-router";
-import { FormTextField, FormSelectField } from "@/components/shared/form-fields";
-import { ErrorBanner } from "@/components/shared/error-banner";
-import { UnsavedChangesDialog } from "@/components/shared/unsaved-changes-dialog";
+import { FormTextField, FormSelectField } from "@/components/forms";
+import { ErrorBanner } from "@/components/layout";
+import { UnsavedChangesDialog } from "@/components/layout";
 import { UserSearchSelect } from "@/features/rbac/components/user-search-select";
 import { useFormOptionsByGroup } from "@/features/form-options/hooks/use-form-options";
 

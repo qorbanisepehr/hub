@@ -4,8 +4,8 @@ import { isAxiosError } from "axios";
 import { IconLoader2, IconLock } from "@tabler/icons-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ErrorPage } from "@/components/shared/error-page";
-import { OtpVerificationForm } from "@/components/shared/otp-verification-form";
+import { ErrorPage } from "@/components/layout";
+import { OtpVerificationForm } from "@/components/forms";
 import { onGrantUnauthorized } from "@/lib/public-api";
 import { hasGrant, setGrantToken } from "@/lib/grant";
 import type { GrantPurpose } from "@/lib/grant";

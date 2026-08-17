@@ -9,10 +9,10 @@ import { ConfirmDeleteButton } from "@/components/ui/confirm-delete-button";
 import { fetchEmployee, deleteEmployee } from "@/features/employees/api";
 import { getApiError } from "@/lib/error-utils";
 import { EmployeeProfileView } from "@/features/employees/components/employee-profile-view";
-import { ViewSkeleton } from "@/components/shared/view-skeleton";
-import { PageLayout } from "@/components/shared/page-layout";
-import { ErrorPage } from "@/components/shared/error-page";
-import { PageHeader } from "@/components/shared/page-header";
+import { ViewSkeleton } from "@/components/layout";
+import { PageLayout } from "@/components/layout";
+import { ErrorPage } from "@/components/layout";
+import { PageHeader } from "@/components/layout";
 import { employeeKeys } from "@/lib/query-keys";
 
 export function EmployeeViewPage() {

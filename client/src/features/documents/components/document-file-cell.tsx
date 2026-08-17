@@ -1,5 +1,5 @@
-import { getFileTypeLabel } from "@/lib/file-type-label";
-import { DocumentThumbnail } from "@/components/shared/document-thumbnail";
+import { getFileTypeLabel } from "@/lib/file-utils";
+import { DocumentThumbnail } from "@/components/documents";
 import { getDocOriginalName, getDocMimeType } from "@/features/documents/types";
 import type { Document } from "@/features/documents/types";
 

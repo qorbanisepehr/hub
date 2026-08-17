@@ -1,7 +1,7 @@
 import { createRoute, Outlet } from "@tanstack/react-router";
 import { Route as RootRoute } from "@/routes/__root";
-import { PublicHeader } from "@/components/shared/public-header";
-import { Logo } from "@/components/shared/logo";
+import { PublicHeader } from "@/components/navigation";
+import { Logo } from "@/components/navigation";
 import { useBranding } from "@/features/settings/hooks/use-branding";
 import { COMPANY_NAME } from "@/lib/brand";
 

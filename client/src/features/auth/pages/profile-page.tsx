@@ -13,17 +13,17 @@ import {
     CardDescription,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { useAuth } from "@/features/auth/useAuth";
+import { useAuth } from "@/features/auth";
 import { authKeys } from "@/lib/query-keys";
 import { uploadAvatar, deleteAvatar } from "@/features/auth/api";
 import { getApiError } from "@/lib/error-utils";
 import { AvatarUpload } from "@/components/shared/avatar-upload";
 import { RoleSwitcher } from "@/features/auth/components/role-switcher";
 import { InfoRow } from "@/components/shared/info-row";
-import { PageLayout } from "@/components/shared/page-layout";
-import { ErrorPage } from "@/components/shared/error-page";
-import { PageHeader } from "@/components/shared/page-header";
-import { PageSkeleton } from "@/components/shared/page-skeleton";
+import { PageLayout } from "@/components/layout";
+import { ErrorPage } from "@/components/layout";
+import { PageHeader } from "@/components/layout";
+import { PageSkeleton } from "@/components/layout";
 
 export function ProfilePage() {
     const { user, isLoading } = useAuth();

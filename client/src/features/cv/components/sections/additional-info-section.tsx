@@ -1,9 +1,9 @@
 import { useMemo } from "react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { FormTextarea, FormTextField } from "@/components/shared/form-fields";
-import { FormRepeater } from "@/components/shared/form-repeater";
-import { PhysicalConditionFields } from "@/components/shared/physical-condition-fields";
+import { FormTextarea, FormTextField } from "@/components/forms";
+import { FormRepeater } from "@/components/forms";
+import { PhysicalConditionFields } from "@/components/forms";
 import { zodFieldValidators } from "@/lib/validation-helpers";
 import { useFormOptionsByGroup } from "@/features/form-options/hooks/use-form-options";
 import {

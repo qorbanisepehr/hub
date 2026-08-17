@@ -4,8 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { usePermissions } from "@/features/rbac/hooks/use-permissions";
-import { EmptyState } from "@/components/shared/empty-state";
-import { ErrorSection } from "@/components/shared/error-section";
+import { EmptyState } from "@/components/layout";
+import { ErrorSection } from "@/components/layout";
 
 export function PermissionsSection() {
     const { data, isLoading, isError } = usePermissions();

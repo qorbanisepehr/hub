@@ -3,10 +3,10 @@ import { useQuery } from "@tanstack/react-query";
 
 import { fetchEmployee } from "@/features/employees/api";
 import { EmployeeProfileForm } from "@/features/employees/components/employee-profile-form";
-import { PageLayout } from "@/components/shared/page-layout";
-import { ErrorPage } from "@/components/shared/error-page";
-import { PageHeader } from "@/components/shared/page-header";
-import { PageSkeleton } from "@/components/shared/page-skeleton";
+import { PageLayout } from "@/components/layout";
+import { ErrorPage } from "@/components/layout";
+import { PageHeader } from "@/components/layout";
+import { PageSkeleton } from "@/components/layout";
 import { employeeKeys } from "@/lib/query-keys";
 
 export function EmployeeEditPage() {

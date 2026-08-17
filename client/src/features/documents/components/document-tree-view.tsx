@@ -11,11 +11,11 @@ import {
 } from "@tabler/icons-react";
 
 import { cn } from "@/lib/utils";
-import { getFileIcon } from "@/lib/file-icon";
-import { getFileColorClasses } from "@/lib/file-colors";
-import { getFileTypeLabel } from "@/lib/file-type-label";
+import { getFileIcon } from "@/lib/file-utils";
+import { getFileColorClasses } from "@/lib/file-utils";
+import { getFileTypeLabel } from "@/lib/file-utils";
 import { toPersianDate } from "@/lib/date-format";
-import { DocumentThumbnail } from "@/components/shared/document-thumbnail";
+import { DocumentThumbnail } from "@/components/documents";
 import { Button } from "@/components/ui/button";
 import { ConfirmDeleteActions } from "./confirm-delete-actions";
 import type { Document, DocumentCategory } from "@/features/documents/types";

@@ -6,8 +6,8 @@ import { createRole } from "@/features/rbac/api";
 import type { CreateRoleData } from "@/features/rbac/types";
 import { RoleForm } from "@/features/rbac/components/role-form";
 import { getApiError } from "@/lib/error-utils";
-import { PageLayout } from "@/components/shared/page-layout";
-import { PageHeader } from "@/components/shared/page-header";
+import { PageLayout } from "@/components/layout";
+import { PageHeader } from "@/components/layout";
 import { roleKeys } from "@/lib/query-keys";
 
 export function RoleCreatePage() {

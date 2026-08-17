@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import { useStore } from "@tanstack/react-form";
 import { z } from "zod";
 
-import { FormTextarea, FormRadioGroup } from "@/components/shared/form-fields";
+import { FormTextarea, FormRadioGroup } from "@/components/forms";
 import { YES_NO_OPTIONS, parseBoolean } from "@/features/questionnaire/constants";
 import { zodFieldValidators } from "@/lib/validation-helpers";
 import type { QuestionnaireFormApi } from "@/features/questionnaire/types";

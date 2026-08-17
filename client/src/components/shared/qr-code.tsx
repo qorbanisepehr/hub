@@ -9,7 +9,7 @@ import QRCodeStyling from "qr-code-styling";
 
 import { cn } from "@/lib/utils";
 import { useBranding } from "@/features/settings/hooks/use-branding";
-import { LOGO_PATH, LOGO_VIEWBOX, useBrandImage } from "./logo";
+import { LOGO_PATH, LOGO_VIEWBOX, useBrandImage } from "@/components/navigation/logo";
 
 const svgToDataUrl = (svg: string): string => {
     const encoded = encodeURIComponent(svg).replace(

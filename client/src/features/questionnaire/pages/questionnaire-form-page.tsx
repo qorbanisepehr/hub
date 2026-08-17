@@ -5,7 +5,7 @@ import { IconLoader2, IconShare } from "@tabler/icons-react";
 
 import { Button } from "@/components/ui/button";
 import { AccessGate } from "@/components/shared/access-gate";
-import { ErrorPage } from "@/components/shared/error-page";
+import { ErrorPage } from "@/components/layout";
 import { QrCode } from "@/components/shared/qr-code";
 import { ShareDialog } from "@/components/shared/share-dialog";
 import { getQuestionnaire } from "@/features/questionnaire/api";

@@ -8,11 +8,11 @@ import {
     FormTextarea,
     FormRadioGroup,
     FormDatePicker,
-} from "@/components/shared/form-fields";
+} from "@/components/forms";
 import {
     FormOptionCheckboxGroup,
     FormOptionRadioGroup,
-} from "@/components/shared/form-option-fields";
+} from "@/components/forms";
 import {
     YES_NO_OPTIONS,
     CURRENTLY_EMPLOYED_OPTIONS,

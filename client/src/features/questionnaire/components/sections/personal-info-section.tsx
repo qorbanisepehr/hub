@@ -6,13 +6,13 @@ import {
     FormTextField,
     FormNumberField,
     FormDatePicker,
-} from "@/components/shared/form-fields";
+} from "@/components/forms";
 import {
     PlaceFields,
     FormOptionRadioGroup,
     FormOptionSelectField,
-} from "@/components/shared/form-option-fields";
-import { FileUploadField } from "@/components/shared/file-upload-field";
+} from "@/components/forms";
+import { FileUploadField } from "@/components/documents";
 import { DOC_CATEGORY_SLUGS } from "@/features/questionnaire/constants";
 import { useFormOptionsByGroup } from "@/features/form-options/hooks/use-form-options";
 import {

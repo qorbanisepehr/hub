@@ -27,11 +27,11 @@ import { getUserDisplayName } from "@/lib/user-display";
 import { PermissionGuard } from "@/features/auth/components/permission-guard";
 import { PERMISSIONS } from "@/lib/permissions";
 import { ResponsiveDialog } from "@/components/ui/responsive-dialog";
-import { ViewSkeleton } from "@/components/shared/view-skeleton";
+import { ViewSkeleton } from "@/components/layout";
 import { InfoRow } from "@/components/shared/info-row";
-import { PageLayout } from "@/components/shared/page-layout";
-import { ErrorPage } from "@/components/shared/error-page";
-import { PageHeader } from "@/components/shared/page-header";
+import { PageLayout } from "@/components/layout";
+import { ErrorPage } from "@/components/layout";
+import { PageHeader } from "@/components/layout";
 import { userKeys } from "@/lib/query-keys";
 
 export function UserViewPage() {

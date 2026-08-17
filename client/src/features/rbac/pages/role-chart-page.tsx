@@ -9,16 +9,16 @@ import {
     IconUserOff,
     IconUsers,
 } from "@tabler/icons-react";
-import { PageLayout } from "@/components/shared/page-layout";
+import { PageLayout } from "@/components/layout";
 import { useRoleChart } from "@/features/rbac/hooks/use-roles";
-import { RoleOrgChart } from "@/features/rbac/components/org-chart/RoleOrgChart";
+import { RoleOrgChart } from "@/features/rbac/components/org-chart";
 import { Button } from "@/components/ui/button";
 import type {
     ChartStatusFilter,
     ChartUserFilter,
     ChartViewMode,
 } from "@/features/rbac/types";
-import { ExportChartDialog } from "../components/org-chart/ExportChartDialog";
+import { ExportChartDialog } from "../components/org-chart/export-chart-dialog";
 
 export function RoleChartPage() {
     const { data, isLoading, isError, refetch } = useRoleChart();

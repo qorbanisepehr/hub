@@ -4,12 +4,12 @@ import {
     FormTextField,
     FormSelectField,
     FormDatePicker,
-} from "@/components/shared/form-fields";
-import { FormOptionSelectField } from "@/components/shared/form-option-fields";
-import { FileUploadField } from "@/components/shared/file-upload-field";
-import { repeaterAttachmentColumn } from "@/components/shared/repeater-attachment-cell";
-import { FormRepeater } from "@/components/shared/form-repeater";
-import type { TableColumn } from "@/components/shared/form-repeater";
+} from "@/components/forms";
+import { FormOptionSelectField } from "@/components/forms";
+import { FileUploadField } from "@/components/documents";
+import { repeaterAttachmentColumn } from "@/components/forms";
+import { FormRepeater } from "@/components/forms";
+import type { TableColumn } from "@/components/forms";
 import {
     LANGUAGE_LEVEL_OPTIONS,
     SOFTWARE_LEVEL_OPTIONS,

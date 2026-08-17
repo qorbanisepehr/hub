@@ -20,10 +20,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ResponsiveDialog } from "@/components/ui/responsive-dialog";
-import { ErrorPage } from "@/components/shared/error-page";
-import { PageHeader } from "@/components/shared/page-header";
-import { PageLayout } from "@/components/shared/page-layout";
-import { ViewSkeleton } from "@/components/shared/view-skeleton";
+import { ErrorPage } from "@/components/layout";
+import { PageHeader } from "@/components/layout";
+import { PageLayout } from "@/components/layout";
+import { ViewSkeleton } from "@/components/layout";
 import { ShareDialog } from "@/components/shared/share-dialog";
 import { CvResumeView } from "@/features/cv/components/cv-resume-view";
 import {

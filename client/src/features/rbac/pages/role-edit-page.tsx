@@ -6,10 +6,10 @@ import { fetchRole, updateRole } from "@/features/rbac/api";
 import type { UpdateRoleData } from "@/features/rbac/types";
 import { RoleForm } from "@/features/rbac/components/role-form";
 import { getApiError } from "@/lib/error-utils";
-import { PageLayout } from "@/components/shared/page-layout";
-import { ErrorPage } from "@/components/shared/error-page";
-import { PageHeader } from "@/components/shared/page-header";
-import { PageSkeleton } from "@/components/shared/page-skeleton";
+import { PageLayout } from "@/components/layout";
+import { ErrorPage } from "@/components/layout";
+import { PageHeader } from "@/components/layout";
+import { PageSkeleton } from "@/components/layout";
 import { roleKeys } from "@/lib/query-keys";
 
 export function RoleEditPage() {

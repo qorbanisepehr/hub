@@ -3,7 +3,7 @@ import { IconCheck, IconHome } from "@tabler/icons-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { ViewSkeleton } from "@/components/shared/view-skeleton";
+import { ViewSkeleton } from "@/components/layout";
 import { CvResumeView } from "@/features/cv/components/cv-resume-view";
 import { useCvDocuments } from "@/features/cv/hooks/use-cv-documents";
 import type { Cv } from "@/features/cv/types";

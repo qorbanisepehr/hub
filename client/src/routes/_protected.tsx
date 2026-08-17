@@ -4,7 +4,7 @@ import { AppSidebar } from "@/features/dashboard/components/app-sidebar";
 import { SiteHeader } from "@/features/dashboard/components/site-header";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { requireAuth } from "@/features/auth/guards";
-import { ErrorPage } from "@/components/shared/error-page";
+import { ErrorPage } from "@/components/layout";
 
 export const Route = createRoute({
     getParentRoute: () => RootRoute,

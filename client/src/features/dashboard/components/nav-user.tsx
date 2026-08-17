@@ -5,8 +5,8 @@ import {
     SidebarMenuItem,
     useSidebar,
 } from "@/components/ui/sidebar";
-import { UserMenu } from "@/components/shared/user-menu";
-import { useAuth } from "@/features/auth/useAuth";
+import { UserMenu } from "@/components/navigation";
+import { useAuth } from "@/features/auth";
 import { getUserDisplayName } from "@/lib/user-display";
 
 export function NavUser() {

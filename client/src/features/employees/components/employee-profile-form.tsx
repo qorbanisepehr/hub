@@ -11,8 +11,8 @@ import {
 } from "@tabler/icons-react";
 
 import { Button } from "@/components/ui/button";
-import { ErrorBanner } from "@/components/shared/error-banner";
-import { UnsavedChangesDialog } from "@/components/shared/unsaved-changes-dialog";
+import { ErrorBanner } from "@/components/layout";
+import { UnsavedChangesDialog } from "@/components/layout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PersonalInfoSection } from "@/features/questionnaire/components/sections/personal-info-section";
 import { EducationSection } from "@/features/questionnaire/components/sections/education-section";

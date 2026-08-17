@@ -9,9 +9,9 @@ import {
 } from "@tabler/icons-react";
 
 import { cn } from "@/lib/utils";
-import { getFileIcon } from "@/lib/file-icon";
-import { getFileColorClasses } from "@/lib/file-colors";
-import { getFileTypeLabel } from "@/lib/file-type-label";
+import { getFileIcon } from "@/lib/file-utils";
+import { getFileColorClasses } from "@/lib/file-utils";
+import { getFileTypeLabel } from "@/lib/file-utils";
 import { renderPdfThumbnailUrl } from "@/lib/pdf-thumbnail-utils";
 import type { Document } from "@/features/documents/types";
 import { getDocOriginalName, getDocMimeType, getDocFileSizeFormatted, getDocServeUrl, getDocDownloadUrl } from "@/features/documents/types";

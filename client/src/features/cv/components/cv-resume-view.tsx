@@ -5,8 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SectionRow } from "@/components/shared/section-row";
 import {
     QuestionnaireDocumentPreview,
-} from "@/components/shared/questionnaire-document-preview";
-import { DocumentViewer } from "@/components/shared/document-viewer";
+} from "@/components/documents";
+import { DocumentViewer } from "@/components/documents";
 import type { EntityDocument } from "@/hooks/use-entity-documents";
 import {
     CV_DOC_CATEGORY_SLUGS,
@@ -14,13 +14,13 @@ import {
     CV_STATUS_LABELS,
 } from "@/features/cv/constants";
 import type { Cv, CvStatus } from "@/features/cv/types";
-import { PersonalInfoView } from "@/components/shared/section-views/personal-info-view";
-import { ContactInfoView } from "@/components/shared/section-views/contact-info-view";
-import { EducationView } from "@/components/shared/section-views/education-view";
-import { WorkExperienceView } from "@/components/shared/section-views/work-experience-view";
-import { SkillsView } from "@/components/shared/section-views/skills-view";
-import { TrainingView } from "@/components/shared/section-views/training-view";
-import { AdditionalInfoView } from "@/components/shared/section-views/additional-info-view";
+import { PersonalInfoView } from "@/components/section-views/personal-info-view";
+import { ContactInfoView } from "@/components/section-views/contact-info-view";
+import { EducationView } from "@/components/section-views/education-view";
+import { WorkExperienceView } from "@/components/section-views/work-experience-view";
+import { SkillsView } from "@/components/section-views/skills-view";
+import { TrainingView } from "@/components/section-views/training-view";
+import { AdditionalInfoView } from "@/components/section-views/additional-info-view";
 
 export function CvResumeView({
     cv,

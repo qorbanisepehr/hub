@@ -2,8 +2,8 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { FormTextField } from "@/components/shared/form-fields";
-import { AddressForm } from "@/components/shared/address-form";
+import { FormTextField } from "@/components/forms";
+import { AddressForm } from "@/components/forms";
 import {
     sendMobileOtp,
     sendEmailOtp,
@@ -15,7 +15,7 @@ import { zodFieldValidators } from "@/lib/validation-helpers";
 import { fieldSchemas } from "@/features/questionnaire/schemas/contact-info.schema";
 import type { Questionnaire, QuestionnaireFormApi } from "@/features/questionnaire/types";
 
-import { OtpVerifiedInput } from "@/components/shared/otp-verified-input";
+import { OtpVerifiedInput } from "@/components/forms";
 
 type SectionProps = {
     form: QuestionnaireFormApi;

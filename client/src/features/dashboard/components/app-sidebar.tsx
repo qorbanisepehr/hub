@@ -11,7 +11,7 @@ import {
     SidebarMenuButton,
     SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import { Logo, LogoType } from "@/components/shared/logo";
+import { Logo, LogoType } from "@/components/navigation";
 import { Link } from "@tanstack/react-router";
 import { useBranding } from "@/features/settings/hooks/use-branding";
 import { COMPANY_SUB_NAME } from "@/lib/brand";

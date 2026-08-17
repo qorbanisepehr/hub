@@ -1,6 +1,6 @@
 import { createRoute } from "@tanstack/react-router";
 import { Route as ProtectedRoute } from "@/routes/_protected";
-import { ErrorPage } from "@/components/shared/error-page";
+import { ErrorPage } from "@/components/layout";
 
 export const Route = createRoute({
     getParentRoute: () => ProtectedRoute,

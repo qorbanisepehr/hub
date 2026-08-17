@@ -13,23 +13,23 @@ import {
 } from "@/features/cv/constants";
 import { buildValidateSubmitData } from "@/features/cv/validation";
 import { useCvSubmitOptions } from "@/features/cv/hooks/use-cv-submit-options";
-import { FormValidationSummary } from "@/components/shared/form-validation-summary";
+import { FormValidationSummary } from "@/components/forms";
 import {
     groupFieldErrorsBySection,
     validateDocumentRequirements,
 } from "@/lib/validation-helpers";
-import { QuestionnaireDocumentPreview } from "@/components/shared/questionnaire-document-preview";
-import { DocumentViewer } from "@/components/shared/document-viewer";
-import { PersonalInfoView } from "@/components/shared/section-views/personal-info-view";
-import { ContactInfoView } from "@/components/shared/section-views/contact-info-view";
-import { EducationView } from "@/components/shared/section-views/education-view";
-import { WorkExperienceView } from "@/components/shared/section-views/work-experience-view";
-import { SkillsView } from "@/components/shared/section-views/skills-view";
-import { TrainingView } from "@/components/shared/section-views/training-view";
-import { AdditionalInfoView } from "@/components/shared/section-views/additional-info-view";
+import { QuestionnaireDocumentPreview } from "@/components/documents";
+import { DocumentViewer } from "@/components/documents";
+import { PersonalInfoView } from "@/components/section-views/personal-info-view";
+import { ContactInfoView } from "@/components/section-views/contact-info-view";
+import { EducationView } from "@/components/section-views/education-view";
+import { WorkExperienceView } from "@/components/section-views/work-experience-view";
+import { SkillsView } from "@/components/section-views/skills-view";
+import { TrainingView } from "@/components/section-views/training-view";
+import { AdditionalInfoView } from "@/components/section-views/additional-info-view";
 import {
     SectionEditButton,
-} from "@/components/shared/section-views/section-card";
+} from "@/components/section-views/section-card";
 
 type SectionProps = {
     form: CvFormApi;

@@ -19,7 +19,7 @@ import {
     FieldGroup,
 } from "@/components/ui/field";
 import { cn } from "@/lib/utils";
-import { useAuth } from "@/features/auth/useAuth";
+import { useAuth } from "@/features/auth";
 import { IdentifierField } from "@/features/auth/components/identifier-field";
 import { CodeField } from "@/features/auth/components/code-field";
 import { PasswordField } from "@/features/auth/components/password-field";

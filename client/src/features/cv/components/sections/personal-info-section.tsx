@@ -3,12 +3,12 @@ import { useStore } from "@tanstack/react-form";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { FormTextField, FormDatePicker } from "@/components/shared/form-fields";
+import { FormTextField, FormDatePicker } from "@/components/forms";
 import {
     PlaceFields,
     FormOptionRadioGroup,
-} from "@/components/shared/form-option-fields";
-import { FileUploadField } from "@/components/shared/file-upload-field";
+} from "@/components/forms";
+import { FileUploadField } from "@/components/documents";
 import { useFormOptionsByGroup } from "@/features/form-options/hooks/use-form-options";
 import { buildPersonalInfoSchemas } from "@/features/cv/schemas/personal-info.schema";
 import {

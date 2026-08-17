@@ -10,14 +10,14 @@ import { toast } from "sonner";
 
 import { documentKeys } from "@/lib/query-keys";
 import { getApiError } from "@/lib/error-utils";
-import { formatBytes } from "@/lib/file-size";
+import { formatBytes } from "@/lib/file-utils";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { ResponsiveDialog } from "@/components/ui/responsive-dialog";
 import { FileThumbnail } from "@/components/ui/file-thumbnail";
-import { getFileIcon } from "@/lib/file-icon";
-import { getFileColorClasses } from "@/lib/file-colors";
+import { getFileIcon } from "@/lib/file-utils";
+import { getFileColorClasses } from "@/lib/file-utils";
 import {
     fetchEmployeeDocumentLibrary,
     selectFromLibrary,

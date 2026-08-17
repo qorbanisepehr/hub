@@ -12,10 +12,10 @@ import {
 } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { ErrorBanner } from "@/components/shared/error-banner";
-import { UnsavedChangesDialog } from "@/components/shared/unsaved-changes-dialog";
+import { ErrorBanner } from "@/components/layout";
+import { UnsavedChangesDialog } from "@/components/layout";
 import { PasswordField } from "@/features/auth/components/password-field";
-import { FormTextField } from "@/components/shared/form-fields";
+import { FormTextField } from "@/components/forms";
 
 const baseUserSchema = z.object({
     name: z

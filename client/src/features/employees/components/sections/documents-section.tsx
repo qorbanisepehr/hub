@@ -12,8 +12,8 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { FileUploadField } from "@/components/shared/file-upload-field";
-import { DocumentFileItem } from "@/components/shared/document-file-item";
+import { FileUploadField } from "@/components/documents";
+import { DocumentFileItem } from "@/components/documents";
 import { useEmployeeDocuments } from "@/features/employees/hooks/use-employee-documents";
 import type { EmployeeDocument } from "@/features/employees/hooks/use-employee-documents";
 import { EmployeeDocumentTrashModal } from "./employee-document-trash-modal";

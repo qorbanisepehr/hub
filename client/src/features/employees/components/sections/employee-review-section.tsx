@@ -1,9 +1,9 @@
 import { useMemo } from "react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { FormValidationSummary } from "@/components/shared/form-validation-summary";
-import { DocumentViewer } from "@/components/shared/document-viewer";
-import { QuestionnaireDocumentPreview } from "@/components/shared/questionnaire-document-preview";
+import { FormValidationSummary } from "@/components/forms";
+import { DocumentViewer } from "@/components/documents";
+import { QuestionnaireDocumentPreview } from "@/components/documents";
 import type { Employee, EmployeeFormApi } from "@/features/employees/types";
 import {
     EMPLOYEE_DOC_REQUIREMENTS,
@@ -23,16 +23,16 @@ import { toPersonalInfoPayload } from "@/features/questionnaire/schemas/personal
 import { toContactInfoPayload } from "@/features/questionnaire/schemas/contact-info.schema";
 import { toEmploymentPayload } from "@/features/employees/schemas/employment.schema";
 import { toSocialInsurancePayload } from "@/features/employees/schemas/social-insurance.schema";
-import { PersonalInfoView } from "@/components/shared/section-views/personal-info-view";
-import { ContactInfoView } from "@/components/shared/section-views/contact-info-view";
+import { PersonalInfoView } from "@/components/section-views/personal-info-view";
+import { ContactInfoView } from "@/components/section-views/contact-info-view";
 import { EmploymentInfoView } from "@/features/employees/components/views/employment-info-view";
 import { SocialInsuranceView } from "@/features/employees/components/views/social-insurance-view";
-import { EducationView } from "@/components/shared/section-views/education-view";
-import { WorkExperienceView } from "@/components/shared/section-views/work-experience-view";
-import { SkillsView } from "@/components/shared/section-views/skills-view";
-import { TrainingView } from "@/components/shared/section-views/training-view";
-import { AdditionalInfoView } from "@/components/shared/section-views/additional-info-view";
-import { SectionEditButton } from "@/components/shared/section-views/section-card";
+import { EducationView } from "@/components/section-views/education-view";
+import { WorkExperienceView } from "@/components/section-views/work-experience-view";
+import { SkillsView } from "@/components/section-views/skills-view";
+import { TrainingView } from "@/components/section-views/training-view";
+import { AdditionalInfoView } from "@/components/section-views/additional-info-view";
+import { SectionEditButton } from "@/components/section-views/section-card";
 
 type EmployeeReviewSectionProps = {
     form: EmployeeFormApi;

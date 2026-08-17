@@ -18,8 +18,8 @@ import {
     IconUserScan,
     IconUsersGroup,
 } from "@tabler/icons-react";
-import { Logo, LogoType } from "@/components/shared/logo";
-import { useAuth } from "@/features/auth/useAuth";
+import { Logo, LogoType } from "@/components/navigation";
+import { useAuth } from "@/features/auth";
 import { useBranding } from "@/features/settings/hooks/use-branding";
 import { COMPANY_NAME } from "@/lib/brand";
 

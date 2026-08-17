@@ -8,9 +8,9 @@ import { IconLoader2, IconSend } from "@tabler/icons-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { FormTextField } from "@/components/shared/form-fields";
-import { ErrorBanner } from "@/components/shared/error-banner";
-import { OtpVerificationForm } from "@/components/shared/otp-verification-form";
+import { FormTextField } from "@/components/forms";
+import { ErrorBanner } from "@/components/layout";
+import { OtpVerificationForm } from "@/components/forms";
 import {
     initQuestionnaire,
     verifyInitOtp,

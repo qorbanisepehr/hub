@@ -13,7 +13,7 @@ import {
 } from "@tabler/icons-react";
 
 import { Button } from "@/components/ui/button";
-import { ErrorBanner } from "@/components/shared/error-banner";
+import { ErrorBanner } from "@/components/layout";
 import {
     Stepper,
     StepperNav,

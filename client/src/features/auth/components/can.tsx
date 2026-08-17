@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { useCan } from "@/features/auth/useCan";
+import { useCan } from "@/features/auth";
 
 interface CanProps {
     permission: string;

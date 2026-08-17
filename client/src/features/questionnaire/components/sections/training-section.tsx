@@ -3,11 +3,11 @@ import {
     FormTextField,
     FormTextarea,
     FormDatePicker,
-} from "@/components/shared/form-fields";
-import { FileUploadField } from "@/components/shared/file-upload-field";
-import { repeaterAttachmentColumn } from "@/components/shared/repeater-attachment-cell";
-import { FormRepeater } from "@/components/shared/form-repeater";
-import type { TableColumn } from "@/components/shared/form-repeater";
+} from "@/components/forms";
+import { FileUploadField } from "@/components/documents";
+import { repeaterAttachmentColumn } from "@/components/forms";
+import { FormRepeater } from "@/components/forms";
+import type { TableColumn } from "@/components/forms";
 import { DOC_CATEGORY_SLUGS } from "@/features/questionnaire/constants";
 import { useEntityDocuments } from "@/hooks/use-entity-documents";
 import { zodFieldValidators } from "@/lib/validation-helpers";

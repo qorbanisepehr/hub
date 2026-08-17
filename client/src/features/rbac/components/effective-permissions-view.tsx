@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { isAxiosError } from "axios";
 import { Badge } from "@/components/ui/badge";
-import { ViewSkeleton } from "@/components/shared/view-skeleton";
+import { ViewSkeleton } from "@/components/layout";
 import { fetchUserAuthorization } from "@/features/rbac/api";
 import { userKeys } from "@/lib/query-keys";
 import type { AuthorizationResponse } from "@/features/auth/types";

@@ -22,15 +22,15 @@ import {
 import { RoleSearchSelect } from "@/features/rbac/components/role-search-select";
 import { PermissionSelector } from "@/features/rbac/components/permission-selector";
 import { RuleBuilder } from "@/features/rbac/components/rule-builder";
-import { FormRepeater } from "@/components/shared/form-repeater";
+import { FormRepeater } from "@/components/forms";
 import {
     FormTextField,
     FormSelectField,
     FormNumberField,
     FormCheckboxGroup,
-} from "@/components/shared/form-fields";
-import { ErrorBanner } from "@/components/shared/error-banner";
-import { UnsavedChangesDialog } from "@/components/shared/unsaved-changes-dialog";
+} from "@/components/forms";
+import { ErrorBanner } from "@/components/layout";
+import { UnsavedChangesDialog } from "@/components/layout";
 import { zodFieldValidators } from "@/lib/validation-helpers";
 import { fetchAllRoles } from "@/features/rbac/api";
 import { roleKeys } from "@/lib/query-keys";

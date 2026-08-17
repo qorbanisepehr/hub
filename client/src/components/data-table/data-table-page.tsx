@@ -22,10 +22,10 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
-import { TableSkeleton } from "@/components/shared/table-skeleton";
-import { PageLayout } from "@/components/shared/page-layout";
-import { EmptyState } from "@/components/shared/empty-state";
-import { ErrorSection } from "@/components/shared/error-section";
+import { TableSkeleton } from "@/components/layout";
+import { PageLayout } from "@/components/layout";
+import { EmptyState } from "@/components/layout";
+import { ErrorSection } from "@/components/layout";
 import { DataTablePagination } from "./pagination";
 
 type Meta = {

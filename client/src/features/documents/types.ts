@@ -1,4 +1,4 @@
-import { formatBytes } from "@/lib/file-size";
+import { formatBytes } from "@/lib/file-utils";
 
 export type DocumentDimensions = {
     min_width?: number;

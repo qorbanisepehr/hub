@@ -8,10 +8,10 @@ import { fetchUser, updateUser } from "@/features/rbac/api";
 import { getApiError } from "@/lib/error-utils";
 import { UserForm } from "@/features/rbac/components/user-form";
 import { PermissionGuard } from "@/features/auth/components/permission-guard";
-import { PageLayout } from "@/components/shared/page-layout";
-import { ErrorPage } from "@/components/shared/error-page";
-import { PageHeader } from "@/components/shared/page-header";
-import { PageSkeleton } from "@/components/shared/page-skeleton";
+import { PageLayout } from "@/components/layout";
+import { ErrorPage } from "@/components/layout";
+import { PageHeader } from "@/components/layout";
+import { PageSkeleton } from "@/components/layout";
 import { userKeys } from "@/lib/query-keys";
 
 export function UserEditPage() {

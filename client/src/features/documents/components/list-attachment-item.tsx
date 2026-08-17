@@ -12,7 +12,7 @@ import {
     AttachmentTitle,
     AttachmentTrigger,
 } from "@/components/ui/attachment";
-import { DocumentThumbnail } from "@/components/shared/document-thumbnail";
+import { DocumentThumbnail } from "@/components/documents";
 import { ConfirmDeleteActions } from "./confirm-delete-actions";
 import { buildParentPath, getExactCategoryName, getDocOriginalName } from "@/features/documents/types";
 import type { Document, DocumentCategory } from "@/features/documents/types";
