@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { IconPlus, IconLoader2 } from "@tabler/icons-react";
 
@@ -65,7 +65,20 @@ export function RuleEditorDialog({
     permissions,
     initialRule,
 }: RuleEditorDialogProps) {
-    const [draft, setDraft] = useState<EditorDraft>(emptyDraft());
+    const [draft, setDraft] = useState<EditorDraft>(() =>
+        initialRule
+            ? {
+                  permission_id: initialRule.permission_id,
+                  effect: initialRule.effect,
+                  priority:
+                      initialRule.priority === null
+                          ? "0"
+                          : String(initialRule.priority),
+                  is_active: initialRule.is_active ?? true,
+                  conditions: policyToDraft(initialRule.policy),
+              }
+            : emptyDraft(),
+    );
     const [previewUser, setPreviewUser] = useState<UserListItem | null>(null);
     const [previewResourceType, setPreviewResourceType] = useState("");
     const [previewResourceId, setPreviewResourceId] = useState("");
@@ -101,30 +114,6 @@ export function RuleEditorDialog({
     const previewMutation = useMutation({
         mutationFn: previewRule,
     });
-
-    useEffect(() => {
-        if (open) {
-            setDraft(
-                initialRule
-                    ? {
-                          permission_id: initialRule.permission_id,
-                          effect: initialRule.effect,
-                          priority:
-                              initialRule.priority === null
-                                  ? "0"
-                                  : String(initialRule.priority),
-                          is_active: initialRule.is_active ?? true,
-                          conditions: policyToDraft(initialRule.policy),
-                      }
-                    : emptyDraft(),
-            );
-            setPreviewUser(null);
-            setPreviewResourceType("");
-            setPreviewResourceId("");
-            previewMutation.reset();
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [open]);
 
     const setPermission = (permissionId: number) => {
         setDraft((current) => ({
@@ -194,6 +183,7 @@ export function RuleEditorDialog({
 
     return (
         <Dialog
+            key={initialRule?.permission_id ?? "new"}
             open={open}
             onOpenChange={(next) => {
                 if (!next) previewMutation.reset();

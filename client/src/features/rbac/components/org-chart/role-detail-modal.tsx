@@ -27,7 +27,7 @@ import {
 } from "@tabler/icons-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 
 function UserAvatar({
@@ -84,13 +84,6 @@ export function RoleDetailModal({
     const [tab, setTab] = useState("info");
     const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
 
-    useEffect(() => {
-        if (open) {
-            setTab("info");
-            setSelectedUserId(null);
-        }
-    }, [open]);
-
     const assignUserMutation = useMutation({
         mutationFn: (userId: number) => assignUserRole(userId, role!.id),
         onSuccess: () => {
@@ -121,6 +114,7 @@ export function RoleDetailModal({
 
     return (
         <ResponsiveDialog
+            key={role.id}
             open={open}
             onOpenChange={onOpenChange}
             title={role.display_name}

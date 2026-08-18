@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { IconDownload, IconLoader2 } from "@tabler/icons-react";
@@ -33,6 +33,7 @@ export function ExportChartDialog({
     onOpenChange,
 }: ExportChartDialogProps) {
     const { data: roles } = useRoleChart();
+    const [dialogKey, setDialogKey] = useState(0);
     const [scope, setScope] = useState<"all" | "subtree">("all");
     const [rootId, setRootId] = useState<number | null>(null);
     const [selectedFields, setSelectedFields] = useState<string[]>([]);
@@ -47,14 +48,6 @@ export function ExportChartDialog({
         enabled: open,
     });
     const fieldList: ChartExportField[] = fields ?? [];
-
-    useEffect(() => {
-        if (open) {
-            setScope("all");
-            setRootId(null);
-            setSelectedFields(DEFAULT_FIELDS);
-        }
-    }, [open]);
 
     const rootOptions = useMemo(
         () =>
@@ -117,8 +110,12 @@ export function ExportChartDialog({
 
     return (
         <ResponsiveDialog
+            key={dialogKey}
             open={open}
-            onOpenChange={onOpenChange}
+            onOpenChange={(next) => {
+                if (next) setDialogKey((k) => k + 1);
+                onOpenChange(next);
+            }}
             title="خروجی چارت سازمانی"
             description="خروجی CSV سازگار با Visio برای واردسازی چارت سازمانی"
             footer={

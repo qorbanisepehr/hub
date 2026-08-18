@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useReducer } from "react";
 import {
     Background,
     BackgroundVariant,
@@ -52,6 +52,58 @@ import { useFullscreen } from "@/hooks/use-full-screen";
 const nodeTypes = { customNode: CustomNode };
 const usersNodeTypes = { customNode: UsersNode };
 
+type ChartUIState = {
+    collapsedSet: Set<number>;
+    subtreeRootId: number | null;
+    layoutDirection: ChartDirection;
+    selectedRoleId: number | null;
+    modalOpen: boolean;
+};
+
+type ChartUIAction =
+    | { type: "TOGGLE_COLLAPSE"; roleId: number; descendants: number[] }
+    | { type: "SET_FOCUS"; collapsedSet: Set<number> }
+    | { type: "SET_SUBTREE"; roleId: number | null }
+    | { type: "EXPAND_ALL" }
+    | { type: "COLLAPSE_ALL"; collapsedSet: Set<number> }
+    | { type: "RESET_VIEW" }
+    | { type: "SET_LAYOUT"; direction: ChartDirection }
+    | { type: "SELECT_ROLE"; roleId: number }
+    | { type: "CLOSE_MODAL" };
+
+function chartUIReducer(state: ChartUIState, action: ChartUIAction): ChartUIState {
+    switch (action.type) {
+        case "TOGGLE_COLLAPSE": {
+            const next = new Set(state.collapsedSet);
+            if (next.has(action.roleId)) {
+                next.delete(action.roleId);
+            } else {
+                next.add(action.roleId);
+                for (const desc of action.descendants) {
+                    next.delete(desc);
+                }
+            }
+            return { ...state, collapsedSet: next };
+        }
+        case "SET_FOCUS":
+            return { ...state, collapsedSet: action.collapsedSet, subtreeRootId: null };
+        case "SET_SUBTREE":
+            return { ...state, subtreeRootId: action.roleId };
+        case "EXPAND_ALL":
+            return { ...state, collapsedSet: new Set(), subtreeRootId: null };
+        case "COLLAPSE_ALL":
+            return { ...state, collapsedSet: action.collapsedSet, subtreeRootId: null };
+        case "RESET_VIEW":
+            return { ...state, collapsedSet: new Set(), subtreeRootId: null };
+        case "SET_LAYOUT":
+            return { ...state, layoutDirection: action.direction };
+        case "SELECT_ROLE":
+            return { ...state, selectedRoleId: action.roleId, modalOpen: true };
+        case "CLOSE_MODAL":
+            return { ...state, modalOpen: false };
+    }
+}
+
 function RoleOrgChartInner({
     roles,
     isLoading,
@@ -69,12 +121,13 @@ function RoleOrgChartInner({
     userFilter: ChartUserFilter;
     statusFilter: ChartStatusFilter;
 }) {
-    const [collapsedSet, setCollapsedSet] = useState<Set<number>>(new Set());
-    const [subtreeRootId, setSubtreeRootId] = useState<number | null>(null);
-    const [layoutDirection, setLayoutDirection] =
-        useState<ChartDirection>("TB");
-    const [selectedRoleId, setSelectedRoleId] = useState<number | null>(null);
-    const [modalOpen, setModalOpen] = useState(false);
+    const [uiState, dispatch] = useReducer(chartUIReducer, {
+        collapsedSet: new Set(),
+        subtreeRootId: null,
+        layoutDirection: "TB" as ChartDirection,
+        selectedRoleId: null,
+        modalOpen: false,
+    });
     const { fitView } = useReactFlow();
     const togglingRef = useRef(false);
     const flowRef = useRef<HTMLDivElement>(null);
@@ -114,12 +167,12 @@ function RoleOrgChartInner({
     const chartRoles = filteredRoles;
 
     const selectedRole = useMemo(
-        () => roles.find((role) => role.id === selectedRoleId) ?? null,
-        [roles, selectedRoleId],
+        () => roles.find((role) => role.id === uiState.selectedRoleId) ?? null,
+        [roles, uiState.selectedRoleId],
     );
 
     const handleLayoutChange = useCallback((direction: ChartDirection) => {
-        setLayoutDirection(direction);
+        dispatch({ type: "SET_LAYOUT", direction });
     }, []);
 
     const onToggle = useCallback(
@@ -128,19 +181,8 @@ function RoleOrgChartInner({
                 return;
             }
             togglingRef.current = true;
-            setCollapsedSet((prev) => {
-                const next = new Set(prev);
-                if (next.has(roleId)) {
-                    next.delete(roleId);
-                } else {
-                    const descendants = getDescendantIds(roleId, chartRoles);
-                    next.add(roleId);
-                    for (const descendant of descendants) {
-                        next.delete(descendant);
-                    }
-                }
-                return next;
-            });
+            const descendants = getDescendantIds(roleId, chartRoles);
+            dispatch({ type: "TOGGLE_COLLAPSE", roleId, descendants });
             requestAnimationFrame(() => {
                 togglingRef.current = false;
             });
@@ -153,8 +195,7 @@ function RoleOrgChartInner({
 
     const onFocus = useCallback(
         (roleId: number) => {
-            setSubtreeRootId(null);
-            setCollapsedSet(getFocusCollapsedSet(roleId, chartRoles));
+            dispatch({ type: "SET_FOCUS", collapsedSet: getFocusCollapsedSet(roleId, chartRoles) });
         },
         [chartRoles],
     );
@@ -164,8 +205,7 @@ function RoleOrgChartInner({
 
     const onShowAncestors = useCallback(
         (roleId: number) => {
-            setSubtreeRootId(null);
-            setCollapsedSet(getAncestorCollapsedSet(roleId, chartRoles));
+            dispatch({ type: "SET_FOCUS", collapsedSet: getAncestorCollapsedSet(roleId, chartRoles) });
         },
         [chartRoles],
     );
@@ -174,40 +214,37 @@ function RoleOrgChartInner({
     onShowAncestorsRef.current = onShowAncestors;
 
     const onShowSubtree = useCallback((roleId: number) => {
-        setSubtreeRootId(roleId);
+        dispatch({ type: "SET_SUBTREE", roleId });
     }, []);
 
     const onShowSubtreeRef = useRef(onShowSubtree);
     onShowSubtreeRef.current = onShowSubtree;
 
     const onExpandAll = useCallback(() => {
-        setSubtreeRootId(null);
-        setCollapsedSet(new Set());
+        dispatch({ type: "EXPAND_ALL" });
     }, []);
 
     const onCollapseAll = useCallback(() => {
-        setSubtreeRootId(null);
-        setCollapsedSet(getCollapseAllSet(chartRoles));
+        dispatch({ type: "COLLAPSE_ALL", collapsedSet: getCollapseAllSet(chartRoles) });
     }, [chartRoles]);
 
     const onResetView = useCallback(() => {
-        setSubtreeRootId(null);
-        setCollapsedSet(new Set());
+        dispatch({ type: "RESET_VIEW" });
         fitView({ padding: 0.3, duration: 400 });
     }, [fitView]);
 
     useEffect(() => {
         if (
-            subtreeRootId != null &&
-            !chartRoles.some((role) => role.id === subtreeRootId)
+            uiState.subtreeRootId != null &&
+            !chartRoles.some((role) => role.id === uiState.subtreeRootId)
         ) {
-            setSubtreeRootId(null);
+            dispatch({ type: "SET_SUBTREE", roleId: null });
         }
-    }, [chartRoles, subtreeRootId]);
+    }, [chartRoles, uiState.subtreeRootId]);
 
     const { nodes: rawNodes, edges: rawEdges } = useMemo(
-        () => buildNodesAndEdges(chartRoles, collapsedSet, subtreeRootId),
-        [chartRoles, collapsedSet, subtreeRootId],
+        () => buildNodesAndEdges(chartRoles, uiState.collapsedSet, uiState.subtreeRootId),
+        [chartRoles, uiState.collapsedSet, uiState.subtreeRootId],
     );
 
     const nodesWithToggle = useMemo(
@@ -230,10 +267,10 @@ function RoleOrgChartInner({
             layoutNodes(
                 nodesWithToggle,
                 rawEdges,
-                layoutDirection,
+                uiState.layoutDirection,
                 viewMode === "users" ? 180 : 150,
             ),
-        [nodesWithToggle, rawEdges, layoutDirection, viewMode],
+        [nodesWithToggle, rawEdges, uiState.layoutDirection, viewMode],
     );
 
     const [nodes, setNodes, onNodesChange] = useNodesState(layoutedNodes);
@@ -258,8 +295,7 @@ function RoleOrgChartInner({
         (_event, node) => {
             const role = roles.find((item) => item.id === Number(node.id));
             if (role) {
-                setSelectedRoleId(role.id);
-                setModalOpen(true);
+                dispatch({ type: "SELECT_ROLE", roleId: role.id });
             }
         },
         [roles],
@@ -390,7 +426,7 @@ function RoleOrgChartInner({
                     offsetScale={1}
                 />
 
-                {subtreeRootId != null && (
+                {uiState.subtreeRootId != null && (
                     <div className="absolute top-4 left-4 z-10">
                         <Button
                             variant="outline"
@@ -428,8 +464,10 @@ function RoleOrgChartInner({
             <RoleDetailModal
                 role={selectedRole}
                 roles={roles}
-                open={modalOpen}
-                onOpenChange={setModalOpen}
+                open={uiState.modalOpen}
+                onOpenChange={(open) => {
+                    if (!open) dispatch({ type: "CLOSE_MODAL" });
+                }}
             />
         </div>
     );
