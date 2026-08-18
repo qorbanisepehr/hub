@@ -44,6 +44,7 @@ import { FileThumbnail } from "@/components/ui/file-thumbnail";
 import { DocumentPreviewLightbox } from "@/features/documents/components/document-preview-lightbox";
 import type { Document } from "@/features/documents/types";
 import type { EntityDocument } from "@/hooks/use-entity-documents";
+import { useDocumentPreview } from "@/hooks/use-document-preview";
 
 /**
  * Group documents by their category, in upload order, so that every uploaded
@@ -508,25 +509,22 @@ function DocumentCardListView({
 export function DocumentViewer({ documents, className }: DocumentViewerProps) {
     const [viewMode, setViewMode] =
         React.useState<DocumentViewerMode>("grouped");
-    const [lightboxIndex, setLightboxIndex] = React.useState<number | null>(
-        null,
-    );
+
+    const {
+        lightboxDocs,
+        lightboxIndex,
+        isPreviewOpen,
+        openPreview,
+        closePreview,
+        navigatePreview,
+    } = useDocumentPreview(documents);
 
     const groups = React.useMemo(
         () => groupDocumentsByCategory(documents),
         [documents],
     );
-    const lightboxDocs = React.useMemo(
-        () => documents.map(toLightboxDocument),
-        [documents],
-    );
 
     if (documents.length === 0) return null;
-
-    function handlePreview(doc: EntityDocument) {
-        const index = documents.findIndex((d) => d.usage_id === doc.usage_id);
-        if (index !== -1) setLightboxIndex(index);
-    }
 
     return (
         <div className={cn("space-y-4", className)}>
@@ -566,32 +564,32 @@ export function DocumentViewer({ documents, className }: DocumentViewerProps) {
             {viewMode === "table" && (
                 <DocumentTableView
                     documents={documents}
-                    onPreview={handlePreview}
+                    onPreview={openPreview}
                 />
             )}
 
             {viewMode === "grouped" && (
-                <DocumentGroupedView groups={groups} onPreview={handlePreview} />
+                <DocumentGroupedView groups={groups} onPreview={openPreview} />
             )}
 
             {viewMode === "tree" && (
-                <DocumentTreeView groups={groups} onPreview={handlePreview} />
+                <DocumentTreeView groups={groups} onPreview={openPreview} />
             )}
 
             {(viewMode === "card" || viewMode === "list") && (
                 <DocumentCardListView
                     groups={groups}
                     viewMode={viewMode}
-                    onPreview={handlePreview}
+                    onPreview={openPreview}
                 />
             )}
 
             <DocumentPreviewLightbox
                 documents={lightboxDocs}
                 currentIndex={lightboxIndex ?? 0}
-                open={lightboxIndex !== null}
-                onClose={() => setLightboxIndex(null)}
-                onNavigate={setLightboxIndex}
+                open={isPreviewOpen}
+                onClose={closePreview}
+                onNavigate={navigatePreview}
             />
         </div>
     );

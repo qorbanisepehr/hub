@@ -23,6 +23,8 @@ import { EmploymentInfoView } from "./views/employment-info-view";
 import { SocialInsuranceView } from "./views/social-insurance-view";
 import { DOC_CATEGORY_SLUGS } from "@/features/questionnaire/constants";
 import { FileThumbnail } from "@/components/ui/file-thumbnail";
+import { useDocumentPreview } from "@/hooks/use-document-preview";
+import { DocumentPreviewLightbox } from "@/features/documents/components/document-preview-lightbox";
 
 const DOC_EXTRA_CLASS = "mt-4 pt-4 border-t";
 
@@ -38,6 +40,19 @@ export function EmployeeProfileView({ employee }: EmployeeProfileViewProps) {
         EMPLOYEE_DOCUMENTS_TAB,
         EMPLOYEE_LINKED_USER_TAB,
     ];
+
+    const personnelPhoto = getDocumentsBySlug(
+        DOC_CATEGORY_SLUGS.PERSONNEL_PHOTO,
+    )[0];
+
+    const {
+        lightboxDocs,
+        lightboxIndex,
+        isPreviewOpen,
+        openPreview,
+        closePreview,
+        navigatePreview,
+    } = useDocumentPreview(personnelPhoto ? [personnelPhoto] : []);
 
     const sectionData: Record<string, Record<string, unknown>> = {
         personal_info: {
@@ -79,26 +94,30 @@ export function EmployeeProfileView({ employee }: EmployeeProfileViewProps) {
 
     const sectionViews: Record<string, () => React.ReactNode> = {
         personal_info: () => {
-            const personnelPhoto = getDocumentsBySlug(
-                DOC_CATEGORY_SLUGS.PERSONNEL_PHOTO,
-            )[0];
             return (
                 <PersonalInfoView
                     data={sectionData.personal_info}
                     topRight={
-                        personnelPhoto && (
-                            <div className="shrink-0">
-                                <FileThumbnail
-                                    file={{
-                                        name: personnelPhoto.structure_name,
-                                        type: personnelPhoto.mime_type,
-                                    }}
-                                    previewImageUrl={personnelPhoto.url}
-                                    className="w-28 rounded-xl overflow-hidden"
-                                    previewAspectRatio={3 / 4}
-                                />
-                            </div>
-                        )
+                        <div className="shrink-0">
+                            <FileThumbnail
+                                file={
+                                    personnelPhoto
+                                        ? {
+                                              name: personnelPhoto.structure_name,
+                                              type: personnelPhoto.mime_type,
+                                          }
+                                        : undefined
+                                }
+                                previewImageUrl={personnelPhoto?.url}
+                                className="w-28 rounded-xl overflow-hidden"
+                                previewAspectRatio={3 / 4}
+                                onPreview={
+                                    personnelPhoto
+                                        ? () => openPreview(personnelPhoto)
+                                        : undefined
+                                }
+                            />
+                        </div>
                     }
                     extra={docExtra("personal_info")}
                 />
@@ -181,6 +200,13 @@ export function EmployeeProfileView({ employee }: EmployeeProfileViewProps) {
                     {renderTab(tab.key)}
                 </TabsContent>
             ))}
+            <DocumentPreviewLightbox
+                documents={lightboxDocs}
+                currentIndex={lightboxIndex ?? 0}
+                open={isPreviewOpen}
+                onClose={closePreview}
+                onNavigate={navigatePreview}
+            />
         </Tabs>
     );
 }

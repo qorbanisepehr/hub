@@ -1,12 +1,18 @@
 import * as React from "react";
+import { IconEye, IconFile, IconLoader2 } from "@tabler/icons-react";
+
+import { cn } from "@/lib/utils";
+import { getFileIcon, getFileColorClasses } from "@/lib/file-utils";
 
 export type ThumbnailFile = {
     name: string;
     type: string;
 };
 
+export type FileThumbnailVariant = "thumbnail" | "icon" | "detailed";
+
 export type FileThumbnailProps = {
-    file: ThumbnailFile | File;
+    file?: ThumbnailFile | File | null;
     className?: string;
     previewAspectRatio?: number;
     previewClassName?: string;
@@ -14,11 +20,11 @@ export type FileThumbnailProps = {
     previewImageUrl?: string | null;
     isLoading?: boolean;
     hasError?: boolean;
+    /** Show a lightbox preview button on hover. */
+    onPreview?: () => void;
+    /** Display variant: "thumbnail" (default), "icon" (icon only), "detailed" (with name + type). */
+    variant?: FileThumbnailVariant;
 };
-
-function cx(...classes: Array<string | false | null | undefined>) {
-    return classes.filter(Boolean).join(" ");
-}
 
 // Preview URLs that have completed a reveal this session. View/tab switches
 // remount thumbnails; URLs in this set render instantly instead of replaying
@@ -37,6 +43,19 @@ export function FileThumbnailLoadingOverlay() {
     );
 }
 
+function SkeletonLoader({ className }: { className?: string }) {
+    return (
+        <div
+            className={cn(
+                "absolute inset-0 z-10 flex items-center justify-center bg-muted",
+                className,
+            )}
+        >
+            <IconLoader2 className="size-1/3 animate-spin text-muted-foreground/50" />
+        </div>
+    );
+}
+
 export function FileThumbnail({
     className,
     previewAspectRatio,
@@ -45,7 +64,36 @@ export function FileThumbnail({
     previewImageUrl,
     isLoading = false,
     hasError = false,
+    onPreview,
+    variant = "thumbnail",
+    file,
 }: FileThumbnailProps) {
+    // ── Null/undefined file: show skeleton placeholder ──
+    if (!file) {
+        return (
+            <div
+                className={cn(
+                    "relative overflow-hidden rounded-lg border bg-background",
+                    className,
+                )}
+            >
+                <div
+                    className={cn(
+                        "relative aspect-square bg-muted",
+                        previewClassName,
+                    )}
+                    style={
+                        previewAspectRatio
+                            ? { aspectRatio: String(previewAspectRatio) }
+                            : undefined
+                    }
+                >
+                    <SkeletonLoader />
+                </div>
+            </div>
+        );
+    }
+
     const imageRef = React.useRef<HTMLImageElement | null>(null);
     const revealFrameRef = React.useRef<number | null>(null);
     const [loadedPreviewImageUrl, setLoadedPreviewImageUrl] = React.useState<
@@ -128,15 +176,114 @@ export function FileThumbnail({
         }
     }, [markImageLoaded, previewImageUrl]);
 
+    // ── Variant: icon (just the file type icon) ──
+    if (variant === "icon") {
+        const mimeType = typeof file === "object" && "type" in file ? file.type : "";
+        return (
+            <div
+                className={cn(
+                    "flex shrink-0 items-center justify-center rounded-md",
+                    getFileColorClasses(mimeType),
+                    className,
+                )}
+            >
+                {getFileIcon(mimeType, "size-1/2")}
+            </div>
+        );
+    }
+
+    // ── Variant: detailed (thumbnail + name + type) ──
+    if (variant === "detailed") {
+        const fileName = typeof file === "object" && "name" in file ? file.name : "";
+        const mimeType = typeof file === "object" && "type" in file ? file.type : "";
+        const isImage = mimeType.startsWith("image/");
+
+        return (
+            <div className={cn("flex items-start gap-3", className)}>
+                <div
+                    className={cn(
+                        "relative shrink-0 overflow-hidden rounded-md bg-muted",
+                        previewClassName,
+                    )}
+                    style={
+                        previewAspectRatio
+                            ? { aspectRatio: String(previewAspectRatio) }
+                            : undefined
+                    }
+                >
+                    {previewImageUrl && isImage ? (
+                        <>
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                                ref={imageRef}
+                                src={previewImageUrl}
+                                alt=""
+                                draggable={false}
+                                loading="lazy"
+                                decoding="async"
+                                className={cn(
+                                    "absolute inset-0 block size-full object-cover transition-[opacity,filter] duration-160 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
+                                    showLoading
+                                        ? "opacity-0 blur-sm"
+                                        : "blur-0 opacity-100",
+                                )}
+                                onLoad={(event) =>
+                                    markImageLoaded(event.currentTarget, previewImageUrl)
+                                }
+                                onError={() => {
+                                    if (previewImageUrl) {
+                                        revealedPreviewImageUrls.delete(previewImageUrl);
+                                        cancelImageReveal();
+                                        setFailedPreviewImageUrl(previewImageUrl);
+                                        setLoadedPreviewImageUrl((c) =>
+                                            c === previewImageUrl ? null : c,
+                                        );
+                                    }
+                                }}
+                            />
+                            {showLoading && <SkeletonLoader />}
+                        </>
+                    ) : (
+                        <div
+                            className={cn(
+                                "flex size-full items-center justify-center",
+                                getFileColorClasses(mimeType),
+                            )}
+                        >
+                            {getFileIcon(mimeType, "size-1/2")}
+                        </div>
+                    )}
+                    {onPreview && !showLoading && (
+                        <button
+                            type="button"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onPreview();
+                            }}
+                            className="absolute inset-0 z-20 flex items-center justify-center rounded-md bg-black/0 text-white opacity-0 transition-all hover:bg-black/40 hover:opacity-100"
+                            aria-label="پیش‌نمایش"
+                        >
+                            <IconEye className="size-5" />
+                        </button>
+                    )}
+                </div>
+                <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium">{fileName}</p>
+                </div>
+            </div>
+        );
+    }
+
+    // ── Variant: thumbnail (default) ──
     return (
         <div
-            className={cx(
-                "group overflow-hidden rounded-lg border bg-background text-foreground",
+            className={cn(
+                "group relative overflow-hidden rounded-lg border bg-background text-foreground",
                 className,
             )}
         >
             <div
-                className={cx(
+                className={cn(
                     "relative aspect-square overflow-hidden bg-muted contain-[layout_paint]",
                     previewClassName,
                 )}
@@ -155,7 +302,7 @@ export function FileThumbnail({
                         draggable={false}
                         loading="lazy"
                         decoding="async"
-                        className={cx(
+                        className={cn(
                             "absolute inset-0 block size-full object-cover transition-[opacity,filter] duration-160 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
                             showLoading
                                 ? "opacity-0 blur-sm"
@@ -185,7 +332,7 @@ export function FileThumbnail({
                 ) : null}
                 {previewContent ? (
                     <div
-                        className={cx(
+                        className={cn(
                             "absolute inset-0 size-full transition-[opacity,filter] duration-160 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
                             showLoading
                                 ? "opacity-0 blur-sm"
@@ -195,13 +342,26 @@ export function FileThumbnail({
                         {previewContent}
                     </div>
                 ) : null}
-                {showLoading ? <FileThumbnailLoadingOverlay /> : null}
+                {showLoading ? <SkeletonLoader /> : null}
                 {showFallback ? (
                     <div
                         className="absolute inset-0 bg-muted"
                         aria-hidden="true"
                     />
                 ) : null}
+                {onPreview && !showLoading && !showFallback && (
+                    <button
+                        type="button"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onPreview();
+                        }}
+                        className="absolute inset-0 z-20 flex items-center justify-center rounded-lg bg-black/0 text-white opacity-0 transition-all group-hover:bg-black/40 group-hover:opacity-100"
+                        aria-label="پیش‌نمایش"
+                    >
+                        <IconEye className="size-5" />
+                    </button>
+                )}
             </div>
         </div>
     );

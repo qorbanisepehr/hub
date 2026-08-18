@@ -1,6 +1,8 @@
 export { FileUploadField } from './file-upload-field';
+export type { FileUploadFieldVariant, FileUploadActionsPlacement, FileUploadVariantProps } from './file-upload-field';
 export { DocumentFileItem } from './document-file-item';
 export { DocumentViewer, toLightboxDocument, groupDocumentsByCategory } from './document-viewer';
 export type { DocumentViewerMode } from './document-viewer';
 export { DocumentThumbnail } from './document-thumbnail';
 export { QuestionnaireDocumentPreview } from './questionnaire-document-preview';
+export { DocumentPreviewTrigger } from './document-preview-trigger';

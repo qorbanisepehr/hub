@@ -2,21 +2,17 @@
 
 import { useMemo, useState } from "react";
 import { IconFile, IconReplace } from "@tabler/icons-react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
 
 import { cn } from "@/lib/utils";
-import { api } from "@/lib/api";
-import { publicApi } from "@/lib/public-api";
 import { ConfirmDeleteButton } from "@/components/ui/confirm-delete-button";
 import { FileThumbnail } from "@/components/ui/file-thumbnail";
 import { getFileIcon } from "@/lib/file-utils";
 import { getFileColorClasses } from "@/lib/file-utils";
-import { isAuthedDocumentEntity } from "@/hooks/use-entity-documents";
 import type { EntityDocument } from "@/hooks/use-entity-documents";
-import { documentKeys } from "@/lib/query-keys";
 import { DocumentPreviewLightbox } from "@/features/documents/components/document-preview-lightbox";
 import { toLightboxDocument } from "@/components/documents";
+import { useDocumentDelete } from "@/hooks/use-document-delete";
+import { DocumentPreviewTrigger } from "@/components/documents/document-preview-trigger";
 
 type DocumentFileItemProps = {
     uuid: string;
@@ -37,43 +33,6 @@ type DocumentFileItemProps = {
     className?: string;
 };
 
-/**
- * Wraps the thumbnail + name in a clickable region that opens the shared
- * document preview overlay (single-document lightbox, no navigation).
- */
-function PreviewTrigger({
-    onClick,
-    ariaLabel,
-    className,
-    children,
-}: {
-    onClick: () => void;
-    ariaLabel: string;
-    className?: string;
-    children: React.ReactNode;
-}) {
-    return (
-        <div
-            className={cn(
-                "cursor-pointer rounded-md transition-colors hover:bg-muted/40",
-                className,
-            )}
-            onClick={onClick}
-            role="button"
-            tabIndex={0}
-            aria-label={ariaLabel}
-            onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    onClick();
-                }
-            }}
-        >
-            {children}
-        </div>
-    );
-}
-
 export function DocumentFileItem({
     uuid,
     doc,
@@ -86,25 +45,13 @@ export function DocumentFileItem({
     onReplace,
     className,
 }: DocumentFileItemProps) {
-    const queryClient = useQueryClient();
-    const authed = isAuthedDocumentEntity(entity);
-    const docClient = authed ? api : publicApi;
     const [previewOpen, setPreviewOpen] = useState(false);
-
     const previewDoc = useMemo(() => toLightboxDocument(doc), [doc]);
-
-    const deleteMutation = useMutation({
-        mutationFn: (usageId: number) =>
-            docClient.delete(`/${entity}/${uuid}/documents/${usageId}`, {
-                ...(authed ? {} : { grant: { entity, uuid, purpose: "edit" } }),
-            }),
-        onSuccess: () => {
-            queryClient.invalidateQueries({
-                queryKey: documentKeys.entityDocuments(entity, uuid),
-            });
-            toast.success("مدرک حذف شد.");
-        },
-        onError: () => toast.error("خطا در حذف مدرک."),
+    const { deleteDocument, isDeleting } = useDocumentDelete({
+        entity,
+        uuid,
+        successMessage: "مدرک حذف شد.",
+        errorMessage: "خطا در حذف مدرک.",
     });
 
     const isImage = doc.mime_type.startsWith("image/");
@@ -142,7 +89,7 @@ export function DocumentFileItem({
         return (
             <>
                 <div className={cn("flex flex-col items-start gap-0.5", className)}>
-                    <PreviewTrigger
+                    <DocumentPreviewTrigger
                         onClick={() => setPreviewOpen(true)}
                         ariaLabel={`پیش‌نمایش ${doc.structure_name}`}
                         className="flex items-center gap-1 px-1 py-0.5"
@@ -153,7 +100,7 @@ export function DocumentFileItem({
                                 {label}
                             </span>
                         )}
-                    </PreviewTrigger>
+                    </DocumentPreviewTrigger>
                     <div className="flex items-center gap-1 px-1">
                         {onReplace && (
                             <button
@@ -171,8 +118,8 @@ export function DocumentFileItem({
                         {actionsEnabled && (
                             <ConfirmDeleteButton
                                 iconOnly
-                                isPending={deleteMutation.isPending}
-                                onConfirm={() => deleteMutation.mutate(doc.usage_id)}
+                                isPending={isDeleting}
+                                onConfirm={() => deleteDocument(doc.usage_id)}
                             />
                         )}
                     </div>
@@ -185,7 +132,7 @@ export function DocumentFileItem({
     return (
         <>
             <div className={cn("flex items-center gap-3", className)}>
-                <PreviewTrigger
+                <DocumentPreviewTrigger
                     onClick={() => setPreviewOpen(true)}
                     ariaLabel={`پیش‌نمایش ${doc.structure_name}`}
                     className="flex min-w-0 flex-1 items-center gap-3"
@@ -199,7 +146,7 @@ export function DocumentFileItem({
                             </p>
                         )}
                     </div>
-                </PreviewTrigger>
+                </DocumentPreviewTrigger>
                 {onReplace && (
                     <button
                         type="button"
@@ -216,8 +163,8 @@ export function DocumentFileItem({
                 {actionsEnabled && (
                     <ConfirmDeleteButton
                         iconOnly
-                        isPending={deleteMutation.isPending}
-                        onConfirm={() => deleteMutation.mutate(doc.usage_id)}
+                        isPending={isDeleting}
+                        onConfirm={() => deleteDocument(doc.usage_id)}
                     />
                 )}
             </div>

@@ -10,6 +10,7 @@ import { getFileIcon } from "@/lib/file-utils";
 import { getFileColorClasses } from "@/lib/file-utils";
 import { formatBytes } from "@/lib/file-utils";
 import { toLightboxDocument } from "@/components/documents";
+import { DocumentPreviewTrigger } from "@/components/documents/document-preview-trigger";
 import type { QuestionnaireDocument } from "@/features/questionnaire/hooks/use-questionnaire-documents";
 
 type QuestionnaireDocPreviewProps = {
@@ -39,16 +40,9 @@ export function QuestionnaireDocThumbnail({
 
     if (isImageMime(doc.mime_type)) {
         return (
-            <div
-                role="button"
-                tabIndex={0}
-                onClick={onClick}
-                onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        onClick?.();
-                    }
-                }}
+            <DocumentPreviewTrigger
+                onClick={() => onClick?.()}
+                ariaLabel={`پیش‌نمایش ${doc.structure_name}`}
                 className={cn(
                     "overflow-hidden rounded-md border bg-background cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all",
                     sizeClass,
@@ -60,21 +54,14 @@ export function QuestionnaireDocThumbnail({
                     className="size-full rounded-none border-0"
                     previewClassName="aspect-square"
                 />
-            </div>
+            </DocumentPreviewTrigger>
         );
     }
 
     return (
-        <div
-            role="button"
-            tabIndex={0}
-            onClick={onClick}
-            onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    onClick?.();
-                }
-            }}
+        <DocumentPreviewTrigger
+            onClick={() => onClick?.()}
+            ariaLabel={`پیش‌نمایش ${doc.structure_name}`}
             className={cn(
                 "flex shrink-0 items-center justify-center rounded-md border cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all",
                 getFileColorClasses(doc.mime_type),
@@ -82,7 +69,7 @@ export function QuestionnaireDocThumbnail({
             )}
         >
             {getFileIcon(doc.mime_type, "size-1/3")}
-        </div>
+        </DocumentPreviewTrigger>
     );
 }
 
@@ -123,17 +110,10 @@ export function QuestionnaireDocumentPreview({
             <>
                 <div className={cn("flex flex-wrap gap-2", className)}>
                     {documents.map((doc, i) => (
-                        <div
+                        <DocumentPreviewTrigger
                             key={doc.usage_id}
-                            role="button"
-                            tabIndex={0}
                             onClick={() => openLightbox(i)}
-                            onKeyDown={(e) => {
-                                if (e.key === "Enter" || e.key === " ") {
-                                    e.preventDefault();
-                                    openLightbox(i);
-                                }
-                            }}
+                            ariaLabel={`پیش‌نمایش ${doc.structure_name}`}
                             className="flex items-center gap-2 rounded-md border bg-background px-2 py-1 cursor-pointer hover:bg-muted/50 transition-colors"
                         >
                             {isImageMime(doc.mime_type) ? (
@@ -151,7 +131,7 @@ export function QuestionnaireDocumentPreview({
                             <span className="truncate text-xs max-w-24">
                                 {doc.structure_name}
                             </span>
-                        </div>
+                        </DocumentPreviewTrigger>
                     ))}
                 </div>
                 <DocumentPreviewLightbox
@@ -174,16 +154,9 @@ export function QuestionnaireDocumentPreview({
                             key={doc.usage_id}
                             className="flex items-center gap-3 px-3 py-2 group"
                         >
-                            <div
-                                role="button"
-                                tabIndex={0}
+                            <DocumentPreviewTrigger
                                 onClick={() => openLightbox(i)}
-                                onKeyDown={(e) => {
-                                    if (e.key === "Enter" || e.key === " ") {
-                                        e.preventDefault();
-                                        openLightbox(i);
-                                    }
-                                }}
+                                ariaLabel={`پیش‌نمایش ${doc.structure_name}`}
                                 className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer"
                             >
                                 {isImageMime(doc.mime_type) ? (
@@ -208,7 +181,7 @@ export function QuestionnaireDocumentPreview({
                                         </p>
                                     )}
                                 </div>
-                            </div>
+                            </DocumentPreviewTrigger>
                             {onDelete && (
                                 <button
                                     type="button"
