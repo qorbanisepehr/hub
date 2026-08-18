@@ -1,4 +1,4 @@
-import type { ReactFormExtendedApi } from "@tanstack/react-form";
+import type { SectionFormApi } from "@/types/form-types";
 
 import type { EntityDocument } from "@/hooks/use-entity-documents";
 import type {
@@ -134,17 +134,4 @@ export interface VerifyCvResponse {
     message: string;
 }
 
-export type CvFormApi = ReactFormExtendedApi<
-    any,
-    any,
-    any,
-    any,
-    any,
-    any,
-    any,
-    any,
-    any,
-    any,
-    any,
-    any
->;
+export type CvFormApi = SectionFormApi;

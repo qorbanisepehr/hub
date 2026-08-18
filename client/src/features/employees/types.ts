@@ -43,7 +43,7 @@ export type Employee = {
     updated_at: string;
 };
 
-import type { ReactFormExtendedApi } from "@tanstack/react-form";
+import type { SectionFormApi } from "@/types/form-types";
 
 /**
  * Form values for the tabbed profile form. The section keys mirror the server
@@ -66,20 +66,7 @@ export type EmployeeProfileFormData = {
     social_insurance?: Record<string, unknown>;
 };
 
-export type EmployeeFormApi = ReactFormExtendedApi<
-    any,
-    any,
-    any,
-    any,
-    any,
-    any,
-    any,
-    any,
-    any,
-    any,
-    any,
-    any
->;
+export type EmployeeFormApi = SectionFormApi;
 
 /**
  * Base fields collected at creation time. Everything else lives in the section

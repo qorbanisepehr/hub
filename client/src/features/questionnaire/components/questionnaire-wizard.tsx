@@ -45,7 +45,7 @@ import {
     scrollToFirstInvalidField,
     validateDocumentRequirements,
 } from "@/lib/validation-helpers";
-import type { Questionnaire } from "@/features/questionnaire/types";
+import type { Questionnaire, QuestionnaireFormApi } from "@/features/questionnaire/types";
 import {
     defaultPersonalInfo,
     toPersonalInfoPayload,
@@ -334,38 +334,38 @@ export function QuestionnaireWizard({
                 <StepperPanel>
                     <StepperContent index={0}>
                         <PersonalInfoSection
-                            form={form as never}
+                            form={form as unknown as QuestionnaireFormApi}
                             questionnaire={questionnaire}
                             uuid={questionnaire.uuid}
                         />
                     </StepperContent>
 
                     <StepperContent index={1}>
-                        <ContactInfoSection form={form as never} questionnaire={questionnaire} />
+                        <ContactInfoSection form={form as unknown as QuestionnaireFormApi} questionnaire={questionnaire} />
                     </StepperContent>
 
                     <StepperContent index={2}>
-                        <EducationSection form={form as never} uuid={questionnaire.uuid} onPersist={handlePersist} />
+                        <EducationSection form={form as unknown as QuestionnaireFormApi} uuid={questionnaire.uuid} onPersist={handlePersist} />
                     </StepperContent>
 
                     <StepperContent index={3}>
-                        <WorkExperienceSection form={form as never} uuid={questionnaire.uuid} onPersist={handlePersist} />
+                        <WorkExperienceSection form={form as unknown as QuestionnaireFormApi} uuid={questionnaire.uuid} onPersist={handlePersist} />
                     </StepperContent>
 
                     <StepperContent index={4}>
-                        <SkillsSection form={form as never} uuid={questionnaire.uuid} onPersist={handlePersist} />
+                        <SkillsSection form={form as unknown as QuestionnaireFormApi} uuid={questionnaire.uuid} onPersist={handlePersist} />
                     </StepperContent>
 
                     <StepperContent index={5}>
-                        <TrainingSection form={form as never} uuid={questionnaire.uuid} onPersist={handlePersist} />
+                        <TrainingSection form={form as unknown as QuestionnaireFormApi} uuid={questionnaire.uuid} onPersist={handlePersist} />
                     </StepperContent>
 
                     <StepperContent index={6}>
-                        <AdditionalInfoSection form={form as never} onPersist={handlePersist} />
+                        <AdditionalInfoSection form={form as unknown as QuestionnaireFormApi} onPersist={handlePersist} />
                     </StepperContent>
 
                     <StepperContent index={7}>
-                        <JobRequestSection form={form as never} />
+                        <JobRequestSection form={form as unknown as QuestionnaireFormApi} />
                     </StepperContent>
 
                     <StepperContent index={8}>
@@ -374,7 +374,7 @@ export function QuestionnaireWizard({
 
                     <StepperContent index={9}>
                         <ReviewSection
-                            form={form as never}
+                            form={form as unknown as QuestionnaireFormApi}
                             questionnaire={questionnaire}
                             onNavigateToStep={goToStep}
                         />

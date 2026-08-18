@@ -43,7 +43,7 @@ import {
     validateDocumentRequirements,
 } from "@/lib/validation-helpers";
 import { cvKeys } from "@/lib/query-keys";
-import type { Cv } from "@/features/cv/types";
+import type { Cv, CvFormApi } from "@/features/cv/types";
 
 import { PersonalInfoSection } from "./sections/personal-info-section";
 import { ContactInfoSection } from "./sections/contact-info-section";
@@ -393,19 +393,19 @@ export function CvWizard({ cv }: CvWizardProps) {
                 <StepperPanel>
                     <StepperContent index={0}>
                         <PersonalInfoSection
-                            form={form as never}
+                            form={form as unknown as CvFormApi}
                             cv={cv}
                             uuid={cv.uuid}
                         />
                     </StepperContent>
 
                     <StepperContent index={1}>
-                        <ContactInfoSection form={form as never} cv={cv} />
+                        <ContactInfoSection form={form as unknown as CvFormApi} cv={cv} />
                     </StepperContent>
 
                     <StepperContent index={2}>
                         <EducationSection
-                            form={form as never}
+                            form={form as unknown as CvFormApi}
                             uuid={cv.uuid}
                             onPersist={handlePersist}
                         />
@@ -413,7 +413,7 @@ export function CvWizard({ cv }: CvWizardProps) {
 
                     <StepperContent index={3}>
                         <WorkExperienceSection
-                            form={form as never}
+                            form={form as unknown as CvFormApi}
                             uuid={cv.uuid}
                             onPersist={handlePersist}
                         />
@@ -421,7 +421,7 @@ export function CvWizard({ cv }: CvWizardProps) {
 
                     <StepperContent index={4}>
                         <SkillsSection
-                            form={form as never}
+                            form={form as unknown as CvFormApi}
                             uuid={cv.uuid}
                             onPersist={handlePersist}
                         />
@@ -429,7 +429,7 @@ export function CvWizard({ cv }: CvWizardProps) {
 
                     <StepperContent index={5}>
                         <TrainingSection
-                            form={form as never}
+                            form={form as unknown as CvFormApi}
                             uuid={cv.uuid}
                             onPersist={handlePersist}
                         />
@@ -437,7 +437,7 @@ export function CvWizard({ cv }: CvWizardProps) {
 
                     <StepperContent index={6}>
                         <AdditionalInfoSection
-                            form={form as never}
+                            form={form as unknown as CvFormApi}
                             onPersist={handlePersist}
                         />
                     </StepperContent>
@@ -448,7 +448,7 @@ export function CvWizard({ cv }: CvWizardProps) {
 
                     <StepperContent index={8}>
                         <ReviewSection
-                            form={form as never}
+                            form={form as unknown as CvFormApi}
                             cv={cv}
                             onNavigateToStep={goToStep}
                         />

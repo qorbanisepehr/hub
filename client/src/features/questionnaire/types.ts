@@ -1,4 +1,4 @@
-import type { ReactFormExtendedApi } from "@tanstack/react-form";
+import type { SectionFormApi } from "@/types/form-types";
 
 import type { GrantPurpose } from "@/lib/grant";
 
@@ -250,17 +250,4 @@ export interface VerifyQuestionnaireResponse {
     message: string;
 }
 
-export type QuestionnaireFormApi = ReactFormExtendedApi<
-    any,
-    any,
-    any,
-    any,
-    any,
-    any,
-    any,
-    any,
-    any,
-    any,
-    any,
-    any
->;
+export type QuestionnaireFormApi = SectionFormApi;

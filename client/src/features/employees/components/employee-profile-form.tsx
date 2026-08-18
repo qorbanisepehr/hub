@@ -67,6 +67,7 @@ import { getApiError } from "@/lib/error-utils";
 import { employeeKeys } from "@/lib/query-keys";
 import type {
     Employee,
+    EmployeeFormApi,
     EmployeeProfileFormData,
 } from "@/features/employees/types";
 
@@ -347,20 +348,20 @@ export function EmployeeProfileForm({ employee }: EmployeeProfileFormProps) {
             case "personal_info":
                 return (
                     <PersonalInfoSection
-                        form={form as never}
+                        form={form as unknown as EmployeeFormApi}
                         questionnaire={null}
                         uuid={String(employee.id)}
                         entity="employees"
                     />
                 );
             case "contact_info":
-                return <ContactInfoSection form={form as never} />;
+                return <ContactInfoSection form={form as unknown as EmployeeFormApi} />;
             case "employment":
-                return <EmploymentSection form={form as never} />;
+                return <EmploymentSection form={form as unknown as EmployeeFormApi} />;
             case "education":
                 return (
                     <EducationSection
-                        form={form as never}
+                        form={form as unknown as EmployeeFormApi}
                         entity="employees"
                         uuid={String(employee.id)}
                         onPersist={handlePersist}
@@ -369,7 +370,7 @@ export function EmployeeProfileForm({ employee }: EmployeeProfileFormProps) {
             case "work_experience":
                 return (
                     <WorkExperienceSection
-                        form={form as never}
+                        form={form as unknown as EmployeeFormApi}
                         entity="employees"
                         uuid={String(employee.id)}
                         onPersist={handlePersist}
@@ -378,14 +379,14 @@ export function EmployeeProfileForm({ employee }: EmployeeProfileFormProps) {
             case "social_insurance":
                 return (
                     <SocialInsuranceSection
-                        form={form as never}
+                        form={form as unknown as EmployeeFormApi}
                         uuid={String(employee.id)}
                     />
                 );
             case "skills":
                 return (
                     <SkillsSection
-                        form={form as never}
+                        form={form as unknown as EmployeeFormApi}
                         entity="employees"
                         uuid={String(employee.id)}
                         onPersist={handlePersist}
@@ -394,7 +395,7 @@ export function EmployeeProfileForm({ employee }: EmployeeProfileFormProps) {
             case "training":
                 return (
                     <TrainingSection
-                        form={form as never}
+                        form={form as unknown as EmployeeFormApi}
                         entity="employees"
                         uuid={String(employee.id)}
                         onPersist={handlePersist}
@@ -403,7 +404,7 @@ export function EmployeeProfileForm({ employee }: EmployeeProfileFormProps) {
             case "additional_info":
                 return (
                     <AdditionalInfoSection
-                        form={form as never}
+                        form={form as unknown as EmployeeFormApi}
                         onPersist={handlePersist}
                     />
                 );
@@ -414,7 +415,7 @@ export function EmployeeProfileForm({ employee }: EmployeeProfileFormProps) {
             case "review":
                 return (
                     <EmployeeReviewSection
-                        form={form as never}
+                        form={form as unknown as EmployeeFormApi}
                         employee={employee}
                         onNavigateToSection={navigateToSection}
                     />
