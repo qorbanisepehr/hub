@@ -177,11 +177,6 @@ class RoleChartCsvExporter
         $userName = $role?->users[0]?->employee?->first_name ?? $role?->users[0]?->name ?? '';
         $userLastName = $role?->users[0]?->employee?->last_name ?? '';
         $userPersonnelCode = $role?->users[0]?->employee?->personnel_code ?? '';
-        // dd($requirements, $role,
-        //     $userName,
-        //     $userLastName,
-        //     $userPersonnelCode,
-        // );
 
         return match ($field) {
             'system_name' => $role->name,

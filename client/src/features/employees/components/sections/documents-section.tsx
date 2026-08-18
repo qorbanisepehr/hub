@@ -255,6 +255,7 @@ export function DocumentsSection({ employeeId }: SectionProps) {
                                 label="کارت ملی — رو"
                                 accept="image/jpeg,image/png,image/webp,.pdf"
                                 fieldKey="front"
+                                required
                                 replaceEnabled={capabilities.replace}
                                 onReplace={(doc) => dispatch({ type: "SET_REPLACE_TARGET", doc })}
                             />
@@ -265,6 +266,7 @@ export function DocumentsSection({ employeeId }: SectionProps) {
                                 label="کارت ملی — پشت"
                                 accept="image/jpeg,image/png,image/webp,.pdf"
                                 fieldKey="back"
+                                required
                                 replaceEnabled={capabilities.replace}
                                 onReplace={(doc) => dispatch({ type: "SET_REPLACE_TARGET", doc })}
                             />
@@ -282,6 +284,7 @@ export function DocumentsSection({ employeeId }: SectionProps) {
                                 label="شناسنامه — صفحه اول"
                                 accept="image/jpeg,image/png,image/webp,.pdf"
                                 fieldKey="page-1"
+                                required
                                 replaceEnabled={capabilities.replace}
                                 onReplace={(doc) => dispatch({ type: "SET_REPLACE_TARGET", doc })}
                             />
@@ -294,6 +297,7 @@ export function DocumentsSection({ employeeId }: SectionProps) {
                                 label="شناسنامه — صفحه دوم"
                                 accept="image/jpeg,image/png,image/webp,.pdf"
                                 fieldKey="page-2"
+                                required
                                 replaceEnabled={capabilities.replace}
                                 onReplace={(doc) => dispatch({ type: "SET_REPLACE_TARGET", doc })}
                             />
@@ -306,6 +310,7 @@ export function DocumentsSection({ employeeId }: SectionProps) {
                                 label="شناسنامه — صفحه آخر"
                                 accept="image/jpeg,image/png,image/webp,.pdf"
                                 fieldKey="page-3"
+                                required
                                 replaceEnabled={capabilities.replace}
                                 onReplace={(doc) => dispatch({ type: "SET_REPLACE_TARGET", doc })}
                             />

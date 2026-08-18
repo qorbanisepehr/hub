@@ -4,7 +4,7 @@ import { roleKeys } from "@/lib/query-keys";
 
 export function useRoles() {
     return useQuery({
-        queryKey: roleKeys.options(),
+        queryKey: roleKeys.all,
         queryFn: async () => {
             const { data } = await fetchAllRoles();
             return data.data;

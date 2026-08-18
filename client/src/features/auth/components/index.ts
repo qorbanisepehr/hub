@@ -1,4 +1,4 @@
-export { Can } from './can';
+export { Can, Cannot } from './can';
 export { CodeField } from './code-field';
 export { IdentifierField } from './identifier-field';
 export { LoginForm } from './login-form';

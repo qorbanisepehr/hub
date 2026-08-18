@@ -186,6 +186,7 @@ export function DocumentsSection({ uuid }: SectionProps) {
                                 label="کارت ملی — رو"
                                 accept="image/jpeg,image/png,image/webp,.pdf"
                                 fieldKey="front"
+                                required
                             />
                             <FileUploadField
                                 uuid={uuid}
@@ -193,6 +194,7 @@ export function DocumentsSection({ uuid }: SectionProps) {
                                 label="کارت ملی — پشت"
                                 accept="image/jpeg,image/png,image/webp,.pdf"
                                 fieldKey="back"
+                                required
                             />
                         </div>
                     </div>
@@ -207,6 +209,7 @@ export function DocumentsSection({ uuid }: SectionProps) {
                                 label="شناسنامه — صفحه اول"
                                 accept="image/jpeg,image/png,image/webp,.pdf"
                                 fieldKey="page-1"
+                                required
                             />
                             <FileUploadField
                                 uuid={uuid}
@@ -216,6 +219,7 @@ export function DocumentsSection({ uuid }: SectionProps) {
                                 label="شناسنامه — صفحه دوم"
                                 accept="image/jpeg,image/png,image/webp,.pdf"
                                 fieldKey="page-2"
+                                required
                             />
                             <FileUploadField
                                 uuid={uuid}
@@ -225,6 +229,7 @@ export function DocumentsSection({ uuid }: SectionProps) {
                                 label="شناسنامه — صفحه آخر"
                                 accept="image/jpeg,image/png,image/webp,.pdf"
                                 fieldKey="page-3"
+                                required
                             />
                         </div>
                     </div>

@@ -1,12 +1,8 @@
 import type { ReactNode } from "react";
 import { useAuthorization } from "@/features/auth";
+import { usePermission } from "@/features/auth/hooks/use-permission";
 
-export function usePermission(permission: string | string[]): boolean {
-    const { canAny } = useAuthorization();
-    const names = Array.isArray(permission) ? permission : [permission];
-
-    return canAny(names);
-}
+export { usePermission };
 
 interface PermissionGuardProps {
     permission: string | string[];

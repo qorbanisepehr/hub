@@ -148,18 +148,31 @@ export const EMPLOYEE_DOC_REQUIREMENTS: DocumentRequirement[] = [
         label: "کارت ملی",
         required: true,
         max: 1,
+        requiredFields: [
+            { fieldKey: "front", label: "رو" },
+            { fieldKey: "back", label: "پشت" },
+        ],
     },
     {
         slug: DOC_CATEGORY_SLUGS.BIRTH_CERTIFICATE,
         label: "شناسنامه",
         required: true,
         max: 1,
+        requiredFields: [
+            { fieldKey: "page-1", label: "صفحه اول" },
+            { fieldKey: "page-2", label: "صفحه دوم" },
+            { fieldKey: "page-3", label: "صفحه آخر" },
+        ],
     },
     { slug: DOC_CATEGORY_SLUGS.RESUME, label: "رزومه", required: true },
     { slug: DOC_CATEGORY_SLUGS.ACADEMIC_DEGREE, label: "مدرک تحصیلی" },
     { slug: DOC_CATEGORY_SLUGS.LANGUAGE_CERTIFICATE, label: "گواهینامه زبان" },
     { slug: DOC_CATEGORY_SLUGS.COURSE_CERTIFICATES, label: "گواهینامه دوره" },
-    { slug: DOC_CATEGORY_SLUGS.SKILL_CERTIFICATE, label: "گواهی مهارت", max: 1 },
+    {
+        slug: DOC_CATEGORY_SLUGS.SKILL_CERTIFICATE,
+        label: "گواهی مهارت",
+        max: 1,
+    },
     {
         slug: DOC_CATEGORY_SLUGS.EMPLOYMENT_CERTIFICATE,
         label: "گواهی اشتغال به کار",
@@ -170,7 +183,7 @@ export const EMPLOYEE_DOC_REQUIREMENTS: DocumentRequirement[] = [
         label: "مدارک پژوهشی",
         max: 1,
     },
-    { slug: DOC_CATEGORY_SLUGS.COVER_LETTER, label: "نامه پوششی", max: 1 },
+    { slug: DOC_CATEGORY_SLUGS.COVER_LETTER, label: "نامه معرفی", max: 1 },
     { slug: DOC_CATEGORY_SLUGS.OTHER_DOCUMENTS, label: "سایر مدارک", max: 3 },
 ];
 

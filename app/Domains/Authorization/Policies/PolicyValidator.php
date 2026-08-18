@@ -20,7 +20,7 @@ final class PolicyValidator
         'boolean' => ['equals', 'not_equals', 'is_null', 'is_not_null', 'exists', 'not_exists'],
     ];
 
-    public const VALUE_SOURCES = ['literal', 'actor', 'resource', 'context', 'related'];
+    public const VALUE_SOURCES = ['literal', 'actor', 'resource', 'context'];
 
     public function __construct(private readonly AttributeRegistry $attributes) {}
 

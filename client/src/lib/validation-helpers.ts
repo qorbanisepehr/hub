@@ -124,6 +124,8 @@ export type DocumentRequirement = {
     label: string;
     required?: boolean;
     max?: number;
+    /** Per-field-key requirements — each field must have at least one file. */
+    requiredFields?: { fieldKey: string; label: string }[];
 };
 
 /**
@@ -131,17 +133,27 @@ export type DocumentRequirement = {
  * backend enforcement (CvService/QuestionnaireService documentRequirements).
  */
 export function validateDocumentRequirements(
-    documents: Array<{ category: { slug: string } | null }>,
+    documents: Array<{ category: { slug: string } | null; field_key?: string | null }>,
     requirements: DocumentRequirement[],
 ): string[] {
     const messages: string[] = [];
     for (const requirement of requirements) {
-        const count = documents.filter((d) => d.category?.slug === requirement.slug).length;
-        if (requirement.required && count === 0) {
+        const categoryDocs = documents.filter((d) => d.category?.slug === requirement.slug);
+        if (requirement.required && categoryDocs.length === 0) {
             messages.push(`«${requirement.label}» الزامی است و بارگذاری نشده است.`);
         }
-        if (requirement.max !== undefined && count > requirement.max) {
+        if (requirement.max !== undefined && categoryDocs.length > requirement.max) {
             messages.push(`حداکثر ${requirement.max} فایل برای «${requirement.label}» مجاز است.`);
+        }
+        if (requirement.requiredFields) {
+            for (const field of requirement.requiredFields) {
+                const count = categoryDocs.filter((d) => d.field_key === field.fieldKey).length;
+                if (count === 0) {
+                    messages.push(
+                        `«${requirement.label} — ${field.label}» الزامی است و بارگذاری نشده است.`,
+                    );
+                }
+            }
         }
     }
     return messages;

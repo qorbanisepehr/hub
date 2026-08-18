@@ -1,6 +1,5 @@
 "use client";
 
-import * as React from "react";
 import {
     IconCamera,
     IconEye,
@@ -9,25 +8,29 @@ import {
     IconUpload,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
+import * as React from "react";
 
-import { cn } from "@/lib/utils";
-import { formatBytes } from "@/lib/file-utils";
-import { getFileIcon } from "@/lib/file-utils";
-import { getFileColorClasses } from "@/lib/file-utils";
-import { useEntityDocuments } from "@/hooks/use-entity-documents";
-import type { EntityDocument } from "@/hooks/use-entity-documents";
+import { DocumentFileItem } from "@/components/documents";
+import { toLightboxDocument } from "@/components/documents/document-viewer";
+import { BaseDropzone } from "@/components/shared/base-dropzone";
+import { ConfirmDeleteButton } from "@/components/ui/confirm-delete-button";
+import { FileThumbnail } from "@/components/ui/file-thumbnail";
 import { fetchDocumentCategories } from "@/features/documents/api";
+import { DocumentPreviewLightbox } from "@/features/documents/components/document-preview-lightbox";
 import { useDocumentRequirements } from "@/features/documents/hooks/use-document-requirements";
 import type { DocumentCategory } from "@/features/documents/types";
-import { documentKeys } from "@/lib/query-keys";
-import { BaseDropzone } from "@/components/shared/base-dropzone";
-import { DocumentFileItem } from "@/components/documents";
-import { FileThumbnail } from "@/components/ui/file-thumbnail";
-import { ConfirmDeleteButton } from "@/components/ui/confirm-delete-button";
-import { useDocumentUpload } from "@/hooks/use-document-upload";
 import { useDocumentDelete } from "@/hooks/use-document-delete";
-import { DocumentPreviewLightbox } from "@/features/documents/components/document-preview-lightbox";
-import { toLightboxDocument } from "@/components/documents/document-viewer";
+import { useDocumentUpload } from "@/hooks/use-document-upload";
+import type { EntityDocument } from "@/hooks/use-entity-documents";
+import { useEntityDocuments } from "@/hooks/use-entity-documents";
+import {
+    formatBytes,
+    getFileColorClasses,
+    getFileIcon,
+} from "@/lib/file-utils";
+import { documentKeys } from "@/lib/query-keys";
+import { cn } from "@/lib/utils";
+import { Button } from "../ui/button";
 
 export type FileUploadFieldVariant =
     | "default"
@@ -54,6 +57,8 @@ type FileUploadFieldProps = {
     aspectRatio?: number;
     description?: string;
     className?: string;
+    /** Whether the upload field is required. Shows a red asterisk indicator. */
+    required?: boolean;
     /** Whether to show the delete action button. Defaults to true. */
     actionsEnabled?: boolean;
     /** Where the delete action button is rendered. Defaults to "overlay". */
@@ -101,9 +106,10 @@ export type FileUploadVariantProps = {
     isPending: boolean;
     isImage: boolean;
     handleFiles: (fileList: File[]) => void;
-    renderDelete: (doc: EntityDocument) => React.ReactNode;
+    renderDelete: (doc: EntityDocument, overLay?: boolean) => React.ReactNode;
     label: string;
     multiple: boolean;
+    required: boolean;
     aspectRatio?: number;
     description?: string;
     className?: string;
@@ -128,6 +134,7 @@ export function FileUploadField({
     aspectRatio,
     description,
     className,
+    required = false,
     actionsEnabled = true,
     actionsPlacement = "column",
     replaceEnabled = false,
@@ -196,7 +203,7 @@ export function FileUploadField({
         variant !== "default" && VARIANT_CONTAINER[variant],
     );
 
-    const renderDelete = (doc: EntityDocument) =>
+    const renderDelete = (doc: EntityDocument, overLay?: boolean) =>
         actionsEnabled ? (
             <ConfirmDeleteButton
                 iconOnly
@@ -204,6 +211,7 @@ export function FileUploadField({
                 onConfirm={() => deleteDocument(doc.usage_id)}
                 isPending={isDeleting}
                 stopPropagation
+                className={overLay ? "text-primary-foreground" : ""}
             />
         ) : null;
 
@@ -223,6 +231,7 @@ export function FileUploadField({
         renderDelete,
         label,
         multiple,
+        required,
         aspectRatio,
         description,
         className,
@@ -233,11 +242,18 @@ export function FileUploadField({
     };
 
     if (variant === "avatar") {
-        return <AvatarVariant {...variantProps} containerClass={containerClass} />;
+        return (
+            <AvatarVariant {...variantProps} containerClass={containerClass} />
+        );
     }
 
     if (variant === "thumbnail") {
-        return <ThumbnailVariant {...variantProps} containerClass={containerClass} />;
+        return (
+            <ThumbnailVariant
+                {...variantProps}
+                containerClass={containerClass}
+            />
+        );
     }
 
     if (variant === "card") {
@@ -265,12 +281,18 @@ function AvatarVariant({
     aspectRatio,
     description,
     className,
+    required,
 }: FileUploadVariantProps & { containerClass: string }) {
     const [previewOpen, setPreviewOpen] = React.useState(false);
 
     return (
         <div className={cn("flex flex-col items-center gap-2", className)}>
-            {label && <span className="text-sm font-medium">{label}</span>}
+            {label && (
+                <span className="text-sm font-medium">
+                    {label}
+                    {required && <span className="text-destructive me-0.5">*</span>}
+                </span>
+            )}
             <BaseDropzone
                 accept={effectiveAccept}
                 onFilesSelected={handleFiles}
@@ -314,20 +336,21 @@ function AvatarVariant({
                                 </div>
                             )}
                             {actionsEnabled && (
-                                <div className="absolute inset-0 flex items-center justify-center gap-1 rounded-xl bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
-                                    <button
-                                        type="button"
+                                <div className="absolute inset-0 flex items-center justify-center gap-1 rounded-xl bg-primary/50 opacity-0 transition-opacity group-hover:opacity-100">
+                                    <Button
+                                        variant="ghost"
+                                        size="icon-sm"
                                         onClick={(e) => {
                                             e.stopPropagation();
                                             setPreviewOpen(true);
                                         }}
-                                        className="rounded-full p-1.5 text-white hover:bg-white/20"
+                                        className="p-1.5 text-primary-foreground"
                                         aria-label="پیش‌نمایش"
                                     >
                                         <IconEye className="size-4" />
-                                    </button>
+                                    </Button>
                                     {actionsPlacement === "overlay" &&
-                                        renderDelete(currentDoc)}
+                                        renderDelete(currentDoc, true)}
                                 </div>
                             )}
                         </>
@@ -339,36 +362,33 @@ function AvatarVariant({
                                 <IconCamera className="size-6" />
                             )}
                             <span className="text-[10px]">
-                                {isUploading
-                                    ? "در حال آپلود..."
-                                    : "آپلود عکس"}
+                                {isUploading ? "در حال آپلود..." : "آپلود عکس"}
                             </span>
                         </div>
                     )}
                 </div>
             </BaseDropzone>
-            {currentDoc &&
-                actionsEnabled &&
-                actionsPlacement !== "overlay" && (
-                    <div
-                        className={cn(
-                            "flex",
-                            actionsPlacement === "column"
-                                ? "flex-col items-center"
-                                : "flex-row items-center gap-1",
-                        )}
+            {currentDoc && actionsEnabled && actionsPlacement !== "overlay" && (
+                <div
+                    className={cn(
+                        "flex",
+                        actionsPlacement === "column"
+                            ? "flex-col items-center"
+                            : "flex-row items-center gap-1",
+                    )}
+                >
+                    <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        onClick={() => setPreviewOpen(true)}
+                        className="p-1"
+                        aria-label="پیش‌نمایش"
                     >
-                        <button
-                            type="button"
-                            onClick={() => setPreviewOpen(true)}
-                            className="rounded-full p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-                            aria-label="پیش‌نمایش"
-                        >
-                            <IconEye className="size-4" />
-                        </button>
-                        {renderDelete(currentDoc)}
-                    </div>
-                )}
+                        <IconEye className="size-4" />
+                    </Button>
+                    {renderDelete(currentDoc)}
+                </div>
+            )}
             {description && (
                 <p className="max-w-45 text-center text-xs text-muted-foreground">
                     {description}
@@ -405,12 +425,18 @@ function ThumbnailVariant({
     aspectRatio,
     description,
     className,
+    required,
 }: FileUploadVariantProps & { containerClass: string }) {
     const [previewOpen, setPreviewOpen] = React.useState(false);
 
     return (
         <div className={cn("space-y-1.5", className)}>
-            {label && <span className="text-sm font-medium">{label}</span>}
+            {label && (
+                <span className="text-sm font-medium">
+                    {label}
+                    {required && <span className="text-destructive me-0.5">*</span>}
+                </span>
+            )}
             <BaseDropzone
                 accept={effectiveAccept}
                 onFilesSelected={handleFiles}
@@ -497,32 +523,28 @@ function ThumbnailVariant({
                     )}
                 </div>
             </BaseDropzone>
-            {currentDoc &&
-                actionsEnabled &&
-                actionsPlacement !== "overlay" && (
-                    <div
-                        className={cn(
-                            "flex",
-                            actionsPlacement === "column"
-                                ? "flex-col items-center"
-                                : "flex-row items-center gap-1",
-                        )}
+            {currentDoc && actionsEnabled && actionsPlacement !== "overlay" && (
+                <div
+                    className={cn(
+                        "flex",
+                        actionsPlacement === "column"
+                            ? "flex-col items-center"
+                            : "flex-row items-center gap-1",
+                    )}
+                >
+                    <button
+                        type="button"
+                        onClick={() => setPreviewOpen(true)}
+                        className="rounded-full p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                        aria-label="پیش‌نمایش"
                     >
-                        <button
-                            type="button"
-                            onClick={() => setPreviewOpen(true)}
-                            className="rounded-full p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-                            aria-label="پیش‌نمایش"
-                        >
-                            <IconEye className="size-4" />
-                        </button>
-                        {renderDelete(currentDoc)}
-                    </div>
-                )}
+                        <IconEye className="size-4" />
+                    </button>
+                    {renderDelete(currentDoc)}
+                </div>
+            )}
             {description && (
-                <p className="text-xs text-muted-foreground">
-                    {description}
-                </p>
+                <p className="text-xs text-muted-foreground">{description}</p>
             )}
             {currentDoc && (
                 <DocumentPreviewLightbox
@@ -553,10 +575,16 @@ function CardVariant({
     renderDelete,
     description,
     className,
+    required,
 }: FileUploadVariantProps) {
     return (
         <div className={cn("space-y-2", className)}>
-            {label && <span className="text-sm font-medium">{label}</span>}
+            {label && (
+                <span className="text-sm font-medium">
+                    {label}
+                    {required && <span className="text-destructive me-0.5">*</span>}
+                </span>
+            )}
             <BaseDropzone
                 accept={effectiveAccept}
                 multiple={multiple}
@@ -650,17 +678,13 @@ function CardVariant({
                             <IconUpload className="size-6" />
                         )}
                         <span className="text-xs">
-                            {isUploading
-                                ? "در حال آپلود..."
-                                : "انتخاب فایل"}
+                            {isUploading ? "در حال آپلود..." : "انتخاب فایل"}
                         </span>
                     </div>
                 )}
             </BaseDropzone>
             {description && (
-                <p className="text-xs text-muted-foreground">
-                    {description}
-                </p>
+                <p className="text-xs text-muted-foreground">{description}</p>
             )}
         </div>
     );
@@ -683,10 +707,16 @@ function DefaultVariant({
     replaceEnabled,
     onReplace,
     className,
+    required,
 }: FileUploadVariantProps) {
     return (
         <div className={cn("space-y-2", className)}>
-            {label && <span className="text-sm font-medium">{label}</span>}
+            {label && (
+                <span className="text-sm font-medium">
+                    {label}
+                    {required && <span className="text-destructive me-0.5">*</span>}
+                </span>
+            )}
 
             {canUpload && (
                 <BaseDropzone
