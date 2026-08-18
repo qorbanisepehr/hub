@@ -8,61 +8,13 @@ import {
 } from "@/components/ui/card";
 import {
     IconArrowDownToArc,
-    IconClipboard,
-    IconFileDescription,
-    IconFiles,
-    IconFolder,
-    IconHeadset,
-    IconLayoutDashboard,
-    IconLogin,
-    IconUserScan,
-    IconUsersGroup,
 } from "@tabler/icons-react";
 import { Logo, LogoType } from "@/components/navigation";
 import { useAuth } from "@/features/auth";
 import { useBranding } from "@/features/settings/hooks/use-branding";
 import { COMPANY_NAME } from "@/lib/brand";
-
-const services = [
-    {
-        icon: IconFolder,
-        title: "مدیریت اسناد",
-        desc: "ذخیره، دسته‌بندی و جستجوی پیشرفته انواع اسناد سازمانی",
-    },
-    {
-        icon: IconUsersGroup,
-        title: "مدیریت پرسنل",
-        desc: "ثبت و نگهداری اطلاعات جامع پرسنل و سوابق کاری",
-    },
-    {
-        icon: IconFileDescription,
-        title: "بایگانی دیجیتال",
-        desc: "دیجیتال‌سازی و بایگانی هوشمند پرونده‌های فیزیکی",
-    },
-    {
-        icon: IconUserScan,
-        title: "احراز هویت امن",
-        desc: "ورود امن با رمز یکبار مصرف یا رمز عبور برای کاربران مجاز",
-    },
-];
-
-const reasons = [
-    {
-        icon: IconFiles,
-        title: "دسترسی سریع",
-        desc: "جستجوی پیشرفته و دسترسی آنی به اسناد و پرونده‌ها",
-    },
-    {
-        icon: IconUsersGroup,
-        title: "دسترسی سطح‌بندی شده",
-        desc: "تعریف نقش‌های دسترسی متفاوت برای کاربران سازمان",
-    },
-    {
-        icon: IconFileDescription,
-        title: "بایگانی هوشمند",
-        desc: "دسته‌بندی خودکار و بازیابی سریع اطلاعات بایگانی شده",
-    },
-];
+import { SERVICES, REASONS } from "../constants";
+import { LandingCTA } from "../components/landing-cta";
 
 export function HomePage() {
     const { isAuthenticated } = useAuth();
@@ -94,43 +46,7 @@ export function HomePage() {
                         شده و امنیت بالا
                     </p>
 
-                    <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
-                        {isAuthenticated ? (
-                            <Link to="/dashboard">
-                                <Button
-                                    size="lg"
-                                    className="px-8 cursor-pointer"
-                                >
-                                    <IconLayoutDashboard className="ml-2 size-4" />
-                                    ورود به داشبورد
-                                </Button>
-                            </Link>
-                        ) : (
-                            <Link to="/login">
-                                <Button
-                                    size="lg"
-                                    className="px-8 cursor-pointer"
-                                >
-                                    ورود به سامانه
-                                    <IconLogin className="mr-2 size-4" />
-                                </Button>
-                            </Link>
-                        )}
-                        <Button size="lg" variant="outline" className="px-8">
-                            <IconHeadset className="ml-2 size-4" />
-                            تماس با ما
-                        </Button>
-                        <Link to="/questionnaire">
-                            <Button
-                                size="lg"
-                                variant="outline"
-                                className="px-8 cursor-pointer"
-                            >
-                                <IconClipboard className="ml-2 size-4" />
-                                پرسشنامه استخدامی
-                            </Button>
-                        </Link>
-                    </div>
+                    <LandingCTA isAuthenticated={isAuthenticated} variant="hero" />
                 </div>
 
                 <div className="absolute bottom-8 left-1/2 -translate-x-1/2">
@@ -142,7 +58,7 @@ export function HomePage() {
             <section className="border-b bg-muted/30">
                 <div className="mx-auto max-w-6xl px-6 py-20">
                     <div className="grid gap-6 md:grid-cols-3">
-                        {reasons.map((reason) => (
+                        {REASONS.map((reason) => (
                             <div
                                 key={reason.title}
                                 className="flex items-start gap-4"
@@ -178,7 +94,7 @@ export function HomePage() {
                     </div>
 
                     <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-                        {services.map((service) => (
+                        {SERVICES.map((service) => (
                             <Card
                                 key={service.title}
                                 className="group hover:shadow-md transition-all duration-300"
@@ -203,44 +119,7 @@ export function HomePage() {
             {/* CTA */}
             <section className="border-b bg-muted/30">
                 <div className="mx-auto max-w-3xl px-6 py-20 text-center">
-                    <div className="rounded-xl bg-background border p-12 shadow-sm">
-                        <p className="font-heading text-2xl font-bold">
-                            شروع کنیم!
-                        </p>
-                        <p className="mt-3 text-muted-foreground max-w-md mx-auto">
-                            برای دریافت اطلاعات بیشتر با واحد... تماس بگیرید
-                        </p>
-                        <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
-                            {isAuthenticated ? (
-                                <Link to="/dashboard">
-                                    <Button className="px-8">
-                                        <IconLayoutDashboard className="ml-2 size-4" />
-                                        ورود به داشبورد
-                                    </Button>
-                                </Link>
-                            ) : (
-                                <Link to="/login">
-                                    <Button className="px-8">
-                                        <IconLogin className="mr-2 size-4" />
-                                        ورود به سامانه
-                                    </Button>
-                                </Link>
-                            )}
-                            <Button variant="outline" className="px-8">
-                                <IconHeadset className="ml-2 size-4" />
-                                تماس با ما
-                            </Button>
-                            <Link to="/questionnaire">
-                                <Button
-                                    variant="outline"
-                                    className="px-8 cursor-pointer"
-                                >
-                                    <IconClipboard className="ml-2 size-4" />
-                                    پرسشنامه استخدامی
-                                </Button>
-                            </Link>
-                        </div>
-                    </div>
+                    <LandingCTA isAuthenticated={isAuthenticated} variant="bottom" />
                 </div>
             </section>
         </>
