@@ -355,6 +355,7 @@ export function DocumentThumbnail({
                                         onConfirmDelete(doc.id);
                                     }}
                                     disabled={isDeleting}
+                                    aria-label="تایید حذف"
                                 >
                                     {isDeleting ? (
                                         <span className="text-xs font-bold">✓</span>
@@ -371,6 +372,7 @@ export function DocumentThumbnail({
                                         onCancelDelete();
                                     }}
                                     disabled={isDeleting}
+                                    aria-label="لغو حذف"
                                 >
                                     <span className="text-xs">✕</span>
                                 </Button>

@@ -22,7 +22,7 @@ export function ThemeToggle() {
 
     return (
         <DropdownMenu>
-            <DropdownMenuTrigger render={<Button variant="ghost" size="icon" />}>
+            <DropdownMenuTrigger render={<Button variant="ghost" size="icon" aria-label="تغییر پوسته" />}>
                 <ThemeIcon className="size-5" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">

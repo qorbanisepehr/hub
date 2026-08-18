@@ -58,7 +58,7 @@ function ActionButton({ action }: { action: ButtonAction }) {
         : { onClick: action.onClick };
 
     return (
-        <Button variant="ghost" size="icon-sm" {...buttonProps}>
+        <Button variant="ghost" size="icon-sm" aria-label={action.label} {...buttonProps}>
             {action.icon}
         </Button>
     );

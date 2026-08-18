@@ -550,6 +550,7 @@ export function DocumentViewer({ documents, className }: DocumentViewerProps) {
                                         size="icon-xs"
                                         onClick={() => setViewMode(mode)}
                                         aria-pressed={viewMode === mode}
+                                        aria-label={label}
                                     />
                                 }
                             >
