@@ -185,6 +185,7 @@ export const DOC_CATEGORY_SLUGS = {
     RESUME: "resume",
     COVER_LETTER: "cover-letter",
     OTHER_DOCUMENTS: "other-documents",
+    SIGNATURE_SAMPLE: "signature-sample",
 } as const;
 
 export const FIELD_KEY_LABELS: Record<string, string> = {
