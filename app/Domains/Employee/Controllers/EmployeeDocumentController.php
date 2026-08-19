@@ -260,6 +260,8 @@ class EmployeeDocumentController extends Controller
             return [$document, $usage];
         });
 
+        $this->audit->record(new DocumentUploaded($document, $employee, $category->name));
+
         return response()->json([
             'data' => $this->documentPayload($document, $usage),
             'message' => __('employee.documents.replaced'),
@@ -369,6 +371,8 @@ class EmployeeDocumentController extends Controller
         if (! $deleted) {
             abort(404);
         }
+
+        $this->audit->record(new DocumentDeleted($usageId, Employee::class, $employee->getKey()));
 
         return response()->json(['message' => __('document.document_force_deleted')]);
     }
