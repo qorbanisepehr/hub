@@ -6,6 +6,9 @@ import type { AuditLogListParams } from "../types";
 export function useAuditLogs(params: AuditLogListParams) {
     return useQuery({
         queryKey: auditKeys.logList(params),
-        queryFn: () => fetchAuditLogs(params),
+        queryFn: async () => {
+            const { data } = await fetchAuditLogs(params);
+            return data;
+        },
     });
 }

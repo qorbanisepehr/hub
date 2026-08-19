@@ -3,6 +3,10 @@
 namespace App\Domains\Employee\Controllers;
 
 use App\Contracts\DocumentAuthorization;
+use App\Domains\Audit\Events\Document\DocumentDeleted;
+use App\Domains\Audit\Events\Document\DocumentRestored;
+use App\Domains\Audit\Events\Document\DocumentUploaded;
+use App\Domains\Audit\Services\AuditEventDispatcher;
 use App\Domains\Document\Auth\DocumentAuthorizationContext;
 use App\Domains\Document\Enums\DocumentAction;
 use App\Domains\Document\Models\Document;
@@ -31,6 +35,7 @@ class EmployeeDocumentController extends Controller
         private EmployeeService $employeeService,
         private DocumentCapabilities $documentCapabilities,
         private DocumentAuthorization $documentAuthorization,
+        private AuditEventDispatcher $audit,
     ) {}
 
     public function index(Request $request, Employee $employee): JsonResponse
@@ -189,6 +194,8 @@ class EmployeeDocumentController extends Controller
             ->latest('id')
             ->firstOrFail();
 
+        $this->audit->record(new DocumentUploaded($document, $employee, $category->name));
+
         return response()->json([
             'data' => $this->documentPayload($document, $usage),
             'message' => __('document.document_uploaded'),
@@ -280,6 +287,8 @@ class EmployeeDocumentController extends Controller
             abort(404);
         }
 
+        $this->audit->record(new DocumentDeleted($usageId, Employee::class, $employee->getKey()));
+
         return response()->json(['message' => __('employee.documents.trashed')]);
     }
 
@@ -333,6 +342,8 @@ class EmployeeDocumentController extends Controller
         if (! $restored) {
             abort(404);
         }
+
+        $this->audit->record(new DocumentRestored($usageId, Employee::class, $employee->getKey()));
 
         return response()->json(['message' => __('employee.documents.restored')]);
     }

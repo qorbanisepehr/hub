@@ -16,7 +16,7 @@ export function AuditLogDetailPage() {
     const auditLogId = Number(logId);
 
     const {
-        data: log,
+        data: eventData,
         isLoading,
         isError,
         error,
@@ -26,7 +26,7 @@ export function AuditLogDetailPage() {
         return <ViewSkeleton leftRows={6} columns={1} />;
     }
 
-    if (isError || !log) {
+    if (isError || !eventData) {
         return (
             <ErrorPage
                 title="لاگ یافت نشد"
@@ -35,8 +35,6 @@ export function AuditLogDetailPage() {
             />
         );
     }
-
-    const eventData = log.data;
     const eventLabel =
         AUDIT_EVENT_LABELS[eventData.event] ?? eventData.event;
     const categoryLabel =

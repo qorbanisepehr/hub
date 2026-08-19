@@ -10,7 +10,10 @@ import { auditKeys } from "@/lib/query-keys";
 export function useRetentionPolicies() {
     return useQuery({
         queryKey: auditKeys.retentionPolicies(),
-        queryFn: () => fetchRetentionPolicies(),
+        queryFn: async () => {
+            const { data } = await fetchRetentionPolicies();
+            return data;
+        },
     });
 }
 

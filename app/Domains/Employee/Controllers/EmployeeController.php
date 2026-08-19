@@ -101,7 +101,15 @@ class EmployeeController extends ApiController
         $newValues = $employee->only(array_keys($request->validated()));
         $employee->load(['user']);
 
-        $this->audit->record(new EmployeeUpdated($employee, $oldValues, $newValues));
+        $actualChanges = $this->diffAttributes($oldValues, $newValues);
+
+        if ($actualChanges !== []) {
+            $this->audit->record(new EmployeeUpdated(
+                $employee,
+                array_intersect_key($oldValues, $actualChanges),
+                array_intersect_key($newValues, $actualChanges),
+            ));
+        }
 
         return new EmployeeResource($employee);
     }
@@ -110,10 +118,22 @@ class EmployeeController extends ApiController
     {
         $this->authorization->authorize($request->user(), 'employee.update', $employee);
 
+        $oldValues = $employee->getAttributes();
+
         $employee = $this->employeeService->saveSection($employee, $section, $request->validated());
         $employee->load(['user']);
 
-        $this->audit->record(new EmployeeUpdated($employee, [], [], $section));
+        $newValues = $employee->getAttributes();
+        $actualChanges = $this->diffAttributes($oldValues, $newValues);
+
+        if ($actualChanges !== []) {
+            $this->audit->record(new EmployeeUpdated(
+                $employee,
+                array_intersect_key($oldValues, $actualChanges),
+                array_intersect_key($newValues, $actualChanges),
+                $section,
+            ));
+        }
 
         return new EmployeeResource($employee);
     }
@@ -157,5 +177,25 @@ class EmployeeController extends ApiController
         }
 
         return $sections;
+    }
+
+    /**
+     * Compare two attribute arrays and return only keys where values actually differ.
+     *
+     * @param  array<string, mixed>  $old
+     * @param  array<string, mixed>  $new
+     * @return array<string, mixed>
+     */
+    private function diffAttributes(array $old, array $new): array
+    {
+        $changes = [];
+
+        foreach ($new as $key => $value) {
+            if (! array_key_exists($key, $old) || $old[$key] !== $value) {
+                $changes[$key] = $value;
+            }
+        }
+
+        return $changes;
     }
 }

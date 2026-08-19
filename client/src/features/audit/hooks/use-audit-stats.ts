@@ -5,6 +5,9 @@ import { auditKeys } from "@/lib/query-keys";
 export function useAuditStats() {
     return useQuery({
         queryKey: auditKeys.stats(),
-        queryFn: () => fetchAuditStats(),
+        queryFn: async () => {
+            const { data } = await fetchAuditStats();
+            return data;
+        },
     });
 }

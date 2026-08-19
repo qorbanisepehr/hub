@@ -11,8 +11,7 @@ import { AUDIT_CATEGORY_LABELS } from "@/features/audit/constants";
 import { PageLayout, PageHeader, ErrorSection, PageSkeleton } from "@/components/layout";
 
 export function AuditRetentionPage() {
-    const { data: response, isLoading, isError, error } = useRetentionPolicies();
-    const policies = response?.data ?? [];
+    const { data: policies = [], isLoading, isError, error } = useRetentionPolicies();
 
     if (isLoading) {
         return <PageSkeleton rows={6} />;
