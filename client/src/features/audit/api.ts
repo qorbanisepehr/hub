@@ -20,6 +20,12 @@ export function fetchAuditStats() {
     return api.get<{ data: AuditStats }>("/audit-logs/stats");
 }
 
+export function fetchAuditEvents(category?: string) {
+    return api.get<{ data: string[] }>("/audit-logs/events", {
+        params: category ? { category } : undefined,
+    });
+}
+
 export function fetchRetentionPolicies() {
     return api.get<{ data: AuditRetentionPolicy[] }>(
         "/audit-retention-policies",

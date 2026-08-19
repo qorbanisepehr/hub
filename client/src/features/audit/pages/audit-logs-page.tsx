@@ -8,14 +8,18 @@ import {
 } from "@tanstack/react-table";
 import { IconClipboardList } from "@tabler/icons-react";
 
-import { useAuditLogs } from "@/features/audit/hooks";
+import { useAuditLogs, useAuditEvents } from "@/features/audit/hooks";
 import { getAuditLogColumns } from "@/features/audit/audit-logs-columns";
 import { DataTablePage, DataTableToolbar } from "@/components/data-table";
 import { useTableUrlState } from "@/hooks/use-table-url-state";
 import { PERMISSIONS } from "@/lib/permissions";
 import { auditKeys } from "@/lib/query-keys";
 import { PAGINATION } from "@/lib/constants";
-import { AUDIT_CATEGORY_LABELS, AUDIT_PER_PAGE_OPTIONS } from "@/features/audit/constants";
+import {
+    AUDIT_CATEGORY_LABELS,
+    AUDIT_EVENT_LABELS,
+    AUDIT_PER_PAGE_OPTIONS,
+} from "@/features/audit/constants";
 import type { AuditCategory } from "@/features/audit/types";
 
 const route = getRouteApi("/protected/audit");
@@ -53,6 +57,11 @@ export function AuditLogsPage() {
                 searchKey: "category",
                 type: "string",
             },
+            {
+                columnId: "event",
+                searchKey: "event",
+                type: "string",
+            },
         ],
     });
 
@@ -62,6 +71,13 @@ export function AuditLogsPage() {
             | string[]
             | undefined
     )?.[0] as AuditCategory | undefined;
+    const activeEvent = (
+        columnFilters.find((f) => f.id === "event")?.value as
+            | string[]
+            | undefined
+    )?.[0] as string | undefined;
+
+    const { data: availableEvents = [] } = useAuditEvents(activeCategory);
 
     const { data, isLoading, isError } = useAuditLogs({
         page: pagination.pageIndex + 1,
@@ -70,6 +86,7 @@ export function AuditLogsPage() {
         order: activeSort?.desc ? "desc" : "asc",
         search: globalFilter || undefined,
         category: activeCategory,
+        event: activeEvent,
     });
 
     const tableData = data?.data ?? [];
@@ -137,6 +154,14 @@ export function AuditLogsPage() {
                                     value,
                                 }),
                             ),
+                        },
+                        {
+                            columnId: "event",
+                            title: "رویداد",
+                            options: availableEvents?.data?.map((event) => ({
+                                label: AUDIT_EVENT_LABELS[event] ?? event,
+                                value: event,
+                            })),
                         },
                     ]}
                 />
