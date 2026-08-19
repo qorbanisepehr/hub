@@ -72,7 +72,7 @@ class AuditLog extends Model
     /**
      * Prevent updates — audit records are immutable.
      */
-    public function update(array $attributes = []): bool
+    public function update(array $attributes = [], array $options = []): bool
     {
         return false;
     }
