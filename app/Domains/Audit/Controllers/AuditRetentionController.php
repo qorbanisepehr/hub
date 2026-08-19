@@ -11,7 +11,7 @@ use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class AuditRetentionController extends ApiController
 {
-    protected ?string $model = AuditRetentionPolicy::class;
+    protected ?string $model = null;
 
     public function index(): AnonymousResourceCollection
     {

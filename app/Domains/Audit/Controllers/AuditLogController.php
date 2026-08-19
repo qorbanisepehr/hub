@@ -13,7 +13,7 @@ use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class AuditLogController extends ApiController
 {
-    protected ?string $model = AuditLog::class;
+    protected ?string $model = null;
 
     public function __construct(
         private AuditQueryService $queryService,

@@ -62,7 +62,8 @@ final class AuditQueryService
         }
 
         if (isset($filters['search'])) {
-            $query->where('description', 'like', "%{$filters['search']}%");
+            $search = str_replace(['%', '_'], ['\\%', '\\_'], $filters['search']);
+            $query->where('description', 'like', "%{$search}%");
         }
 
         return $query;
