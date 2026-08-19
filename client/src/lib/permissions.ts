@@ -67,6 +67,10 @@ export const PERMISSIONS = {
     CV_REJECT: "cv.reject",
     CV_CREATE_QUESTIONNAIRE: "cv.create-questionnaire",
 
+    // Audit
+    AUDIT_VIEW: "audit.view",
+    AUDIT_MANAGE: "audit.manage",
+
     // Branding
     BRANDING_VIEW: "branding.view",
     BRANDING_MANAGE: "branding.manage",

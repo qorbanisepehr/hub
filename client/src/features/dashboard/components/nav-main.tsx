@@ -16,6 +16,7 @@ import {
     IconFileCv,
     IconPalette,
     IconListDetails,
+    IconClipboardList,
 } from "@tabler/icons-react";
 import { Link } from "@tanstack/react-router";
 import { PermissionGuard } from "@/features/auth/components/permission-guard";
@@ -69,6 +70,12 @@ const items: NavItem[] = [
             PERMISSIONS.DOCUMENT_CATEGORY_VIEW,
             PERMISSIONS.DOCUMENT_CATEGORY_MANAGE,
         ],
+    },
+    {
+        title: "لاگ فعالیت",
+        url: "/audit",
+        icon: <IconClipboardList />,
+        permission: PERMISSIONS.AUDIT_VIEW,
     },
     // { title: "برندینگ", url: "/settings", icon: <IconPalette />, permission: [PERMISSIONS.BRANDING_VIEW, PERMISSIONS.BRANDING_MANAGE], search: { tab: "branding" } },
     // { title: "گزینه‌های فرم", url: "/settings", icon: <IconListDetails />, permission: [PERMISSIONS.FORM_OPTIONS_VIEW, PERMISSIONS.FORM_OPTIONS_MANAGE], search: { tab: "form-options" } },
