@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { AUDIT_CATEGORY_LABELS, AUDIT_CATEGORY_VARIANTS, AUDIT_EVENT_LABELS } from "./constants";
 import type { AuditLog } from "../types";
 import { Link } from "@tanstack/react-router";
+import { toPersianDate } from "@/lib/date-format";
 
 export function getAuditLogColumns(): ColumnDef<AuditLog>[] {
     return [
@@ -77,8 +78,8 @@ export function getAuditLogColumns(): ColumnDef<AuditLog>[] {
             accessorKey: "created_at",
             header: "تاریخ",
             cell: ({ row }) => (
-                <span className="text-sm" dir="ltr">
-                    {row.original.created_at}
+                <span className="text-sm">
+                    {toPersianDate(row.original.created_at)}
                 </span>
             ),
         },
