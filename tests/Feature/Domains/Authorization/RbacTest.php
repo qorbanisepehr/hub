@@ -453,12 +453,12 @@ describe('RBAC', function () {
 
             $this->actingAs($user)
                 ->postJson('/api/permissions', [
-                    'name' => 'employee.custom_action',
+                    'name' => 'employee.custom-action',
                     'display_name' => 'Custom Action',
                     'group_id' => $group->id,
                 ])
                 ->assertStatus(201)
-                ->assertJsonPath('data.name', 'employee.custom_action');
+                ->assertJsonPath('data.name', 'employee.custom-action');
         });
 
         it('validates permission name format', function () {
