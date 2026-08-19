@@ -23,7 +23,7 @@ return new class extends Migration
             $table->date('hire_date')->nullable();
             $table->string('employment_status')->nullable();
             $table->foreignId('user_id')->nullable()->unique()->constrained()->nullOnDelete();
-            // JSONB sections — same layout as questionnaires/CV (see SectionDefinition storage).
+            $table->string('social_insurance_number', 30)->nullable()->index();
             $table->json('section_personal')->nullable();
             $table->json('section_contact_address')->nullable();
             $table->json('section_education')->nullable();
@@ -31,6 +31,7 @@ return new class extends Migration
             $table->json('section_skills')->nullable();
             $table->json('section_training')->nullable();
             $table->json('section_additional_info')->nullable();
+            $table->json('section_social_insurance')->nullable();
             $table->timestamps();
             $table->softDeletes();
         });
