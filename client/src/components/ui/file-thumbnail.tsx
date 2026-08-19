@@ -1,8 +1,8 @@
+import { IconEye, IconLoader2 } from "@tabler/icons-react";
 import * as React from "react";
-import { IconEye, IconFile, IconLoader2 } from "@tabler/icons-react";
 
+import { getFileColorClasses, getFileIcon } from "@/lib/file-utils";
 import { cn } from "@/lib/utils";
-import { getFileIcon, getFileColorClasses } from "@/lib/file-utils";
 
 export type ThumbnailFile = {
     name: string;
@@ -178,7 +178,8 @@ export function FileThumbnail({
 
     // ── Variant: icon (just the file type icon) ──
     if (variant === "icon") {
-        const mimeType = typeof file === "object" && "type" in file ? file.type : "";
+        const mimeType =
+            typeof file === "object" && "type" in file ? file.type : "";
         return (
             <div
                 className={cn(
@@ -194,8 +195,10 @@ export function FileThumbnail({
 
     // ── Variant: detailed (thumbnail + name + type) ──
     if (variant === "detailed") {
-        const fileName = typeof file === "object" && "name" in file ? file.name : "";
-        const mimeType = typeof file === "object" && "type" in file ? file.type : "";
+        const fileName =
+            typeof file === "object" && "name" in file ? file.name : "";
+        const mimeType =
+            typeof file === "object" && "type" in file ? file.type : "";
         const isImage = mimeType.startsWith("image/");
 
         return (
@@ -228,13 +231,20 @@ export function FileThumbnail({
                                         : "blur-0 opacity-100",
                                 )}
                                 onLoad={(event) =>
-                                    markImageLoaded(event.currentTarget, previewImageUrl)
+                                    markImageLoaded(
+                                        event.currentTarget,
+                                        previewImageUrl,
+                                    )
                                 }
                                 onError={() => {
                                     if (previewImageUrl) {
-                                        revealedPreviewImageUrls.delete(previewImageUrl);
+                                        revealedPreviewImageUrls.delete(
+                                            previewImageUrl,
+                                        );
                                         cancelImageReveal();
-                                        setFailedPreviewImageUrl(previewImageUrl);
+                                        setFailedPreviewImageUrl(
+                                            previewImageUrl,
+                                        );
                                         setLoadedPreviewImageUrl((c) =>
                                             c === previewImageUrl ? null : c,
                                         );

@@ -194,7 +194,8 @@ export function DocumentsSection({ employeeId }: SectionProps) {
     }, [serverExtraEntries, state.addedEntries]);
 
     const pickLabel =
-        extraDocOptions.find((o) => o.slug === state.pickSlug)?.label ?? state.pickSlug;
+        extraDocOptions.find((o) => o.slug === state.pickSlug)?.label ??
+        state.pickSlug;
 
     function handleAddExtra() {
         if (!extraDocOptions.some((o) => o.slug === state.pickSlug)) return;
@@ -217,7 +218,9 @@ export function DocumentsSection({ employeeId }: SectionProps) {
                         type="button"
                         variant="outline"
                         size="sm"
-                        onClick={() => dispatch({ type: "SET_TRASH_OPEN", open: true })}
+                        onClick={() =>
+                            dispatch({ type: "SET_TRASH_OPEN", open: true })
+                        }
                     >
                         <IconTrash className="size-3.5 ms-1" />
                         سطل زباله
@@ -227,13 +230,16 @@ export function DocumentsSection({ employeeId }: SectionProps) {
             <CardContent className="space-y-6">
                 <EmployeeDocumentTrashModal
                     open={state.trashOpen}
-                    onOpenChange={(open) => dispatch({ type: "SET_TRASH_OPEN", open })}
+                    onOpenChange={(open) =>
+                        dispatch({ type: "SET_TRASH_OPEN", open })
+                    }
                     employeeId={employeeId}
                 />
                 <EmployeeDocumentReplaceModal
                     open={state.replaceTarget !== null}
                     onOpenChange={(next) => {
-                        if (!next) dispatch({ type: "SET_REPLACE_TARGET", doc: null });
+                        if (!next)
+                            dispatch({ type: "SET_REPLACE_TARGET", doc: null });
                     }}
                     employeeId={employeeId}
                     doc={state.replaceTarget}
@@ -257,7 +263,12 @@ export function DocumentsSection({ employeeId }: SectionProps) {
                                 fieldKey="front"
                                 required
                                 replaceEnabled={capabilities.replace}
-                                onReplace={(doc) => dispatch({ type: "SET_REPLACE_TARGET", doc })}
+                                onReplace={(doc) =>
+                                    dispatch({
+                                        type: "SET_REPLACE_TARGET",
+                                        doc,
+                                    })
+                                }
                             />
                             <FileUploadField
                                 uuid={uuid}
@@ -268,7 +279,12 @@ export function DocumentsSection({ employeeId }: SectionProps) {
                                 fieldKey="back"
                                 required
                                 replaceEnabled={capabilities.replace}
-                                onReplace={(doc) => dispatch({ type: "SET_REPLACE_TARGET", doc })}
+                                onReplace={(doc) =>
+                                    dispatch({
+                                        type: "SET_REPLACE_TARGET",
+                                        doc,
+                                    })
+                                }
                             />
                         </div>
                     </div>
@@ -286,7 +302,12 @@ export function DocumentsSection({ employeeId }: SectionProps) {
                                 fieldKey="page-1"
                                 required
                                 replaceEnabled={capabilities.replace}
-                                onReplace={(doc) => dispatch({ type: "SET_REPLACE_TARGET", doc })}
+                                onReplace={(doc) =>
+                                    dispatch({
+                                        type: "SET_REPLACE_TARGET",
+                                        doc,
+                                    })
+                                }
                             />
                             <FileUploadField
                                 uuid={uuid}
@@ -299,7 +320,12 @@ export function DocumentsSection({ employeeId }: SectionProps) {
                                 fieldKey="page-2"
                                 required
                                 replaceEnabled={capabilities.replace}
-                                onReplace={(doc) => dispatch({ type: "SET_REPLACE_TARGET", doc })}
+                                onReplace={(doc) =>
+                                    dispatch({
+                                        type: "SET_REPLACE_TARGET",
+                                        doc,
+                                    })
+                                }
                             />
                             <FileUploadField
                                 uuid={uuid}
@@ -312,21 +338,43 @@ export function DocumentsSection({ employeeId }: SectionProps) {
                                 fieldKey="page-3"
                                 required
                                 replaceEnabled={capabilities.replace}
-                                onReplace={(doc) => dispatch({ type: "SET_REPLACE_TARGET", doc })}
+                                onReplace={(doc) =>
+                                    dispatch({
+                                        type: "SET_REPLACE_TARGET",
+                                        doc,
+                                    })
+                                }
                             />
                         </div>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <FileUploadField
-                                uuid={uuid}
-                                entity="employees"
-                                categorySlug={DOC_CATEGORY_SLUGS.RESUME}
-                                label="رزومه"
-                                multiple
-                                maxFiles={5}
-                                accept=".pdf,image/jpeg,image/png,image/webp"
-                                replaceEnabled={capabilities.replace}
-                                onReplace={(doc) => dispatch({ type: "SET_REPLACE_TARGET", doc })}
+                        <FileUploadField
+                            uuid={uuid}
+                            entity="employees"
+                            categorySlug={DOC_CATEGORY_SLUGS.SIGNATURE_SAMPLE}
+                            label="نمونه امضا"
+                            maxFiles={1}
+                            fieldKey="signature"
+                            required
+                            accept="image/jpeg,image/png,image/webp"
+                            replaceEnabled={capabilities.replace}
+                            onReplace={(doc) =>
+                                dispatch({ type: "SET_REPLACE_TARGET", doc })
+                            }
+                        />
+
+                        <FileUploadField
+                            uuid={uuid}
+                            entity="employees"
+                            categorySlug={DOC_CATEGORY_SLUGS.RESUME}
+                            label="رزومه"
+                            multiple
+                            maxFiles={5}
+                            accept=".pdf,image/jpeg,image/png,image/webp"
+                            replaceEnabled={capabilities.replace}
+                            onReplace={(doc) =>
+                                dispatch({ type: "SET_REPLACE_TARGET", doc })
+                            }
                         />
                     </div>
 
@@ -350,7 +398,11 @@ export function DocumentsSection({ employeeId }: SectionProps) {
                                         }
                                         onReplace={
                                             capabilities.replace
-                                                ? () => dispatch({ type: "SET_REPLACE_TARGET", doc })
+                                                ? () =>
+                                                      dispatch({
+                                                          type: "SET_REPLACE_TARGET",
+                                                          doc,
+                                                      })
                                                 : undefined
                                         }
                                     />
@@ -369,12 +421,12 @@ export function DocumentsSection({ employeeId }: SectionProps) {
                             <Select
                                 value={state.pickSlug}
                                 onValueChange={(v) =>
-                                    v != null && dispatch({ type: "SET_PICK_SLUG", slug: v })
+                                    v != null &&
+                                    dispatch({ type: "SET_PICK_SLUG", slug: v })
                                 }
                                 itemToStringLabel={(val) =>
-                                    extraDocOptions.find(
-                                        (o) => o.slug === val,
-                                    )?.label ?? val
+                                    extraDocOptions.find((o) => o.slug === val)
+                                        ?.label ?? val
                                 }
                             >
                                 <SelectTrigger className="w-48 h-8 text-xs">
@@ -394,7 +446,10 @@ export function DocumentsSection({ employeeId }: SectionProps) {
                             <Input
                                 value={state.pickNotes}
                                 onChange={(e) =>
-                                    dispatch({ type: "SET_PICK_NOTES", notes: e.target.value })
+                                    dispatch({
+                                        type: "SET_PICK_NOTES",
+                                        notes: e.target.value,
+                                    })
                                 }
                                 placeholder="توضیحات (اختیاری)"
                                 className="h-8 text-xs w-40"
@@ -428,7 +483,12 @@ export function DocumentsSection({ employeeId }: SectionProps) {
                                     maxFiles={5}
                                     notes={entry.notes}
                                     replaceEnabled={capabilities.replace}
-                                    onReplace={(doc) => dispatch({ type: "SET_REPLACE_TARGET", doc })}
+                                    onReplace={(doc) =>
+                                        dispatch({
+                                            type: "SET_REPLACE_TARGET",
+                                            doc,
+                                        })
+                                    }
                                 />
                             ))}
                         </div>

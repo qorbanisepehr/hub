@@ -21,7 +21,12 @@ export function EmployeeViewPage() {
     const queryClient = useQueryClient();
     const employeeId = Number(id);
 
-    const { data: employee, isLoading, isError, error } = useQuery({
+    const {
+        data: employee,
+        isLoading,
+        isError,
+        error,
+    } = useQuery({
         queryKey: employeeKeys.detail(employeeId),
         queryFn: async () => {
             const { data } = await fetchEmployee(employeeId);
@@ -42,7 +47,7 @@ export function EmployeeViewPage() {
     });
 
     if (isLoading) {
-        return <ViewSkeleton leftRows={6} rightRows={6} />;
+        return <ViewSkeleton leftRows={6} columns={1} />;
     }
 
     if (isError) {

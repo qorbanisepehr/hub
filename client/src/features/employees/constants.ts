@@ -164,6 +164,11 @@ export const EMPLOYEE_DOC_REQUIREMENTS: DocumentRequirement[] = [
             { fieldKey: "page-3", label: "صفحه آخر" },
         ],
     },
+    {
+        slug: DOC_CATEGORY_SLUGS.SIGNATURE_SAMPLE,
+        label: "نمونه امضا",
+        required: true,
+    },
     { slug: DOC_CATEGORY_SLUGS.RESUME, label: "رزومه", required: true },
     { slug: DOC_CATEGORY_SLUGS.ACADEMIC_DEGREE, label: "مدرک تحصیلی" },
     { slug: DOC_CATEGORY_SLUGS.LANGUAGE_CERTIFICATE, label: "گواهینامه زبان" },

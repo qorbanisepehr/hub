@@ -26,7 +26,12 @@ import {
 import { ConfirmDeleteActions } from "./confirm-delete-actions";
 import { toPersianDate } from "@/lib/date-format";
 import type { Document, DocumentCategory } from "@/features/documents/types";
-import { getDocOriginalName, getDocMimeType, getDocFileSizeFormatted, collectDocs } from "@/features/documents/types";
+import {
+    getDocOriginalName,
+    getDocMimeType,
+    getDocFileSizeFormatted,
+    collectDocs,
+} from "@/features/documents/types";
 
 function TopLevelGroup({
     category,
@@ -226,10 +231,7 @@ function FileRow({
             className="cursor-pointer group/row"
             onClick={() => onPreview(doc)}
         >
-            <TableCell
-                className="w-10"
-                onClick={(e) => e.stopPropagation()}
-            >
+            <TableCell className="w-10" onClick={(e) => e.stopPropagation()}>
                 <Checkbox
                     checked={selectedIds.includes(doc.id)}
                     onCheckedChange={(value) => {
@@ -244,24 +246,24 @@ function FileRow({
                 />
             </TableCell>
             <TableCell className="ps-8">
-                        <div
-                            className="flex items-center gap-2.5"
-                            style={{ paddingInlineStart: "32px" }}
-                        >
-                            <DocumentThumbnail
-                                document={doc}
-                                variant="icon"
-                                size="sm"
-                            />
-                            <div className="min-w-0">
-                                <p className="truncate text-sm font-medium">
-                                    {getDocOriginalName(doc)}
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                    {exactCategory}
-                                </p>
-                            </div>
-                        </div>
+                <div
+                    className="flex items-center gap-2.5"
+                    style={{ paddingInlineStart: "32px" }}
+                >
+                    <DocumentThumbnail
+                        document={doc}
+                        variant="default"
+                        size="sm"
+                    />
+                    <div className="min-w-0">
+                        <p className="truncate text-sm font-medium">
+                            {getDocOriginalName(doc)}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                            {exactCategory}
+                        </p>
+                    </div>
+                </div>
             </TableCell>
             <TableCell>
                 <span className="text-sm text-muted-foreground whitespace-nowrap">

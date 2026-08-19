@@ -48,6 +48,7 @@ export function ConfirmDeleteButton({
                         variant="ghost"
                         size="icon-sm"
                         disabled={isPending}
+                        className={className}
                         onClick={(e) => {
                             if (stopPropagation) e.stopPropagation();
                             setConfirming(false);
@@ -57,13 +58,14 @@ export function ConfirmDeleteButton({
                         {isPending ? (
                             <IconLoader2 className="size-4 animate-spin" />
                         ) : (
-                            <IconCheck className="size-4 text-primary" />
+                            <IconCheck className="size-4" />
                         )}
                     </Button>
                     <Button
                         variant="ghost"
                         size="icon-sm"
                         disabled={isPending}
+                        className={className}
                         onClick={(e) => {
                             if (stopPropagation) e.stopPropagation();
                             setConfirming(false);
@@ -81,6 +83,7 @@ export function ConfirmDeleteButton({
                     variant={confirmVariant}
                     size={size}
                     disabled={isPending}
+                    className={className}
                     onClick={(e) => {
                         if (stopPropagation) e.stopPropagation();
                         setConfirming(false);
@@ -98,6 +101,7 @@ export function ConfirmDeleteButton({
                     variant="outline"
                     size={size}
                     disabled={isPending}
+                    className={className}
                     onClick={(e) => {
                         if (stopPropagation) e.stopPropagation();
                         setConfirming(false);
