@@ -10,6 +10,8 @@ use App\Http\Controllers\ApiController;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Carbon;
+use Illuminate\Validation\ValidationException;
 
 class AuditLogController extends ApiController
 {
@@ -21,6 +23,8 @@ class AuditLogController extends ApiController
 
     public function index(Request $request): AnonymousResourceCollection
     {
+        $this->validateDateFilters($request);
+
         $filters = $request->only([
             'event', 'category', 'actor_type', 'actor_id', 'actor_role_id',
             'subject_type', 'subject_id', 'date_from', 'date_to',
@@ -49,5 +53,43 @@ class AuditLogController extends ApiController
         return response()->json([
             'data' => $this->queryService->stats($filters),
         ]);
+    }
+
+    /**
+     * List distinct events, optionally filtered by category.
+     */
+    public function events(Request $request): JsonResponse
+    {
+        $query = AuditLog::query()->select('event')->distinct();
+
+        if ($request->filled('category')) {
+            $query->where('category', $request->input('category'));
+        }
+
+        $events = $query->orderBy('event')->pluck('event')->all();
+
+        return response()->json(['data' => $events]);
+    }
+
+    /**
+     * Validate that date_from and date_to are parseable dates.
+     *
+     * @throws ValidationException
+     */
+    private function validateDateFilters(Request $request): void
+    {
+        foreach (['date_from', 'date_to'] as $param) {
+            $value = $request->input($param);
+
+            if ($value === null) {
+                continue;
+            }
+
+            if (Carbon::parse($value) === false) {
+                throw ValidationException::withMessages([
+                    $param => "The {$param} must be a valid date.",
+                ]);
+            }
+        }
     }
 }

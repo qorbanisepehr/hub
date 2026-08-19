@@ -13,6 +13,10 @@ Route::middleware('auth:sanctum')->group(function () {
         ->middleware('permission:audit.view')
         ->name('audit-logs.stats');
 
+    Route::get('audit-logs/events', [AuditLogController::class, 'events'])
+        ->middleware('permission:audit.view')
+        ->name('audit-logs.events');
+
     Route::get('audit-logs/{auditLog}', [AuditLogController::class, 'show'])
         ->middleware('permission:audit.view')
         ->name('audit-logs.show');

@@ -38,6 +38,9 @@ return new class extends Migration
             $table->index('actor_role_id');
             $table->index(['subject_type', 'subject_id']);
             $table->index('request_id');
+
+            $table->index('created_at');
+            $table->index(['event', 'category', 'created_at']);
         });
 
         Schema::create('audit_retention_policies', function (Blueprint $table) {
