@@ -3,6 +3,10 @@
 namespace App\Domains\Employee\Controllers;
 
 use App\Contracts\Authorization;
+use App\Domains\Audit\Events\Employee\EmployeeCreated;
+use App\Domains\Audit\Events\Employee\EmployeeDeleted;
+use App\Domains\Audit\Events\Employee\EmployeeUpdated;
+use App\Domains\Audit\Services\AuditEventDispatcher;
 use App\Domains\Employee\Models\Employee;
 use App\Domains\Employee\Requests\SaveEmployeeSectionRequest;
 use App\Domains\Employee\Requests\StoreEmployeeRequest;
@@ -33,6 +37,7 @@ class EmployeeController extends ApiController
     public function __construct(
         private EmployeeService $employeeService,
         private Authorization $authorization,
+        private AuditEventDispatcher $audit,
     ) {}
 
     public function index(Request $request): AnonymousResourceCollection
@@ -73,6 +78,8 @@ class EmployeeController extends ApiController
         );
         $employee->load(['user']);
 
+        $this->audit->record(new EmployeeCreated($employee));
+
         return new EmployeeResource($employee);
     }
 
@@ -89,8 +96,12 @@ class EmployeeController extends ApiController
     {
         $this->authorization->authorize($request->user(), 'employee.update', $employee);
 
+        $oldValues = $employee->only(array_keys($request->validated()));
         $employee->update($request->validated());
+        $newValues = $employee->only(array_keys($request->validated()));
         $employee->load(['user']);
+
+        $this->audit->record(new EmployeeUpdated($employee, $oldValues, $newValues));
 
         return new EmployeeResource($employee);
     }
@@ -101,6 +112,8 @@ class EmployeeController extends ApiController
 
         $employee = $this->employeeService->saveSection($employee, $section, $request->validated());
         $employee->load(['user']);
+
+        $this->audit->record(new EmployeeUpdated($employee, [], [], $section));
 
         return new EmployeeResource($employee);
     }
@@ -119,7 +132,10 @@ class EmployeeController extends ApiController
     {
         $this->authorization->authorize($request->user(), 'employee.delete', $employee);
 
+        $employeeId = $employee->getKey();
         $employee->delete();
+
+        $this->audit->record(new EmployeeDeleted($employeeId));
 
         return response()->json(['message' => __('employee.deleted')]);
     }

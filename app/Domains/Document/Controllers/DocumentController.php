@@ -4,6 +4,11 @@ namespace App\Domains\Document\Controllers;
 
 use App\Contracts\Documentable;
 use App\Contracts\DocumentAuthorization;
+use App\Domains\Audit\Events\Document\DocumentDeleted;
+use App\Domains\Audit\Events\Document\DocumentDownloaded;
+use App\Domains\Audit\Events\Document\DocumentRestored;
+use App\Domains\Audit\Events\Document\DocumentUploaded;
+use App\Domains\Audit\Services\AuditEventDispatcher;
 use App\Domains\Document\Auth\DocumentAuthorizationContext;
 use App\Domains\Document\Enums\DocumentAction;
 use App\Domains\Document\Models\Document;
@@ -33,6 +38,7 @@ class DocumentController extends Controller
     public function __construct(
         private readonly DocumentService $documentService,
         private readonly DocumentAuthorization $documentAuthorization,
+        private readonly AuditEventDispatcher $audit,
     ) {}
 
     public function index(Request $request): AnonymousResourceCollection
@@ -89,6 +95,8 @@ class DocumentController extends Controller
             $request->input('field_key'),
             $metadata !== [] ? $metadata : null,
         );
+
+        $this->audit->record(new DocumentUploaded($document, $owner, $category->name));
 
         return new DocumentResource($document);
     }
@@ -181,6 +189,8 @@ class DocumentController extends Controller
 
         $this->documentService->trashUsage($document, $entity);
 
+        $this->audit->record(new DocumentDeleted($document, get_class($entity), $entity->getKey()));
+
         return response()->json(['message' => __('document.document_deleted')]);
     }
 
@@ -221,6 +231,8 @@ class DocumentController extends Controller
 
         $this->documentService->restoreUsage($document, $entity);
 
+        $this->audit->record(new DocumentRestored($document, get_class($entity), $entity->getKey()));
+
         return response()->json(['message' => __('document.document_restored')]);
     }
 
@@ -248,6 +260,8 @@ class DocumentController extends Controller
     {
         $this->authorizeDocument($request, $document, DocumentAction::Download);
 
+        $this->audit->record(new DocumentDownloaded($document));
+
         $disk = $document->disk;
         $path = $document->path;
 
@@ -269,6 +283,8 @@ class DocumentController extends Controller
     public function download(Document $document, Request $request): StreamedResponse
     {
         $this->authorizeDocument($request, $document, DocumentAction::Download);
+
+        $this->audit->record(new DocumentDownloaded($document));
 
         $disk = $document->disk;
         $path = $document->path;

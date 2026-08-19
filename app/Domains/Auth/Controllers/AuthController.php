@@ -3,6 +3,9 @@
 namespace App\Domains\Auth\Controllers;
 
 use App\Contracts\Authorization;
+use App\Domains\Audit\Events\Auth\LoginFailed;
+use App\Domains\Audit\Events\Auth\LoginSucceeded;
+use App\Domains\Audit\Services\AuditEventDispatcher;
 use App\Domains\Auth\Requests\LoginRequest;
 use App\Domains\Auth\Requests\LoginWithPasswordRequest;
 use App\Domains\Auth\Requests\VerifyOtpRequest;
@@ -24,6 +27,7 @@ class AuthController
     public function __construct(
         private OtpService $otpService,
         private Authorization $authorizationService,
+        private AuditEventDispatcher $audit,
     ) {}
 
     public function login(LoginRequest $request): JsonResponse
@@ -31,6 +35,8 @@ class AuthController
         $user = $this->resolveUser($request->identifier);
 
         if (! $user) {
+            $this->audit->record(new LoginFailed($request->identifier, 'user_not_found'));
+
             return response()->json([
                 'message' => __('auth.failed'),
             ], 401);
@@ -73,6 +79,8 @@ class AuthController
             return $response;
         }
 
+        $this->audit->record(new LoginSucceeded($user, 'otp'));
+
         return $this->authenticate($request, $user);
     }
 
@@ -81,6 +89,8 @@ class AuthController
         $user = $this->resolveUser($request->identifier);
 
         if (! $user) {
+            $this->audit->record(new LoginFailed($request->identifier, 'user_not_found'));
+
             return response()->json([
                 'message' => __('auth.failed'),
             ], 401);
@@ -99,12 +109,16 @@ class AuthController
         if (! Hash::check($request->password, $user->password)) {
             RateLimiter::hit($this->rateLimiterKey($user), config('rate-limits.auth-attempts.period', 60));
 
+            $this->audit->record(new LoginFailed($request->identifier, 'invalid_password'));
+
             return response()->json([
                 'message' => __('auth.failed'),
             ], 401);
         }
 
         RateLimiter::clear($this->rateLimiterKey($user));
+
+        $this->audit->record(new LoginSucceeded($user, 'password'));
 
         return $this->authenticate($request, $user);
     }

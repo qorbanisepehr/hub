@@ -3,6 +3,8 @@
 namespace App\Domains\Questionnaire\Controllers;
 
 use App\Contracts\Authorization;
+use App\Domains\Audit\Events\Questionnaire\QuestionnaireSubmitted;
+use App\Domains\Audit\Services\AuditEventDispatcher;
 use App\Domains\Questionnaire\Models\Questionnaire;
 use App\Domains\Questionnaire\Requests\InitQuestionnaireRequest;
 use App\Domains\Questionnaire\Requests\SectionSaveRequest;
@@ -31,6 +33,7 @@ class QuestionnaireController extends Controller
         private QuestionnaireService $questionnaireService,
         private OtpService $otpService,
         private Authorization $authorization,
+        private AuditEventDispatcher $audit,
     ) {}
 
     public function init(InitQuestionnaireRequest $request): JsonResponse
@@ -277,6 +280,8 @@ class QuestionnaireController extends Controller
         }
 
         $questionnaire = $this->questionnaireService->submit($questionnaire);
+
+        $this->audit->record(new QuestionnaireSubmitted($questionnaire));
 
         return response()->json([
             'data' => new QuestionnaireResource($questionnaire),
