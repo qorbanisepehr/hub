@@ -18,6 +18,7 @@ class DatabaseSeeder extends Seeder
             UserSeeder::class,
             DocumentCategorySeeder::class,
             AuthorizationSeeder::class,
+            AuditRetentionPolicySeeder::class,
             FormOptionSeeder::class,
             LocationSeeder::class,
         ]);
