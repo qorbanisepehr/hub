@@ -120,7 +120,7 @@ class DocumentCategorySeeder extends Seeder
                 'type' => DocumentCategory::TYPE_PERSONNEL,
                 'children' => [
                     ['name' => 'رزومه', 'slug' => 'resume', 'sort_order' => 1],
-                    ['name' => 'نامه پوششی', 'slug' => 'cover-letter', 'sort_order' => 2],
+                    ['name' => 'نامه معرفی', 'slug' => 'cover-letter', 'sort_order' => 2],
                 ],
             ],
             [
