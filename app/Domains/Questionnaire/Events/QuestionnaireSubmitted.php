@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Domains\Audit\Events\Questionnaire;
+namespace App\Domains\Questionnaire\Events;
 
-use App\Domains\Audit\Events\BaseAuditEvent;
+use App\Events\BaseAuditEvent;
 use Illuminate\Database\Eloquent\Model;
 
 class QuestionnaireSubmitted extends BaseAuditEvent

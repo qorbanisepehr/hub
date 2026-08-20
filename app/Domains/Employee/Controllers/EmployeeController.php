@@ -3,10 +3,10 @@
 namespace App\Domains\Employee\Controllers;
 
 use App\Contracts\Authorization;
-use App\Domains\Audit\Events\Employee\EmployeeCreated;
-use App\Domains\Audit\Events\Employee\EmployeeDeleted;
-use App\Domains\Audit\Events\Employee\EmployeeUpdated;
 use App\Domains\Audit\Services\AuditEventDispatcher;
+use App\Domains\Employee\Events\EmployeeCreated;
+use App\Domains\Employee\Events\EmployeeDeleted;
+use App\Domains\Employee\Events\EmployeeUpdated;
 use App\Domains\Employee\Models\Employee;
 use App\Domains\Employee\Requests\SaveEmployeeSectionRequest;
 use App\Domains\Employee\Requests\StoreEmployeeRequest;

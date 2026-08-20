@@ -5,10 +5,11 @@ namespace App\Domains\Audit\Services;
 use App\Domains\Audit\Data\AuditContext;
 use App\Models\User;
 use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Support\Facades\App;
 
 /**
- * Resolves audit context from the current HTTP request and authenticated user.
- * Single source of truth for request-level audit metadata.
+ * Resolves audit context from the current request and authenticated user.
+ * Handles HTTP, CLI, Queue, and Scheduler contexts.
  */
 final class AuditContextResolver
 {
@@ -30,11 +31,25 @@ final class AuditContextResolver
             }
         }
 
+        if ($this->isConsoleContext()) {
+            return AuditContext::forConsole(
+                actorId: $actorId,
+                actorType: $actorType,
+                actorRoleId: $actorRoleId,
+                actorRoleName: $actorRoleName,
+            );
+        }
+
         return AuditContext::fromRequest(
             actorId: $actorId,
             actorType: $actorType,
             actorRoleId: $actorRoleId,
             actorRoleName: $actorRoleName,
         );
+    }
+
+    private function isConsoleContext(): bool
+    {
+        return App::runningInConsole();
     }
 }

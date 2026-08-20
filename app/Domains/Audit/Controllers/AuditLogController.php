@@ -60,13 +60,9 @@ class AuditLogController extends ApiController
      */
     public function events(Request $request): JsonResponse
     {
-        $query = AuditLog::query()->select('event')->distinct();
-
-        if ($request->filled('category')) {
-            $query->where('category', $request->input('category'));
-        }
-
-        $events = $query->orderBy('event')->pluck('event')->all();
+        $events = $this->queryService->distinctEvents(
+            category: $request->input('category'),
+        );
 
         return response()->json(['data' => $events]);
     }
@@ -85,7 +81,9 @@ class AuditLogController extends ApiController
                 continue;
             }
 
-            if (Carbon::parse($value) === false) {
+            try {
+                Carbon::parse($value);
+            } catch (\InvalidArgumentException) {
                 throw ValidationException::withMessages([
                     $param => "The {$param} must be a valid date.",
                 ]);

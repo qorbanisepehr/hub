@@ -3,10 +3,10 @@
 namespace App\Domains\Authorization\Controllers;
 
 use App\Contracts\Authorization;
-use App\Domains\Audit\Events\Authorization\ActiveRoleChanged;
-use App\Domains\Audit\Events\Authorization\RoleAssigned;
-use App\Domains\Audit\Events\Authorization\RoleRemoved;
 use App\Domains\Audit\Services\AuditEventDispatcher;
+use App\Domains\Authorization\Events\ActiveRoleChanged;
+use App\Domains\Authorization\Events\RoleAssigned;
+use App\Domains\Authorization\Events\RoleRemoved;
 use App\Domains\Authorization\Requests\AssignRoleRequest;
 use App\Domains\Authorization\Requests\SwitchActiveRoleRequest;
 use App\Domains\Authorization\Resources\RoleResource;

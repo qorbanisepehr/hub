@@ -2,7 +2,7 @@
 
 namespace App\Domains\Audit\Services;
 
-use App\Domains\Audit\Contracts\AuditEvent;
+use App\Contracts\AuditEvent;
 use App\Domains\Audit\Data\AuditData;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Facades\Auth;

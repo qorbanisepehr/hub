@@ -2,7 +2,7 @@
 
 namespace App\Domains\Audit\Data;
 
-use App\Domains\Audit\Contracts\AuditEvent;
+use App\Contracts\AuditEvent;
 use Illuminate\Support\Str;
 
 /**

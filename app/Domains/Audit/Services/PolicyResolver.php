@@ -3,17 +3,38 @@
 namespace App\Domains\Audit\Services;
 
 use App\Domains\Audit\Models\AuditRetentionPolicy;
+use Illuminate\Support\Facades\Cache;
 
 /**
  * Resolves retention policy for an audit event.
  * Priority: exact event → category → default → safe fallback (365 days).
+ * Results are cached for performance.
  */
 final class PolicyResolver
 {
+    private const CACHE_TTL = 3600; // 1 hour
+
     /**
      * Resolve the retention policy for a given event and category.
      */
     public function resolve(string $event, string $category): AuditRetentionPolicy
+    {
+        $cacheKey = "audit:policy:{$event}:{$category}";
+
+        return Cache::remember($cacheKey, self::CACHE_TTL, function () use ($event, $category) {
+            return $this->resolveFromDatabase($event, $category);
+        });
+    }
+
+    /**
+     * Flush the policy cache. Call after retention policy changes.
+     */
+    public function flushCache(): void
+    {
+        Cache::tags(['audit:policies'])->flush();
+    }
+
+    private function resolveFromDatabase(string $event, string $category): AuditRetentionPolicy
     {
         // 1. Exact event match
         $policy = AuditRetentionPolicy::where('is_active', true)

@@ -82,6 +82,22 @@ final class AuditQueryService
     }
 
     /**
+     * List distinct event names, optionally filtered by category.
+     *
+     * @return list<string>
+     */
+    public function distinctEvents(?string $category = null): array
+    {
+        $query = AuditLog::query()->select('event')->distinct();
+
+        if ($category !== null) {
+            $query->where('category', $category);
+        }
+
+        return $query->orderBy('event')->pluck('event')->all();
+    }
+
+    /**
      * Get aggregate stats for audit logs.
      *
      * @param  array<string, mixed>  $filters

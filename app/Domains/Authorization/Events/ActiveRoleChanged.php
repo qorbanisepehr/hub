@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Domains\Audit\Events\Authorization;
+namespace App\Domains\Authorization\Events;
 
-use App\Domains\Audit\Events\BaseAuditEvent;
+use App\Events\BaseAuditEvent;
 use App\Models\User;
 
 class ActiveRoleChanged extends BaseAuditEvent

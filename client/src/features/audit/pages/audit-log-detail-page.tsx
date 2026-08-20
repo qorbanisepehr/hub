@@ -47,7 +47,6 @@ export function AuditLogDetailPage() {
     const categoryLabel =
         AUDIT_CATEGORY_LABELS[eventData.category] ?? eventData.category;
 
-    console.log(eventData.changes.new, eventData.changes.old);
     return (
         <PageLayout>
             <PageHeader

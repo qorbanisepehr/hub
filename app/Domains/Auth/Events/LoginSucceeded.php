@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Domains\Audit\Events\Auth;
+namespace App\Domains\Auth\Events;
 
-use App\Domains\Audit\Events\BaseAuditEvent;
+use App\Events\BaseAuditEvent;
 use App\Models\User;
 
 class LoginSucceeded extends BaseAuditEvent

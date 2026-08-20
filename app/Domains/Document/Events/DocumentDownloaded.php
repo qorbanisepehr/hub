@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Domains\Audit\Events\Document;
+namespace App\Domains\Document\Events;
 
-use App\Domains\Audit\Events\BaseAuditEvent;
+use App\Events\BaseAuditEvent;
 use Illuminate\Database\Eloquent\Model;
 
 class DocumentDownloaded extends BaseAuditEvent

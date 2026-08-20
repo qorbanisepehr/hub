@@ -67,8 +67,8 @@ export interface AuditRetentionPolicy {
 
 export interface AuditStats {
     total: number;
-    today: number;
     by_category: Record<string, number>;
+    by_event: Record<string, number>;
 }
 
 export interface AuditLogListParams {

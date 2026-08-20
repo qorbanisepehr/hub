@@ -3,8 +3,8 @@
 namespace App\Domains\Questionnaire\Controllers;
 
 use App\Contracts\Authorization;
-use App\Domains\Audit\Events\Questionnaire\QuestionnaireSubmitted;
 use App\Domains\Audit\Services\AuditEventDispatcher;
+use App\Domains\Questionnaire\Events\QuestionnaireSubmitted;
 use App\Domains\Questionnaire\Models\Questionnaire;
 use App\Domains\Questionnaire\Requests\InitQuestionnaireRequest;
 use App\Domains\Questionnaire\Requests\SectionSaveRequest;

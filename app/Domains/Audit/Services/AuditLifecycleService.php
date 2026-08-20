@@ -69,13 +69,12 @@ final class AuditLifecycleService
             }
 
             try {
-                $deleted = $expiredQuery->chunkById(1000, function ($records) {
+                $expiredQuery->chunkById(1000, function ($records) use (&$pruned) {
                     foreach ($records as $record) {
                         $record->forceDelete();
+                        $pruned++;
                     }
                 });
-
-                $pruned += $deleted ?? 0;
             } catch (\Throwable $e) {
                 $errors++;
                 Log::error('Audit prune failed', [

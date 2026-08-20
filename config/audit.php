@@ -34,6 +34,7 @@ return [
         'api_secret',
         'ssn',
         'national_id',
+        'id_number',
         'bank_account',
         'credit_card',
     ],

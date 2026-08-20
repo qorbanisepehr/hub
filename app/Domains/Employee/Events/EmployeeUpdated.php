@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Domains\Audit\Events\Employee;
+namespace App\Domains\Employee\Events;
 
-use App\Domains\Audit\Events\BaseAuditEvent;
+use App\Events\BaseAuditEvent;
 use Illuminate\Database\Eloquent\Model;
 
 class EmployeeUpdated extends BaseAuditEvent

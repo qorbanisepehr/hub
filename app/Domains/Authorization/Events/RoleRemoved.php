@@ -1,23 +1,22 @@
 <?php
 
-namespace App\Domains\Audit\Events\Authorization;
+namespace App\Domains\Authorization\Events;
 
-use App\Domains\Audit\Events\BaseAuditEvent;
+use App\Events\BaseAuditEvent;
 use App\Models\User;
 
-class RoleAssigned extends BaseAuditEvent
+class RoleRemoved extends BaseAuditEvent
 {
     public function __construct(
         private readonly User $actor,
         private readonly User $target,
         private readonly int $roleId,
         private readonly string $roleName,
-        private readonly bool $isActive,
     ) {}
 
     public function eventName(): string
     {
-        return 'authorization.role.assigned';
+        return 'authorization.role.removed';
     }
 
     public function category(): string
@@ -57,9 +56,7 @@ class RoleAssigned extends BaseAuditEvent
 
     public function description(): ?string
     {
-        $active = $this->isActive ? ' (active)' : '';
-
-        return "Role {$this->roleName} assigned to user {$this->target->id}{$active}";
+        return "Role {$this->roleName} removed from user {$this->target->id}";
     }
 
     public function metadata(): array
@@ -67,7 +64,6 @@ class RoleAssigned extends BaseAuditEvent
         return [
             'role_id' => $this->roleId,
             'role_name' => $this->roleName,
-            'is_active' => $this->isActive,
         ];
     }
 }

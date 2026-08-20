@@ -3,12 +3,12 @@
 namespace App\Domains\Employee\Controllers;
 
 use App\Contracts\DocumentAuthorization;
-use App\Domains\Audit\Events\Document\DocumentDeleted;
-use App\Domains\Audit\Events\Document\DocumentRestored;
-use App\Domains\Audit\Events\Document\DocumentUploaded;
 use App\Domains\Audit\Services\AuditEventDispatcher;
 use App\Domains\Document\Auth\DocumentAuthorizationContext;
 use App\Domains\Document\Enums\DocumentAction;
+use App\Domains\Document\Events\DocumentDeleted;
+use App\Domains\Document\Events\DocumentRestored;
+use App\Domains\Document\Events\DocumentUploaded;
 use App\Domains\Document\Models\Document;
 use App\Domains\Document\Models\DocumentCategory;
 use App\Domains\Document\Models\DocumentUsage;

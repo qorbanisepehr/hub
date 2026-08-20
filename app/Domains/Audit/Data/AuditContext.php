@@ -45,4 +45,27 @@ final readonly class AuditContext
             actorRoleName: $actorRoleName,
         );
     }
+
+    /**
+     * Build for console/queue/scheduler contexts where no HTTP request exists.
+     */
+    public static function forConsole(
+        ?int $actorId = null,
+        ?string $actorType = null,
+        ?int $actorRoleId = null,
+        ?string $actorRoleName = null,
+    ): self {
+        return new self(
+            ipAddress: null,
+            userAgent: null,
+            url: null,
+            method: null,
+            requestId: null,
+            traceId: null,
+            actorId: $actorId,
+            actorType: $actorType,
+            actorRoleId: $actorRoleId,
+            actorRoleName: $actorRoleName,
+        );
+    }
 }
