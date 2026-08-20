@@ -3,6 +3,9 @@
 namespace App\Domains\Audit\Models;
 
 use App\Domains\Authorization\Models\Role;
+use Database\Factories\AuditLogFactory;
+use Illuminate\Database\Eloquent\Attributes\UseFactory;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
@@ -33,8 +36,11 @@ use Illuminate\Support\Carbon;
  * @property string|null $trace_id
  * @property Carbon $created_at
  */
+#[UseFactory(AuditLogFactory::class)]
 class AuditLog extends Model
 {
+    use HasFactory;
+
     public $timestamps = false;
 
     protected $fillable = [
