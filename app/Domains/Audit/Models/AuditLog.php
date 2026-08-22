@@ -2,7 +2,6 @@
 
 namespace App\Domains\Audit\Models;
 
-use App\Domains\Authorization\Models\Role;
 use App\Models\User;
 use Database\Factories\AuditLogFactory;
 use Illuminate\Database\Eloquent\Attributes\UseFactory;
@@ -90,14 +89,6 @@ class AuditLog extends Model
     public function delete(): bool
     {
         return false;
-    }
-
-    /**
-     * The role the actor was acting under.
-     */
-    public function actorRole(): BelongsTo
-    {
-        return $this->belongsTo(Role::class, 'actor_role_id');
     }
 
     /**
