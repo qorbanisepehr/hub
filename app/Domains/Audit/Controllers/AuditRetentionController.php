@@ -6,12 +6,13 @@ use App\Domains\Audit\Events\RetentionPolicyCreated;
 use App\Domains\Audit\Events\RetentionPolicyDeleted;
 use App\Domains\Audit\Events\RetentionPolicyUpdated;
 use App\Domains\Audit\Models\AuditRetentionPolicy;
+use App\Domains\Audit\Requests\StoreRetentionPolicyRequest;
+use App\Domains\Audit\Requests\UpdateRetentionPolicyRequest;
 use App\Domains\Audit\Resources\AuditRetentionPolicyResource;
 use App\Domains\Audit\Services\AuditEventDispatcher;
 use App\Domains\Audit\Services\PolicyResolver;
 use App\Http\Controllers\ApiController;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class AuditRetentionController extends ApiController
@@ -33,18 +34,9 @@ class AuditRetentionController extends ApiController
         return AuditRetentionPolicyResource::collection($policies);
     }
 
-    public function store(Request $request): AuditRetentionPolicyResource
+    public function store(StoreRetentionPolicyRequest $request): AuditRetentionPolicyResource
     {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'category' => 'nullable|string|max:255',
-            'event' => 'nullable|string|max:255',
-            'retention_days' => 'required|integer|min:1',
-            'archive_after_days' => 'nullable|integer|min:1',
-            'archive_enabled' => 'boolean',
-            'delete_after_archive' => 'boolean',
-            'is_active' => 'boolean',
-        ]);
+        $validated = $request->validated();
 
         $policy = AuditRetentionPolicy::create($validated);
         $this->policyResolver->flushCache();
@@ -59,18 +51,9 @@ class AuditRetentionController extends ApiController
         return new AuditRetentionPolicyResource($auditRetentionPolicy);
     }
 
-    public function update(Request $request, AuditRetentionPolicy $auditRetentionPolicy): AuditRetentionPolicyResource
+    public function update(UpdateRetentionPolicyRequest $request, AuditRetentionPolicy $auditRetentionPolicy): AuditRetentionPolicyResource
     {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'category' => 'nullable|string|max:255',
-            'event' => 'nullable|string|max:255',
-            'retention_days' => 'required|integer|min:1',
-            'archive_after_days' => 'nullable|integer|min:1',
-            'archive_enabled' => 'boolean',
-            'delete_after_archive' => 'boolean',
-            'is_active' => 'boolean',
-        ]);
+        $validated = $request->validated();
 
         $old = $auditRetentionPolicy->only(array_keys($validated));
         $auditRetentionPolicy->update($validated);

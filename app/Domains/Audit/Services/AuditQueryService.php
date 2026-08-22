@@ -61,6 +61,14 @@ final class AuditQueryService
             $query->where('request_id', $filters['request_id']);
         }
 
+        if (isset($filters['trace_id'])) {
+            $query->where('trace_id', $filters['trace_id']);
+        }
+
+        if (isset($filters['ip'])) {
+            $query->where('ip_address', $filters['ip']);
+        }
+
         if (isset($filters['search'])) {
             $search = str_replace(['%', '_'], ['\\%', '\\_'], $filters['search']);
             $query->where('description', 'like', "%{$search}%");
@@ -99,12 +107,18 @@ final class AuditQueryService
 
     /**
      * Get aggregate stats for audit logs.
+     * When no date range is provided, the window is bounded to the last
+     * 30 days so the aggregates stay cheap on large tables.
      *
      * @param  array<string, mixed>  $filters
      * @return array{total: int, by_category: array<string, int>, by_event: array<string, int>}
      */
     public function stats(array $filters = []): array
     {
+        if (! isset($filters['date_from']) && ! isset($filters['date_to'])) {
+            $filters['date_from'] = now()->subDays(30)->toDateTimeString();
+        }
+
         $query = $this->query($filters);
 
         $total = (clone $query)->count();

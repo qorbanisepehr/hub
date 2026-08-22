@@ -28,7 +28,7 @@ class AuditLogController extends ApiController
         $filters = $request->only([
             'event', 'category', 'actor_type', 'actor_id', 'actor_role_id',
             'subject_type', 'subject_id', 'date_from', 'date_to',
-            'request_id', 'search',
+            'request_id', 'trace_id', 'ip', 'search',
         ]);
 
         $perPage = min(max((int) $request->input('per_page', 20), 1), 100);

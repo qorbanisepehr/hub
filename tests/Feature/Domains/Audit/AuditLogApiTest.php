@@ -79,6 +79,24 @@ describe('Audit Log API', function () {
                 ->assertJsonCount(3, 'data');
         });
 
+        it('filters by trace_id', function () {
+            AuditLog::factory()->count(2)->create(['trace_id' => 'trace-abc']);
+
+            actingAs($this->user)
+                ->getJson('/api/audit-logs?trace_id=trace-abc')
+                ->assertOk()
+                ->assertJsonCount(2, 'data');
+        });
+
+        it('filters by ip', function () {
+            AuditLog::factory()->count(2)->create(['ip_address' => '203.0.113.7']);
+
+            actingAs($this->user)
+                ->getJson('/api/audit-logs?ip=203.0.113.7')
+                ->assertOk()
+                ->assertJsonCount(2, 'data');
+        });
+
         it('validates invalid date_from', function () {
             actingAs($this->user)
                 ->getJson('/api/audit-logs?date_from=not-a-date')
@@ -149,6 +167,22 @@ describe('Audit Log API', function () {
                 ->getJson('/api/audit-logs/stats')
                 ->assertOk()
                 ->assertJsonPath('data.total', 10);
+        });
+
+        it('bounds the default window to the last 30 days', function () {
+            AuditLog::factory()->count(4)->forEmployee()->create([
+                'created_at' => now()->subDays(45),
+            ]);
+
+            actingAs($this->user)
+                ->getJson('/api/audit-logs/stats')
+                ->assertOk()
+                ->assertJsonPath('data.total', 10);
+
+            actingAs($this->user)
+                ->getJson('/api/audit-logs/stats?date_from='.now()->subDays(60)->toDateString())
+                ->assertOk()
+                ->assertJsonPath('data.total', 14);
         });
 
         it('returns correct category counts', function () {
