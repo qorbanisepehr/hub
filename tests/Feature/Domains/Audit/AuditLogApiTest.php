@@ -109,6 +109,25 @@ describe('Audit Log API', function () {
                 ->getJson('/api/audit-logs/99999')
                 ->assertNotFound();
         });
+
+        it('decodes nested JSON-encoded change values', function () {
+            $section = ['religion' => 'islam', 'religion_sect' => 'shia'];
+            $log = AuditLog::factory()->create([
+                'old_values' => [
+                    'section_personal' => json_encode($section),
+                    'updated_at' => '2026-08-22 04:00:00',
+                ],
+                'new_values' => [
+                    'section_personal' => json_encode($section),
+                ],
+            ]);
+
+            actingAs($this->user)
+                ->getJson("/api/audit-logs/{$log->id}")
+                ->assertOk()
+                ->assertJsonPath('data.changes.old.section_personal.religion', 'islam')
+                ->assertJsonPath('data.changes.new.section_personal.religion_sect', 'shia');
+        });
     });
 
     describe('GET /api/audit-logs/stats', function () {

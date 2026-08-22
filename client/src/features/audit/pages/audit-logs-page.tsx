@@ -5,10 +5,11 @@ import {
     useTable,
     stockFeatures,
     type ColumnVisibilityState,
+    type Row,
 } from "@tanstack/react-table";
-import { IconClipboardList } from "@tabler/icons-react";
+import { IconClipboardList, IconRefresh, IconChevronRight, IconChevronDown } from "@tabler/icons-react";
 
-import { useAuditLogs, useAuditEvents } from "@/features/audit/hooks";
+import { useAuditLogs, useAuditEvents, useAuditLogDetail } from "@/features/audit/hooks";
 import { getAuditLogColumns } from "@/features/audit/audit-logs-columns";
 import { DataTablePage, DataTableToolbar } from "@/components/data-table";
 import { useTableUrlState } from "@/hooks/use-table-url-state";
@@ -20,9 +21,95 @@ import {
     AUDIT_EVENT_LABELS,
     AUDIT_PER_PAGE_OPTIONS,
 } from "@/features/audit/constants";
-import type { AuditCategory } from "@/features/audit/types";
+import type { AuditCategory, AuditLog, AuditLogDetail } from "@/features/audit/types";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useTranslation } from "@/lib/i18n";
+import { toPersianDate } from "@/lib/date-format";
 
 const route = getRouteApi("/protected/audit");
+
+function ExpandedRowContent({ row }: { row: Row<AuditLog> }) {
+    const { data: response, isLoading, isError } = useAuditLogDetail(
+        row.original.id,
+    );
+
+    if (isLoading) {
+        return (
+            <div className="p-4 space-y-3">
+                <Skeleton className="h-4 w-48" />
+                <Skeleton className="h-4 w-32" />
+                <Skeleton className="h-16 w-full" />
+            </div>
+        );
+    }
+
+    const detail = response?.data;
+
+    if (!detail) {
+        if (isError) {
+            return (
+                <p className="p-4 text-sm text-muted-foreground">
+                    خطا در بارگذاری جزئیات رویداد.
+                </p>
+            );
+        }
+
+        return null;
+    }
+
+    const changes = detail.changes ?? {};
+    const request = detail.request;
+
+    return (
+        <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+            <div className="space-y-2">
+                <h4 className="font-medium text-muted-foreground">اطلاعات رویداد</h4>
+                <div className="space-y-1">
+                    <div><span className="text-muted-foreground">نوع: </span>{AUDIT_EVENT_LABELS[detail.event] ?? detail.event}</div>
+                    <div><span className="text-muted-foreground">توضیحات: </span>{detail.description ?? "—"}</div>
+                    <div><span className="text-muted-foreground">آدرس IP: </span><span className="font-mono text-xs">{detail.ip_address ?? "—"}</span></div>
+                </div>
+            </div>
+            <div className="space-y-2">
+                <h4 className="font-medium text-muted-foreground">تغییرات</h4>
+                {changes.old && (
+                    <div>
+                        <span className="text-muted-foreground text-xs">قبل:</span>
+                        <pre className="mt-1 p-2 bg-muted rounded text-xs overflow-auto max-h-32">
+                            {JSON.stringify(changes.old, null, 2)}
+                        </pre>
+                    </div>
+                )}
+                {changes.new && (
+                    <div>
+                        <span className="text-muted-foreground text-xs">بعد:</span>
+                        <pre className="mt-1 p-2 bg-muted rounded text-xs overflow-auto max-h-32">
+                            {JSON.stringify(changes.new, null, 2)}
+                        </pre>
+                    </div>
+                )}
+                {!changes.old && !changes.new && (
+                    <span className="text-muted-foreground">—</span>
+                )}
+            </div>
+            <div className="space-y-2">
+                <h4 className="font-medium text-muted-foreground">درخواست</h4>
+                {request ? (
+                    <div className="space-y-1">
+                        {request.method && <div><span className="text-muted-foreground">روش: </span><Badge variant="outline" className="text-xs">{request.method}</Badge></div>}
+                        {request.url && <div className="truncate"><span className="text-muted-foreground">آدرس: </span><span className="font-mono text-xs">{request.url}</span></div>}
+                        {request.request_id && <div className="truncate"><span className="text-muted-foreground">شناسه درخواست: </span><span className="font-mono text-xs">{request.request_id}</span></div>}
+                        {request.trace_id && <div className="truncate"><span className="text-muted-foreground">شناسه ردیابی: </span><span className="font-mono text-xs">{request.trace_id}</span></div>}
+                    </div>
+                ) : (
+                    <span className="text-muted-foreground">—</span>
+                )}
+            </div>
+        </div>
+    );
+}
 
 export function AuditLogsPage() {
     const queryClient = useQueryClient();
@@ -31,6 +118,7 @@ export function AuditLogsPage() {
 
     const [columnVisibility, setColumnVisibility] =
         useState<ColumnVisibilityState>({});
+    const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
 
     const {
         sorting,
@@ -79,7 +167,7 @@ export function AuditLogsPage() {
 
     const { data: availableEvents = [] } = useAuditEvents(activeCategory);
 
-    const { data, isLoading, isError } = useAuditLogs({
+    const { data, isLoading, isError, isFetching } = useAuditLogs({
         page: pagination.pageIndex + 1,
         per_page: pagination.pageSize,
         sort: activeSort?.id,
@@ -91,7 +179,36 @@ export function AuditLogsPage() {
 
     const tableData = data?.data ?? [];
     const meta = data?.meta;
-    const columns = getAuditLogColumns();
+    const baseColumns = getAuditLogColumns();
+    const columns = [
+        {
+            id: "expand",
+            header: "",
+            cell: ({ row }: { row: Row<AuditLog> }) => {
+                const isExpanded = expandedRows[row.original.id] ?? false;
+                return (
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-8"
+                        onClick={() =>
+                            setExpandedRows((prev) => ({
+                                ...prev,
+                                [row.original.id]: !prev[row.original.id],
+                            }))
+                        }
+                    >
+                        {isExpanded ? (
+                            <IconChevronDown className="size-4" />
+                        ) : (
+                            <IconChevronRight className="size-4" />
+                        )}
+                    </Button>
+                );
+            },
+        },
+        ...baseColumns,
+    ];
 
     const table = useTable({
         features: stockFeatures,
@@ -128,6 +245,11 @@ export function AuditLogsPage() {
             totalLabel="رویداد"
             icon={IconClipboardList}
             perPageOptions={AUDIT_PER_PAGE_OPTIONS}
+            expandedRowIds={expandedRows}
+            renderExpandedRow={(row) => {
+                const log = row as AuditLog;
+                return <ExpandedRowContent row={{ original: log } as Row<AuditLog>} />;
+            }}
             header={
                 <div>
                     <h1 className="text-2xl font-bold tracking-tight">
@@ -139,32 +261,46 @@ export function AuditLogsPage() {
                 </div>
             }
             toolbar={
-                <DataTableToolbar
-                    table={table}
-                    searchPlaceholder="جستجو در لاگ..."
-                    globalFilter={globalFilter}
-                    onGlobalFilterChange={onGlobalFilterChange}
-                    filters={[
-                        {
-                            columnId: "category",
-                            title: "دسته‌بندی",
-                            options: Object.entries(AUDIT_CATEGORY_LABELS).map(
-                                ([value, label]) => ({
-                                    label,
-                                    value,
-                                }),
-                            ),
-                        },
-                        {
-                            columnId: "event",
-                            title: "رویداد",
-                            options: availableEvents?.data?.map((event) => ({
-                                label: AUDIT_EVENT_LABELS[event] ?? event,
-                                value: event,
-                            })),
-                        },
-                    ]}
-                />
+                <div className="flex items-center gap-2">
+                    <DataTableToolbar
+                        table={table}
+                        searchPlaceholder="جستجو در لاگ..."
+                        globalFilter={globalFilter}
+                        onGlobalFilterChange={onGlobalFilterChange}
+                        filters={[
+                            {
+                                columnId: "category",
+                                title: "دسته‌بندی",
+                                options: Object.entries(AUDIT_CATEGORY_LABELS).map(
+                                    ([value, label]) => ({
+                                        label,
+                                        value,
+                                    }),
+                                ),
+                            },
+                            {
+                                columnId: "event",
+                                title: "رویداد",
+                                options: availableEvents?.data?.map((event) => ({
+                                    label: AUDIT_EVENT_LABELS[event] ?? event,
+                                    value: event,
+                                })),
+                            },
+                        ]}
+                    />
+                    <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() =>
+                            queryClient.invalidateQueries({
+                                queryKey: auditKeys.all,
+                            })
+                        }
+                        disabled={isFetching}
+                    >
+                        <IconRefresh className={`size-4 ${isFetching ? "animate-spin" : ""}`} />
+                    </Button>
+                </div>
             }
             emptyMessage="هیچ رویدادی ثبت نشده است"
             onRetry={() =>
