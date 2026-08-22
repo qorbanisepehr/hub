@@ -5,6 +5,9 @@ import { SectionRow } from "@/components/shared/section-row";
 import { SectionRepeaterTable } from "@/components/shared/section-repeater-table";
 import { SectionCard } from "./section-card";
 import { asRecord, boolLabel, dateValue } from "./shared";
+import {
+    useOptionLabelResolver,
+} from "./use-option-label";
 
 type EducationViewProps = {
     data: Record<string, unknown>;
@@ -21,6 +24,8 @@ export function EducationView({
 }: EducationViewProps) {
     const education = data;
     const isStudent = Boolean(education.is_student);
+    const degreeLabel = useOptionLabelResolver("degree");
+    const universityLabel = useOptionLabelResolver("university");
 
     return (
         <SectionCard title={title} action={action}>
@@ -29,9 +34,9 @@ export function EducationView({
                     items={education.education_records}
                     emptyLabel="سابقه تحصیلی ثبت نشده است."
                     columns={[
-                        { label: "مدرک", render: (i) => i.degree },
+                        { label: "مدرک", render: (i) => degreeLabel(i.degree as string | undefined) },
                         { label: "رشته", render: (i) => i.field },
-                        { label: "دانشگاه", render: (i) => i.institution },
+                        { label: "دانشگاه", render: (i) => universityLabel(i.institution as string | undefined) },
                         { label: "محل", render: (i) => i.location },
                         { label: "از تاریخ", render: (i) => dateValue(i.from) },
                         { label: "تا تاریخ", render: (i) => dateValue(i.to) },
@@ -54,7 +59,7 @@ export function EducationView({
                                     <SectionRow
                                         hideEmpty
                                         label="مقطع تحصیلی"
-                                        value={education.student_degree}
+                                        value={degreeLabel(education.student_degree as string | undefined)}
                                     />
                                     <SectionRow
                                         hideEmpty
@@ -64,7 +69,7 @@ export function EducationView({
                                     <SectionRow
                                         hideEmpty
                                         label="دانشگاه"
-                                        value={education.student_university}
+                                        value={universityLabel(education.student_university as string | undefined)}
                                     />
                                     <SectionRow
                                         hideEmpty
