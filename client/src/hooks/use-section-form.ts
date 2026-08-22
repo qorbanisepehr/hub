@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef } from "react";
+import { useCallback, useRef } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm, useStore } from "@tanstack/react-form";
 import { toast } from "sonner";
@@ -26,28 +26,29 @@ type UseSectionFormOptions<TEntity, TFormValues> = {
     errorMessage?: string;
 };
 
-function shallowEqual(a: unknown, b: unknown): boolean {
+/**
+ * Structural equality for JSON-safe form values. Nested objects/arrays
+ * (`military_status`, repeater rows) compare by value, so a fresh-but-
+ * identical object tree from a rebuild never counts as dirty.
+ */
+function deepEqual(a: unknown, b: unknown): boolean {
     if (a === b) return true;
-    if (
-        a == null ||
-        b == null ||
-        typeof a !== "object" ||
-        typeof b !== "object"
-    ) {
+    if (Array.isArray(a) || Array.isArray(b)) {
+        if (!Array.isArray(a) || !Array.isArray(b)) return false;
+        if (a.length !== b.length) return false;
+        return a.every((item, index) => deepEqual(item, b[index]));
+    }
+    if (a == null || b == null || typeof a !== "object" || typeof b !== "object") {
         return a === b;
     }
-    const keysA = Object.keys(a as Record<string, unknown>);
-    const keysB = Object.keys(b as Record<string, unknown>);
+    const recordA = a as Record<string, unknown>;
+    const recordB = b as Record<string, unknown>;
+    const keysA = Object.keys(recordA);
+    const keysB = Object.keys(recordB);
     if (keysA.length !== keysB.length) return false;
-    for (const key of keysA) {
-        if (
-            (a as Record<string, unknown>)[key] !==
-            (b as Record<string, unknown>)[key]
-        ) {
-            return false;
-        }
-    }
-    return true;
+    return keysA.every(
+        (key) => key in recordB && deepEqual(recordA[key], recordB[key]),
+    );
 }
 
 /**
@@ -84,7 +85,10 @@ export function useSectionForm<TEntity, TFormValues>({
         defaultValues: buildDefaultValues(entity),
     });
 
-    const lastSavedRef = useRef<TFormValues>(buildDefaultValues(entity));
+    // Seed the saved snapshot from the SAME object tree the form was built
+    // from; a second buildDefaultValues(entity) call would produce fresh
+    // nested objects that never reference-match and falsely report dirty.
+    const lastSavedRef = useRef(form.state.values);
 
     const saveMutation = useMutation({
         mutationFn: ({
@@ -104,8 +108,9 @@ export function useSectionForm<TEntity, TFormValues>({
             const serverSection = (
                 serverValues as Record<string, unknown>
             )[section];
+            const currentValues = JSON.parse(JSON.stringify(form.state.values)) as Record<string, unknown>;
             const reconciled: Record<string, unknown> = {
-                ...form.state.values,
+                ...currentValues,
                 [section]: serverSection,
             };
             for (const key of topLevelKeys) {
@@ -136,12 +141,22 @@ export function useSectionForm<TEntity, TFormValues>({
         (sectionKey: string): boolean => {
             const current = extractSectionData(form.state.values, sectionKey);
             const saved = extractSectionData(lastSavedRef.current, sectionKey);
-            return !shallowEqual(current, saved);
+            return !deepEqual(current, saved);
         },
         [extractSectionData, form],
     );
 
     const isDirty = useStore(form.store, (s) => s.isDirty);
 
-    return { form, saveMutation, persistSection, isDirty, isSectionDirty };
+    /**
+     * Update the last-saved snapshot after the form defaults are synced
+     * (e.g. from useSyncFormDefaults). Without this, isSectionDirty()
+     * would permanently return true because lastSavedRef still holds the
+     * pre-sync defaults.
+     */
+    const syncDefaults = useCallback((newValues: TFormValues) => {
+        lastSavedRef.current = newValues;
+    }, []);
+
+    return { form, saveMutation, persistSection, isDirty, isSectionDirty, syncDefaults };
 }

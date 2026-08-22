@@ -39,10 +39,10 @@ function employeeData(array $overrides = []): array
         'personnel_code' => '00001',
         'first_name' => 'John',
         'last_name' => 'Doe',
-        'gender' => 'مرد',
+        'gender' => 'male',
         'birth_date' => '1990-01-15',
         'id_number' => '1234567890',
-        'marital_status' => 'مجرد',
+        'marital_status' => 'single',
         'email' => 'john@example.com',
         'mobile' => '09123456789',
         'employment_type' => 'official',
@@ -56,17 +56,17 @@ function validEmployeePersonalInfo(): array
     return [
         'first_name' => 'Ali',
         'last_name' => 'Rezaei',
-        'gender' => 'مرد',
+        'gender' => 'male',
         'blood_group' => 'A+',
         'birth_date' => '1990-01-15',
-        'birth_place' => 'تهران-تهران',
+        'birth_place' => 'tehran',
         'birth_certificate_number' => '12345',
         'father_name' => 'Ahmad',
-        'religion' => 'اسلام',
-        'marital_status' => 'مجرد',
+        'religion' => 'islam',
+        'marital_status' => 'single',
         'id_number' => '0123456789',
         'military_status' => [
-            'status' => 'پایان خدمت',
+            'status' => 'completed',
             'organization' => 'Army',
             'from' => '2011-03-21',
             'to' => '2013-03-21',
@@ -84,8 +84,8 @@ function validEmployeeContactInfo(): array
         'emergency_phone' => '09121234567',
         'address' => [
             'postal_code' => '1234567890',
-            'province' => 'تهران',
-            'city' => 'تهران',
+            'province' => 'tehran',
+            'city' => 'tehran',
             'address' => 'Test address',
             'plaque' => '12',
             'floor' => '3',
@@ -248,7 +248,7 @@ describe('employee CRUD', function () {
                         'personnel_code' => '00001',
                         'first_name' => 'John',
                         'last_name' => 'Doe',
-                        'gender' => 'مرد',
+                        'gender' => 'male',
                     ],
                 ]);
 
@@ -279,11 +279,11 @@ describe('employee CRUD', function () {
                 ]);
         });
 
-        it('fails with invalid gender (english key value is not a label)', function () {
+        it('fails with invalid gender (unknown slug)', function () {
             $user = createUserWithPermissions(['employee.create']);
 
             $this->actingAs($user)
-                ->postJson('/api/employees', employeeData(['gender' => 'male']))
+                ->postJson('/api/employees', employeeData(['gender' => 'alien']))
                 ->assertStatus(422)
                 ->assertJsonValidationErrors(['gender']);
         });
@@ -514,8 +514,8 @@ describe('employee CRUD', function () {
                 'id' => $employee->id,
                 'first_name' => 'Ali',
                 'last_name' => 'Rezaei',
-                'gender' => 'مرد',
-                'marital_status' => 'مجرد',
+                'gender' => 'male',
+                'marital_status' => 'single',
                 'id_number' => '0123456789',
             ]);
 
@@ -524,6 +524,20 @@ describe('employee CRUD', function () {
                 ->and($saved->section_personal['blood_group'])->toBe('A+')
                 ->and($saved->section_personal)->not->toHaveKey('first_name')
                 ->and($saved->section_personal)->not->toHaveKey('gender');
+        });
+
+        it('returns saved religion and sect in the section response', function () {
+            $user = createUserWithPermissions(['employee.update']);
+            $employee = Employee::factory()->create();
+
+            $this->actingAs($user)
+                ->postJson("/api/employees/{$employee->id}/sections/personal_info", [
+                    ...validEmployeePersonalInfo(),
+                    'religion_sect' => 'shia',
+                ])
+                ->assertOk()
+                ->assertJsonPath('data.section_personal.religion', 'islam')
+                ->assertJsonPath('data.section_personal.religion_sect', 'shia');
         });
 
         it('persists contact info email and mobile into real columns', function () {
@@ -541,7 +555,7 @@ describe('employee CRUD', function () {
             ]);
 
             $saved = $employee->fresh();
-            expect($saved->section_contact_address['address']['city'])->toBe('تهران')
+            expect($saved->section_contact_address['address']['city'])->toBe('tehran')
                 ->and($saved->section_contact_address)->not->toHaveKey('email')
                 ->and($saved->section_contact_address)->not->toHaveKey('mobile');
         });
