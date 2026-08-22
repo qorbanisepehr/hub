@@ -3,7 +3,10 @@
 namespace App\Domains\Authorization\Controllers;
 
 use App\Contracts\Authorization;
+use App\Domains\Audit\Services\AuditEventDispatcher;
 use App\Domains\Auth\Resources\UserResource;
+use App\Domains\Authorization\Events\UserCreated;
+use App\Domains\Authorization\Events\UserUpdated;
 use App\Domains\Authorization\Requests\StoreUserRequest;
 use App\Domains\Authorization\Requests\UpdateUserRequest;
 use App\Models\User;
@@ -15,6 +18,7 @@ class UserController
 {
     public function __construct(
         private Authorization $authorization,
+        private readonly AuditEventDispatcher $audit,
     ) {}
 
     /** @var array<string, string> */
@@ -73,6 +77,8 @@ class UserController
         $user = User::create($request->validated());
         $user->load(['roles', 'activeRole', self::EMPLOYEE_COLUMNS]);
 
+        $this->audit->record(new UserCreated($user));
+
         return response()->json([
             'data' => new UserResource($user),
         ]);
@@ -100,6 +106,7 @@ class UserController
     {
         $this->authorization->authorize($request->user(), 'user.update', $user);
 
+        $old = $user->only(['name', 'email', 'is_active']);
         $data = $request->validated();
 
         if (! empty($data['password'])) {
@@ -111,7 +118,11 @@ class UserController
 
         $user->update($data);
 
+        $new = $user->only(['name', 'email', 'is_active']);
+
         $user->load(['roles', 'activeRole', self::EMPLOYEE_COLUMNS]);
+
+        $this->audit->record(new UserUpdated($user, $old, $new));
 
         return response()->json([
             'data' => new UserResource($user),

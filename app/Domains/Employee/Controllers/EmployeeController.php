@@ -6,6 +6,7 @@ use App\Contracts\Authorization;
 use App\Domains\Audit\Services\AuditEventDispatcher;
 use App\Domains\Employee\Events\EmployeeCreated;
 use App\Domains\Employee\Events\EmployeeDeleted;
+use App\Domains\Employee\Events\EmployeeSubmitted;
 use App\Domains\Employee\Events\EmployeeUpdated;
 use App\Domains\Employee\Models\Employee;
 use App\Domains\Employee\Requests\SaveEmployeeSectionRequest;
@@ -144,6 +145,8 @@ class EmployeeController extends ApiController
 
         $employee = $this->employeeService->submit($employee);
         $employee->load(['user']);
+
+        $this->audit->record(new EmployeeSubmitted($employee));
 
         return new EmployeeResource($employee);
     }

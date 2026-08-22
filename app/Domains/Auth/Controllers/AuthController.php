@@ -6,6 +6,7 @@ use App\Contracts\Authorization;
 use App\Domains\Audit\Services\AuditEventDispatcher;
 use App\Domains\Auth\Events\LoginFailed;
 use App\Domains\Auth\Events\LoginSucceeded;
+use App\Domains\Auth\Events\LogoutSucceeded;
 use App\Domains\Auth\Requests\LoginRequest;
 use App\Domains\Auth\Requests\LoginWithPasswordRequest;
 use App\Domains\Auth\Requests\VerifyOtpRequest;
@@ -125,12 +126,18 @@ class AuthController
 
     public function logout(Request $request): JsonResponse
     {
+        $user = $request->user();
+
         if ($request->hasSession()) {
             auth('web')->logout();
             $request->session()->invalidate();
             $request->session()->regenerateToken();
         } else {
-            $request->user()->currentAccessToken()->delete();
+            $user->currentAccessToken()->delete();
+        }
+
+        if ($user) {
+            $this->audit->record(new LogoutSucceeded($user));
         }
 
         app('auth')->forgetGuards();

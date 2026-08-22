@@ -9,6 +9,8 @@ use App\Domains\Document\Auth\DocumentAuthorizationContext;
 use App\Domains\Document\Enums\DocumentAction;
 use App\Domains\Document\Events\DocumentDeleted;
 use App\Domains\Document\Events\DocumentDownloaded;
+use App\Domains\Document\Events\DocumentForceDeleted;
+use App\Domains\Document\Events\DocumentPlaced;
 use App\Domains\Document\Events\DocumentRestored;
 use App\Domains\Document\Events\DocumentUploaded;
 use App\Domains\Document\Models\Document;
@@ -156,6 +158,8 @@ class DocumentController extends Controller
             $metadata !== [] ? $metadata : null,
         );
 
+        $this->audit->record(new DocumentPlaced($document));
+
         return new DocumentResource($document);
     }
 
@@ -252,6 +256,8 @@ class DocumentController extends Controller
         );
 
         $this->documentService->forceDeleteUsage($document, $entity);
+
+        $this->audit->record(new DocumentForceDeleted($usage));
 
         return response()->json(['message' => __('document.document_force_deleted')]);
     }
