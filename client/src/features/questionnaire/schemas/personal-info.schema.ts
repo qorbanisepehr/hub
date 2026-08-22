@@ -20,12 +20,12 @@ import {
 
 // Special values with structural meaning in the form logic (e.g. "when married
 // the spouse employment field becomes required"). Form sections persist the
-// readable label, so these mirror the option labels and the server-side rules.
-export const GENDER_MALE = "مرد";
-export const GENDER_FEMALE = "زن";
-export const MARITAL_SINGLE = "مجرد";
-export const MARITAL_MARRIED = "متاهل";
-export const SPOUSE_EMPLOYED = "شاغل";
+// stable value key, so these mirror the option value keys and the server-side rules.
+export const GENDER_MALE = "male";
+export const GENDER_FEMALE = "female";
+export const MARITAL_SINGLE = "single";
+export const MARITAL_MARRIED = "married";
+export const SPOUSE_EMPLOYED = "employed";
 
 export type PersonalInfoOptions = {
     gender: OptionSource[];

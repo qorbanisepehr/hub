@@ -225,42 +225,42 @@ describe('FormOptionValue rule', function () {
         makeOption(['group' => 'gender', 'value' => 'other', 'label' => 'سایر', 'is_active' => false]);
     });
 
-    it('accepts an active label', function () {
-        $validator = Validator::make(['gender' => 'مرد'], ['gender' => new FormOptionValue('gender')]);
+    it('accepts an active value', function () {
+        $validator = Validator::make(['gender' => 'male'], ['gender' => new FormOptionValue('gender')]);
 
         expect($validator->passes())->toBeTrue();
     });
 
-    it('rejects an unknown label', function () {
-        $validator = Validator::make(['gender' => 'بیگانه'], ['gender' => new FormOptionValue('gender')]);
+    it('rejects an unknown value', function () {
+        $validator = Validator::make(['gender' => 'alien'], ['gender' => new FormOptionValue('gender')]);
 
         expect($validator->fails())->toBeTrue()
             ->and($validator->errors()->first('gender'))->toBe('مقدار انتخابی نامعتبر است.');
     });
 
-    it('rejects an inactive label', function () {
-        $validator = Validator::make(['gender' => 'سایر'], ['gender' => new FormOptionValue('gender')]);
+    it('rejects an inactive value', function () {
+        $validator = Validator::make(['gender' => 'other'], ['gender' => new FormOptionValue('gender')]);
 
         expect($validator->fails())->toBeTrue();
     });
 
-    it('accepts an array of active labels', function () {
+    it('accepts an array of active values', function () {
         makeOption(['group' => 'preferred_workplace', 'value' => 'tehran', 'label' => 'دفتر تهران']);
         makeOption(['group' => 'preferred_workplace', 'value' => 'kerman', 'label' => 'دفتر کرمان']);
 
         $validator = Validator::make(
-            ['places' => ['دفتر تهران', 'دفتر کرمان']],
+            ['places' => ['tehran', 'kerman']],
             ['places' => ['array', new FormOptionValue('preferred_workplace')]],
         );
 
         expect($validator->passes())->toBeTrue();
     });
 
-    it('rejects an array containing an unknown label', function () {
+    it('rejects an array containing an unknown value', function () {
         makeOption(['group' => 'preferred_workplace', 'value' => 'tehran', 'label' => 'دفتر تهران']);
 
         $validator = Validator::make(
-            ['places' => ['دفتر تهران', 'مریخ']],
+            ['places' => ['tehran', 'mars']],
             ['places' => ['array', new FormOptionValue('preferred_workplace')]],
         );
 

@@ -76,9 +76,9 @@ function seedFormOptions(?array $groups = null): void
 }
 
 /**
- * Seed a minimal province + city pair so birth_place (a combined «استان-شهر»
- * label value validated by FormOptionValue('city', 'province')) passes both
- * structural and completion validation.
+ * Seed a minimal province + city pair so birth_place (a city option value
+ * validated by FormOptionValue('city', 'province')) passes both structural
+ * and completion validation.
  */
 function seedLocationOptions(): void
 {

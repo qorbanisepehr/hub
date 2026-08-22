@@ -118,59 +118,26 @@ class FormOptionService
     }
 
     /**
-     * Whether the given label is an active option of the group.
+     * Whether the combined place value string matches an active city option.
      *
-     * Form sections persist the readable label (e.g. «تهران») instead of the
-     * stable value key, so saving is validated against the label column.
+     * Form sections now persist the city option's own value (e.g.
+     * «123-1230001001576») as the birth_place / place field. This method looks
+     * up the city by its full value and verifies its parent province is active.
      */
-    public function isValidLabel(string $group, string $label): bool
-    {
-        return FormOption::query()
-            ->ofGroup($group)
-            ->where('label', $label)
-            ->active()
-            ->exists();
-    }
-
-    /**
-     * Resolve a group label back to its stable value key (used to re-derive
-     * parent/child links such as province -> city when only labels are stored).
-     */
-    public function labelToValue(string $group, string $label): ?string
-    {
-        return FormOption::query()
-            ->ofGroup($group)
-            ->where('label', $label)
-            ->active()
-            ->value('value');
-    }
-
-    /**
-     * Whether the combined place string matches an active city option under the
-     * matching province option, e.g. «تهران-تهران» = province label «تهران» +
-     * city label «تهران». Splits on the first `-` only.
-     */
-    public function isValidCityPlace(string $combined): bool
+    public function isValidCityPlaceSlug(string $combined): bool
     {
         if (! is_string($combined) || $combined === '') {
             return false;
         }
 
-        [$provinceLabel, $cityLabel] = array_pad(explode('-', $combined, 2), 2, null);
+        $cityOption = FormOption::query()
+            ->ofGroup('city')
+            ->where('value', $combined)
+            ->active()
+            ->first();
 
-        if ($provinceLabel === null || $cityLabel === null || $cityLabel === '') {
-            return false;
-        }
-
-        $provinceValue = $this->labelToValue('province', $provinceLabel);
-
-        return $provinceValue !== null
-            && FormOption::query()
-                ->ofGroup('city')
-                ->where('label', $cityLabel)
-                ->where('parent_value', $provinceValue)
-                ->active()
-                ->exists();
+        return $cityOption !== null
+            && $this->isValid('province', $cityOption->parent_value);
     }
 
     /**

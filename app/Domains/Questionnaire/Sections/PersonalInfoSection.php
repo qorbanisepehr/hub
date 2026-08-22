@@ -119,14 +119,14 @@ class PersonalInfoSection extends BaseSection
             'religion_sect' => ['nullable', new FormOptionValue('religion_sect')],
             'marital_status' => ['required', new FormOptionValue('marital_status')],
             'id_number' => ['required', 'string', new IdNumberRule],
-            'military_status' => 'required_unless:gender,زن',
+            'military_status' => 'required_unless:gender,female',
             'military_status.status' => ['required_with:military_status', new FormOptionValue('military_status')],
             'military_status.organization' => 'required_with:military_status',
-            'military_status.from' => 'required_if:military_status.status,امریه,معافیت کفالت,معافیت پزشکی,معافیت تحصیلی,عفو رهبری|nullable|string',
+            'military_status.from' => 'required_if:military_status.status,amrieh,guardian_exemption,medical_exemption,education_exemption,leader_pardon|nullable|string',
             'military_status.to' => 'required_with:military_status',
-            'military_status.reason' => 'required_if:military_status.status,سایر|nullable|string|max:255',
-            'spouse_employment_status' => 'required_if:marital_status,متاهل',
-            'spouse_job' => 'required_if:spouse_employment_status,شاغل',
+            'military_status.reason' => 'required_if:military_status.status,other|nullable|string|max:255',
+            'spouse_employment_status' => 'required_if:marital_status,married',
+            'spouse_job' => 'required_if:spouse_employment_status,employed',
         ];
     }
 

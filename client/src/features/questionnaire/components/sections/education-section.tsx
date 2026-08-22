@@ -45,6 +45,9 @@ export function EducationSection({ form, uuid, onPersist, entity = "questionnair
     const degreeLabel = (value: string | undefined) =>
         degreeOptions?.find((option) => option.value === value)?.label ?? value;
 
+    const universityLabel = (value: string | undefined) =>
+        universityOptions?.find((option) => option.value === value)?.label ?? value;
+
     const universitySchema = universityOptions
         ? optionEnum(universityOptions, "دانشگاه الزامی است.")
         : undefined;
@@ -84,7 +87,7 @@ export function EducationSection({ form, uuid, onPersist, entity = "questionnair
                             getSummary={(item) => ({
                                 degree: degreeLabel(item.degree as string | undefined),
                                 field: item.field,
-                                institution: item.institution,
+                                institution: universityLabel(item.institution as string | undefined),
                                 from: item.from,
                                 to: item.to,
                                 gpa: item.gpa,

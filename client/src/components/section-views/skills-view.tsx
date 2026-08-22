@@ -4,6 +4,7 @@ import { SectionRow } from "@/components/shared/section-row";
 import { SectionRepeaterTable } from "@/components/shared/section-repeater-table";
 import { SectionCard } from "./section-card";
 import { asRecord, dateValue } from "./shared";
+import { useFormOptionsByGroup } from "@/features/form-options/hooks/use-form-options";
 
 type SkillsViewProps = {
     data: Record<string, unknown>;
@@ -25,6 +26,11 @@ export function SkillsView({
                   typeof skill === "string" && skill.trim() !== "",
           )
         : [];
+    const { data: languageOptions } = useFormOptionsByGroup("language");
+    const languageLabel = (value: unknown) => {
+        const str = String(value ?? "");
+        return languageOptions?.find((o) => o.value === str)?.label ?? str;
+    };
 
     return (
         <SectionCard title={title} action={action}>
@@ -35,7 +41,7 @@ export function SkillsView({
                         items={data.languages}
                         emptyLabel="زبانی ثبت نشده است."
                         columns={[
-                            { label: "زبان", render: (i) => i.language },
+                            { label: "زبان", render: (i) => languageLabel(i.language) },
                             { label: "خواندن", render: (i) => i.reading },
                             { label: "نوشتن", render: (i) => i.writing },
                             { label: "صحبت کردن", render: (i) => i.speaking },
