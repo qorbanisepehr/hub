@@ -51,20 +51,4 @@ return [
 
     'default_retention_days' => 365,
 
-    /*
-    |--------------------------------------------------------------------------
-    | Non-Auditable Events
-    |--------------------------------------------------------------------------
-    |
-    | Events that should never be recorded. Prevents recursive logging and
-    | noise from high-frequency, low-value events.
-    |
-    */
-
-    'non_auditable_events' => [
-        'audit.event.recorded',
-        'audit.retention.pruned',
-        'audit.retention.archived',
-    ],
-
 ];

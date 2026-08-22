@@ -1,12 +1,14 @@
 <?php
 
 use App\Contracts\AuditEvent;
+use App\Domains\Audit\Data\AuditContext;
 use App\Domains\Audit\Models\AuditLog;
 use App\Domains\Audit\Services\AuditEventDispatcher;
 use App\Domains\Audit\Services\SensitiveDataSanitizer;
 use App\Domains\Employee\Models\Employee;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Http\Request;
 
 describe('Audit Security', function () {
     describe('Sensitive Data Sanitization', function () {
@@ -139,6 +141,19 @@ describe('Audit Security', function () {
             expect($log->old_values['name'])->toBe('Old Name');
             expect($log->new_values['password'])->toBe('[REDACTED]');
             expect($log->new_values['name'])->toBe('New Name');
+        });
+
+        it('redacts sensitive query parameters from the stored url', function () {
+            $request = Request::create(
+                '/api/employees?national_id=1234567890&section=personal_info',
+                'GET',
+            );
+
+            $url = AuditContext::sanitizedUrl($request);
+
+            expect(str_contains($url, 'national_id=%5BREDACTED%5D'))->toBeTrue()
+                ->and(str_contains($url, 'section=personal_info'))->toBeTrue()
+                ->and(str_contains($url, '1234567890'))->toBeFalse();
         });
 
         it('never exposes raw sensitive data in audit logs', function () {

@@ -29,24 +29,10 @@ final class AuditEventDispatcher
      */
     public function record(AuditEvent $event, ?Authenticatable $actor = null): bool
     {
-        if ($this->isNonAuditable($event->eventName())) {
-            return false;
-        }
-
         $actor = $actor ?? Auth::user();
         $context = $this->contextResolver->resolve($actor);
         $data = AuditData::fromEvent($event, $context);
 
         return $this->recorder->persist($data);
-    }
-
-    /**
-     * Check if an event should not be audited.
-     */
-    private function isNonAuditable(string $eventName): bool
-    {
-        $nonAuditable = config('audit.non_auditable_events', []);
-
-        return in_array($eventName, $nonAuditable, true);
     }
 }

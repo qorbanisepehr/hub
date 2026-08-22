@@ -89,9 +89,7 @@ describe('Audit Event Pipeline', function () {
         expect($result)->toBeFalse();
     });
 
-    it('returns false for non-auditable events', function () {
-        config(['audit.non_auditable_events' => ['test.skipped']]);
-
+    it('records any contract event without a blacklist', function () {
         $event = new class implements AuditEvent
         {
             public function eventName(): string
@@ -137,7 +135,10 @@ describe('Audit Event Pipeline', function () {
 
         $result = $this->dispatcher->record($event);
 
-        expect($result)->toBeFalse();
-        expect(AuditLog::count())->toBe(0);
+        expect($result)->toBeTrue();
+
+        $log = AuditLog::latest()->first();
+        expect($log)->not->toBeNull()
+            ->and($log->event)->toBe('test.skipped');
     });
 });

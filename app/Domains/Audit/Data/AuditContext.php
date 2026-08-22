@@ -2,6 +2,8 @@
 
 namespace App\Domains\Audit\Data;
 
+use Illuminate\Http\Request;
+
 /**
  * HTTP request context captured at audit time.
  * Resolved by AuditContextResolver from the current request and authenticated user.
@@ -35,7 +37,7 @@ final readonly class AuditContext
         return new self(
             ipAddress: $request->ip(),
             userAgent: $request->userAgent(),
-            url: $request->fullUrl(),
+            url: self::sanitizedUrl($request),
             method: $request->method(),
             requestId: $request->header('X-Request-Id'),
             traceId: $request->header('X-Trace-Id'),
@@ -67,5 +69,32 @@ final readonly class AuditContext
             actorRoleId: $actorRoleId,
             actorRoleName: $actorRoleName,
         );
+    }
+
+    /**
+     * Redact values of sensitive query parameters before persisting the URL
+     * (e.g. ?national_id=...), keeping the path and safe params intact.
+     */
+    public static function sanitizedUrl(Request $request): string
+    {
+        $query = $request->query();
+
+        if ($query === []) {
+            return $request->url();
+        }
+
+        $sensitiveFields = (array) config('audit.sensitive_fields', []);
+
+        foreach ($query as $key => $value) {
+            foreach ($sensitiveFields as $field) {
+                if (str_contains(strtolower((string) $key), strtolower((string) $field))) {
+                    $query[$key] = '[REDACTED]';
+
+                    break;
+                }
+            }
+        }
+
+        return $request->url().'?'.http_build_query($query);
     }
 }
