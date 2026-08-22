@@ -4,6 +4,7 @@ namespace App\Domains\FormOptions\Services;
 
 use App\Domains\FormOptions\Models\FormOption;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 
 class FormOptionService
 {
@@ -19,6 +20,28 @@ class FormOptionService
     ];
 
     private const CACHE_TTL = 3600;
+
+    /**
+     * Tables and their section JSON columns that persist form-option values.
+     * Scanned before a hard delete so in-use options are never removed.
+     */
+    private const REFERENCE_COLUMNS = [
+        'employees' => [
+            'section_personal', 'section_contact_address', 'section_education',
+            'section_work_experience', 'section_skills', 'section_training',
+            'section_additional_info', 'section_social_insurance',
+        ],
+        'cvs' => [
+            'section_personal', 'section_contact_address', 'section_education',
+            'section_work_experience', 'section_skills', 'section_training',
+            'section_additional_info',
+        ],
+        'questionnaires' => [
+            'section_personal', 'section_contact_address', 'section_education',
+            'section_work_experience', 'section_skills', 'section_training',
+            'section_additional_info', 'section_job_request',
+        ],
+    ];
 
     private function optionsCacheKey(string $group): string
     {
@@ -66,7 +89,7 @@ class FormOptionService
      */
     public function getOptions(string $group, ?string $parentValue = null, ?string $search = null, ?int $limit = null): array
     {
-        if ($parentValue !== null || $search !== null) {
+        if ($parentValue !== null || $search !== null || $limit !== null) {
             return $this->queryOptions($group, $parentValue, $search, $limit);
         }
 
@@ -186,6 +209,38 @@ class FormOptionService
         $option->delete();
 
         $this->flush($group);
+    }
+
+    /**
+     * Whether any employee, CV, or questionnaire section JSON stores this
+     * option's value (soft-deleted rows included — they can be restored).
+     *
+     * Matches the value as a quoted JSON token anywhere inside the section
+     * documents, using only portable SQL so it runs on every supported
+     * engine. Slight over-matching (e.g. a key named exactly like the value)
+     * errs on the safe side: the option is kept.
+     */
+    public function isReferenced(FormOption $option): bool
+    {
+        $needle = str_replace(
+            ['\\', '%', '_'],
+            ['\\\\', '\\%', '\\_'],
+            '"'.$option->value.'"',
+        );
+
+        foreach (self::REFERENCE_COLUMNS as $table => $columns) {
+            foreach ($columns as $column) {
+                $exists = DB::table($table)
+                    ->whereRaw("cast({$column} as text) like ? escape '\\'", ["%{$needle}%"])
+                    ->exists();
+
+                if ($exists) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     public function toggleActive(FormOption $option): FormOption

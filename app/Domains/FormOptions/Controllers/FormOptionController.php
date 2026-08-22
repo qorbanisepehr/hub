@@ -48,14 +48,18 @@ class FormOptionController
     public function show(Request $request, string $group): JsonResponse
     {
         $search = $request->query('search');
-        $limit = $request->query('limit');
+        $limitParam = $request->query('limit');
+
+        $limit = is_numeric($limitParam)
+            ? min(max((int) $limitParam, 1), 100)
+            : null;
 
         return response()->json([
             'data' => $this->service->getOptions(
                 $group,
                 $request->query('parent_value'),
                 is_string($search) ? $search : null,
-                is_numeric($limit) ? (int) $limit : null,
+                $limit,
             ),
         ]);
     }
@@ -75,6 +79,12 @@ class FormOptionController
     public function destroy(Request $request, FormOption $option): JsonResponse
     {
         $this->authorization->authorize($request->user(), 'form-options.manage', $option);
+
+        if ($this->service->isReferenced($option)) {
+            return response()->json([
+                'message' => 'Option is referenced by existing records and cannot be deleted. Deactivate it instead.',
+            ], 409);
+        }
 
         $this->service->delete($option);
 

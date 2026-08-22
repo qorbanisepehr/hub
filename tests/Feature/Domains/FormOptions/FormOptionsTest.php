@@ -1,5 +1,6 @@
 <?php
 
+use App\Domains\Employee\Models\Employee;
 use App\Domains\FormOptions\Models\FormOption;
 use App\Domains\FormOptions\Services\FormOptionService;
 use App\Rules\FormOptionValue;
@@ -67,6 +68,24 @@ describe('form options public endpoints', function () {
         $this->getJson('/api/form-options/nope')
             ->assertOk()
             ->assertJsonCount(0, 'data');
+    });
+
+    it('clamps the limit parameter between 1 and 100', function () {
+        makeOption(['group' => 'priority', 'value' => 'a', 'sort_order' => 1]);
+        makeOption(['group' => 'priority', 'value' => 'b', 'sort_order' => 2]);
+        makeOption(['group' => 'priority', 'value' => 'c', 'sort_order' => 3]);
+
+        $this->getJson('/api/form-options/priority?limit=0')
+            ->assertOk()
+            ->assertJsonCount(1, 'data');
+
+        $this->getJson('/api/form-options/priority?limit=2')
+            ->assertOk()
+            ->assertJsonCount(2, 'data');
+
+        $this->getJson('/api/form-options/priority?limit=999')
+            ->assertOk()
+            ->assertJsonCount(3, 'data');
     });
 });
 
@@ -189,6 +208,37 @@ describe('form options admin endpoints', function () {
         $this->assertDatabaseMissing('form_options', ['id' => $option->id]);
     });
 
+    it('refuses to delete an option referenced by employee sections', function () {
+        $user = createUserWithPermissions(['form-options.manage']);
+        $option = makeOption();
+
+        Employee::factory()->create([
+            'section_personal' => ['religion' => $option->value],
+        ]);
+
+        $this->actingAs($user)
+            ->deleteJson("/api/admin/form-options/{$option->id}")
+            ->assertStatus(409);
+
+        $this->assertDatabaseHas('form_options', ['id' => $option->id]);
+    });
+
+    it('refuses to delete an option referenced by a soft-deleted employee', function () {
+        $user = createUserWithPermissions(['form-options.manage']);
+        $option = makeOption();
+
+        Employee::factory()->create([
+            'section_skills' => ['skill' => [$option->value]],
+            'deleted_at' => now(),
+        ]);
+
+        $this->actingAs($user)
+            ->deleteJson("/api/admin/form-options/{$option->id}")
+            ->assertStatus(409);
+
+        $this->assertDatabaseHas('form_options', ['id' => $option->id]);
+    });
+
     it('toggles an option active state', function () {
         $user = createUserWithPermissions(['form-options.manage']);
         $option = makeOption();
@@ -292,5 +342,25 @@ describe('FormOptionService caching', function () {
         expect($service->isValid('gender', 'male'))->toBeTrue()
             ->and($service->isValid('gender', 'other'))->toBeFalse()
             ->and($service->isValid('gender', 'alien'))->toBeFalse();
+    });
+
+    it('serves stored records holding historically deactivated options without revalidation', function () {
+        makeOption(['group' => 'gender', 'value' => 'male', 'label' => 'مرد']);
+
+        $employee = Employee::factory()->create([
+            'section_personal' => ['gender' => 'male'],
+        ]);
+
+        FormOption::query()
+            ->where('group', 'gender')
+            ->where('value', 'male')
+            ->update(['is_active' => false]);
+
+        $user = createUserWithPermissions(['employee.view']);
+
+        $this->actingAs($user)
+            ->getJson("/api/employees/{$employee->id}")
+            ->assertOk()
+            ->assertJsonPath('data.section_personal.gender', 'male');
     });
 });
