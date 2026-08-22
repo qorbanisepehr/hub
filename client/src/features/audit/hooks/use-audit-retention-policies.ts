@@ -12,7 +12,7 @@ export function useRetentionPolicies() {
         queryKey: auditKeys.retentionPolicies(),
         queryFn: async () => {
             const { data } = await fetchRetentionPolicies();
-            return data;
+            return data.data;
         },
     });
 }

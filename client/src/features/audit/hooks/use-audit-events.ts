@@ -7,7 +7,7 @@ export function useAuditEvents(category?: string) {
         queryKey: [...auditKeys.all, "events", { category }] as const,
         queryFn: async () => {
             const { data } = await fetchAuditEvents(category);
-            return data;
+            return data.data;
         },
     });
 }

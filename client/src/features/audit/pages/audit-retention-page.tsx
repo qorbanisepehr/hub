@@ -1,8 +1,3 @@
-import { useState } from "react";
-import { IconSettings } from "@tabler/icons-react";
-import { toast } from "sonner";
-
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
@@ -11,10 +6,10 @@ import { AUDIT_CATEGORY_LABELS } from "@/features/audit/constants";
 import { PageLayout, PageHeader, ErrorSection, PageSkeleton } from "@/components/layout";
 
 export function AuditRetentionPage() {
-    const { data: policies = [], isLoading, isError, error } = useRetentionPolicies();
+    const { data: policies = [], isLoading, isError } = useRetentionPolicies();
 
     if (isLoading) {
-        return <PageSkeleton rows={6} />;
+        return <PageSkeleton />;
     }
 
     if (isError) {
@@ -23,9 +18,8 @@ export function AuditRetentionPage() {
                 <PageHeader
                     title="سیاست نگهداری"
                     description="مدیریت مدت زمان نگهداری رویدادها"
-                    icon={IconSettings}
                 />
-                <ErrorSection error={error} />
+                <ErrorSection />
             </PageLayout>
         );
     }
@@ -35,7 +29,6 @@ export function AuditRetentionPage() {
             <PageHeader
                 title="سیاست نگهداری"
                 description="مدیریت مدت زمان نگهداری رویدادها"
-                icon={IconSettings}
             />
 
             <div className="grid gap-4">

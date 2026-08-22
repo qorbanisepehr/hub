@@ -1,5 +1,4 @@
 import { useParams } from "@tanstack/react-router";
-import { IconArrowRight } from "@tabler/icons-react";
 
 import { useAuditLogDetail } from "@/features/audit/hooks";
 import { toPersianDate } from "@/lib/date-format";
@@ -52,7 +51,6 @@ export function AuditLogDetailPage() {
             <PageHeader
                 title="جزئیات رویداد"
                 description={`${eventLabel} — ${categoryLabel}`}
-                icon={IconArrowRight}
             >
                 <BackButton to="/audit" />
             </PageHeader>

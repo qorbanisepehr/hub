@@ -4,8 +4,10 @@ import { getRouteApi } from "@tanstack/react-router";
 import {
     useTable,
     stockFeatures,
+    type ColumnDef,
     type ColumnVisibilityState,
     type Row,
+    type StockFeatures,
 } from "@tanstack/react-table";
 import { IconClipboardList, IconRefresh, IconChevronRight, IconChevronDown } from "@tabler/icons-react";
 
@@ -19,20 +21,18 @@ import { PAGINATION } from "@/lib/constants";
 import {
     AUDIT_CATEGORY_LABELS,
     AUDIT_EVENT_LABELS,
-    AUDIT_PER_PAGE_OPTIONS,
 } from "@/features/audit/constants";
 import type { AuditCategory, AuditLog, AuditLogDetail } from "@/features/audit/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useTranslation } from "@/lib/i18n";
 import { toPersianDate } from "@/lib/date-format";
 
 const route = getRouteApi("/protected/audit");
 
-function ExpandedRowContent({ row }: { row: Row<AuditLog> }) {
+function ExpandedRowContent({ log }: { log: AuditLog }) {
     const { data: response, isLoading, isError } = useAuditLogDetail(
-        row.original.id,
+        log.id,
     );
 
     if (isLoading) {
@@ -165,9 +165,7 @@ export function AuditLogsPage() {
             | undefined
     )?.[0] as string | undefined;
 
-    const { data: availableEvents = [] } = useAuditEvents(activeCategory);
-
-    const { data, isLoading, isError, isFetching } = useAuditLogs({
+    const { data: availableEvents = [] } = useAuditEvents(activeCategory);    const { data, isLoading, isError, isFetching } = useAuditLogs({
         page: pagination.pageIndex + 1,
         per_page: pagination.pageSize,
         sort: activeSort?.id,
@@ -180,11 +178,11 @@ export function AuditLogsPage() {
     const tableData = data?.data ?? [];
     const meta = data?.meta;
     const baseColumns = getAuditLogColumns();
-    const columns = [
+    const columns: ColumnDef<StockFeatures, AuditLog>[] = [
         {
             id: "expand",
             header: "",
-            cell: ({ row }: { row: Row<AuditLog> }) => {
+            cell: ({ row }: { row: Row<StockFeatures, AuditLog> }) => {
                 const isExpanded = expandedRows[row.original.id] ?? false;
                 return (
                     <Button
@@ -244,12 +242,8 @@ export function AuditLogsPage() {
             title="لاگ فعالیت"
             totalLabel="رویداد"
             icon={IconClipboardList}
-            perPageOptions={AUDIT_PER_PAGE_OPTIONS}
             expandedRowIds={expandedRows}
-            renderExpandedRow={(row) => {
-                const log = row as AuditLog;
-                return <ExpandedRowContent row={{ original: log } as Row<AuditLog>} />;
-            }}
+            renderExpandedRow={(log) => <ExpandedRowContent log={log} />}
             header={
                 <div>
                     <h1 className="text-2xl font-bold tracking-tight">
@@ -281,7 +275,7 @@ export function AuditLogsPage() {
                             {
                                 columnId: "event",
                                 title: "رویداد",
-                                options: availableEvents?.data?.map((event) => ({
+                                options: availableEvents.map((event) => ({
                                     label: AUDIT_EVENT_LABELS[event] ?? event,
                                     value: event,
                                 })),

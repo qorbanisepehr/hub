@@ -1,8 +1,8 @@
-import type { ColumnDef } from "@tanstack/react-table";
+import type { ColumnDef, StockFeatures } from "@tanstack/react-table";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { AUDIT_CATEGORY_LABELS, AUDIT_CATEGORY_VARIANTS, AUDIT_EVENT_LABELS } from "./constants";
-import type { AuditLog } from "../types";
+import type { AuditLog } from "./types";
 import { Link } from "@tanstack/react-router";
 import { toPersianDate } from "@/lib/date-format";
 
@@ -38,7 +38,7 @@ function ActorCell({ actor }: { actor: AuditLog["actor"] }) {
     );
 }
 
-export function getAuditLogColumns(): ColumnDef<AuditLog>[] {
+export function getAuditLogColumns(): ColumnDef<StockFeatures, AuditLog>[] {
     return [
         {
             accessorKey: "event",
