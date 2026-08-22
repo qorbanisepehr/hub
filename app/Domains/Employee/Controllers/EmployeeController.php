@@ -119,12 +119,13 @@ class EmployeeController extends ApiController
     {
         $this->authorization->authorize($request->user(), 'employee.update', $employee);
 
-        $oldValues = $employee->getAttributes();
+        $oldValues = $employee->toArray();
 
         $employee = $this->employeeService->saveSection($employee, $section, $request->validated());
+
+        $newValues = $employee->toArray();
         $employee->load(['user']);
 
-        $newValues = $employee->getAttributes();
         $actualChanges = $this->diffAttributes($oldValues, $newValues);
 
         if ($actualChanges !== []) {

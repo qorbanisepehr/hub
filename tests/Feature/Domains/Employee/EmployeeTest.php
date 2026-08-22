@@ -1,5 +1,6 @@
 <?php
 
+use App\Domains\Audit\Models\AuditLog;
 use App\Domains\Authorization\Enums\AccessRuleEffect;
 use App\Domains\Authorization\Models\Permission;
 use App\Domains\Authorization\Models\PermissionGroup;
@@ -538,6 +539,24 @@ describe('employee CRUD', function () {
                 ->assertOk()
                 ->assertJsonPath('data.section_personal.religion', 'islam')
                 ->assertJsonPath('data.section_personal.religion_sect', 'shia');
+        });
+
+        it('records decoded section values in the audit log', function () {
+            $user = createUserWithPermissions(['employee.update']);
+            $employee = Employee::factory()->create();
+
+            $this->actingAs($user)
+                ->postJson("/api/employees/{$employee->id}/sections/personal_info", validEmployeePersonalInfo())
+                ->assertOk();
+
+            $log = AuditLog::query()
+                ->where('event', 'employee.updated')
+                ->orderByDesc('id')
+                ->first();
+
+            expect($log)->not->toBeNull()
+                ->and($log->new_values['section_personal'] ?? null)->toBeArray()
+                ->and($log->new_values['section_personal']['religion'])->toBe('islam');
         });
 
         it('persists contact info email and mobile into real columns', function () {
