@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { Fragment } from "react";
 import {
     flexRender,
     type RowData,
@@ -50,6 +51,8 @@ interface DataTablePageProps<TData extends RowData> {
     emptyAction?: ReactNode;
     onRetry?: () => void;
     colSpan: number;
+    expandedRowIds?: Record<string, boolean>;
+    renderExpandedRow?: (row: TData) => ReactNode;
 }
 
 export function DataTablePage<TData extends RowData>({
@@ -67,6 +70,8 @@ export function DataTablePage<TData extends RowData>({
     emptyAction,
     onRetry,
     colSpan,
+    expandedRowIds,
+    renderExpandedRow,
 }: DataTablePageProps<TData>) {
     return (
         <PageLayout>
@@ -137,28 +142,44 @@ export function DataTablePage<TData extends RowData>({
                                     {table.getRowModel().rows?.length ? (
                                         table
                                             .getRowModel()
-                                            .rows.map((row) => (
-                                                <TableRow
-                                                    key={row.id}
-                                                    className="group/row"
-                                                >
-                                                    {row
-                                                        .getVisibleCells()
-                                                        .map((cell) => (
-                                                            <TableCell
-                                                                key={cell.id}
-                                                                className="bg-background group-hover/row:bg-muted"
-                                                            >
-                                                                {flexRender(
-                                                                    cell.column
-                                                                        .columnDef
-                                                                        .cell,
-                                                                    cell.getContext(),
-                                                                )}
-                                                            </TableCell>
-                                                        ))}
-                                                </TableRow>
-                                            ))
+                                            .rows.map((row) => {
+                                                const isExpanded = expandedRowIds?.[row.id] ?? false;
+                                                const expandedContent = isExpanded && renderExpandedRow
+                                                    ? renderExpandedRow(row.original)
+                                                    : null;
+
+                                                return (
+                                                    <Fragment key={row.id}>
+                                                        <TableRow className="group/row">
+                                                            {row
+                                                                .getVisibleCells()
+                                                                .map((cell) => (
+                                                                    <TableCell
+                                                                        key={cell.id}
+                                                                        className="bg-background group-hover/row:bg-muted"
+                                                                    >
+                                                                        {flexRender(
+                                                                            cell.column
+                                                                                .columnDef
+                                                                                .cell,
+                                                                            cell.getContext(),
+                                                                        )}
+                                                                    </TableCell>
+                                                                ))}
+                                                        </TableRow>
+                                                        {expandedContent && (
+                                                            <TableRow>
+                                                                <TableCell
+                                                                    colSpan={colSpan}
+                                                                    className="bg-muted/50 p-0"
+                                                                >
+                                                                    {expandedContent}
+                                                                </TableCell>
+                                                            </TableRow>
+                                                        )}
+                                                    </Fragment>
+                                                );
+                                            })
                                     ) : (
                                         <TableRow>
                                             <TableCell

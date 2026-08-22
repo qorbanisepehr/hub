@@ -3,6 +3,7 @@
 namespace App\Domains\Audit\Models;
 
 use App\Domains\Authorization\Models\Role;
+use App\Models\User;
 use Database\Factories\AuditLogFactory;
 use Illuminate\Database\Eloquent\Attributes\UseFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -97,5 +98,13 @@ class AuditLog extends Model
     public function actorRole(): BelongsTo
     {
         return $this->belongsTo(Role::class, 'actor_role_id');
+    }
+
+    /**
+     * The user who performed the action.
+     */
+    public function actorUser(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'actor_id');
     }
 }

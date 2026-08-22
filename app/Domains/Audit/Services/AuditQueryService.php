@@ -19,7 +19,7 @@ final class AuditQueryService
      */
     public function query(array $filters = []): Builder
     {
-        $query = AuditLog::query();
+        $query = AuditLog::query()->with(['actorUser:id,name,avatar_url', 'actorUser.employee:id,user_id,first_name,last_name']);
 
         if (isset($filters['event'])) {
             $query->where('event', $filters['event']);

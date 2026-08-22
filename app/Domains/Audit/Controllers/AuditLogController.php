@@ -40,6 +40,8 @@ class AuditLogController extends ApiController
 
     public function show(AuditLog $auditLog): AuditLogDetailResource
     {
+        $auditLog->load(['actorUser:id,name,avatar_url', 'actorUser.employee:id,user_id,first_name,last_name']);
+
         return new AuditLogDetailResource($auditLog);
     }
 

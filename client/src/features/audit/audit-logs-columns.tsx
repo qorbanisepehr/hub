@@ -1,9 +1,42 @@
 import type { ColumnDef } from "@tanstack/react-table";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { AUDIT_CATEGORY_LABELS, AUDIT_CATEGORY_VARIANTS, AUDIT_EVENT_LABELS } from "./constants";
 import type { AuditLog } from "../types";
 import { Link } from "@tanstack/react-router";
 import { toPersianDate } from "@/lib/date-format";
+
+function ActorCell({ actor }: { actor: AuditLog["actor"] }) {
+    if (actor.type === "system") return <span className="text-muted-foreground">سیستم</span>;
+    if (!actor.id) return <span>—</span>;
+
+    const displayName = actor.display_name ?? actor.name ?? `کاربر #${actor.id}`;
+    const initials = displayName
+        .split(" ")
+        .map((n) => n[0])
+        .join("")
+        .toUpperCase()
+        .slice(0, 2);
+
+    return (
+        <div className="flex items-center gap-2">
+            <Avatar className="size-8">
+                {actor.avatar_url && (
+                    <AvatarImage src={actor.avatar_url} alt={displayName} />
+                )}
+                <AvatarFallback className="text-xs">{initials}</AvatarFallback>
+            </Avatar>
+            <div className="flex flex-col min-w-0">
+                <span className="truncate font-medium text-sm">{displayName}</span>
+                {actor.role.name && (
+                    <span className="text-xs text-muted-foreground truncate">
+                        {actor.role.name}
+                    </span>
+                )}
+            </div>
+        </div>
+    );
+}
 
 export function getAuditLogColumns(): ColumnDef<AuditLog>[] {
     return [
@@ -40,21 +73,7 @@ export function getAuditLogColumns(): ColumnDef<AuditLog>[] {
         {
             accessorKey: "actor.id",
             header: "کاربر",
-            cell: ({ row }) => {
-                const actor = row.original.actor;
-                if (actor.type === "system") return "سیستم";
-                if (!actor.id) return "—";
-                return (
-                    <div className="flex flex-col">
-                        <span>کاربر #{actor.id}</span>
-                        {actor.role.name && (
-                            <span className="text-xs text-muted-foreground">
-                                {actor.role.name}
-                            </span>
-                        )}
-                    </div>
-                );
-            },
+            cell: ({ row }) => <ActorCell actor={row.original.actor} />,
         },
         {
             accessorKey: "description",

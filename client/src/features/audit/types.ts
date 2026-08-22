@@ -21,6 +21,9 @@ export interface AuditLog {
     actor: {
         type: AuditActorType;
         id: number | null;
+        name: string | null;
+        avatar_url: string | null;
+        display_name: string | null;
         role: AuditActorRole;
     };
     subject: {
