@@ -6,37 +6,49 @@ use App\Domains\Audit\Services\AuditLifecycleService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Carbon;
 
-class AuditPruneCommand extends Command
+/**
+ * Single retention entry point (v5 §27–28).
+ * Default runs the full lifecycle; --purge / --archive narrow the mode.
+ */
+class AuditRetentionCommand extends Command
 {
-    protected $signature = 'audit:prune
+    protected $signature = 'audit:retention
+        {--archive : Only run the archive phase}
+        {--purge : Only run the prune phase}
         {--category= : Filter by category}
         {--event= : Filter by event}
         {--before= : Only records before this date (Y-m-d)}
         {--limit= : Maximum records to process}
         {--dry-run : Preview without deleting}';
 
-    protected $description = 'Prune expired audit records based on retention policies';
+    protected $description = 'Run audit retention: archive and/or prune expired audit logs';
 
     public function __construct(
-        private AuditLifecycleService $lifecycle,
+        private readonly AuditLifecycleService $lifecycle,
     ) {
         parent::__construct();
     }
 
     public function handle(): int
     {
+        $mode = match (true) {
+            $this->option('archive') && ! $this->option('purge') => 'archive',
+            $this->option('purge') && ! $this->option('archive') => 'purge',
+            default => 'all',
+        };
+
         $before = $this->option('before')
             ? Carbon::parse($this->option('before'))
             : null;
-
         $limit = $this->option('limit') ? (int) $this->option('limit') : null;
-        $dryRun = $this->option('dry-run');
+        $dryRun = (bool) $this->option('dry-run');
 
         if ($dryRun) {
-            $this->info('DRY RUN — no records will be deleted');
+            $this->info('DRY RUN — no changes will be made');
         }
 
-        $result = $this->lifecycle->prune(
+        $result = $this->lifecycle->run(
+            mode: $mode,
             category: $this->option('category'),
             event: $this->option('event'),
             before: $before,
@@ -44,6 +56,7 @@ class AuditPruneCommand extends Command
             dryRun: $dryRun,
         );
 
+        $this->info("Archived: {$result['archived']} records");
         $this->info("Pruned: {$result['pruned']} records");
         $this->info("Errors: {$result['errors']}");
 

@@ -48,6 +48,15 @@ final class AuditContextResolver
         );
     }
 
+    /**
+     * Context for records written by the system itself (scheduled jobs,
+     * maintenance commands) — no human actor involved.
+     */
+    public function resolveSystem(): AuditContext
+    {
+        return AuditContext::forConsole(actorType: 'system');
+    }
+
     private function isConsoleContext(): bool
     {
         return App::runningInConsole();

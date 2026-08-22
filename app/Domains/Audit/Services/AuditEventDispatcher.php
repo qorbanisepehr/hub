@@ -35,4 +35,15 @@ final class AuditEventDispatcher
 
         return $this->recorder->persist($data);
     }
+
+    /**
+     * Record an audit event performed by the system itself
+     * (scheduled jobs, maintenance commands) — no human actor.
+     */
+    public function recordSystem(AuditEvent $event): bool
+    {
+        $data = AuditData::fromEvent($event, $this->contextResolver->resolveSystem());
+
+        return $this->recorder->persist($data);
+    }
 }

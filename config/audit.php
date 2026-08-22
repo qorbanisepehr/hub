@@ -45,7 +45,7 @@ return [
     |--------------------------------------------------------------------------
     |
     | Default number of days to retain audit records when no specific policy
-    | matches. Records older than this will be pruned by audit:prune.
+    | matches. Records older than this will be pruned by audit:retention.
     |
     */
 

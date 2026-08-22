@@ -2,6 +2,8 @@
 
 namespace App\Domains\Audit\Services;
 
+use App\Domains\Audit\Events\AuditLifecycleExecuted;
+use App\Domains\Audit\Jobs\ProcessAuditRetentionChunkJob;
 use App\Domains\Audit\Models\AuditLog;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
@@ -9,11 +11,16 @@ use Illuminate\Support\Facades\Log;
 /**
  * Manages the lifecycle of audit records: archival and pruning.
  * Single source of truth for retention enforcement.
+ *
+ * Flow (v5 §28): Command → this service → chunked ID ranges → queued jobs.
  */
 final class AuditLifecycleService
 {
+    private const CHUNK_SIZE = 1000;
+
     public function __construct(
         private readonly PolicyResolver $policyResolver,
+        private readonly AuditEventDispatcher $dispatcher,
     ) {}
 
     /**
@@ -69,12 +76,7 @@ final class AuditLifecycleService
             }
 
             try {
-                $expiredQuery->chunkById(1000, function ($records) use (&$pruned) {
-                    foreach ($records as $record) {
-                        $record->forceDelete();
-                        $pruned++;
-                    }
-                });
+                $pruned += $this->dispatchChunks($combo->event, $combo->category, $cutoff, $limit);
             } catch (\Throwable $e) {
                 $errors++;
                 Log::error('Audit prune failed', [
@@ -85,6 +87,55 @@ final class AuditLifecycleService
         }
 
         return ['pruned' => $pruned, 'errors' => $errors];
+    }
+
+    /**
+     * Queue idempotent range-delete jobs for expired records.
+     *
+     * @return int Number of records queued for deletion
+     */
+    private function dispatchChunks(string $event, string $category, Carbon $cutoff, ?int $limit): int
+    {
+        $queued = 0;
+        $lastId = 0;
+
+        do {
+            $query = AuditLog::query()
+                ->select('id')
+                ->where('event', $event)
+                ->where('category', $category)
+                ->where('created_at', '<', $cutoff)
+                ->where('id', '>', $lastId)
+                ->orderBy('id');
+
+            $remaining = $limit !== null ? max(0, $limit - $queued) : null;
+            if ($remaining === 0) {
+                break;
+            }
+            if ($remaining !== null) {
+                $query->limit($remaining);
+            } else {
+                $query->limit(self::CHUNK_SIZE);
+            }
+
+            $ids = $query->pluck('id');
+            if ($ids->isEmpty()) {
+                break;
+            }
+
+            ProcessAuditRetentionChunkJob::dispatch(
+                event: $event,
+                category: $category,
+                cutoff: $cutoff->toDateTimeString(),
+                fromId: (int) $ids->first(),
+                toId: (int) $ids->last(),
+            );
+
+            $queued += $ids->count();
+            $lastId = (int) $ids->last();
+        } while ($ids->count() === self::CHUNK_SIZE);
+
+        return $queued;
     }
 
     /**
@@ -103,24 +154,55 @@ final class AuditLifecycleService
     }
 
     /**
-     * Run the full lifecycle: archive then prune.
+     * Single entry point for retention execution.
+     * Mode: 'archive' | 'purge' | 'all' (archive then prune).
+     * Records one system-actor self-audit row after the run (not in dry-run).
      *
      * @return array{archived: int, pruned: int, errors: int}
      */
-    public function lifecycle(
+    public function run(
+        string $mode = 'all',
         ?string $category = null,
         ?string $event = null,
         ?Carbon $before = null,
         ?int $limit = null,
         bool $dryRun = false,
     ): array {
-        $archiveResult = $this->archive($category, $limit, $dryRun);
-        $pruneResult = $this->prune($category, $event, $before, $limit, $dryRun);
+        $archived = 0;
+        $pruned = 0;
+        $errors = 0;
 
-        return [
-            'archived' => $archiveResult['archived'],
-            'pruned' => $pruneResult['pruned'],
-            'errors' => $pruneResult['errors'],
-        ];
+        if ($mode === 'archive' || $mode === 'all') {
+            $result = $this->archive($category, $limit, $dryRun);
+            $archived = $result['archived'];
+        }
+
+        if ($mode === 'purge' || $mode === 'all') {
+            $result = $this->prune($category, $event, $before, $limit, $dryRun);
+            $pruned = $result['pruned'];
+            $errors = $result['errors'];
+        }
+
+        if (! $dryRun) {
+            $this->recordLifecycleResult($mode, $dryRun, $archived, $pruned, $errors);
+        }
+
+        return ['archived' => $archived, 'pruned' => $pruned, 'errors' => $errors];
+    }
+
+    /**
+     * Self-audit: persist a system-actor record of this run.
+     */
+    private function recordLifecycleResult(string $source, bool $dryRun, int $archived, int $pruned, int $errors): void
+    {
+        try {
+            $this->dispatcher->recordSystem(new AuditLifecycleExecuted($source, $dryRun, [
+                'archived' => $archived,
+                'pruned' => $pruned,
+                'errors' => $errors,
+            ]));
+        } catch (\Throwable $e) {
+            Log::error('Audit lifecycle self-audit failed', ['error' => $e->getMessage()]);
+        }
     }
 }
