@@ -104,6 +104,20 @@ const SECTION_PAYLOAD_BUILDERS: Record<
 };
 
 /**
+ * Strip null/undefined values from a server section object so they don't
+ * override the defaults when spread into buildDefaultValues.
+ */
+function cleanServerSection<T extends Record<string, unknown>>(section: T): Partial<T> {
+    const cleaned: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(section)) {
+        if (value !== null && value !== undefined) {
+            cleaned[key] = value;
+        }
+    }
+    return cleaned as Partial<T>;
+}
+
+/**
  * Build the profile's default values from an employee. The server is the source
  * of truth after every section save, so this is also used to reset the form
  * from the save response instead of re-reading possibly stale local state.
@@ -119,7 +133,7 @@ function buildDefaultValues(employee: Employee): EmployeeProfileFormData {
         mobile: employee.mobile ?? "",
         personal_info: {
             ...defaultPersonalInfo(),
-            ...(employee.section_personal ?? {}),
+            ...cleanServerSection(employee.section_personal ?? {}),
             id_number: employee.id_number ?? "",
             gender: employee.gender ?? "",
             birth_date: employee.birth_date ?? "",
@@ -127,7 +141,7 @@ function buildDefaultValues(employee: Employee): EmployeeProfileFormData {
         },
         contact_info: {
             ...defaultContactInfo(),
-            ...(employee.section_contact_address ?? {}),
+            ...cleanServerSection(employee.section_contact_address ?? {}),
             email: employee.email ?? "",
             mobile: employee.mobile ?? "",
         },
@@ -140,22 +154,22 @@ function buildDefaultValues(employee: Employee): EmployeeProfileFormData {
         },
         education: {
             ...defaultEducation(),
-            ...(employee.section_education ?? {}),
+            ...cleanServerSection(employee.section_education ?? {}),
         },
         work_experience: {
             ...defaultWorkExperience(),
-            ...(employee.section_work_experience ?? {}),
+            ...cleanServerSection(employee.section_work_experience ?? {}),
         },
         social_insurance: {
             ...defaultSocialInsurance(),
-            ...(employee.section_social_insurance ?? {}),
+            ...cleanServerSection(employee.section_social_insurance ?? {}),
             social_insurance_number: employee.social_insurance_number ?? "",
         },
-        skills: { ...defaultSkills(), ...(employee.section_skills ?? {}) },
-        training: { ...defaultTraining(), ...(employee.section_training ?? {}) },
+        skills: { ...defaultSkills(), ...cleanServerSection(employee.section_skills ?? {}) },
+        training: { ...defaultTraining(), ...cleanServerSection(employee.section_training ?? {}) },
         additional_info: {
             ...defaultAdditionalInfo(),
-            ...(employee.section_additional_info ?? {}),
+            ...cleanServerSection(employee.section_additional_info ?? {}),
         },
     };
 }
@@ -209,7 +223,7 @@ export function EmployeeProfileForm({ employee }: EmployeeProfileFormProps) {
         return () => window.removeEventListener("hashchange", onHashChange);
     }, []);
 
-    const { form, saveMutation, persistSection, isDirty, isSectionDirty } = useSectionForm<
+    const { form, saveMutation, persistSection, isDirty, isSectionDirty, syncDefaults } = useSectionForm<
         Employee,
         EmployeeProfileFormData
     >({
@@ -352,6 +366,7 @@ export function EmployeeProfileForm({ employee }: EmployeeProfileFormProps) {
                         questionnaire={null}
                         uuid={String(employee.id)}
                         entity="employees"
+                        onDefaultsSynced={syncDefaults}
                     />
                 );
             case "contact_info":

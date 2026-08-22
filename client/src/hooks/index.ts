@@ -1,4 +1,5 @@
 export { useSectionForm } from './use-section-form';
+export { useSyncFormDefaults } from './use-sync-form-defaults';
 export { useEntityDocuments } from './use-entity-documents';
 export { useDocumentValidation } from './use-document-validation';
 export { useInjectedFieldErrors } from './use-injected-field-errors';

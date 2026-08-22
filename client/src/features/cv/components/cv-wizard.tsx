@@ -70,6 +70,22 @@ type WizardFormValues = {
 };
 
 /**
+ * Strip `null`/`undefined` values from a server response object so they
+ * don't override the form's sensible defaults. The backend stores `null`
+ * for untouched JSONB fields; spreading them over defaults would change
+ * e.g. `military_status` from `{…}` to `null`, which then triggers
+ * auto-select useEffects and falsely marks the form dirty.
+ */
+function cleanServerSection(
+    serverData: Record<string, unknown> | null | undefined,
+): Record<string, unknown> {
+    if (!serverData) return {};
+    return Object.fromEntries(
+        Object.entries(serverData).filter(([, v]) => v !== null && v !== undefined),
+    );
+}
+
+/**
  * Build the wizard's default values from a CV. The server is the source of
  * truth after every section save, so this is also used to reset the form
  * from the save response instead of re-reading possibly stale local state.
@@ -80,7 +96,7 @@ function buildDefaultValues(cv: Cv): WizardFormValues {
         last_name: cv.last_name ?? "",
         email: cv.email ?? "",
         mobile: cv.mobile ?? "",
-        personal_info: cv.personal_info ?? {
+        personal_info: {
             gender: "",
             birth_date: "",
             marital_status: "",
@@ -94,8 +110,9 @@ function buildDefaultValues(cv: Cv): WizardFormValues {
             id_number: "",
             birth_place: "",
             birth_certificate_number: "",
+            ...cleanServerSection(cv.personal_info as Record<string, unknown>),
         },
-        contact_info: cv.contact_info ?? {
+        contact_info: {
             phone: "",
             emergency_phone: "",
             address: {
@@ -108,8 +125,9 @@ function buildDefaultValues(cv: Cv): WizardFormValues {
                 unit: "",
                 neighborhood: "",
             },
+            ...cleanServerSection(cv.contact_info as Record<string, unknown>),
         },
-        education: cv.education ?? {
+        education: {
             education_records: [],
             is_student: false,
             student_degree: "",
@@ -127,28 +145,33 @@ function buildDefaultValues(cv: Cv): WizardFormValues {
             student_thesis_title: "",
             free_days_per_week: null,
             education_description: "",
+            ...cleanServerSection(cv.education as Record<string, unknown>),
         },
-        work_experience: cv.work_experience ?? {
+        work_experience: {
             work_experiences: [],
             achievements: "",
             allow_contact_previous_managers: false,
             contact_restriction_description: "",
+            ...cleanServerSection(cv.work_experience as Record<string, unknown>),
         },
-        skills: cv.skills ?? {
+        skills: {
             languages: [],
             certificates: [],
             special_skills: [],
             software_skills: { specialized: [], general: [] },
+            ...cleanServerSection(cv.skills as Record<string, unknown>),
         },
-        training: cv.training ?? {
+        training: {
             training_courses: [],
             professional_memberships: "",
             researches: [],
+            ...cleanServerSection(cv.training as Record<string, unknown>),
         },
-        additional_info: cv.additional_info ?? {
+        additional_info: {
             hobbies: "",
             references: [],
             strengths_and_improvements: "",
+            ...cleanServerSection(cv.additional_info as Record<string, unknown>),
         },
     };
 }
@@ -197,7 +220,7 @@ export function CvWizard({ cv }: CvWizardProps) {
     const { currentStep, goToStep: setStep } = useWizardState(CV_WIZARD_STEPS);
     const [submitErrors, setSubmitErrors] = useState<string[]>([]);
 
-    const { form, saveMutation, persistSection, isDirty, isSectionDirty } = useSectionForm<
+    const { form, saveMutation, persistSection, isDirty, isSectionDirty, syncDefaults } = useSectionForm<
         Cv,
         WizardFormValues
     >({
@@ -396,6 +419,7 @@ export function CvWizard({ cv }: CvWizardProps) {
                             form={form as unknown as CvFormApi}
                             cv={cv}
                             uuid={cv.uuid}
+                            onDefaultsSynced={syncDefaults}
                         />
                     </StepperContent>
 

@@ -87,6 +87,22 @@ type WizardFormValues = {
 };
 
 /**
+ * Strip `null`/`undefined` values from a server response object so they
+ * don't override the form's sensible defaults. The backend stores `null`
+ * for untouched JSONB fields; spreading them over defaults would change
+ * e.g. `spouse_employment_status` from `""` to `null`, which then
+ * triggers auto-select useEffects and falsely marks the form dirty.
+ */
+function cleanServerSection(
+    serverData: Record<string, unknown> | null | undefined,
+): Record<string, unknown> {
+    if (!serverData) return {};
+    return Object.fromEntries(
+        Object.entries(serverData).filter(([, v]) => v !== null && v !== undefined),
+    );
+}
+
+/**
  * Build the wizard's default values from a questionnaire. The server is the
  * source of truth after every section save, so this is also used to reset the
  * form from the save response instead of re-reading possibly stale local state.
@@ -97,16 +113,16 @@ function buildDefaultValues(questionnaire: Questionnaire): WizardFormValues {
         last_name: questionnaire.last_name ?? "",
         email: questionnaire.email ?? "",
         mobile: questionnaire.mobile ?? "",
-        personal_info: questionnaire.personal_info ?? defaultPersonalInfo(),
-        contact_info: questionnaire.contact_info ?? defaultContactInfo(),
-        education: questionnaire.education ?? defaultEducation(),
+        personal_info: { ...defaultPersonalInfo(), ...cleanServerSection(questionnaire.personal_info as Record<string, unknown>) },
+        contact_info: { ...defaultContactInfo(), ...cleanServerSection(questionnaire.contact_info as Record<string, unknown>) },
+        education: { ...defaultEducation(), ...cleanServerSection(questionnaire.education as Record<string, unknown>) },
         work_experience:
-            questionnaire.work_experience ?? defaultWorkExperience(),
-        skills: questionnaire.skills ?? defaultSkills(),
-        training: questionnaire.training ?? defaultTraining(),
+            { ...defaultWorkExperience(), ...cleanServerSection(questionnaire.work_experience as Record<string, unknown>) },
+        skills: { ...defaultSkills(), ...cleanServerSection(questionnaire.skills as Record<string, unknown>) },
+        training: { ...defaultTraining(), ...cleanServerSection(questionnaire.training as Record<string, unknown>) },
         additional_info:
-            questionnaire.additional_info ?? defaultAdditionalInfo(),
-        job_request: questionnaire.job_request ?? defaultJobRequest(),
+            { ...defaultAdditionalInfo(), ...cleanServerSection(questionnaire.additional_info as Record<string, unknown>) },
+        job_request: { ...defaultJobRequest(), ...cleanServerSection(questionnaire.job_request as Record<string, unknown>) },
     };
 }
 
@@ -144,7 +160,7 @@ export function QuestionnaireWizard({
     const { currentStep, goToStep: setStep } = useWizardState(WIZARD_STEPS);
     const [submitErrors, setSubmitErrors] = useState<string[]>([]);
 
-    const { form, saveMutation, persistSection, isDirty, isSectionDirty } = useSectionForm<
+    const { form, saveMutation, persistSection, isDirty, isSectionDirty, syncDefaults } = useSectionForm<
         Questionnaire,
         WizardFormValues
     >({
@@ -337,6 +353,7 @@ export function QuestionnaireWizard({
                             form={form as unknown as QuestionnaireFormApi}
                             questionnaire={questionnaire}
                             uuid={questionnaire.uuid}
+                            onDefaultsSynced={syncDefaults}
                         />
                     </StepperContent>
 

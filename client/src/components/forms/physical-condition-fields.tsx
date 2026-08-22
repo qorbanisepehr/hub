@@ -58,7 +58,16 @@ export function PhysicalConditionFields({
 
     useEffect(() => {
         if (!showDisability) {
-            form.setFieldValue(typeField, "", { dontUpdateMeta: true });
+            const current = form.state.values;
+            const pathParts = typeField.split(".");
+            let currentValue: unknown = current as Record<string, unknown>;
+            for (const key of pathParts) {
+                if (currentValue == null) break;
+                currentValue = (currentValue as Record<string, unknown>)[key] as string | undefined;
+            }
+            if (currentValue !== "" && currentValue !== undefined) {
+                form.setFieldValue(typeField, "", { dontUpdateMeta: true });
+            }
         }
     }, [showDisability, form, typeField]);
 
