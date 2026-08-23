@@ -151,7 +151,15 @@ class FormOptionService
         }
 
         if ($search !== null && $search !== '') {
-            $query->where('label', 'like', "%{$search}%");
+            // User input is matched literally: LIKE wildcards in the term are
+            // escaped so «50%» finds «50% تخفیف», not half the table.
+            $needle = str_replace(
+                ['\\', '%', '_'],
+                ['\\\\', '\\%', '\\_'],
+                $search,
+            );
+
+            $query->whereRaw("label like ? escape '\\'", ["%{$needle}%"]);
         }
 
         if ($limit !== null) {

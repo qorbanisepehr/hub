@@ -112,6 +112,35 @@ describe('form options public endpoints', function () {
             ->assertOk()
             ->assertJsonCount(3, 'data');
     });
+
+    it('treats LIKE wildcards in search terms as literals', function () {
+        makeOption(['group' => 'code', 'value' => 'pct', 'label' => '100% تخفیف']);
+        makeOption(['group' => 'code', 'value' => 'under', 'label' => 'a_b']);
+        makeOption(['group' => 'code', 'value' => 'plain', 'label' => 'plain']);
+
+        $this->getJson('/api/form-options/code?search=100%25')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.value', 'pct');
+
+        $this->getJson('/api/form-options/code?search=a_b')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.value', 'under');
+
+        $this->getJson('/api/form-options/code?search=plain')
+            ->assertOk()
+            ->assertJsonCount(1, 'data');
+    });
+
+    it('does not let a wildcard search term match unrelated options', function () {
+        makeOption(['group' => 'code', 'value' => 'alpha', 'label' => 'الفبا']);
+        makeOption(['group' => 'code', 'value' => 'beta', 'label' => 'بتا']);
+
+        $this->getJson('/api/form-options/code?search=%2525')
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
+    });
 });
 
 describe('form options admin endpoints', function () {
