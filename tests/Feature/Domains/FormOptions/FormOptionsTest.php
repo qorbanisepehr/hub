@@ -165,7 +165,64 @@ describe('form options admin endpoints', function () {
             ->postJson('/api/admin/form-options', [
                 'group' => 'employment_type',
                 'value' => 'male',
-                'label' => 'مرد',
+                'label' => '???',
+            ])
+            ->assertOk();
+    });
+
+    it('rejects a city whose parent_value is an unknown province', function () {
+        $user = createUserWithPermissions(['form-options.manage']);
+
+        $this->actingAs($user)
+            ->postJson('/api/admin/form-options', [
+                'group' => 'city',
+                'value' => '100-1000001001101',
+                'label' => '???',
+                'parent_value' => '999',
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['parent_value']);
+    });
+
+    it('rejects a city whose parent_value references an inactive province', function () {
+        $user = createUserWithPermissions(['form-options.manage']);
+        makeOption(['group' => 'province', 'value' => '100', 'label' => '??????', 'is_active' => false]);
+
+        $this->actingAs($user)
+            ->postJson('/api/admin/form-options', [
+                'group' => 'city',
+                'value' => '100-1000001001101',
+                'label' => '???',
+                'parent_value' => '100',
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['parent_value']);
+    });
+
+    it('accepts a city linked to an active province', function () {
+        $user = createUserWithPermissions(['form-options.manage']);
+        makeOption(['group' => 'province', 'value' => '100', 'label' => '??????']);
+
+        $this->actingAs($user)
+            ->postJson('/api/admin/form-options', [
+                'group' => 'city',
+                'value' => '100-1000001001101',
+                'label' => '???',
+                'parent_value' => '100',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.parent_value', '100');
+    });
+
+    it('does not enforce parent groups outside the location hierarchy', function () {
+        $user = createUserWithPermissions(['form-options.manage']);
+
+        $this->actingAs($user)
+            ->postJson('/api/admin/form-options', [
+                'group' => 'religion_sect',
+                'value' => 'shia',
+                'label' => '???',
+                'parent_value' => 'islam',
             ])
             ->assertOk();
     });
@@ -195,6 +252,52 @@ describe('form options admin endpoints', function () {
             ->putJson("/api/admin/form-options/{$male->id}", ['value' => 'female'])
             ->assertStatus(422)
             ->assertJsonValidationErrors(['value']);
+    });
+
+    it('allows renaming the value of an unreferenced option', function () {
+        $user = createUserWithPermissions(['form-options.manage']);
+        $option = makeOption();
+
+        $this->actingAs($user)
+            ->putJson("/api/admin/form-options/{$option->id}", ['value' => 'renamed_value'])
+            ->assertOk()
+            ->assertJsonPath('data.value', 'renamed_value');
+    });
+
+    it('refuses to rename the value of a referenced option', function () {
+        $user = createUserWithPermissions(['form-options.manage']);
+        $option = makeOption(['group' => 'religion', 'value' => 'islam']);
+
+        Employee::factory()->create([
+            'section_personal' => ['religion' => $option->value],
+        ]);
+
+        $this->actingAs($user)
+            ->putJson("/api/admin/form-options/{$option->id}", ['value' => 'renamed_value'])
+            ->assertStatus(409);
+
+        $this->assertDatabaseHas('form_options', ['id' => $option->id, 'value' => 'islam']);
+    });
+
+    it('still updates presentation fields of a referenced option', function () {
+        $user = createUserWithPermissions(['form-options.manage']);
+        $option = makeOption(['group' => 'religion', 'value' => 'islam']);
+
+        Employee::factory()->create([
+            'section_personal' => ['religion' => $option->value],
+        ]);
+
+        $this->actingAs($user)
+            ->putJson("/api/admin/form-options/{$option->id}", [
+                'label' => '????',
+                'sort_order' => 7,
+                'is_active' => false,
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.label', '????')
+            ->assertJsonPath('data.is_active', false);
+
+        $this->assertDatabaseHas('form_options', ['id' => $option->id, 'value' => 'islam', 'sort_order' => 7]);
     });
 
     it('deletes an option', function () {

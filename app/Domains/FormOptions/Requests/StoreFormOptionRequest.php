@@ -2,6 +2,8 @@
 
 namespace App\Domains\FormOptions\Requests;
 
+use App\Domains\FormOptions\Services\FormOptionService;
+use Closure;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -19,11 +21,43 @@ class StoreFormOptionRequest extends FormRequest
                 Rule::unique('form_options')->where('group', $this->input('group')),
             ],
             'label' => ['required', 'string', 'max:255'],
-            'parent_value' => ['nullable', 'string', 'max:100'],
+            ...$this->parentValueRules((string) $this->input('group')),
             'group_label' => ['nullable', 'string', 'max:255'],
             'meta' => ['nullable', 'array'],
             'sort_order' => ['sometimes', 'integer', 'min:0', 'max:65535'],
             'is_active' => ['sometimes', 'boolean'],
+        ];
+    }
+
+    /**
+     * Location invariant (v6 §46–47): a child group's parent_value must
+     * reference an existing, active option of its parent group.
+     *
+     * @return array<int, mixed>
+     */
+    protected function parentValueRules(?string $group): array
+    {
+        $service = app(FormOptionService::class);
+
+        return [
+            'parent_value' => [
+                'nullable',
+                'string',
+                'max:100',
+                function (string $attribute, mixed $value, Closure $fail) use ($service, $group): void {
+                    if (! is_string($value) || $value === '') {
+                        return;
+                    }
+
+                    $parentGroup = $service->parentGroupFor((string) $group);
+
+                    if ($parentGroup === null || $service->isValid($parentGroup, $value)) {
+                        return;
+                    }
+
+                    $fail("The {$attribute} must reference an active {$parentGroup} option.");
+                },
+            ],
         ];
     }
 

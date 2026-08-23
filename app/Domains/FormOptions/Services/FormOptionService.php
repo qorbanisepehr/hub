@@ -19,6 +19,15 @@ class FormOptionService
         'city',
     ];
 
+    /**
+     * Location hierarchy invariant (v6 §46–47): a child location's parent_value
+     * must reference an active option of the mapped parent group. Enforced by
+     * the admin Form Requests via {@see parentGroupFor()}.
+     */
+    private const LOCATION_PARENT_GROUPS = [
+        'city' => 'province',
+    ];
+
     private const CACHE_TTL = 3600;
 
     /**
@@ -51,6 +60,14 @@ class FormOptionService
     public function isLocationGroup(string $group): bool
     {
         return in_array($group, self::LOCATION_GROUPS, true);
+    }
+
+    /**
+     * The parent group a location group must reference, if any.
+     */
+    public function parentGroupFor(string $group): ?string
+    {
+        return self::LOCATION_PARENT_GROUPS[$group] ?? null;
     }
 
     private function groupsCacheKey(): string

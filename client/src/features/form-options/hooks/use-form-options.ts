@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -65,9 +65,17 @@ export function useFormOptionsWithPlaces<T>(
     const { data: provinceOptions } = useFormOptionsByGroup("province");
     const { data: cityOptions } = useFormOptionsByGroup("city");
 
+    // The builder is kept in a ref so an inline (per-render) builder never
+    // invalidates the memo; submitOptions is only rebuilt when the underlying
+    // option data changes, and always through the latest builder.
+    const buildRef = useRef(build);
+    useEffect(() => {
+        buildRef.current = build;
+    });
+
     const submitOptions = useMemo(
-        () => build(formOptions, provinceOptions, cityOptions),
-        [formOptions, provinceOptions, cityOptions, build],
+        () => buildRef.current(formOptions, provinceOptions, cityOptions),
+        [formOptions, provinceOptions, cityOptions],
     );
 
     return { submitOptions, optionsReady: submitOptions !== undefined };

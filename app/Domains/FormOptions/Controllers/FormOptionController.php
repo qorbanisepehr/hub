@@ -69,9 +69,20 @@ class FormOptionController
         return new FormOptionResource($this->service->create($request->validated()));
     }
 
-    public function update(UpdateFormOptionRequest $request, FormOption $option): FormOptionResource
+    public function update(UpdateFormOptionRequest $request, FormOption $option): FormOptionResource|JsonResponse
     {
         $this->authorization->authorize($request->user(), 'form-options.manage', $option);
+
+        // Value immutability (v6 §49): once an option's value is stored in any
+        // form section, renaming it would orphan the persisted data. Only the
+        // presentation fields may change afterwards.
+        $new = $request->validated('value');
+
+        if (is_string($new) && $new !== $option->value && $this->service->isReferenced($option)) {
+            return response()->json([
+                'message' => 'Option value is referenced by existing records and cannot be changed. Deactivate it and create a new option instead.',
+            ], 409);
+        }
 
         return new FormOptionResource($this->service->update($option, $request->validated()));
     }
