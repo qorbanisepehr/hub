@@ -3,7 +3,6 @@
 namespace App\Domains\Auth\Controllers;
 
 use App\Contracts\Authorization;
-use App\Domains\Audit\Services\AuditEventDispatcher;
 use App\Domains\Auth\Events\LoginFailed;
 use App\Domains\Auth\Events\LoginSucceeded;
 use App\Domains\Auth\Events\LogoutSucceeded;
@@ -28,7 +27,6 @@ class AuthController
     public function __construct(
         private OtpService $otpService,
         private Authorization $authorizationService,
-        private AuditEventDispatcher $audit,
     ) {}
 
     public function login(LoginRequest $request): JsonResponse
@@ -36,7 +34,7 @@ class AuthController
         $user = $this->resolveUser($request->identifier);
 
         if (! $user) {
-            $this->audit->record(new LoginFailed($request->identifier, 'user_not_found'));
+            event(new LoginFailed($request->identifier, 'user_not_found'));
 
             return response()->json([
                 'message' => __('auth.failed'),
@@ -80,7 +78,7 @@ class AuthController
             return $response;
         }
 
-        $this->audit->record(new LoginSucceeded($user, 'otp'));
+        event(new LoginSucceeded($user, 'otp'));
 
         return $this->authenticate($request, $user);
     }
@@ -90,7 +88,7 @@ class AuthController
         $user = $this->resolveUser($request->identifier);
 
         if (! $user) {
-            $this->audit->record(new LoginFailed($request->identifier, 'user_not_found'));
+            event(new LoginFailed($request->identifier, 'user_not_found'));
 
             return response()->json([
                 'message' => __('auth.failed'),
@@ -110,7 +108,7 @@ class AuthController
         if (! Hash::check($request->password, $user->password)) {
             RateLimiter::hit($this->rateLimiterKey($user), config('rate-limits.auth-attempts.period', 60));
 
-            $this->audit->record(new LoginFailed($request->identifier, 'invalid_password'));
+            event(new LoginFailed($request->identifier, 'invalid_password'));
 
             return response()->json([
                 'message' => __('auth.failed'),
@@ -119,7 +117,7 @@ class AuthController
 
         RateLimiter::clear($this->rateLimiterKey($user));
 
-        $this->audit->record(new LoginSucceeded($user, 'password'));
+        event(new LoginSucceeded($user, 'password'));
 
         return $this->authenticate($request, $user);
     }
@@ -137,7 +135,7 @@ class AuthController
         }
 
         if ($user) {
-            $this->audit->record(new LogoutSucceeded($user));
+            event(new LogoutSucceeded($user));
         }
 
         app('auth')->forgetGuards();

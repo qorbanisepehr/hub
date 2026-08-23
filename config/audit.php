@@ -1,5 +1,7 @@
 <?php
 
+use App\Domains\Audit\Services\NullArchiveStore;
+
 return [
 
     /*
@@ -50,5 +52,18 @@ return [
     */
 
     'default_retention_days' => 365,
+
+    /*
+    |--------------------------------------------------------------------------
+    | Archive Store
+    |--------------------------------------------------------------------------
+    |
+    | Strategy used to move expired records to long-term storage before they
+    | are pruned. V1 ships a no-op store; swap in a database/file/S3
+    | implementation without touching lifecycle logic.
+    |
+    */
+
+    'archive_store' => NullArchiveStore::class,
 
 ];

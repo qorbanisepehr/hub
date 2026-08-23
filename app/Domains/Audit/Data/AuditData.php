@@ -7,7 +7,7 @@ use Illuminate\Support\Str;
 
 /**
  * Normalized audit record data ready for persistence.
- * Built from an AuditEvent + AuditContext by the AuditEventDispatcher.
+ * Built from an AuditEvent + AuditContext by the RecordAuditEvent listener.
  */
 final readonly class AuditData
 {

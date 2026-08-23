@@ -2,7 +2,6 @@
 
 namespace App\Domains\Auth\Controllers;
 
-use App\Domains\Audit\Services\AuditEventDispatcher;
 use App\Domains\Auth\Events\PasswordChanged;
 use App\Domains\Auth\Events\ProfileUpdated;
 use App\Domains\Auth\Requests\ChangePasswordRequest;
@@ -18,10 +17,6 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ProfileController
 {
-    public function __construct(
-        private readonly AuditEventDispatcher $audit,
-    ) {}
-
     public function update(UpdateProfileRequest $request): JsonResponse
     {
         $user = $request->user();
@@ -30,7 +25,7 @@ class ProfileController
         $new = $user->only(['name', 'email']);
         $user->load(['roles', 'activeRole', 'employee']);
 
-        $this->audit->record(new ProfileUpdated($user, $old, $new));
+        event(new ProfileUpdated($user, $old, $new));
 
         return response()->json([
             'data' => new UserResource($user),
@@ -81,7 +76,7 @@ class ProfileController
             'password' => $request->validated('password'),
         ]);
 
-        $this->audit->record(new PasswordChanged($user));
+        event(new PasswordChanged($user));
 
         return response()->json([
             'message' => __('auth.password_changed'),

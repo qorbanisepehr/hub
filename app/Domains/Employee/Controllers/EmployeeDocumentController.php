@@ -3,7 +3,6 @@
 namespace App\Domains\Employee\Controllers;
 
 use App\Contracts\DocumentAuthorization;
-use App\Domains\Audit\Services\AuditEventDispatcher;
 use App\Domains\Document\Auth\DocumentAuthorizationContext;
 use App\Domains\Document\Enums\DocumentAction;
 use App\Domains\Document\Events\DocumentDeleted;
@@ -35,7 +34,6 @@ class EmployeeDocumentController extends Controller
         private EmployeeService $employeeService,
         private DocumentCapabilities $documentCapabilities,
         private DocumentAuthorization $documentAuthorization,
-        private AuditEventDispatcher $audit,
     ) {}
 
     public function index(Request $request, Employee $employee): JsonResponse
@@ -194,7 +192,7 @@ class EmployeeDocumentController extends Controller
             ->latest('id')
             ->firstOrFail();
 
-        $this->audit->record(new DocumentUploaded($document, $employee, $category->name));
+        event(new DocumentUploaded($document, $employee, $category->name));
 
         return response()->json([
             'data' => $this->documentPayload($document, $usage),
@@ -260,7 +258,7 @@ class EmployeeDocumentController extends Controller
             return [$document, $usage];
         });
 
-        $this->audit->record(new DocumentUploaded($document, $employee, $category->name));
+        event(new DocumentUploaded($document, $employee, $category->name));
 
         return response()->json([
             'data' => $this->documentPayload($document, $usage),
@@ -289,7 +287,7 @@ class EmployeeDocumentController extends Controller
             abort(404);
         }
 
-        $this->audit->record(new DocumentDeleted($usageId, Employee::class, $employee->getKey()));
+        event(new DocumentDeleted($usageId, Employee::class, $employee->getKey()));
 
         return response()->json(['message' => __('employee.documents.trashed')]);
     }
@@ -345,7 +343,7 @@ class EmployeeDocumentController extends Controller
             abort(404);
         }
 
-        $this->audit->record(new DocumentRestored($usageId, Employee::class, $employee->getKey()));
+        event(new DocumentRestored($usageId, Employee::class, $employee->getKey()));
 
         return response()->json(['message' => __('employee.documents.restored')]);
     }
@@ -372,7 +370,7 @@ class EmployeeDocumentController extends Controller
             abort(404);
         }
 
-        $this->audit->record(new DocumentDeleted($usageId, Employee::class, $employee->getKey()));
+        event(new DocumentDeleted($usageId, Employee::class, $employee->getKey()));
 
         return response()->json(['message' => __('document.document_force_deleted')]);
     }

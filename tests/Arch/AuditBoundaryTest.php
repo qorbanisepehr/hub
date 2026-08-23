@@ -1,10 +1,12 @@
 <?php
 
 /*
- * Audit boundary (v5 §5–6): Audit is a generic cross-cutting consumer of
- * domain events. It must never reach into other domains, and other domains
- * may consume Audit only through its public capability surface
- * (AuditEventDispatcher + shared App\Contracts\AuditEvent / BaseAuditEvent).
+ * Audit boundary (v6 §2–14, §72): domains never depend on Audit. A domain
+ * dispatches its own events via the event bus (`event(new X(...))`); the
+ * shared `App\Contracts\AuditEvent` contract + `App\Events\BaseAuditEvent`
+ * base live OUTSIDE all domains and are the only touchpoint. Audit is a pure
+ * consumer: it subscribes once on the contract (RecordAuditEvent listener)
+ * and persists without knowing any domain internals.
  *
  * Full pairwise isolation between business domains is tracked separately —
  * several pre-existing couplings exist outside the audit scope.
@@ -28,15 +30,7 @@ arch('audit domain never depends on any other domain')
 foreach ($otherDomains as $domain) {
     $short = str_replace('App\Domains\\', '', $domain);
 
-    arch("{$short} domain consumes audit only through its public surface")
+    arch("{$short} domain never depends on audit at all")
         ->expect($domain)
-        ->not->toUse([
-            'App\Domains\Audit\Controllers',
-            'App\Domains\Audit\Models',
-            'App\Domains\Audit\Requests',
-            'App\Domains\Audit\Resources',
-            'App\Domains\Audit\Data',
-            'App\Domains\Audit\Jobs',
-            'App\Domains\Audit\Listeners',
-        ]);
+        ->not->toUse('App\Domains\Audit');
 }

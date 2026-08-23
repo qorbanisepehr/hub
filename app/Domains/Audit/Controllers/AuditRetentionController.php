@@ -9,7 +9,6 @@ use App\Domains\Audit\Models\AuditRetentionPolicy;
 use App\Domains\Audit\Requests\StoreRetentionPolicyRequest;
 use App\Domains\Audit\Requests\UpdateRetentionPolicyRequest;
 use App\Domains\Audit\Resources\AuditRetentionPolicyResource;
-use App\Domains\Audit\Services\AuditEventDispatcher;
 use App\Domains\Audit\Services\PolicyResolver;
 use App\Http\Controllers\ApiController;
 use Illuminate\Http\JsonResponse;
@@ -21,7 +20,6 @@ class AuditRetentionController extends ApiController
 
     public function __construct(
         private PolicyResolver $policyResolver,
-        private readonly AuditEventDispatcher $audit,
     ) {}
 
     public function index(): AnonymousResourceCollection
@@ -41,7 +39,7 @@ class AuditRetentionController extends ApiController
         $policy = AuditRetentionPolicy::create($validated);
         $this->policyResolver->flushCache();
 
-        $this->audit->record(new RetentionPolicyCreated($policy));
+        event(new RetentionPolicyCreated($policy));
 
         return new AuditRetentionPolicyResource($policy);
     }
@@ -60,14 +58,14 @@ class AuditRetentionController extends ApiController
         $new = $auditRetentionPolicy->only(array_keys($validated));
         $this->policyResolver->flushCache();
 
-        $this->audit->record(new RetentionPolicyUpdated($auditRetentionPolicy, $old, $new));
+        event(new RetentionPolicyUpdated($auditRetentionPolicy, $old, $new));
 
         return new AuditRetentionPolicyResource($auditRetentionPolicy);
     }
 
     public function destroy(AuditRetentionPolicy $auditRetentionPolicy): JsonResponse
     {
-        $this->audit->record(new RetentionPolicyDeleted($auditRetentionPolicy));
+        event(new RetentionPolicyDeleted($auditRetentionPolicy));
 
         $auditRetentionPolicy->delete();
         $this->policyResolver->flushCache();

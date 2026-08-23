@@ -2,7 +2,6 @@
 
 use App\Contracts\AuditEvent;
 use App\Domains\Audit\Models\AuditLog;
-use App\Domains\Audit\Services\AuditEventDispatcher;
 use App\Domains\Auth\Events\LoginSucceeded;
 use App\Domains\Document\Events\DocumentUploaded;
 use App\Domains\Document\Models\Document;
@@ -12,76 +11,73 @@ use App\Domains\Employee\Models\Employee;
 use App\Models\User;
 
 beforeEach(function () {
-    $this->dispatcher = app(AuditEventDispatcher::class);
+    $user = User::factory()->create();
+    $this->actingAs($user);
 });
 
 describe('Audit Event Pipeline', function () {
-    it('records employee.created event to audit log', function () {
-        $user = User::factory()->create();
+    it('records employee.created event dispatched on the bus', function () {
         $employee = Employee::factory()->create();
-        $event = new EmployeeCreated($employee);
 
-        $this->dispatcher->record($event, $user);
+        event(new EmployeeCreated($employee));
 
-        $log = AuditLog::latest()->first();
+        $log = AuditLog::latest('id')->first();
         expect($log)->not->toBeNull();
         expect($log->event)->toBe('employee.created');
         expect($log->category)->toBe('employee');
         expect($log->actor_type)->toBe('user');
-        expect($log->actor_id)->toBe($user->id);
+        expect($log->actor_id)->toBe(auth()->id());
         expect($log->subject_type)->toBe('employee');
         expect($log->subject_id)->toBe($employee->id);
     });
 
-    it('records document.uploaded event to audit log', function () {
-        $user = User::factory()->create();
+    it('records document.uploaded event dispatched on the bus', function () {
         $category = DocumentCategory::create([
             'name' => 'Test Category',
             'slug' => 'test-cat',
             'type' => 'personnel',
         ]);
         $document = Document::factory()->create();
-        $event = new DocumentUploaded($document, $category, 'personnel');
+        $owner = Employee::factory()->create();
 
-        $this->dispatcher->record($event, $user);
+        event(new DocumentUploaded($document, $owner, $category->name));
 
-        $log = AuditLog::latest()->first();
+        $log = AuditLog::latest('id')->first();
         expect($log)->not->toBeNull();
         expect($log->event)->toBe('document.uploaded');
         expect($log->category)->toBe('document');
     });
 
-    it('records auth.login.success event to audit log', function () {
+    it('records auth.login.success event dispatched on the bus', function () {
         $user = User::factory()->create();
-        $event = new LoginSucceeded($user, 'password');
 
-        $this->dispatcher->record($event, $user);
+        // Login success is recorded before authentication, so the event must
+        // carry its own actor rather than relying on request context.
+        event(new LoginSucceeded($user, 'password'));
 
-        $log = AuditLog::latest()->first();
+        $log = AuditLog::latest('id')->first();
         expect($log)->not->toBeNull();
         expect($log->event)->toBe('auth.login.success');
         expect($log->category)->toBe('auth');
+        expect($log->actor_id)->toBe($user->id);
     });
 
     it('captures description from event', function () {
-        $user = User::factory()->create();
         $employee = Employee::factory()->create();
-        $event = new EmployeeCreated($employee);
 
-        $this->dispatcher->record($event, $user);
+        event(new EmployeeCreated($employee));
 
-        $log = AuditLog::latest()->first();
+        $log = AuditLog::latest('id')->first();
         expect($log)->not->toBeNull();
         expect($log->description)->toContain('created');
     });
 
     it('audit records are immutable - update and delete return false', function () {
-        $user = User::factory()->create();
         $employee = Employee::factory()->create();
-        $event = new EmployeeCreated($employee);
-        $this->dispatcher->record($event, $user);
 
-        $log = AuditLog::latest()->first();
+        event(new EmployeeCreated($employee));
+
+        $log = AuditLog::latest('id')->first();
         $result = $log->update(['description' => 'hacked']);
         expect($result)->toBeFalse();
 
@@ -133,11 +129,9 @@ describe('Audit Event Pipeline', function () {
             }
         };
 
-        $result = $this->dispatcher->record($event);
+        event($event);
 
-        expect($result)->toBeTrue();
-
-        $log = AuditLog::latest()->first();
+        $log = AuditLog::latest('id')->first();
         expect($log)->not->toBeNull()
             ->and($log->event)->toBe('test.skipped');
     });

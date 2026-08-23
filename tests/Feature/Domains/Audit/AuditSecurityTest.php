@@ -3,7 +3,6 @@
 use App\Contracts\AuditEvent;
 use App\Domains\Audit\Data\AuditContext;
 use App\Domains\Audit\Models\AuditLog;
-use App\Domains\Audit\Services\AuditEventDispatcher;
 use App\Domains\Audit\Services\SensitiveDataSanitizer;
 use App\Domains\Employee\Models\Employee;
 use App\Models\User;
@@ -77,8 +76,11 @@ describe('Audit Security', function () {
     });
 
     describe('Audit Record Security', function () {
+        beforeEach(function () {
+            $this->actingAs(User::factory()->create());
+        });
+
         it('sanitizes sensitive data in old_values', function () {
-            $user = User::factory()->create();
             $employee = Employee::factory()->create();
 
             $event = new class($employee) implements AuditEvent
@@ -134,9 +136,9 @@ describe('Audit Security', function () {
                 }
             };
 
-            app(AuditEventDispatcher::class)->record($event, $user);
+            event($event);
 
-            $log = AuditLog::latest()->first();
+            $log = AuditLog::latest('id')->first();
             expect($log->old_values['password'])->toBe('[REDACTED]');
             expect($log->old_values['name'])->toBe('Old Name');
             expect($log->new_values['password'])->toBe('[REDACTED]');
@@ -157,7 +159,6 @@ describe('Audit Security', function () {
         });
 
         it('never exposes raw sensitive data in audit logs', function () {
-            $user = User::factory()->create();
             $employee = Employee::factory()->create();
 
             $event = new class($employee) implements AuditEvent
@@ -213,9 +214,9 @@ describe('Audit Security', function () {
                 }
             };
 
-            app(AuditEventDispatcher::class)->record($event, $user);
+            event($event);
 
-            $log = AuditLog::latest()->first();
+            $log = AuditLog::latest('id')->first();
 
             $serialized = serialize($log->toArray());
             expect($serialized)->not->toContain('123-45-6789');

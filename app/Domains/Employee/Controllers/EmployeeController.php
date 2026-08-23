@@ -3,7 +3,6 @@
 namespace App\Domains\Employee\Controllers;
 
 use App\Contracts\Authorization;
-use App\Domains\Audit\Services\AuditEventDispatcher;
 use App\Domains\Employee\Events\EmployeeCreated;
 use App\Domains\Employee\Events\EmployeeDeleted;
 use App\Domains\Employee\Events\EmployeeSubmitted;
@@ -38,7 +37,6 @@ class EmployeeController extends ApiController
     public function __construct(
         private EmployeeService $employeeService,
         private Authorization $authorization,
-        private AuditEventDispatcher $audit,
     ) {}
 
     public function index(Request $request): AnonymousResourceCollection
@@ -79,7 +77,7 @@ class EmployeeController extends ApiController
         );
         $employee->load(['user']);
 
-        $this->audit->record(new EmployeeCreated($employee));
+        event(new EmployeeCreated($employee));
 
         return new EmployeeResource($employee);
     }
@@ -105,7 +103,7 @@ class EmployeeController extends ApiController
         $actualChanges = $this->diffAttributes($oldValues, $newValues);
 
         if ($actualChanges !== []) {
-            $this->audit->record(new EmployeeUpdated(
+            event(new EmployeeUpdated(
                 $employee,
                 array_intersect_key($oldValues, $actualChanges),
                 array_intersect_key($newValues, $actualChanges),
@@ -129,7 +127,7 @@ class EmployeeController extends ApiController
         $actualChanges = $this->diffAttributes($oldValues, $newValues);
 
         if ($actualChanges !== []) {
-            $this->audit->record(new EmployeeUpdated(
+            event(new EmployeeUpdated(
                 $employee,
                 array_intersect_key($oldValues, $actualChanges),
                 array_intersect_key($newValues, $actualChanges),
@@ -147,7 +145,7 @@ class EmployeeController extends ApiController
         $employee = $this->employeeService->submit($employee);
         $employee->load(['user']);
 
-        $this->audit->record(new EmployeeSubmitted($employee));
+        event(new EmployeeSubmitted($employee));
 
         return new EmployeeResource($employee);
     }
@@ -159,7 +157,7 @@ class EmployeeController extends ApiController
         $employeeId = $employee->getKey();
         $employee->delete();
 
-        $this->audit->record(new EmployeeDeleted($employeeId));
+        event(new EmployeeDeleted($employeeId));
 
         return response()->json(['message' => __('employee.deleted')]);
     }

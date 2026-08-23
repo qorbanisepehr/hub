@@ -3,7 +3,6 @@
 namespace App\Domains\Questionnaire\Controllers;
 
 use App\Contracts\Authorization;
-use App\Domains\Audit\Services\AuditEventDispatcher;
 use App\Domains\Questionnaire\Events\QuestionnaireRejected;
 use App\Domains\Questionnaire\Events\QuestionnaireReviewed;
 use App\Domains\Questionnaire\Events\QuestionnaireSubmitted;
@@ -35,7 +34,6 @@ class QuestionnaireController extends Controller
         private QuestionnaireService $questionnaireService,
         private OtpService $otpService,
         private Authorization $authorization,
-        private AuditEventDispatcher $audit,
     ) {}
 
     public function init(InitQuestionnaireRequest $request): JsonResponse
@@ -283,7 +281,7 @@ class QuestionnaireController extends Controller
 
         $questionnaire = $this->questionnaireService->submit($questionnaire);
 
-        $this->audit->record(new QuestionnaireSubmitted($questionnaire));
+        event(new QuestionnaireSubmitted($questionnaire));
 
         return response()->json([
             'data' => new QuestionnaireResource($questionnaire),
@@ -305,7 +303,7 @@ class QuestionnaireController extends Controller
 
         $questionnaire = $this->questionnaireService->updateStatus($questionnaire, 'reviewed');
 
-        $this->audit->record(new QuestionnaireReviewed($questionnaire));
+        event(new QuestionnaireReviewed($questionnaire));
 
         return response()->json([
             'data' => new QuestionnaireResource($questionnaire),
@@ -327,7 +325,7 @@ class QuestionnaireController extends Controller
 
         $questionnaire = $this->questionnaireService->updateStatus($questionnaire, 'draft');
 
-        $this->audit->record(new QuestionnaireRejected($questionnaire));
+        event(new QuestionnaireRejected($questionnaire));
 
         return response()->json([
             'data' => new QuestionnaireResource($questionnaire),

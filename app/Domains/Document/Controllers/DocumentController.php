@@ -4,7 +4,6 @@ namespace App\Domains\Document\Controllers;
 
 use App\Contracts\Documentable;
 use App\Contracts\DocumentAuthorization;
-use App\Domains\Audit\Services\AuditEventDispatcher;
 use App\Domains\Document\Auth\DocumentAuthorizationContext;
 use App\Domains\Document\Enums\DocumentAction;
 use App\Domains\Document\Events\DocumentDeleted;
@@ -40,7 +39,6 @@ class DocumentController extends Controller
     public function __construct(
         private readonly DocumentService $documentService,
         private readonly DocumentAuthorization $documentAuthorization,
-        private readonly AuditEventDispatcher $audit,
     ) {}
 
     public function index(Request $request): AnonymousResourceCollection
@@ -98,7 +96,7 @@ class DocumentController extends Controller
             $metadata !== [] ? $metadata : null,
         );
 
-        $this->audit->record(new DocumentUploaded($document, $owner, $category->name));
+        event(new DocumentUploaded($document, $owner, $category->name));
 
         return new DocumentResource($document);
     }
@@ -158,7 +156,7 @@ class DocumentController extends Controller
             $metadata !== [] ? $metadata : null,
         );
 
-        $this->audit->record(new DocumentPlaced($document));
+        event(new DocumentPlaced($document));
 
         return new DocumentResource($document);
     }
@@ -193,7 +191,7 @@ class DocumentController extends Controller
 
         $this->documentService->trashUsage($document, $entity);
 
-        $this->audit->record(new DocumentDeleted($document, get_class($entity), $entity->getKey()));
+        event(new DocumentDeleted($document, get_class($entity), $entity->getKey()));
 
         return response()->json(['message' => __('document.document_deleted')]);
     }
@@ -235,7 +233,7 @@ class DocumentController extends Controller
 
         $this->documentService->restoreUsage($document, $entity);
 
-        $this->audit->record(new DocumentRestored($document, get_class($entity), $entity->getKey()));
+        event(new DocumentRestored($document, get_class($entity), $entity->getKey()));
 
         return response()->json(['message' => __('document.document_restored')]);
     }
@@ -257,7 +255,7 @@ class DocumentController extends Controller
 
         $this->documentService->forceDeleteUsage($document, $entity);
 
-        $this->audit->record(new DocumentForceDeleted($usage));
+        event(new DocumentForceDeleted($usage));
 
         return response()->json(['message' => __('document.document_force_deleted')]);
     }
@@ -266,7 +264,7 @@ class DocumentController extends Controller
     {
         $this->authorizeDocument($request, $document, DocumentAction::Download);
 
-        $this->audit->record(new DocumentDownloaded($document));
+        event(new DocumentDownloaded($document));
 
         $disk = $document->disk;
         $path = $document->path;
@@ -290,7 +288,7 @@ class DocumentController extends Controller
     {
         $this->authorizeDocument($request, $document, DocumentAction::Download);
 
-        $this->audit->record(new DocumentDownloaded($document));
+        event(new DocumentDownloaded($document));
 
         $disk = $document->disk;
         $path = $document->path;

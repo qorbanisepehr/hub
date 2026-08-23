@@ -2,6 +2,7 @@
 
 namespace App\Domains\Audit\Services;
 
+use App\Domains\Audit\Data\AuditData;
 use App\Domains\Audit\Events\AuditLifecycleExecuted;
 use App\Domains\Audit\Jobs\ProcessAuditRetentionChunkJob;
 use App\Domains\Audit\Models\AuditLog;
@@ -20,7 +21,8 @@ final class AuditLifecycleService
 
     public function __construct(
         private readonly PolicyResolver $policyResolver,
-        private readonly AuditEventDispatcher $dispatcher,
+        private readonly AuditContextResolver $contextResolver,
+        private readonly AuditRecorder $recorder,
     ) {}
 
     /**
@@ -192,15 +194,22 @@ final class AuditLifecycleService
 
     /**
      * Self-audit: persist a system-actor record of this run.
+     * Direct internal path (not the event bus) — recursion is impossible and
+     * the system actor is preserved even though no user is authenticated here.
      */
     private function recordLifecycleResult(string $source, bool $dryRun, int $archived, int $pruned, int $errors): void
     {
         try {
-            $this->dispatcher->recordSystem(new AuditLifecycleExecuted($source, $dryRun, [
-                'archived' => $archived,
-                'pruned' => $pruned,
-                'errors' => $errors,
-            ]));
+            $data = AuditData::fromEvent(
+                new AuditLifecycleExecuted($source, $dryRun, [
+                    'archived' => $archived,
+                    'pruned' => $pruned,
+                    'errors' => $errors,
+                ]),
+                $this->contextResolver->resolveSystem(),
+            );
+
+            $this->recorder->persist($data);
         } catch (\Throwable $e) {
             Log::error('Audit lifecycle self-audit failed', ['error' => $e->getMessage()]);
         }

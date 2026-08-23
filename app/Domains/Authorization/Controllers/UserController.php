@@ -3,7 +3,6 @@
 namespace App\Domains\Authorization\Controllers;
 
 use App\Contracts\Authorization;
-use App\Domains\Audit\Services\AuditEventDispatcher;
 use App\Domains\Auth\Resources\UserResource;
 use App\Domains\Authorization\Events\UserCreated;
 use App\Domains\Authorization\Events\UserUpdated;
@@ -18,7 +17,6 @@ class UserController
 {
     public function __construct(
         private Authorization $authorization,
-        private readonly AuditEventDispatcher $audit,
     ) {}
 
     /** @var array<string, string> */
@@ -77,7 +75,7 @@ class UserController
         $user = User::create($request->validated());
         $user->load(['roles', 'activeRole', self::EMPLOYEE_COLUMNS]);
 
-        $this->audit->record(new UserCreated($user));
+        event(new UserCreated($user));
 
         return response()->json([
             'data' => new UserResource($user),
@@ -122,7 +120,7 @@ class UserController
 
         $user->load(['roles', 'activeRole', self::EMPLOYEE_COLUMNS]);
 
-        $this->audit->record(new UserUpdated($user, $old, $new));
+        event(new UserUpdated($user, $old, $new));
 
         return response()->json([
             'data' => new UserResource($user),

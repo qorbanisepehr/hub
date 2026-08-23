@@ -3,7 +3,6 @@
 namespace App\Domains\Authorization\Controllers;
 
 use App\Contracts\Authorization;
-use App\Domains\Audit\Services\AuditEventDispatcher;
 use App\Domains\Authorization\Events\ActiveRoleChanged;
 use App\Domains\Authorization\Events\RoleAssigned;
 use App\Domains\Authorization\Events\RoleRemoved;
@@ -18,7 +17,6 @@ class UserRoleController
 {
     public function __construct(
         private Authorization $authorization,
-        private AuditEventDispatcher $audit,
     ) {}
 
     public function index(Request $request, User $user): JsonResponse
@@ -42,9 +40,7 @@ class UserRoleController
         $user->assignRole($request->role_id, $active);
 
         $role = $user->roles()->where('roles.id', $request->role_id)->first();
-        $this->audit->record(
-            new RoleAssigned($request->user(), $user, $request->role_id, $role?->name ?? 'unknown', $active),
-        );
+        event(new RoleAssigned($request->user(), $user, $request->role_id, $role?->name ?? 'unknown', $active));
 
         return response()->json(['message' => __('authorization.role_assigned')]);
     }
@@ -56,9 +52,7 @@ class UserRoleController
         $roleModel = $user->roles()->where('roles.id', $role)->first();
         $user->removeRole($role);
 
-        $this->audit->record(
-            new RoleRemoved($request->user(), $user, $role, $roleModel?->name ?? 'unknown'),
-        );
+        event(new RoleRemoved($request->user(), $user, $role, $roleModel?->name ?? 'unknown'));
 
         return response()->json(['message' => __('authorization.role_removed')]);
     }
@@ -71,15 +65,13 @@ class UserRoleController
         $user->setActiveRole($request->role_id);
         $newRole = $user->fresh()?->activeRole;
 
-        $this->audit->record(
-            new ActiveRoleChanged(
-                $user,
-                $oldRole?->id,
-                $oldRole?->name,
-                $newRole?->id,
-                $newRole?->name,
-            ),
-        );
+        event(new ActiveRoleChanged(
+            $user,
+            $oldRole?->id,
+            $oldRole?->name,
+            $newRole?->id,
+            $newRole?->name,
+        ));
 
         return response()->json(['message' => __('authorization.active_role_switched')]);
     }

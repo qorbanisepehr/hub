@@ -3,7 +3,6 @@
 namespace App\Domains\Authorization\Controllers;
 
 use App\Contracts\Authorization;
-use App\Domains\Audit\Services\AuditEventDispatcher;
 use App\Domains\Authorization\Events\PermissionAssigned;
 use App\Domains\Authorization\Events\RoleCreated;
 use App\Domains\Authorization\Events\RoleDeleted;
@@ -28,7 +27,6 @@ class RoleController
 {
     public function __construct(
         private Authorization $authorization,
-        private readonly AuditEventDispatcher $audit,
     ) {}
 
     /** @var array<string, string> */
@@ -137,7 +135,7 @@ class RoleController
 
         app(AuthorizationVersion::class)->bump();
 
-        $this->audit->record(new RoleCreated($role, $role->permissions->pluck('id')->toArray()));
+        event(new RoleCreated($role, $role->permissions->pluck('id')->toArray()));
 
         return new RoleResource($this->loadRelations($role));
     }
@@ -162,7 +160,7 @@ class RoleController
 
         app(AuthorizationVersion::class)->bump();
 
-        $this->audit->record(new RoleUpdated($role, $old, $new));
+        event(new RoleUpdated($role, $old, $new));
 
         return new RoleResource($this->loadRelations($role));
     }
@@ -181,7 +179,7 @@ class RoleController
 
         app(AuthorizationVersion::class)->bump();
 
-        $this->audit->record(new RoleDeleted($role));
+        event(new RoleDeleted($role));
 
         return response()->json(['message' => __('authorization.role_deleted')]);
     }
@@ -204,7 +202,7 @@ class RoleController
             $this->authorization->authorize($request->user(), 'role.update', $role);
             $role->grantPermissions($permissionIds);
             $this->flushRoleUsersCaches($role);
-            $this->audit->record(new PermissionAssigned($role, $permissionIds));
+            event(new PermissionAssigned($role, $permissionIds));
         }
 
         app(AuthorizationVersion::class)->bump();
@@ -220,7 +218,7 @@ class RoleController
 
         app(AuthorizationVersion::class)->bump();
 
-        $this->audit->record(new RoleToggled($role, $role->is_active));
+        event(new RoleToggled($role, $role->is_active));
 
         return new RoleResource($this->loadRelations($role));
     }
