@@ -109,6 +109,11 @@ class FormOptionController
         return new FormOptionResource($this->service->toggleActive($option));
     }
 
+    public function groups(): JsonResponse
+    {
+        return response()->json(['data' => $this->service->getAdminGroups()]);
+    }
+
     public function adminIndex(Request $request): AnonymousResourceCollection
     {
         $query = FormOption::query();
@@ -121,6 +126,10 @@ class FormOptionController
 
         $this->authorization->scope($request->user(), 'form-options.manage', $query);
 
-        return FormOptionResource::collection($query->ordered()->get());
+        $perPage = min(max((int) $request->query('per_page', 20), 1), 100);
+
+        return FormOptionResource::collection(
+            $query->ordered()->paginate($perPage),
+        );
     }
 }

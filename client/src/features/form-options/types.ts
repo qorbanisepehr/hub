@@ -15,6 +15,12 @@ export type FormOption = PublicFormOption & {
 
 export type FormOptionsMap = Record<string, PublicFormOption[]>;
 
+export type FormOptionGroup = {
+    group: string;
+    label: string | null;
+    count: number;
+};
+
 export type StoreFormOptionData = {
     group: string;
     value: string;

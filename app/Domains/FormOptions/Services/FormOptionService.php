@@ -94,6 +94,30 @@ class FormOptionService
     }
 
     /**
+     * Admin: every stored group — location groups included — with its total
+     * row count and display label. Unlike {@see getGroups()} this counts
+     * inactive options too, because the management table shows them.
+     *
+     * @return array<int, array{group: string, label: ?string, count: int}>
+     */
+    public function getAdminGroups(): array
+    {
+        return FormOption::query()
+            ->select('group')
+            ->selectRaw('count(*) as options_count')
+            ->selectRaw('max(group_label) as group_label')
+            ->groupBy('group')
+            ->orderBy('group')
+            ->get()
+            ->map(fn (FormOption $row): array => [
+                'group' => $row->group,
+                'label' => $row->group_label,
+                'count' => (int) $row->options_count,
+            ])
+            ->all();
+    }
+
+    /**
      * Flat, active, ordered options of a group.
      *
      * When a parent value is given, only the options linked to it are returned

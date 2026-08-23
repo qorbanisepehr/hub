@@ -125,6 +125,86 @@ describe('form options admin endpoints', function () {
             ->assertJsonPath('data.0.value', 'a');
     });
 
+    it('paginates the admin list', function () {
+        $user = createUserWithPermissions(['form-options.manage']);
+
+        for ($i = 1; $i <= 25; $i++) {
+            makeOption(['group' => 'bulk', 'value' => "v{$i}", 'sort_order' => $i]);
+        }
+
+        $this->actingAs($user)
+            ->getJson('/api/admin/form-options?group=bulk&per_page=10')
+            ->assertOk()
+            ->assertJsonCount(10, 'data')
+            ->assertJsonPath('meta.total', 25)
+            ->assertJsonPath('meta.current_page', 1)
+            ->assertJsonPath('data.0.value', 'v1');
+
+        $this->actingAs($user)
+            ->getJson('/api/admin/form-options?group=bulk&per_page=10&page=3')
+            ->assertOk()
+            ->assertJsonCount(5, 'data')
+            ->assertJsonPath('data.0.value', 'v21');
+    });
+
+    it('clamps per_page between 1 and 100', function () {
+        $user = createUserWithPermissions(['form-options.manage']);
+
+        for ($i = 1; $i <= 25; $i++) {
+            makeOption(['group' => 'bulk', 'value' => "v{$i}", 'sort_order' => $i]);
+        }
+
+        $this->actingAs($user)
+            ->getJson('/api/admin/form-options?group=bulk&per_page=0')
+            ->assertOk()
+            ->assertJsonCount(1, 'data');
+
+        $this->actingAs($user)
+            ->getJson('/api/admin/form-options?group=bulk&per_page=999')
+            ->assertOk()
+            ->assertJsonCount(25, 'data');
+    });
+
+    it('lists admin groups including location groups with counts', function () {
+        $user = createUserWithPermissions(['form-options.manage']);
+
+        makeOption(['group' => 'gender', 'value' => 'male', 'label' => 'مرد']);
+        makeOption(['group' => 'gender', 'value' => 'female', 'label' => 'زن']);
+        makeOption(['group' => 'gender', 'value' => 'other', 'is_active' => false]);
+        makeOption([
+            'group' => 'province',
+            'value' => '100',
+            'label' => 'مرکزی',
+            'group_label' => 'استان',
+        ]);
+        makeOption([
+            'group' => 'city',
+            'value' => '100-1000001001101',
+            'label' => 'اراک',
+            'parent_value' => '100',
+            'group_label' => 'شهر',
+        ]);
+
+        $response = $this->actingAs($user)
+            ->getJson('/api/admin/form-options/groups')
+            ->assertOk();
+
+        $groups = collect($response->json('data'))->pluck('count', 'group');
+
+        expect($groups['gender'])->toBe(3)
+            ->and($groups['province'])->toBe(1)
+            ->and($groups['city'])->toBe(1);
+
+        $provinceRow = collect($response->json('data'))
+            ->firstWhere('group', 'province');
+
+        expect($provinceRow['label'])->toBe('استان');
+    });
+
+    it('rejects unauthenticated requests to the groups endpoint', function () {
+        $this->getJson('/api/admin/form-options/groups')->assertStatus(401);
+    });
+
     it('creates an option', function () {
         $user = createUserWithPermissions(['form-options.manage']);
 

@@ -7,6 +7,7 @@ import { formOptionKeys } from "@/lib/query-keys";
 
 import {
     deleteFormOption,
+    fetchAdminFormOptionGroups,
     fetchAdminFormOptions,
     fetchFormOptions,
     fetchFormOptionsByGroup,
@@ -81,11 +82,31 @@ export function useFormOptionsWithPlaces<T>(
     return { submitOptions, optionsReady: submitOptions !== undefined };
 }
 
-export function useAdminFormOptions(group?: string) {
+/**
+ * Server-paginated admin list for one group (location groups included when
+ * explicitly requested). Returns the full paginated envelope so callers can
+ * drive the data table's pagination controls from `meta`.
+ */
+export function useAdminFormOptions(group?: string, page = 1, perPage = 20) {
     return useQuery({
-        queryKey: formOptionKeys.admin(group),
+        queryKey: formOptionKeys.admin(group, { page, per_page: perPage }),
         queryFn: async () => {
-            const { data } = await fetchAdminFormOptions(group);
+            const { data } = await fetchAdminFormOptions(group, page, perPage);
+            return data;
+        },
+    });
+}
+
+/**
+ * Every stored group — location groups included — with row counts, for the
+ * admin management tab's group selector. Invalidated by admin mutations via
+ * the `form-options` prefix.
+ */
+export function useAdminFormOptionGroups() {
+    return useQuery({
+        queryKey: formOptionKeys.adminGroups(),
+        queryFn: async () => {
+            const { data } = await fetchAdminFormOptionGroups();
             return data.data;
         },
     });

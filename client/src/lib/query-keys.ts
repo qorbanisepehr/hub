@@ -109,6 +109,13 @@ export const formOptionKeys = {
     all: () => ["form-options"] as const,
     byGroup: (group: string, parentValue?: string, search?: string) =>
         [...formOptionKeys.all(), group, parentValue ?? "", search ?? ""] as const,
-    admin: (group?: string) =>
-        [...formOptionKeys.all(), "admin", group ?? "all"] as const,
+    admin: (group?: string, params?: Record<string, unknown>) =>
+        [
+            ...formOptionKeys.all(),
+            "admin",
+            group ?? "all",
+            params ?? {},
+        ] as const,
+    adminGroups: () =>
+        [...formOptionKeys.all(), "admin-groups"] as const,
 };
