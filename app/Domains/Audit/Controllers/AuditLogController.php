@@ -33,7 +33,17 @@ class AuditLogController extends ApiController
 
         $perPage = min(max((int) $request->input('per_page', 20), 1), 100);
 
-        $logs = $this->queryService->paginate($filters, $perPage);
+        // Presence of the param opts into keyset pagination; `?cursor=` alone
+        // fetches the first cursor page.
+        $cursor = $request->has('cursor') ? (string) $request->input('cursor', '') : null;
+        $sort = $request->input('sort');
+
+        $logs = $this->queryService->paginate(
+            $filters,
+            $perPage,
+            $cursor,
+            is_string($sort) ? $sort : null,
+        );
 
         return AuditLogResource::collection($logs);
     }

@@ -3,6 +3,7 @@
 namespace App\Domains\Audit\Services;
 
 use App\Domains\Audit\Models\AuditLog;
+use Illuminate\Contracts\Pagination\CursorPaginator;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -77,16 +78,58 @@ final class AuditQueryService
         return $query;
     }
 
+    /** @var array<string, string> Sortable columns and their default direction. */
+    private const SORTABLE = [
+        'created_at' => 'desc',
+        'event' => 'asc',
+        'category' => 'asc',
+    ];
+
     /**
      * Paginate filtered audit logs.
      *
+     * Keyset (cursor) pagination is used when a cursor is supplied — it stays
+     * cheap on large tables where offset pagination would degrade. Without a
+     * cursor the classic page/total shape is returned for existing clients.
+     *
+     * Sort accepts `column` (default direction) or `-column` (descending).
+     * Unknown columns fall back to the newest-first default so arbitrary
+     * columns can never be ordered by.
+     *
      * @param  array<string, mixed>  $filters
      */
-    public function paginate(array $filters = [], int $perPage = 20): LengthAwarePaginator
+    public function paginate(array $filters = [], int $perPage = 20, ?string $cursor = null, ?string $sort = null): CursorPaginator|LengthAwarePaginator
     {
-        return $this->query($filters)
-            ->orderByDesc('created_at')
-            ->paginate($perPage);
+        [$column, $direction] = $this->resolveSort($sort);
+
+        $query = $this->query($filters)
+            ->orderBy($column, $direction)
+            ->orderBy('id', $direction);
+
+        if ($cursor !== null) {
+            return $query->cursorPaginate($perPage, cursor: $cursor);
+        }
+
+        return $query->paginate($perPage);
+    }
+
+    /**
+     * @return array{0: string, 1: string} Column and direction
+     */
+    private function resolveSort(?string $sort): array
+    {
+        if ($sort === null || $sort === '') {
+            return ['created_at', 'desc'];
+        }
+
+        $descending = str_starts_with($sort, '-');
+        $column = ltrim($sort, '-');
+
+        if (! isset(self::SORTABLE[$column])) {
+            return ['created_at', 'desc'];
+        }
+
+        return [$column, $descending ? 'desc' : self::SORTABLE[$column]];
     }
 
     /**

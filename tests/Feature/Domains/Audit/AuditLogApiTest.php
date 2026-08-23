@@ -110,6 +110,51 @@ describe('Audit Log API', function () {
                 ->assertOk()
                 ->assertJsonCount(3, 'data');
         });
+
+        it('paginates by cursor without meta totals', function () {
+            $first = actingAs($this->user)
+                ->getJson('/api/audit-logs?per_page=4&sort=-created_at&cursor=')
+                ->assertOk()
+                ->json();
+
+            expect(data_get($first, 'meta'))->not->toHaveKey('total')
+                ->and(data_get($first, 'meta'))->not->toHaveKey('last_page');
+
+            $nextCursor = data_get($first, 'meta.next_cursor');
+
+            expect($nextCursor)->not->toBeNull();
+
+            actingAs($this->user)
+                ->getJson('/api/audit-logs?per_page=4&cursor='.urlencode($nextCursor))
+                ->assertOk()
+                ->assertJsonCount(4, 'data');
+        });
+
+        it('falls back to page pagination without a cursor', function () {
+            actingAs($this->user)
+                ->getJson('/api/audit-logs?per_page=4')
+                ->assertOk()
+                ->assertJsonPath('meta.total', 10)
+                ->assertJsonPath('meta.last_page', 3);
+        });
+
+        it('sorts ascending by event name', function () {
+            $response = actingAs($this->user)
+                ->getJson('/api/audit-logs?sort=event&per_page=10')
+                ->assertOk();
+
+            $events = collect($response->json('data'))->pluck('event')->values();
+            $sorted = $events->sort()->values();
+
+            expect($events->all())->toBe($sorted->all());
+        });
+
+        it('ignores unknown sort columns', function () {
+            actingAs($this->user)
+                ->getJson('/api/audit-logs?sort=ip_address;drop_table_users')
+                ->assertOk()
+                ->assertJsonCount(10, 'data');
+        });
     });
 
     describe('GET /api/audit-logs/{id}', function () {
