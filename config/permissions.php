@@ -145,6 +145,7 @@ return [
             'name' => 'Audit Log',
             'permissions' => [
                 'audit.view' => 'View audit log',
+                'audit.export' => 'Export audit log',
                 'audit.manage' => 'Manage retention policies',
             ],
         ],

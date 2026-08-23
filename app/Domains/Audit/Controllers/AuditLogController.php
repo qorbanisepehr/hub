@@ -11,11 +11,26 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Carbon;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class AuditLogController extends ApiController
 {
     protected ?string $model = null;
+
+    /** @var list<string> Filters shared by the index, stats, and export endpoints. */
+    private const FILTERS = [
+        'event', 'category', 'actor_type', 'actor_id', 'actor_role_id',
+        'subject_type', 'subject_id', 'date_from', 'date_to',
+        'request_id', 'trace_id', 'ip', 'search',
+    ];
+
+    private const EXPORT_COLUMNS = [
+        'id', 'event', 'category', 'actor_type', 'actor_id',
+        'subject_type', 'subject_id', 'description',
+        'ip_address', 'request_id', 'trace_id', 'created_at',
+    ];
 
     public function __construct(
         private AuditQueryService $queryService,
@@ -25,11 +40,7 @@ class AuditLogController extends ApiController
     {
         $this->validateDateFilters($request);
 
-        $filters = $request->only([
-            'event', 'category', 'actor_type', 'actor_id', 'actor_role_id',
-            'subject_type', 'subject_id', 'date_from', 'date_to',
-            'request_id', 'trace_id', 'ip', 'search',
-        ]);
+        $filters = $request->only(self::FILTERS);
 
         $perPage = min(max((int) $request->input('per_page', 20), 1), 100);
 
@@ -57,13 +68,55 @@ class AuditLogController extends ApiController
 
     public function stats(Request $request): JsonResponse
     {
-        $filters = $request->only([
-            'event', 'category', 'actor_type', 'actor_id', 'actor_role_id',
-            'subject_type', 'subject_id', 'date_from', 'date_to',
-        ]);
+        $filters = $request->only(['event', 'category', 'actor_type', 'actor_id', 'actor_role_id', 'subject_type', 'subject_id', 'date_from', 'date_to']);
 
         return response()->json([
             'data' => $this->queryService->stats($filters),
+        ]);
+    }
+
+    /**
+     * Stream the filtered audit log as a CSV or JSONL download (v6 §64–65).
+     * Chunked server-side so even full-table exports never blow memory.
+     */
+    public function export(Request $request): StreamedResponse
+    {
+        $this->validateDateFilters($request);
+
+        $validated = $request->validate([
+            'format' => ['nullable', 'string', Rule::in(['csv', 'jsonl'])],
+        ]);
+
+        $format = $validated['format'] ?? 'csv';
+        $filters = $request->only(self::FILTERS);
+
+        return response()->streamDownload(function () use ($filters, $format): void {
+            $logs = $this->queryService->stream($filters);
+
+            if ($format === 'jsonl') {
+                foreach ($logs as $log) {
+                    echo json_encode($log->attributesToArray(), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+                    echo PHP_EOL;
+                }
+
+                return;
+            }
+
+            $handle = fopen('php://output', 'w');
+            fputcsv($handle, self::EXPORT_COLUMNS, ',', '"', '\\');
+
+            foreach ($logs as $log) {
+                fputcsv($handle, array_map(
+                    fn (string $column): string => (string) $log->{$column},
+                    self::EXPORT_COLUMNS,
+                ), ',', '"', '\\');
+            }
+
+            fclose($handle);
+        }, 'audit-logs-'.now()->format('Ymd-His').".{$format}", [
+            'Content-Type' => $format === 'jsonl'
+                ? 'application/x-ndjson'
+                : 'text/csv; charset=UTF-8',
         ]);
     }
 

@@ -6,6 +6,7 @@ use App\Domains\Audit\Models\AuditLog;
 use Illuminate\Contracts\Pagination\CursorPaginator;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\LazyCollection;
 
 /**
  * Query service for audit logs. Single source of truth for filtering, sorting,
@@ -130,6 +131,22 @@ final class AuditQueryService
         }
 
         return [$column, $descending ? 'desc' : self::SORTABLE[$column]];
+    }
+
+    /**
+     * Stream filtered audit logs in id-ordered chunks for exports.
+     *
+     * Reuses the exact same filter logic as the paginated API and keeps
+     * memory flat by hydrating {@see $chunkSize} rows at a time. Eager loads
+     * are stripped — export payloads carry raw columns only.
+     *
+     * @param  array<string, mixed>  $filters
+     */
+    public function stream(array $filters = [], int $chunkSize = 1000): LazyCollection
+    {
+        return $this->query($filters)
+            ->setEagerLoads([])
+            ->lazyById($chunkSize);
     }
 
     /**
