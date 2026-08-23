@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Route;
 
 // Public: read-only, active options for form rendering + validation hints.
 Route::get('form-options', [FormOptionController::class, 'index']);
+Route::get('form-options/{group}/resolve', [FormOptionController::class, 'resolve']);
 Route::get('form-options/{group}', [FormOptionController::class, 'show']);
 
 // Admin management

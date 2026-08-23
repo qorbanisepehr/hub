@@ -11,11 +11,12 @@ import {
     fetchAdminFormOptions,
     fetchFormOptions,
     fetchFormOptionsByGroup,
+    fetchFormOptionsByValues,
     storeFormOption,
     toggleFormOption,
     updateFormOption,
 } from "../api";
-import type { FormOptionsMap, StoreFormOptionData } from "../types";
+import type { FormOptionsMap, PublicFormOption, StoreFormOptionData } from "../types";
 
 /**
  * All groups' active options. Options rarely change, so the data is cached for
@@ -45,6 +46,24 @@ export function useFormOptionsByGroup(group: string, parentValue?: string, searc
             const { data } = await fetchFormOptionsByGroup(group, parentValue, search);
             return data.data;
         },
+        staleTime: Infinity,
+    });
+}
+
+/**
+ * Resolve stored values back to option rows — inactive options included —
+ * for display of saved records. Disabled until a stored value is missing
+ * from the group's active list; the query key is the sorted value set, so
+ * repeated renders with the same values hit one cache entry.
+ */
+export function useResolvedFormOptions(group: string, values: string[]) {
+    return useQuery<PublicFormOption[]>({
+        queryKey: formOptionKeys.byValues(group, values),
+        queryFn: async () => {
+            const { data } = await fetchFormOptionsByValues(group, values);
+            return data.data;
+        },
+        enabled: values.length > 0,
         staleTime: Infinity,
     });
 }

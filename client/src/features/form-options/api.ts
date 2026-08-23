@@ -26,6 +26,18 @@ export function fetchFormOptionsByGroup(
     });
 }
 
+/**
+ * Resolve stored values back to their option rows — inactive options
+ * included — so saved records keep displaying proper labels after an option
+ * is deactivated.
+ */
+export function fetchFormOptionsByValues(group: string, values: string[]) {
+    return api.get<{ data: PublicFormOption[] }>(
+        `/form-options/${group}/resolve`,
+        { params: { values: values.join(",") } },
+    );
+}
+
 export function fetchAdminFormOptions(group?: string, page = 1, perPage = 20) {
     return api.get<PaginatedResponse<FormOption>>("/admin/form-options", {
         params: {

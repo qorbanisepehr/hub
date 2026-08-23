@@ -22,7 +22,10 @@ import {
     ComboboxList,
     ComboboxTrigger,
 } from "@/components/ui/combobox";
-import { useFormOptionsByGroup } from "@/features/form-options/hooks/use-form-options";
+import {
+    useResolvedFormOptions,
+    useFormOptionsByGroup,
+} from "@/features/form-options/hooks/use-form-options";
 import type { PublicFormOption } from "@/features/form-options/types";
 import {
     FormCheckboxGroup,
@@ -73,6 +76,50 @@ function toSelectOptions(
     }));
 }
 
+function normalizeStoredValues(stored: unknown): string[] {
+    if (typeof stored === "string") return stored ? [stored] : [];
+    if (Array.isArray(stored)) {
+        return stored.filter(
+            (value): value is string => typeof value === "string" && value !== "",
+        );
+    }
+    return [];
+}
+
+/**
+ * Merge resolved rows for stored-but-missing values into the active option
+ * list. A record can hold a value that was deactivated (or whose parent
+ * changed) after it was saved; without this merge the UI degrades to showing
+ * raw value keys or nothing at all.
+ */
+function useMergedOptions(
+    group: string,
+    options: PublicFormOption[] | undefined,
+    stored: unknown,
+): PublicFormOption[] | undefined {
+    const values = normalizeStoredValues(stored);
+    const missing =
+        options === undefined
+            ? []
+            : [
+                  ...new Set(
+                      values.filter(
+                          (value) => !options.some((o) => o.value === value),
+                      ),
+                  ),
+              ];
+
+    const { data: resolved } = useResolvedFormOptions(group, missing);
+
+    if (!resolved?.length) return options;
+
+    const extras = resolved.filter(
+        (option) => !options?.some((o) => o.value === option.value),
+    );
+
+    return extras.length ? [...extras, ...options ?? []] : options;
+}
+
 export function FormOptionSelectField({
     field,
     label,
@@ -83,7 +130,8 @@ export function FormOptionSelectField({
     disabled,
 }: FormOptionFieldProps) {
     const { data, isLoading } = useFormOptionsByGroup(group, parentValue);
-    const options = toSelectOptions(data, filter);
+    const merged = useMergedOptions(group, data, field.state.value);
+    const options = toSelectOptions(merged, filter);
 
     return (
         <FormSelectField
@@ -105,7 +153,8 @@ export function FormOptionRadioGroup({
     filter,
 }: FormOptionFieldProps) {
     const { data, isLoading } = useFormOptionsByGroup(group, parentValue);
-    const options = toSelectOptions(data, filter);
+    const merged = useMergedOptions(group, data, field.state.value);
+    const options = toSelectOptions(merged, filter);
 
     return (
         <FormRadioGroup
@@ -125,7 +174,8 @@ export function FormOptionCheckboxGroup({
     filter,
 }: FormOptionFieldProps) {
     const { data, isLoading } = useFormOptionsByGroup(group, parentValue);
-    const options = toSelectOptions(data, filter);
+    const merged = useMergedOptions(group, data, field.state.value);
+    const options = toSelectOptions(merged, filter);
 
     return (
         <FormCheckboxGroup
@@ -204,9 +254,13 @@ export function FormOptionComboboxField({
         ? deriveDisplayValue(field.state.value)
         : (field.state.value as string | undefined);
 
+    const merged = useMergedOptions(group, data, displayValue);
+
     const items = useMemo(() => {
-        if (!data) return [];
-        const base = toSelectOptions(data, serverSearch ? undefined : filter) ?? [];
+        const base =
+            toSelectOptions(merged, serverSearch ? undefined : filter) ?? [];
+        // Values unknown even after resolution (e.g. a deleted option) stay
+        // visible as-is so the user can see and clear the stored value.
         if (
             displayValue &&
             !base.some((option) => option.value === displayValue)
@@ -215,7 +269,7 @@ export function FormOptionComboboxField({
         }
         return base;
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [data, filter, serverSearch, displayValue]);
+    }, [merged, filter, serverSearch, displayValue]);
 
     const selectedItem =
         items.find((option) => option.value === displayValue) ?? null;
@@ -331,6 +385,11 @@ export function PlaceFields({
 
     const { data: provinceOptions, isLoading: provinceLoading } =
         useFormOptionsByGroup("province");
+    const mergedProvinceOptions = useMergedOptions(
+        "province",
+        provinceOptions,
+        province,
+    );
 
     const handleProvinceChange = (next: string | null) => {
         const nextProvince = next ?? "";
@@ -340,10 +399,7 @@ export function PlaceFields({
         }
     };
 
-    const provinceItems = provinceOptions?.map((option) => ({
-        value: option.value,
-        label: option.label,
-    }));
+    const provinceItems = toSelectOptions(mergedProvinceOptions);
 
     return (
         <>
@@ -428,6 +484,11 @@ export function ProvinceCityFields({
 
     const { data: provinceOptions, isLoading: provinceLoading } =
         useFormOptionsByGroup("province");
+    const mergedProvinceOptions = useMergedOptions(
+        "province",
+        provinceOptions,
+        province,
+    );
 
     const handleProvinceChange = (next: string | null) => {
         const nextProvince = next ?? "";
@@ -437,10 +498,7 @@ export function ProvinceCityFields({
         }
     };
 
-    const provinceItems = provinceOptions?.map((option) => ({
-        value: option.value,
-        label: option.label,
-    }));
+    const provinceItems = toSelectOptions(mergedProvinceOptions);
 
     return (
         <>

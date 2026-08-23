@@ -70,6 +70,31 @@ describe('form options public endpoints', function () {
             ->assertJsonCount(0, 'data');
     });
 
+    it('resolves stored values back to labels including inactive options', function () {
+        makeOption(['group' => 'gender', 'value' => 'other', 'label' => 'سایر', 'is_active' => false]);
+
+        $response = $this->getJson('/api/form-options/gender/resolve?values=male,other,alien')
+            ->assertOk()
+            ->assertJsonCount(2, 'data');
+
+        $labels = collect($response->json('data'))->pluck('label', 'value');
+
+        expect($labels['male'])->toBe('مرد')
+            ->and($labels['other'])->toBe('سایر');
+    });
+
+    it('caps the number of resolvable values at 100', function () {
+        for ($i = 1; $i <= 120; $i++) {
+            makeOption(['group' => 'bulk', 'value' => "v{$i}", 'label' => "گزینه {$i}"]);
+        }
+
+        $values = implode(',', array_map(fn ($i) => "v{$i}", range(1, 120)));
+
+        $this->getJson("/api/form-options/bulk/resolve?values={$values}")
+            ->assertOk()
+            ->assertJsonCount(100, 'data');
+    });
+
     it('clamps the limit parameter between 1 and 100', function () {
         makeOption(['group' => 'priority', 'value' => 'a', 'sort_order' => 1]);
         makeOption(['group' => 'priority', 'value' => 'b', 'sort_order' => 2]);

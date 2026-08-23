@@ -182,6 +182,34 @@ class FormOptionService
     }
 
     /**
+     * Resolve stored values (active or not) back to their option rows so saved
+     * records can still display the Persian label of an option that was
+     * deactivated after the record was written. Unknown values are omitted.
+     *
+     * @param  string[]  $values
+     * @return array<int, array{value: string, label: string, parent_value: ?string, group_label: ?string}>
+     */
+    public function resolveValues(string $group, array $values): array
+    {
+        if ($values === []) {
+            return [];
+        }
+
+        return FormOption::query()
+            ->ofGroup($group)
+            ->whereIn('value', $values)
+            ->ordered()
+            ->get(['value', 'label', 'parent_value', 'group_label'])
+            ->map(fn (FormOption $option): array => [
+                'value' => $option->value,
+                'label' => $option->label,
+                'parent_value' => $option->parent_value,
+                'group_label' => $option->group_label,
+            ])
+            ->all();
+    }
+
+    /**
      * Whether the combined place value string matches an active city option.
      *
      * Form sections now persist the city option's own value (e.g.

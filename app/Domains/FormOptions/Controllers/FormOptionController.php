@@ -64,6 +64,30 @@ class FormOptionController
         ]);
     }
 
+    /**
+     * Public: resolve stored values back to their option rows, including
+     * inactive ones, so saved records can display the label of an option that
+     * was deactivated after the record was written.
+     */
+    public function resolve(Request $request, string $group): JsonResponse
+    {
+        // Accept both `?values=a,b,c` and `?values[]=a&values[]=b`.
+        $raw = $request->query('values');
+
+        $values = collect(is_array($raw) ? $raw : explode(',', (string) $raw))
+            ->filter(fn ($value): bool => is_string($value))
+            ->map(fn (string $value): string => trim($value))
+            ->filter(fn (string $value): bool => $value !== '')
+            ->unique()
+            ->take(100)
+            ->values()
+            ->all();
+
+        return response()->json([
+            'data' => $this->service->resolveValues($group, $values),
+        ]);
+    }
+
     public function store(StoreFormOptionRequest $request): FormOptionResource
     {
         return new FormOptionResource($this->service->create($request->validated()));
