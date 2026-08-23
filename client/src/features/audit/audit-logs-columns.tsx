@@ -1,6 +1,7 @@
 import type { ColumnDef, StockFeatures } from "@tanstack/react-table";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { DataTableColumnHeader } from "@/components/data-table";
 import { AUDIT_CATEGORY_LABELS, AUDIT_CATEGORY_VARIANTS, AUDIT_EVENT_LABELS } from "./constants";
 import type { AuditLog } from "./types";
 import { Link } from "@tanstack/react-router";
@@ -42,7 +43,9 @@ export function getAuditLogColumns(): ColumnDef<StockFeatures, AuditLog>[] {
     return [
         {
             accessorKey: "event",
-            header: "رویداد",
+            header: ({ column }) => (
+                <DataTableColumnHeader column={column} title="رویداد" />
+            ),
             cell: ({ row }) => {
                 const event = row.original.event;
                 const label =
@@ -60,7 +63,9 @@ export function getAuditLogColumns(): ColumnDef<StockFeatures, AuditLog>[] {
         },
         {
             accessorKey: "category",
-            header: "دسته‌بندی",
+            header: ({ column }) => (
+                <DataTableColumnHeader column={column} title="دسته‌بندی" />
+            ),
             cell: ({ row }) => {
                 const category = row.original.category;
                 return (
@@ -73,11 +78,13 @@ export function getAuditLogColumns(): ColumnDef<StockFeatures, AuditLog>[] {
         {
             accessorKey: "actor.id",
             header: "کاربر",
+            enableSorting: false,
             cell: ({ row }) => <ActorCell actor={row.original.actor} />,
         },
         {
             accessorKey: "description",
             header: "توضیحات",
+            enableSorting: false,
             cell: ({ row }) => (
                 <span className="line-clamp-1 max-w-[300px]">
                     {row.original.description ?? "—"}
@@ -87,6 +94,7 @@ export function getAuditLogColumns(): ColumnDef<StockFeatures, AuditLog>[] {
         {
             accessorKey: "ip_address",
             header: "IP",
+            enableSorting: false,
             cell: ({ row }) => (
                 <span className="font-mono text-xs">
                     {row.original.ip_address ?? "—"}
@@ -95,7 +103,9 @@ export function getAuditLogColumns(): ColumnDef<StockFeatures, AuditLog>[] {
         },
         {
             accessorKey: "created_at",
-            header: "تاریخ",
+            header: ({ column }) => (
+                <DataTableColumnHeader column={column} title="تاریخ" />
+            ),
             cell: ({ row }) => (
                 <span className="text-sm">
                     {toPersianDate(row.original.created_at)}

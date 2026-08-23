@@ -12,6 +12,17 @@ export function fetchAuditLogs(params: AuditLogListParams = {}) {
     return api.get<PaginatedResponse<AuditLog>>("/audit-logs", { params });
 }
 
+export function exportAuditLogs(
+    params: Omit<AuditLogListParams, "page" | "per_page"> & {
+        format?: "csv" | "jsonl";
+    },
+) {
+    return api.get("/audit-logs/export", {
+        params,
+        responseType: "blob",
+    });
+}
+
 export function fetchAuditLog(id: number) {
     return api.get<{ data: AuditLogDetail }>(`/audit-logs/${id}`);
 }

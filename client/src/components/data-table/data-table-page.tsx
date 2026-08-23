@@ -52,6 +52,7 @@ interface DataTablePageProps<TData extends RowData> {
     onRetry?: () => void;
     colSpan: number;
     expandedRowIds?: Record<string, boolean>;
+    getExpandedRowId?: (row: TData) => string;
     renderExpandedRow?: (row: TData) => ReactNode;
 }
 
@@ -71,6 +72,7 @@ export function DataTablePage<TData extends RowData>({
     onRetry,
     colSpan,
     expandedRowIds,
+    getExpandedRowId,
     renderExpandedRow,
 }: DataTablePageProps<TData>) {
     return (
@@ -143,7 +145,14 @@ export function DataTablePage<TData extends RowData>({
                                         table
                                             .getRowModel()
                                             .rows.map((row) => {
-                                                const isExpanded = expandedRowIds?.[row.id] ?? false;
+                                                // Expansion state can be keyed by a
+                                                // domain id (stable across pages) or,
+                                                // by default, the table row index.
+                                                const expandedRowKey = getExpandedRowId
+                                                    ? getExpandedRowId(row.original)
+                                                    : row.id;
+                                                const isExpanded =
+                                                    expandedRowIds?.[expandedRowKey] ?? false;
                                                 const expandedContent = isExpanded && renderExpandedRow
                                                     ? renderExpandedRow(row.original)
                                                     : null;

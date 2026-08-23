@@ -78,7 +78,6 @@ export interface AuditLogListParams {
     page?: number;
     per_page?: number;
     sort?: string;
-    order?: "asc" | "desc";
     category?: AuditCategory | "";
     event?: string;
     actor_type?: AuditActorType | "";

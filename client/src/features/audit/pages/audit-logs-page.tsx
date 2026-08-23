@@ -9,9 +9,11 @@ import {
     type Row,
     type StockFeatures,
 } from "@tanstack/react-table";
-import { IconClipboardList, IconRefresh, IconChevronRight, IconChevronDown } from "@tabler/icons-react";
+import { IconClipboardList, IconRefresh, IconChevronRight, IconChevronDown, IconDownload } from "@tabler/icons-react";
+import { toast } from "sonner";
 
 import { useAuditLogs, useAuditEvents, useAuditLogDetail } from "@/features/audit/hooks";
+import { exportAuditLogs } from "@/features/audit/api";
 import { getAuditLogColumns } from "@/features/audit/audit-logs-columns";
 import { DataTablePage, DataTableToolbar } from "@/components/data-table";
 import { useTableUrlState } from "@/hooks/use-table-url-state";
@@ -119,6 +121,7 @@ export function AuditLogsPage() {
     const [columnVisibility, setColumnVisibility] =
         useState<ColumnVisibilityState>({});
     const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
+    const [isExporting, setIsExporting] = useState(false);
 
     const {
         sorting,
@@ -165,11 +168,14 @@ export function AuditLogsPage() {
             | undefined
     )?.[0] as string | undefined;
 
-    const { data: availableEvents = [] } = useAuditEvents(activeCategory);    const { data, isLoading, isError, isFetching } = useAuditLogs({
+    const { data: availableEvents = [] } = useAuditEvents(activeCategory);
+    const { data, isLoading, isError, isFetching } = useAuditLogs({
         page: pagination.pageIndex + 1,
         per_page: pagination.pageSize,
-        sort: activeSort?.id,
-        order: activeSort?.desc ? "desc" : "asc",
+        // Backend contract (v6): `sort=column` asc, `sort=-column` desc.
+        sort: activeSort
+            ? `${activeSort.desc ? "-" : ""}${activeSort.id}`
+            : undefined,
         search: globalFilter || undefined,
         category: activeCategory,
         event: activeEvent,
@@ -233,6 +239,39 @@ export function AuditLogsPage() {
         }
     }, [table, ensurePageInRange, isLoading, meta]);
 
+    const handleExport = async () => {
+        setIsExporting(true);
+
+        try {
+            const response = await exportAuditLogs({
+                format: "csv",
+                search: globalFilter || undefined,
+                category: activeCategory,
+                event: activeEvent,
+            });
+
+            const blob =
+                response.data instanceof Blob
+                    ? response.data
+                    : new Blob([response.data], {
+                          type: "text/csv;charset=utf-8",
+                      });
+
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = url;
+            link.download = `audit-logs-${new Date().toISOString().slice(0, 10)}.csv`;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(url);
+        } catch {
+            toast.error("خطا در دریافت فایل خروجی");
+        } finally {
+            setIsExporting(false);
+        }
+    };
+
     return (
         <DataTablePage
             table={table}
@@ -243,6 +282,7 @@ export function AuditLogsPage() {
             totalLabel="رویداد"
             icon={IconClipboardList}
             expandedRowIds={expandedRows}
+            getExpandedRowId={(log) => String(log.id)}
             renderExpandedRow={(log) => <ExpandedRowContent log={log} />}
             header={
                 <div>
@@ -282,6 +322,15 @@ export function AuditLogsPage() {
                             },
                         ]}
                     />
+                    <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={handleExport}
+                        disabled={isExporting}
+                        title="خروجی CSV"
+                    >
+                        <IconDownload className={`size-4 ${isExporting ? "animate-pulse" : ""}`} />
+                    </Button>
                     <Button
                         variant="outline"
                         size="icon"
