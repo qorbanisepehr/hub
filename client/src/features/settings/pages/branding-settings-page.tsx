@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useForm, useStore } from "@tanstack/react-form";
 import { z } from "zod";
 import { toast } from "sonner";
@@ -164,13 +165,21 @@ export function BrandingSettingsSection() {
     const { data: branding } = useBranding();
     const updateMutation = useUpdateBranding();
 
-    const form = useForm({
-        defaultValues: {
+    // Frozen defaults baseline: TanStack Form v1 overwrites untouched field
+    // values whenever incoming defaultValues differ from the runtime ones
+    // (TanStack/form#1681), so the baseline must be stable and server sync
+    // must go through reset(..., { keepDefaultValues: true }).
+    const [defaultValues, setDefaultValues] = useState<BrandingFormValues>(
+        () => ({
             name: branding?.name ?? COMPANY_NAME,
             sub_name: branding?.sub_name ?? "",
             primary_color: branding?.primary_color ?? "#db7868",
             secondary_color: branding?.secondary_color ?? "#1c2538",
-        } as BrandingFormValues,
+        }),
+    );
+
+    const form = useForm({
+        defaultValues,
         validators: {
             onSubmit: brandingSchema,
         },
@@ -178,7 +187,8 @@ export function BrandingSettingsSection() {
             try {
                 await updateMutation.mutateAsync(value);
                 toast.success("برندینگ با موفقیت ذخیره شد");
-                form.reset(value);
+                form.reset(value, { keepDefaultValues: true });
+                setDefaultValues(value);
             } catch (err) {
                 toast.error(getApiError(err));
             }

@@ -1,4 +1,4 @@
-import { useCallback, useRef } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm, useStore } from "@tanstack/react-form";
 import { toast } from "sonner";
@@ -81,9 +81,24 @@ export function useSectionForm<TEntity, TFormValues>({
 }: UseSectionFormOptions<TEntity, TFormValues>) {
     const queryClient = useQueryClient();
 
-    const form = useForm({
-        defaultValues: buildDefaultValues(entity),
-    });
+    // The form owns its values after mount. Component-provided defaults must
+    // be referentially AND structurally stable: TanStack Form v1's update()
+    // treats any incoming defaultValues that differ from the runtime ones as
+    // "async initial data arrived" and, while the form is untouched, it
+    // OVERWRITES every field value with them (TanStack/form#1681). Building
+    // defaults inline would do exactly that on the render right after
+    // form.reset(...) — fields flash back to the stale server snapshot, then
+    // snap forward when the invalidated detail query lands.
+    //
+    // So: freeze the baseline once, sync server data ONLY via explicit
+    // reset(..., { keepDefaultValues: true }), and rebase the frozen state
+    // afterwards so dirty tracking stays correct without ever giving
+    // update() a delta to act on.
+    const [defaultValues, setDefaultValues] = useState(() =>
+        buildDefaultValues(entity),
+    );
+
+    const form = useForm({ defaultValues });
 
     // Seed the saved snapshot from the SAME object tree the form was built
     // from; a second buildDefaultValues(entity) call would produce fresh
@@ -117,7 +132,13 @@ export function useSectionForm<TEntity, TFormValues>({
                 reconciled[key as string] = serverValues[key];
             }
             const reconciledValues = reconciled as TFormValues;
-            form.reset(reconciledValues);
+            // keepDefaultValues: reset must not touch the runtime defaults —
+            // the very next render hands update() the frozen baseline and any
+            // delta there would clobber these values (the blink). Rebase the
+            // frozen baseline instead; its content matches these values, so
+            // the adapter's comparison becomes a no-op write.
+            form.reset(reconciledValues, { keepDefaultValues: true });
+            setDefaultValues(reconciledValues);
             lastSavedRef.current = reconciledValues;
 
             if (successMessage) {
