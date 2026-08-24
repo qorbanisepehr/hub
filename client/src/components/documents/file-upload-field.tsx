@@ -19,6 +19,7 @@ import { fetchDocumentCategories } from "@/features/documents/api";
 import { DocumentPreviewLightbox } from "@/features/documents/components/document-preview-lightbox";
 import { useDocumentRequirements } from "@/features/documents/hooks/use-document-requirements";
 import type { DocumentCategory } from "@/features/documents/types";
+import { resolvePlacementRequirement } from "@/features/documents/types";
 import { useDocumentDelete } from "@/hooks/use-document-delete";
 import { useDocumentUpload } from "@/hooks/use-document-upload";
 import type { EntityDocument } from "@/hooks/use-entity-documents";
@@ -53,6 +54,12 @@ type FileUploadFieldProps = {
     notes?: string;
     /** Field placement within the requirement's section, e.g. "front" or "edu-0". */
     fieldKey?: string;
+    /**
+     * Explicit placement section, e.g. "dependents". When set (or when a
+     * field key is given) dynamic requirement groups are matched first and
+     * the section key is sent with uploads.
+     */
+    sectionKey?: string;
     categoryType?: string;
     aspectRatio?: number;
     description?: string;
@@ -130,6 +137,7 @@ export function FileUploadField({
     maxFiles = 1,
     notes,
     fieldKey,
+    sectionKey,
     categoryType = "personnel",
     aspectRatio,
     description,
@@ -154,7 +162,7 @@ export function FileUploadField({
         },
     });
 
-    const { data: requirements } = useDocumentRequirements(entity);
+    const { data: requirementEnvelope } = useDocumentRequirements(entity);
 
     const categoryId = React.useMemo(() => {
         function find(cats: DocumentCategory[]): number | undefined {
@@ -172,7 +180,11 @@ export function FileUploadField({
         return categories ? find(categories) : undefined;
     }, [categories, categorySlug]);
 
-    const requirement = requirements?.[categorySlug] ?? null;
+    const requirement = resolvePlacementRequirement(
+        requirementEnvelope,
+        categorySlug,
+        { sectionKey, fieldKey },
+    );
 
     const effectiveMaxFiles = requirement?.max_files ?? maxFiles;
     const effectiveAccept = requirement?.mime_types?.join(",") ?? accept;
@@ -182,6 +194,7 @@ export function FileUploadField({
         uuid,
         categoryId,
         requirement,
+        sectionKey,
         fieldKey,
         notes,
         onUploadComplete,

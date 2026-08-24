@@ -10,6 +10,8 @@ export type DocumentDimensions = {
 
 export type DocumentRequirement = {
     required: boolean;
+    /** Minimum file count (dynamic placements carry this). */
+    min_files?: number | null;
     max_files: number | null;
     field_keys: string[] | null;
     min_file_size: number | null;
@@ -18,6 +20,67 @@ export type DocumentRequirement = {
     dimensions: DocumentDimensions | null;
     section_key: string | null;
 };
+
+/** A section-owned, pattern-keyed requirement group for dynamic placements. */
+export type DynamicDocumentRequirementGroup = {
+    /** Section owning the placement, e.g. "dependents". */
+    section_key: string;
+    /** Field-key regex source the group applies to, e.g. "^dependent-(\\d+)$". */
+    pattern: string;
+    /** Category slug → requirement shared by every placement matching the pattern. */
+    requirements: Record<string, DocumentRequirement>;
+};
+
+export type DocumentRequirementsEnvelope = {
+    requirements: Record<string, DocumentRequirement>;
+    dynamicGroups: DynamicDocumentRequirementGroup[];
+};
+
+/** Compiled pattern cache — patterns are stable per session, keyed by source. */
+const patternCache = new Map<string, RegExp | null>();
+
+function compilePattern(source: string): RegExp | null {
+    let regex = patternCache.get(source);
+    if (regex === undefined) {
+        try {
+            regex = new RegExp(source);
+        } catch {
+            regex = null;
+        }
+        patternCache.set(source, regex);
+    }
+    return regex;
+}
+
+/**
+ * Resolve the requirement for a specific placement. Mirrors the backend:
+ * a matching dynamic group takes precedence and blocks the static map,
+ * which is only consulted when no group matches (or no placement is given).
+ */
+export function resolvePlacementRequirement(
+    envelope: DocumentRequirementsEnvelope | null | undefined,
+    categorySlug: string,
+    placement?: { sectionKey?: string; fieldKey?: string },
+): DocumentRequirement | null {
+    if (!envelope) return null;
+
+    const { sectionKey, fieldKey } = placement ?? {};
+    if (sectionKey != null || fieldKey != null) {
+        for (const group of envelope.dynamicGroups) {
+            const sectionMatches =
+                sectionKey == null || group.section_key === sectionKey;
+            const fieldMatches =
+                (fieldKey != null &&
+                    compilePattern(group.pattern)?.test(fieldKey)) ||
+                (fieldKey == null && sectionKey != null);
+            if (sectionMatches && fieldMatches) {
+                return group.requirements[categorySlug] ?? null;
+            }
+        }
+    }
+
+    return envelope.requirements[categorySlug] ?? null;
+}
 
 export type DocumentCategory = {
     id: number;
@@ -47,6 +110,8 @@ export type Document = {
     section_key: string | null;
     field_key: string | null;
     structure_name?: string | null;
+    /** ASCII counterpart of structure_name, used for download file names. */
+    structure_name_slug?: string | null;
     mime_type?: string;
     size?: number;
     original_name?: string;
