@@ -93,10 +93,36 @@ export const settingsKeys = {
     branding: () => [...settingsKeys.all, "branding"] as const,
 };
 
+export const auditKeys = {
+    all: ["audit"] as const,
+    logs: () => [...auditKeys.all, "logs"] as const,
+    logList: (params: Record<string, unknown>) =>
+        [...auditKeys.logs(), params] as const,
+    logDetail: (id: number) => [...auditKeys.all, "log", id] as const,
+    stats: () => [...auditKeys.all, "stats"] as const,
+    retentionPolicies: () => [...auditKeys.all, "retention-policies"] as const,
+    retentionPolicy: (id: number) =>
+        [...auditKeys.all, "retention-policy", id] as const,
+};
+
 export const formOptionKeys = {
     all: () => ["form-options"] as const,
     byGroup: (group: string, parentValue?: string, search?: string) =>
         [...formOptionKeys.all(), group, parentValue ?? "", search ?? ""] as const,
-    admin: (group?: string) =>
-        [...formOptionKeys.all(), "admin", group ?? "all"] as const,
+    byValues: (group: string, values: string[]) =>
+        [
+            ...formOptionKeys.all(),
+            group,
+            "resolve",
+            [...values].sort().join(","),
+        ] as const,
+    admin: (group?: string, params?: Record<string, unknown>) =>
+        [
+            ...formOptionKeys.all(),
+            "admin",
+            group ?? "all",
+            params ?? {},
+        ] as const,
+    adminGroups: () =>
+        [...formOptionKeys.all(), "admin-groups"] as const,
 };

@@ -37,7 +37,7 @@ type DataTableFacetedFilterProps<TData extends RowData, TValue> = {
 export function DataTableFacetedFilter<TData extends RowData, TValue>({
     column,
     title,
-    options,
+    options = [],
 }: DataTableFacetedFilterProps<TData, TValue>) {
     const facets = column?.getFacetedUniqueValues();
     const filterValue = column?.getFilterValue();

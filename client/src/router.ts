@@ -32,6 +32,9 @@ import { Route as CvIndexRoute } from "@/routes/_public/cv/index";
 import { Route as CvUuidRoute } from "@/routes/_public/cv/$uuid";
 import { Route as CvsRoute } from "@/routes/_protected/cvs/index";
 import { Route as CvBankDetailRoute } from "@/routes/_protected/cvs/$id";
+import { Route as AuditRoute } from "@/routes/_protected/audit/index";
+import { Route as AuditLogDetailRoute } from "@/routes/_protected/audit/$logId";
+import { Route as AuditRetentionRoute } from "@/routes/_protected/audit/retention";
 
 const routeTree = RootRoute.addChildren([
     PublicRoute.addChildren([
@@ -65,6 +68,9 @@ const routeTree = RootRoute.addChildren([
         CatchAllRoute,
         CvsRoute,
         CvBankDetailRoute,
+        AuditRoute,
+        AuditLogDetailRoute,
+        AuditRetentionRoute,
     ]),
 ]);
 
