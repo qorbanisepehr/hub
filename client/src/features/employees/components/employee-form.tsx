@@ -78,7 +78,7 @@ export function EmployeeForm({
 }: Props) {
     const genderOptions = useFormOptionsByGroup("gender");
     const genderSelectOptions = (genderOptions.data ?? []).map((option) => ({
-        value: option.label,
+        value: option.value,
         label: option.label,
     }));
 

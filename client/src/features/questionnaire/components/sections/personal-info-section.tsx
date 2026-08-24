@@ -23,6 +23,7 @@ import {
     SPOUSE_EMPLOYED,
 } from "@/features/questionnaire/schemas/personal-info.schema";
 import { zodFieldValidators } from "@/lib/validation-helpers";
+import { useSyncFormDefaults } from "@/hooks";
 import type {
     Questionnaire,
     QuestionnaireFormApi,
@@ -35,6 +36,8 @@ type SectionProps = {
     uuid?: string;
     /** Grant entity the section's documents belong to. Defaults to "questionnaire". */
     entity?: string;
+    /** Callback after defaults are synced — wire to syncDefaults from useSectionForm. */
+    onDefaultsSynced?: (values: unknown) => void;
 };
 
 export function PersonalInfoSection({
@@ -42,6 +45,7 @@ export function PersonalInfoSection({
     questionnaire,
     uuid,
     entity = "questionnaire",
+    onDefaultsSynced,
 }: SectionProps) {
     const maritalStatus = useStore(
         form.store,
@@ -83,6 +87,8 @@ export function PersonalInfoSection({
         provinceOptions !== undefined &&
         cityOptions !== undefined;
 
+    useSyncFormDefaults(form, optionsLoaded, onDefaultsSynced);
+
     const schemas = useMemo(() => {
         if (!optionsLoaded) return undefined;
         return buildPersonalInfoSchemas({
@@ -109,30 +115,32 @@ export function PersonalInfoSection({
         cityOptions,
     ]);
 
-    const religionValue = religionOptions?.find(
-        (option) => option.label === religion,
-    )?.value;
-
     const religionSectOptionsUi = useMemo(() => {
         if (!religionSectOptions) return [];
         return religionSectOptions
-            .filter((option) => option.parent_value === religionValue)
-            .map((option) => ({ value: option.label, label: option.label }));
-    }, [religionSectOptions, religionValue]);
+            .filter((option) => option.parent_value === religion)
+            .map((option) => ({ value: option.value, label: option.label }));
+    }, [religionSectOptions, religion]);
 
     useEffect(() => {
         if (isSingle && spouseField) {
-            form.setFieldValue("personal_info.spouse_employment_status", "", { dontUpdateMeta: true });
+            const current = form.state.values.personal_info?.spouse_employment_status;
+            if (current !== "") {
+                form.setFieldValue("personal_info.spouse_employment_status", "", { dontUpdateMeta: true });
+            }
         } else if (!isSingle && !spouseField) {
             const defaultSpouseValue =
-                spouseOptions?.find((option) => option.value === "housewife")?.label ??
-                spouseOptions?.[0]?.label ??
+                spouseOptions?.find((option) => option.value === "housewife")?.value ??
+                spouseOptions?.[0]?.value ??
                 "";
-            form.setFieldValue(
-                "personal_info.spouse_employment_status",
-                defaultSpouseValue,
-                { dontUpdateMeta: true },
-            );
+            const current = form.state.values.personal_info?.spouse_employment_status;
+            if (current !== defaultSpouseValue) {
+                form.setFieldValue(
+                    "personal_info.spouse_employment_status",
+                    defaultSpouseValue,
+                    { dontUpdateMeta: true },
+                );
+            }
         }
     }, [isSingle, spouseField, spouseOptions, form]);
 
@@ -146,26 +154,33 @@ export function PersonalInfoSection({
             gender === GENDER_MALE &&
             !form.state.values.personal_info?.military_status
         ) {
-            form.setFieldValue("personal_info.military_status", {
+            const defaultValue = {
                 status: "",
                 organization: "",
                 from: "",
                 to: "",
                 reason: "",
-            }, { dontUpdateMeta: true });
+            };
+            const current = form.state.values.personal_info?.military_status;
+            if (!current || JSON.stringify(current) !== JSON.stringify(defaultValue)) {
+                form.setFieldValue("personal_info.military_status", defaultValue, { dontUpdateMeta: true });
+            }
         }
     }, [gender, form]);
 
     const spouseIsEmployed = spouseField === SPOUSE_EMPLOYED;
 
     useEffect(() => {
+        // Options load asynchronously; clearing before they resolve would wipe
+        // a valid saved sect against an empty list (e.g. on page reload).
+        if (!religionSectOptions) return;
         const currentSect = form.state.values.personal_info?.religion_sect;
         if (!currentSect) return;
         const validSects = religionSectOptionsUi.map((option) => option.value);
         if (!validSects.includes(currentSect)) {
             form.setFieldValue("personal_info.religion_sect", "", { dontUpdateMeta: true });
         }
-    }, [religion, religionSectOptionsUi, form]);
+    }, [religion, religionSectOptions, religionSectOptionsUi, form]);
 
     return (
         <Card>
@@ -352,7 +367,7 @@ export function PersonalInfoSection({
                                 label="مذهب"
                                 group="religion_sect"
                                 filter={(option) =>
-                                    option.parent_value === religionValue
+                                    option.parent_value === religion
                                 }
                                 placeholder={
                                     religion

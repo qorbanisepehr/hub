@@ -5,6 +5,7 @@ import { SectionRow } from "@/components/shared/section-row";
 import { SectionRepeaterTable } from "@/components/shared/section-repeater-table";
 import { SectionCard } from "./section-card";
 import { boolLabel } from "./shared";
+import { useOptionLabel } from "./use-option-label";
 
 type AdditionalInfoViewProps = {
     data: Record<string, unknown>;
@@ -19,6 +20,9 @@ export function AdditionalInfoView({
     action,
     extra,
 }: AdditionalInfoViewProps) {
+    const physicalConditionLabel = useOptionLabel("physical_condition", data.physical_condition as string);
+    const disabilityTypeLabel = useOptionLabel("disability_type", data.disability_type as string);
+
     return (
         <SectionCard title={title} action={action}>
             <div className="space-y-6">
@@ -65,7 +69,7 @@ export function AdditionalInfoView({
                             <SectionRow
                                 hideEmpty
                                 label="نوع ناتوانی"
-                                value={data.disability_type}
+                                value={disabilityTypeLabel}
                             />
                             <SectionRow
                                 hideEmpty
@@ -75,7 +79,7 @@ export function AdditionalInfoView({
                             <SectionRow
                                 hideEmpty
                                 label="وضعیت جسمانی"
-                                value={data.physical_condition}
+                                value={physicalConditionLabel}
                             />
                         </CardContent>
                     </Card>

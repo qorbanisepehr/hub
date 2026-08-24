@@ -3,6 +3,9 @@
 namespace App\Domains\Authorization\Controllers;
 
 use App\Contracts\Authorization;
+use App\Domains\Authorization\Events\ActiveRoleChanged;
+use App\Domains\Authorization\Events\RoleAssigned;
+use App\Domains\Authorization\Events\RoleRemoved;
 use App\Domains\Authorization\Requests\AssignRoleRequest;
 use App\Domains\Authorization\Requests\SwitchActiveRoleRequest;
 use App\Domains\Authorization\Resources\RoleResource;
@@ -36,6 +39,9 @@ class UserRoleController
         $active = $request->boolean('active', false);
         $user->assignRole($request->role_id, $active);
 
+        $role = $user->roles()->where('roles.id', $request->role_id)->first();
+        event(new RoleAssigned($request->user(), $user, $request->role_id, $role?->name ?? 'unknown', $active));
+
         return response()->json(['message' => __('authorization.role_assigned')]);
     }
 
@@ -43,7 +49,10 @@ class UserRoleController
     {
         $this->authorization->authorize($request->user(), 'user.assign-roles', $user);
 
+        $roleModel = $user->roles()->where('roles.id', $role)->first();
         $user->removeRole($role);
+
+        event(new RoleRemoved($request->user(), $user, $role, $roleModel?->name ?? 'unknown'));
 
         return response()->json(['message' => __('authorization.role_removed')]);
     }
@@ -52,7 +61,17 @@ class UserRoleController
     {
         $this->authorization->authorize($request->user(), 'user.assign-roles', $user);
 
+        $oldRole = $user->activeRole;
         $user->setActiveRole($request->role_id);
+        $newRole = $user->fresh()?->activeRole;
+
+        event(new ActiveRoleChanged(
+            $user,
+            $oldRole?->id,
+            $oldRole?->name,
+            $newRole?->id,
+            $newRole?->name,
+        ));
 
         return response()->json(['message' => __('authorization.active_role_switched')]);
     }

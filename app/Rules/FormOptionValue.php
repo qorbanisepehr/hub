@@ -9,10 +9,16 @@ use Illuminate\Contracts\Validation\ValidationRule;
 /**
  * Ensures a value is an active option of the given form-options group.
  *
- * Form sections persist the readable label (e.g. «تهران») rather than the
- * stable value key, so validation matches the label column. When a `$parentGroup`
- * is given, the value is treated as a combined place string
- * («{parentLabel}-{childLabel}», e.g. «تهران-تهران») and both parts must resolve.
+ * Form sections persist the stable value key (e.g. «tehran») so validation
+ * matches the value column. When a `$parentGroup` is given, the value is
+ * treated as a combined place string («{parentValue}-{childValue}»,
+ * e.g. «100-1000001001101») and both parts must resolve.
+ *
+ * Active-only semantics: this rule validates NEW input only — a submitted
+ * value must currently exist and be active. It is never applied to stored
+ * data on read, so records holding historically valid (since deactivated or
+ * removed) options keep working; resubmitting such a section without changing
+ * the field is rejected — the client must send an active option.
  */
 class FormOptionValue implements ValidationRule
 {
@@ -39,9 +45,9 @@ class FormOptionValue implements ValidationRule
         $service = app(FormOptionService::class);
         $valid = is_string($value)
             && $this->parentGroup === null
-                ? $service->isValidLabel($this->group, $value)
+                ? $service->isValid($this->group, $value)
                 : ($this->parentGroup === 'province'
-                    ? $service->isValidCityPlace($value)
+                    ? $service->isValidCityPlaceSlug($value)
                     : false);
 
         if (! $valid) {

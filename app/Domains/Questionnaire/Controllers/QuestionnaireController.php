@@ -3,6 +3,9 @@
 namespace App\Domains\Questionnaire\Controllers;
 
 use App\Contracts\Authorization;
+use App\Domains\Questionnaire\Events\QuestionnaireRejected;
+use App\Domains\Questionnaire\Events\QuestionnaireReviewed;
+use App\Domains\Questionnaire\Events\QuestionnaireSubmitted;
 use App\Domains\Questionnaire\Models\Questionnaire;
 use App\Domains\Questionnaire\Requests\InitQuestionnaireRequest;
 use App\Domains\Questionnaire\Requests\SectionSaveRequest;
@@ -278,6 +281,8 @@ class QuestionnaireController extends Controller
 
         $questionnaire = $this->questionnaireService->submit($questionnaire);
 
+        event(new QuestionnaireSubmitted($questionnaire));
+
         return response()->json([
             'data' => new QuestionnaireResource($questionnaire),
             'message' => __('questionnaire.questionnaire.submitted'),
@@ -298,6 +303,8 @@ class QuestionnaireController extends Controller
 
         $questionnaire = $this->questionnaireService->updateStatus($questionnaire, 'reviewed');
 
+        event(new QuestionnaireReviewed($questionnaire));
+
         return response()->json([
             'data' => new QuestionnaireResource($questionnaire),
             'message' => __('questionnaire.questionnaire.reviewed'),
@@ -317,6 +324,8 @@ class QuestionnaireController extends Controller
         }
 
         $questionnaire = $this->questionnaireService->updateStatus($questionnaire, 'draft');
+
+        event(new QuestionnaireRejected($questionnaire));
 
         return response()->json([
             'data' => new QuestionnaireResource($questionnaire),

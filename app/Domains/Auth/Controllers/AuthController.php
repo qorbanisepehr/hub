@@ -3,6 +3,9 @@
 namespace App\Domains\Auth\Controllers;
 
 use App\Contracts\Authorization;
+use App\Domains\Auth\Events\LoginFailed;
+use App\Domains\Auth\Events\LoginSucceeded;
+use App\Domains\Auth\Events\LogoutSucceeded;
 use App\Domains\Auth\Requests\LoginRequest;
 use App\Domains\Auth\Requests\LoginWithPasswordRequest;
 use App\Domains\Auth\Requests\VerifyOtpRequest;
@@ -31,6 +34,8 @@ class AuthController
         $user = $this->resolveUser($request->identifier);
 
         if (! $user) {
+            event(new LoginFailed($request->identifier, 'user_not_found'));
+
             return response()->json([
                 'message' => __('auth.failed'),
             ], 401);
@@ -73,6 +78,8 @@ class AuthController
             return $response;
         }
 
+        event(new LoginSucceeded($user, 'otp'));
+
         return $this->authenticate($request, $user);
     }
 
@@ -81,6 +88,8 @@ class AuthController
         $user = $this->resolveUser($request->identifier);
 
         if (! $user) {
+            event(new LoginFailed($request->identifier, 'user_not_found'));
+
             return response()->json([
                 'message' => __('auth.failed'),
             ], 401);
@@ -99,6 +108,8 @@ class AuthController
         if (! Hash::check($request->password, $user->password)) {
             RateLimiter::hit($this->rateLimiterKey($user), config('rate-limits.auth-attempts.period', 60));
 
+            event(new LoginFailed($request->identifier, 'invalid_password'));
+
             return response()->json([
                 'message' => __('auth.failed'),
             ], 401);
@@ -106,17 +117,25 @@ class AuthController
 
         RateLimiter::clear($this->rateLimiterKey($user));
 
+        event(new LoginSucceeded($user, 'password'));
+
         return $this->authenticate($request, $user);
     }
 
     public function logout(Request $request): JsonResponse
     {
+        $user = $request->user();
+
         if ($request->hasSession()) {
             auth('web')->logout();
             $request->session()->invalidate();
             $request->session()->regenerateToken();
         } else {
-            $request->user()->currentAccessToken()->delete();
+            $user->currentAccessToken()->delete();
+        }
+
+        if ($user) {
+            event(new LogoutSucceeded($user));
         }
 
         app('auth')->forgetGuards();

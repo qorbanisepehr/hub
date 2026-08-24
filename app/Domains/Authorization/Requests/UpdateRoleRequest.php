@@ -4,8 +4,8 @@ namespace App\Domains\Authorization\Requests;
 
 use App\Domains\Authorization\Models\Role;
 use App\Domains\Authorization\Requests\Concerns\ValidatesAccessRules;
+use App\Domains\Authorization\Services\RoleHierarchyInspector;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 class UpdateRoleRequest extends FormRequest
@@ -94,22 +94,6 @@ class UpdateRoleRequest extends FormRequest
 
     private function wouldCreateCycle(int $roleId, int $parentId): bool
     {
-        $current = $parentId;
-        $visited = [];
-
-        while ($current !== null) {
-            if ($current === $roleId) {
-                return true;
-            }
-
-            if (isset($visited[$current])) {
-                return true;
-            }
-
-            $visited[$current] = true;
-            $current = DB::table('role_inheritances')->where('role_id', $current)->value('parent_role_id');
-        }
-
-        return false;
+        return app(RoleHierarchyInspector::class)->wouldCreateCycle($roleId, $parentId);
     }
 }

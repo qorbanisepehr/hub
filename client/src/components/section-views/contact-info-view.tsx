@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { SectionRow } from "@/components/shared/section-row";
 import { SectionCard } from "./section-card";
 import { asRecord } from "./shared";
+import { useOptionLabel } from "./use-option-label";
 
 type ContactInfoViewProps = {
     data: Record<string, unknown>;
@@ -18,6 +19,8 @@ export function ContactInfoView({
     extra,
 }: ContactInfoViewProps) {
     const address = asRecord(data.address);
+    const provinceLabel = useOptionLabel("province", address.province as string);
+    const cityLabel = useOptionLabel("city", address.city as string);
 
     return (
         <SectionCard title={title} action={action}>
@@ -42,9 +45,9 @@ export function ContactInfoView({
                 <SectionRow
                     hideEmpty
                     label="استان"
-                    value={address.province}
+                    value={provinceLabel}
                 />
-                <SectionRow hideEmpty label="شهر" value={address.city} />
+                <SectionRow hideEmpty label="شهر" value={cityLabel} />
                 <SectionRow
                     hideEmpty
                     label="محله"

@@ -1,7 +1,9 @@
 import { api } from "@/lib/api";
+import type { PaginatedResponse } from "@/lib/types";
 
 import type {
     FormOption,
+    FormOptionGroup,
     FormOptionsMap,
     PublicFormOption,
     StoreFormOptionData,
@@ -24,10 +26,30 @@ export function fetchFormOptionsByGroup(
     });
 }
 
-export function fetchAdminFormOptions(group?: string) {
-    return api.get<{ data: FormOption[] }>("/admin/form-options", {
-        params: group ? { group } : {},
+/**
+ * Resolve stored values back to their option rows — inactive options
+ * included — so saved records keep displaying proper labels after an option
+ * is deactivated.
+ */
+export function fetchFormOptionsByValues(group: string, values: string[]) {
+    return api.get<{ data: PublicFormOption[] }>(
+        `/form-options/${group}/resolve`,
+        { params: { values: values.join(",") } },
+    );
+}
+
+export function fetchAdminFormOptions(group?: string, page = 1, perPage = 20) {
+    return api.get<PaginatedResponse<FormOption>>("/admin/form-options", {
+        params: {
+            group: group || undefined,
+            page,
+            per_page: perPage,
+        },
     });
+}
+
+export function fetchAdminFormOptionGroups() {
+    return api.get<{ data: FormOptionGroup[] }>("/admin/form-options/groups");
 }
 
 export function storeFormOption(data: StoreFormOptionData) {

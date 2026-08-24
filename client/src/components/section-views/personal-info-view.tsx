@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { SectionRow } from "@/components/shared/section-row";
 import { SectionCard } from "./section-card";
 import { asRecord, dateValue, stringValue } from "./shared";
+import { useOptionLabel } from "./use-option-label";
 
 type PersonalInfoViewProps = {
     data: Record<string, unknown>;
@@ -21,7 +22,14 @@ export function PersonalInfoView({
     topRight,
 }: PersonalInfoViewProps) {
     const military = asRecord(data.military_status);
-    const spouseEmployed = stringValue(data.spouse_employment_status);
+    const genderLabel = useOptionLabel("gender", data.gender as string);
+    const maritalLabel = useOptionLabel("marital_status", data.marital_status as string);
+    const religionLabel = useOptionLabel("religion", data.religion as string);
+    const sectLabel = useOptionLabel("religion_sect", data.religion_sect as string);
+    const bloodLabel = useOptionLabel("blood_group", data.blood_group as string);
+    const spouseLabel = useOptionLabel("spouse_employment_status", data.spouse_employment_status as string);
+    const militaryStatusLabel = useOptionLabel("military_status", military.status as string);
+    const birthPlaceLabel = useOptionLabel("city", data.birth_place as string);
     const englishName = [
         stringValue(data.first_name_en),
         stringValue(data.last_name_en),
@@ -44,7 +52,7 @@ export function PersonalInfoView({
                         label="کد ملی"
                         value={data.id_number}
                     />
-                    <SectionRow hideEmpty label="جنسیت" value={data.gender} />
+                    <SectionRow hideEmpty label="جنسیت" value={genderLabel} />
                     <SectionRow
                         hideEmpty
                         label="تاریخ تولد"
@@ -53,7 +61,7 @@ export function PersonalInfoView({
                     <SectionRow
                         hideEmpty
                         label="وضعیت تأهل"
-                        value={data.marital_status}
+                        value={maritalLabel}
                     />
                     <SectionRow
                         hideEmpty
@@ -63,7 +71,7 @@ export function PersonalInfoView({
                     <SectionRow
                         hideEmpty
                         label="محل تولد"
-                        value={data.birth_place}
+                        value={birthPlaceLabel}
                     />
                     <SectionRow
                         hideEmpty
@@ -75,16 +83,16 @@ export function PersonalInfoView({
                         label="نام پدر"
                         value={data.father_name}
                     />
-                    <SectionRow hideEmpty label="دین" value={data.religion} />
+                    <SectionRow hideEmpty label="دین" value={religionLabel} />
                     <SectionRow
                         hideEmpty
                         label="مذهب"
-                        value={data.religion_sect}
+                        value={sectLabel}
                     />
                     <SectionRow
                         hideEmpty
                         label="گروه خونی"
-                        value={data.blood_group}
+                        value={bloodLabel}
                     />
                     <SectionRow
                         hideEmpty
@@ -99,9 +107,9 @@ export function PersonalInfoView({
                     <SectionRow
                         hideEmpty
                         label="وضعیت اشتغال همسر"
-                        value={data.spouse_employment_status}
+                        value={spouseLabel}
                     />
-                    {spouseEmployed && (
+                    {stringValue(data.spouse_employment_status) && (
                         <SectionRow
                             hideEmpty
                             label="شغل همسر"
@@ -118,7 +126,7 @@ export function PersonalInfoView({
                             <SectionRow
                                 hideEmpty
                                 label="وضعیت"
-                                value={military.status}
+                                value={militaryStatusLabel}
                             />
                             <SectionRow
                                 hideEmpty

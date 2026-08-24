@@ -78,7 +78,7 @@ class AdditionalInfoSection extends BaseSection
             'hobbies' => 'nullable|string|max:1000',
             'strengths_and_improvements' => 'nullable|string|max:1000',
             'physical_condition' => ['nullable', new FormOptionValue('physical_condition')],
-            'disability_type' => 'required_if:physical_condition,معلول,معلول شدید|nullable|string|max:50',
+            'disability_type' => 'required_if:physical_condition,disabled,severely_disabled|nullable|string|max:50',
             'references' => 'nullable|array',
             'references.*.full_name' => 'required_with:references|nullable|string|max:100',
             'references.*.relationship' => 'required_with:references|nullable|string|max:50',

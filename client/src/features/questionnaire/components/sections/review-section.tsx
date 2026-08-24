@@ -30,6 +30,7 @@ import { AdditionalInfoView } from "@/components/section-views/additional-info-v
 import {
     SectionEditButton,
 } from "@/components/section-views/section-card";
+import { useOptionLabel, useOptionLabels } from "@/components/section-views/use-option-label";
 
 type SectionProps = {
     form: QuestionnaireFormApi;
@@ -60,6 +61,12 @@ export function ReviewSection({ form, questionnaire, onNavigateToStep }: Section
     const training = v.training ?? {};
     const additional = v.additional_info ?? {};
     const job = v.job_request ?? {};
+
+    const employmentTypeLabel = useOptionLabel("employment_type", job.employment_type as string);
+    const preferredWorkplaceLabels = useOptionLabels(
+        "preferred_workplace",
+        job.preferred_workplace as string[] | undefined,
+    );
 
     const { documents, isLoading: documentsLoading, getDocumentsBySlug } =
         useQuestionnaireDocuments(questionnaire?.uuid);
@@ -205,7 +212,7 @@ export function ReviewSection({ form, questionnaire, onNavigateToStep }: Section
                 </CardHeader>
                 <CardContent>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <SectionRow variant="column" label="نوع اشتغال" value={job.employment_type} />
+                        <SectionRow variant="column" label="نوع اشتغال" value={employmentTypeLabel} />
                         <SectionRow variant="column" label="حقوق ماهانه مورد انتظار" value={job.expected_monthly_salary} />
                         <SectionRow variant="column" label="حقوق ساعتی مورد انتظار" value={job.expected_hourly_salary} />
                         <SectionRow variant="column" label="حداقل ساعات کاری در ماه" value={job.minimum_hours_per_month} />
@@ -213,7 +220,7 @@ export function ReviewSection({ form, questionnaire, onNavigateToStep }: Section
                         <SectionRow variant="column" label="مصاحبه قبلی" value={<YesNo value={job.interviewed_before} />} />
                         <SectionRow variant="column" label="شاغل در حال حاضر" value={<YesNo value={job.currently_employed} />} />
                         <SectionRow variant="column" label="تاریخ شروع به کار" value={toPersianDate(job.available_start_date)} />
-                        <SectionRow variant="column" label="محل کار مورد نظر" value={job.preferred_workplace?.join("، ")} />
+                        <SectionRow variant="column" label="محل کار مورد نظر" value={preferredWorkplaceLabels} />
                         <SectionRow variant="column" label="اولویت شغلی ۱" value={job.job_priority_1} />
                         <SectionRow variant="column" label="اولویت شغلی ۲" value={job.job_priority_2} />
                     </div>

@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { Fragment } from "react";
 import {
     flexRender,
     type RowData,
@@ -50,6 +51,9 @@ interface DataTablePageProps<TData extends RowData> {
     emptyAction?: ReactNode;
     onRetry?: () => void;
     colSpan: number;
+    expandedRowIds?: Record<string, boolean>;
+    getExpandedRowId?: (row: TData) => string;
+    renderExpandedRow?: (row: TData) => ReactNode;
 }
 
 export function DataTablePage<TData extends RowData>({
@@ -67,6 +71,9 @@ export function DataTablePage<TData extends RowData>({
     emptyAction,
     onRetry,
     colSpan,
+    expandedRowIds,
+    getExpandedRowId,
+    renderExpandedRow,
 }: DataTablePageProps<TData>) {
     return (
         <PageLayout>
@@ -137,28 +144,51 @@ export function DataTablePage<TData extends RowData>({
                                     {table.getRowModel().rows?.length ? (
                                         table
                                             .getRowModel()
-                                            .rows.map((row) => (
-                                                <TableRow
-                                                    key={row.id}
-                                                    className="group/row"
-                                                >
-                                                    {row
-                                                        .getVisibleCells()
-                                                        .map((cell) => (
-                                                            <TableCell
-                                                                key={cell.id}
-                                                                className="bg-background group-hover/row:bg-muted"
-                                                            >
-                                                                {flexRender(
-                                                                    cell.column
-                                                                        .columnDef
-                                                                        .cell,
-                                                                    cell.getContext(),
-                                                                )}
-                                                            </TableCell>
-                                                        ))}
-                                                </TableRow>
-                                            ))
+                                            .rows.map((row) => {
+                                                // Expansion state can be keyed by a
+                                                // domain id (stable across pages) or,
+                                                // by default, the table row index.
+                                                const expandedRowKey = getExpandedRowId
+                                                    ? getExpandedRowId(row.original)
+                                                    : row.id;
+                                                const isExpanded =
+                                                    expandedRowIds?.[expandedRowKey] ?? false;
+                                                const expandedContent = isExpanded && renderExpandedRow
+                                                    ? renderExpandedRow(row.original)
+                                                    : null;
+
+                                                return (
+                                                    <Fragment key={row.id}>
+                                                        <TableRow className="group/row">
+                                                            {row
+                                                                .getVisibleCells()
+                                                                .map((cell) => (
+                                                                    <TableCell
+                                                                        key={cell.id}
+                                                                        className="bg-background group-hover/row:bg-muted"
+                                                                    >
+                                                                        {flexRender(
+                                                                            cell.column
+                                                                                .columnDef
+                                                                                .cell,
+                                                                            cell.getContext(),
+                                                                        )}
+                                                                    </TableCell>
+                                                                ))}
+                                                        </TableRow>
+                                                        {expandedContent && (
+                                                            <TableRow>
+                                                                <TableCell
+                                                                    colSpan={colSpan}
+                                                                    className="bg-muted/50 p-0"
+                                                                >
+                                                                    {expandedContent}
+                                                                </TableCell>
+                                                            </TableRow>
+                                                        )}
+                                                    </Fragment>
+                                                );
+                                            })
                                     ) : (
                                         <TableRow>
                                             <TableCell

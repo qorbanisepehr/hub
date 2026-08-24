@@ -142,7 +142,7 @@ function CvFormContent({
                     />
                 )}
 
-                {cv && <CvWizard cv={cv} />}
+                {cv && <CvWizard key={cv.uuid} cv={cv} />}
 
                 {cv && (
                     <CvTimelineModal

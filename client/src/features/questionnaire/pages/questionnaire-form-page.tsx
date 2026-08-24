@@ -105,7 +105,10 @@ function QuestionnaireFormContent({
                 )}
 
                 {questionnaire && (
-                    <QuestionnaireWizard questionnaire={questionnaire} />
+                    <QuestionnaireWizard
+                        key={questionnaire.uuid}
+                        questionnaire={questionnaire}
+                    />
                 )}
             </div>
 

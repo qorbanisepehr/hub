@@ -57,7 +57,7 @@ export function EmployeeEditPage() {
                 backTo="/employees"
             />
 
-            <EmployeeProfileForm employee={employee} />
+            <EmployeeProfileForm key={employee.id} employee={employee} />
         </PageLayout>
     );
 }

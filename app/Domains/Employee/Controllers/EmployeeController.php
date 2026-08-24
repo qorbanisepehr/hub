@@ -3,6 +3,10 @@
 namespace App\Domains\Employee\Controllers;
 
 use App\Contracts\Authorization;
+use App\Domains\Employee\Events\EmployeeCreated;
+use App\Domains\Employee\Events\EmployeeDeleted;
+use App\Domains\Employee\Events\EmployeeSubmitted;
+use App\Domains\Employee\Events\EmployeeUpdated;
 use App\Domains\Employee\Models\Employee;
 use App\Domains\Employee\Requests\SaveEmployeeSectionRequest;
 use App\Domains\Employee\Requests\StoreEmployeeRequest;
@@ -73,6 +77,8 @@ class EmployeeController extends ApiController
         );
         $employee->load(['user']);
 
+        event(new EmployeeCreated($employee));
+
         return new EmployeeResource($employee);
     }
 
@@ -89,8 +95,20 @@ class EmployeeController extends ApiController
     {
         $this->authorization->authorize($request->user(), 'employee.update', $employee);
 
+        $oldValues = $employee->only(array_keys($request->validated()));
         $employee->update($request->validated());
+        $newValues = $employee->only(array_keys($request->validated()));
         $employee->load(['user']);
+
+        $actualChanges = $this->diffAttributes($oldValues, $newValues);
+
+        if ($actualChanges !== []) {
+            event(new EmployeeUpdated(
+                $employee,
+                array_intersect_key($oldValues, $actualChanges),
+                array_intersect_key($newValues, $actualChanges),
+            ));
+        }
 
         return new EmployeeResource($employee);
     }
@@ -99,8 +117,23 @@ class EmployeeController extends ApiController
     {
         $this->authorization->authorize($request->user(), 'employee.update', $employee);
 
+        $oldValues = $employee->toArray();
+
         $employee = $this->employeeService->saveSection($employee, $section, $request->validated());
+
+        $newValues = $employee->toArray();
         $employee->load(['user']);
+
+        $actualChanges = $this->diffAttributes($oldValues, $newValues);
+
+        if ($actualChanges !== []) {
+            event(new EmployeeUpdated(
+                $employee,
+                array_intersect_key($oldValues, $actualChanges),
+                array_intersect_key($newValues, $actualChanges),
+                $section,
+            ));
+        }
 
         return new EmployeeResource($employee);
     }
@@ -112,6 +145,8 @@ class EmployeeController extends ApiController
         $employee = $this->employeeService->submit($employee);
         $employee->load(['user']);
 
+        event(new EmployeeSubmitted($employee));
+
         return new EmployeeResource($employee);
     }
 
@@ -119,7 +154,10 @@ class EmployeeController extends ApiController
     {
         $this->authorization->authorize($request->user(), 'employee.delete', $employee);
 
+        $employeeId = $employee->getKey();
         $employee->delete();
+
+        event(new EmployeeDeleted($employeeId));
 
         return response()->json(['message' => __('employee.deleted')]);
     }
@@ -141,5 +179,25 @@ class EmployeeController extends ApiController
         }
 
         return $sections;
+    }
+
+    /**
+     * Compare two attribute arrays and return only keys where values actually differ.
+     *
+     * @param  array<string, mixed>  $old
+     * @param  array<string, mixed>  $new
+     * @return array<string, mixed>
+     */
+    private function diffAttributes(array $old, array $new): array
+    {
+        $changes = [];
+
+        foreach ($new as $key => $value) {
+            if (! array_key_exists($key, $old) || $old[$key] !== $value) {
+                $changes[$key] = $value;
+            }
+        }
+
+        return $changes;
     }
 }

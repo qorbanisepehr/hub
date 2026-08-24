@@ -67,7 +67,7 @@ class PersonalInfoSection extends BaseSection
             'id_number' => ['required', 'string', new IdNumberRule],
             'birth_place' => ['required', new FormOptionValue('city', 'province')],
             'birth_certificate_number' => 'required|'.ValidationRules::DIGITS_ONLY,
-            'military_status' => 'required_unless:gender,زن',
+            'military_status' => 'required_unless:gender,female',
             'military_status.status' => ['required_with:military_status', new FormOptionValue('military_status')],
             'military_status.organization' => 'nullable|string|max:100',
             'military_status.from' => 'nullable|string',

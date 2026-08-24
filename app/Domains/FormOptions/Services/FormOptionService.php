@@ -4,6 +4,7 @@ namespace App\Domains\FormOptions\Services;
 
 use App\Domains\FormOptions\Models\FormOption;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 
 class FormOptionService
 {
@@ -18,7 +19,38 @@ class FormOptionService
         'city',
     ];
 
+    /**
+     * Location hierarchy invariant (v6 §46–47): a child location's parent_value
+     * must reference an active option of the mapped parent group. Enforced by
+     * the admin Form Requests via {@see parentGroupFor()}.
+     */
+    private const LOCATION_PARENT_GROUPS = [
+        'city' => 'province',
+    ];
+
     private const CACHE_TTL = 3600;
+
+    /**
+     * Tables and their section JSON columns that persist form-option values.
+     * Scanned before a hard delete so in-use options are never removed.
+     */
+    private const REFERENCE_COLUMNS = [
+        'employees' => [
+            'section_personal', 'section_contact_address', 'section_education',
+            'section_work_experience', 'section_skills', 'section_training',
+            'section_additional_info', 'section_social_insurance',
+        ],
+        'cvs' => [
+            'section_personal', 'section_contact_address', 'section_education',
+            'section_work_experience', 'section_skills', 'section_training',
+            'section_additional_info',
+        ],
+        'questionnaires' => [
+            'section_personal', 'section_contact_address', 'section_education',
+            'section_work_experience', 'section_skills', 'section_training',
+            'section_additional_info', 'section_job_request',
+        ],
+    ];
 
     private function optionsCacheKey(string $group): string
     {
@@ -28,6 +60,14 @@ class FormOptionService
     public function isLocationGroup(string $group): bool
     {
         return in_array($group, self::LOCATION_GROUPS, true);
+    }
+
+    /**
+     * The parent group a location group must reference, if any.
+     */
+    public function parentGroupFor(string $group): ?string
+    {
+        return self::LOCATION_PARENT_GROUPS[$group] ?? null;
     }
 
     private function groupsCacheKey(): string
@@ -54,6 +94,30 @@ class FormOptionService
     }
 
     /**
+     * Admin: every stored group — location groups included — with its total
+     * row count and display label. Unlike {@see getGroups()} this counts
+     * inactive options too, because the management table shows them.
+     *
+     * @return array<int, array{group: string, label: ?string, count: int}>
+     */
+    public function getAdminGroups(): array
+    {
+        return FormOption::query()
+            ->select('group')
+            ->selectRaw('count(*) as options_count')
+            ->selectRaw('max(group_label) as group_label')
+            ->groupBy('group')
+            ->orderBy('group')
+            ->get()
+            ->map(fn (FormOption $row): array => [
+                'group' => $row->group,
+                'label' => $row->group_label,
+                'count' => (int) $row->options_count,
+            ])
+            ->all();
+    }
+
+    /**
      * Flat, active, ordered options of a group.
      *
      * When a parent value is given, only the options linked to it are returned
@@ -66,7 +130,7 @@ class FormOptionService
      */
     public function getOptions(string $group, ?string $parentValue = null, ?string $search = null, ?int $limit = null): array
     {
-        if ($parentValue !== null || $search !== null) {
+        if ($parentValue !== null || $search !== null || $limit !== null) {
             return $this->queryOptions($group, $parentValue, $search, $limit);
         }
 
@@ -87,7 +151,15 @@ class FormOptionService
         }
 
         if ($search !== null && $search !== '') {
-            $query->where('label', 'like', "%{$search}%");
+            // User input is matched literally: LIKE wildcards in the term are
+            // escaped so «50%» finds «50% تخفیف», not half the table.
+            $needle = str_replace(
+                ['\\', '%', '_'],
+                ['\\\\', '\\%', '\\_'],
+                $search,
+            );
+
+            $query->whereRaw("label like ? escape '\\'", ["%{$needle}%"]);
         }
 
         if ($limit !== null) {
@@ -118,59 +190,54 @@ class FormOptionService
     }
 
     /**
-     * Whether the given label is an active option of the group.
+     * Resolve stored values (active or not) back to their option rows so saved
+     * records can still display the Persian label of an option that was
+     * deactivated after the record was written. Unknown values are omitted.
      *
-     * Form sections persist the readable label (e.g. «تهران») instead of the
-     * stable value key, so saving is validated against the label column.
+     * @param  string[]  $values
+     * @return array<int, array{value: string, label: string, parent_value: ?string, group_label: ?string}>
      */
-    public function isValidLabel(string $group, string $label): bool
+    public function resolveValues(string $group, array $values): array
     {
+        if ($values === []) {
+            return [];
+        }
+
         return FormOption::query()
             ->ofGroup($group)
-            ->where('label', $label)
-            ->active()
-            ->exists();
+            ->whereIn('value', $values)
+            ->ordered()
+            ->get(['value', 'label', 'parent_value', 'group_label'])
+            ->map(fn (FormOption $option): array => [
+                'value' => $option->value,
+                'label' => $option->label,
+                'parent_value' => $option->parent_value,
+                'group_label' => $option->group_label,
+            ])
+            ->all();
     }
 
     /**
-     * Resolve a group label back to its stable value key (used to re-derive
-     * parent/child links such as province -> city when only labels are stored).
+     * Whether the combined place value string matches an active city option.
+     *
+     * Form sections now persist the city option's own value (e.g.
+     * «123-1230001001576») as the birth_place / place field. This method looks
+     * up the city by its full value and verifies its parent province is active.
      */
-    public function labelToValue(string $group, string $label): ?string
-    {
-        return FormOption::query()
-            ->ofGroup($group)
-            ->where('label', $label)
-            ->active()
-            ->value('value');
-    }
-
-    /**
-     * Whether the combined place string matches an active city option under the
-     * matching province option, e.g. «تهران-تهران» = province label «تهران» +
-     * city label «تهران». Splits on the first `-` only.
-     */
-    public function isValidCityPlace(string $combined): bool
+    public function isValidCityPlaceSlug(string $combined): bool
     {
         if (! is_string($combined) || $combined === '') {
             return false;
         }
 
-        [$provinceLabel, $cityLabel] = array_pad(explode('-', $combined, 2), 2, null);
+        $cityOption = FormOption::query()
+            ->ofGroup('city')
+            ->where('value', $combined)
+            ->active()
+            ->first();
 
-        if ($provinceLabel === null || $cityLabel === null || $cityLabel === '') {
-            return false;
-        }
-
-        $provinceValue = $this->labelToValue('province', $provinceLabel);
-
-        return $provinceValue !== null
-            && FormOption::query()
-                ->ofGroup('city')
-                ->where('label', $cityLabel)
-                ->where('parent_value', $provinceValue)
-                ->active()
-                ->exists();
+        return $cityOption !== null
+            && $this->isValid('province', $cityOption->parent_value);
     }
 
     /**
@@ -219,6 +286,38 @@ class FormOptionService
         $option->delete();
 
         $this->flush($group);
+    }
+
+    /**
+     * Whether any employee, CV, or questionnaire section JSON stores this
+     * option's value (soft-deleted rows included — they can be restored).
+     *
+     * Matches the value as a quoted JSON token anywhere inside the section
+     * documents, using only portable SQL so it runs on every supported
+     * engine. Slight over-matching (e.g. a key named exactly like the value)
+     * errs on the safe side: the option is kept.
+     */
+    public function isReferenced(FormOption $option): bool
+    {
+        $needle = str_replace(
+            ['\\', '%', '_'],
+            ['\\\\', '\\%', '\\_'],
+            '"'.$option->value.'"',
+        );
+
+        foreach (self::REFERENCE_COLUMNS as $table => $columns) {
+            foreach ($columns as $column) {
+                $exists = DB::table($table)
+                    ->whereRaw("cast({$column} as text) like ? escape '\\'", ["%{$needle}%"])
+                    ->exists();
+
+                if ($exists) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     public function toggleActive(FormOption $option): FormOption
