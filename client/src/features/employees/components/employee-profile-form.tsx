@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { isAxiosError } from "axios";
 import { toast } from "sonner";
 import {
     IconAlertTriangle,
@@ -74,7 +73,8 @@ import {
     countSectionFieldErrors,
     scrollToFirstInvalidField,
 } from "@/lib/validation-helpers";
-import { getApiError } from "@/lib/error-utils";
+import { getApiError, getSubmitErrors } from "@/lib/error-utils";
+import { cleanServerSection } from "@/lib/form-utils";
 import { employeeKeys } from "@/lib/query-keys";
 import type {
     Employee,
@@ -114,20 +114,6 @@ const SECTION_PAYLOAD_BUILDERS: Record<
     social_insurance: toSocialInsurancePayload,
     dependents: toDependentsPayload,
 };
-
-/**
- * Strip null/undefined values from a server section object so they don't
- * override the defaults when spread into buildDefaultValues.
- */
-function cleanServerSection<T extends Record<string, unknown>>(section: T): Partial<T> {
-    const cleaned: Record<string, unknown> = {};
-    for (const [key, value] of Object.entries(section)) {
-        if (value !== null && value !== undefined) {
-            cleaned[key] = value;
-        }
-    }
-    return cleaned as Partial<T>;
-}
 
 /**
  * Build the profile's default values from an employee. The server is the source
@@ -239,7 +225,7 @@ export function EmployeeProfileForm({ employee }: EmployeeProfileFormProps) {
         return () => window.removeEventListener("hashchange", onHashChange);
     }, []);
 
-    const { form, saveMutation, persistSection, isDirty, isSectionDirty, syncDefaults } = useSectionForm<
+    const { form, saveMutation, persistSection, isDirty, syncDefaults } = useSectionForm<
         Employee,
         EmployeeProfileFormData
     >({
@@ -270,19 +256,7 @@ export function EmployeeProfileForm({ employee }: EmployeeProfileFormProps) {
             toast.success("پروفایل کارمند با موفقیت ثبت شد.");
         },
         onError: (error: Error) => {
-            if (isAxiosError(error) && error.response?.data?.errors) {
-                const serverErrors = Object.values(error.response.data.errors)
-                    .filter(Array.isArray)
-                    .flat()
-                    .filter((m): m is string => typeof m === "string");
-                setSubmitErrors(
-                    serverErrors.length > 0
-                        ? serverErrors
-                        : [getApiError(error) ?? "خطای ناشناخته"],
-                );
-            } else {
-                setSubmitErrors([getApiError(error) ?? "خطا در ثبت پروفایل"]);
-            }
+            setSubmitErrors(getSubmitErrors(error, "خطا در ثبت پروفایل"));
         },
     });
 
@@ -391,11 +365,8 @@ export function EmployeeProfileForm({ employee }: EmployeeProfileFormProps) {
     const handleTabChange = (value: string | number | null) => {
         if (!value) return;
         const next = String(value);
-        if (
-            next !== activeSection &&
-            isSectionDirty(activeSection) &&
-            formSectionKeys.has(activeSection)
-        ) {
+        // persistSection self-guards: untouched sections never hit the API.
+        if (next !== activeSection && formSectionKeys.has(activeSection)) {
             persistSection(activeSection);
         }
         setActiveSection(next);

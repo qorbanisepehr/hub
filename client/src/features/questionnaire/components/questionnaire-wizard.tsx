@@ -1,6 +1,5 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { isAxiosError } from "axios";
 import { toast } from "sonner";
 import {
     IconLoader2,
@@ -13,6 +12,7 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { ErrorBanner } from "@/components/layout";
+import { UnsavedChangesDialog } from "@/components/layout";
 import {
     Stepper,
     StepperNav,
@@ -29,7 +29,8 @@ import {
     saveQuestionnaireSection,
     submitQuestionnaire,
 } from "@/features/questionnaire/api";
-import { getApiError } from "@/lib/error-utils";
+import { getApiError, getSubmitErrors } from "@/lib/error-utils";
+import { cleanServerSection } from "@/lib/form-utils";
 import {
     WIZARD_STEPS,
     QUESTIONNAIRE_VALIDATION_SECTIONS,
@@ -85,22 +86,6 @@ type WizardFormValues = {
     contact_info?: unknown;
     [key: string]: unknown;
 };
-
-/**
- * Strip `null`/`undefined` values from a server response object so they
- * don't override the form's sensible defaults. The backend stores `null`
- * for untouched JSONB fields; spreading them over defaults would change
- * e.g. `spouse_employment_status` from `""` to `null`, which then
- * triggers auto-select useEffects and falsely marks the form dirty.
- */
-function cleanServerSection(
-    serverData: Record<string, unknown> | null | undefined,
-): Record<string, unknown> {
-    if (!serverData) return {};
-    return Object.fromEntries(
-        Object.entries(serverData).filter(([, v]) => v !== null && v !== undefined),
-    );
-}
 
 /**
  * Build the wizard's default values from a questionnaire. The server is the
@@ -185,19 +170,7 @@ export function QuestionnaireWizard({
             toast.success("پرسشنامه با موفقیت ثبت شد.");
         },
         onError: (error: Error) => {
-            if (isAxiosError(error) && error.response?.data?.errors) {
-                const serverErrors = Object.values(error.response.data.errors)
-                    .filter(Array.isArray)
-                    .flat()
-                    .filter((m): m is string => typeof m === "string");
-                setSubmitErrors(
-                    serverErrors.length > 0
-                        ? serverErrors
-                        : [getApiError(error) ?? "خطای ناشناخته"],
-                );
-            } else {
-                setSubmitErrors([getApiError(error) ?? "خطا در ثبت پرسشنامه"]);
-            }
+            setSubmitErrors(getSubmitErrors(error, "خطا در ثبت پرسشنامه"));
         },
     });
 
@@ -220,16 +193,6 @@ export function QuestionnaireWizard({
         if (isDirty) {
             setSubmitErrors([]);
         }
-    }, [isDirty]);
-
-    useEffect(() => {
-        if (!isDirty) return;
-
-        const handler = (e: BeforeUnloadEvent) => {
-            e.preventDefault();
-        };
-        window.addEventListener("beforeunload", handler);
-        return () => window.removeEventListener("beforeunload", handler);
     }, [isDirty]);
 
     const validation = validateSubmit(form.state.values);
@@ -324,6 +287,13 @@ export function QuestionnaireWizard({
 
     return (
         <div className="space-y-6" dir="rtl">
+            <UnsavedChangesDialog
+                isDirty={isDirty}
+                isSubmitting={
+                    saveMutation.isPending || submitMutation.isPending
+                }
+            />
+
             <Stepper value={currentStep} onValueChange={goToStep}>
                 <StepperNav className="mb-4 gap-5">
                     {WIZARD_STEPS.map((step, index) => (
