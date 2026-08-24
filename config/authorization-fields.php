@@ -36,6 +36,7 @@ return [
                     'id_number',
                     'marital_status',
                     'section_personal',
+                    'section_dependents',
                 ],
             ],
             'employment_info' => [

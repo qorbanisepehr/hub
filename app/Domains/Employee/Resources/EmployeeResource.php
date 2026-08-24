@@ -30,6 +30,7 @@ class EmployeeResource extends JsonResource
             'employment_status' => $this->employment_status,
             'social_insurance_number' => $this->social_insurance_number,
             'section_social_insurance' => $this->section_social_insurance,
+            'section_dependents' => $this->section_dependents,
             'section_personal' => $this->section_personal,
             'section_contact_address' => $this->section_contact_address,
             'section_education' => $this->section_education,

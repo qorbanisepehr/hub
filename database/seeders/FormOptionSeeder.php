@@ -89,6 +89,13 @@ class FormOptionSeeder extends Seeder
             ['group' => 'marital_status', 'value' => 'widowed', 'label' => 'همسر فوت شده', 'sort_order' => 4],
             ['group' => 'marital_status', 'value' => 'unknown', 'label' => 'نامشخص', 'sort_order' => 5],
 
+            // ── relationship_type — نوع رابطه وابستگی (بستگان کارمند)
+            ['group' => 'relationship_type', 'value' => 'spouse', 'label' => 'همسر', 'sort_order' => 1],
+            ['group' => 'relationship_type', 'value' => 'child', 'label' => 'فرزند', 'sort_order' => 2],
+            ['group' => 'relationship_type', 'value' => 'father', 'label' => 'پدر', 'sort_order' => 3],
+            ['group' => 'relationship_type', 'value' => 'mother', 'label' => 'مادر', 'sort_order' => 4],
+            ['group' => 'relationship_type', 'value' => 'other', 'label' => 'سایر', 'sort_order' => 5],
+
             // ── property_status — وضعیت ملک
             ['group' => 'property_status', 'value' => 'owned', 'label' => 'شخصی', 'sort_order' => 1],
             ['group' => 'property_status', 'value' => 'rented', 'label' => 'استیجاری', 'sort_order' => 2],

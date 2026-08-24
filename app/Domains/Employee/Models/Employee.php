@@ -36,6 +36,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     'section_training',
     'section_additional_info',
     'section_social_insurance',
+    'section_dependents',
 ])]
 #[UseFactory(EmployeeFactory::class)]
 class Employee extends Model implements Documentable
@@ -64,6 +65,7 @@ class Employee extends Model implements Documentable
             'section_training' => 'array',
             'section_additional_info' => 'array',
             'section_social_insurance' => 'array',
+            'section_dependents' => 'array',
         ];
     }
 
@@ -106,5 +108,18 @@ class Employee extends Model implements Documentable
         }
 
         return (int) floor($this->hire_date->diffInYears(now()));
+    }
+
+    // ── Documentable ──
+
+    /**
+     * The personnel code travels with every document name so saved or
+     * downloaded files stay attributable to their owner.
+     */
+    public function getDocumentOwnerLabel(): ?string
+    {
+        $code = trim((string) $this->personnel_code);
+
+        return $code !== '' ? $code : null;
     }
 }
