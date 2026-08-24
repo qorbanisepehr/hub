@@ -11,6 +11,9 @@ return [
         'additional_info' => 'اطلاعات تکمیلی',
         'job_request' => 'نوع درخواست همکاری',
     ],
+    'education' => [
+        'field_label' => 'سابقه تحصیلی :n',
+    ],
     'questionnaire' => [
         'created' => 'پرسشنامه با موفقیت ایجاد شد.',
         'saved' => 'پرسشنامه ذخیره شد.',
@@ -39,5 +42,12 @@ return [
         'missing' => 'بارگذاری «:document» الزامی است.',
         'max_files_reached' => 'حداکثر :count فایل برای این دسته مجاز است.',
         'total_max_files_reached' => 'حداکثر :count فایل مجاز است.',
+        'fields' => [
+            'front' => 'رو',
+            'back' => 'پشت',
+            'page_1' => 'صفحه اول',
+            'page_2' => 'صفحه دوم',
+            'page_3' => 'صفحه آخر',
+        ],
     ],
 ];

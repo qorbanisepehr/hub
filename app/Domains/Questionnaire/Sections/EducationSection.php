@@ -2,13 +2,29 @@
 
 namespace App\Domains\Questionnaire\Sections;
 
+use App\Contracts\Documentable;
 use App\Rules\FormOptionValue;
 use App\Support\Sections\BaseSection;
+use App\Support\Sections\Concerns\EnforcesRowDocuments;
 use App\Support\ValidationRules;
 use Illuminate\Contracts\Validation\Validator;
 
+/**
+ * Education (سوابق تحصیلی) — repeatable education_records rows plus the
+ * student-status sub-form.
+ *
+ * Document placement: every education row owns a dynamic placement group
+ * `edu-{index}` under section `education` for its academic degree pages.
+ * Submit-time enforcement of those counts comes from the
+ * EnforcesRowDocuments trait (wired through EmployeeService completion).
+ */
 class EducationSection extends BaseSection
 {
+    use EnforcesRowDocuments;
+
+    /** Repeater placement pattern: edu-{row index}. */
+    public const FIELD_KEY_PATTERN = '/^edu-(\d+)$/';
+
     public function key(): string
     {
         return 'education';
@@ -22,6 +38,8 @@ class EducationSection extends BaseSection
     public function documentRequirements(): array
     {
         return [
+            // Section-level default (no constraints); per-row pages are
+            // declared in dynamicDocumentRequirements() instead.
             'academic-degree' => [
                 'required' => false,
                 // 'max_files' => ,
@@ -35,6 +53,52 @@ class EducationSection extends BaseSection
                 // 'max_files' => 5,
             ],
         ];
+    }
+
+    /**
+     * Dynamic placement: every education row owns its own document group at
+     * field_key = "edu-{index}" for its degree pages.
+     *
+     * ⚠️ Single source of truth for per-row page counts — change them ONLY here.
+     *
+     * @return array<string, array<string, array<string, mixed>>>
+     */
+    public function dynamicDocumentRequirements(): array
+    {
+        return [
+            self::FIELD_KEY_PATTERN => [
+                'academic-degree' => [
+                    'required' => true,
+                    'min_files' => 1,
+                    'max_files' => 3,
+                ],
+            ],
+        ];
+    }
+
+    /**
+     * Label for an education-row field key, e.g. "سابقه تحصیلی 1".
+     * Plain digits by convention — Persian rendering stays client-side.
+     */
+    public function documentFieldKeyLabel(Documentable $entity, string $fieldKey): ?string
+    {
+        if (preg_match(self::FIELD_KEY_PATTERN, $fieldKey, $matches) !== 1) {
+            return null;
+        }
+
+        return __('questionnaire.education.field_label', ['n' => (int) $matches[1] + 1]);
+    }
+
+    /**
+     * ASCII counterpart of documentFieldKeyLabel(), e.g. "education-record-1".
+     */
+    public function documentFieldKeySlug(Documentable $entity, string $fieldKey): ?string
+    {
+        if (preg_match(self::FIELD_KEY_PATTERN, $fieldKey, $matches) !== 1) {
+            return null;
+        }
+
+        return 'education-record-'.((int) $matches[1] + 1);
     }
 
     public function fields(): array
@@ -123,6 +187,16 @@ class EducationSection extends BaseSection
             'real' => [],
             'jsonb' => 'section_education',
         ];
+    }
+
+    public static function fieldKeyFor(int $index): string
+    {
+        return "edu-{$index}";
+    }
+
+    public function rowDocumentsRowsPath(): string
+    {
+        return 'education_records';
     }
 
     public function searchMetadata(): array

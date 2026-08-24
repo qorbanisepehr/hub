@@ -4,8 +4,10 @@ use App\Domains\Audit\Models\AuditLog;
 use App\Domains\Authorization\Enums\AccessRuleEffect;
 use App\Domains\Authorization\Models\Permission;
 use App\Domains\Authorization\Models\PermissionGroup;
+use App\Domains\Document\Models\DocumentCategory;
 use App\Domains\Employee\Models\Employee;
 use App\Models\User;
+use Illuminate\Http\UploadedFile;
 
 /**
  * Grant the given permission and immediately add a deny rule for it on the
@@ -720,6 +722,25 @@ describe('employee CRUD', function () {
                     ->postJson("/api/employees/{$employee->id}/sections/{$key}", $data)
                     ->assertStatus(200);
             }
+
+            // Education rows now require their academic degree pages.
+            $uploader = createUserWithPermissions([
+                'employee.documents.upload',
+                'employee.documents.view',
+            ]);
+            $degree = DocumentCategory::create([
+                'name' => 'مدرک تحصیلی',
+                'slug' => 'academic-degree',
+                'type' => 'personnel',
+            ]);
+            $this->actingAs($uploader)
+                ->postJson("/api/employees/{$employee->id}/documents", [
+                    'document_category_id' => $degree->id,
+                    'file' => UploadedFile::fake()->image('degree.jpg'),
+                    'section_key' => 'education',
+                    'field_key' => 'edu-0',
+                ])
+                ->assertCreated();
 
             $this->actingAs($user)
                 ->postJson("/api/employees/{$employee->id}/submit")

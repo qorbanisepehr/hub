@@ -2,6 +2,7 @@
 
 namespace App\Support\Sections;
 
+use App\Contracts\Documentable;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Support\Facades\Validator as ValidatorFactory;
 
@@ -41,6 +42,43 @@ abstract class BaseSection implements SectionDefinition
      * @return array<string, array<string, mixed>>
      */
     public function documentRequirements(): array
+    {
+        return [];
+    }
+
+    /**
+     * No dynamic document placements by default.
+     *
+     * @return array<string, array<string, array<string, mixed>>>
+     */
+    public function dynamicDocumentRequirements(): array
+    {
+        return [];
+    }
+
+    /**
+     * No owned field-key labels by default.
+     */
+    public function documentFieldKeyLabel(Documentable $entity, string $fieldKey): ?string
+    {
+        return null;
+    }
+
+    /**
+     * No owned field-key slugs by default; the service falls back to the
+     * generic ordinal rule for repeater-style keys.
+     */
+    public function documentFieldKeySlug(Documentable $entity, string $fieldKey): ?string
+    {
+        return null;
+    }
+
+    /**
+     * No required-document completion checks by default.
+     *
+     * @return array<string, string[]>
+     */
+    public function completionDocumentErrors(Documentable $entity): array
     {
         return [];
     }

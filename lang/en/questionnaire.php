@@ -11,6 +11,9 @@ return [
         'additional_info' => 'Additional Information',
         'job_request' => 'Job Request',
     ],
+    'education' => [
+        'field_label' => 'Education record :n',
+    ],
     'questionnaire' => [
         'created' => 'Questionnaire created successfully.',
         'saved' => 'Questionnaire saved.',
@@ -39,5 +42,12 @@ return [
         'missing' => 'Uploading :document is required.',
         'max_files_reached' => 'Maximum :count files allowed for this category.',
         'total_max_files_reached' => 'Maximum :count files allowed.',
+        'fields' => [
+            'front' => 'Front',
+            'back' => 'Back',
+            'page_1' => 'Page 1',
+            'page_2' => 'Page 2',
+            'page_3' => 'Last page',
+        ],
     ],
 ];
