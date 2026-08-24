@@ -197,4 +197,58 @@ describe('role endpoint resource authorization', function () {
             ])
             ->assertStatus(422);
     });
+
+    it('rejects a cycle that closes through a non-first parent edge', function () {
+        // Graph: candidate P has TWO parents [Q, R]; Q is a dead end, but
+        // R descends from X. Walking only P's FIRST edge (the old bug) misses
+        // the cycle X -> P -> R -> X.
+        $x = roleRecord('cycle-x');
+        $q = roleRecord('cycle-q');
+        $r = roleRecord('cycle-r');
+        $p = roleRecord('cycle-p');
+
+        $r->parentRoles()->attach($x->id);
+        $p->parentRoles()->attach([$q->id, $r->id]);
+
+        $user = createUserWithPermissions(['role.update']);
+
+        $this->actingAs($user)
+            ->putJson("/api/roles/{$x->id}", [
+                'parent_ids' => [$p->id],
+            ])
+            ->assertStatus(422);
+    });
+
+    it('accepts a diamond hierarchy with a shared ancestor', function () {
+        $shared = roleRecord('diamond-shared');
+        $left = roleRecord('diamond-left');
+        $right = roleRecord('diamond-right');
+
+        $left->parentRoles()->attach($shared->id);
+        $right->parentRoles()->attach($shared->id);
+
+        $top = roleRecord('diamond-top');
+        $user = createUserWithPermissions(['role.update']);
+
+        // top -> {left, right} is a diamond (two paths to one ancestor), not a cycle.
+        $this->actingAs($user)
+            ->putJson("/api/roles/{$top->id}", [
+                'parent_ids' => [$left->id, $right->id],
+            ])
+            ->assertSuccessful();
+
+        expect($top->parentRoles()->count())->toBe(2);
+    });
+
+    it('rejects a self-reference submitted alongside other parents', function () {
+        $other = roleRecord('multi-parent-other');
+        $role = roleRecord('multi-parent-role');
+        $user = createUserWithPermissions(['role.update']);
+
+        $this->actingAs($user)
+            ->putJson("/api/roles/{$role->id}", [
+                'parent_ids' => [$other->id, $role->id],
+            ])
+            ->assertStatus(422);
+    });
 });
