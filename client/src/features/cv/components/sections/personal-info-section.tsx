@@ -17,6 +17,7 @@ import {
 } from "@/features/questionnaire/schemas/personal-info.schema";
 import { CV_DOC_CATEGORY_SLUGS } from "@/features/cv/constants";
 import { zodFieldValidators } from "@/lib/validation-helpers";
+import { useSyncFormDefaults } from "@/hooks";
 import type { Cv, CvFormApi } from "@/features/cv/types";
 import { MilitaryServiceFields } from "@/features/questionnaire/components/sections/military-service-fields";
 
@@ -24,9 +25,11 @@ type SectionProps = {
     form: CvFormApi;
     cv?: Cv | null;
     uuid?: string;
+    /** Callback after defaults are synced — wire to syncDefaults from useSectionForm. */
+    onDefaultsSynced?: (values: unknown) => void;
 };
 
-export function PersonalInfoSection({ form, cv, uuid }: SectionProps) {
+export function PersonalInfoSection({ form, cv, uuid, onDefaultsSynced }: SectionProps) {
     const gender = useStore(form.store, (s) => s.values.personal_info?.gender);
 
     const isMale = gender === GENDER_MALE;
@@ -43,6 +46,8 @@ export function PersonalInfoSection({ form, cv, uuid }: SectionProps) {
         militaryOptions !== undefined &&
         provinceOptions !== undefined &&
         cityOptions !== undefined;
+
+    useSyncFormDefaults(form, optionsLoaded, onDefaultsSynced);
 
     const schemas = useMemo(() => {
         if (!optionsLoaded) return undefined;
@@ -72,13 +77,17 @@ export function PersonalInfoSection({ form, cv, uuid }: SectionProps) {
             gender === GENDER_MALE &&
             !form.state.values.personal_info?.military_status
         ) {
-            form.setFieldValue("personal_info.military_status", {
+            const defaultValue = {
                 status: "",
                 organization: "",
                 from: "",
                 to: "",
                 reason: "",
-            }, { dontUpdateMeta: true });
+            };
+            const current = form.state.values.personal_info?.military_status;
+            if (!current || JSON.stringify(current) !== JSON.stringify(defaultValue)) {
+                form.setFieldValue("personal_info.military_status", defaultValue, { dontUpdateMeta: true });
+            }
         }
     }, [gender, form]);
 
@@ -274,8 +283,8 @@ export function PersonalInfoSection({ form, cv, uuid }: SectionProps) {
                                 label="وضعیت تأهل"
                                 group="marital_status"
                                 filter={(option) =>
-                                    option.label === "مجرد" ||
-                                    option.label === "متاهل"
+                                    option.value === "single" ||
+                                    option.value === "married"
                                 }
                             />
                         )}

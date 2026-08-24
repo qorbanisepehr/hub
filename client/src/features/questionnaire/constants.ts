@@ -42,23 +42,23 @@ export const MILITARY_STATUS_OPTIONS = [
 
 /** Statuses treated as «معافیت» (exemptions); their start date is required. */
 export const MILITARY_EXEMPTION_STATUSES = [
-    "معافیت کفالت",
-    "معافیت پزشکی",
-    "معافیت تحصیلی",
-    "عفو رهبری",
+    "guardian_exemption",
+    "medical_exemption",
+    "education_exemption",
+    "leader_pardon",
 ] as const;
 
 /** Statuses whose start date (from) is required: «امریه» plus exemptions. */
 export const MILITARY_STATUS_REQUIRES_START_DATE: ReadonlySet<string> = new Set(
-    ["امریه", ...MILITARY_EXEMPTION_STATUSES],
+    ["amrieh", ...MILITARY_EXEMPTION_STATUSES],
 );
 
-export const MILITARY_STATUS_OTHER = "سایر";
+export const MILITARY_STATUS_OTHER = "other";
 
 /** Physical conditions that count as a disability, revealing the disability-type select. */
 export const DISABLED_PHYSICAL_CONDITIONS: ReadonlySet<string> = new Set([
-    "معلول",
-    "معلول شدید",
+    "disabled",
+    "severely_disabled",
 ]);
 
 export const DEGREE_OPTIONS = [
