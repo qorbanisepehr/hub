@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm, useStore } from "@tanstack/react-form";
 import { toast } from "sonner";
@@ -64,10 +64,12 @@ function deepEqual(a: unknown, b: unknown): boolean {
  * just the saved section. The detail query is invalidated so other consumers
  * re-fetch the fresh entity.
  *
- * Dirty tracking is section-level: a `lastSavedRef` stores the form snapshot
- * after each successful save. `isSectionDirty(key)` compares current values
- * against that snapshot, so saved sections are never falsely dirty even if the
- * server normalises values.
+ * Dirty tracking is VALUE-based against a `savedValues` snapshot taken at
+ * mount and rebased after every successful save / defaults sync. TanStack's
+ * meta-based `isDirty` is deliberately NOT used as the source of truth:
+ * programmatic writes with `{ dontUpdateMeta: true }` (auto-select effects)
+ * are real unsaved changes it can never see, and its baseline semantics fight
+ * async defaults. The value comparison sees exactly what a save would send.
  */
 export function useSectionForm<TEntity, TFormValues>({
     entity,
@@ -92,18 +94,17 @@ export function useSectionForm<TEntity, TFormValues>({
     //
     // So: freeze the baseline once, sync server data ONLY via explicit
     // reset(..., { keepDefaultValues: true }), and rebase the frozen state
-    // afterwards so dirty tracking stays correct without ever giving
-    // update() a delta to act on.
-    const [defaultValues, setDefaultValues] = useState(() =>
-        buildDefaultValues(entity),
-    );
+    // afterwards so update() never gets a delta to act on.
+    const [defaultValues] = useState(() => buildDefaultValues(entity));
 
     const form = useForm({ defaultValues });
 
     // Seed the saved snapshot from the SAME object tree the form was built
     // from; a second buildDefaultValues(entity) call would produce fresh
-    // nested objects that never reference-match and falsely report dirty.
-    const lastSavedRef = useRef(form.state.values);
+    // nested objects that never value-match and falsely report dirty.
+    const [savedValues, setSavedValues] = useState<TFormValues>(
+        () => form.state.values,
+    );
 
     const saveMutation = useMutation({
         mutationFn: ({
@@ -138,8 +139,7 @@ export function useSectionForm<TEntity, TFormValues>({
             // frozen baseline instead; its content matches these values, so
             // the adapter's comparison becomes a no-op write.
             form.reset(reconciledValues, { keepDefaultValues: true });
-            setDefaultValues(reconciledValues);
-            lastSavedRef.current = reconciledValues;
+            setSavedValues(reconciledValues);
 
             if (successMessage) {
                 toast.success(successMessage);
@@ -150,33 +150,50 @@ export function useSectionForm<TEntity, TFormValues>({
         },
     });
 
-    const persistSection = useCallback(
-        (sectionKey: string, values: TFormValues = form.state.values) => {
-            const data = extractSectionData(values, sectionKey);
-            saveMutation.mutate({ section: sectionKey, data });
-        },
-        [extractSectionData, form, saveMutation],
-    );
-
     const isSectionDirty = useCallback(
         (sectionKey: string): boolean => {
             const current = extractSectionData(form.state.values, sectionKey);
-            const saved = extractSectionData(lastSavedRef.current, sectionKey);
+            const saved = extractSectionData(savedValues, sectionKey);
             return !deepEqual(current, saved);
         },
-        [extractSectionData, form],
+        [extractSectionData, form, savedValues],
     );
 
-    const isDirty = useStore(form.store, (s) => s.isDirty);
+    /**
+     * Save one section unless it already matches the last-saved snapshot.
+     * This is the single choke point for spurious saves — repeater
+     * expand/collapse, tab switches, and explicit save buttons all funnel
+     * through here, so untouched sections never hit the network. Pass
+     * `{ force: true }` to save regardless (rarely needed).
+     */
+    const persistSection = useCallback(
+        (
+            sectionKey: string,
+            options?: { force?: boolean },
+        ): boolean => {
+            if (!options?.force && !isSectionDirty(sectionKey)) {
+                return false;
+            }
+            const data = extractSectionData(form.state.values, sectionKey);
+            saveMutation.mutate({ section: sectionKey, data });
+            return true;
+        },
+        [extractSectionData, form, isSectionDirty, saveMutation],
+    );
+
+    const currentValues = useStore(form.store, (s) => s.values);
+    const isDirty = useMemo(
+        () => !deepEqual(currentValues, savedValues),
+        [currentValues, savedValues],
+    );
 
     /**
-     * Update the last-saved snapshot after the form defaults are synced
-     * (e.g. from useSyncFormDefaults). Without this, isSectionDirty()
-     * would permanently return true because lastSavedRef still holds the
-     * pre-sync defaults.
+     * Rebase the saved snapshot after programmatic value writes (auto-select
+     * effects settling once options load). Without this, derived defaults
+     * written on mount would permanently count as unsaved changes.
      */
     const syncDefaults = useCallback((newValues: TFormValues) => {
-        lastSavedRef.current = newValues;
+        setSavedValues(newValues);
     }, []);
 
     return { form, saveMutation, persistSection, isDirty, isSectionDirty, syncDefaults };
