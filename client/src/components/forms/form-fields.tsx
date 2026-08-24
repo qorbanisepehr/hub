@@ -1,5 +1,6 @@
 import type { AnyFieldApi } from "@tanstack/react-form";
 import { useStore } from "@tanstack/react-form";
+import { IconLoader2 } from "@tabler/icons-react";
 
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
@@ -214,6 +215,8 @@ type FormSelectFieldProps = {
     options: SelectOption[];
     placeholder?: string;
     disabled?: boolean;
+    /** Shows a spinner in the trigger and blocks interaction (option fetch in flight). */
+    loading?: boolean;
 };
 
 export function FormSelectField({
@@ -222,11 +225,12 @@ export function FormSelectField({
     options,
     placeholder = "انتخاب کنید",
     disabled,
+    loading,
 }: FormSelectFieldProps) {
     const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid;
 
     return (
-        <Field data-invalid={isInvalid}>
+        <Field data-invalid={isInvalid} data-loading={loading || undefined}>
             <FieldLabel htmlFor={field.name}>{label}</FieldLabel>
             <Select
                 value={field.state.value || null}
@@ -236,10 +240,21 @@ export function FormSelectField({
                         ? (options.find((o) => o.value === val)?.label ?? val)
                         : ""
                 }
-                disabled={disabled}
+                disabled={disabled || loading}
             >
-                <SelectTrigger id={field.name} disabled={disabled}>
-                    <SelectValue placeholder={placeholder} />
+                <SelectTrigger
+                    id={field.name}
+                    disabled={disabled || loading}
+                    className="gap-2"
+                >
+                    {loading ? (
+                        <span className="flex items-center gap-2 truncate text-sm text-muted-foreground">
+                            <IconLoader2 className="size-4 shrink-0 animate-spin" />
+                            در حال بارگذاری…
+                        </span>
+                    ) : (
+                        <SelectValue placeholder={placeholder} />
+                    )}
                 </SelectTrigger>
                 <SelectContent>
                     {options.map((opt) => (
@@ -267,6 +282,8 @@ type FormRadioGroupProps = {
     options: RadioOption[];
     disabled?: boolean;
     parseValue?: (value: string) => unknown;
+    /** Blocks interaction and shows a muted hint (option fetch in flight). */
+    loading?: boolean;
 };
 
 export function FormRadioGroup({
@@ -275,31 +292,39 @@ export function FormRadioGroup({
     options,
     disabled,
     parseValue,
+    loading,
 }: FormRadioGroupProps) {
     const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid;
     const stringValue = String(field.state.value ?? "");
 
     return (
-        <Field data-invalid={isInvalid}>
+        <Field data-invalid={isInvalid} data-loading={loading || undefined}>
             <FieldLabel>{label}</FieldLabel>
-            <RadioGroup
-                value={stringValue}
-                onValueChange={(val) => field.handleChange(parseValue ? parseValue(val) : val)}
-                disabled={disabled}
-                className="flex flex-row flex-wrap gap-4"
-            >
-                {options.map((opt) => (
-                    <div key={opt.value} className="flex items-center gap-2">
-                        <RadioGroupItem value={opt.value} id={`${field.name}-${opt.value}`} />
-                        <label
-                            htmlFor={`${field.name}-${opt.value}`}
-                            className="text-sm font-normal cursor-pointer"
-                        >
-                            {opt.label}
-                        </label>
-                    </div>
-                ))}
-            </RadioGroup>
+            {loading ? (
+                <p className="text-muted-foreground flex items-center gap-2 py-1 text-sm">
+                    <IconLoader2 className="size-4 animate-spin" />
+                    در حال بارگذاری گزینه‌ها…
+                </p>
+            ) : (
+                <RadioGroup
+                    value={stringValue}
+                    onValueChange={(val) => field.handleChange(parseValue ? parseValue(val) : val)}
+                    disabled={disabled}
+                    className="flex flex-row flex-wrap gap-4"
+                >
+                    {options.map((opt) => (
+                        <div key={opt.value} className="flex items-center gap-2">
+                            <RadioGroupItem value={opt.value} id={`${field.name}-${opt.value}`} />
+                            <label
+                                htmlFor={`${field.name}-${opt.value}`}
+                                className="text-sm font-normal cursor-pointer"
+                            >
+                                {opt.label}
+                            </label>
+                        </div>
+                    ))}
+                </RadioGroup>
+            )}
             {isInvalid && <FieldError errors={field.state.meta.errors} />}
         </Field>
     );
@@ -316,12 +341,15 @@ type FormCheckboxGroupProps = {
     field: AnyFieldApi;
     label: string;
     options: CheckboxOption[];
+    /** Blocks interaction and shows a muted hint (option fetch in flight). */
+    loading?: boolean;
 };
 
 export function FormCheckboxGroup({
     field,
     label,
     options,
+    loading,
 }: FormCheckboxGroupProps) {
     const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid;
     const selected: string[] = field.state.value ?? [];
@@ -334,25 +362,32 @@ export function FormCheckboxGroup({
     };
 
     return (
-        <Field data-invalid={isInvalid}>
+        <Field data-invalid={isInvalid} data-loading={loading || undefined}>
             <FieldLabel>{label}</FieldLabel>
-            <div className="flex flex-row flex-wrap gap-4">
-                {options.map((opt) => (
-                    <div key={opt.value} className="flex items-center gap-2">
-                        <Checkbox
-                            id={`${field.name}-${opt.value}`}
-                            checked={selected.includes(opt.value)}
-                            onCheckedChange={() => toggle(opt.value)}
-                        />
-                        <label
-                            htmlFor={`${field.name}-${opt.value}`}
-                            className="text-sm font-normal cursor-pointer"
-                        >
-                            {opt.label}
-                        </label>
-                    </div>
-                ))}
-            </div>
+            {loading ? (
+                <p className="text-muted-foreground flex items-center gap-2 py-1 text-sm">
+                    <IconLoader2 className="size-4 animate-spin" />
+                    در حال بارگذاری گزینه‌ها…
+                </p>
+            ) : (
+                <div className="flex flex-row flex-wrap gap-4">
+                    {options.map((opt) => (
+                        <div key={opt.value} className="flex items-center gap-2">
+                            <Checkbox
+                                id={`${field.name}-${opt.value}`}
+                                checked={selected.includes(opt.value)}
+                                onCheckedChange={() => toggle(opt.value)}
+                            />
+                            <label
+                                htmlFor={`${field.name}-${opt.value}`}
+                                className="text-sm font-normal cursor-pointer"
+                            >
+                                {opt.label}
+                            </label>
+                        </div>
+                    ))}
+                </div>
+            )}
             {isInvalid && <FieldError errors={field.state.meta.errors} />}
         </Field>
     );

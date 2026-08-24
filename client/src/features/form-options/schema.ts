@@ -15,8 +15,8 @@ function toEmptyString(value: unknown): unknown {
     return value == null ? "" : value;
 }
 
-function labelSet(options: OptionSource[]): Set<string> {
-    return new Set(options.map((option) => option.label));
+function valueSet(options: OptionSource[]): Set<string> {
+    return new Set(options.map((option) => option.value));
 }
 
 /** Required single-value option. Empty and unknown labels fail with `message`. */
@@ -24,7 +24,7 @@ export function optionEnum(
     options: OptionSource[],
     message: string,
 ): z.ZodType<string> {
-    const allowed = labelSet(options);
+    const allowed = valueSet(options);
     return z.preprocess(
         toEmptyString,
         z.string().superRefine((value, ctx) => {
@@ -40,7 +40,7 @@ export function optionEnumOptional(
     options: OptionSource[],
     message: string,
 ): z.ZodType<string | undefined> {
-    const allowed = labelSet(options);
+    const allowed = valueSet(options);
     return z
         .preprocess(
             toEmptyString,
@@ -57,7 +57,7 @@ export function optionEnumOptional(
 export function optionArrayEnum(
     options: OptionSource[],
 ): z.ZodType<string[] | undefined> {
-    const allowed = labelSet(options);
+    const allowed = valueSet(options);
     return z
         .preprocess(
             (value) => (value == null ? [] : value),
@@ -92,8 +92,8 @@ export function placeEnum(
     cities: PlaceOption[],
     message: string,
 ): z.ZodType<string> {
-    const provinceValueByLabel = new Map(
-        provinces?.map((option) => [option.label, option.value]),
+    const provinceValueSet = new Set(
+        provinces?.map((option) => option.value),
     );
 
     return z.preprocess(
@@ -103,17 +103,14 @@ export function placeEnum(
                 ctx.addIssue({ code: z.ZodIssueCode.custom, message });
                 return;
             }
-            const [provinceLabel, cityLabel] = value.split("-", 2);
-            const provinceValue = provinceLabel
-                ? provinceValueByLabel.get(provinceLabel)
-                : undefined;
+            const [provinceValue, cityValue] = value.split("-", 2);
             if (
-                !provinceLabel ||
-                !cityLabel ||
                 !provinceValue ||
+                !cityValue ||
+                !provinceValueSet.has(provinceValue) ||
                 !cities.some(
                     (option) =>
-                        option.label === cityLabel &&
+                        option.value === cityValue &&
                         option.parent_value === provinceValue,
                 )
             ) {

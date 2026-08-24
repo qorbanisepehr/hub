@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { AnyFieldApi } from "@tanstack/react-form";
+import { IconLoader2 } from "@tabler/icons-react";
 
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import {
@@ -21,7 +22,10 @@ import {
     ComboboxList,
     ComboboxTrigger,
 } from "@/components/ui/combobox";
-import { useFormOptionsByGroup } from "@/features/form-options/hooks/use-form-options";
+import {
+    useResolvedFormOptions,
+    useFormOptionsByGroup,
+} from "@/features/form-options/hooks/use-form-options";
 import type { PublicFormOption } from "@/features/form-options/types";
 import {
     FormCheckboxGroup,
@@ -56,10 +60,9 @@ type FormOptionFieldProps = {
 type SelectOption = { value: string; label: string };
 
 /**
- * Form sections persist the readable Persian label (e.g. «تهران») instead of
- * the stable value key, so review/summary steps render stored data without any
- * lookup. Field primitives therefore use the label as both the stored value and
- * the displayed text.
+ * Form sections persist the stable value key (slug) instead of the Persian
+ * label, so review/summary steps and saved data use consistent identifiers.
+ * Field primitives use the value as the stored key and the label for display.
  */
 function toSelectOptions(
     options: PublicFormOption[] | undefined,
@@ -68,9 +71,53 @@ function toSelectOptions(
     if (!options) return undefined;
     const source = filter ? options.filter(filter) : options;
     return source.map((option) => ({
-        value: option.label,
+        value: option.value,
         label: option.label,
     }));
+}
+
+function normalizeStoredValues(stored: unknown): string[] {
+    if (typeof stored === "string") return stored ? [stored] : [];
+    if (Array.isArray(stored)) {
+        return stored.filter(
+            (value): value is string => typeof value === "string" && value !== "",
+        );
+    }
+    return [];
+}
+
+/**
+ * Merge resolved rows for stored-but-missing values into the active option
+ * list. A record can hold a value that was deactivated (or whose parent
+ * changed) after it was saved; without this merge the UI degrades to showing
+ * raw value keys or nothing at all.
+ */
+function useMergedOptions(
+    group: string,
+    options: PublicFormOption[] | undefined,
+    stored: unknown,
+): PublicFormOption[] | undefined {
+    const values = normalizeStoredValues(stored);
+    const missing =
+        options === undefined
+            ? []
+            : [
+                  ...new Set(
+                      values.filter(
+                          (value) => !options.some((o) => o.value === value),
+                      ),
+                  ),
+              ];
+
+    const { data: resolved } = useResolvedFormOptions(group, missing);
+
+    if (!resolved?.length) return options;
+
+    const extras = resolved.filter(
+        (option) => !options?.some((o) => o.value === option.value),
+    );
+
+    return extras.length ? [...extras, ...options ?? []] : options;
 }
 
 export function FormOptionSelectField({
@@ -82,8 +129,9 @@ export function FormOptionSelectField({
     placeholder,
     disabled,
 }: FormOptionFieldProps) {
-    const { data } = useFormOptionsByGroup(group, parentValue);
-    const options = toSelectOptions(data, filter);
+    const { data, isLoading } = useFormOptionsByGroup(group, parentValue);
+    const merged = useMergedOptions(group, data, field.state.value);
+    const options = toSelectOptions(merged, filter);
 
     return (
         <FormSelectField
@@ -92,6 +140,7 @@ export function FormOptionSelectField({
             options={options ?? []}
             placeholder={placeholder}
             disabled={disabled}
+            loading={isLoading}
         />
     );
 }
@@ -103,11 +152,17 @@ export function FormOptionRadioGroup({
     parentValue,
     filter,
 }: FormOptionFieldProps) {
-    const { data } = useFormOptionsByGroup(group, parentValue);
-    const options = toSelectOptions(data, filter);
+    const { data, isLoading } = useFormOptionsByGroup(group, parentValue);
+    const merged = useMergedOptions(group, data, field.state.value);
+    const options = toSelectOptions(merged, filter);
 
     return (
-        <FormRadioGroup field={field} label={label} options={options ?? []} />
+        <FormRadioGroup
+            field={field}
+            label={label}
+            options={options ?? []}
+            loading={isLoading}
+        />
     );
 }
 
@@ -118,14 +173,16 @@ export function FormOptionCheckboxGroup({
     parentValue,
     filter,
 }: FormOptionFieldProps) {
-    const { data } = useFormOptionsByGroup(group, parentValue);
-    const options = toSelectOptions(data, filter);
+    const { data, isLoading } = useFormOptionsByGroup(group, parentValue);
+    const merged = useMergedOptions(group, data, field.state.value);
+    const options = toSelectOptions(merged, filter);
 
     return (
         <FormCheckboxGroup
             field={field}
             label={label}
             options={options ?? []}
+            loading={isLoading}
         />
     );
 }
@@ -186,15 +243,24 @@ export function FormOptionComboboxField({
     const debouncedQuery = useDebouncedValue(query, searchDelay);
 
     const search = serverSearch ? debouncedQuery || undefined : undefined;
-    const { data } = useFormOptionsByGroup(group, parentValue, search);
+    const { data, isLoading } = useFormOptionsByGroup(group, parentValue, search);
+
+    // Keystroke-driven server searches swap the query key per debounce tick;
+    // disabling the input then would fight the user. Only the first fetch of
+    // the untyped list blocks interaction.
+    const isInitialLoading = isLoading && debouncedQuery === "";
 
     const displayValue = deriveDisplayValue
         ? deriveDisplayValue(field.state.value)
         : (field.state.value as string | undefined);
 
+    const merged = useMergedOptions(group, data, displayValue);
+
     const items = useMemo(() => {
         const base =
-            toSelectOptions(data, serverSearch ? undefined : filter) ?? [];
+            toSelectOptions(merged, serverSearch ? undefined : filter) ?? [];
+        // Values unknown even after resolution (e.g. a deleted option) stay
+        // visible as-is so the user can see and clear the stored value.
         if (
             displayValue &&
             !base.some((option) => option.value === displayValue)
@@ -203,7 +269,7 @@ export function FormOptionComboboxField({
         }
         return base;
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [data, filter, serverSearch, displayValue]);
+    }, [merged, filter, serverSearch, displayValue]);
 
     const selectedItem =
         items.find((option) => option.value === displayValue) ?? null;
@@ -225,18 +291,24 @@ export function FormOptionComboboxField({
                 itemToStringLabel={(item) => item.label}
                 filter={serverSearch ? null : undefined}
                 limit={limit}
-                disabled={disabled}
+                disabled={disabled || isInitialLoading}
                 onInputValueChange={(value, { reason }) => {
                     if (reason === "input-change") {
                         setQuery(value);
                     }
                 }}
             >
-                <ComboboxInputGroup aria-invalid={isInvalid || undefined}>
+                <ComboboxInputGroup
+                    aria-invalid={isInvalid || undefined}
+                    aria-busy={isInitialLoading || undefined}
+                >
                     <ComboboxInput
                         id={field.name}
-                        placeholder={placeholder}
+                        placeholder={
+                            isInitialLoading ? "در حال بارگذاری…" : placeholder
+                        }
                         aria-invalid={isInvalid || undefined}
+                        aria-busy={isInitialLoading || undefined}
                         onBlur={field.handleBlur}
                     />
                     {field.state.value ? (
@@ -268,12 +340,12 @@ export function FormOptionComboboxField({
  * location value.
  *
  * - `mode: "city"` (default): a province selector (UI-only local state) plus
- *   a searchable city combobox. The stored value is the combined readable
- *   place string «{استان}-{شهر}» (e.g. «تهران-تهران»), so no lookup is needed
- *   when displaying it. The province is re-derived on load by splitting on the
- *   first `-`.
+ *   a searchable city combobox. The stored value is the combined place string
+ *   «{provinceValue}-{cityCode}» which matches the city option's own value
+ *   column (e.g. «123-1230001001576»). The province is re-derived on load by
+ *   splitting on the first `-`.
  * - `mode: "province"`: a single province select bound directly to `field`
- *   (stores the province label).
+ *   (stores the province value key).
  */
 export function PlaceFields({
     field,
@@ -311,11 +383,13 @@ export function PlaceFields({
         }
     }, [value, province]);
 
-    const { data: provinceOptions } = useFormOptionsByGroup("province");
-
-    const provinceValue = provinceOptions?.find(
-        (option) => option.label === province,
-    )?.value;
+    const { data: provinceOptions, isLoading: provinceLoading } =
+        useFormOptionsByGroup("province");
+    const mergedProvinceOptions = useMergedOptions(
+        "province",
+        provinceOptions,
+        province,
+    );
 
     const handleProvinceChange = (next: string | null) => {
         const nextProvince = next ?? "";
@@ -325,10 +399,7 @@ export function PlaceFields({
         }
     };
 
-    const provinceItems = provinceOptions?.map((option) => ({
-        value: option.label,
-        label: option.label,
-    }));
+    const provinceItems = toSelectOptions(mergedProvinceOptions);
 
     return (
         <>
@@ -339,6 +410,7 @@ export function PlaceFields({
                 <Select
                     value={province || null}
                     onValueChange={handleProvinceChange}
+                    disabled={provinceLoading}
                     itemToStringLabel={(item) =>
                         provinceItems?.find((option) => option.value === item)
                             ?.label ??
@@ -346,8 +418,19 @@ export function PlaceFields({
                         ""
                     }
                 >
-                    <SelectTrigger id={`${field.name}.province`}>
-                        <SelectValue placeholder={provincePlaceholder} />
+                    <SelectTrigger
+                        id={`${field.name}.province`}
+                        disabled={provinceLoading}
+                        className="gap-2"
+                    >
+                        {provinceLoading ? (
+                            <span className="flex items-center gap-2 truncate text-sm text-muted-foreground">
+                                <IconLoader2 className="size-4 shrink-0 animate-spin" />
+                                در حال بارگذاری…
+                            </span>
+                        ) : (
+                            <SelectValue placeholder={provincePlaceholder} />
+                        )}
                     </SelectTrigger>
                     <SelectContent>
                         {provinceItems?.map((option) => (
@@ -362,16 +445,16 @@ export function PlaceFields({
                 field={field}
                 label={cityLabel}
                 group="city"
-                parentValue={provinceValue || undefined}
+                parentValue={province || undefined}
                 disabled={!province}
                 placeholder={
                     province ? cityPlaceholder : "ابتدا استان را انتخاب کنید"
                 }
                 deriveDisplayValue={(stored) => {
                     const combined = (stored as string | undefined) ?? "";
-                    return combined.split("-")[1] ?? combined;
+                    return combined;
                 }}
-                formatValue={(city) => (city ? `${province}-${city}` : "")}
+                formatValue={(city) => city ?? ""}
             />
         </>
     );
@@ -399,11 +482,13 @@ export function ProvinceCityFields({
 }) {
     const province = (provinceField.state.value as string | undefined) ?? "";
 
-    const { data: provinceOptions } = useFormOptionsByGroup("province");
-
-    const provinceValue = provinceOptions?.find(
-        (option) => option.label === province,
-    )?.value;
+    const { data: provinceOptions, isLoading: provinceLoading } =
+        useFormOptionsByGroup("province");
+    const mergedProvinceOptions = useMergedOptions(
+        "province",
+        provinceOptions,
+        province,
+    );
 
     const handleProvinceChange = (next: string | null) => {
         const nextProvince = next ?? "";
@@ -413,10 +498,7 @@ export function ProvinceCityFields({
         }
     };
 
-    const provinceItems = provinceOptions?.map((option) => ({
-        value: option.label,
-        label: option.label,
-    }));
+    const provinceItems = toSelectOptions(mergedProvinceOptions);
 
     return (
         <>
@@ -427,6 +509,7 @@ export function ProvinceCityFields({
                 <Select
                     value={province || null}
                     onValueChange={handleProvinceChange}
+                    disabled={provinceLoading}
                     itemToStringLabel={(item) =>
                         provinceItems?.find((option) => option.value === item)
                             ?.label ??
@@ -434,8 +517,19 @@ export function ProvinceCityFields({
                         ""
                     }
                 >
-                    <SelectTrigger id={provinceField.name}>
-                        <SelectValue placeholder={provincePlaceholder} />
+                    <SelectTrigger
+                        id={provinceField.name}
+                        disabled={provinceLoading}
+                        className="gap-2"
+                    >
+                        {provinceLoading ? (
+                            <span className="flex items-center gap-2 truncate text-sm text-muted-foreground">
+                                <IconLoader2 className="size-4 shrink-0 animate-spin" />
+                                در حال بارگذاری…
+                            </span>
+                        ) : (
+                            <SelectValue placeholder={provincePlaceholder} />
+                        )}
                     </SelectTrigger>
                     <SelectContent>
                         {provinceItems?.map((option) => (
@@ -450,7 +544,7 @@ export function ProvinceCityFields({
                 field={cityField}
                 label={cityLabel}
                 group="city"
-                parentValue={provinceValue || undefined}
+                parentValue={province || undefined}
                 disabled={!province}
                 placeholder={
                     province ? cityPlaceholder : "ابتدا استان را انتخاب کنید"
