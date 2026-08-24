@@ -23,7 +23,7 @@ return new class extends Migration
         Schema::create('documents', function (Blueprint $table) {
             $table->id();
             $table->uuid('uuid')->unique();
-            $table->foreignId('category_id')->nullable()->after('uuid')->constrained('document_categories')->nullOnDelete();
+            $table->foreignId('category_id')->nullable()->constrained('document_categories')->nullOnDelete();
             $table->string('original_name');
             $table->string('mime_type', 100);
             $table->unsignedBigInteger('size');
