@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { DocumentFileItem } from "@/components/documents";
+import { DocumentFileItem, MissingDocsBadge } from "@/components/documents";
 import { SectionRow } from "@/components/shared/section-row";
 import { useDependentDocsFeedback } from "@/features/employees/hooks/use-dependent-docs-feedback";
 import { dependentRowLabel } from "@/features/employees/dependents-docs";
@@ -80,21 +80,10 @@ export function DependentsView({
                                                 relationshipOptions,
                                             )}
                                         </p>
-                                        {!docsLoading && missing.length > 0 && (
-                                            <span
-                                                title={missing
-                                                    .map(
-                                                        ({ label, count, min }) =>
-                                                            `${label} (${count} از ${min})`,
-                                                    )
-                                                    .join("، ")}
-                                                className="rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-medium text-destructive"
-                                            >
-                                                مدارک ناقص:{" "}
-                                                {missing
-                                                    .map(({ label }) => label)
-                                                    .join("، ")}
-                                            </span>
+                                        {!docsLoading && (
+                                            <MissingDocsBadge
+                                                missing={missing}
+                                            />
                                         )}
                                     </div>
                                     <div className="grid grid-cols-1 gap-x-6 gap-y-3 md:grid-cols-2">

@@ -12,7 +12,11 @@ import {
     FormOptionSelectField,
     FormOptionComboboxField,
 } from "@/components/forms";
-import { FileUploadField } from "@/components/documents";
+import {
+    FileUploadField,
+    MissingDocsBadge,
+    RowDocsPanel,
+} from "@/components/documents";
 import { repeaterAttachmentColumn } from "@/components/forms";
 import { FormRepeater } from "@/components/forms";
 import type { TableColumn } from "@/components/forms";
@@ -76,6 +80,13 @@ export function EducationSection({ form, uuid, onPersist, entity = "questionnair
         { key: "from", label: "از تاریخ", type: "date" },
         { key: "to", label: "تا تاریخ", type: "date" },
         { key: "gpa", label: "معدل" },
+        {
+            key: "_docs_status",
+            label: "وضعیت مدارک",
+            render: (_value, _item, index) => (
+                <MissingDocsBadge missing={getMissing(index)} />
+            ),
+        },
         repeaterAttachmentColumn({
             categorySlug: DOC_CATEGORY_SLUGS.ACADEMIC_DEGREE,
             fieldKeyPrefix: "edu-",
@@ -109,6 +120,14 @@ export function EducationSection({ form, uuid, onPersist, entity = "questionnair
                                 to: item.to,
                                 gpa: item.gpa,
                             })}
+                            renderHeader={(item, index) => (
+                                <span className="flex items-center gap-2 font-medium">
+                                    {educationRowLabel(item, index)}
+                                    <MissingDocsBadge
+                                        missing={getMissing(index)}
+                                    />
+                                </span>
+                            )}
                             renderItem={(index) => {
                                 const missing = getMissing(index);
 
@@ -242,21 +261,12 @@ export function EducationSection({ form, uuid, onPersist, entity = "questionnair
                                             )}
                                         </form.Field>
                                     </div>
-                                    <div className="rounded-lg border bg-muted/30 p-4">
-                                        <p className="mb-3 text-sm font-medium text-muted-foreground">
-                                            مدارک این سابقه
-                                        </p>
-                                        {!docsLoading && missing.length > 0 && (
-                                            <p className="mb-3 text-xs font-medium text-destructive">
-                                                مدارک ناقص:{" "}
-                                                {missing
-                                                    .map(
-                                                        ({ label, count, min }) =>
-                                                            `${label} (${count} از ${min})`,
-                                                    )
-                                                    .join("، ")}
-                                            </p>
-                                        )}
+                                    <RowDocsPanel
+                                        title="مدارک این سابقه"
+                                        isLoading={docsLoading}
+                                        missing={missing}
+                                        columns={1}
+                                    >
                                         {uuid && (
                                             <FileUploadField
                                                 uuid={uuid}
@@ -269,7 +279,7 @@ export function EducationSection({ form, uuid, onPersist, entity = "questionnair
                                                 sectionKey="education"
                                             />
                                         )}
-                                    </div>
+                                    </RowDocsPanel>
                                 </div>
                             );
                         }}

@@ -6,3 +6,4 @@ export type { DocumentViewerMode } from './document-viewer';
 export { DocumentThumbnail } from './document-thumbnail';
 export { QuestionnaireDocumentPreview } from './questionnaire-document-preview';
 export { DocumentPreviewTrigger } from './document-preview-trigger';
+export { MissingDocsBadge, RowDocsPanel } from './row-docs';

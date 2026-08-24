@@ -84,7 +84,10 @@ export function EmployeeReviewSection({
     const educationPayload = sectionValue(values, "education") as {
         education_records?: Record<string, unknown>[];
     };
-    const { messages: educationDocMessages } = useRowDocsFeedback(
+    const {
+        messages: educationDocMessages,
+        getMissing: educationMissing,
+    } = useRowDocsFeedback(
         {
             entity: "employees",
             uuid: employee.id,
@@ -184,6 +187,7 @@ export function EmployeeReviewSection({
                 data={sectionValue(values, "education")}
                 title={label("education")}
                 action={<SectionEditButton onClick={edit("education")} />}
+                missingFor={educationMissing}
                 extra={
                     <QuestionnaireDocumentPreview
                         documents={docsFor("education")}

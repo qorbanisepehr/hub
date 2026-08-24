@@ -11,6 +11,11 @@ import {
 } from "@/features/employees/constants";
 import { useEmployeeDocuments } from "@/features/employees/hooks/use-employee-documents";
 import type { Employee } from "@/features/employees/types";
+import { useRowDocsFeedback } from "@/features/documents/hooks/use-row-docs-feedback";
+import {
+    educationRowLabel,
+    EDUCATION_ROW_DOC_CATEGORIES,
+} from "@/features/questionnaire/education-docs";
 import { QuestionnaireDocumentPreview } from "@/components/documents";
 import { PersonalInfoView } from "@/components/section-views/personal-info-view";
 import { ContactInfoView } from "@/components/section-views/contact-info-view";
@@ -35,6 +40,24 @@ export function EmployeeProfileView({ employee }: EmployeeProfileViewProps) {
     );
     const { getDocumentsBySlug, capabilities } = useEmployeeDocuments(
         employee.id,
+    );
+
+    const educationRecords = Array.isArray(
+        (employee.section_education ?? {}).education_records,
+    )
+        ? ((employee.section_education as Record<string, unknown>)
+              .education_records as Record<string, unknown>[])
+        : [];
+    const { getMissing: educationMissing } = useRowDocsFeedback(
+        {
+            entity: "employees",
+            uuid: employee.id,
+            sectionKey: "education",
+            categories: EDUCATION_ROW_DOC_CATEGORIES,
+            fieldKeyFor: (index) => `edu-${index}`,
+        },
+        educationRecords,
+        { rowLabel: educationRowLabel },
     );
     const tabs = [
         ...EMPLOYEE_SECTIONS,
@@ -141,6 +164,7 @@ export function EmployeeProfileView({ employee }: EmployeeProfileViewProps) {
         education: () => (
             <EducationView
                 data={sectionData.education}
+                missingFor={educationMissing}
                 extra={docExtra("education")}
             />
         ),

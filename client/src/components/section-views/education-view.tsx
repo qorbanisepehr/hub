@@ -1,10 +1,12 @@
 import type { ReactNode } from "react";
 
+import { MissingDocsBadge } from "@/components/documents";
+import type { MissingRowDoc } from "@/features/documents/docs-feedback";
 import { Card, CardContent } from "@/components/ui/card";
 import { SectionRow } from "@/components/shared/section-row";
 import { SectionRepeaterTable } from "@/components/shared/section-repeater-table";
 import { SectionCard } from "./section-card";
-import { asRecord, boolLabel, dateValue } from "./shared";
+import { boolLabel, dateValue } from "./shared";
 import {
     useOptionLabelResolver,
 } from "./use-option-label";
@@ -14,6 +16,11 @@ type EducationViewProps = {
     title?: string;
     action?: ReactNode;
     extra?: ReactNode;
+    /**
+     * Per-row incomplete-document resolver (e.g. from useRowDocsFeedback).
+     * When provided, a «وضعیت مدارک» column shows a badge per row.
+     */
+    missingFor?: (index: number) => MissingRowDoc[];
 };
 
 export function EducationView({
@@ -21,6 +28,7 @@ export function EducationView({
     title = "سوابق تحصیلی",
     action,
     extra,
+    missingFor,
 }: EducationViewProps) {
     const education = data;
     const isStudent = Boolean(education.is_student);
@@ -46,6 +54,18 @@ export function EducationView({
                         },
                         { label: "معدل", render: (i) => i.gpa },
                         { label: "پایان‌نامه", render: (i) => i.thesis_title },
+                        ...(missingFor
+                            ? [
+                                  {
+                                      label: "وضعیت مدارک",
+                                      render: (_i: Record<string, unknown>, index: number) => (
+                                          <MissingDocsBadge
+                                              missing={missingFor(index)}
+                                          />
+                                      ),
+                                  },
+                              ]
+                            : []),
                     ]}
                 />
                 {isStudent && (

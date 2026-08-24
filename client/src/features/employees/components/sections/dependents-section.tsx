@@ -5,7 +5,7 @@ import {
     FormRepeater,
     FormTextField,
 } from "@/components/forms";
-import { FileUploadField } from "@/components/documents";
+import { FileUploadField, MissingDocsBadge, RowDocsPanel } from "@/components/documents";
 import { dependentRowLabel } from "@/features/employees/dependents-docs";
 import { useDependentDocsFeedback } from "@/features/employees/hooks/use-dependent-docs-feedback";
 import type { EmployeeFormApi } from "@/features/employees/types";
@@ -43,7 +43,7 @@ export function DependentsSection({ form, uuid, onPersist }: SectionProps) {
                             emptyMessage="هنوز وابسته‌ای اضافه نشده است."
                             onPersist={onPersist}
                             renderHeader={(item, index) => (
-                                <span className="font-medium">
+                                <span className="flex items-center gap-2 font-medium">
                                     {dependentRowLabel(
                                         item.relationship_type,
                                         index,
@@ -52,6 +52,9 @@ export function DependentsSection({ form, uuid, onPersist }: SectionProps) {
                                     {item.first_name || item.last_name
                                         ? `: ${String(item.first_name ?? "")} ${String(item.last_name ?? "")}`.trim()
                                         : ""}
+                                    <MissingDocsBadge
+                                        missing={getMissing(index)}
+                                    />
                                 </span>
                             )}
                             renderItem={(index) => {
@@ -132,44 +135,32 @@ export function DependentsSection({ form, uuid, onPersist }: SectionProps) {
                                         </form.Field>
                                     </div>
 
-                                    <div className="rounded-lg border bg-muted/30 p-4">
-                                        <p className="mb-3 text-sm font-medium text-muted-foreground">
-                                            مدارک این وابسته
-                                        </p>
-                                        {!docsLoading && missing.length > 0 && (
-                                            <p className="mb-3 text-xs font-medium text-destructive">
-                                                مدارک ناقص:{" "}
-                                                {missing
-                                                    .map(
-                                                        ({ label, count, min }) =>
-                                                            `${label} (${count} از ${min})`,
-                                                    )
-                                                    .join("، ")}
-                                            </p>
-                                        )}
-                                        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                                            <FileUploadField
-                                                uuid={uuid}
-                                                entity="employees"
-                                                categorySlug="national-card"
-                                                label="کارت ملی"
-                                                variant="card"
-                                                multiple
-                                                fieldKey={`dependent-${index}`}
-                                                sectionKey="dependents"
-                                            />
-                                            <FileUploadField
-                                                uuid={uuid}
-                                                entity="employees"
-                                                categorySlug="birth-certificate"
-                                                label="شناسنامه"
-                                                variant="card"
-                                                multiple
-                                                fieldKey={`dependent-${index}`}
-                                                sectionKey="dependents"
-                                            />
-                                        </div>
-                                    </div>
+                                    <RowDocsPanel
+                                        title="مدارک این وابسته"
+                                        isLoading={docsLoading}
+                                        missing={missing}
+                                    >
+                                        <FileUploadField
+                                            uuid={uuid}
+                                            entity="employees"
+                                            categorySlug="national-card"
+                                            label="کارت ملی"
+                                            variant="card"
+                                            multiple
+                                            fieldKey={`dependent-${index}`}
+                                            sectionKey="dependents"
+                                        />
+                                        <FileUploadField
+                                            uuid={uuid}
+                                            entity="employees"
+                                            categorySlug="birth-certificate"
+                                            label="شناسنامه"
+                                            variant="card"
+                                            multiple
+                                            fieldKey={`dependent-${index}`}
+                                            sectionKey="dependents"
+                                        />
+                                    </RowDocsPanel>
                                 </div>
                             );
                         }}
