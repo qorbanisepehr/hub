@@ -393,6 +393,7 @@ export function DocumentsSection({ employeeId }: SectionProps) {
                                         layout="compact"
                                         thumbnailSize="size-16"
                                         label={
+                                            doc.structure_name ??
                                             getFieldKeyLabel(doc.field_key) ??
                                             doc.field_key
                                         }

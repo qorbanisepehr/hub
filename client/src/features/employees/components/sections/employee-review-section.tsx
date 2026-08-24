@@ -23,10 +23,19 @@ import { toPersonalInfoPayload } from "@/features/questionnaire/schemas/personal
 import { toContactInfoPayload } from "@/features/questionnaire/schemas/contact-info.schema";
 import { toEmploymentPayload } from "@/features/employees/schemas/employment.schema";
 import { toSocialInsurancePayload } from "@/features/employees/schemas/social-insurance.schema";
+import { toDependentsPayload } from "@/features/employees/schemas/dependents.schema";
+import type { DependentRow } from "@/features/employees/schemas/dependents.schema";
+import { useDependentDocsFeedback } from "@/features/employees/hooks/use-dependent-docs-feedback";
+import { useRowDocsFeedback } from "@/features/documents/hooks/use-row-docs-feedback";
+import {
+    educationRowLabel,
+    EDUCATION_ROW_DOC_CATEGORIES,
+} from "@/features/questionnaire/education-docs";
 import { PersonalInfoView } from "@/components/section-views/personal-info-view";
 import { ContactInfoView } from "@/components/section-views/contact-info-view";
 import { EmploymentInfoView } from "@/features/employees/components/views/employment-info-view";
 import { SocialInsuranceView } from "@/features/employees/components/views/social-insurance-view";
+import { DependentsView } from "@/features/employees/components/views/dependents-view";
 import { EducationView } from "@/components/section-views/education-view";
 import { WorkExperienceView } from "@/components/section-views/work-experience-view";
 import { SkillsView } from "@/components/section-views/skills-view";
@@ -65,9 +74,37 @@ export function EmployeeReviewSection({
     );
 
     const validation = validateSubmit(values);
+    const dependentsPayload = toDependentsPayload(values) as {
+        dependents?: DependentRow[];
+    };
+    const { messages: dependentDocMessages } = useDependentDocsFeedback(
+        employee.id,
+        dependentsPayload.dependents ?? [],
+    );
+    const educationPayload = sectionValue(values, "education") as {
+        education_records?: Record<string, unknown>[];
+    };
+    const { messages: educationDocMessages } = useRowDocsFeedback(
+        {
+            entity: "employees",
+            uuid: employee.id,
+            sectionKey: "education",
+            categories: EDUCATION_ROW_DOC_CATEGORIES,
+            fieldKeyFor: (index) => `edu-${index}`,
+        },
+        educationPayload.education_records ?? [],
+        { rowLabel: educationRowLabel },
+    );
     const docMessages = documentsLoading
         ? []
-        : validateDocumentRequirements(documents, EMPLOYEE_DOC_REQUIREMENTS);
+        : [
+              ...validateDocumentRequirements(
+                  documents,
+                  EMPLOYEE_DOC_REQUIREMENTS,
+              ),
+              ...dependentDocMessages,
+              ...educationDocMessages,
+          ];
     const validationGroups = groupFieldErrorsBySection(
         validation.fieldErrors,
         EMPLOYEE_VALIDATION_SECTIONS,
@@ -163,6 +200,13 @@ export function EmployeeReviewSection({
                 action={
                     <SectionEditButton onClick={edit("social_insurance")} />
                 }
+            />
+
+            <DependentsView
+                employee={employee}
+                data={toDependentsPayload(values)}
+                title={label("dependents")}
+                action={<SectionEditButton onClick={edit("dependents")} />}
             />
 
             <WorkExperienceView

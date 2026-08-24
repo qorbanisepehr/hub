@@ -20,7 +20,13 @@ import { WorkExperienceSection } from "@/features/questionnaire/components/secti
 import { SkillsSection } from "@/features/questionnaire/components/sections/skills-section";
 import { TrainingSection } from "@/features/questionnaire/components/sections/training-section";
 import { AdditionalInfoSection } from "@/features/questionnaire/components/sections/additional-info-section";
+import { DependentsSection } from "@/features/employees/components/sections/dependents-section";
 import { SocialInsuranceSection } from "@/features/employees/components/sections/social-insurance-section";
+import { useRowDocsFeedback } from "@/features/documents/hooks/use-row-docs-feedback";
+import {
+    educationRowLabel,
+    EDUCATION_ROW_DOC_CATEGORIES,
+} from "@/features/questionnaire/education-docs";
 import { ContactInfoSection } from "./sections/contact-info-section";
 import { LinkedUserSection } from "./sections/linked-user-section";
 import { EmploymentSection } from "./sections/employment-section";
@@ -47,6 +53,10 @@ import {
     defaultSocialInsurance,
     toSocialInsurancePayload,
 } from "@/features/employees/schemas/social-insurance.schema";
+import {
+    defaultDependents,
+    toDependentsPayload,
+} from "@/features/employees/schemas/dependents.schema";
 import { saveEmployeeSection, submitEmployee } from "@/features/employees/api";
 import {
     EMPLOYEE_DOCUMENTS_TAB,
@@ -56,6 +66,7 @@ import {
     EMPLOYEE_VALIDATION_SECTIONS,
 } from "@/features/employees/constants";
 import { useEmployeeSubmitOptions } from "@/features/employees/hooks/use-employee-submit-options";
+import { useDependentDocsFeedback } from "@/features/employees/hooks/use-dependent-docs-feedback";
 import { buildValidateSubmitData } from "@/features/employees/validation";
 import { useInjectedFieldErrors } from "@/hooks/use-injected-field-errors";
 import { useSectionForm } from "@/hooks/use-section-form";
@@ -101,6 +112,7 @@ const SECTION_PAYLOAD_BUILDERS: Record<
     contact_info: toContactInfoPayload,
     employment: toEmploymentPayload,
     social_insurance: toSocialInsurancePayload,
+    dependents: toDependentsPayload,
 };
 
 /**
@@ -164,6 +176,10 @@ function buildDefaultValues(employee: Employee): EmployeeProfileFormData {
             ...defaultSocialInsurance(),
             ...cleanServerSection(employee.section_social_insurance ?? {}),
             social_insurance_number: employee.social_insurance_number ?? "",
+        },
+        dependents: {
+            ...defaultDependents(),
+            ...cleanServerSection(employee.section_dependents ?? {}),
         },
         skills: { ...defaultSkills(), ...cleanServerSection(employee.section_skills ?? {}) },
         training: { ...defaultTraining(), ...cleanServerSection(employee.section_training ?? {}) },
@@ -277,6 +293,34 @@ export function EmployeeProfileForm({ employee }: EmployeeProfileFormProps) {
 
     const validation = validateSubmit(form.state.values);
 
+    const dependentRows =
+        (
+            form.state.values.dependents as
+                | { dependents?: { relationship_type?: string }[] }
+                | undefined
+        )?.dependents ?? [];
+    const { messages: dependentDocErrors } = useDependentDocsFeedback(
+        employee.id,
+        dependentRows,
+    );
+    const educationRecords =
+        (
+            form.state.values.education as
+                | { education_records?: Record<string, unknown>[] }
+                | undefined
+        )?.education_records ?? [];
+    const { messages: educationDocErrors } = useRowDocsFeedback(
+        {
+            entity: "employees",
+            uuid: employee.id,
+            sectionKey: "education",
+            categories: EDUCATION_ROW_DOC_CATEGORIES,
+            fieldKeyFor: (index) => `edu-${index}`,
+        },
+        educationRecords,
+        { rowLabel: educationRowLabel },
+    );
+
     const { inject: injectFieldErrors, clear: clearInjectedErrors } =
         useInjectedFieldErrors(form);
 
@@ -293,6 +337,12 @@ export function EmployeeProfileForm({ employee }: EmployeeProfileFormProps) {
         if (!validation.success) {
             setSubmitErrors(validation.errors);
             toast.error("لطفاً خطاهای زیر را اصلاح کنید.");
+            return;
+        }
+        const rowDocErrors = [...dependentDocErrors, ...educationDocErrors];
+        if (rowDocErrors.length > 0) {
+            setSubmitErrors(rowDocErrors);
+            toast.error("مدارک بارگذاری‌شده ناقص است.");
             return;
         }
         setSubmitErrors([]);
@@ -396,6 +446,14 @@ export function EmployeeProfileForm({ employee }: EmployeeProfileFormProps) {
                     <SocialInsuranceSection
                         form={form as unknown as EmployeeFormApi}
                         uuid={String(employee.id)}
+                    />
+                );
+            case "dependents":
+                return (
+                    <DependentsSection
+                        form={form as unknown as EmployeeFormApi}
+                        uuid={String(employee.id)}
+                        onPersist={handlePersist}
                     />
                 );
             case "skills":
