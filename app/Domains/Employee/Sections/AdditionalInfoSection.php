@@ -94,7 +94,7 @@ class AdditionalInfoSection extends BaseSection
             'has_disability' => 'nullable|boolean',
             'disability_description' => 'required_if:has_disability,true|nullable|string|max:500',
             'physical_condition' => ['nullable', new FormOptionValue('physical_condition')],
-            'disability_type' => 'required_if:physical_condition,معلول,معلول شدید|nullable|string|max:50',
+            'disability_type' => 'required_if:physical_condition,disabled,severely_disabled|nullable|string|max:50',
             'can_travel' => 'nullable|boolean',
             'travel_description' => 'required_if:can_travel,true|nullable|string|max:500',
             'has_criminal_record' => 'nullable|boolean',

@@ -119,7 +119,7 @@ class Questionnaire extends Model implements Documentable, OtpVerifiable
             // Military service data only applies to male candidates; whenever
             // gender changes away from male (male → female), drop any orphaned
             // military record from the personal-info section.
-            if ($model->isDirty('gender') && $model->gender !== 'مرد') {
+            if ($model->isDirty('gender') && $model->gender !== 'male') {
                 $sectionPersonal = $model->section_personal ?? [];
                 if (array_key_exists('military_status', $sectionPersonal) && $sectionPersonal['military_status'] !== null) {
                     unset($sectionPersonal['military_status']);

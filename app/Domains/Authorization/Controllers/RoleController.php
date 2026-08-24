@@ -3,6 +3,11 @@
 namespace App\Domains\Authorization\Controllers;
 
 use App\Contracts\Authorization;
+use App\Domains\Authorization\Events\PermissionAssigned;
+use App\Domains\Authorization\Events\RoleCreated;
+use App\Domains\Authorization\Events\RoleDeleted;
+use App\Domains\Authorization\Events\RoleToggled;
+use App\Domains\Authorization\Events\RoleUpdated;
 use App\Domains\Authorization\Exports\RoleChartCsvExporter;
 use App\Domains\Authorization\Models\PermissionGroup;
 use App\Domains\Authorization\Models\Role;
@@ -130,6 +135,8 @@ class RoleController
 
         app(AuthorizationVersion::class)->bump();
 
+        event(new RoleCreated($role, $role->permissions->pluck('id')->toArray()));
+
         return new RoleResource($this->loadRelations($role));
     }
 
@@ -144,12 +151,16 @@ class RoleController
     {
         $this->authorization->authorize($request->user(), 'role.update', $role);
 
+        $old = $role->only(['name', 'display_name', 'description', 'is_active']);
         $role->update($this->withJsonFields($request, $request->validated()));
+        $new = $role->only(['name', 'display_name', 'description', 'is_active']);
 
         $this->syncPermissions($role, $request);
         $this->syncHierarchy($role, $request);
 
         app(AuthorizationVersion::class)->bump();
+
+        event(new RoleUpdated($role, $old, $new));
 
         return new RoleResource($this->loadRelations($role));
     }
@@ -158,6 +169,8 @@ class RoleController
     {
         $this->authorization->authorize($request->user(), 'role.delete', $role);
 
+        $roleData = $role->only(['name', 'display_name']);
+
         DB::transaction(function () use ($role) {
             User::where('active_role_id', $role->id)->update(['active_role_id' => null]);
             $role->users()->detach();
@@ -165,6 +178,8 @@ class RoleController
         });
 
         app(AuthorizationVersion::class)->bump();
+
+        event(new RoleDeleted($role));
 
         return response()->json(['message' => __('authorization.role_deleted')]);
     }
@@ -187,6 +202,7 @@ class RoleController
             $this->authorization->authorize($request->user(), 'role.update', $role);
             $role->grantPermissions($permissionIds);
             $this->flushRoleUsersCaches($role);
+            event(new PermissionAssigned($role, $permissionIds));
         }
 
         app(AuthorizationVersion::class)->bump();
@@ -201,6 +217,8 @@ class RoleController
         $role->update(['is_active' => ! $role->is_active]);
 
         app(AuthorizationVersion::class)->bump();
+
+        event(new RoleToggled($role, $role->is_active));
 
         return new RoleResource($this->loadRelations($role));
     }

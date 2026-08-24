@@ -782,13 +782,13 @@ describe('Questionnaire validation', function () {
             $uuid = createDraft();
 
             $this->putJson("/api/questionnaire/{$uuid}/sections/personal_info", [
-                'gender' => 'مرد',
+                'gender' => 'male',
                 'blood_group' => 'A+',
                 'birth_date' => '1990-01-15',
-                'birth_place' => 'تهران-تهران',
+                'birth_place' => 'tehran',
                 'father_name' => 'Ahmad',
-                'religion' => 'اسلام',
-                'marital_status' => 'مجرد',
+                'religion' => 'islam',
+                'marital_status' => 'single',
                 'id_number' => '0123456789',
             ])->assertOk();
         });
@@ -797,10 +797,10 @@ describe('Questionnaire validation', function () {
             $uuid = createDraft();
 
             $this->putJson("/api/questionnaire/{$uuid}/sections/personal_info", [
-                'gender' => 'مرد',
+                'gender' => 'male',
                 'birth_date' => '1990-01-15',
                 'birth_place' => 'Tehran',
-                'marital_status' => 'مجرد',
+                'marital_status' => 'single',
             ])->assertUnprocessable()
                 ->assertJsonValidationErrors(['personal_info.birth_place']);
         });
@@ -811,13 +811,13 @@ describe('Questionnaire validation', function () {
             $this->putJson("/api/questionnaire/{$uuid}/sections/personal_info", [
                 'first_name' => 'NewName',
                 'last_name' => 'NewFamily',
-                'gender' => 'مرد',
+                'gender' => 'male',
                 'blood_group' => 'A+',
                 'birth_date' => '1990-01-15',
-                'birth_place' => 'تهران-تهران',
+                'birth_place' => 'tehran',
                 'father_name' => 'Ahmad',
-                'religion' => 'اسلام',
-                'marital_status' => 'مجرد',
+                'religion' => 'islam',
+                'marital_status' => 'single',
                 'id_number' => '0123456789',
             ])
                 ->assertOk()
@@ -1288,7 +1288,7 @@ describe('Questionnaire validation', function () {
             saveSectionToDb($uuid, 'training', validTraining());
             saveSectionToDb($uuid, 'additional_info', validAdditionalInfo());
             saveSectionToDb($uuid, 'job_request', [
-                'employment_type' => 'تمام وقت',
+                'employment_type' => 'full_time',
                 'accept_information' => false,
                 'job_priority_1' => 'Developer',
                 'available_start_date' => '2025-03-21',
@@ -1302,7 +1302,7 @@ describe('Questionnaire validation', function () {
         it('requires spouse_employment_status when married', function () {
             $uuid = createDraft();
             $personalInfo = array_merge(validPersonalInfo(), [
-                'marital_status' => 'متاهل',
+                'marital_status' => 'married',
             ]);
             unset($personalInfo['spouse_employment_status']);
             saveSectionToDb($uuid, 'personal_info', $personalInfo);
@@ -1313,6 +1313,7 @@ describe('Questionnaire validation', function () {
             saveSectionToDb($uuid, 'training', validTraining());
             saveSectionToDb($uuid, 'additional_info', validAdditionalInfo());
             saveSectionToDb($uuid, 'job_request', validJobRequest());
+            attachRequiredDocuments($uuid);
 
             $this->postJson("/api/questionnaire/{$uuid}/submit")
                 ->assertUnprocessable()
@@ -1322,7 +1323,7 @@ describe('Questionnaire validation', function () {
         it('does not require spouse_employment_status when single', function () {
             $uuid = createDraft();
             saveSectionToDb($uuid, 'personal_info', array_merge(validPersonalInfo(), [
-                'marital_status' => 'مجرد',
+                'marital_status' => 'single',
             ]));
             saveSectionToDb($uuid, 'contact_info', validContactInfo());
             saveSectionToDb($uuid, 'education', ['education_records' => validEducationRecord()]);
@@ -1340,7 +1341,7 @@ describe('Questionnaire validation', function () {
         it('requires military_status when gender is male', function () {
             $uuid = createDraft();
             $personalInfo = array_merge(validPersonalInfo(), [
-                'gender' => 'مرد',
+                'gender' => 'male',
             ]);
             unset($personalInfo['military_status']);
             saveSectionToDb($uuid, 'personal_info', $personalInfo);
@@ -1360,7 +1361,7 @@ describe('Questionnaire validation', function () {
         it('does not require military_status when gender is female', function () {
             $uuid = createDraft();
             saveSectionToDb($uuid, 'personal_info', array_merge(validPersonalInfo(), [
-                'gender' => 'زن',
+                'gender' => 'female',
             ]));
             saveSectionToDb($uuid, 'contact_info', validContactInfo());
             saveSectionToDb($uuid, 'education', ['education_records' => validEducationRecord()]);
@@ -1378,8 +1379,8 @@ describe('Questionnaire validation', function () {
         it('requires spouse_job when the spouse is employed', function () {
             $uuid = createDraft();
             saveSectionToDb($uuid, 'personal_info', array_merge(validPersonalInfo(), [
-                'marital_status' => 'متاهل',
-                'spouse_employment_status' => 'شاغل',
+                'marital_status' => 'married',
+                'spouse_employment_status' => 'employed',
             ]));
             saveSectionToDb($uuid, 'contact_info', validContactInfo());
             saveSectionToDb($uuid, 'education', ['education_records' => validEducationRecord()]);
@@ -1398,8 +1399,8 @@ describe('Questionnaire validation', function () {
         it('does not require spouse_job when the spouse is a housewife', function () {
             $uuid = createDraft();
             saveSectionToDb($uuid, 'personal_info', array_merge(validPersonalInfo(), [
-                'marital_status' => 'متاهل',
-                'spouse_employment_status' => 'خانه‌دار',
+                'marital_status' => 'married',
+                'spouse_employment_status' => 'housewife',
             ]));
             saveSectionToDb($uuid, 'contact_info', validContactInfo());
             saveSectionToDb($uuid, 'education', ['education_records' => validEducationRecord()]);
@@ -1421,7 +1422,7 @@ describe('Questionnaire validation', function () {
             $questionnaire = Questionnaire::where('uuid', $uuid)->first();
             expect($questionnaire->section_personal)->toHaveKey('military_status');
 
-            $questionnaire->update(['gender' => 'زن']);
+            $questionnaire->update(['gender' => 'female']);
 
             expect($questionnaire->fresh()->section_personal)->not->toHaveKey('military_status');
         });
@@ -1431,7 +1432,7 @@ describe('Questionnaire validation', function () {
             saveSectionToDb($uuid, 'personal_info', validPersonalInfo());
 
             $questionnaire = Questionnaire::where('uuid', $uuid)->first();
-            $questionnaire->update(['gender' => 'مرد']);
+            $questionnaire->update(['gender' => 'male']);
 
             expect($questionnaire->fresh()->section_personal)->toHaveKey('military_status');
         });
@@ -1440,7 +1441,7 @@ describe('Questionnaire validation', function () {
             $uuid = createDraft();
 
             $this->putJson("/api/questionnaire/{$uuid}/sections/personal_info", [
-                'gender' => 'زن',
+                'gender' => 'female',
                 'military_status' => validPersonalInfo()['military_status'],
             ])->assertOk();
 
@@ -1931,17 +1932,17 @@ function validPersonalInfo(): array
     return [
         'first_name' => 'Ali',
         'last_name' => 'Rezaei',
-        'gender' => 'مرد',
+        'gender' => 'male',
         'blood_group' => 'A+',
         'birth_date' => '1990-01-15',
-        'birth_place' => 'تهران-تهران',
+        'birth_place' => 'tehran',
         'birth_certificate_number' => '12345',
         'father_name' => 'Ahmad',
-        'religion' => 'اسلام',
-        'marital_status' => 'مجرد',
+        'religion' => 'islam',
+        'marital_status' => 'single',
         'id_number' => '0123456789',
         'military_status' => [
-            'status' => 'پایان خدمت',
+            'status' => 'completed',
             'organization' => 'Army',
             'from' => '2011-03-21',
             'to' => '2013-03-21',
@@ -1970,8 +1971,8 @@ function validContactInfo(): array
         'emergency_phone' => '09121234567',
         'address' => [
             'postal_code' => '1234567890',
-            'province' => 'تهران',
-            'city' => 'تهران',
+            'province' => 'tehran',
+            'city' => 'tehran',
             'address' => 'Test address',
             'plaque' => '12',
             'floor' => '3',
@@ -2057,10 +2058,10 @@ function validAdditionalInfo(): array
 function validJobRequest(): array
 {
     return [
-        'employment_type' => 'تمام وقت',
+        'employment_type' => 'full_time',
         'accept_information' => true,
         'job_priority_1' => 'Developer',
         'available_start_date' => '2025-03-21',
-        'preferred_workplace' => ['دفتر تهران'],
+        'preferred_workplace' => ['tehran'],
     ];
 }
