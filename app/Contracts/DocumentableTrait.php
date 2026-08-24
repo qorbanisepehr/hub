@@ -38,4 +38,9 @@ trait DocumentableTrait
     {
         return null;
     }
+
+    public function getDocumentOwnerLabel(): ?string
+    {
+        return null;
+    }
 }

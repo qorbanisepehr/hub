@@ -49,7 +49,8 @@ describe('document API', function () {
             expect($data['document_category_id'])->toBe($category->id)
                 ->and($data['category']['name'])->toBe('رزومه')
                 ->and($data['category']['slug'])->toBe('resume')
-                ->and($data['structure_name'])->toBe('رزومه')
+                ->and($data['structure_name'])->toBe("{$employee->personnel_code} — رزومه")
+                ->and($data['structure_name_slug'])->toBe("{$employee->personnel_code}-resume")
                 ->and($data['notes'])->toBe('بررسی شود')
                 ->and($data['original_name'])->toBe('cv.pdf')
                 ->and($data['mime_type'])->toBe('application/pdf')
@@ -64,7 +65,8 @@ describe('document API', function () {
                 ->assertJsonPath('data.0.document_category_id', $category->id)
                 ->assertJsonPath('data.0.category.name', 'رزومه')
                 ->assertJsonPath('data.0.category.slug', 'resume')
-                ->assertJsonPath('data.0.structure_name', 'رزومه');
+                ->assertJsonPath('data.0.structure_name', "{$employee->personnel_code} — رزومه")
+                ->assertJsonPath('data.0.structure_name_slug', "{$employee->personnel_code}-resume");
         });
 
         it('does not leak usages of other employees', function () {
@@ -496,7 +498,7 @@ describe('document API', function () {
     });
 
     describe('download', function () {
-        it('downloads the stored document under its structure name', function () {
+        it('downloads the stored document under its ascii slug name', function () {
             Storage::fake('local');
             $user = createUserWithPermissions(['employee.documents.view', 'employee.documents.upload', 'employee.documents.download']);
             $employee = Employee::factory()->create();
@@ -507,7 +509,7 @@ describe('document API', function () {
                     'documentable_type' => 'employee',
                     'documentable_id' => $employee->id,
                     'document_category_id' => $category->id,
-                    'file' => UploadedFile::fake()->createWithContent('cv.pdf', 'document-content'),
+                    'file' => UploadedFile::fake()->createWithContent('my-final-cv-v2.pdf', 'document-content'),
                 ])
                 ->assertCreated();
 
@@ -519,8 +521,9 @@ describe('document API', function () {
 
             $disposition = rawurldecode($response->headers->get('Content-Disposition') ?? '');
 
-            expect($disposition)->toContain('رزومه.pdf')
-                ->and($disposition)->not->toContain('cv.pdf');
+            expect($disposition)->toContain("{$employee->personnel_code}-resume.pdf")
+                ->and($disposition)->not->toContain('my-final-cv-v2.pdf')
+                ->and($disposition)->not->toContain('رزومه');
         });
     });
 
