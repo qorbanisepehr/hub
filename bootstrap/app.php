@@ -3,6 +3,7 @@
 use App\Domains\Authorization\Middleware\CheckPermission;
 use App\Domains\Authorization\Middleware\CheckRole;
 use App\Http\Middleware\VerifyGrantAccess;
+use App\Http\Middleware\VerifyServeGrant;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -27,6 +28,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'permission' => CheckPermission::class,
             'role' => CheckRole::class,
             'grant.access' => VerifyGrantAccess::class,
+            'grant.serve' => VerifyServeGrant::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

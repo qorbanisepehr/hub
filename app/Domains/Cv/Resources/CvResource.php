@@ -11,7 +11,6 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\URL;
 
 /** @property-read int $id */
 /** @property-read string $uuid */
@@ -195,12 +194,14 @@ class CvResource extends JsonResource
     private function documentPayload(DocumentUsage $usage): array
     {
         $document = $usage->document;
+        $names = app(DocumentService::class)->structureNames($document, $usage);
 
         return [
             'id' => $document->id,
             'usage_id' => $usage->id,
             'uuid' => $document->uuid,
-            'structure_name' => $this->structureName($document, $usage),
+            'structure_name' => $names['name'],
+            'structure_name_slug' => $names['slug'],
             'mime_type' => $document->mime_type,
             'size' => $document->size,
             'category' => $document->category ? [
@@ -212,24 +213,13 @@ class CvResource extends JsonResource
             'field_key' => $usage->field_key,
             'notes' => $usage->metadata['notes'] ?? null,
             'metadata' => $usage->metadata ?? [],
-            'url' => URL::signedRoute(
-                'cv.documents.serve',
-                ['uuid' => $document->uuid],
-                null,
-                false,
-            ),
-            'download_url' => URL::signedRoute(
+            'url' => route('cv.documents.serve', ['uuid' => $document->uuid], false),
+            'download_url' => route(
                 'cv.documents.serve',
                 ['uuid' => $document->uuid, 'download' => 1],
-                null,
                 false,
             ),
         ];
-    }
-
-    private function structureName(Document $document, DocumentUsage $usage): string
-    {
-        return app(DocumentService::class)->structureName($document, $usage);
     }
 
     /**

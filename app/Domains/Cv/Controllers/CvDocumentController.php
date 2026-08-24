@@ -15,7 +15,6 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\URL;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class CvDocumentController extends Controller
@@ -181,6 +180,8 @@ class CvDocumentController extends Controller
      */
     private function documentPayload(Document $document, DocumentUsage $usage): array
     {
+        $names = $this->documentService->structureNames($document, $usage);
+
         return [
             'id' => $document->id,
             'usage_id' => $usage->id,
@@ -192,21 +193,16 @@ class CvDocumentController extends Controller
                 'name' => $document->category->name,
                 'slug' => $document->category->slug,
             ] : null,
-            'structure_name' => $this->documentService->structureName($document, $usage),
+            'structure_name' => $names['name'],
+            'structure_name_slug' => $names['slug'],
             'section_key' => $usage->section_key,
             'field_key' => $usage->field_key,
             'notes' => $usage->metadata['notes'] ?? null,
             'metadata' => $usage->metadata ?? [],
-            'url' => URL::signedRoute(
-                'cv.documents.serve',
-                ['uuid' => $document->uuid],
-                null,
-                false,
-            ),
-            'download_url' => URL::signedRoute(
+            'url' => route('cv.documents.serve', ['uuid' => $document->uuid], false),
+            'download_url' => route(
                 'cv.documents.serve',
                 ['uuid' => $document->uuid, 'download' => 1],
-                null,
                 false,
             ),
         ];

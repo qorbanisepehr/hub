@@ -19,6 +19,7 @@ use App\Enums\OtpSendStatus;
 use App\Http\Responses\OtpResponder;
 use App\Models\PendingVerification;
 use App\Services\OtpService;
+use App\Services\SessionGrantStore;
 use App\Support\MobileNumber;
 use App\Support\ValidationRules;
 use Illuminate\Http\JsonResponse;
@@ -34,6 +35,7 @@ class QuestionnaireController extends Controller
         private QuestionnaireService $questionnaireService,
         private OtpService $otpService,
         private Authorization $authorization,
+        private SessionGrantStore $sessionGrants,
     ) {}
 
     public function init(InitQuestionnaireRequest $request): JsonResponse
@@ -134,6 +136,10 @@ class QuestionnaireController extends Controller
         $pending->delete();
 
         $token = $this->otpService->issueGrant($questionnaire, 'mobile', OtpContext::AccessProtected, GrantPurpose::Edit);
+
+        // Bind the grant to the session so header-less browser requests
+        // (<img>, embed) can serve documents via their cookie.
+        $this->sessionGrants->remember($questionnaire->getOtpIdentifier(), $token);
 
         return response()->json([
             'data' => new QuestionnaireResource($questionnaire->fresh()),

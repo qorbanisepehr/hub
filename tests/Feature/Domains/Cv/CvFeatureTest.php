@@ -11,11 +11,11 @@ use App\Enums\GrantPurpose;
 use App\Enums\OtpContext;
 use App\Models\PendingVerification;
 use App\Services\OtpService;
+use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\URL;
 
 /**
  * Helper: create a draft CV, issue an edit grant for it, and attach the token
@@ -991,8 +991,8 @@ describe('CV bank', function () {
             ->assertJsonPath('data.resume_document.category.slug', 'resume')
             ->assertJsonPath('data.resume_document.structure_name', 'resume')
             ->assertJsonPath('data.resume_document.uuid', $resume->uuid)
-            ->assertJsonPath('data.resume_document.url', URL::signedRoute('cv.documents.serve', ['uuid' => $resume->uuid], null, false))
-            ->assertJsonPath('data.resume_document.download_url', URL::signedRoute('cv.documents.serve', ['uuid' => $resume->uuid, 'download' => 1], null, false));
+            ->assertJsonPath('data.resume_document.url', route('cv.documents.serve', ['uuid' => $resume->uuid], false))
+            ->assertJsonPath('data.resume_document.download_url', route('cv.documents.serve', ['uuid' => $resume->uuid, 'download' => 1], false));
 
         $this->actingAs($user)
             ->getJson('/api/cv/bank')
@@ -1221,13 +1221,13 @@ describe('CV documents', function () {
 
         $this->postJson("/api/cv/{$uuid}/documents", [
             'document_category_id' => $category->id,
-            'file' => UploadedFile::fake()->createWithContent('resume.pdf', 'resume-content'),
+            'file' => UploadedFile::fake()->createWithContent('my-final-cv-v2.pdf', 'resume-content'),
         ])->assertCreated();
 
         $document = Document::first();
 
-        $inlineUrl = URL::signedRoute('cv.documents.serve', ['uuid' => $document->uuid], null, false);
-        $downloadUrl = URL::signedRoute('cv.documents.serve', ['uuid' => $document->uuid, 'download' => 1], null, false);
+        $inlineUrl = route('cv.documents.serve', ['uuid' => $document->uuid], false);
+        $downloadUrl = route('cv.documents.serve', ['uuid' => $document->uuid, 'download' => 1], false);
 
         $inline = $this->get($inlineUrl)->assertOk();
         expect($inline->headers->get('Content-Disposition'))->toContain('inline');
@@ -1236,15 +1236,106 @@ describe('CV documents', function () {
         $disposition = rawurldecode($download->headers->get('Content-Disposition') ?? '');
 
         expect($download->headers->get('Content-Disposition'))->toContain('attachment')
-            ->and($disposition)->toContain('رزومه.pdf')
-            ->and($disposition)->not->toContain('resume.pdf');
+            ->and($disposition)->toContain('resume.pdf')
+            ->and($disposition)->not->toContain('my-final-cv-v2.pdf')
+            ->and($disposition)->not->toContain('رزومه');
     });
 
-    it('rejects an unsigned serve request', function () {
+    it('rejects serving without any credential', function () {
         Storage::fake('local');
+        $cv = Cv::create([
+            'first_name' => 'Test',
+            'last_name' => 'User',
+            'email' => 'test@example.com',
+            'mobile' => '09121234567',
+            'status' => 'draft',
+            'mobile_verified_at' => now(),
+            'email_verified_at' => now(),
+        ]);
         $document = Document::factory()->create();
+        DocumentUsage::create([
+            'document_id' => $document->id,
+            'entity_type' => Cv::class,
+            'entity_id' => $cv->id,
+        ]);
 
-        $this->get("/api/cv/documents/{$document->uuid}/serve")
-            ->assertForbidden();
+        $this->withHeaders(['origin' => 'http://localhost'])
+            ->get("/api/cv/documents/{$document->uuid}/serve")
+            ->assertStatus(401);
+    });
+
+    it('serves documents to authenticated users holding cv.view', function () {
+        Storage::fake('local');
+        $uuid = createCvDraft();
+        $category = DocumentCategory::create([
+            'name' => 'رزومه',
+            'slug' => 'resume',
+            'type' => DocumentCategory::TYPE_PERSONNEL,
+        ]);
+
+        $this->postJson("/api/cv/{$uuid}/documents", [
+            'document_category_id' => $category->id,
+            'file' => UploadedFile::fake()->createWithContent('resume.pdf', 'resume-content'),
+        ])->assertCreated();
+
+        $user = createUserWithPermissions(['cv.view']);
+        $document = Document::first();
+
+        $this->actingAs($user)
+            ->get(route('cv.documents.serve', ['uuid' => $document->uuid], false))
+            ->assertOk();
+
+        $denied = createUserWithPermissions([]);
+        $this->actingAs($denied)
+            ->getJson('/api/cv/documents/'.$document->uuid.'/serve')
+            ->assertStatus(403);
+    });
+
+    it('binds the access otp grant to the session so header-less requests can serve', function () {
+        Storage::fake('local');
+        // Inline model creation: the createCvDraft helper would attach a
+        // default X-Access-Token header, which this test must not rely on.
+        $cv = Cv::create([
+            'first_name' => 'Test',
+            'last_name' => 'User',
+            'email' => 'test@example.com',
+            'mobile' => '09121234567',
+            'status' => 'draft',
+            'mobile_verified_at' => now(),
+            'email_verified_at' => now(),
+        ]);
+
+        Cache::put("otp:access_protected:cv:{$cv->uuid}:mobile", ['hash' => Hash::make('123456')], now()->addMinutes(5));
+
+        $this->withoutMiddleware(PreventRequestForgery::class);
+
+        $token = $this->withHeaders(['origin' => 'http://localhost'])
+            ->postJson("/api/cv/{$cv->uuid}/verify-access-otp", [
+                'otp' => '123456',
+                'purpose' => 'edit',
+            ])
+            ->assertOk()
+            ->json('access_token');
+
+        expect($token)->not->toBeEmpty();
+
+        $category = DocumentCategory::create([
+            'name' => 'رزومه',
+            'slug' => 'resume',
+            'type' => DocumentCategory::TYPE_PERSONNEL,
+        ]);
+        $this->withHeader('X-Access-Token', $token)
+            ->postJson("/api/cv/{$cv->uuid}/documents", [
+                'document_category_id' => $category->id,
+                'file' => UploadedFile::fake()->createWithContent('resume.pdf', 'resume-content'),
+            ])->assertCreated();
+
+        $serveUrl = route('cv.documents.serve', ['uuid' => Document::first()->uuid], false);
+
+        // No token header — only the session cookie from OTP verification.
+        $this->flushHeaders();
+        $this->withHeaders(['origin' => 'http://localhost'])
+            ->get($serveUrl)
+            ->assertOk();
     });
 });

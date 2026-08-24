@@ -58,10 +58,11 @@ Route::middleware('grant.access:cv,edit')->group(function () {
     Route::delete('cv/{uuid}/documents/{usageId}', [CvDocumentController::class, 'destroy'])->whereUuid('uuid');
 });
 
-// Signed document serving stays public because <img> can't send headers.
+// Document serving accepts an authenticated HR user, an X-Access-Token
+// grant, or a session-bound grant from OTP verification (grant.serve:cv).
 Route::get('cv/documents/{uuid}/serve', [CvDocumentController::class, 'serve'])
     ->name('cv.documents.serve')
-    ->middleware('signed:relative,thumbnail');
+    ->middleware('grant.serve:cv');
 
 // Protected routes (HR management)
 Route::middleware('auth:sanctum')->group(function () {

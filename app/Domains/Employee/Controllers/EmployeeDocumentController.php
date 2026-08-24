@@ -23,7 +23,6 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\URL;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class EmployeeDocumentController extends Controller
@@ -67,6 +66,10 @@ class EmployeeDocumentController extends Controller
     {
         return response()->json([
             'data' => $this->employeeService->getDocumentRequirements(),
+            // Additive sibling: dynamic placement groups (pattern-scoped
+            // requirement sets, e.g. one per dependent row) for the client's
+            // placement-aware caps and completeness warnings.
+            'dynamic_requirements' => $this->employeeService->getDynamicDocumentRequirements(),
         ]);
     }
 
@@ -127,8 +130,12 @@ class EmployeeDocumentController extends Controller
         $file = $request->file('file');
         $category = DocumentCategory::where('id', $request->document_category_id)->firstOrFail();
 
-        $requirements = $this->employeeService->getDocumentRequirements();
-        $requirement = $requirements[$category->slug] ?? null;
+        $sectionKey = $request->input('section_key');
+        $fieldKey = $request->input('field_key');
+        $notes = $request->input('notes');
+
+        $requirement = $this->employeeService
+            ->resolveDocumentRequirement($category->slug, $sectionKey, $fieldKey);
 
         $validationErrors = $this->documentService->validateDocument($file, $requirement ?? []);
 
@@ -138,10 +145,6 @@ class EmployeeDocumentController extends Controller
                 'errors' => $validationErrors,
             ], 422);
         }
-
-        $sectionKey = $request->input('section_key');
-        $fieldKey = $request->input('field_key');
-        $notes = $request->input('notes');
 
         $usageCount = DocumentUsage::query()
             ->where('entity_type', Employee::class)
@@ -218,8 +221,8 @@ class EmployeeDocumentController extends Controller
         }
 
         $file = $request->file('file');
-        $requirements = $this->employeeService->getDocumentRequirements();
-        $requirement = $requirements[$category->slug] ?? null;
+        $requirement = $this->employeeService
+            ->resolveDocumentRequirement($category->slug, $oldUsage->section_key, $oldUsage->field_key);
 
         $validationErrors = $this->documentService->validateDocument($file, $requirement ?? []);
 
@@ -429,29 +432,17 @@ class EmployeeDocumentController extends Controller
     /**
      * Resolve the document category ids eligible for a target placement. Returns
      * null when no placement is given (every one of the employee's active
-     * documents is eligible). When a placement is given, only categories whose
-     * declared requirement matches the section/field are eligible.
+     * documents is eligible). Placement semantics live on the section registry.
      *
      * @return array<int, int>|null
      */
     private function compatibleCategoryIds(?string $sectionKey, ?string $fieldKey): ?array
     {
-        if ($sectionKey === null && $fieldKey === null) {
+        $slugs = $this->employeeService->documentCategorySlugsForPlacement($sectionKey, $fieldKey);
+
+        if ($slugs === null) {
             return null;
         }
-
-        $slugs = collect($this->employeeService->getDocumentRequirements())
-            ->filter(
-                fn (array $requirement) => $sectionKey === null
-                    || ($requirement['section_key'] ?? null) === $sectionKey,
-            )
-            ->filter(
-                fn (array $requirement) => $fieldKey === null
-                    || ($requirement['field_keys'] ?? null) === null
-                    || in_array($fieldKey, $requirement['field_keys'], true),
-            )
-            ->keys()
-            ->all();
 
         if ($slugs === []) {
             return [];
@@ -465,6 +456,8 @@ class EmployeeDocumentController extends Controller
      */
     private function documentPayload(Document $document, DocumentUsage $usage): array
     {
+        $names = $this->documentService->structureNames($document, $usage);
+
         return [
             'id' => $document->id,
             'usage_id' => $usage->id,
@@ -477,22 +470,17 @@ class EmployeeDocumentController extends Controller
                 'name' => $document->category->name,
                 'slug' => $document->category->slug,
             ] : null,
-            'structure_name' => $this->documentService->structureName($document, $usage),
+            'structure_name' => $names['name'],
+            'structure_name_slug' => $names['slug'],
             'section_key' => $usage->section_key,
             'field_key' => $usage->field_key,
             'notes' => $usage->metadata['notes'] ?? null,
             'metadata' => $usage->metadata ?? [],
             'deleted_at' => $usage->deleted_at?->toIso8601String(),
-            'url' => URL::signedRoute(
-                'employee.documents.serve',
-                ['uuid' => $document->uuid],
-                null,
-                false,
-            ),
-            'download_url' => URL::signedRoute(
+            'url' => route('employee.documents.serve', ['uuid' => $document->uuid], false),
+            'download_url' => route(
                 'employee.documents.serve',
                 ['uuid' => $document->uuid, 'download' => 1],
-                null,
                 false,
             ),
         ];

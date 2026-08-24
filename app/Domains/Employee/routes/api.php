@@ -4,12 +4,13 @@ use App\Domains\Employee\Controllers\EmployeeController;
 use App\Domains\Employee\Controllers\EmployeeDocumentController;
 use Illuminate\Support\Facades\Route;
 
-// Signed document serving stays public because <img> can't send headers.
-Route::get('employees/documents/{uuid}/serve', [EmployeeDocumentController::class, 'serve'])
-    ->name('employee.documents.serve')
-    ->middleware('signed:relative,thumbnail');
-
 Route::middleware('auth:sanctum')->group(function () {
+    // Serving file bytes requires the same permission as downloading them;
+    // inline previews (<img>/embed) authenticate via the session cookie.
+    Route::get('employees/documents/{uuid}/serve', [EmployeeDocumentController::class, 'serve'])
+        ->name('employee.documents.serve')
+        ->middleware('permission:employee.documents.download');
+
     Route::get('employees', [EmployeeController::class, 'index'])
         ->middleware('permission:employee.list');
     Route::get('employees/document-requirements', [EmployeeDocumentController::class, 'requirements'])

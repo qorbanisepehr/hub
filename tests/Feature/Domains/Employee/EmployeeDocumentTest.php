@@ -24,6 +24,7 @@ describe('employee documents', function () {
         $this->getJson("/api/employees/{$employee->id}/documents")->assertStatus(401);
         $this->postJson("/api/employees/{$employee->id}/documents")->assertStatus(401);
         $this->deleteJson("/api/employees/{$employee->id}/documents/1")->assertStatus(401);
+        $this->getJson('/api/employees/documents/00000000-0000-0000-0000-000000000000/serve')->assertStatus(401);
     });
 
     it('denies access without the required permission', function () {
@@ -32,6 +33,9 @@ describe('employee documents', function () {
 
         $this->actingAs($user)
             ->getJson("/api/employees/{$employee->id}/documents")
+            ->assertStatus(403);
+        $this->actingAs($user)
+            ->getJson('/api/employees/documents/00000000-0000-0000-0000-000000000000/serve')
             ->assertStatus(403);
     });
 
@@ -53,7 +57,8 @@ describe('employee documents', function () {
 
         expect($data['category']['slug'])->toBe('resume')
             ->and($data['category']['name'])->toBe('Employee Document')
-            ->and($data['structure_name'])->toBe('Employee Document')
+            ->and($data['structure_name'])->toBe("{$employee->personnel_code} — Employee Document")
+            ->and($data['structure_name_slug'])->toBe("{$employee->personnel_code}-resume")
             ->and($data['field_key'])->toBe('main')
             ->and($data['section_key'])->toBe('documents')
             ->and($data)->not->toHaveKey('original_name');
@@ -85,13 +90,14 @@ describe('employee documents', function () {
             ->assertCreated()
             ->json('data');
 
-        expect($data['structure_name'])->toBe('کارت ملی — پشت')
+        expect($data['structure_name'])->toBe("{$employee->personnel_code} — کارت ملی — پشت")
+            ->and($data['structure_name_slug'])->toBe("{$employee->personnel_code}-national-card-back")
             ->and($data)->not->toHaveKey('original_name');
     });
 
     it('serves a document inline and downloads it under the structure name', function () {
         Storage::fake('local');
-        $user = createUserWithPermissions(['employee.documents.upload', 'employee.documents.delete', 'employee.documents.view']);
+        $user = createUserWithPermissions(['employee.documents.upload', 'employee.documents.delete', 'employee.documents.view', 'employee.documents.download']);
         $employee = Employee::factory()->create();
         $category = employeeDocumentCategory('national-card', 'کارت ملی');
 
@@ -118,8 +124,9 @@ describe('employee documents', function () {
         $disposition = rawurldecode($download->headers->get('Content-Disposition') ?? '');
 
         expect($download->headers->get('Content-Disposition'))->toContain('attachment')
-            ->and($disposition)->toContain('کارت ملی — پشت.pdf')
-            ->and($disposition)->not->toContain('scan.pdf');
+            ->and($disposition)->toContain("{$employee->personnel_code}-national-card-back.pdf")
+            ->and($disposition)->not->toContain('scan.pdf')
+            ->and($disposition)->not->toContain('کارت ملی');
     });
 
     it('rejects uploads without a file', function () {
