@@ -5,7 +5,9 @@ namespace App\Domains\Employee\Sections;
 use App\Contracts\Documentable;
 use App\Rules\FormOptionValue;
 use App\Support\Sections\BaseSection;
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Validation\Validator;
+use Illuminate\Database\Eloquent\Model;
 
 /**
  * Document inquiries (استعلام مدارک) — HR-side verification tracking for
@@ -192,5 +194,71 @@ class DocumentInquiriesSection extends BaseSection
                 );
             }
         }
+    }
+
+    /**
+     * Stamp every inquiry node whose content changed with who last touched
+     * it (user id + name snapshot, active role display name) and when.
+     * Unchanged nodes keep their previous stamps so the view always shows
+     * the LAST real editor. Client-supplied audit keys are ignored — only
+     * the server stamps them.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    public function transformForSave(array $data, ?Authenticatable $actor, Model $entity): array
+    {
+        if ($actor === null || ! is_array($data['inquiries'] ?? null)) {
+            return $data;
+        }
+
+        /** @var array<string, mixed> $stored */
+        $stored = (is_array($entity->section_document_inquiries ?? null)
+            ? $entity->section_document_inquiries['inquiries']
+            : null) ?? [];
+
+        $stamp = [
+            'updated_by' => $actor->getAuthIdentifier(),
+            'updated_by_name' => $actor->name,
+            'updated_by_role' => $actor->activeRole?->display_name,
+            'updated_at' => now()->format('Y-m-d H:i:s'),
+        ];
+
+        $contentKey = fn (?array $node): string => (string) json_encode([
+            'status' => $node['status'] ?? '',
+            'note' => $node['note'] ?? '',
+        ]);
+
+        $apply = function (array $node, ?array $previous) use ($contentKey, $stamp): array {
+            unset($node['updated_by'], $node['updated_by_name'], $node['updated_by_role'], $node['updated_at']);
+
+            if ($previous !== null && $contentKey($node) === $contentKey($previous)) {
+                return $node + array_intersect_key($previous, $stamp);
+            }
+
+            return $node + $stamp;
+        };
+
+        foreach ($data['inquiries']['education'] ?? [] as $index => $node) {
+            if (is_array($node)) {
+                $data['inquiries']['education'][$index] = $apply(
+                    $node,
+                    is_array(($stored['education'] ?? [])[$index] ?? null)
+                        ? $stored['education'][$index]
+                        : null,
+                );
+            }
+        }
+
+        foreach (['criminal_record', 'social_insurance'] as $key) {
+            if (is_array($data['inquiries'][$key] ?? null)) {
+                $data['inquiries'][$key] = $apply(
+                    $data['inquiries'][$key],
+                    is_array($stored[$key] ?? null) ? $stored[$key] : null,
+                );
+            }
+        }
+
+        return $data;
     }
 }

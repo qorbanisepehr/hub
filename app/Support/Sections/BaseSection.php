@@ -3,7 +3,9 @@
 namespace App\Support\Sections;
 
 use App\Contracts\Documentable;
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Validation\Validator;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Validator as ValidatorFactory;
 
 abstract class BaseSection implements SectionDefinition
@@ -89,6 +91,17 @@ abstract class BaseSection implements SectionDefinition
     protected function afterValidation(Validator $validator, array $data, string $mode): void
     {
         // Override for cross-field checks (e.g. date ranges, min age).
+    }
+
+    /**
+     * Persist the validated data unchanged by default.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    public function transformForSave(array $data, ?Authenticatable $actor, Model $entity): array
+    {
+        return $data;
     }
 
     /**

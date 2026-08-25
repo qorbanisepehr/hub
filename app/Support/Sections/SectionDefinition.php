@@ -3,7 +3,9 @@
 namespace App\Support\Sections;
 
 use App\Contracts\Documentable;
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Validation\Validator;
+use Illuminate\Database\Eloquent\Model;
 
 interface SectionDefinition
 {
@@ -123,4 +125,15 @@ interface SectionDefinition
      * Default values for prefill.
      */
     public function prefill(): array;
+
+    /**
+     * Hook to modify validated data just before persistence. Receives the
+     * authenticated actor (null in console contexts) and the entity being
+     * saved, so sections can stamp audit metadata or derive stored values.
+     * Must return the array that will actually be persisted.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    public function transformForSave(array $data, ?Authenticatable $actor, Model $entity): array;
 }

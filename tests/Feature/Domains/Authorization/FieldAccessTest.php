@@ -70,6 +70,22 @@ describe('field authorization', function () {
             ->assertJsonPath('data.id_number', $employee->id_number);
     });
 
+    it('strips the document inquiries group when its field permission is denied', function () {
+        $employee = Employee::factory()->create([
+            'section_document_inquiries' => [
+                'inquiries' => ['criminal_record' => ['status' => 'pending']],
+            ],
+        ]);
+        $user = createUserWithPermissions(['employee.view']);
+        denyEmployeeFieldGroup($user, 'employee.document_inquiries.view');
+
+        $this->actingAs($user)
+            ->getJson("/api/employees/{$employee->id}")
+            ->assertStatus(200)
+            ->assertJsonMissingPath('data.section_document_inquiries')
+            ->assertJsonPath('data.first_name', $employee->first_name);
+    });
+
     it('strips denied field groups on the index response', function () {
         Employee::factory()->count(2)->create();
         $user = createUserWithPermissions(['employee.list']);

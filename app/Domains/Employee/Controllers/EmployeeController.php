@@ -119,7 +119,7 @@ class EmployeeController extends ApiController
 
         $oldValues = $employee->toArray();
 
-        $employee = $this->employeeService->saveSection($employee, $section, $request->validated());
+        $employee = $this->employeeService->saveSection($employee, $section, $request->validated(), $request->user());
 
         $newValues = $employee->toArray();
         $employee->load(['user']);

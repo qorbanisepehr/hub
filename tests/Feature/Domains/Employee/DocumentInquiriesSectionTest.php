@@ -75,3 +75,48 @@ test('field key slugs stay ascii for every inquiry placement', function () {
         ->and($section->documentFieldKeySlug($this->employee, 'unknown-key'))
         ->toBeNull();
 });
+
+test('changed inquiry nodes are stamped with user, role, and date', function () {
+    $user = createUserWithPermissions(['employee.update']);
+
+    $this->actingAs($user)
+        ->postJson("/api/employees/{$this->employee->id}/sections/document_inquiries", [
+            'inquiries' => [
+                'criminal_record' => ['status' => 'received'],
+            ],
+        ])
+        ->assertOk();
+
+    $node = $this->employee->fresh()->section_document_inquiries['inquiries']['criminal_record'];
+
+    expect($node['updated_by'])->toBe($user->id)
+        ->and($node['updated_by_name'])->toBe($user->name)
+        ->and($node['updated_by_role'])->not->toBeNull()
+        ->and($node['updated_at'])->toBeString();
+});
+
+test('unchanged nodes keep their previous stamp', function () {
+    $first = createUserWithPermissions(['employee.update']);
+    $this->actingAs($first)
+        ->postJson("/api/employees/{$this->employee->id}/sections/document_inquiries", [
+            'inquiries' => [
+                'education' => ['0' => ['status' => 'received', 'note' => 'مطابقت دارد']],
+            ],
+        ])
+        ->assertOk();
+
+    $second = createUserWithPermissions(['employee.update']);
+    $this->actingAs($second)
+        ->postJson("/api/employees/{$this->employee->id}/sections/document_inquiries", [
+            'inquiries' => [
+                'education' => ['0' => ['status' => 'received', 'note' => 'مطابقت دارد']],
+                'social_insurance' => ['status' => 'mismatch'],
+            ],
+        ])
+        ->assertOk();
+
+    $inquiries = $this->employee->fresh()->section_document_inquiries['inquiries'];
+
+    expect($inquiries['education']['0']['updated_by'])->toBe($first->id)
+        ->and($inquiries['social_insurance']['updated_by'])->toBe($second->id);
+});

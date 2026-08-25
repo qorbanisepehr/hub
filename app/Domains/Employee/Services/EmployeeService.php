@@ -17,6 +17,7 @@ use App\Domains\Questionnaire\Sections\WorkExperienceSection;
 use App\Support\MobileNumber;
 use App\Support\Sections\SectionDefinition;
 use App\Support\Sections\SectionRegistry;
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
@@ -79,8 +80,10 @@ class EmployeeService extends SectionRegistry
 
     /**
      * Save a single section (structural validation — draft safe).
+     *
+     * @param  array<string, mixed>  $data
      */
-    public function saveSection(Employee $employee, string $sectionKey, array $data): Employee
+    public function saveSection(Employee $employee, string $sectionKey, array $data, ?Authenticatable $actor = null): Employee
     {
         $section = $this->getSection($sectionKey);
 
@@ -97,6 +100,8 @@ class EmployeeService extends SectionRegistry
         if ($sectionKey === 'employment') {
             $this->assertPersonnelCodeUnique($employee, $data['personnel_code'] ?? null);
         }
+
+        $data = $section->transformForSave($data, $actor, $employee);
 
         return DB::transaction(function () use (
             $employee,
