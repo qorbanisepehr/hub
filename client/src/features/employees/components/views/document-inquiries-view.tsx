@@ -5,10 +5,15 @@ import { DocumentFileItem } from "@/components/documents";
 import { useFormOptionsByGroup } from "@/features/form-options/hooks/use-form-options";
 import { useEmployeeDocuments } from "@/features/employees/hooks/use-employee-documents";
 import type { Employee } from "@/features/employees/types";
+import { toPersianDate } from "@/lib/date-format";
 
 type InquiryEntry = {
     status?: unknown;
     note?: unknown;
+    /** Audit metadata stamped server-side on every content change. */
+    updated_by_name?: unknown;
+    updated_by_role?: unknown;
+    updated_at?: unknown;
 };
 
 type InquiriesData = {
@@ -67,6 +72,15 @@ export function DocumentInquiriesView({
         const statusLabel = inquiryStatusLabel(entry?.status, statusOptions);
         const docs = resultDocsFor(fieldKey);
         const note = typeof entry?.note === "string" ? entry.note : "";
+        const updatedBy = typeof entry?.updated_by_name === "string" ? entry.updated_by_name : "";
+        const updatedRole =
+            typeof entry?.updated_by_role === "string" && entry.updated_by_role !== ""
+                ? ` (${entry.updated_by_role})`
+                : "";
+        const updatedAt =
+            typeof entry?.updated_at === "string"
+                ? toPersianDate(entry.updated_at)
+                : null;
 
         return (
             <div key={fieldKey} className="py-3 first:pt-0">
@@ -75,6 +89,17 @@ export function DocumentInquiriesView({
                     <CardContent className="space-y-1 p-0">
                         <SectionRow hideEmpty label="وضعیت" value={statusLabel} />
                         <SectionRow hideEmpty label="توضیحات" value={note || null} />
+                        {(updatedBy || updatedAt) && (
+                            <SectionRow
+                                hideEmpty
+                                label="آخرین به‌روزرسانی"
+                                value={
+                                    [`${updatedBy}${updatedRole}`, updatedAt]
+                                        .filter(Boolean)
+                                        .join(" — ") || null
+                                }
+                            />
+                        )}
                         {docs.map((doc) => (
                             <DocumentFileItem
                                 key={doc.usage_id}
