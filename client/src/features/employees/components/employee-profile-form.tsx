@@ -20,6 +20,7 @@ import { SkillsSection } from "@/features/questionnaire/components/sections/skil
 import { TrainingSection } from "@/features/questionnaire/components/sections/training-section";
 import { AdditionalInfoSection } from "@/features/questionnaire/components/sections/additional-info-section";
 import { DependentsSection } from "@/features/employees/components/sections/dependents-section";
+import { DocumentInquiriesSection } from "./sections/document-inquiries-section";
 import { SocialInsuranceSection } from "@/features/employees/components/sections/social-insurance-section";
 import { useRowDocsFeedback } from "@/features/documents/hooks/use-row-docs-feedback";
 import {
@@ -56,6 +57,10 @@ import {
     defaultDependents,
     toDependentsPayload,
 } from "@/features/employees/schemas/dependents.schema";
+import {
+    defaultDocumentInquiries,
+    toDocumentInquiriesPayload,
+} from "@/features/employees/schemas/document-inquiries.schema";
 import { saveEmployeeSection, submitEmployee } from "@/features/employees/api";
 import {
     EMPLOYEE_DOCUMENTS_TAB,
@@ -113,6 +118,7 @@ const SECTION_PAYLOAD_BUILDERS: Record<
     employment: toEmploymentPayload,
     social_insurance: toSocialInsurancePayload,
     dependents: toDependentsPayload,
+    document_inquiries: toDocumentInquiriesPayload,
 };
 
 /**
@@ -166,6 +172,10 @@ function buildDefaultValues(employee: Employee): EmployeeProfileFormData {
         dependents: {
             ...defaultDependents(),
             ...cleanServerSection(employee.section_dependents ?? {}),
+        },
+        document_inquiries: {
+            ...defaultDocumentInquiries(),
+            ...cleanServerSection(employee.section_document_inquiries ?? {}),
         },
         skills: { ...defaultSkills(), ...cleanServerSection(employee.section_skills ?? {}) },
         training: { ...defaultTraining(), ...cleanServerSection(employee.section_training ?? {}) },
@@ -425,6 +435,13 @@ export function EmployeeProfileForm({ employee }: EmployeeProfileFormProps) {
                         form={form as unknown as EmployeeFormApi}
                         uuid={String(employee.id)}
                         onPersist={handlePersist}
+                    />
+                );
+            case "document_inquiries":
+                return (
+                    <DocumentInquiriesSection
+                        form={form as unknown as EmployeeFormApi}
+                        uuid={String(employee.id)}
                     />
                 );
             case "skills":

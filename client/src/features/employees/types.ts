@@ -31,6 +31,7 @@ export type Employee = {
     social_insurance_number: string | null;
     section_social_insurance: Record<string, unknown> | null;
     section_dependents: Record<string, unknown> | null;
+    section_document_inquiries: Record<string, unknown> | null;
     user: {
         id: number;
         name: string;
@@ -66,6 +67,7 @@ export type EmployeeProfileFormData = {
     additional_info?: Record<string, unknown>;
     social_insurance?: Record<string, unknown>;
     dependents?: Record<string, unknown>;
+    document_inquiries?: Record<string, unknown>;
 };
 
 export type EmployeeFormApi = SectionFormApi;

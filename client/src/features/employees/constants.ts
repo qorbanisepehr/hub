@@ -78,6 +78,11 @@ export const EMPLOYEE_SECTIONS = [
         label: "بستگان و افراد تحت تکفل",
         description: "همسر، فرزندان و والدین",
     },
+    {
+        key: "document_inquiries",
+        label: "استعلام مدارک",
+        description: "استعلام تحصیلی، سوءپیشینه و بیمه",
+    },
 ] as const;
 
 export const EMPLOYEE_DOCUMENTS_TAB = {
@@ -142,6 +147,10 @@ export const EMPLOYEE_SECTION_DOCS: { key: string; slugs: string[] }[] = [
     {
         key: "dependents",
         slugs: [DOC_CATEGORY_SLUGS.NATIONAL_CARD, DOC_CATEGORY_SLUGS.BIRTH_CERTIFICATE],
+    },
+    {
+        key: "document_inquiries",
+        slugs: [DOC_CATEGORY_SLUGS.INQUIRY_RESULT],
     },
 ];
 

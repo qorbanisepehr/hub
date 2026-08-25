@@ -26,6 +26,7 @@ import { TrainingView } from "@/components/section-views/training-view";
 import { AdditionalInfoView } from "@/components/section-views/additional-info-view";
 import { EmploymentInfoView } from "./views/employment-info-view";
 import { DependentsView } from "./views/dependents-view";
+import { DocumentInquiriesView } from "./views/document-inquiries-view";
 import { SocialInsuranceView } from "./views/social-insurance-view";
 import { DOC_CATEGORY_SLUGS } from "@/features/questionnaire/constants";
 import { FileThumbnail } from "@/components/ui/file-thumbnail";
@@ -99,6 +100,7 @@ export function EmployeeProfileView({ employee }: EmployeeProfileViewProps) {
         training: employee.section_training ?? {},
         additional_info: employee.section_additional_info ?? {},
         dependents: employee.section_dependents ?? {},
+        document_inquiries: employee.section_document_inquiries ?? {},
     };
 
     function docsFor(key: string) {
@@ -188,6 +190,12 @@ export function EmployeeProfileView({ employee }: EmployeeProfileViewProps) {
             <AdditionalInfoView data={sectionData.additional_info} />
         ),
         dependents: () => <DependentsView employee={employee} />,
+        document_inquiries: () => (
+            <DocumentInquiriesView
+                employee={employee}
+                data={sectionData.document_inquiries}
+            />
+        ),
     };
 
     const renderTab = (key: string) => {

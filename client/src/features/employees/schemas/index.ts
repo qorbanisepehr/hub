@@ -15,3 +15,10 @@ export {
     toDependentsPayload,
     type DependentsFormData,
 } from "./dependents.schema";
+export {
+    documentInquiriesFieldSchema,
+    documentInquiriesSubmitSchema,
+    defaultDocumentInquiries,
+    toDocumentInquiriesPayload,
+    type DocumentInquiriesFormData,
+} from "./document-inquiries.schema";

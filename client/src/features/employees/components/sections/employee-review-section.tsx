@@ -36,6 +36,7 @@ import { ContactInfoView } from "@/components/section-views/contact-info-view";
 import { EmploymentInfoView } from "@/features/employees/components/views/employment-info-view";
 import { SocialInsuranceView } from "@/features/employees/components/views/social-insurance-view";
 import { DependentsView } from "@/features/employees/components/views/dependents-view";
+import { DocumentInquiriesView } from "@/features/employees/components/views/document-inquiries-view";
 import { EducationView } from "@/components/section-views/education-view";
 import { WorkExperienceView } from "@/components/section-views/work-experience-view";
 import { SkillsView } from "@/components/section-views/skills-view";
@@ -211,6 +212,15 @@ export function EmployeeReviewSection({
                 data={toDependentsPayload(values)}
                 title={label("dependents")}
                 action={<SectionEditButton onClick={edit("dependents")} />}
+            />
+
+            <DocumentInquiriesView
+                employee={employee}
+                data={sectionValue(values, "document_inquiries")}
+                title={label("document_inquiries")}
+                action={
+                    <SectionEditButton onClick={edit("document_inquiries")} />
+                }
             />
 
             <WorkExperienceView
