@@ -177,8 +177,14 @@ function buildDefaultValues(employee: Employee): EmployeeProfileFormData {
             ...defaultDocumentInquiries(),
             ...cleanServerSection(employee.section_document_inquiries ?? {}),
         },
-        skills: { ...defaultSkills(), ...cleanServerSection(employee.section_skills ?? {}) },
-        training: { ...defaultTraining(), ...cleanServerSection(employee.section_training ?? {}) },
+        skills: {
+            ...defaultSkills(),
+            ...cleanServerSection(employee.section_skills ?? {}),
+        },
+        training: {
+            ...defaultTraining(),
+            ...cleanServerSection(employee.section_training ?? {}),
+        },
         additional_info: {
             ...defaultAdditionalInfo(),
             ...cleanServerSection(employee.section_additional_info ?? {}),
@@ -221,9 +227,8 @@ export function EmployeeProfileForm({ employee }: EmployeeProfileFormProps) {
         () => new Set<string>(EMPLOYEE_SECTIONS.map((s) => s.key)),
         [],
     );
-    const [activeSection, setActiveSection] = useState<string>(
-        getSectionFromHash,
-    );
+    const [activeSection, setActiveSection] =
+        useState<string>(getSectionFromHash);
     const [submitErrors, setSubmitErrors] = useState<string[]>([]);
 
     useEffect(() => {
@@ -235,21 +240,20 @@ export function EmployeeProfileForm({ employee }: EmployeeProfileFormProps) {
         return () => window.removeEventListener("hashchange", onHashChange);
     }, []);
 
-    const { form, saveMutation, persistSection, isDirty, syncDefaults } = useSectionForm<
-        Employee,
-        EmployeeProfileFormData
-    >({
-        entity: employee,
-        buildDefaultValues,
-        extractSectionData,
-        saveSection: (section, data) => saveEmployeeSection(employee.id, section, data),
-        detailQueryKey: () => employeeKeys.detail(employee.id),
-        sectionTopLevelKeys: {
-            personal_info: ["first_name", "last_name"],
-            contact_info: ["email", "mobile"],
-        },
-        successMessage: "بخش ذخیره شد.",
-    });
+    const { form, saveMutation, persistSection, isDirty, syncDefaults } =
+        useSectionForm<Employee, EmployeeProfileFormData>({
+            entity: employee,
+            buildDefaultValues,
+            extractSectionData,
+            saveSection: (section, data) =>
+                saveEmployeeSection(employee.id, section, data),
+            detailQueryKey: () => employeeKeys.detail(employee.id),
+            sectionTopLevelKeys: {
+                personal_info: ["first_name", "last_name"],
+                contact_info: ["email", "mobile"],
+            },
+            successMessage: "بخش ذخیره شد.",
+        });
 
     const handlePersist = useCallback(() => {
         persistSection(activeSection);
@@ -401,9 +405,17 @@ export function EmployeeProfileForm({ employee }: EmployeeProfileFormProps) {
                     />
                 );
             case "contact_info":
-                return <ContactInfoSection form={form as unknown as EmployeeFormApi} />;
+                return (
+                    <ContactInfoSection
+                        form={form as unknown as EmployeeFormApi}
+                    />
+                );
             case "employment":
-                return <EmploymentSection form={form as unknown as EmployeeFormApi} />;
+                return (
+                    <EmploymentSection
+                        form={form as unknown as EmployeeFormApi}
+                    />
+                );
             case "education":
                 return (
                     <EducationSection
@@ -442,6 +454,9 @@ export function EmployeeProfileForm({ employee }: EmployeeProfileFormProps) {
                     <DocumentInquiriesSection
                         form={form as unknown as EmployeeFormApi}
                         uuid={String(employee.id)}
+                        canUpdate={
+                            employee.capabilities.document_inquiries_update
+                        }
                     />
                 );
             case "skills":

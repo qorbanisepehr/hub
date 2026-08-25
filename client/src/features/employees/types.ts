@@ -2,6 +2,7 @@ export type EmployeeCapabilities = {
     view: boolean;
     edit: boolean;
     delete: boolean;
+    document_inquiries_update: boolean;
     documents_view: boolean;
     documents_upload: boolean;
     documents_delete: boolean;
