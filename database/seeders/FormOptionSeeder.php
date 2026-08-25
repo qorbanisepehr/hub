@@ -89,6 +89,19 @@ class FormOptionSeeder extends Seeder
             ['group' => 'marital_status', 'value' => 'widowed', 'label' => 'همسر فوت شده', 'sort_order' => 4],
             ['group' => 'marital_status', 'value' => 'unknown', 'label' => 'نامشخص', 'sort_order' => 5],
 
+            // ── relationship_type — نوع رابطه وابستگی (بستگان کارمند)
+            ['group' => 'relationship_type', 'value' => 'spouse', 'label' => 'همسر', 'sort_order' => 1],
+            ['group' => 'relationship_type', 'value' => 'child', 'label' => 'فرزند', 'sort_order' => 2],
+            ['group' => 'relationship_type', 'value' => 'father', 'label' => 'پدر', 'sort_order' => 3],
+            ['group' => 'relationship_type', 'value' => 'mother', 'label' => 'مادر', 'sort_order' => 4],
+            ['group' => 'relationship_type', 'value' => 'other', 'label' => 'سایر', 'sort_order' => 5],
+
+            // ── inquiry_status — وضعیت استعلام مدارک (بخش استعلام مدارک؛
+            //    مقادیر در حال تغییر هستند و از طریق FormOptions قابل ویرایش‌اند)
+            ['group' => 'inquiry_status', 'value' => 'pending', 'label' => 'در انتظار استعلام', 'sort_order' => 1],
+            ['group' => 'inquiry_status', 'value' => 'received', 'label' => 'پاسخ دریافت شد', 'sort_order' => 2],
+            ['group' => 'inquiry_status', 'value' => 'mismatch', 'label' => 'مغایرت دارد', 'sort_order' => 3],
+
             // ── property_status — وضعیت ملک
             ['group' => 'property_status', 'value' => 'owned', 'label' => 'شخصی', 'sort_order' => 1],
             ['group' => 'property_status', 'value' => 'rented', 'label' => 'استیجاری', 'sort_order' => 2],
@@ -197,6 +210,38 @@ class FormOptionSeeder extends Seeder
             ['group' => 'university', 'value' => 'fanni_herfei', 'label' => 'دانشگاه فنی و حرفه‌ای', 'sort_order' => 46],
             ['group' => 'university', 'value' => 'farhangian', 'label' => 'دانشگاه فرهنگیان', 'sort_order' => 47],
             ['group' => 'university', 'value' => 'other', 'label' => 'سایر', 'sort_order' => 48],
+
+            // ── field_of_study — رشته تحصیلی
+            ['group' => 'field_of_study', 'value' => 'computer_engineering', 'label' => 'مهندسی کامپیوتر', 'sort_order' => 1],
+            ['group' => 'field_of_study', 'value' => 'information_technology', 'label' => 'مهندسی فناوری اطلاعات', 'sort_order' => 2],
+            ['group' => 'field_of_study', 'value' => 'software_engineering', 'label' => 'مهندسی نرم‌افزار', 'sort_order' => 3],
+            ['group' => 'field_of_study', 'value' => 'electrical_engineering', 'label' => 'مهندسی برق', 'sort_order' => 4],
+            ['group' => 'field_of_study', 'value' => 'mechanical_engineering', 'label' => 'مهندسی مکانیک', 'sort_order' => 5],
+            ['group' => 'field_of_study', 'value' => 'civil_engineering', 'label' => 'مهندسی عمران', 'sort_order' => 6],
+            ['group' => 'field_of_study', 'value' => 'industrial_engineering', 'label' => 'مهندسی صنایع', 'sort_order' => 7],
+            ['group' => 'field_of_study', 'value' => 'chemical_engineering', 'label' => 'مهندسی شیمی', 'sort_order' => 8],
+            ['group' => 'field_of_study', 'value' => 'materials_engineering', 'label' => 'مهندسی مواد', 'sort_order' => 9],
+            ['group' => 'field_of_study', 'value' => 'architecture', 'label' => 'معماری', 'sort_order' => 10],
+            ['group' => 'field_of_study', 'value' => 'accounting', 'label' => 'حسابداری', 'sort_order' => 11],
+            ['group' => 'field_of_study', 'value' => 'business_administration', 'label' => 'مدیریت بازرگانی', 'sort_order' => 12],
+            ['group' => 'field_of_study', 'value' => 'industrial_management', 'label' => 'مدیریت صنعتی', 'sort_order' => 13],
+            ['group' => 'field_of_study', 'value' => 'economics', 'label' => 'اقتصاد', 'sort_order' => 14],
+            ['group' => 'field_of_study', 'value' => 'finance', 'label' => 'مالی', 'sort_order' => 15],
+            ['group' => 'field_of_study', 'value' => 'mathematics', 'label' => 'ریاضیات', 'sort_order' => 16],
+            ['group' => 'field_of_study', 'value' => 'statistics', 'label' => 'آمار', 'sort_order' => 17],
+            ['group' => 'field_of_study', 'value' => 'physics', 'label' => 'فیزیک', 'sort_order' => 18],
+            ['group' => 'field_of_study', 'value' => 'chemistry', 'label' => 'شیمی', 'sort_order' => 19],
+            ['group' => 'field_of_study', 'value' => 'biology', 'label' => 'زیست‌شناسی', 'sort_order' => 20],
+            ['group' => 'field_of_study', 'value' => 'medicine', 'label' => 'پزشکی', 'sort_order' => 21],
+            ['group' => 'field_of_study', 'value' => 'nursing', 'label' => 'پرستاری', 'sort_order' => 22],
+            ['group' => 'field_of_study', 'value' => 'pharmacy', 'label' => 'داروسازی', 'sort_order' => 23],
+            ['group' => 'field_of_study', 'value' => 'psychology', 'label' => 'روان‌شناسی', 'sort_order' => 24],
+            ['group' => 'field_of_study', 'value' => 'sociology', 'label' => 'جامعه‌شناسی', 'sort_order' => 25],
+            ['group' => 'field_of_study', 'value' => 'law', 'label' => 'حقوق', 'sort_order' => 26],
+            ['group' => 'field_of_study', 'value' => 'political_science', 'label' => 'علوم سیاسی', 'sort_order' => 27],
+            ['group' => 'field_of_study', 'value' => 'persian_literature', 'label' => 'زبان و ادبیات فارسی', 'sort_order' => 28],
+            ['group' => 'field_of_study', 'value' => 'english_language', 'label' => 'زبان انگلیسی', 'sort_order' => 29],
+            ['group' => 'field_of_study', 'value' => 'other', 'label' => 'سایر', 'sort_order' => 30],
 
             // ── disability_type — نوع معلولیت
             ['group' => 'disability_type', 'value' => 'physical', 'label' => 'معلولیت جسمی', 'sort_order' => 1],

@@ -31,3 +31,26 @@ export function getApiError(e: unknown): string | null {
 
     return e ? "خطای ناشناخته" : null;
 }
+
+/**
+ * Extract every server validation message from a submit (422) response,
+ * falling back to a single generic message. Shared by all final-submit
+ * mutations so their error banners stay identical.
+ */
+export function getSubmitErrors(e: unknown, fallback: string): string[] {
+    if (isAxiosError(e) && e.response?.data?.errors) {
+        const serverErrors = Object.values(
+            e.response.data.errors as Record<string, unknown>,
+        )
+            .filter(Array.isArray)
+            .flat()
+            .filter((m): m is string => typeof m === "string");
+
+        if (serverErrors.length > 0) {
+            return serverErrors;
+        }
+    }
+
+    return [getApiError(e) ?? fallback];
+}
+

@@ -54,10 +54,11 @@ Route::middleware('grant.access:questionnaire,edit')->group(function () {
     Route::delete('questionnaire/{uuid}/documents/{usageId}', [QuestionnaireDocumentController::class, 'destroy']);
 });
 
-// Signed document serving stays public because <img> can't send headers.
+// Document serving accepts an authenticated HR user, an X-Access-Token
+// grant, or a session-bound grant from OTP verification (grant.serve:...).
 Route::get('questionnaire/documents/{uuid}/serve', [QuestionnaireDocumentController::class, 'serve'])
     ->name('questionnaire.documents.serve')
-    ->middleware('signed:relative,thumbnail');
+    ->middleware('grant.serve:questionnaire');
 
 // Protected routes (HR management)
 Route::middleware('auth:sanctum')->group(function () {

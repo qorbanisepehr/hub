@@ -8,64 +8,113 @@ use App\Domains\Document\Models\Document;
 use App\Domains\Document\Models\DocumentCategory;
 use App\Domains\Document\Models\DocumentUsage;
 use App\Domains\Document\Repositories\DocumentRepositoryInterface;
+use App\Support\Sections\SectionDefinition;
+use App\Support\Sections\SectionRegistryLocator;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Str;
 
 class DocumentService
 {
-    /**
-     * Field placements with a fixed Persian label. Repeater placements
-     * (e.g. "edu-0", "work-2") are resolved from their numeric index.
-     */
-    private const FIELD_KEY_LABELS = [
-        'front' => 'رو',
-        'back' => 'پشت',
-        'page-1' => 'صفحه اول',
-        'page-2' => 'صفحه دوم',
-        'page-3' => 'صفحه آخر',
-    ];
-
     public function __construct(
         private DocumentRepositoryInterface $repository,
+        private SectionRegistryLocator $sectionRegistries,
     ) {}
 
     /**
-     * Build the user-facing name of a document from its placement
-     * (category + section/field), e.g. "کارت ملی — پشت". The original
-     * file name is intentionally not exposed to clients; it stays on the
-     * record for storage and download purposes only.
+     * Build both name variants of a document in a single pass over its owner
+     * and placement: the user-facing display name ("12345 — کارت ملی —
+     * فرزند 1") and an ASCII slug for file-system-safe file names
+     * ("12345-national-card-child-1"). Each part has its own ASCII source
+     * (personnel code, category slug, section-provided key slug); Persian
+     * labels are never transliterated. The original upload name is
+     * intentionally not exposed to clients.
+     *
+     * @return array{name: string, slug: string}
      */
-    public function structureName(Document $document, DocumentUsage $usage): string
+    public function structureNames(Document $document, DocumentUsage $usage): array
     {
-        $categoryName = $document->category?->name ?? __('document.document');
+        $entity = $usage->resolveEntity();
 
-        $fieldLabel = $this->fieldKeyLabel($usage->field_key);
+        $section = null;
+        if ($usage->entity_type !== null) {
+            $registry = $this->sectionRegistries->forEntityType($usage->entity_type);
+            $section = $registry?->sectionForDocumentPlacement($usage->section_key, $usage->field_key);
+        }
 
-        return $fieldLabel !== null ? "{$categoryName} — {$fieldLabel}" : $categoryName;
+        $owner = $entity instanceof Documentable ? $entity->getDocumentOwnerLabel() : null;
+        [$fieldLabel, $fieldSlug] = $this->fieldKeyNames($usage, $section, $entity);
+
+        $name = implode(' — ', array_filter([
+            $owner,
+            $document->category?->name ?? __('document.document'),
+            $fieldLabel,
+        ], static fn (?string $part): bool => $part !== null && $part !== ''));
+
+        $slugParts = array_filter(
+            array_map(
+                static fn (?string $part): ?string => $part !== null ? Str::slug($part) : null,
+                [$owner, $document->category?->slug ?? 'document', $fieldSlug],
+            ),
+            static fn (?string $part): bool => $part !== null && $part !== '',
+        );
+
+        return [
+            'name' => $name,
+            'slug' => $slugParts !== [] ? implode('-', $slugParts) : 'document',
+        ];
     }
 
-    private function fieldKeyLabel(?string $fieldKey): ?string
+    public function structureName(Document $document, DocumentUsage $usage): string
     {
-        if ($fieldKey === null || $fieldKey === '') {
-            return null;
-        }
+        return $this->structureNames($document, $usage)['name'];
+    }
 
-        if (isset(self::FIELD_KEY_LABELS[$fieldKey])) {
-            return self::FIELD_KEY_LABELS[$fieldKey];
-        }
-
-        if (preg_match('/^[a-z]+-(\d+)$/', $fieldKey, $matches)) {
-            return $this->toPersianDigits((string) ((int) $matches[1] + 1));
-        }
-
-        return null;
+    public function structureNameSlug(Document $document, DocumentUsage $usage): string
+    {
+        return $this->structureNames($document, $usage)['slug'];
     }
 
     /**
-     * Build the file name used when a document is saved/downloaded. The
-     * original upload name is intentionally never used: the user-facing
-     * structure name is what they see, with the stored extension appended so
-     * the saved file opens correctly (e.g. "کارت ملی — پشت.pdf").
+     * Placement naming resolution done once per document: the owning section
+     * labels AND slugs its own field keys; anything else falls back to the
+     * generic ordinal rule for repeater-style keys like "edu-0". Labels use
+     * plain digits by convention — Persian rendering stays client-side.
+     *
+     * @return array{0: ?string, 1: ?string} label, slug
+     */
+    private function fieldKeyNames(DocumentUsage $usage, ?SectionDefinition $section, ?Model $entity): array
+    {
+        $fieldKey = $usage->field_key;
+
+        if ($fieldKey === null || $fieldKey === '') {
+            return [null, null];
+        }
+
+        $label = $entity instanceof Documentable
+            ? $section?->documentFieldKeyLabel($entity, $fieldKey)
+            : null;
+        $slug = $entity instanceof Documentable
+            ? $section?->documentFieldKeySlug($entity, $fieldKey)
+            : null;
+
+        if (($label === null || $slug === null) && preg_match('/^[a-z]+-(\d+)$/', $fieldKey, $matches)) {
+            $ordinal = (string) ((int) $matches[1] + 1);
+            $label ??= $ordinal;
+            $slug ??= $ordinal;
+        }
+
+        return [$label, $slug];
+    }
+
+    /**
+     * Build the file name used when a document is saved/downloaded.
+     * ASCII-only: the slug variant of the structure name, so saved files
+     * stay portable across filesystems, archives and download managers
+     * (e.g. "12345-national-card-child-1.pdf"). The original upload name is
+     * intentionally never used; the stored extension is appended so the
+     * saved file opens correctly.
      */
     public function downloadName(Document $document, ?DocumentUsage $usage = null): string
     {
@@ -77,28 +126,12 @@ class DocumentService
         }
 
         $base = $usage
-            ? $this->structureName($document, $usage)
-            : ($document->category?->name ?? __('document.document'));
+            ? $this->structureNames($document, $usage)['slug']
+            : ($document->category?->slug ?? 'document');
 
         $extension = pathinfo($document->path, PATHINFO_EXTENSION);
 
         return $extension !== '' ? "{$base}.{$extension}" : $base;
-    }
-
-    private function toPersianDigits(string $value): string
-    {
-        return strtr($value, [
-            '0' => '۰',
-            '1' => '۱',
-            '2' => '۲',
-            '3' => '۳',
-            '4' => '۴',
-            '5' => '۵',
-            '6' => '۶',
-            '7' => '۷',
-            '8' => '۸',
-            '9' => '۹',
-        ]);
     }
 
     /**

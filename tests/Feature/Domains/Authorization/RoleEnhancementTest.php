@@ -20,8 +20,8 @@ describe('RBAC matrix managers & requirements', function () {
                     ['role_id' => $parent->id, 'manager_type' => 'project'],
                 ],
                 'is_active' => true,
+                'parent_id' => $parent->id,
             ]);
-            $role->parentRoles()->attach($parent->id);
 
             expect($role->getAllManagerIds())
                 ->toBe([$projectManager->id, $techManager->id, $parent->id]);
@@ -80,16 +80,41 @@ describe('RBAC matrix managers & requirements', function () {
             expect($role->meetsRequirements([]))->toBeFalse();
         });
 
-        it('meets experience requirement when candidate experience is sufficient', function () {
+        it('meets related experience requirement when candidate experience is sufficient', function () {
             $role = Role::create([
                 'name' => 'senior',
                 'display_name' => 'Senior',
-                'requirements' => ['min_experience_years' => 3],
+                'requirements' => ['min_related_experience_years' => 3],
                 'is_active' => true,
             ]);
 
-            expect($role->meetsRequirements(['experience_years' => 5]))->toBeTrue();
-            expect($role->meetsRequirements(['experience_years' => 2]))->toBeFalse();
+            expect($role->meetsRequirements(['related_experience_years' => 5]))->toBeTrue();
+            expect($role->meetsRequirements(['related_experience_years' => 2]))->toBeFalse();
+        });
+
+        it('meets unrelated experience requirement when candidate experience is sufficient', function () {
+            $role = Role::create([
+                'name' => 'senior',
+                'display_name' => 'Senior',
+                'requirements' => ['min_unrelated_experience_years' => 2],
+                'is_active' => true,
+            ]);
+
+            expect($role->meetsRequirements(['unrelated_experience_years' => 3]))->toBeTrue();
+            expect($role->meetsRequirements(['unrelated_experience_years' => 1]))->toBeFalse();
+        });
+
+        it('meets fields of study requirement when candidate field matches', function () {
+            $role = Role::create([
+                'name' => 'backend',
+                'display_name' => 'Backend',
+                'requirements' => ['fields_of_study' => ['computer_engineering', 'information_technology']],
+                'is_active' => true,
+            ]);
+
+            expect($role->meetsRequirements(['field_of_study' => 'computer_engineering']))->toBeTrue();
+            expect($role->meetsRequirements(['field_of_study' => 'civil_engineering']))->toBeFalse();
+            expect($role->meetsRequirements([]))->toBeFalse();
         });
 
         it('meets skills requirement when all required skills are present', function () {
@@ -119,8 +144,11 @@ describe('RBAC matrix managers & requirements', function () {
                     ],
                     'requirements' => [
                         'min_education' => 'bachelor',
-                        'min_experience_years' => 3,
+                        'min_related_experience_years' => 3,
+                        'min_unrelated_experience_years' => 1,
+                        'fields_of_study' => ['computer_engineering'],
                         'required_skills' => ['laravel'],
+                        'description' => 'حداقل دو سال تجربه پروژه‌ای',
                     ],
                 ])
                 ->assertStatus(201)
@@ -133,8 +161,11 @@ describe('RBAC matrix managers & requirements', function () {
             expect($role->matrix_managers)->toBe([['role_id' => $manager->id, 'manager_type' => 'project']]);
             expect($role->requirements)->toBe([
                 'min_education' => 'bachelor',
-                'min_experience_years' => 3,
+                'min_related_experience_years' => 3,
+                'min_unrelated_experience_years' => 1,
+                'fields_of_study' => ['computer_engineering'],
                 'required_skills' => ['laravel'],
+                'description' => 'حداقل دو سال تجربه پروژه‌ای',
             ]);
         });
 
@@ -198,15 +229,15 @@ describe('RBAC matrix managers & requirements', function () {
                     'display_name' => 'Developer',
                     'requirements' => [
                         'min_education' => 'high-school',
-                        'min_experience_years' => -1,
-                        'languages' => ['english' => 'fluent'],
+                        'min_related_experience_years' => -1,
+                        'min_unrelated_experience_years' => 51,
                     ],
                 ])
                 ->assertStatus(422)
                 ->assertJsonValidationErrors([
                     'requirements.min_education',
-                    'requirements.min_experience_years',
-                    'requirements.languages.english',
+                    'requirements.min_related_experience_years',
+                    'requirements.min_unrelated_experience_years',
                 ]);
         });
 
@@ -221,17 +252,21 @@ describe('RBAC matrix managers & requirements', function () {
                         ['role_id' => $manager->id, 'manager_type' => 'functional'],
                     ],
                     'requirements' => [
-                        'min_experience_years' => 2,
+                        'min_related_experience_years' => 2,
+                        'fields_of_study' => ['industrial_engineering'],
                     ],
                 ])
                 ->assertStatus(200)
                 ->assertJsonPath('data.matrix_manager_roles.0.manager_type', 'functional')
-                ->assertJsonPath('data.requirements.min_experience_years', 2);
+                ->assertJsonPath('data.requirements.min_related_experience_years', 2);
 
             $fresh = $role->fresh();
 
             expect($fresh->matrix_managers)->toBe([['role_id' => $manager->id, 'manager_type' => 'functional']]);
-            expect($fresh->requirements)->toBe(['min_experience_years' => 2]);
+            expect($fresh->requirements)->toBe([
+                'min_related_experience_years' => 2,
+                'fields_of_study' => ['industrial_engineering'],
+            ]);
         });
 
         it('clears matrix managers and requirements when omitted', function () {
@@ -241,7 +276,7 @@ describe('RBAC matrix managers & requirements', function () {
                 'name' => 'developer',
                 'display_name' => 'Developer',
                 'matrix_managers' => [['role_id' => $manager->id, 'manager_type' => 'project']],
-                'requirements' => ['min_experience_years' => 2],
+                'requirements' => ['min_unrelated_experience_years' => 2],
                 'is_active' => true,
             ]);
 
@@ -309,15 +344,14 @@ describe('RBAC matrix managers & requirements', function () {
         it('returns a flat list with hierarchy and matrix relations for the chart', function () {
             $user = createUserWithPermissions(['role.view']);
             $ceo = Role::create(['name' => 'ceo', 'display_name' => 'CEO', 'is_active' => true]);
-            $cto = Role::create(['name' => 'cto', 'display_name' => 'CTO', 'is_active' => true]);
-            $cto->parentRoles()->attach($ceo->id);
+            $cto = Role::create(['name' => 'cto', 'display_name' => 'CTO', 'is_active' => true, 'parent_id' => $ceo->id]);
             $dev = Role::create([
                 'name' => 'dev',
                 'display_name' => 'Developer',
                 'matrix_managers' => [['role_id' => $ceo->id, 'manager_type' => 'project']],
                 'is_active' => true,
+                'parent_id' => $cto->id,
             ]);
-            $dev->parentRoles()->attach($cto->id);
 
             $this->actingAs($user)
                 ->getJson('/api/roles/chart')
@@ -355,7 +389,15 @@ describe('RBAC matrix managers & requirements', function () {
             $user = createUserWithPermissions(['role.view']);
             $role = Role::create(['name' => 'dev', 'display_name' => 'Developer', 'is_active' => true]);
             $member = User::factory()->create(['name' => 'Alex Dev']);
-            $employee = Employee::factory()->create();
+            $employee = Employee::factory()->create([
+                'personnel_code' => '1234',
+                'hire_date' => now()->subYears(3),
+                'section_education' => [
+                    'education_records' => [
+                        ['degree' => 'کارشناسی', 'field' => 'مهندسی کامپیوتر'],
+                    ],
+                ],
+            ]);
             $member->employee()->save($employee);
             $member->roles()->attach($role->id);
 
@@ -365,7 +407,10 @@ describe('RBAC matrix managers & requirements', function () {
                 ->assertJsonPath('data.0.users.0.employee.id', $employee->id)
                 ->assertJsonPath('data.0.users.0.employee.first_name', $employee->first_name)
                 ->assertJsonPath('data.0.users.0.employee.last_name', $employee->last_name)
-                ->assertJsonPath('data.0.users.0.employee.personnel_code', $employee->personnel_code);
+                ->assertJsonPath('data.0.users.0.employee.personnel_code', '1234')
+                ->assertJsonPath('data.0.users.0.employee.degree', 'کارشناسی')
+                ->assertJsonPath('data.0.users.0.employee.field_of_study', 'مهندسی کامپیوتر')
+                ->assertJsonPath('data.0.users.0.employee.org_tenure_years', 3);
         });
 
         it('requires role.view permission', function () {
@@ -379,8 +424,7 @@ describe('RBAC matrix managers & requirements', function () {
         it('exports the chart as csv with hierarchy parents', function () {
             $user = createUserWithPermissions(['role.view']);
             $ceo = Role::create(['name' => 'ceo', 'display_name' => 'CEO', 'is_active' => true]);
-            $cto = Role::create(['name' => 'cto', 'display_name' => 'CTO', 'is_active' => true]);
-            $cto->parentRoles()->attach($ceo->id);
+            $cto = Role::create(['name' => 'cto', 'display_name' => 'CTO', 'is_active' => true, 'parent_id' => $ceo->id]);
 
             $response = $this->actingAs($user)
                 ->get('/api/roles/chart/export?fields=')

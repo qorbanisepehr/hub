@@ -4,12 +4,13 @@ use App\Domains\Employee\Controllers\EmployeeController;
 use App\Domains\Employee\Controllers\EmployeeDocumentController;
 use Illuminate\Support\Facades\Route;
 
-// Signed document serving stays public because <img> can't send headers.
-Route::get('employees/documents/{uuid}/serve', [EmployeeDocumentController::class, 'serve'])
-    ->name('employee.documents.serve')
-    ->middleware('signed:relative,thumbnail');
-
 Route::middleware('auth:sanctum')->group(function () {
+    // Serving file bytes requires the same permission as downloading them;
+    // inline previews (<img>/embed) authenticate via the session cookie.
+    Route::get('employees/documents/{uuid}/serve', [EmployeeDocumentController::class, 'serve'])
+        ->name('employee.documents.serve')
+        ->middleware('permission:employee.documents.download');
+
     Route::get('employees', [EmployeeController::class, 'index'])
         ->middleware('permission:employee.list');
     Route::get('employees/document-requirements', [EmployeeDocumentController::class, 'requirements'])
@@ -20,8 +21,9 @@ Route::middleware('auth:sanctum')->group(function () {
         ->middleware('permission:employee.view');
     Route::put('employees/{employee}', [EmployeeController::class, 'update'])
         ->middleware('permission:employee.update');
-    Route::post('employees/{employee}/sections/{section}', [EmployeeController::class, 'saveSection'])
-        ->middleware('permission:employee.update');
+    // Section saves authorize in the controller: the section's own save
+    // permission (OR semantics with employee.update) varies per section.
+    Route::post('employees/{employee}/sections/{section}', [EmployeeController::class, 'saveSection']);
     Route::post('employees/{employee}/submit', [EmployeeController::class, 'submit'])
         ->middleware('permission:employee.update');
     Route::get('employees/{employee}/documents', [EmployeeDocumentController::class, 'index'])

@@ -1,19 +1,23 @@
+import type { ReactNode } from "react";
+
 function asRecord(value: unknown): Record<string, unknown> {
     return value && typeof value === "object"
         ? (value as Record<string, unknown>)
         : {};
 }
 
-function stringValue(value: unknown): string | null {
-    if (value === null || value === undefined || value === "") return null;
-    return String(value);
-}
-
 type SectionRepeaterTableProps = {
     items: unknown;
     columns: {
         label: string;
-        render: (item: Record<string, unknown>) => unknown;
+        /**
+         * Cell content: usually a primitive; may return a ReactNode
+         * (e.g. a status badge). Non-empty values are rendered as-is.
+         */
+        render: (
+            item: Record<string, unknown>,
+            index: number,
+        ) => unknown;
     }[];
     emptyLabel: string;
 };
@@ -27,6 +31,8 @@ export function SectionRepeaterTable({
     if (list.length === 0) {
         return <p className="text-sm text-muted-foreground">{emptyLabel}</p>;
     }
+    const cellValue = (value: unknown): ReactNode =>
+        value === null || value === undefined || value === "" ? "—" : (value as ReactNode);
     return (
         <div className="overflow-x-auto rounded-lg border">
             <table className="w-full text-sm">
@@ -46,8 +52,13 @@ export function SectionRepeaterTable({
                     {list.map((item, index) => (
                         <tr key={index} className="border-b last:border-b-0">
                             {columns.map((column) => (
-                                <td key={column.label} className="px-3 py-2">
-                                    {stringValue(column.render(item)) ?? "—"}
+                                <td
+                                    key={column.label}
+                                    className="px-3 py-2"
+                                >
+                                    {cellValue(
+                                        column.render(item, index),
+                                    )}
                                 </td>
                             ))}
                         </tr>

@@ -15,12 +15,3 @@ export const EDUCATION_LEVELS = {
 } as const;
 
 export type EducationLevel = keyof typeof EDUCATION_LEVELS;
-
-export const LANGUAGE_LEVELS = {
-    basic: "مقدماتی",
-    intermediate: "متوسط",
-    advanced: "پیشرفته",
-    native: "زبان مادری",
-} as const;
-
-export type LanguageLevel = keyof typeof LANGUAGE_LEVELS;

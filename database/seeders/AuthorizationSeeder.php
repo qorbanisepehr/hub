@@ -4,7 +4,6 @@ namespace Database\Seeders;
 
 use App\Domains\Authorization\Models\Permission;
 use App\Domains\Authorization\Models\Role;
-use App\Domains\Authorization\Models\RoleInheritance;
 use App\Domains\Authorization\Services\PermissionRegistrySynchronizer;
 use App\Models\User;
 use Illuminate\Database\Seeder;
@@ -36,7 +35,7 @@ class AuthorizationSeeder extends Seeder
             ],
         );
 
-        // ── 4. Organizational Hierarchy (via role_inheritances) ──
+        // ── 4. Organizational Hierarchy ──
         // Level 0 — سرپرست معاونت سرمایه انسانی (root)
         $hrDeputyHead = Role::updateOrCreate(
             ['name' => 'hr-deputy-head'],
@@ -162,7 +161,7 @@ class AuthorizationSeeder extends Seeder
             ],
         );
 
-        // ── 5. Inheritance edges (org chart + permission propagation) ──
+        // ── 5. Hierarchy edges (org chart + permission propagation) ──
         $inheritances = [
             'hr-management-head' => 'hr-deputy-head',
             'support-manager' => 'hr-deputy-head',
@@ -185,10 +184,7 @@ class AuthorizationSeeder extends Seeder
             $parent = Role::where('name', $parentName)->first();
 
             if ($child && $parent) {
-                RoleInheritance::updateOrCreate(
-                    ['role_id' => $child->id, 'parent_role_id' => $parent->id],
-                    [],
-                );
+                $child->update(['parent_id' => $parent->id]);
             }
         }
 

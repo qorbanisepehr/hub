@@ -16,6 +16,9 @@ type UseDocumentUploadOptions = {
     uuid: string;
     categoryId: number | undefined;
     requirement: DocumentRequirement | null;
+    /** Explicit placement section, e.g. "dependents". Overrides the
+     * requirement's own `section_key` when provided. */
+    sectionKey?: string;
     fieldKey?: string;
     notes?: string;
     onUploadComplete?: (doc: EntityDocument) => void;
@@ -26,6 +29,7 @@ export function useDocumentUpload({
     uuid,
     categoryId,
     requirement,
+    sectionKey,
     fieldKey,
     notes,
     onUploadComplete,
@@ -40,10 +44,11 @@ export function useDocumentUpload({
             const formData = new FormData();
             formData.append("document_category_id", String(categoryId));
             formData.append("file", file);
-            if (requirement?.section_key) {
-                formData.append("section_key", requirement.section_key);
+            const effectiveSectionKey = sectionKey ?? requirement?.section_key;
+            if (effectiveSectionKey) {
+                formData.append("section_key", effectiveSectionKey);
             }
-            if (fieldKey && requirement?.section_key) {
+            if (fieldKey && effectiveSectionKey) {
                 formData.append("field_key", fieldKey);
             }
             if (notes) {

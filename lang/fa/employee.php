@@ -14,6 +14,33 @@ return [
         'skills' => 'مهارت‌ها',
         'training' => 'دوره‌ها و آموزش‌ها',
         'additional_info' => 'اطلاعات تکمیلی',
+        'social_insurance' => 'بیمه تأمین اجتماعی',
+        'dependents' => 'بستگان و افراد تحت تکفل',
+        'document_inquiries' => 'استعلام مدارک',
+    ],
+    'dependents' => [
+        'fields' => [
+            'relationship_type' => 'نوع رابطه',
+            'first_name' => 'نام',
+            'last_name' => 'نام خانوادگی',
+            'id_number' => 'کد ملی',
+            'gender' => 'جنسیت',
+            'birth_date' => 'تاریخ تولد',
+        ],
+        'validation' => [
+            'birth_date_not_future' => 'تاریخ تولد وابسته نمی‌تواند در آینده باشد.',
+        ],
+        'field_label' => 'وابسته :n',
+    ],
+    'document_inquiries' => [
+        'field_labels' => [
+            'education_degree' => 'استعلام مدرک تحصیلی :n',
+            'criminal-record' => 'استعلام عدم سوء پیشینه',
+            'social-insurance' => 'استعلام بیمه تأمین اجتماعی',
+        ],
+        'validation' => [
+            'invalid_education_index' => 'شناسه مدرک تحصیلی برای استعلام نامعتبر است.',
+        ],
     ],
     'documents' => [
         'max_files_reached' => 'حداکثر :count فایل مجاز برای این نوع مدرک بارگذاری شده است.',

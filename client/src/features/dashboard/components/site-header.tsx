@@ -1,5 +1,6 @@
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
+import { AppBreadcrumb } from "@/components/layout/app-breadcrumb";
 import { ThemeToggle } from "@/components/navigation";
 
 export function SiteHeader() {
@@ -11,7 +12,7 @@ export function SiteHeader() {
                     orientation="vertical"
                     className="mx-2 h-4 data-vertical:self-auto"
                 />
-                <h1 className="text-base font-medium">داشبورد</h1>
+                <AppBreadcrumb />
 
                 <div className="ms-auto">
                     <ThemeToggle />

@@ -6,7 +6,6 @@ use App\Domains\Authorization\Models\AccessRule;
 use App\Domains\Authorization\Models\Permission;
 use App\Domains\Authorization\Models\PermissionGroup;
 use App\Domains\Authorization\Models\Role;
-use App\Domains\Authorization\Models\RoleInheritance;
 use App\Domains\Authorization\Policies\ConditionEvaluator;
 use App\Domains\Authorization\Policies\Operator;
 use App\Domains\Authorization\Policies\PolicyValidator;
@@ -26,7 +25,6 @@ arch('business domains never depend on the RBAC implementation')
         Permission::class,
         PermissionGroup::class,
         Role::class,
-        RoleInheritance::class,
         AuthorizationEngine::class,
         AuthorizationService::class,
         ConditionEvaluator::class,

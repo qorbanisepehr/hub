@@ -38,16 +38,9 @@ return new class extends Migration
             $table->string('display_name');
             $table->text('description')->nullable();
             $table->boolean('is_active')->default(true);
+            $table->foreignId('parent_id')->nullable()->constrained('roles')->nullOnDelete();
             $table->json('matrix_managers')->nullable();
             $table->json('requirements')->nullable();
-            $table->timestamps();
-        });
-
-        Schema::create('role_inheritances', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('role_id')->constrained('roles')->cascadeOnDelete();
-            $table->foreignId('parent_role_id')->constrained('roles')->cascadeOnDelete();
-            $table->unique(['role_id', 'parent_role_id']);
             $table->timestamps();
         });
 
@@ -83,7 +76,6 @@ return new class extends Migration
             $table->dropConstrainedForeignId('active_role_id');
         });
 
-        Schema::dropIfExists('role_inheritances');
         Schema::dropIfExists('roles');
         Schema::dropIfExists('permissions');
         Schema::dropIfExists('permission_groups');

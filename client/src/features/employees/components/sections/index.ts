@@ -1,4 +1,6 @@
 export { ContactInfoSection } from './contact-info-section';
+export { DependentsSection } from './dependents-section';
+export { DocumentInquiriesSection } from './document-inquiries-section';
 export { DocumentsSection } from './documents-section';
 export { EmployeeDocumentReplaceModal } from './employee-document-replace-modal';
 export { EmployeeDocumentTrashModal } from './employee-document-trash-modal';

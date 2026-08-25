@@ -3,7 +3,6 @@
 namespace App\Domains\Authorization\Exports;
 
 use App\Domains\Authorization\Models\Role;
-use App\Domains\Authorization\Models\RoleInheritance;
 use Illuminate\Support\Collection;
 
 class RoleChartCsvExporter
@@ -18,7 +17,9 @@ class RoleChartCsvExporter
         'user_count' => ['label' => 'تعداد کاربران', 'column' => 'User Count'],
         'children_count' => ['label' => 'تعداد زیرمجموعه مستقیم', 'column' => 'Direct Subordinates'],
         'min_education' => ['label' => 'حداقل تحصیلات', 'column' => 'Min Education'],
-        'min_experience_years' => ['label' => 'حداقل سابقه (سال)', 'column' => 'Min Experience (Years)'],
+        'min_related_experience_years' => ['label' => 'حداقل سابقه مرتبط (سال)', 'column' => 'Min Related Experience (Years)'],
+        'min_unrelated_experience_years' => ['label' => 'حداقل سابقه غیرمرتبط (سال)', 'column' => 'Min Unrelated Experience (Years)'],
+        'fields_of_study' => ['label' => 'رشته تحصیلی', 'column' => 'Fields of Study'],
         'matrix_managers' => ['label' => 'مدیران ماتریسی', 'column' => 'Matrix Managers'],
     ];
 
@@ -51,11 +52,8 @@ class RoleChartCsvExporter
         $rolesById = $allRoles->keyBy('id');
 
         $parentByRole = [];
-        foreach (RoleInheritance::all(['role_id', 'parent_role_id']) as $inheritance) {
-            $current = $parentByRole[$inheritance->role_id] ?? null;
-            $parentByRole[$inheritance->role_id] = ($current === null || $inheritance->parent_role_id < $current)
-                ? $inheritance->parent_role_id
-                : $current;
+        foreach ($allRoles as $role) {
+            $parentByRole[$role->id] = $role->parent_id;
         }
 
         $roles = $this->collectSubtree($allRoles, $rootId, $parentByRole);
@@ -188,9 +186,13 @@ class RoleChartCsvExporter
             'user_count' => (string) ($role->users_count ?? 0),
             'children_count' => (string) ($childrenCounts[$role->id] ?? 0),
             'min_education' => (string) ($requirements['min_education'] ?? ''),
-            'min_experience_years' => isset($requirements['min_experience_years'])
-                ? (string) $requirements['min_experience_years']
+            'min_related_experience_years' => isset($requirements['min_related_experience_years'])
+                ? (string) $requirements['min_related_experience_years']
                 : '',
+            'min_unrelated_experience_years' => isset($requirements['min_unrelated_experience_years'])
+                ? (string) $requirements['min_unrelated_experience_years']
+                : '',
+            'fields_of_study' => implode(', ', $requirements['fields_of_study'] ?? []),
             'matrix_managers' => collect($role->matrix_managers ?? [])
                 ->map(function ($manager) use ($rolesById) {
                     $manager = (array) $manager;

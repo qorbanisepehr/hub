@@ -19,6 +19,8 @@ import {
 } from "@/lib/validation-helpers";
 import { requiredText } from "@/lib/zod-primitives";
 import { socialInsuranceSubmitSchema } from "./schemas/social-insurance.schema";
+import { dependentsSubmitSchema } from "./schemas/dependents.schema";
+import { documentInquiriesSubmitSchema } from "./schemas/document-inquiries.schema";
 
 export type SubmitOptions = {
     personal_info: PersonalInfoOptions;
@@ -53,6 +55,8 @@ export function buildSubmitSchema(options: SubmitOptions) {
         skills: skillsFieldSchema,
         training: trainingFieldSchema,
         additional_info: additionalInfoFieldSchema,
+        dependents: dependentsSubmitSchema,
+        document_inquiries: documentInquiriesSubmitSchema,
     });
 }
 

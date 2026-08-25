@@ -48,6 +48,8 @@ return [
                 'employee.delete' => 'Delete employees',
                 'employee.personal_info.view' => 'View employee personal information fields',
                 'employee.employment_info.view' => 'View employee employment information fields',
+                'employee.document_inquiries.view' => 'View employee document inquiry fields',
+                'employee.document_inquiries.update' => 'Update employee document inquiries',
             ],
         ],
 

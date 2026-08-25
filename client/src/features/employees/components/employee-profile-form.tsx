@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { isAxiosError } from "axios";
 import { toast } from "sonner";
 import {
     IconAlertTriangle,
@@ -20,7 +19,14 @@ import { WorkExperienceSection } from "@/features/questionnaire/components/secti
 import { SkillsSection } from "@/features/questionnaire/components/sections/skills-section";
 import { TrainingSection } from "@/features/questionnaire/components/sections/training-section";
 import { AdditionalInfoSection } from "@/features/questionnaire/components/sections/additional-info-section";
+import { DependentsSection } from "@/features/employees/components/sections/dependents-section";
+import { DocumentInquiriesSection } from "./sections/document-inquiries-section";
 import { SocialInsuranceSection } from "@/features/employees/components/sections/social-insurance-section";
+import { useRowDocsFeedback } from "@/features/documents/hooks/use-row-docs-feedback";
+import {
+    educationRowLabel,
+    EDUCATION_ROW_DOC_CATEGORIES,
+} from "@/features/questionnaire/education-docs";
 import { ContactInfoSection } from "./sections/contact-info-section";
 import { LinkedUserSection } from "./sections/linked-user-section";
 import { EmploymentSection } from "./sections/employment-section";
@@ -47,6 +53,14 @@ import {
     defaultSocialInsurance,
     toSocialInsurancePayload,
 } from "@/features/employees/schemas/social-insurance.schema";
+import {
+    defaultDependents,
+    toDependentsPayload,
+} from "@/features/employees/schemas/dependents.schema";
+import {
+    defaultDocumentInquiries,
+    toDocumentInquiriesPayload,
+} from "@/features/employees/schemas/document-inquiries.schema";
 import { saveEmployeeSection, submitEmployee } from "@/features/employees/api";
 import {
     EMPLOYEE_DOCUMENTS_TAB,
@@ -56,6 +70,7 @@ import {
     EMPLOYEE_VALIDATION_SECTIONS,
 } from "@/features/employees/constants";
 import { useEmployeeSubmitOptions } from "@/features/employees/hooks/use-employee-submit-options";
+import { useDependentDocsFeedback } from "@/features/employees/hooks/use-dependent-docs-feedback";
 import { buildValidateSubmitData } from "@/features/employees/validation";
 import { useInjectedFieldErrors } from "@/hooks/use-injected-field-errors";
 import { useSectionForm } from "@/hooks/use-section-form";
@@ -63,7 +78,8 @@ import {
     countSectionFieldErrors,
     scrollToFirstInvalidField,
 } from "@/lib/validation-helpers";
-import { getApiError } from "@/lib/error-utils";
+import { getApiError, getSubmitErrors } from "@/lib/error-utils";
+import { cleanServerSection } from "@/lib/form-utils";
 import { employeeKeys } from "@/lib/query-keys";
 import type {
     Employee,
@@ -101,21 +117,9 @@ const SECTION_PAYLOAD_BUILDERS: Record<
     contact_info: toContactInfoPayload,
     employment: toEmploymentPayload,
     social_insurance: toSocialInsurancePayload,
+    dependents: toDependentsPayload,
+    document_inquiries: toDocumentInquiriesPayload,
 };
-
-/**
- * Strip null/undefined values from a server section object so they don't
- * override the defaults when spread into buildDefaultValues.
- */
-function cleanServerSection<T extends Record<string, unknown>>(section: T): Partial<T> {
-    const cleaned: Record<string, unknown> = {};
-    for (const [key, value] of Object.entries(section)) {
-        if (value !== null && value !== undefined) {
-            cleaned[key] = value;
-        }
-    }
-    return cleaned as Partial<T>;
-}
 
 /**
  * Build the profile's default values from an employee. The server is the source
@@ -165,8 +169,22 @@ function buildDefaultValues(employee: Employee): EmployeeProfileFormData {
             ...cleanServerSection(employee.section_social_insurance ?? {}),
             social_insurance_number: employee.social_insurance_number ?? "",
         },
-        skills: { ...defaultSkills(), ...cleanServerSection(employee.section_skills ?? {}) },
-        training: { ...defaultTraining(), ...cleanServerSection(employee.section_training ?? {}) },
+        dependents: {
+            ...defaultDependents(),
+            ...cleanServerSection(employee.section_dependents ?? {}),
+        },
+        document_inquiries: {
+            ...defaultDocumentInquiries(),
+            ...cleanServerSection(employee.section_document_inquiries ?? {}),
+        },
+        skills: {
+            ...defaultSkills(),
+            ...cleanServerSection(employee.section_skills ?? {}),
+        },
+        training: {
+            ...defaultTraining(),
+            ...cleanServerSection(employee.section_training ?? {}),
+        },
         additional_info: {
             ...defaultAdditionalInfo(),
             ...cleanServerSection(employee.section_additional_info ?? {}),
@@ -209,9 +227,8 @@ export function EmployeeProfileForm({ employee }: EmployeeProfileFormProps) {
         () => new Set<string>(EMPLOYEE_SECTIONS.map((s) => s.key)),
         [],
     );
-    const [activeSection, setActiveSection] = useState<string>(
-        getSectionFromHash,
-    );
+    const [activeSection, setActiveSection] =
+        useState<string>(getSectionFromHash);
     const [submitErrors, setSubmitErrors] = useState<string[]>([]);
 
     useEffect(() => {
@@ -223,21 +240,20 @@ export function EmployeeProfileForm({ employee }: EmployeeProfileFormProps) {
         return () => window.removeEventListener("hashchange", onHashChange);
     }, []);
 
-    const { form, saveMutation, persistSection, isDirty, isSectionDirty, syncDefaults } = useSectionForm<
-        Employee,
-        EmployeeProfileFormData
-    >({
-        entity: employee,
-        buildDefaultValues,
-        extractSectionData,
-        saveSection: (section, data) => saveEmployeeSection(employee.id, section, data),
-        detailQueryKey: () => employeeKeys.detail(employee.id),
-        sectionTopLevelKeys: {
-            personal_info: ["first_name", "last_name"],
-            contact_info: ["email", "mobile"],
-        },
-        successMessage: "بخش ذخیره شد.",
-    });
+    const { form, saveMutation, persistSection, isDirty, syncDefaults } =
+        useSectionForm<Employee, EmployeeProfileFormData>({
+            entity: employee,
+            buildDefaultValues,
+            extractSectionData,
+            saveSection: (section, data) =>
+                saveEmployeeSection(employee.id, section, data),
+            detailQueryKey: () => employeeKeys.detail(employee.id),
+            sectionTopLevelKeys: {
+                personal_info: ["first_name", "last_name"],
+                contact_info: ["email", "mobile"],
+            },
+            successMessage: "بخش ذخیره شد.",
+        });
 
     const handlePersist = useCallback(() => {
         persistSection(activeSection);
@@ -254,19 +270,7 @@ export function EmployeeProfileForm({ employee }: EmployeeProfileFormProps) {
             toast.success("پروفایل کارمند با موفقیت ثبت شد.");
         },
         onError: (error: Error) => {
-            if (isAxiosError(error) && error.response?.data?.errors) {
-                const serverErrors = Object.values(error.response.data.errors)
-                    .filter(Array.isArray)
-                    .flat()
-                    .filter((m): m is string => typeof m === "string");
-                setSubmitErrors(
-                    serverErrors.length > 0
-                        ? serverErrors
-                        : [getApiError(error) ?? "خطای ناشناخته"],
-                );
-            } else {
-                setSubmitErrors([getApiError(error) ?? "خطا در ثبت پروفایل"]);
-            }
+            setSubmitErrors(getSubmitErrors(error, "خطا در ثبت پروفایل"));
         },
     });
 
@@ -276,6 +280,34 @@ export function EmployeeProfileForm({ employee }: EmployeeProfileFormProps) {
     );
 
     const validation = validateSubmit(form.state.values);
+
+    const dependentRows =
+        (
+            form.state.values.dependents as
+                | { dependents?: { relationship_type?: string }[] }
+                | undefined
+        )?.dependents ?? [];
+    const { messages: dependentDocErrors } = useDependentDocsFeedback(
+        employee.id,
+        dependentRows,
+    );
+    const educationRecords =
+        (
+            form.state.values.education as
+                | { education_records?: Record<string, unknown>[] }
+                | undefined
+        )?.education_records ?? [];
+    const { messages: educationDocErrors } = useRowDocsFeedback(
+        {
+            entity: "employees",
+            uuid: employee.id,
+            sectionKey: "education",
+            categories: EDUCATION_ROW_DOC_CATEGORIES,
+            fieldKeyFor: (index) => `edu-${index}`,
+        },
+        educationRecords,
+        { rowLabel: educationRowLabel },
+    );
 
     const { inject: injectFieldErrors, clear: clearInjectedErrors } =
         useInjectedFieldErrors(form);
@@ -293,6 +325,12 @@ export function EmployeeProfileForm({ employee }: EmployeeProfileFormProps) {
         if (!validation.success) {
             setSubmitErrors(validation.errors);
             toast.error("لطفاً خطاهای زیر را اصلاح کنید.");
+            return;
+        }
+        const rowDocErrors = [...dependentDocErrors, ...educationDocErrors];
+        if (rowDocErrors.length > 0) {
+            setSubmitErrors(rowDocErrors);
+            toast.error("مدارک بارگذاری‌شده ناقص است.");
             return;
         }
         setSubmitErrors([]);
@@ -341,11 +379,8 @@ export function EmployeeProfileForm({ employee }: EmployeeProfileFormProps) {
     const handleTabChange = (value: string | number | null) => {
         if (!value) return;
         const next = String(value);
-        if (
-            next !== activeSection &&
-            isSectionDirty(activeSection) &&
-            formSectionKeys.has(activeSection)
-        ) {
+        // persistSection self-guards: untouched sections never hit the API.
+        if (next !== activeSection && formSectionKeys.has(activeSection)) {
             persistSection(activeSection);
         }
         setActiveSection(next);
@@ -370,9 +405,17 @@ export function EmployeeProfileForm({ employee }: EmployeeProfileFormProps) {
                     />
                 );
             case "contact_info":
-                return <ContactInfoSection form={form as unknown as EmployeeFormApi} />;
+                return (
+                    <ContactInfoSection
+                        form={form as unknown as EmployeeFormApi}
+                    />
+                );
             case "employment":
-                return <EmploymentSection form={form as unknown as EmployeeFormApi} />;
+                return (
+                    <EmploymentSection
+                        form={form as unknown as EmployeeFormApi}
+                    />
+                );
             case "education":
                 return (
                     <EducationSection
@@ -396,6 +439,24 @@ export function EmployeeProfileForm({ employee }: EmployeeProfileFormProps) {
                     <SocialInsuranceSection
                         form={form as unknown as EmployeeFormApi}
                         uuid={String(employee.id)}
+                    />
+                );
+            case "dependents":
+                return (
+                    <DependentsSection
+                        form={form as unknown as EmployeeFormApi}
+                        uuid={String(employee.id)}
+                        onPersist={handlePersist}
+                    />
+                );
+            case "document_inquiries":
+                return (
+                    <DocumentInquiriesSection
+                        form={form as unknown as EmployeeFormApi}
+                        uuid={String(employee.id)}
+                        canUpdate={
+                            employee.capabilities.document_inquiries_update
+                        }
                     />
                 );
             case "skills":

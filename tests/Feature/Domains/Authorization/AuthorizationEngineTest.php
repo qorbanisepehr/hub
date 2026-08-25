@@ -78,8 +78,7 @@ describe('Authorization engine', function () {
         $parent = Role::create(['name' => 'manager', 'display_name' => 'Manager', 'is_active' => true]);
         $parent->permissions()->attach($permission->id);
 
-        $child = Role::create(['name' => 'expert', 'display_name' => 'Expert', 'is_active' => true]);
-        $child->parentRoles()->attach($parent->id);
+        $child = Role::create(['name' => 'expert', 'display_name' => 'Expert', 'is_active' => true, 'parent_id' => $parent->id]);
 
         $user = User::factory()->create();
         $user->assignRole($child->id, true);
@@ -92,8 +91,7 @@ describe('Authorization engine', function () {
         $parent = Role::create(['name' => 'manager', 'display_name' => 'Manager', 'is_active' => true]);
         $parent->permissions()->attach($permission->id);
 
-        $child = Role::create(['name' => 'expert', 'display_name' => 'Expert', 'is_active' => true]);
-        $child->parentRoles()->attach($parent->id);
+        $child = Role::create(['name' => 'expert', 'display_name' => 'Expert', 'is_active' => true, 'parent_id' => $parent->id]);
         $child->accessRules()->create([
             'permission_id' => $permission->id,
             'effect' => AccessRuleEffect::Deny,

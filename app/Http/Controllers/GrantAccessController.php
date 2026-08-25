@@ -8,6 +8,7 @@ use App\Http\Requests\VerifyAccessOtpRequest;
 use App\Http\Responses\OtpResponder;
 use App\Services\GrantResolver;
 use App\Services\OtpService;
+use App\Services\SessionGrantStore;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Routing\Controller;
 use Symfony\Component\HttpFoundation\Response;
@@ -26,6 +27,7 @@ class GrantAccessController extends Controller
     public function __construct(
         private GrantResolver $grantResolver,
         private OtpService $otpService,
+        private SessionGrantStore $sessionGrants,
     ) {}
 
     public function requestAccess(string $entity, string $uuid): JsonResponse
@@ -59,6 +61,10 @@ class GrantAccessController extends Controller
         }
 
         $token = $this->otpService->issueGrant($resource, $channel, OtpContext::AccessProtected, $purpose);
+
+        // Bind the grant to the session so header-less browser requests
+        // (<img>, embed) can serve documents via their cookie.
+        $this->sessionGrants->remember($resource->getOtpIdentifier(), $token);
 
         return response()->json([
             'access_token' => $token,

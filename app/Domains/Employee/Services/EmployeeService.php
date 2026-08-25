@@ -5,6 +5,8 @@ namespace App\Domains\Employee\Services;
 use App\Domains\Employee\Models\Employee;
 use App\Domains\Employee\Sections\AdditionalInfoSection;
 use App\Domains\Employee\Sections\ContactInfoSection;
+use App\Domains\Employee\Sections\DependentsSection;
+use App\Domains\Employee\Sections\DocumentInquiriesSection;
 use App\Domains\Employee\Sections\EmploymentSection;
 use App\Domains\Employee\Sections\SocialInsuranceSection;
 use App\Domains\Questionnaire\Sections\EducationSection;
@@ -14,29 +16,26 @@ use App\Domains\Questionnaire\Sections\TrainingSection;
 use App\Domains\Questionnaire\Sections\WorkExperienceSection;
 use App\Support\MobileNumber;
 use App\Support\Sections\SectionDefinition;
+use App\Support\Sections\SectionRegistry;
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
-use InvalidArgumentException;
 
-class EmployeeService
+class EmployeeService extends SectionRegistry
 {
-    /** @var array<string, SectionDefinition> */
-    private array $sections;
-
-    public function __construct()
+    /**
+     * All questionnaire sections except job_request (applicant-preference
+     * fields don't apply to existing employees). Definitions are reused
+     * cross-domain to keep a single source of validation rules. Contact
+     * info and additional info use employee-specific definitions because
+     * their real-column ownership differs from the questionnaire's.
+     *
+     * @return list<class-string<SectionDefinition>>
+     */
+    protected function definitions(): array
     {
-        $this->registerSections();
-    }
-
-    private function registerSections(): void
-    {
-        // All questionnaire sections except job_request (applicant-preference
-        // fields don't apply to existing employees). Definitions are reused
-        // cross-domain to keep a single source of validation rules. Contact
-        // info and additional info use employee-specific definitions because
-        // their real-column ownership differs from the questionnaire's.
-        $definitions = [
+        return [
             PersonalInfoSection::class,
             ContactInfoSection::class,
             EmploymentSection::class,
@@ -46,34 +45,19 @@ class EmployeeService
             TrainingSection::class,
             AdditionalInfoSection::class,
             SocialInsuranceSection::class,
+            DependentsSection::class,
+            DocumentInquiriesSection::class,
         ];
-
-        foreach ($definitions as $class) {
-            $section = new $class;
-            $this->sections[$section->key()] = $section;
-        }
     }
 
     /**
-     * Merge per-category document requirements declared by the registered
-     * sections. Employee documents are uploaded in a standalone 'documents'
-     * step, so every requirement is placed at the documents section. This
-     * keeps the Employee domain independent of the Questionnaire service
-     * (only the shared section definitions are reused).
-     *
-     * @return array<string, array<string, mixed>>
+     * Employee documents are uploaded in a standalone 'documents' step, so
+     * every requirement is placed at the documents section regardless of its
+     * declaring section.
      */
-    public function getDocumentRequirements(): array
+    protected function documentsSectionKey(): ?string
     {
-        $requirements = [];
-
-        foreach ($this->sections as $section) {
-            foreach ($section->documentRequirements() as $slug => $requirement) {
-                $requirements[$slug] = $requirement + ['section_key' => 'documents'];
-            }
-        }
-
-        return $requirements;
+        return 'documents';
     }
 
     /**
@@ -96,8 +80,10 @@ class EmployeeService
 
     /**
      * Save a single section (structural validation — draft safe).
+     *
+     * @param  array<string, mixed>  $data
      */
-    public function saveSection(Employee $employee, string $sectionKey, array $data): Employee
+    public function saveSection(Employee $employee, string $sectionKey, array $data, ?Authenticatable $actor = null): Employee
     {
         $section = $this->getSection($sectionKey);
 
@@ -114,6 +100,8 @@ class EmployeeService
         if ($sectionKey === 'employment') {
             $this->assertPersonnelCodeUnique($employee, $data['personnel_code'] ?? null);
         }
+
+        $data = $section->transformForSave($data, $actor, $employee);
 
         return DB::transaction(function () use (
             $employee,
@@ -148,6 +136,16 @@ class EmployeeService
             return $employee->fresh();
         });
 
+    }
+
+    /**
+     * The permission that authorizes saving the given section: the section's
+     * own save permission when declared, else the generic update permission.
+     */
+    public function savePermissionFor(string $sectionKey): string
+    {
+        return $this->getSection($sectionKey)->savePermission()
+            ?? 'employee.update';
     }
 
     /**
@@ -190,26 +188,11 @@ class EmployeeService
             if ($validator->fails()) {
                 $allErrors = array_merge($allErrors, $validator->errors()->toArray());
             }
+
+            $allErrors = array_merge($allErrors, $section->completionDocumentErrors($employee));
         }
 
         return $allErrors;
-    }
-
-    public function getSection(string $key): SectionDefinition
-    {
-        if (! isset($this->sections[$key])) {
-            throw new InvalidArgumentException("Unknown section: {$key}");
-        }
-
-        return $this->sections[$key];
-    }
-
-    /**
-     * @return string[]
-     */
-    public function getSectionKeys(): array
-    {
-        return array_keys($this->sections);
     }
 
     /**

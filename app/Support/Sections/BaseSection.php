@@ -2,7 +2,10 @@
 
 namespace App\Support\Sections;
 
+use App\Contracts\Documentable;
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Validation\Validator;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Validator as ValidatorFactory;
 
 abstract class BaseSection implements SectionDefinition
@@ -46,11 +49,67 @@ abstract class BaseSection implements SectionDefinition
     }
 
     /**
+     * No dynamic document placements by default.
+     *
+     * @return array<string, array<string, array<string, mixed>>>
+     */
+    public function dynamicDocumentRequirements(): array
+    {
+        return [];
+    }
+
+    /**
+     * No owned field-key labels by default.
+     */
+    public function documentFieldKeyLabel(Documentable $entity, string $fieldKey): ?string
+    {
+        return null;
+    }
+
+    /**
+     * No owned field-key slugs by default; the service falls back to the
+     * generic ordinal rule for repeater-style keys.
+     */
+    public function documentFieldKeySlug(Documentable $entity, string $fieldKey): ?string
+    {
+        return null;
+    }
+
+    /**
+     * No required-document completion checks by default.
+     *
+     * @return array<string, string[]>
+     */
+    public function completionDocumentErrors(Documentable $entity): array
+    {
+        return [];
+    }
+
+    /**
      * Cross-field validation hook. Override in concrete sections.
      */
     protected function afterValidation(Validator $validator, array $data, string $mode): void
     {
         // Override for cross-field checks (e.g. date ranges, min age).
+    }
+
+    /**
+     * Persist the validated data unchanged by default.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    public function transformForSave(array $data, ?Authenticatable $actor, Model $entity): array
+    {
+        return $data;
+    }
+
+    /**
+     * No section-specific save permission by default.
+     */
+    public function savePermission(): ?string
+    {
+        return null;
     }
 
     /**

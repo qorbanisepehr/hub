@@ -73,6 +73,16 @@ export const EMPLOYEE_SECTIONS = [
         label: "اطلاعات تکمیلی",
         description: "علایق، ارجاعات و نقاط قوت",
     },
+    {
+        key: "dependents",
+        label: "بستگان و افراد تحت تکفل",
+        description: "همسر، فرزندان و والدین",
+    },
+    {
+        key: "document_inquiries",
+        label: "استعلام مدارک",
+        description: "استعلام تحصیلی، سوءپیشینه و بیمه",
+    },
 ] as const;
 
 export const EMPLOYEE_DOCUMENTS_TAB = {
@@ -134,6 +144,14 @@ export const EMPLOYEE_SECTION_DOCS: { key: string; slugs: string[] }[] = [
             DOC_CATEGORY_SLUGS.RESEARCH_DOCUMENTS,
         ],
     },
+    {
+        key: "dependents",
+        slugs: [DOC_CATEGORY_SLUGS.NATIONAL_CARD, DOC_CATEGORY_SLUGS.BIRTH_CERTIFICATE],
+    },
+    {
+        key: "document_inquiries",
+        slugs: [DOC_CATEGORY_SLUGS.INQUIRY_RESULT],
+    },
 ];
 
 /**
@@ -190,6 +208,20 @@ export const EMPLOYEE_DOC_REQUIREMENTS: DocumentRequirement[] = [
     },
     { slug: DOC_CATEGORY_SLUGS.COVER_LETTER, label: "نامه معرفی", max: 1 },
     { slug: DOC_CATEGORY_SLUGS.OTHER_DOCUMENTS, label: "سایر مدارک", max: 3 },
+];
+
+/**
+ * Categories whose pages are required PER dependent row (mirrors
+ * DependentsSection::dependentDocumentRequirements on the server — the page
+ * counts themselves always come from the requirements endpoint, never
+ * hardcoded here; only the display labels live on the client).
+ */
+export const DEPENDENT_DOC_CATEGORIES: {
+    slug: string;
+    label: string;
+}[] = [
+    { slug: DOC_CATEGORY_SLUGS.NATIONAL_CARD, label: "کارت ملی" },
+    { slug: DOC_CATEGORY_SLUGS.BIRTH_CERTIFICATE, label: "شناسنامه" },
 ];
 
 // Identity fields live on the real columns, not inside the JSONB section, so

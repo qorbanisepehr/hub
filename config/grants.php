@@ -13,6 +13,9 @@ return [
     | Entities are addressed as `{entity}:{purpose}` via the `grant.access`
     | middleware (e.g. `grant.access:questionnaire,edit`).
     |
+    | `view_permission` is the HR-side permission accepted by `grant.serve`
+    | when serving documents of that entity to authenticated users.
+    |
     | Adding a new protected entity (e.g. a CV) is a single line here plus its
     | own routes.
     |
@@ -22,10 +25,12 @@ return [
         'questionnaire' => [
             'model' => Questionnaire::class,
             'channel' => 'mobile',
+            'view_permission' => 'questionnaire.view',
         ],
         'cv' => [
             'model' => Cv::class,
             'channel' => 'mobile',
+            'view_permission' => 'cv.view',
         ],
     ],
 ];

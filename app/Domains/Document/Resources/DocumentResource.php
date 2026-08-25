@@ -25,14 +25,16 @@ class DocumentResource extends JsonResource
 
         $category = $document->category;
         $metadata = $usage?->metadata ?? [];
+        $names = $usage ? $this->structureNames($document, $usage) : null;
 
         return [
             'id' => $usage?->id,
             'document_id' => $document->id,
             'uuid' => $document->uuid,
-            'structure_name' => $usage
-                ? $this->structureName($document, $usage)
-                : ($category?->name ?? __('document.document')),
+            'structure_name' => $names['name']
+                ?? ($category?->name ?? __('document.document')),
+            'structure_name_slug' => $names['slug']
+                ?? ($category?->slug ?? 'document'),
             'original_name' => $document->original_name,
             'mime_type' => $document->mime_type,
             'size' => $document->size,
@@ -82,8 +84,11 @@ class DocumentResource extends JsonResource
         ];
     }
 
-    private function structureName(Document $document, DocumentUsage $usage): string
+    /**
+     * @return array{name: string, slug: string}
+     */
+    private function structureNames(Document $document, DocumentUsage $usage): array
     {
-        return app(DocumentService::class)->structureName($document, $usage);
+        return app(DocumentService::class)->structureNames($document, $usage);
     }
 }

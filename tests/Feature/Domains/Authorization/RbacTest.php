@@ -54,8 +54,7 @@ describe('RBAC', function () {
             $parent = Role::create(['name' => 'employee', 'display_name' => 'Employee', 'is_active' => true]);
             $parent->permissions()->attach($perm1->id);
 
-            $child = Role::create(['name' => 'manager', 'display_name' => 'Manager', 'is_active' => true]);
-            $child->parentRoles()->attach($parent->id);
+            $child = Role::create(['name' => 'manager', 'display_name' => 'Manager', 'is_active' => true, 'parent_id' => $parent->id]);
             $child->permissions()->attach($perm2->id);
 
             $allPermissions = $child->getAllPermissions();
@@ -72,11 +71,9 @@ describe('RBAC', function () {
             $grandparent = Role::create(['name' => 'director', 'display_name' => 'Director', 'is_active' => true]);
             $grandparent->permissions()->attach($perm->id);
 
-            $parent = Role::create(['name' => 'vp', 'display_name' => 'VP', 'is_active' => true]);
-            $parent->parentRoles()->attach($grandparent->id);
+            $parent = Role::create(['name' => 'vp', 'display_name' => 'VP', 'is_active' => true, 'parent_id' => $grandparent->id]);
 
-            $child = Role::create(['name' => 'lead', 'display_name' => 'Lead', 'is_active' => true]);
-            $child->parentRoles()->attach($parent->id);
+            $child = Role::create(['name' => 'lead', 'display_name' => 'Lead', 'is_active' => true, 'parent_id' => $parent->id]);
 
             $user = User::factory()->create();
             $user->assignRole($child->id, true);
@@ -112,8 +109,7 @@ describe('RBAC', function () {
 
         it('detects parent-child relationship', function () {
             $parent = Role::create(['name' => 'parent', 'display_name' => 'Parent', 'is_active' => true]);
-            $child = Role::create(['name' => 'child', 'display_name' => 'Child', 'is_active' => true]);
-            $child->parentRoles()->attach($parent->id);
+            $child = Role::create(['name' => 'child', 'display_name' => 'Child', 'is_active' => true, 'parent_id' => $parent->id]);
 
             expect($child->isChildOf($parent))->toBeTrue();
             expect($parent->isChildOf($child))->toBeFalse();

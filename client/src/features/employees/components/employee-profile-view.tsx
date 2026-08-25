@@ -11,6 +11,11 @@ import {
 } from "@/features/employees/constants";
 import { useEmployeeDocuments } from "@/features/employees/hooks/use-employee-documents";
 import type { Employee } from "@/features/employees/types";
+import { useRowDocsFeedback } from "@/features/documents/hooks/use-row-docs-feedback";
+import {
+    educationRowLabel,
+    EDUCATION_ROW_DOC_CATEGORIES,
+} from "@/features/questionnaire/education-docs";
 import { QuestionnaireDocumentPreview } from "@/components/documents";
 import { PersonalInfoView } from "@/components/section-views/personal-info-view";
 import { ContactInfoView } from "@/components/section-views/contact-info-view";
@@ -20,6 +25,8 @@ import { SkillsView } from "@/components/section-views/skills-view";
 import { TrainingView } from "@/components/section-views/training-view";
 import { AdditionalInfoView } from "@/components/section-views/additional-info-view";
 import { EmploymentInfoView } from "./views/employment-info-view";
+import { DependentsView } from "./views/dependents-view";
+import { DocumentInquiriesView } from "./views/document-inquiries-view";
 import { SocialInsuranceView } from "./views/social-insurance-view";
 import { DOC_CATEGORY_SLUGS } from "@/features/questionnaire/constants";
 import { FileThumbnail } from "@/components/ui/file-thumbnail";
@@ -34,6 +41,24 @@ export function EmployeeProfileView({ employee }: EmployeeProfileViewProps) {
     );
     const { getDocumentsBySlug, capabilities } = useEmployeeDocuments(
         employee.id,
+    );
+
+    const educationRecords = Array.isArray(
+        (employee.section_education ?? {}).education_records,
+    )
+        ? ((employee.section_education as Record<string, unknown>)
+              .education_records as Record<string, unknown>[])
+        : [];
+    const { getMissing: educationMissing } = useRowDocsFeedback(
+        {
+            entity: "employees",
+            uuid: employee.id,
+            sectionKey: "education",
+            categories: EDUCATION_ROW_DOC_CATEGORIES,
+            fieldKeyFor: (index) => `edu-${index}`,
+        },
+        educationRecords,
+        { rowLabel: educationRowLabel },
     );
     const tabs = [
         ...EMPLOYEE_SECTIONS,
@@ -74,6 +99,8 @@ export function EmployeeProfileView({ employee }: EmployeeProfileViewProps) {
         skills: employee.section_skills ?? {},
         training: employee.section_training ?? {},
         additional_info: employee.section_additional_info ?? {},
+        dependents: employee.section_dependents ?? {},
+        document_inquiries: employee.section_document_inquiries ?? {},
     };
 
     function docsFor(key: string) {
@@ -139,6 +166,7 @@ export function EmployeeProfileView({ employee }: EmployeeProfileViewProps) {
         education: () => (
             <EducationView
                 data={sectionData.education}
+                missingFor={educationMissing}
                 extra={docExtra("education")}
             />
         ),
@@ -160,6 +188,13 @@ export function EmployeeProfileView({ employee }: EmployeeProfileViewProps) {
         ),
         additional_info: () => (
             <AdditionalInfoView data={sectionData.additional_info} />
+        ),
+        dependents: () => <DependentsView employee={employee} />,
+        document_inquiries: () => (
+            <DocumentInquiriesView
+                employee={employee}
+                data={sectionData.document_inquiries}
+            />
         ),
     };
 

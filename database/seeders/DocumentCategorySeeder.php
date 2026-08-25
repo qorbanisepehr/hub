@@ -132,6 +132,15 @@ class DocumentCategorySeeder extends Seeder
                     ['name' => 'سایر مدارک', 'slug' => 'other-documents', 'sort_order' => 1],
                 ],
             ],
+            [
+                'name' => 'استعلام‌ها',
+                'slug' => 'inquiries',
+                'sort_order' => 12,
+                'type' => DocumentCategory::TYPE_PERSONNEL,
+                'children' => [
+                    ['name' => 'نتیجه استعلام', 'slug' => 'inquiry-result', 'sort_order' => 1],
+                ],
+            ],
         ];
 
         foreach ($categories as $parentData) {

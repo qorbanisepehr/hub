@@ -5,32 +5,16 @@ import {
 } from "@tanstack/react-table";
 import { Link } from "@tanstack/react-router";
 import { IconMasksTheater, IconPencil, IconUser } from "@tabler/icons-react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { DataTableColumnHeader } from "@/components/data-table";
 import { RowActions } from "@/components/shared/row-actions";
+import { UserAvatar } from "@/components/shared/user-avatar";
 import { PERMISSIONS } from "@/lib/permissions";
 import { RoleBadge } from "@/features/rbac/components/role-badge";
 import { UserRoleManager } from "@/features/rbac/components/user-role-manager";
 import { ResponsiveDialog } from "@/components/ui/responsive-dialog";
 import { getUserDisplayName } from "@/lib/user-display";
 import type { UserListItem } from "@/features/rbac/types";
-
-function UserAvatar({ name, avatarUrl }: { name: string; avatarUrl: string | null }) {
-    const initials = name
-        .split(" ")
-        .map((w) => w[0])
-        .slice(0, 2)
-        .join("")
-        .toUpperCase();
-
-    return (
-        <Avatar size="sm">
-            <AvatarImage src={avatarUrl ?? undefined} alt={name} />
-            <AvatarFallback>{initials}</AvatarFallback>
-        </Avatar>
-    );
-}
 
 export function getUserColumns(): ColumnDef<StockFeatures, UserListItem>[] {
     return [

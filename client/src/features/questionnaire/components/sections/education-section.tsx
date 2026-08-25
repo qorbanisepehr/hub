@@ -12,15 +12,24 @@ import {
     FormOptionSelectField,
     FormOptionComboboxField,
 } from "@/components/forms";
-import { FileUploadField } from "@/components/documents";
+import {
+    FileUploadField,
+    MissingDocsBadge,
+    RowDocsPanel,
+} from "@/components/documents";
 import { repeaterAttachmentColumn } from "@/components/forms";
 import { FormRepeater } from "@/components/forms";
 import type { TableColumn } from "@/components/forms";
+import { useRowDocsFeedback } from "@/features/documents/hooks/use-row-docs-feedback";
 import {
     YES_NO_OPTIONS,
     parseBoolean,
 } from "@/features/questionnaire/constants";
 import { DOC_CATEGORY_SLUGS } from "@/features/questionnaire/constants";
+import {
+    educationRowLabel,
+    EDUCATION_ROW_DOC_CATEGORIES,
+} from "@/features/questionnaire/education-docs";
 import { optionEnum } from "@/features/form-options/schema";
 import { useFormOptionsByGroup } from "@/features/form-options/hooks/use-form-options";
 import { useEntityDocuments } from "@/hooks/use-entity-documents";
@@ -38,6 +47,18 @@ type SectionProps = {
 
 export function EducationSection({ form, uuid, onPersist, entity = "questionnaire" }: SectionProps) {
     const { getDocumentsBySlug } = useEntityDocuments(entity, uuid);
+
+    const { isLoading: docsLoading, getMissing } = useRowDocsFeedback(
+        {
+            entity,
+            uuid,
+            sectionKey: "education",
+            categories: EDUCATION_ROW_DOC_CATEGORIES,
+            fieldKeyFor: (index) => `edu-${index}`,
+        },
+        [],
+        { rowLabel: educationRowLabel },
+    );
 
     const { data: degreeOptions } = useFormOptionsByGroup("degree");
     const { data: universityOptions } = useFormOptionsByGroup("university");
@@ -59,6 +80,13 @@ export function EducationSection({ form, uuid, onPersist, entity = "questionnair
         { key: "from", label: "از تاریخ", type: "date" },
         { key: "to", label: "تا تاریخ", type: "date" },
         { key: "gpa", label: "معدل" },
+        {
+            key: "_docs_status",
+            label: "وضعیت مدارک",
+            render: (_value, _item, index) => (
+                <MissingDocsBadge missing={getMissing(index)} />
+            ),
+        },
         repeaterAttachmentColumn({
             categorySlug: DOC_CATEGORY_SLUGS.ACADEMIC_DEGREE,
             fieldKeyPrefix: "edu-",
@@ -92,8 +120,19 @@ export function EducationSection({ form, uuid, onPersist, entity = "questionnair
                                 to: item.to,
                                 gpa: item.gpa,
                             })}
-                            renderItem={(index) => (
-                                <div className="space-y-4">
+                            renderHeader={(item, index) => (
+                                <span className="flex items-center gap-2 font-medium">
+                                    {educationRowLabel(item, index)}
+                                    <MissingDocsBadge
+                                        missing={getMissing(index)}
+                                    />
+                                </span>
+                            )}
+                            renderItem={(index) => {
+                                const missing = getMissing(index);
+
+                                return (
+                                    <div className="space-y-4">
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                         <form.Field
                                             name={`education.education_records.${index}.degree`}
@@ -222,20 +261,29 @@ export function EducationSection({ form, uuid, onPersist, entity = "questionnair
                                             )}
                                         </form.Field>
                                     </div>
-                                    {uuid && (
-                                        <FileUploadField
-                                            uuid={uuid}
-                                            entity={entity}
-                                            categorySlug={
-                                                DOC_CATEGORY_SLUGS.ACADEMIC_DEGREE
-                                            }
-                                            label="مدرک تحصیلی"
-                                            fieldKey={`edu-${index}`}
-                                        />
-                                    )}
+                                    <RowDocsPanel
+                                        title="مدارک این سابقه"
+                                        isLoading={docsLoading}
+                                        missing={missing}
+                                        columns={1}
+                                    >
+                                        {uuid && (
+                                            <FileUploadField
+                                                uuid={uuid}
+                                                entity={entity}
+                                                categorySlug={
+                                                    DOC_CATEGORY_SLUGS.ACADEMIC_DEGREE
+                                                }
+                                                label="مدرک تحصیلی"
+                                                fieldKey={`edu-${index}`}
+                                                sectionKey="education"
+                                            />
+                                        )}
+                                    </RowDocsPanel>
                                 </div>
-                            )}
-                        />
+                            );
+                        }}
+                    />
                     )}
                 </form.Field>
 

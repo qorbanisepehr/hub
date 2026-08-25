@@ -115,11 +115,18 @@ class EmployeeController extends ApiController
 
     public function saveSection(Employee $employee, string $section, SaveEmployeeSectionRequest $request): EmployeeResource
     {
-        $this->authorization->authorize($request->user(), 'employee.update', $employee);
+        $actor = $request->user();
+        $authorization = app(Authorization::class);
+        // OR semantics: the section's own save permission is sufficient on
+        // its own, and the generic update permission keeps working.
+        if (! $authorization->can($actor, 'employee.update', $employee)
+            && ! $authorization->can($actor, $this->employeeService->savePermissionFor($section), $employee)) {
+            abort(403, __('messages.permission_denied'));
+        }
 
         $oldValues = $employee->toArray();
 
-        $employee = $this->employeeService->saveSection($employee, $section, $request->validated());
+        $employee = $this->employeeService->saveSection($employee, $section, $request->validated(), $request->user());
 
         $newValues = $employee->toArray();
         $employee->load(['user']);

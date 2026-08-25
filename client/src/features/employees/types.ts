@@ -2,6 +2,7 @@ export type EmployeeCapabilities = {
     view: boolean;
     edit: boolean;
     delete: boolean;
+    document_inquiries_update: boolean;
     documents_view: boolean;
     documents_upload: boolean;
     documents_delete: boolean;
@@ -30,6 +31,8 @@ export type Employee = {
     section_additional_info: Record<string, unknown> | null;
     social_insurance_number: string | null;
     section_social_insurance: Record<string, unknown> | null;
+    section_dependents: Record<string, unknown> | null;
+    section_document_inquiries: Record<string, unknown> | null;
     user: {
         id: number;
         name: string;
@@ -64,6 +67,8 @@ export type EmployeeProfileFormData = {
     training?: Record<string, unknown>;
     additional_info?: Record<string, unknown>;
     social_insurance?: Record<string, unknown>;
+    dependents?: Record<string, unknown>;
+    document_inquiries?: Record<string, unknown>;
 };
 
 export type EmployeeFormApi = SectionFormApi;

@@ -9,6 +9,7 @@ use App\Domains\Questionnaire\Services\QuestionnaireService;
 use App\Enums\OtpContext;
 use App\Models\PendingVerification;
 use App\Services\OtpService;
+use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
@@ -1909,7 +1910,82 @@ describe('document serve via uuid', function () {
             'file' => fakePhotoUpload(),
         ])->assertCreated();
 
-        $this->get($response->json('data.url').'&thumbnail=1')->assertOk();
+        $this->get($response->json('data.url').'?thumbnail=1')->assertOk();
+    });
+
+    it('rejects serving without any credential', function () {
+        Storage::fake('local');
+        $questionnaire = Questionnaire::create([
+            'first_name' => 'Test',
+            'last_name' => 'User',
+            'email' => 'test@example.com',
+            'mobile' => '09121234567',
+            'status' => 'draft',
+            'mobile_verified_at' => now(),
+            'email_verified_at' => now(),
+        ]);
+        $document = Document::factory()->create();
+        DocumentUsage::create([
+            'document_id' => $document->id,
+            'entity_type' => Questionnaire::class,
+            'entity_id' => $questionnaire->id,
+        ]);
+
+        $this->withHeaders(['origin' => 'http://localhost'])
+            ->get("/api/questionnaire/documents/{$document->uuid}/serve")
+            ->assertStatus(401);
+    });
+
+    it('binds the access otp grant to the session so header-less requests can serve', function () {
+        Storage::fake('local');
+        // Inline model creation: createDraft() attaches a default
+        // X-Access-Token header, which this test must not rely on.
+        $questionnaire = Questionnaire::create([
+            'first_name' => 'Test',
+            'last_name' => 'User',
+            'email' => 'test@example.com',
+            'mobile' => '09121234567',
+            'status' => 'draft',
+            'mobile_verified_at' => now(),
+            'email_verified_at' => now(),
+        ]);
+
+        Cache::put(
+            "otp:access_protected:questionnaire:{$questionnaire->uuid}:mobile",
+            ['hash' => Hash::make('123456')],
+            now()->addMinutes(5),
+        );
+
+        $this->withoutMiddleware(PreventRequestForgery::class);
+
+        $token = $this->withHeaders(['origin' => 'http://localhost'])
+            ->postJson("/api/questionnaire/{$questionnaire->uuid}/verify-access-otp", [
+                'otp' => '123456',
+                'purpose' => 'edit',
+            ])
+            ->assertOk()
+            ->json('access_token');
+
+        expect($token)->not->toBeEmpty();
+
+        $category = DocumentCategory::create([
+            'name' => 'تصویر پرسنلی',
+            'slug' => 'personnel-photo',
+            'type' => DocumentCategory::TYPE_PERSONNEL,
+        ]);
+        $this->withHeader('X-Access-Token', $token)
+            ->postJson("/api/questionnaire/{$questionnaire->uuid}/documents", [
+                'document_category_id' => $category->id,
+                'file' => fakePhotoUpload(),
+            ])->assertCreated();
+
+        $serveUrl = route('questionnaire.documents.serve', ['uuid' => Document::first()->uuid], false);
+
+        // No token header — only the session cookie from OTP verification.
+        $this->flushHeaders();
+        $this->withHeaders(['origin' => 'http://localhost'])
+            ->get($serveUrl)
+            ->assertOk();
     });
 
     it('returns 404 for an unknown or unattached document uuid', function () {

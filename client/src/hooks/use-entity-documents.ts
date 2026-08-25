@@ -9,6 +9,7 @@ export type EntityDocument = {
     usage_id: number;
     uuid: string;
     structure_name: string;
+    structure_name_slug?: string;
     mime_type: string;
     size: number;
     category: { id: number; name: string; slug: string } | null;

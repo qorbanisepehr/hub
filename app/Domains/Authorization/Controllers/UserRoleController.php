@@ -23,7 +23,7 @@ class UserRoleController
     {
         $this->authorization->authorize($request->user(), 'user.view', $user);
 
-        $roles = $user->roles()->with(['parentRoles', 'permissions.group'])->get();
+        $roles = $user->roles()->with(['parent', 'permissions.group'])->get();
         $activeRole = $user->activeRole;
 
         return response()->json([

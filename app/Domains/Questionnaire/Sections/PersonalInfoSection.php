@@ -2,6 +2,7 @@
 
 namespace App\Domains\Questionnaire\Sections;
 
+use App\Contracts\Documentable;
 use App\Rules\FormOptionValue;
 use App\Rules\IdNumberRule;
 use App\Support\Sections\BaseSection;
@@ -49,6 +50,35 @@ class PersonalInfoSection extends BaseSection
                 ],
             ],
         ];
+    }
+
+    /**
+     * Labels for the static field keys declared in documentRequirements()
+     * (national-card front/back, birth-certificate pages).
+     */
+    public function documentFieldKeyLabel(Documentable $entity, string $fieldKey): ?string
+    {
+        return [
+            'front' => __('questionnaire.documents.fields.front'),
+            'back' => __('questionnaire.documents.fields.back'),
+            'page-1' => __('questionnaire.documents.fields.page_1'),
+            'page-2' => __('questionnaire.documents.fields.page_2'),
+            'page-3' => __('questionnaire.documents.fields.page_3'),
+        ][$fieldKey] ?? null;
+    }
+
+    /**
+     * ASCII counterpart of documentFieldKeyLabel() for the same static keys.
+     */
+    public function documentFieldKeySlug(Documentable $entity, string $fieldKey): ?string
+    {
+        return [
+            'front' => 'front',
+            'back' => 'back',
+            'page-1' => 'page-1',
+            'page-2' => 'page-2',
+            'page-3' => 'page-3',
+        ][$fieldKey] ?? null;
     }
 
     public function fields(): array

@@ -17,6 +17,7 @@ use App\Enums\OtpSendStatus;
 use App\Http\Responses\OtpResponder;
 use App\Models\PendingVerification;
 use App\Services\OtpService;
+use App\Services\SessionGrantStore;
 use App\Support\MobileNumber;
 use App\Support\ValidationRules;
 use Illuminate\Http\JsonResponse;
@@ -32,6 +33,7 @@ class CvController extends Controller
         private Authorization $authorization,
         private CvService $cvService,
         private OtpService $otpService,
+        private SessionGrantStore $sessionGrants,
     ) {}
 
     public function init(InitCvRequest $request): JsonResponse
@@ -125,6 +127,10 @@ class CvController extends Controller
         $pending->delete();
 
         $token = $this->otpService->issueGrant($cv, 'mobile', OtpContext::AccessProtected, GrantPurpose::Edit);
+
+        // Bind the grant to the session so header-less browser requests
+        // (<img>, embed) can serve documents via their cookie.
+        $this->sessionGrants->remember($cv->getOtpIdentifier(), $token);
 
         return response()->json([
             'data' => new CvResource($cv->fresh()),

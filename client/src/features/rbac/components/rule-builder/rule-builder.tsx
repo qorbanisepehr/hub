@@ -1,13 +1,20 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { IconPlus, IconTrash } from "@tabler/icons-react";
+import { IconPlus, IconSearch, IconTrash } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 import { usePermissions } from "@/features/rbac/hooks/use-permissions";
 import { fetchRuleBuilderMeta } from "@/features/rbac/api";
 import { ruleBuilderKeys } from "@/lib/query-keys";
@@ -22,6 +29,19 @@ import { RuleEditorDialog } from "./rule-editor-dialog";
 
 function flattenPermissions(groups: PermissionGroup[] | undefined): Permission[] {
     return groups?.flatMap((group) => group.permissions ?? []) ?? [];
+}
+
+const STATUS_FILTERS = {
+    all: "همه",
+    conditional: "دارای شرط",
+    unconditional: "نامشروط",
+} as const;
+
+type StatusFilter = keyof typeof STATUS_FILTERS;
+
+/** A rule counts as conditional when its policy tree has at least one leaf. */
+function hasConditions(rule: AccessRuleInput): boolean {
+    return (rule.policy?.all?.length ?? 0) > 0;
 }
 
 interface RuleBuilderProps {
@@ -49,6 +69,49 @@ export function RuleBuilder({ value, onChange }: RuleBuilderProps) {
 
     const [editorOpen, setEditorOpen] = useState(false);
     const [editingIndex, setEditingIndex] = useState<number | null>(null);
+    const [search, setSearch] = useState("");
+    const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+
+    /**
+     * Plain allow rules granted through the permission selector also appear
+     * here as unconditional rules, so the status filter is how users isolate
+     * the rules that actually carry policy conditions.
+     */
+    const visibleRules = useMemo(() => {
+        const normalizedSearch = search.trim().toLowerCase();
+
+        return value
+            .map((rule, index) => ({ rule, index }))
+            .filter(({ rule }) => {
+                if (
+                    statusFilter === "conditional" &&
+                    !hasConditions(rule)
+                ) {
+                    return false;
+                }
+                if (
+                    statusFilter === "unconditional" &&
+                    hasConditions(rule)
+                ) {
+                    return false;
+                }
+                if (!normalizedSearch) {
+                    return true;
+                }
+
+                const permission = permissionById.get(rule.permission_id);
+
+                return (
+                    permission?.display_name
+                        .toLowerCase()
+                        .includes(normalizedSearch) ||
+                    permission?.name.toLowerCase().includes(normalizedSearch)
+                );
+            });
+    }, [value, search, statusFilter, permissionById]);
+
+    const isFiltering =
+        search.trim().length > 0 || statusFilter !== "all";
 
     const openEditor = (index: number | null) => {
         setEditingIndex(index);
@@ -84,112 +147,142 @@ export function RuleBuilder({ value, onChange }: RuleBuilderProps) {
         editingIndex !== null ? value[editingIndex] : undefined;
 
     return (
-        <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-                <div className="flex items-center gap-2">
-                    <CardTitle className="text-base">
-                        قوانین دسترسی شرطی
-                    </CardTitle>
-                    {value.length > 0 && (
-                        <Badge variant="secondary" className="text-xs">
-                            {value.length} قانون
-                        </Badge>
-                    )}
+        <div className="space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+                <div className="relative min-w-36 flex-1">
+                    <IconSearch className="absolute start-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                        type="search"
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        placeholder="جستجو در قوانین..."
+                        className="ps-9"
+                    />
                 </div>
+                <Select
+                    value={statusFilter}
+                    onValueChange={(val) =>
+                        setStatusFilter((val ?? "all") as StatusFilter)
+                    }
+                    itemToStringLabel={(val) => STATUS_FILTERS[val]}
+                >
+                    <SelectTrigger
+                        aria-label="فیلتر قوانین"
+                        className="w-32 shrink-0 gap-2"
+                    >
+                        <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {Object.entries(STATUS_FILTERS).map(
+                            ([value, label]) => (
+                                <SelectItem key={value} value={value}>
+                                    {label}
+                                </SelectItem>
+                            ),
+                        )}
+                    </SelectContent>
+                </Select>
+                {isFiltering && value.length > 0 && (
+                    <Badge variant="secondary" className="shrink-0 text-xs">
+                        {visibleRules.length} از {String(value.length)}
+                    </Badge>
+                )}
                 <Button
                     type="button"
                     variant="outline"
                     size="sm"
                     onClick={() => openEditor(null)}
-                    className="gap-1.5"
+                    className="ms-auto shrink-0 gap-1.5"
                 >
                     <IconPlus className="size-4" />
                     افزودن قانون
                 </Button>
-            </CardHeader>
-            <CardContent>
-                {isLoading ? (
-                    <div className="space-y-2">
-                        <Skeleton className="h-14 w-full rounded-lg" />
-                        <Skeleton className="h-14 w-full rounded-lg" />
-                    </div>
-                ) : value.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">
-                        قانون شرطی تعریف نشده است. با افزودن قانون، می‌توانید
-                        دسترسی‌های شرطی بر اساس ویژگی‌های کاربر یا منبع تعیین
-                        کنید.
-                    </p>
-                ) : (
-                    <div className="space-y-2">
-                        {value.map((rule, index) => {
-                            const permission = permissionById.get(
-                                rule.permission_id,
-                            );
-                            const conditionCount =
-                                rule.policy?.all?.length ?? 0;
+            </div>
+            {isLoading ? (
+                <div className="space-y-2">
+                    <Skeleton className="h-14 w-full rounded-lg" />
+                    <Skeleton className="h-14 w-full rounded-lg" />
+                </div>
+            ) : value.length === 0 ? (
+                <p className="rounded-lg border border-dashed px-3 py-6 text-center text-sm text-muted-foreground">
+                    قانون شرطی تعریف نشده است. با افزودن قانون، می‌توانید
+                    دسترسی‌های شرطی بر اساس ویژگی‌های کاربر یا منبع تعیین
+                    کنید.
+                </p>
+            ) : visibleRules.length === 0 ? (
+                <p className="rounded-lg border border-dashed px-3 py-6 text-center text-sm text-muted-foreground">
+                    موردی یافت نشد
+                </p>
+            ) : (
+                <div className="max-h-96 space-y-2 overflow-y-auto overscroll-contain pe-1">
+                    {visibleRules.map(({ rule, index }) => {
+                        const permission = permissionById.get(
+                            rule.permission_id,
+                        );
+                        const conditionCount =
+                            rule.policy?.all?.length ?? 0;
 
-                            return (
-                                <div
-                                    key={`${rule.permission_id}-${index}`}
-                                    className={cn(
-                                        "flex flex-wrap items-center gap-3 rounded-lg border p-3",
-                                        !rule.is_active && "opacity-60",
-                                    )}
+                        return (
+                            <div
+                                key={`${rule.permission_id}-${index}`}
+                                className={cn(
+                                    "flex flex-wrap items-center gap-3 rounded-lg border p-3",
+                                    !rule.is_active && "opacity-60",
+                                )}
+                            >
+                                <Badge
+                                    variant={
+                                        rule.effect === "allow"
+                                            ? "default"
+                                            : "destructive"
+                                    }
+                                    className="shrink-0"
                                 >
-                                    <Badge
-                                        variant={
-                                            rule.effect === "allow"
-                                                ? "default"
-                                                : "destructive"
-                                        }
-                                        className="shrink-0"
-                                    >
-                                        {EFFECT_LABELS[rule.effect]}
-                                    </Badge>
-                                    <div className="min-w-0 flex-1">
-                                        <p className="truncate text-sm font-medium">
-                                            {permission?.display_name ??
-                                                `مجوز #${String(rule.permission_id)}`}
-                                        </p>
-                                        <p className="truncate text-xs text-muted-foreground">
-                                            {conditionCount > 0
-                                                ? `${conditionCount} شرط فعال`
-                                                : "دسترسی نامشروط"}
-                                            {rule.priority !== null &&
-                                            rule.priority !== 0
-                                                ? ` • اولویت ${String(rule.priority)}`
-                                                : ""}
-                                        </p>
-                                    </div>
-                                    <Switch
-                                        size="sm"
-                                        checked={rule.is_active ?? true}
-                                        onCheckedChange={(checked) =>
-                                            handleToggleActive(index, checked)
-                                        }
-                                    />
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => openEditor(index)}
-                                    >
-                                        ویرایش
-                                    </Button>
-                                    <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="icon-sm"
-                                        onClick={() => handleDelete(index)}
-                                    >
-                                        <IconTrash className="size-4" />
-                                    </Button>
+                                    {EFFECT_LABELS[rule.effect]}
+                                </Badge>
+                                <div className="min-w-0 flex-1">
+                                    <p className="truncate text-sm font-medium">
+                                        {permission?.display_name ??
+                                            `مجوز #${String(rule.permission_id)}`}
+                                    </p>
+                                    <p className="truncate text-xs text-muted-foreground">
+                                        {conditionCount > 0
+                                            ? `${conditionCount} شرط فعال`
+                                            : "دسترسی نامشروط"}
+                                        {rule.priority !== null &&
+                                        rule.priority !== 0
+                                            ? ` • اولویت ${String(rule.priority)}`
+                                            : ""}
+                                    </p>
                                 </div>
-                            );
-                        })}
-                    </div>
-                )}
-            </CardContent>
+                                <Switch
+                                    size="sm"
+                                    checked={rule.is_active ?? true}
+                                    onCheckedChange={(checked) =>
+                                        handleToggleActive(index, checked)
+                                    }
+                                />
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => openEditor(index)}
+                                >
+                                    ویرایش
+                                </Button>
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon-sm"
+                                    onClick={() => handleDelete(index)}
+                                >
+                                    <IconTrash className="size-4" />
+                                </Button>
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
 
             <RuleEditorDialog
                 open={editorOpen}
@@ -199,6 +292,6 @@ export function RuleBuilder({ value, onChange }: RuleBuilderProps) {
                 permissions={permissions}
                 initialRule={draft}
             />
-        </Card>
+        </div>
     );
 }

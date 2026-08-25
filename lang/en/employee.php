@@ -14,6 +14,33 @@ return [
         'skills' => 'Skills',
         'training' => 'Training & Courses',
         'additional_info' => 'Additional Information',
+        'social_insurance' => 'Social Insurance',
+        'dependents' => 'Dependents',
+        'document_inquiries' => 'Document Inquiries',
+    ],
+    'dependents' => [
+        'fields' => [
+            'relationship_type' => 'Relationship type',
+            'first_name' => 'First name',
+            'last_name' => 'Last name',
+            'id_number' => 'National ID',
+            'gender' => 'Gender',
+            'birth_date' => 'Birth date',
+        ],
+        'validation' => [
+            'birth_date_not_future' => 'The dependent birth date cannot be in the future.',
+        ],
+        'field_label' => 'Dependent :n',
+    ],
+    'document_inquiries' => [
+        'field_labels' => [
+            'education_degree' => 'Education degree inquiry :n',
+            'criminal-record' => 'Criminal record inquiry',
+            'social-insurance' => 'Social insurance inquiry',
+        ],
+        'validation' => [
+            'invalid_education_index' => 'Invalid education record reference for an inquiry.',
+        ],
     ],
     'documents' => [
         'max_files_reached' => 'The maximum of :count files for this document type has been reached.',
