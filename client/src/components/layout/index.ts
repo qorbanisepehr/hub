@@ -1,4 +1,5 @@
 export { PageHeader } from './page-header';
+export { AppBreadcrumb } from './app-breadcrumb';
 export { PageLayout } from './page-layout';
 export { PageSkeleton } from './page-skeleton';
 export { ViewSkeleton } from './view-skeleton';
