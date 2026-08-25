@@ -196,6 +196,11 @@ class DocumentInquiriesSection extends BaseSection
         }
     }
 
+    public function savePermission(): ?string
+    {
+        return 'employee.document_inquiries.update';
+    }
+
     /**
      * Stamp every inquiry node whose content changed with who last touched
      * it (user id + name snapshot, active role display name) and when.

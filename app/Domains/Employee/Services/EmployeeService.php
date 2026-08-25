@@ -139,6 +139,16 @@ class EmployeeService extends SectionRegistry
     }
 
     /**
+     * The permission that authorizes saving the given section: the section's
+     * own save permission when declared, else the generic update permission.
+     */
+    public function savePermissionFor(string $sectionKey): string
+    {
+        return $this->getSection($sectionKey)->savePermission()
+            ?? 'employee.update';
+    }
+
+    /**
      * Submit the employee profile (completion validation across all sections).
      */
     public function submit(Employee $employee): Employee

@@ -136,4 +136,12 @@ interface SectionDefinition
      * @return array<string, mixed>
      */
     public function transformForSave(array $data, ?Authenticatable $actor, Model $entity): array;
+
+    /**
+     * Section-specific save permission, or null to fall back to the domain's
+     * generic update permission. Granting it ALLOWS saving this section even
+     * without the generic permission (OR semantics), so fine-grained roles can
+     * edit exactly one section.
+     */
+    public function savePermission(): ?string;
 }

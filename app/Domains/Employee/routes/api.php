@@ -21,8 +21,9 @@ Route::middleware('auth:sanctum')->group(function () {
         ->middleware('permission:employee.view');
     Route::put('employees/{employee}', [EmployeeController::class, 'update'])
         ->middleware('permission:employee.update');
-    Route::post('employees/{employee}/sections/{section}', [EmployeeController::class, 'saveSection'])
-        ->middleware('permission:employee.update');
+    // Section saves authorize in the controller: the section's own save
+    // permission (OR semantics with employee.update) varies per section.
+    Route::post('employees/{employee}/sections/{section}', [EmployeeController::class, 'saveSection']);
     Route::post('employees/{employee}/submit', [EmployeeController::class, 'submit'])
         ->middleware('permission:employee.update');
     Route::get('employees/{employee}/documents', [EmployeeDocumentController::class, 'index'])

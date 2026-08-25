@@ -120,3 +120,39 @@ test('unchanged nodes keep their previous stamp', function () {
     expect($inquiries['education']['0']['updated_by'])->toBe($first->id)
         ->and($inquiries['social_insurance']['updated_by'])->toBe($second->id);
 });
+
+test('the section save permission alone authorizes saving inquiries', function () {
+    $user = createUserWithPermissions(['employee.view', 'employee.document_inquiries.update']);
+
+    $this->actingAs($user)
+        ->postJson("/api/employees/{$this->employee->id}/sections/document_inquiries", [
+            'inquiries' => [
+                'criminal_record' => ['status' => 'pending'],
+            ],
+        ])
+        ->assertOk();
+});
+
+test('the generic update permission still authorizes saving inquiries', function () {
+    $user = createUserWithPermissions(['employee.view', 'employee.update']);
+
+    $this->actingAs($user)
+        ->postJson("/api/employees/{$this->employee->id}/sections/document_inquiries", [
+            'inquiries' => [
+                'criminal_record' => ['status' => 'received'],
+            ],
+        ])
+        ->assertOk();
+});
+
+test('saving inquiries is forbidden without either permission', function () {
+    $user = createUserWithPermissions(['employee.view']);
+
+    $this->actingAs($user)
+        ->postJson("/api/employees/{$this->employee->id}/sections/document_inquiries", [
+            'inquiries' => [
+                'criminal_record' => ['status' => 'received'],
+            ],
+        ])
+        ->assertForbidden();
+});

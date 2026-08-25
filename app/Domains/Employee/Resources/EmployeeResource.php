@@ -79,6 +79,7 @@ class EmployeeResource extends JsonResource
                 'view' => false,
                 'edit' => false,
                 'delete' => false,
+                'document_inquiries_save' => false,
                 'documents_view' => false,
                 'documents_upload' => false,
                 'documents_delete' => false,
@@ -91,6 +92,9 @@ class EmployeeResource extends JsonResource
             'view' => $authorization->can($actor, 'employee.view', $this->resource),
             'edit' => $authorization->can($actor, 'employee.update', $this->resource),
             'delete' => $authorization->can($actor, 'employee.delete', $this->resource),
+            // OR semantics mirror the saveSection gate.
+            'document_inquiries_update' => $authorization->can($actor, 'employee.update', $this->resource)
+                || $authorization->can($actor, 'employee.document_inquiries.update', $this->resource),
             'documents_view' => $authorization->can($actor, 'employee.documents.view', $this->resource),
             'documents_upload' => $authorization->can($actor, 'employee.documents.upload', $this->resource),
             'documents_delete' => $authorization->can($actor, 'employee.documents.delete', $this->resource),

@@ -105,6 +105,14 @@ abstract class BaseSection implements SectionDefinition
     }
 
     /**
+     * No section-specific save permission by default.
+     */
+    public function savePermission(): ?string
+    {
+        return null;
+    }
+
+    /**
      * Prefix rule keys AND conditional rule field references with the section key.
      *
      * Rules like required_if, required_unless, required_with, etc. reference
