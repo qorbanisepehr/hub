@@ -5,6 +5,7 @@ namespace App\Domains\Authorization\Models;
 use App\Domains\Authorization\Enums\AccessRuleEffect;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Collection;
@@ -23,19 +24,12 @@ class Role extends Model
         'doctorate' => 'دکتری',
     ];
 
-    /** @var array<string, string> */
-    public const LANGUAGE_LEVELS = [
-        'basic' => 'مقدماتی',
-        'intermediate' => 'متوسط',
-        'advanced' => 'پیشرفته',
-        'native' => 'زبان مادری',
-    ];
-
     protected $fillable = [
         'name',
         'display_name',
         'description',
         'is_active',
+        'parent_id',
         'matrix_managers',
         'requirements',
     ];
@@ -47,23 +41,23 @@ class Role extends Model
     ];
 
     /**
-     * Roles this role inherits from (the org hierarchy).
+     * The direct parent (manager) role in the org hierarchy.
      *
-     * @return BelongsToMany<Role>
+     * @return BelongsTo<Role, $this>
      */
-    public function parentRoles(): BelongsToMany
+    public function parent(): BelongsTo
     {
-        return $this->belongsToMany(Role::class, 'role_inheritances', 'role_id', 'parent_role_id');
+        return $this->belongsTo(Role::class, 'parent_id');
     }
 
     /**
-     * Roles that inherit from this role.
+     * Roles that report directly to this role.
      *
-     * @return BelongsToMany<Role>
+     * @return HasMany<Role, $this>
      */
-    public function childRoles(): BelongsToMany
+    public function children(): HasMany
     {
-        return $this->belongsToMany(Role::class, 'role_inheritances', 'parent_role_id', 'role_id');
+        return $this->hasMany(Role::class, 'parent_id');
     }
 
     /** @return HasMany<AccessRule> */
@@ -191,7 +185,7 @@ class Role extends Model
     }
 
     /**
-     * IDs of every role this role reports to: parent roles plus matrix managers.
+     * IDs of every role this role reports to: its parent plus matrix managers.
      *
      * @return array<int, int>
      */
@@ -202,17 +196,11 @@ class Role extends Model
             ->map(fn ($id) => (int) $id)
             ->all();
 
-        $ids = array_merge($ids, $this->parentRoles()->pluck('roles.id')->map(fn ($id) => (int) $id)->all());
+        if ($this->parent_id !== null) {
+            $ids[] = (int) $this->parent_id;
+        }
 
         return array_values(array_unique($ids));
-    }
-
-    /**
-     * First parent role id for the org chart (lowest id wins).
-     */
-    public function getFirstParentId(): ?int
-    {
-        return $this->parentRoles()->pluck('roles.id')->min() ?: null;
     }
 
     /** @return Collection<int, Role> */
@@ -233,14 +221,16 @@ class Role extends Model
     /**
      * Whether a candidate meets this role's requirements.
      *
-     * @param  array{education_level?: string|null, experience_years?: int, skills?: string[]}  $candidateData
+     * @param  array{education_level?: string|null, field_of_study?: string|null, related_experience_years?: int, unrelated_experience_years?: int, skills?: string[]}  $candidateData
      */
     public function meetsRequirements(array $candidateData): bool
     {
         $requirements = $this->requirements ?? [];
 
         $hasRequirements = isset($requirements['min_education'])
-            || isset($requirements['min_experience_years'])
+            || isset($requirements['min_related_experience_years'])
+            || isset($requirements['min_unrelated_experience_years'])
+            || ! empty($requirements['fields_of_study'])
             || ! empty($requirements['required_skills']);
 
         if (! $hasRequirements) {
@@ -257,8 +247,18 @@ class Role extends Model
             }
         }
 
-        if (isset($requirements['min_experience_years'])
-            && ($candidateData['experience_years'] ?? 0) < $requirements['min_experience_years']) {
+        if (! empty($requirements['fields_of_study'])
+            && ! in_array($candidateData['field_of_study'] ?? null, $requirements['fields_of_study'], true)) {
+            return false;
+        }
+
+        if (isset($requirements['min_related_experience_years'])
+            && ($candidateData['related_experience_years'] ?? 0) < $requirements['min_related_experience_years']) {
+            return false;
+        }
+
+        if (isset($requirements['min_unrelated_experience_years'])
+            && ($candidateData['unrelated_experience_years'] ?? 0) < $requirements['min_unrelated_experience_years']) {
             return false;
         }
 
@@ -326,24 +326,12 @@ class Role extends Model
     {
         $ids = [$this->id];
         $seen = [$this->id => true];
-        $queue = [$this->id];
+        $parentId = $this->parent_id;
 
-        while ($queue !== []) {
-            $currentId = array_shift($queue);
-
-            $parentIds = DB::table('role_inheritances')
-                ->where('role_id', $currentId)
-                ->pluck('parent_role_id');
-
-            foreach ($parentIds as $parentId) {
-                $parentId = (int) $parentId;
-
-                if (! isset($seen[$parentId])) {
-                    $seen[$parentId] = true;
-                    $ids[] = $parentId;
-                    $queue[] = $parentId;
-                }
-            }
+        while ($parentId !== null && ! isset($seen[$parentId])) {
+            $seen[$parentId] = true;
+            $ids[] = (int) $parentId;
+            $parentId = Role::query()->whereKey($parentId)->value('parent_id');
         }
 
         return $ids;

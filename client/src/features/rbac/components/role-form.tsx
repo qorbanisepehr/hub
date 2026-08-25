@@ -19,6 +19,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { RoleSearchSelect } from "@/features/rbac/components/role-search-select";
 import { PermissionSelector } from "@/features/rbac/components/permission-selector";
 import { RuleBuilder } from "@/features/rbac/components/rule-builder";
@@ -27,7 +28,8 @@ import {
     FormTextField,
     FormSelectField,
     FormNumberField,
-    FormCheckboxGroup,
+    FormTextarea,
+    FormOptionMultiComboboxField,
 } from "@/components/forms";
 import { ErrorBanner } from "@/components/layout";
 import { UnsavedChangesDialog } from "@/components/layout";
@@ -37,7 +39,6 @@ import { roleKeys } from "@/lib/query-keys";
 import {
     MATRIX_MANAGER_TYPES,
     EDUCATION_LEVELS,
-    LANGUAGE_LEVELS,
     type MatrixManagerType,
 } from "@/features/rbac/constants";
 
@@ -53,13 +54,6 @@ const EDUCATION_LEVELS_KEYS = [
     "bachelor",
     "master",
     "doctorate",
-] as const;
-
-const LANGUAGE_LEVELS_KEYS = [
-    "basic",
-    "intermediate",
-    "advanced",
-    "native",
 ] as const;
 
 /**
@@ -83,6 +77,8 @@ const minExperienceYearsValidator = z
     .nullable()
     .or(z.literal(""))
     .transform((value) => (value === "" ? null : value));
+
+const fieldsOfStudyValidator = z.array(z.string().max(100));
 
 const accessRuleSchema = z.object({
     permission_id: z.number().int().positive(),
@@ -122,11 +118,23 @@ export const roleSchema = z.object({
         ),
     requirements: z.object({
         min_education: z.enum(EDUCATION_LEVELS_KEYS).nullable(),
-        min_experience_years: z.number().int().min(0).max(50).nullable(),
+        min_related_experience_years: z
+            .number()
+            .int()
+            .min(0)
+            .max(50)
+            .nullable(),
+        min_unrelated_experience_years: z
+            .number()
+            .int()
+            .min(0)
+            .max(50)
+            .nullable(),
+        fields_of_study: z.array(z.string().max(100)),
         required_skills: z.array(z.string().max(100)),
         preferred_skills: z.array(z.string().max(100)),
         certifications: z.array(z.string().max(100)),
-        languages: z.array(z.enum(LANGUAGE_LEVELS_KEYS)),
+        description: z.string().max(1000).nullable(),
     }),
 });
 
@@ -259,11 +267,13 @@ export function RoleForm({
             ...defaultValues,
             requirements: {
                 min_education: null,
-                min_experience_years: null,
+                min_related_experience_years: null,
+                min_unrelated_experience_years: null,
+                fields_of_study: [],
                 required_skills: [],
                 preferred_skills: [],
                 certifications: [],
-                languages: [],
+                description: null,
                 ...defaultValues?.requirements,
             },
         } as RoleFormValues,
@@ -427,9 +437,7 @@ export function RoleForm({
                         const allowedPermissionIds = rulesField.state.value
                             .filter((rule) => rule.effect === "allow")
                             .filter((rule) => rule.is_active !== false)
-                            .map((rule) => rule.permission_id);
-
-                        const togglePermission = (permId: number) => {
+                            .map((rule) => rule.permission_id);                        const togglePermission = (permId: number) => {
                             const rules = rulesField.state.value;
                             const existing = rules.find(
                                 (rule) =>
@@ -508,22 +516,46 @@ export function RoleForm({
                         };
 
                         return (
-                            <div className="space-y-6">
-                                <PermissionSelector
-                                    selectedPermissionIds={allowedPermissionIds}
-                                    inheritedPermissionIds={
-                                        inheritedPermissionIds
-                                    }
-                                    onGroupToggle={toggleGroup}
-                                    onPermissionToggle={togglePermission}
-                                />
-                                <RuleBuilder
-                                    value={rulesField.state.value}
-                                    onChange={(rules) =>
-                                        rulesField.handleChange(rules)
-                                    }
-                                />
-                            </div>
+                            <Card>
+                                <CardContent className="space-y-3">
+                                    <Tabs defaultValue="permissions">
+                                        <TabsList className="w-full">
+                                            <TabsTrigger value="permissions">
+                                                مجوزها
+                                            </TabsTrigger>
+                                            <TabsTrigger value="access-rules">
+                                                قوانین دسترسی شرطی
+                                                {rulesField.state.value.length >
+                                                    0 && ` (${String(rulesField.state.value.length)})`}
+                                            </TabsTrigger>
+                                        </TabsList>
+                                        <TabsContent value="permissions">
+                                            <PermissionSelector
+                                                selectedPermissionIds={
+                                                    allowedPermissionIds
+                                                }
+                                                inheritedPermissionIds={
+                                                    inheritedPermissionIds
+                                                }
+                                                onGroupToggle={toggleGroup}
+                                                onPermissionToggle={
+                                                    togglePermission
+                                                }
+                                            />
+                                        </TabsContent>
+                                        <TabsContent value="access-rules">
+                                            <RuleBuilder
+                                                value={rulesField.state.value}
+                                                onChange={(rules) =>
+                                                    rulesField.handleChange(
+                                                        rules,
+                                                    )
+                                                }
+                                            />
+                                        </TabsContent>
+                                    </Tabs>
+                                </CardContent>
+                            </Card>
                         );
                     }}
                 </form.Field>
@@ -535,7 +567,7 @@ export function RoleForm({
                         <CardTitle className="text-base">شرایط احراز</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-6">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <form.Field
                                 name="requirements.min_education"
                                 validators={zodFieldValidators(
@@ -559,7 +591,7 @@ export function RoleForm({
                                 )}
                             </form.Field>
                             <form.Field
-                                name="requirements.min_experience_years"
+                                name="requirements.min_related_experience_years"
                                 validators={zodFieldValidators(
                                     minExperienceYearsValidator,
                                 )}
@@ -567,13 +599,44 @@ export function RoleForm({
                                 {(f) => (
                                     <FormNumberField
                                         field={f}
-                                        label="حداقل سابقه کار (سال)"
+                                        label="حداقل سابقه کار مرتبط (سال)"
+                                        min={0}
+                                        max={50}
+                                    />
+                                )}
+                            </form.Field>
+                            <form.Field
+                                name="requirements.min_unrelated_experience_years"
+                                validators={zodFieldValidators(
+                                    minExperienceYearsValidator,
+                                )}
+                            >
+                                {(f) => (
+                                    <FormNumberField
+                                        field={f}
+                                        label="حداقل سابقه کار غیرمرتبط (سال)"
                                         min={0}
                                         max={50}
                                     />
                                 )}
                             </form.Field>
                         </div>
+
+                        <form.Field
+                            name="requirements.fields_of_study"
+                            validators={zodFieldValidators(
+                                fieldsOfStudyValidator,
+                            )}
+                        >
+                            {(f) => (
+                                <FormOptionMultiComboboxField
+                                    field={f}
+                                    label="رشته تحصیلی"
+                                    group="field_of_study"
+                                    placeholder="انتخاب رشته‌های تحصیلی…"
+                                />
+                            )}
+                        </form.Field>
 
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <form.Field
@@ -624,21 +687,16 @@ export function RoleForm({
                         </div>
 
                         <form.Field
-                            name="requirements.languages"
+                            name="requirements.description"
                             validators={zodFieldValidators(
-                                roleSchema.shape.requirements.shape.languages,
+                                roleSchema.shape.requirements.shape.description,
                             )}
                         >
                             {(f) => (
-                                <FormCheckboxGroup
+                                <FormTextarea
                                     field={f}
-                                    label="سطوح زبان"
-                                    options={Object.entries(
-                                        LANGUAGE_LEVELS,
-                                    ).map(([value, label]) => ({
-                                        value,
-                                        label,
-                                    }))}
+                                    label="توضیحات"
+                                    placeholder="توضیحات تکمیلی شرایط احراز (اختیاری)"
                                 />
                             )}
                         </form.Field>

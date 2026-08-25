@@ -15,6 +15,7 @@ export {
     FormOptionRadioGroup,
     FormOptionCheckboxGroup,
     FormOptionComboboxField,
+    FormOptionMultiComboboxField,
     PlaceFields,
     ProvinceCityFields,
 } from './form-option-fields';

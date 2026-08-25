@@ -10,3 +10,4 @@ export { SectionRepeaterTable } from './section-repeater-table';
 export { SectionRow } from './section-row';
 export { ShareDialog } from './share-dialog';
 export { Timeline } from './timeline';
+export { UserAvatar } from './user-avatar';

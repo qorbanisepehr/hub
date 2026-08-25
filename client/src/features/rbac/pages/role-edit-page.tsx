@@ -100,13 +100,20 @@ export function RoleEditPage() {
                     matrix_managers: role?.matrix_managers ?? [],
                     requirements: {
                         min_education: role?.requirements?.min_education ?? null,
-                        min_experience_years:
-                            role?.requirements?.min_experience_years ?? null,
+                        min_related_experience_years:
+                            role?.requirements
+                                ?.min_related_experience_years ?? null,
+                        min_unrelated_experience_years:
+                            role?.requirements
+                                ?.min_unrelated_experience_years ?? null,
+                        fields_of_study:
+                            role?.requirements?.fields_of_study ?? [],
                         required_skills: role?.requirements?.required_skills ?? [],
                         preferred_skills:
                             role?.requirements?.preferred_skills ?? [],
                         certifications: role?.requirements?.certifications ?? [],
-                        languages: role?.requirements?.languages ?? [],
+                        description:
+                            role?.requirements?.description ?? null,
                     },
                 }}
                 onSubmit={(values) => updateMutation.mutate(values)}

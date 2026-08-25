@@ -162,8 +162,7 @@ describe('role endpoint resource authorization', function () {
 
     it('rejects creating a role with circular parent inheritance', function () {
         $admin = Role::create(['name' => 'admin', 'display_name' => 'Admin', 'is_active' => true]);
-        $manager = Role::create(['name' => 'manager', 'display_name' => 'Manager', 'is_active' => true]);
-        $manager->parentRoles()->attach($admin->id);
+        $manager = Role::create(['name' => 'manager', 'display_name' => 'Manager', 'is_active' => true, 'parent_id' => $admin->id]);
 
         $user = createUserWithPermissions(['role.create', 'role.update']);
 
@@ -172,17 +171,17 @@ describe('role endpoint resource authorization', function () {
             ->postJson('/api/roles', [
                 'name' => 'new-role',
                 'display_name' => 'New Role',
-                'parent_ids' => [$manager->id],
+                'parent_id' => $manager->id,
             ])
             ->assertSuccessful();
 
         $newRole = Role::where('name', 'new-role')->firstOrFail();
 
-        // new-role → manager → admin. Now setting admin's parent to new-role would create a cycle.
-        // But we can test: try to make new-role a parent of admin (admin → new-role → manager → admin)
+        // new-role → manager → admin. Setting admin's parent to new-role
+        // would close the cycle admin → new-role → manager → admin.
         $this->actingAs($user)
             ->putJson("/api/roles/{$admin->id}", [
-                'parent_ids' => [$newRole->id],
+                'parent_id' => $newRole->id,
             ])
             ->assertStatus(422);
     });
@@ -193,62 +192,71 @@ describe('role endpoint resource authorization', function () {
 
         $this->actingAs($user)
             ->putJson("/api/roles/{$role->id}", [
-                'parent_ids' => [$role->id],
+                'parent_id' => $role->id,
             ])
             ->assertStatus(422);
     });
 
-    it('rejects a cycle that closes through a non-first parent edge', function () {
-        // Graph: candidate P has TWO parents [Q, R]; Q is a dead end, but
-        // R descends from X. Walking only P's FIRST edge (the old bug) misses
-        // the cycle X -> P -> R -> X.
+    it('rejects a cycle deeper in the ancestor chain', function () {
+        // Chain: p → r → x. Making x's parent p would close x → p → r → x.
         $x = roleRecord('cycle-x');
-        $q = roleRecord('cycle-q');
         $r = roleRecord('cycle-r');
         $p = roleRecord('cycle-p');
 
-        $r->parentRoles()->attach($x->id);
-        $p->parentRoles()->attach([$q->id, $r->id]);
+        $r->update(['parent_id' => $x->id]);
+        $p->update(['parent_id' => $r->id]);
 
         $user = createUserWithPermissions(['role.update']);
 
         $this->actingAs($user)
             ->putJson("/api/roles/{$x->id}", [
-                'parent_ids' => [$p->id],
+                'parent_id' => $p->id,
             ])
             ->assertStatus(422);
     });
 
-    it('accepts a diamond hierarchy with a shared ancestor', function () {
+    it('replaces an existing parent when a new one is assigned', function () {
         $shared = roleRecord('diamond-shared');
         $left = roleRecord('diamond-left');
         $right = roleRecord('diamond-right');
 
-        $left->parentRoles()->attach($shared->id);
-        $right->parentRoles()->attach($shared->id);
+        $left->update(['parent_id' => $shared->id]);
+        $right->update(['parent_id' => $shared->id]);
 
         $top = roleRecord('diamond-top');
         $user = createUserWithPermissions(['role.update']);
 
-        // top -> {left, right} is a diamond (two paths to one ancestor), not a cycle.
+        // A role has a single direct manager: assigning another parent
+        // replaces the previous one instead of adding to a list.
         $this->actingAs($user)
             ->putJson("/api/roles/{$top->id}", [
-                'parent_ids' => [$left->id, $right->id],
+                'parent_id' => $left->id,
             ])
             ->assertSuccessful();
 
-        expect($top->parentRoles()->count())->toBe(2);
+        expect($top->refresh()->parent_id)->toBe($left->id);
+
+        $this->actingAs($user)
+            ->putJson("/api/roles/{$top->id}", [
+                'parent_id' => $right->id,
+            ])
+            ->assertSuccessful();
+
+        expect($top->refresh()->parent_id)->toBe($right->id);
     });
 
-    it('rejects a self-reference submitted alongside other parents', function () {
-        $other = roleRecord('multi-parent-other');
-        $role = roleRecord('multi-parent-role');
+    it('clears the parent when null is submitted', function () {
+        $parent = roleRecord('detach-parent');
+        $role = roleRecord('detach-child');
+        $role->update(['parent_id' => $parent->id]);
         $user = createUserWithPermissions(['role.update']);
 
         $this->actingAs($user)
             ->putJson("/api/roles/{$role->id}", [
-                'parent_ids' => [$other->id, $role->id],
+                'parent_id' => null,
             ])
-            ->assertStatus(422);
+            ->assertSuccessful();
+
+        expect($role->refresh()->parent_id)->toBeNull();
     });
 });

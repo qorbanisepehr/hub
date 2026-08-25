@@ -3,7 +3,6 @@
 use App\Domains\Authorization\Models\Permission;
 use App\Domains\Authorization\Models\PermissionGroup;
 use App\Domains\Authorization\Models\Role;
-use App\Domains\Authorization\Models\RoleInheritance;
 use Database\Seeders\AuthorizationSeeder;
 
 describe('Authorization seeder', function () {
@@ -20,7 +19,7 @@ describe('Authorization seeder', function () {
         expect(Role::where('name', 'hr-deputy-head')->exists())->toBeTrue();
         expect(Role::where('name', 'system.administrator')->exists())->toBeTrue();
         expect(Role::count())->toBe(17);
-        expect(RoleInheritance::count())->toBe(14);
+        expect(Role::whereNotNull('parent_id')->count())->toBe(14);
 
         $admin = Role::where('name', 'admin')->first();
 

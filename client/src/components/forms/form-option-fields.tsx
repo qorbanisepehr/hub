@@ -12,6 +12,9 @@ import {
 } from "@/components/ui/select";
 import {
     Combobox,
+    ComboboxChip,
+    ComboboxChipRemove,
+    ComboboxChips,
     ComboboxClear,
     ComboboxContent,
     ComboboxEmpty,
@@ -314,6 +317,92 @@ export function FormOptionComboboxField({
                     {field.state.value ? (
                         <ComboboxClear aria-label="پاک کردن" />
                     ) : null}
+                    <ComboboxTrigger aria-label="باز کردن لیست" />
+                </ComboboxInputGroup>
+                <ComboboxContent>
+                    <ComboboxEmpty />
+                    <ComboboxList>
+                        {(item: SelectOption) => (
+                            <ComboboxItem key={item.value} value={item}>
+                                <ComboboxItemIndicator />
+                                <span className="flex flex-1 shrink-0 gap-2 whitespace-nowrap">
+                                    {item.label}
+                                </span>
+                            </ComboboxItem>
+                        )}
+                    </ComboboxList>
+                </ComboboxContent>
+            </Combobox>
+            {isInvalid && <FieldError errors={field.state.meta.errors} />}
+        </Field>
+    );
+}
+
+/**
+ * Multi-select variant of FormOptionComboboxField: stores an array of option
+ * value keys on the form field and renders each selection as a removable chip.
+ */
+export function FormOptionMultiComboboxField({
+    field,
+    label,
+    group,
+    filter,
+    placeholder = "انتخاب کنید",
+    disabled,
+    limit = 50,
+}: FormOptionFieldProps & {
+    disabled?: boolean;
+    /** Cap on items rendered in the popup. Defaults to 50. */
+    limit?: number;
+}) {
+    const { data, isLoading } = useFormOptionsByGroup(group);
+    const selected = normalizeStoredValues(field.state.value);
+    const merged = useMergedOptions(group, data, selected);
+    const items = useMemo(
+        () => toSelectOptions(merged, filter) ?? [],
+        [merged, filter],
+    );
+    const selectedItems = items.filter((item) =>
+        selected.includes(item.value),
+    );
+    const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid;
+
+    return (
+        <Field data-invalid={isInvalid}>
+            <FieldLabel htmlFor={field.name}>{label}</FieldLabel>
+            <Combobox
+                multiple
+                value={selectedItems}
+                onValueChange={(nextItems) =>
+                    field.handleChange(nextItems.map((item) => item.value))
+                }
+                items={items}
+                itemToStringLabel={(item) => item.label}
+                limit={limit}
+                disabled={disabled || (isLoading && selected.length === 0)}
+            >
+                <ComboboxInputGroup
+                    aria-invalid={isInvalid || undefined}
+                    aria-busy={isLoading || undefined}
+                >
+                    <ComboboxChips>
+                        {selectedItems.map((item) => (
+                            <ComboboxChip key={item.value}>
+                                {item.label}
+                                <ComboboxChipRemove aria-label="حذف" />
+                            </ComboboxChip>
+                        ))}
+                        <ComboboxInput
+                            id={field.name}
+                            placeholder={
+                                isLoading && selected.length === 0
+                                    ? "در حال بارگذاری…"
+                                    : placeholder
+                            }
+                            aria-invalid={isInvalid || undefined}
+                            onBlur={field.handleBlur}
+                        />
+                    </ComboboxChips>
                     <ComboboxTrigger aria-label="باز کردن لیست" />
                 </ComboboxInputGroup>
                 <ComboboxContent>

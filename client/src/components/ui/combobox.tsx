@@ -183,8 +183,59 @@ function ComboboxEmpty({
   )
 }
 
+function ComboboxChips({
+  className,
+  ...props
+}: ComboboxPrimitive.Chips.Props) {
+  return (
+    <ComboboxPrimitive.Chips
+      data-slot="combobox-chips"
+      className={cn("flex min-w-0 flex-1 flex-wrap items-center gap-1.5", className)}
+      {...props}
+    />
+  )
+}
+
+function ComboboxChip({
+  className,
+  ...props
+}: ComboboxPrimitive.Chip.Props) {
+  return (
+    <ComboboxPrimitive.Chip
+      data-slot="combobox-chip"
+      className={cn(
+        "flex h-6 cursor-pointer items-center gap-1 rounded-md border border-input bg-muted px-1.5 text-xs whitespace-nowrap select-none data-disabled:pointer-events-none data-disabled:opacity-50",
+        className
+      )}
+      {...props}
+    />
+  )
+}
+
+function ComboboxChipRemove({
+  className,
+  children,
+  ...props
+}: ComboboxPrimitive.ChipRemove.Props) {
+  return (
+    <ComboboxPrimitive.ChipRemove
+      data-slot="combobox-chip-remove"
+      className={cn(
+        "flex size-3.5 shrink-0 cursor-pointer items-center justify-center rounded-full text-muted-foreground transition-colors outline-none hover:bg-accent hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none [&_svg]:pointer-events-none",
+        className
+      )}
+      {...props}
+    >
+      {children ?? <IconX className="size-3" />}
+    </ComboboxPrimitive.ChipRemove>
+  )
+}
+
 export {
   Combobox,
+  ComboboxChip,
+  ComboboxChipRemove,
+  ComboboxChips,
   ComboboxClear,
   ComboboxContent,
   ComboboxEmpty,

@@ -11,7 +11,6 @@ use App\Domains\Authorization\Events\RoleUpdated;
 use App\Domains\Authorization\Exports\RoleChartCsvExporter;
 use App\Domains\Authorization\Models\PermissionGroup;
 use App\Domains\Authorization\Models\Role;
-use App\Domains\Authorization\Models\RoleInheritance;
 use App\Domains\Authorization\Requests\StoreRoleRequest;
 use App\Domains\Authorization\Requests\UpdateRoleRequest;
 use App\Domains\Authorization\Resources\RoleResource;
@@ -39,7 +38,7 @@ class RoleController
 
     public function index(Request $request): AnonymousResourceCollection
     {
-        $query = Role::with(['parentRoles', 'permissions.group']);
+        $query = Role::with(['parent', 'permissions.group']);
 
         $this->authorization->scope($request->user(), 'role.view', $query);
 
@@ -68,15 +67,16 @@ class RoleController
 
     public function chart(Request $request): JsonResponse
     {
-        $roles = Role::withCount(['users', 'childRoles as children_count'])
-            ->with(['users:id,name,avatar_url', 'users.employee:id,user_id,first_name,last_name,personnel_code'])
+        $roles = Role::withCount(['users', 'children as children_count'])
+            ->with([
+                'users:id,name,avatar_url',
+                'users.employee:id,user_id,first_name,last_name,personnel_code,hire_date,section_education',
+            ])
             ->orderBy('display_name');
 
         $this->authorization->scope($request->user(), 'role.view', $roles);
 
         $roles = $roles->get();
-
-        $parentByRole = $this->parentMap();
 
         $rolesById = $roles->keyBy('id');
 
@@ -86,8 +86,9 @@ class RoleController
             'display_name' => $role->display_name,
             'description' => $role->description,
             'is_active' => $role->is_active,
-            'parent_id' => $parentByRole[$role->id] ?? null,
+            'parent_id' => $role->parent_id,
             'matrix_managers' => $role->matrix_managers ?? [],
+            'requirements' => $role->requirements,
             'matrix_manager_roles' => collect($role->matrix_managers ?? [])
                 ->map(fn (array $entry) => [
                     'id' => $entry['role_id'],
@@ -98,7 +99,7 @@ class RoleController
                 ->values()
                 ->all(),
             'children' => $roles
-                ->filter(fn (Role $child) => ($parentByRole[$child->id] ?? null) === $role->id)
+                ->filter(fn (Role $child) => $child->parent_id === $role->id)
                 ->map(fn (Role $child) => [
                     'id' => $child->id,
                     'display_name' => $child->display_name,
@@ -106,17 +107,23 @@ class RoleController
                 ->values()
                 ->all(),
             'users' => $role->users
-                ->map(fn (User $user) => [
-                    'id' => $user->id,
-                    'name' => $user->name,
-                    'avatar_url' => $user->getServeAvatarUrl(),
-                    'employee' => $user->employee ? [
-                        'id' => $user->employee->id,
-                        'first_name' => $user->employee->first_name,
-                        'last_name' => $user->employee->last_name,
-                        'personnel_code' => $user->employee->personnel_code,
-                    ] : null,
-                ])
+                ->map(function (User $user) {
+                    $employee = $user->employee;
+
+                    return [
+                        'id' => $user->id,
+                        'name' => $user->name,
+                        'avatar_url' => $user->getServeAvatarUrl(),
+                        'employee' => $user->employee ? [
+                            'id' => $employee->id,
+                            'first_name' => $employee->first_name,
+                            'last_name' => $employee->last_name,
+                            'personnel_code' => $employee->personnel_code,
+                            ...$employee->latestEducation(),
+                            'org_tenure_years' => $employee->orgTenureYears(),
+                        ] : null,
+                    ];
+                })
                 ->values()
                 ->all(),
             'user_count' => $role->users_count,
@@ -131,7 +138,6 @@ class RoleController
         $role = Role::create($this->withJsonFields($request, $request->validated()));
 
         $this->syncPermissions($role, $request);
-        $this->syncHierarchy($role, $request);
 
         app(AuthorizationVersion::class)->bump();
 
@@ -144,7 +150,7 @@ class RoleController
     {
         $this->authorization->authorize($request->user(), 'role.view', $role);
 
-        return new RoleResource($this->loadRelations($role, ['permissions.group', 'childRoles', 'parentRoles.permissions.group']));
+        return new RoleResource($this->loadRelations($role, ['children', 'parent.permissions.group']));
     }
 
     public function update(UpdateRoleRequest $request, Role $role): RoleResource
@@ -156,7 +162,6 @@ class RoleController
         $new = $role->only(['name', 'display_name', 'description', 'is_active']);
 
         $this->syncPermissions($role, $request);
-        $this->syncHierarchy($role, $request);
 
         app(AuthorizationVersion::class)->bump();
 
@@ -225,7 +230,7 @@ class RoleController
 
     private function loadRelations(Role $role, array $extra = []): Role
     {
-        $role->load(array_merge(['parentRoles', 'permissions.group', 'accessRules.permission'], $extra));
+        $role->load(array_merge(['parent', 'permissions.group', 'accessRules.permission'], $extra));
 
         $managerRoles = $role->getMatrixManagersCollection();
 
@@ -254,13 +259,6 @@ class RoleController
         if ($request->has('permission_ids')) {
             $role->syncPermissions($this->permissionIds($request));
             $this->flushRoleUsersCaches($role);
-        }
-    }
-
-    private function syncHierarchy(Role $role, Request $request): void
-    {
-        if ($request->has('parent_ids')) {
-            $role->parentRoles()->sync($request->input('parent_ids', []));
         }
     }
 
@@ -293,25 +291,6 @@ class RoleController
             fn ($id) => (int) $id,
             $request->input('permission_ids', []),
         );
-    }
-
-    /**
-     * Map each role to its first parent role id (org chart).
-     *
-     * @return array<int, int>
-     */
-    private function parentMap(): array
-    {
-        $map = [];
-
-        foreach (RoleInheritance::all(['role_id', 'parent_role_id']) as $inheritance) {
-            $current = $map[$inheritance->role_id] ?? null;
-            $map[$inheritance->role_id] = ($current === null || $inheritance->parent_role_id < $current)
-                ? $inheritance->parent_role_id
-                : $current;
-        }
-
-        return $map;
     }
 
     public function exportChart(Request $request)

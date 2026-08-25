@@ -5,7 +5,6 @@ namespace App\Domains\Authorization\Resources;
 use App\Domains\Authorization\Models\AccessRule;
 use App\Domains\Authorization\Models\Permission;
 use App\Domains\Authorization\Models\PermissionGroup;
-use App\Domains\Authorization\Models\Role;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Collection;
@@ -27,10 +26,8 @@ class RoleResource extends JsonResource
             'display_name' => $this->display_name,
             'description' => $this->description,
             'is_active' => $this->is_active,
-            'parent_id' => $this->whenLoaded('parentRoles', fn () => $this->getFirstParentId()),
-            'parent_roles' => $this->whenLoaded('parentRoles', fn () => $this->parentRoles
-                ->map(fn (Role $parent) => ['id' => $parent->id, 'display_name' => $parent->display_name])
-                ->values()),
+            'parent_id' => $this->parent_id,
+            'parent' => $this->whenLoaded('parent', fn () => new self($this->parent)),
             'matrix_managers' => $this->matrix_managers,
             'requirements' => $this->requirements,
             'matrix_manager_roles' => $this->whenLoaded('matrixManagerRoles'),
@@ -54,7 +51,7 @@ class RoleResource extends JsonResource
                     'is_active' => $rule->is_active,
                 ])
                 ->values()),
-            'children' => self::collection($this->whenLoaded('childRoles')),
+            'children' => self::collection($this->whenLoaded('children')),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];

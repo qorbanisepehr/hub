@@ -1,7 +1,6 @@
 import type {
     MatrixManagerType,
     EducationLevel,
-    LanguageLevel,
 } from "@/features/rbac/constants";
 
 export type Permission = {
@@ -40,11 +39,13 @@ export type ResolvedMatrixManager = {
 
 export type RoleRequirements = {
     min_education?: EducationLevel | null;
-    min_experience_years?: number | null;
+    min_related_experience_years?: number | null;
+    min_unrelated_experience_years?: number | null;
+    fields_of_study?: string[];
     required_skills?: string[];
     preferred_skills?: string[];
     certifications?: string[];
-    languages?: LanguageLevel[];
+    description?: string | null;
 };
 
 export type Role = {
@@ -153,11 +154,21 @@ export type UserRoleAssignment = {
     active_role: Role | null;
 };
 
+export type RoleChartEmployee = {
+    id: number;
+    first_name: string;
+    last_name: string;
+    personnel_code: string | null;
+    degree?: string | null;
+    field_of_study?: string | null;
+    org_tenure_years?: number | null;
+};
+
 export type RoleChartUser = {
     id: number;
     name: string;
     avatar_url: string | null;
-    employee: LinkedEmployee | null;
+    employee: RoleChartEmployee | null;
 };
 
 export type RoleChartChild = {
@@ -178,6 +189,7 @@ export type RoleChartRole = {
     parent_id: number | null;
     matrix_managers: MatrixManager[];
     matrix_manager_roles: ResolvedMatrixManager[];
+    requirements?: RoleRequirements | null;
     children: RoleChartChild[];
     users: RoleChartUser[];
     user_count: number;
