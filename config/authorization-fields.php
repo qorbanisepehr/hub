@@ -37,6 +37,7 @@ return [
                     'marital_status',
                     'section_personal',
                     'section_dependents',
+                    'section_document_inquiries',
                 ],
             ],
             'employment_info' => [

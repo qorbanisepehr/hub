@@ -6,6 +6,7 @@ use App\Domains\Employee\Models\Employee;
 use App\Domains\Employee\Sections\AdditionalInfoSection;
 use App\Domains\Employee\Sections\ContactInfoSection;
 use App\Domains\Employee\Sections\DependentsSection;
+use App\Domains\Employee\Sections\DocumentInquiriesSection;
 use App\Domains\Employee\Sections\EmploymentSection;
 use App\Domains\Employee\Sections\SocialInsuranceSection;
 use App\Domains\Questionnaire\Sections\EducationSection;
@@ -44,6 +45,7 @@ class EmployeeService extends SectionRegistry
             AdditionalInfoSection::class,
             SocialInsuranceSection::class,
             DependentsSection::class,
+            DocumentInquiriesSection::class,
         ];
     }
 

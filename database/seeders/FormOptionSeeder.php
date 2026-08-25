@@ -96,6 +96,12 @@ class FormOptionSeeder extends Seeder
             ['group' => 'relationship_type', 'value' => 'mother', 'label' => 'مادر', 'sort_order' => 4],
             ['group' => 'relationship_type', 'value' => 'other', 'label' => 'سایر', 'sort_order' => 5],
 
+            // ── inquiry_status — وضعیت استعلام مدارک (بخش استعلام مدارک؛
+            //    مقادیر در حال تغییر هستند و از طریق FormOptions قابل ویرایش‌اند)
+            ['group' => 'inquiry_status', 'value' => 'pending', 'label' => 'در انتظار استعلام', 'sort_order' => 1],
+            ['group' => 'inquiry_status', 'value' => 'received', 'label' => 'پاسخ دریافت شد', 'sort_order' => 2],
+            ['group' => 'inquiry_status', 'value' => 'mismatch', 'label' => 'مغایرت دارد', 'sort_order' => 3],
+
             // ── property_status — وضعیت ملک
             ['group' => 'property_status', 'value' => 'owned', 'label' => 'شخصی', 'sort_order' => 1],
             ['group' => 'property_status', 'value' => 'rented', 'label' => 'استیجاری', 'sort_order' => 2],
