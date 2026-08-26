@@ -106,6 +106,11 @@ function TreeRow({
                 !f.path.slice(node.path.length + 1).includes("/"),
         );
 
+        // Recursive file count for this directory.
+        const fileCount = files.filter((f) =>
+            f.path.startsWith(`${node.path}/`),
+        ).length;
+
         return (
             <div>
                 <button
@@ -114,17 +119,26 @@ function TreeRow({
                     style={{ paddingInlineStart: `${8 + depth * 18}px` }}
                     onClick={() => toggle(node.path)}
                 >
+                    {/* RTL: the chevron sits on the right (inline start). */}
                     {isOpen ? (
-                        <IconChevronDown className="size-3.5 text-muted-foreground" />
+                        <IconChevronDown className="size-3.5 shrink-0 text-muted-foreground" />
                     ) : (
-                        <IconChevronLeft className="size-3.5 rotate-180 text-muted-foreground" />
+                        <IconChevronLeft className="size-3.5 shrink-0 text-muted-foreground" />
                     )}
                     {isOpen ? (
-                        <IconFolderOpen className="size-4 text-warning" />
+                        <IconFolderOpen className="size-4 shrink-0 text-warning" />
                     ) : (
-                        <IconFolder className="size-4 text-warning" />
+                        <IconFolder className="size-4 shrink-0 text-warning" />
                     )}
                     <span className="truncate">{node.name}</span>
+                    {fileCount > 0 && (
+                        <span
+                            className="ms-auto rounded-full bg-muted px-2 text-xs text-muted-foreground"
+                            dir="ltr"
+                        >
+                            {fileCount}
+                        </span>
+                    )}
                 </button>
 
                 {isOpen &&
@@ -249,46 +263,47 @@ export function TempFileExplorer({ employee }: { employee: TempEmployee }) {
                         <thead>
                             <tr className="border-b bg-muted/50 text-start">
                                 <th className="px-3 py-2 text-right font-medium">نام</th>
+                                <th className="px-3 py-2 text-right font-medium">دسته</th>
                                 <th className="px-3 py-2 text-right font-medium">نوع</th>
                                 <th className="px-3 py-2 text-right font-medium">حجم</th>
                                 <th className="px-3 py-2 text-right font-medium">تاریخ</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {(tree ?? []).map((node) => (
-                                <tr
-                                    key={node.path}
-                                    className={cn(
-                                        "border-b last:border-b-0",
-                                        node.type === "file" && "cursor-pointer hover:bg-muted/50",
-                                    )}
-                                    onClick={() =>
-                                        node.type === "file" && openPreview(node)
-                                    }
-                                >
-                                    <td className="px-3 py-2">
-                                        <span className="inline-flex items-center gap-2">
-                                            {node.type === "dir" ? (
-                                                <IconFolder className="size-4 text-warning" />
-                                            ) : (
-                                                <IconFile className="size-4 text-muted-foreground" />
-                                            )}
-                                            {node.name}
-                                        </span>
-                                    </td>
-                                    <td className="px-3 py-2 text-muted-foreground">
-                                        {node.type === "dir" ? "پوشه" : (node.mime ?? "—")}
-                                    </td>
-                                    <td className="px-3 py-2 text-muted-foreground" dir="ltr">
-                                        {node.size !== null ? formatBytes(node.size) : "—"}
-                                    </td>
-                                    <td className="px-3 py-2 text-muted-foreground">
-                                        {node.modified_at
-                                            ? toPersianDate(node.modified_at)
-                                            : "—"}
-                                    </td>
-                                </tr>
-                            ))}
+                            {files.map((node) => {
+                                const dirPath = node.path.includes("/")
+                                    ? node.path.slice(0, node.path.lastIndexOf("/"))
+                                    : "—";
+
+                                return (
+                                    <tr
+                                        key={node.path}
+                                        className="cursor-pointer border-b last:border-b-0 hover:bg-muted/50"
+                                        onClick={() => openPreview(node)}
+                                    >
+                                        <td className="px-3 py-2">
+                                            <span className="inline-flex items-center gap-2">
+                                                <IconFile className="size-4 shrink-0 text-muted-foreground" />
+                                                {node.name}
+                                            </span>
+                                        </td>
+                                        <td className="px-3 py-2 text-muted-foreground">
+                                            {dirPath}
+                                        </td>
+                                        <td className="px-3 py-2 text-muted-foreground">
+                                            {node.mime ?? "—"}
+                                        </td>
+                                        <td className="px-3 py-2 text-muted-foreground" dir="ltr">
+                                            {node.size !== null ? formatBytes(node.size) : "—"}
+                                        </td>
+                                        <td className="px-3 py-2 text-muted-foreground">
+                                            {node.modified_at
+                                                ? toPersianDate(node.modified_at)
+                                                : "—"}
+                                        </td>
+                                    </tr>
+                                );
+                            })}
                         </tbody>
                     </table>
                 </div>

@@ -11,7 +11,7 @@ const TempEmployeesPage = lazy(() =>
 
 export const Route = createRoute({
     getParentRoute: () => ProtectedRoute,
-    path: "/temp-employees",
+    path: "/docs",
     component: () => (
         <LazyRoute
             component={TempEmployeesPage}

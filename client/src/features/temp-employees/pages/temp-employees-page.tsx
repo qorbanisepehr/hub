@@ -89,8 +89,8 @@ export function TempEmployeesPage() {
     return (
         <div className="space-y-6">
             <PageHeader
-                title="پرونده‌های موقت"
-                description="نمایش موقت رکوردها و فایل‌های هر کد پرسنلی"
+                title="پرونده‌ها"
+                description="مدیریت فایل‌های پرسنلی"
             />
 
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
@@ -114,7 +114,15 @@ export function TempEmployeesPage() {
                             </Button>
                         </div>
 
-                        <div className="relative">
+                        {/* Debounced as-you-type; Enter or the icon submits immediately. */}
+                        <form
+                            onSubmit={(e) => {
+                                e.preventDefault();
+                                setSearch(searchInput.trim());
+                                setPage(1);
+                            }}
+                            className="relative"
+                        >
                             <IconSearch className="absolute top-1/2 size-4 -translate-y-1/2 text-muted-foreground start-2.5" />
                             <Input
                                 value={searchInput}
@@ -122,9 +130,18 @@ export function TempEmployeesPage() {
                                     setSearchInput(e.target.value)
                                 }
                                 placeholder="جستجو: کد پرسنلی، کد ملی، نام…"
-                                className="ps-8"
+                                className="ps-8 pe-9"
                             />
-                        </div>
+                            <Button
+                                type="submit"
+                                variant="ghost"
+                                size="icon-sm"
+                                title="جستجو"
+                                className="absolute top-1/2 -translate-y-1/2 end-1"
+                            >
+                                <IconSearch className="size-4" />
+                            </Button>
+                        </form>
                     </CardHeader>
 
                     <CardContent className="space-y-1">
