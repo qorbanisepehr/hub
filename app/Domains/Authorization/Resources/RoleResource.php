@@ -26,6 +26,7 @@ class RoleResource extends JsonResource
             'display_name' => $this->display_name,
             'description' => $this->description,
             'is_active' => $this->is_active,
+            'type' => $this->type,
             'parent_id' => $this->parent_id,
             'parent' => $this->whenLoaded('parent', fn () => new self($this->parent)),
             'matrix_managers' => $this->matrix_managers,

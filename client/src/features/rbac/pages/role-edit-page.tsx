@@ -89,6 +89,7 @@ export function RoleEditPage() {
                     parent_id: role?.parent_id ?? null,
                     inherits_permissions: role?.inherits_permissions ?? false,
                     is_active: role?.is_active ?? true,
+                    type: role?.type ?? "organization",
                     access_rules:
                         role?.access_rules?.map((rule) => ({
                             permission_id: rule.permission_id,

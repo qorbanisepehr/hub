@@ -26,7 +26,7 @@ import {
     IconZoomScan,
 } from "@tabler/icons-react";
 import CustomNode from "./custom-node";
-import UsersNode from "./users-node";
+import PersonNode from "./person-node";
 import { RoleDetailModal } from "./role-detail-modal";
 import {
     buildNodesAndEdges,
@@ -50,7 +50,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useFullscreen } from "@/hooks/use-full-screen";
 
 const nodeTypes = { customNode: CustomNode };
-const usersNodeTypes = { customNode: UsersNode };
+const usersNodeTypes = { personNode: PersonNode };
 
 type ChartUIState = {
     collapsedSet: Set<number>;
@@ -161,7 +161,11 @@ function RoleOrgChartInner({
             }
             return true;
         };
-        return roles.filter((role) => byUser(role) && byStatus(role));
+        const byType = (role: RoleChartRole) =>
+            // The org chart represents the organizational structure; system
+            // roles (admin, super admin) are not part of it.
+            role.type === "organization";
+        return roles.filter((role) => byUser(role) && byStatus(role) && byType(role));
     }, [roles, userFilter, statusFilter]);
 
     const chartRoles = filteredRoles;
@@ -243,8 +247,11 @@ function RoleOrgChartInner({
     }, [chartRoles, uiState.subtreeRootId]);
 
     const { nodes: rawNodes, edges: rawEdges } = useMemo(
-        () => buildNodesAndEdges(chartRoles, uiState.collapsedSet, uiState.subtreeRootId),
-        [chartRoles, uiState.collapsedSet, uiState.subtreeRootId],
+        () =>
+            buildNodesAndEdges(chartRoles, uiState.collapsedSet, uiState.subtreeRootId, {
+                expandUsers: viewMode === "users",
+            }),
+        [chartRoles, uiState.collapsedSet, uiState.subtreeRootId, viewMode],
     );
 
     const nodesWithToggle = useMemo(
@@ -293,12 +300,12 @@ function RoleOrgChartInner({
 
     const onNodeClick: NodeMouseHandler = useCallback(
         (_event, node) => {
-            const role = roles.find((item) => item.id === Number(node.id));
+            const role = (node.data as { role?: RoleChartRole }).role;
             if (role) {
                 dispatch({ type: "SELECT_ROLE", roleId: role.id });
             }
         },
-        [roles],
+        [],
     );
 
     if (isLoading) {

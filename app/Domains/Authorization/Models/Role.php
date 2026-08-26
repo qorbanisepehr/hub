@@ -15,6 +15,16 @@ class Role extends Model
 {
     public const SYSTEM_ADMINISTRATOR = 'system.administrator';
 
+    public const TYPE_SYSTEM = 'system';
+
+    public const TYPE_ORGANIZATION = 'organization';
+
+    /** @var array<string, string> */
+    public const TYPES = [
+        self::TYPE_SYSTEM => 'سیستمی',
+        self::TYPE_ORGANIZATION => 'سازمانی',
+    ];
+
     /** @var array<string, string> */
     public const EDUCATION_LEVELS = [
         'diploma' => 'دیپلم',
@@ -30,6 +40,7 @@ class Role extends Model
         'description',
         'is_active',
         'parent_id',
+        'type',
         'matrix_managers',
         'requirements',
     ];

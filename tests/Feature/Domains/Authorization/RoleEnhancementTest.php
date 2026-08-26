@@ -139,6 +139,7 @@ describe('RBAC matrix managers & requirements', function () {
                 ->postJson('/api/roles', [
                     'name' => 'senior-developer',
                     'display_name' => 'Senior Developer',
+                    'type' => 'system',
                     'matrix_managers' => [
                         ['role_id' => $manager->id, 'manager_type' => 'project'],
                     ],
@@ -153,11 +154,13 @@ describe('RBAC matrix managers & requirements', function () {
                 ])
                 ->assertStatus(201)
                 ->assertJsonPath('data.name', 'senior-developer')
+                ->assertJsonPath('data.type', 'system')
                 ->assertJsonPath('data.matrix_managers.0.role_id', $manager->id)
                 ->assertJsonPath('data.requirements.min_education', 'bachelor');
 
             $role = Role::find($response->json('data.id'));
 
+            expect($role->type)->toBe('system');
             expect($role->matrix_managers)->toBe([['role_id' => $manager->id, 'manager_type' => 'project']]);
             expect($role->requirements)->toBe([
                 'min_education' => 'bachelor',
@@ -167,6 +170,32 @@ describe('RBAC matrix managers & requirements', function () {
                 'required_skills' => ['laravel'],
                 'description' => 'حداقل دو سال تجربه پروژه‌ای',
             ]);
+        });
+
+        it('rejects an invalid role type', function () {
+            $user = createUserWithPermissions(['role.create']);
+
+            $this->actingAs($user)
+                ->postJson('/api/roles', [
+                    'name' => 'typed',
+                    'display_name' => 'Typed',
+                    'type' => 'org-acme',
+                ])
+                ->assertStatus(422)
+                ->assertJsonValidationErrors(['type']);
+        });
+
+        it('defaults new roles to the organization type', function () {
+            $user = createUserWithPermissions(['role.create']);
+
+            $response = $this->actingAs($user)
+                ->postJson('/api/roles', [
+                    'name' => 'plain',
+                    'display_name' => 'Plain',
+                ])
+                ->assertStatus(201);
+
+            expect(Role::find($response->json('data.id'))->type)->toBe('organization');
         });
 
         it('returns resolved matrix manager roles on store', function () {
@@ -387,7 +416,7 @@ describe('RBAC matrix managers & requirements', function () {
 
         it('includes linked employee data in chart users', function () {
             $user = createUserWithPermissions(['role.view']);
-            $role = Role::create(['name' => 'dev', 'display_name' => 'Developer', 'is_active' => true]);
+            $role = Role::create(['name' => 'dev', 'display_name' => 'Developer', 'type' => 'system', 'is_active' => true]);
             $member = User::factory()->create(['name' => 'Alex Dev']);
             $employee = Employee::factory()->create([
                 'personnel_code' => '1234',
@@ -404,6 +433,7 @@ describe('RBAC matrix managers & requirements', function () {
             $this->actingAs($user)
                 ->getJson('/api/roles/chart')
                 ->assertStatus(200)
+                ->assertJsonPath('data.0.type', 'system')
                 ->assertJsonPath('data.0.users.0.employee.id', $employee->id)
                 ->assertJsonPath('data.0.users.0.employee.first_name', $employee->first_name)
                 ->assertJsonPath('data.0.users.0.employee.last_name', $employee->last_name)

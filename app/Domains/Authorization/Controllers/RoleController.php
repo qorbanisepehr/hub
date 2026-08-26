@@ -86,6 +86,7 @@ class RoleController
             'display_name' => $role->display_name,
             'description' => $role->description,
             'is_active' => $role->is_active,
+            'type' => $role->type,
             'parent_id' => $role->parent_id,
             'matrix_managers' => $role->matrix_managers ?? [],
             'requirements' => $role->requirements,

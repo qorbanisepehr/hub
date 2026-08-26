@@ -1,4 +1,3 @@
-import { useQuery } from "@tanstack/react-query";
 import {
     Select,
     SelectContent,
@@ -6,8 +5,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { fetchRoles } from "@/features/rbac/api";
-import { roleKeys } from "@/lib/query-keys";
+import { useRoles } from "@/features/rbac/hooks/use-roles";
 import type { Role } from "@/features/rbac/types";
 
 interface RoleSelectProps {
@@ -29,15 +27,10 @@ export function RoleSelect({
     disabled = false,
     excludeIds = [],
 }: RoleSelectProps) {
-    const { data: rolesData, isLoading } = useQuery({
-        queryKey: roleKeys.all,
-        queryFn: async () => {
-            const { data } = await fetchRoles();
-            return data;
-        },
-    });
+    const { data: rolesData, isLoading } = useRoles();
 
-    const roles = rolesData?.data?.filter((role) => !excludeIds.includes(role.id)) ?? [];
+    const roles =
+        rolesData?.filter((role) => !excludeIds.includes(role.id)) ?? [];
     const roleMap = new Map<string, string>(
         roles.map((r: Role) => [String(r.id), r.display_name]),
     );

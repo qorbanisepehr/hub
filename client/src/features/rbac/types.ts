@@ -1,6 +1,7 @@
 import type {
     MatrixManagerType,
     EducationLevel,
+    RoleType,
 } from "@/features/rbac/constants";
 
 export type Permission = {
@@ -54,6 +55,7 @@ export type Role = {
     display_name: string;
     description: string | null;
     is_active: boolean;
+    type?: RoleType;
     inherits_permissions: boolean;
     parent_id: number | null;
     matrix_managers?: MatrixManager[];
@@ -186,6 +188,7 @@ export type RoleChartRole = {
     display_name: string;
     description: string | null;
     is_active: boolean;
+    type: RoleType;
     parent_id: number | null;
     matrix_managers: MatrixManager[];
     matrix_manager_roles: ResolvedMatrixManager[];
@@ -201,6 +204,7 @@ export type CreateRoleData = {
     display_name: string;
     description?: string;
     parent_id?: number | null;
+    type?: RoleType;
     inherits_permissions?: boolean;
     is_active?: boolean;
     matrix_managers?: MatrixManager[];

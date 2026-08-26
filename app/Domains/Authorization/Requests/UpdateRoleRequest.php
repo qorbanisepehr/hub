@@ -2,6 +2,7 @@
 
 namespace App\Domains\Authorization\Requests;
 
+use App\Domains\Authorization\Models\Role;
 use App\Domains\Authorization\Requests\Concerns\ValidatesAccessRules;
 use App\Domains\Authorization\Requests\Concerns\ValidatesRequirements;
 use App\Domains\Authorization\Services\RoleHierarchyInspector;
@@ -43,6 +44,7 @@ class UpdateRoleRequest extends FormRequest
                     }
                 },
             ],
+            'type' => ['nullable', 'string', Rule::in(array_keys(Role::TYPES))],
             'matrix_managers' => 'nullable|array',
             'matrix_managers.*.role_id' => [
                 'required',
@@ -72,6 +74,7 @@ class UpdateRoleRequest extends FormRequest
             'name.max' => 'نام نقش نباید بیشتر از ۱۰۰ کاراکتر باشد.',
             'display_name.max' => 'نام نمایشی نباید بیشتر از ۱۰۰ کاراکتر باشد.',
             'parent_id.exists' => 'نقش والد یافت نشد.',
+            'type.in' => 'نوع نقش نامعتبر است.',
             'matrix_managers.*.role_id.exists' => 'یکی از نقش‌های مدیر یافت نشد.',
             'matrix_managers.*.role_id.distinct' => 'یک نقش نمی‌تواند بیش از یک بار به عنوان مدیر ماتریسی انتخاب شود.',
             'matrix_managers.*.manager_type.in' => 'نوع مدیر ماتریسی نامعتبر است.',

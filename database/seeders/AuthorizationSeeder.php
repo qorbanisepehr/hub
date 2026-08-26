@@ -23,6 +23,7 @@ class AuthorizationSeeder extends Seeder
             [
                 'display_name' => 'مدیر سامانه',
                 'is_active' => true,
+                'type' => Role::TYPE_SYSTEM,
             ],
         );
 
@@ -32,6 +33,7 @@ class AuthorizationSeeder extends Seeder
             [
                 'display_name' => 'مدیر ارشد سامانه',
                 'is_active' => true,
+                'type' => Role::TYPE_SYSTEM,
             ],
         );
 
@@ -42,6 +44,7 @@ class AuthorizationSeeder extends Seeder
             [
                 'display_name' => 'سرپرست معاونت سرمایه انسانی',
                 'is_active' => true,
+                'type' => Role::TYPE_ORGANIZATION,
             ],
         );
 
@@ -51,6 +54,7 @@ class AuthorizationSeeder extends Seeder
             [
                 'display_name' => 'سرپرست مدیریت سرمایه انسانی',
                 'is_active' => true,
+                'type' => Role::TYPE_ORGANIZATION,
             ],
         );
 
@@ -59,6 +63,7 @@ class AuthorizationSeeder extends Seeder
             [
                 'display_name' => 'مدیر پشتیبانی',
                 'is_active' => true,
+                'type' => Role::TYPE_ORGANIZATION,
             ],
         );
 
@@ -67,6 +72,7 @@ class AuthorizationSeeder extends Seeder
             [
                 'display_name' => 'مشاور',
                 'is_active' => true,
+                'type' => Role::TYPE_ORGANIZATION,
             ],
         );
 
@@ -76,6 +82,7 @@ class AuthorizationSeeder extends Seeder
             [
                 'display_name' => 'رئیس انگیزه و رفاه',
                 'is_active' => true,
+                'type' => Role::TYPE_ORGANIZATION,
             ],
         );
 
@@ -84,6 +91,7 @@ class AuthorizationSeeder extends Seeder
             [
                 'display_name' => 'رئیس امور اداری و کارگزینی',
                 'is_active' => true,
+                'type' => Role::TYPE_ORGANIZATION,
             ],
         );
 
@@ -93,6 +101,7 @@ class AuthorizationSeeder extends Seeder
             [
                 'display_name' => 'رئیس پشتیبانی و خدمات عمومی',
                 'is_active' => true,
+                'type' => Role::TYPE_ORGANIZATION,
             ],
         );
 
@@ -102,6 +111,7 @@ class AuthorizationSeeder extends Seeder
             [
                 'display_name' => 'کارشناس ارشد انگیزش و رفاه',
                 'is_active' => true,
+                'type' => Role::TYPE_ORGANIZATION,
             ],
         );
 
@@ -110,6 +120,7 @@ class AuthorizationSeeder extends Seeder
             [
                 'display_name' => 'کارمند انگیزش و رفاه',
                 'is_active' => true,
+                'type' => Role::TYPE_ORGANIZATION,
             ],
         );
 
@@ -118,6 +129,7 @@ class AuthorizationSeeder extends Seeder
             [
                 'display_name' => 'کارمند اداری و کارگزینی',
                 'is_active' => true,
+                'type' => Role::TYPE_ORGANIZATION,
             ],
         );
 
@@ -126,6 +138,7 @@ class AuthorizationSeeder extends Seeder
             [
                 'display_name' => 'کارشناس ارشد اداری و کارگزینی',
                 'is_active' => true,
+                'type' => Role::TYPE_ORGANIZATION,
             ],
         );
 
@@ -134,6 +147,7 @@ class AuthorizationSeeder extends Seeder
             [
                 'display_name' => 'کارشناس اداری و کارگزینی',
                 'is_active' => true,
+                'type' => Role::TYPE_ORGANIZATION,
             ],
         );
 
@@ -142,6 +156,7 @@ class AuthorizationSeeder extends Seeder
             [
                 'display_name' => 'کارمند خدمات عمومی و تاسیسات',
                 'is_active' => true,
+                'type' => Role::TYPE_ORGANIZATION,
             ],
         );
 
@@ -150,6 +165,7 @@ class AuthorizationSeeder extends Seeder
             [
                 'display_name' => 'کارشناس خدمات عمومی و تاسیسات',
                 'is_active' => true,
+                'type' => Role::TYPE_ORGANIZATION,
             ],
         );
 
@@ -158,6 +174,7 @@ class AuthorizationSeeder extends Seeder
             [
                 'display_name' => 'کارشناس خدمات عمومی',
                 'is_active' => true,
+                'type' => Role::TYPE_ORGANIZATION,
             ],
         );
 

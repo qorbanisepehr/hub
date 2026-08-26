@@ -38,6 +38,9 @@ export const roleKeys = {
     lists: () => [...roleKeys.all, "list"] as const,
     list: (params: Record<string, unknown>) =>
         [...roleKeys.lists(), params] as const,
+    // Full roles list (plain array shape). The ONLY query bound to this key
+    // - consumers must go through useRoles() so cache shapes never clash.
+    listAll: () => [...roleKeys.all, "all"] as const,
     details: () => [...roleKeys.all, "detail"] as const,
     detail: (id: number) => [...roleKeys.details(), id] as const,
     select: (search: string) =>

@@ -39,6 +39,7 @@ return new class extends Migration
             $table->text('description')->nullable();
             $table->boolean('is_active')->default(true);
             $table->foreignId('parent_id')->nullable()->constrained('roles')->nullOnDelete();
+            $table->string('type', 30)->default('organization');
             $table->json('matrix_managers')->nullable();
             $table->json('requirements')->nullable();
             $table->timestamps();

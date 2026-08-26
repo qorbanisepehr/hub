@@ -2,6 +2,7 @@
 
 namespace App\Domains\Authorization\Requests;
 
+use App\Domains\Authorization\Models\Role;
 use App\Domains\Authorization\Requests\Concerns\ValidatesAccessRules;
 use App\Domains\Authorization\Requests\Concerns\ValidatesRequirements;
 use Illuminate\Foundation\Http\FormRequest;
@@ -25,6 +26,7 @@ class StoreRoleRequest extends FormRequest
             'description' => 'nullable|string|max:500',
             'is_active' => 'sometimes|boolean',
             'parent_id' => 'nullable|integer|exists:roles,id',
+            'type' => ['nullable', 'string', Rule::in(array_keys(Role::TYPES))],
             'matrix_managers' => 'nullable|array',
             'matrix_managers.*.role_id' => 'required|integer|distinct|exists:roles,id',
             'matrix_managers.*.manager_type' => ['required', 'string', Rule::in(array_keys(config('authorization.matrix_manager_types', [])))],
@@ -46,6 +48,7 @@ class StoreRoleRequest extends FormRequest
             'display_name.required' => 'نام نمایشی الزامی است.',
             'display_name.max' => 'نام نمایشی نباید بیشتر از ۱۰۰ کاراکتر باشد.',
             'parent_id.exists' => 'نقش والد یافت نشد.',
+            'type.in' => 'نوع نقش نامعتبر است.',
             'matrix_managers.*.role_id.exists' => 'یکی از نقش‌های مدیر یافت نشد.',
             'matrix_managers.*.role_id.distinct' => 'یک نقش نمی‌تواند بیش از یک بار به عنوان مدیر ماتریسی انتخاب شود.',
             'matrix_managers.*.manager_type.in' => 'نوع مدیر ماتریسی نامعتبر است.',

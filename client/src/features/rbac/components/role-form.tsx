@@ -1,5 +1,4 @@
 import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { useForm, useStore } from "@tanstack/react-form";
 import type { AnyFieldApi } from "@tanstack/react-form";
 import { z } from "zod";
@@ -34,12 +33,13 @@ import {
 import { ErrorBanner } from "@/components/layout";
 import { UnsavedChangesDialog } from "@/components/layout";
 import { zodFieldValidators } from "@/lib/validation-helpers";
-import { fetchAllRoles } from "@/features/rbac/api";
-import { roleKeys } from "@/lib/query-keys";
+import { useRoles } from "@/features/rbac/hooks/use-roles";
 import {
     MATRIX_MANAGER_TYPES,
     EDUCATION_LEVELS,
+    ROLE_TYPES,
     type MatrixManagerType,
+    type RoleType,
 } from "@/features/rbac/constants";
 
 const MATRIX_MANAGER_TYPES_KEYS = [
@@ -101,6 +101,7 @@ export const roleSchema = z.object({
         .max(100, "حداکثر ۱۰۰ کاراکتر"),
     description: z.string().max(500, "حداکثر ۵۰۰ کاراکتر").or(z.literal("")),
     parent_id: z.number().nullable(),
+    type: z.enum(Object.keys(ROLE_TYPES) as [keyof typeof ROLE_TYPES, ...Array<keyof typeof ROLE_TYPES>]),
     inherits_permissions: z.boolean(),
     is_active: z.boolean(),
     access_rules: z.array(accessRuleSchema),
@@ -237,18 +238,11 @@ export function RoleForm({
     excludeParentIds = [],
     inheritedPermissionIds = [],
 }: RoleFormProps) {
-    const { data: allRolesData } = useQuery({
-        queryKey: roleKeys.all,
-        queryFn: async () => {
-            const { data } = await fetchAllRoles();
-            return data;
-        },
-        staleTime: 5 * 60 * 1000,
-    });
+    const { data: allRolesData } = useRoles();
 
     const roleLookup = useMemo(() => {
         const map = new Map<number, string>();
-        for (const role of allRolesData?.data ?? []) {
+        for (const role of allRolesData ?? []) {
             map.set(role.id, role.display_name);
         }
         return map;
@@ -260,6 +254,7 @@ export function RoleForm({
             display_name: "",
             description: "",
             parent_id: null,
+            type: "organization" as RoleType,
             inherits_permissions: false,
             is_active: true,
             access_rules: [],
@@ -328,6 +323,26 @@ export function RoleForm({
                         </div>
                     </CardHeader>
                     <CardContent className="space-y-4">
+                        <form.Field
+                            name="type"
+                            validators={zodFieldValidators(
+                                roleSchema.shape.type,
+                            )}
+                        >
+                            {(field) => (
+                                <FormSelectField
+                                    field={field}
+                                    label="نوع نقش"
+                                    options={Object.entries(
+                                        ROLE_TYPES,
+                                    ).map(([value, label]) => ({
+                                        value,
+                                        label,
+                                    }))}
+                                />
+                            )}
+                        </form.Field>
+
                         <form.Field
                             name="name"
                             validators={zodFieldValidators(
