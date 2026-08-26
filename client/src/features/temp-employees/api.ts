@@ -1,8 +1,34 @@
 import { api } from "@/lib/api";
 import type { TempEmployee, TempFileNode } from "./types";
 
-export function fetchTempEmployees() {
-    return api.get<{ data: TempEmployee[] }>("/temp-employees");
+export type TempEmployeeListParams = {
+    search?: string;
+    page?: number;
+    per_page?: number;
+};
+
+export type TempEmployeesMeta = {
+    current_page: number;
+    last_page: number;
+    per_page: number;
+    total: number;
+};
+
+export type TempEmployeeSyncResult = {
+    created: number;
+    updated: number;
+    skipped: string[];
+};
+
+export function fetchTempEmployees(params: TempEmployeeListParams = {}) {
+    return api.get<{ data: TempEmployee[]; meta: TempEmployeesMeta }>(
+        "/temp-employees",
+        { params },
+    );
+}
+
+export function syncTempEmployees() {
+    return api.post<{ data: TempEmployeeSyncResult }>("/temp-employees/sync");
 }
 
 export function fetchTempEmployeeTree(personnelCode: string) {
