@@ -4,6 +4,7 @@ import { DocumentFileItem, MissingDocsBadge } from "@/components/documents";
 import { SectionRow } from "@/components/shared/section-row";
 import { useDependentDocsFeedback } from "@/features/employees/hooks/use-dependent-docs-feedback";
 import { dependentRowLabel } from "@/features/employees/dependents-docs";
+import { useOptionLabelResolver } from "@/components/section-views/use-option-label";
 import { useEmployeeDocuments } from "@/features/employees/hooks/use-employee-documents";
 import { toPersianDate } from "@/lib/date-format";
 import type { Employee } from "@/features/employees/types";
@@ -53,6 +54,9 @@ export function DependentsView({
     const { isLoading: docsLoading, relationshipOptions, getMissing } =
         useDependentDocsFeedback(employee.id, dependents);
 
+    const resolveRelationship = useOptionLabelResolver("relationship_type");
+    const resolveGender = useOptionLabelResolver("gender");
+
     return (
         <Card>
             <CardHeader className="flex flex-row items-center justify-between">
@@ -89,7 +93,9 @@ export function DependentsView({
                                     <div className="grid grid-cols-1 gap-x-6 gap-y-3 md:grid-cols-2">
                                         <SectionRow
                                             label="نسبت"
-                                            value={dependent.relationship_type}
+                                            value={resolveRelationship(
+                                                dependent.relationship_type,
+                                            )}
                                         />
                                         <SectionRow
                                             label="نام و نام خانوادگی"
@@ -101,7 +107,9 @@ export function DependentsView({
                                         />
                                         <SectionRow
                                             label="جنسیت"
-                                            value={dependent.gender}
+                                            value={resolveGender(
+                                                dependent.gender,
+                                            )}
                                         />
                                         <SectionRow
                                             label="تاریخ تولد"

@@ -1,5 +1,6 @@
 import { useCallback } from "react";
 
+import { useResolvedFormOptions } from "@/features/form-options/hooks/use-form-options";
 import { useFormOptionsByGroup } from "@/features/form-options/hooks/use-form-options";
 
 type LabeledOption = { value: string; label: string };
@@ -52,4 +53,30 @@ export function useOptionLabels(
     const resolve = useOptionLabelResolver(group);
     if (!values) return "";
     return values.map((value) => resolve(value)).join("، ");
+}
+
+/**
+ * Decode a composite place value — the city option's own value
+ * («{province}-{city}») — into «استان، شهر». The province comes from the
+ * city row's parent_value. Falls back to the raw value while unresolved or
+ * for unknown values.
+ */
+export function usePlaceLabel(value: string | null | undefined): string {
+    const { data: cities } = useResolvedFormOptions(
+        "city",
+        value ? [value] : [],
+    );
+    const city = cities?.find((option) => option.value === value);
+
+    const { data: provinces } = useResolvedFormOptions(
+        "province",
+        city?.parent_value ? [city.parent_value] : [],
+    );
+    const province = provinces?.find(
+        (option) => option.value === city?.parent_value,
+    );
+
+    if (!value) return "";
+    if (!city) return value;
+    return province ? `${province.label}، ${city.label}` : city.label;
 }

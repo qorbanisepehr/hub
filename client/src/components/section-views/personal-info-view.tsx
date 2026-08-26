@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { SectionRow } from "@/components/shared/section-row";
 import { SectionCard } from "./section-card";
 import { asRecord, dateValue, stringValue } from "./shared";
-import { useOptionLabel } from "./use-option-label";
+import { useOptionLabel, usePlaceLabel } from "./use-option-label";
 
 type PersonalInfoViewProps = {
     data: Record<string, unknown>;
@@ -29,7 +29,7 @@ export function PersonalInfoView({
     const bloodLabel = useOptionLabel("blood_group", data.blood_group as string);
     const spouseLabel = useOptionLabel("spouse_employment_status", data.spouse_employment_status as string);
     const militaryStatusLabel = useOptionLabel("military_status", military.status as string);
-    const birthPlaceLabel = useOptionLabel("city", data.birth_place as string);
+    const birthPlaceLabel = usePlaceLabel(data.birth_place as string);
     const englishName = [
         stringValue(data.first_name_en),
         stringValue(data.last_name_en),
