@@ -4,12 +4,17 @@ import { AppSidebar } from "@/features/dashboard/components/app-sidebar";
 import { SiteHeader } from "@/features/dashboard/components/site-header";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { requireAuth } from "@/features/auth/guards";
+import { ensureFormOptions } from "@/features/form-options/hooks/use-form-options";
+import { queryClient } from "@/lib/query-client";
 import { ErrorPage } from "@/components/layout";
 
 export const Route = createRoute({
     getParentRoute: () => RootRoute,
     id: "protected",
     beforeLoad: ({ location }) => requireAuth(location),
+    // Warm the form-options dictionary so option-backed fields never flash
+    // raw stored values on first paint.
+    loader: () => ensureFormOptions(queryClient),
     errorComponent: ProtectedError,
     notFoundComponent: ProtectedNotFound,
     component: ProtectedLayout,

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { getApiError } from "@/lib/error-utils";
@@ -19,16 +19,37 @@ import {
 import type { FormOptionsMap, PublicFormOption, StoreFormOptionData } from "../types";
 
 /**
+ * Location groups are excluded from the shared dictionary map
+ * (`FormOptionService::LOCATION_GROUPS` server-side) because of their size;
+ * they are always served per-group.
+ */
+const LOCATION_GROUPS = new Set(["city", "province"]);
+
+async function fetchAllOptionsMap(): Promise<FormOptionsMap> {
+    const { data } = await fetchFormOptions();
+    return data.data;
+}
+
+/**
+ * Warm the shared dictionary before a route renders so option-backed fields
+ * resolve synchronously on first paint instead of flashing raw stored values.
+ * Failures degrade gracefully — pages fall back to their normal loading state.
+ */
+export function ensureFormOptions(queryClient: QueryClient): Promise<void> {
+    return queryClient
+        .ensureQueryData({ queryKey: formOptionKeys.all(), queryFn: fetchAllOptionsMap })
+        .then(() => undefined)
+        .catch(() => undefined);
+}
+
+/**
  * All groups' active options. Options rarely change, so the data is cached for
  * the whole session; admin mutations invalidate this key to refresh it.
  */
 export function useFormOptions() {
     return useQuery<FormOptionsMap>({
         queryKey: formOptionKeys.all(),
-        queryFn: async () => {
-            const { data } = await fetchFormOptions();
-            return data.data;
-        },
+        queryFn: fetchAllOptionsMap,
         staleTime: Infinity,
     });
 }
@@ -36,18 +57,38 @@ export function useFormOptions() {
 /**
  * One group's active options, cached for the session. Used by form sections to
  * render option lists and build dynamic validation from the same source.
- * Location groups pass the selected parent value to fetch only its children;
- * the optional search term filters by label (used by searchable comboboxes).
+ *
+ * Plain reads derive from the shared dictionary map (one request per session,
+ * warmable via ensureFormOptions) so views never flash raw stored values.
+ * Hierarchical location groups and filtered reads (parent_value / search) keep
+ * hitting their dedicated endpoint — the city group is far too large to embed
+ * in the dictionary and location filtering/searching is server-side.
  */
 export function useFormOptionsByGroup(group: string, parentValue?: string, search?: string) {
-    return useQuery({
+    const needsDedicatedFetch =
+        parentValue !== undefined || search !== undefined || LOCATION_GROUPS.has(group);
+
+    // Both queries are always declared (rules of hooks); exactly one is
+    // enabled per render.
+    const shared = useQuery({
+        queryKey: formOptionKeys.all(),
+        queryFn: fetchAllOptionsMap,
+        enabled: !needsDedicatedFetch,
+        staleTime: Infinity,
+        select: (map: FormOptionsMap): PublicFormOption[] => map[group] ?? [],
+    });
+
+    const dedicated = useQuery({
         queryKey: formOptionKeys.byGroup(group, parentValue, search),
         queryFn: async () => {
             const { data } = await fetchFormOptionsByGroup(group, parentValue, search);
             return data.data;
         },
+        enabled: needsDedicatedFetch,
         staleTime: Infinity,
     });
+
+    return needsDedicatedFetch ? dedicated : shared;
 }
 
 /**

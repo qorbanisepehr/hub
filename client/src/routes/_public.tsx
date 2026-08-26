@@ -3,11 +3,16 @@ import { Route as RootRoute } from "@/routes/__root";
 import { PublicHeader } from "@/components/navigation";
 import { Logo } from "@/components/navigation";
 import { useBranding } from "@/features/settings/hooks/use-branding";
+import { ensureFormOptions } from "@/features/form-options/hooks/use-form-options";
+import { queryClient } from "@/lib/query-client";
 import { COMPANY_NAME } from "@/lib/brand";
 
 export const Route = createRoute({
     getParentRoute: () => RootRoute,
     id: "public",
+    // Warm the form-options dictionary for public flows (questionnaire/cv)
+    // so option-backed fields never flash raw stored values on first paint.
+    loader: () => ensureFormOptions(queryClient),
     component: PublicLayout,
 });
 
