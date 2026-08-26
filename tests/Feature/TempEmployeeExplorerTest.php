@@ -26,15 +26,76 @@ test('guests cannot list temp employees', function () {
     $this->getJson('/api/temp-employees')->assertUnauthorized();
 });
 
-test('it lists temp employees', function () {
-    $employee = tempEmployeeWithFiles();
+test('it lists temp employees paginated', function () {
+    tempEmployeeWithFiles();
+    TempEmployee::factory()->count(20)->create();
     $user = createUserWithPermissions([]);
 
-    $response = $this->actingAs($user)->getJson('/api/temp-employees')->assertOk();
+    $response = $this->actingAs($user)
+        ->getJson('/api/temp-employees?per_page=10')
+        ->assertOk();
 
-    expect($response->json('data'))->toHaveCount(1)
-        ->and($response->json('data.0.personnel_code'))->toBe('7777')
-        ->and($response->json('data.0.first_name'))->toBe($employee->first_name);
+    expect($response->json('data'))->toHaveCount(10)
+        ->and($response->json('meta.total'))->toBe(21)
+        ->and($response->json('meta.last_page'))->toBe(3);
+});
+
+test('search filters by code, id number, and name fragments', function () {
+    tempEmployeeWithFiles();
+    TempEmployee::factory()->create([
+        'personnel_code' => '9001',
+        'id_number' => '1111222233',
+        'first_name' => 'سارا',
+        'last_name' => 'مرادی',
+    ]);
+    $user = createUserWithPermissions([]);
+
+    // By personnel-code fragment.
+    $byCode = $this->actingAs($user)->getJson('/api/temp-employees?search=9001');
+    expect($byCode->json('data'))->toHaveCount(1)
+        ->and($byCode->json('data.0.personnel_code'))->toBe('9001');
+
+    // By last-name fragment.
+    $byName = $this->actingAs($user)->getJson('/api/temp-employees?search='.urlencode('مراد'));
+    expect($byName->json('data'))->toHaveCount(1)
+        ->and($byName->json('data.0.last_name'))->toBe('مرادی');
+
+    // No match.
+    $this->actingAs($user)
+        ->getJson('/api/temp-employees?search=zzz')
+        ->assertOk()
+        ->assertJsonPath('meta.total', 0);
+});
+
+test('sync creates employees from patterned folders and skips the rest', function () {
+    Storage::fake('local');
+    $disk = Storage::disk('local');
+
+    $disk->makeDirectory('temp-files/5555 - علی رضایی');
+    $disk->put('temp-files/5555 - علی رضایی/a.txt', 'x');
+    $disk->makeDirectory('temp-files/نامعتبر بدون الگو');
+
+    $response = $this->actingAs(createUserWithPermissions([]))
+        ->postJson('/api/temp-employees/sync')
+        ->assertOk();
+
+    expect($response->json('data.created'))->toBe(1)
+        ->and($response->json('data.skipped'))->toBe(['نامعتبر بدون الگو']);
+
+    $employee = TempEmployee::query()->where('personnel_code', '5555')->first();
+
+    expect($employee)->not->toBeNull()
+        ->and($employee->first_name)->toBe('علی')
+        ->and($employee->last_name)->toBe('رضایی')
+        ->and($employee->files_directory)->toBe('temp-files/5555 - علی رضایی');
+
+    // The tree endpoint reads from the REAL synced folder.
+    $tree = $this->actingAs(createUserWithPermissions([]))
+        ->getJson('/api/temp-employees/5555/tree')
+        ->assertOk()
+        ->json('data');
+
+    expect(collect($tree)->pluck('path'))->toContain('a.txt');
 });
 
 test('it returns the recursive file tree', function () {

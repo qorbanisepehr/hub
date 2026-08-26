@@ -3,25 +3,65 @@
 namespace App\Http\Controllers;
 
 use App\Models\TempEmployee;
+use App\Services\TempEmployeeSyncService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 /**
- * Read-only endpoints for the temporary file-explorer tool. Intentionally
+ * Read-mostly endpoints for the temporary file-explorer tool. Intentionally
  * gated by plain Sanctum authentication (no dedicated permissions) — this is
  * throwaway tooling and must not be shipped to production as-is.
  */
 class TempEmployeeController extends Controller
 {
-    public function index(): JsonResponse
+    public function __construct(
+        private readonly TempEmployeeSyncService $syncService,
+    ) {}
+
+    /**
+     * Paginated + searchable list. `?search=` matches personnel code,
+     * national id, first, or last name; `?page=` / `?per_page=` paginate.
+     */
+    public function index(Request $request): JsonResponse
     {
+        $search = trim((string) $request->query('search', ''));
+
+        $paginator = TempEmployee::query()
+            ->when(
+                $search !== '',
+                fn ($query) => $query->where(fn ($q) => $q
+                    ->where('personnel_code', 'like', "%{$search}%")
+                    ->orWhere('id_number', 'like', "%{$search}%")
+                    ->orWhere('first_name', 'like', "%{$search}%")
+                    ->orWhere('last_name', 'like', "%{$search}%")),
+            )
+            ->orderBy('id')
+            ->paginate(
+                perPage: min((int) $request->query('per_page', 15) ?: 15, 100),
+                page: (int) $request->query('page', 1) ?: 1,
+            );
+
         return response()->json([
-            'data' => TempEmployee::query()
-                ->orderBy('id')
-                ->get(['id', 'personnel_code', 'id_number', 'first_name', 'last_name']),
+            'data' => $paginator->values(),
+            'meta' => [
+                'current_page' => $paginator->currentPage(),
+                'last_page' => $paginator->lastPage(),
+                'per_page' => $paginator->perPage(),
+                'total' => $paginator->total(),
+            ],
         ]);
+    }
+
+    /**
+     * Sync on-disk folders into temp_employees using the sync service's
+     * folder-name pattern. Returns created/updated counts plus skipped
+     * folders whose names did not match.
+     */
+    public function sync(): JsonResponse
+    {
+        return response()->json(['data' => $this->syncService->sync()]);
     }
 
     public function tree(TempEmployee $employee): JsonResponse

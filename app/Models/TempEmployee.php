@@ -20,13 +20,16 @@ class TempEmployee extends Model
         'id_number',
         'first_name',
         'last_name',
+        'files_directory',
     ];
 
     /**
-     * Storage-relative directory holding this employee's files.
+     * Storage-relative directory holding this employee's files. Synced rows
+     * point at their real on-disk folder name; seeded/manual rows fall back
+     * to the plain personnel-code convention.
      */
     public function filesDirectory(): string
     {
-        return 'temp-files/'.$this->personnel_code;
+        return $this->files_directory ?? 'temp-files/'.$this->personnel_code;
     }
 }
