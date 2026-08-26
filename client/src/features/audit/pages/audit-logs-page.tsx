@@ -28,6 +28,7 @@ import type { AuditCategory, AuditLog, AuditLogDetail } from "@/features/audit/t
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { AuditDiffView } from "@/features/audit/components/audit-diff-view";
 import { toPersianDate } from "@/lib/date-format";
 
 const route = getRouteApi("/protected/audit");
@@ -76,25 +77,7 @@ function ExpandedRowContent({ log }: { log: AuditLog }) {
             </div>
             <div className="space-y-2">
                 <h4 className="font-medium text-muted-foreground">تغییرات</h4>
-                {changes.old && (
-                    <div>
-                        <span className="text-muted-foreground text-xs">قبل:</span>
-                        <pre className="mt-1 p-2 bg-muted rounded text-xs overflow-auto max-h-32">
-                            {JSON.stringify(changes.old, null, 2)}
-                        </pre>
-                    </div>
-                )}
-                {changes.new && (
-                    <div>
-                        <span className="text-muted-foreground text-xs">بعد:</span>
-                        <pre className="mt-1 p-2 bg-muted rounded text-xs overflow-auto max-h-32">
-                            {JSON.stringify(changes.new, null, 2)}
-                        </pre>
-                    </div>
-                )}
-                {!changes.old && !changes.new && (
-                    <span className="text-muted-foreground">—</span>
-                )}
+                <AuditDiffView old={changes.old} new={changes.new} />
             </div>
             <div className="space-y-2">
                 <h4 className="font-medium text-muted-foreground">درخواست</h4>

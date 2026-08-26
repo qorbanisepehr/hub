@@ -9,6 +9,7 @@ import { ErrorPage } from "@/components/layout";
 import { PageLayout } from "@/components/layout";
 import { PageHeader } from "@/components/layout";
 import { BackButton } from "@/components/layout";
+import { AuditDiffView } from "@/features/audit/components/audit-diff-view";
 import {
     AUDIT_CATEGORY_LABELS,
     AUDIT_CATEGORY_VARIANTS,
@@ -150,35 +151,11 @@ export function AuditLogDetailPage() {
                         <CardHeader>
                             <CardTitle className="text-lg">تغییرات</CardTitle>
                         </CardHeader>
-                        <CardContent className="grid gap-4 sm:grid-cols-2">
-                            {eventData.changes.old && (
-                                <div>
-                                    <p className="text-sm text-muted-foreground mb-2">
-                                        قبل
-                                    </p>
-                                    <pre className="bg-muted p-3 rounded-md text-xs overflow-auto max-h-64">
-                                        {JSON.stringify(
-                                            eventData.changes.old,
-                                            null,
-                                            2,
-                                        )}
-                                    </pre>
-                                </div>
-                            )}
-                            {eventData.changes.new && (
-                                <div>
-                                    <p className="text-sm text-muted-foreground mb-2">
-                                        بعد
-                                    </p>
-                                    <pre className="bg-muted p-3 rounded-md text-xs overflow-auto max-h-64">
-                                        {JSON.stringify(
-                                            eventData.changes.new,
-                                            null,
-                                            2,
-                                        )}
-                                    </pre>
-                                </div>
-                            )}
+                        <CardContent>
+                            <AuditDiffView
+                                old={eventData.changes.old}
+                                new={eventData.changes.new}
+                            />
                         </CardContent>
                     </Card>
                 )}

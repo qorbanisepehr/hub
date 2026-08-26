@@ -1,7 +1,10 @@
 import { useCallback } from "react";
 
-import { useResolvedFormOptions } from "@/features/form-options/hooks/use-form-options";
-import { useFormOptionsByGroup } from "@/features/form-options/hooks/use-form-options";
+import {
+    useFormOptions,
+    useFormOptionsByGroup,
+    useResolvedFormOptions,
+} from "@/features/form-options/hooks/use-form-options";
 
 type LabeledOption = { value: string; label: string };
 
@@ -79,4 +82,30 @@ export function usePlaceLabel(value: string | null | undefined): string {
     if (!value) return "";
     if (!city) return value;
     return province ? `${province.label}، ${city.label}` : city.label;
+}
+
+/**
+ * Reverse lookup across the WHOLE dictionary: stored slug → label without
+ * knowing the field's group. Safe for audit rendering because option values
+ * are unique ascii slugs / composites that free text never collides with.
+ * Returns null when the value is not a dictionary token.
+ */
+export function useOptionLabelLookup(): (value: unknown) => string | null {
+    const { data: map } = useFormOptions();
+
+    return useCallback(
+        (value: unknown): string | null => {
+            if (typeof value !== "string" || value === "" || value.length > 100) {
+                return null;
+            }
+
+            for (const options of Object.values(map ?? {})) {
+                const hit = options.find((option) => option.value === value);
+                if (hit) return hit.label;
+            }
+
+            return null;
+        },
+        [map],
+    );
 }
