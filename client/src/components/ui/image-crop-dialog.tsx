@@ -37,9 +37,9 @@ export type ImageCropDialogProps = {
     fileName: string;
     fileType: string;
     config: NormalizedImageEditorConfig;
-    /** When set, the title shows a rename control. The callback persists the
-     *  new name (e.g. renames the file on the server) and returns the
-     *  authoritative name to use for the edited output. */
+    /** When set, the title shows a rename control. The callback receives the
+     *  new base name only (the file extension/type is preserved separately)
+     *  and returns the authoritative full file name to use for the output. */
     onRename?: (newName: string) => Promise<string> | string;
     onOpenChange: (open: boolean) => void;
     onConfirm: (file: File) => void;
@@ -62,6 +62,14 @@ function loadImageSize(
 
 function normalizeDegrees(degrees: number): number {
     return ((degrees % 360) + 360) % 360;
+}
+
+/** Split a file name into its base name and extension (`.` included, `""` when none). */
+function splitNameExtension(fileName: string): { base: string; ext: string } {
+    const dotIndex = fileName.lastIndexOf(".");
+    return dotIndex > 0
+        ? { base: fileName.slice(0, dotIndex), ext: fileName.slice(dotIndex) }
+        : { base: fileName, ext: "" };
 }
 
 export function ImageCropDialog({
@@ -147,7 +155,7 @@ export function ImageCropDialog({
     };
 
     const startRename = () => {
-        setRenameDraft(name);
+        setRenameDraft(splitNameExtension(name).base);
         setRenaming(true);
     };
 
@@ -158,6 +166,8 @@ export function ImageCropDialog({
             return;
         }
         try {
+            // Renaming edits only the base name; the file type/extension is
+            // preserved by the caller (backend) independently.
             const result = await onRename(trimmed);
             setName(result || trimmed);
         } finally {
