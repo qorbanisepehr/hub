@@ -129,7 +129,7 @@ function toLightboxDoc(
         size: node.size ?? 0,
         uploaded_by: null,
         uploader_name: null,
-        url: `${tempFileUrl(employee.personnel_code, node.path)}${revision ? `?v=${revision}` : ""}`,
+        url: `${tempFileUrl(employee.personnel_code, node.path)}&v=${revision}`,
         download_url: tempFileDownloadUrl(employee.personnel_code, node.path),
         created_at: node.modified_at ?? "",
         updated_at: node.modified_at ?? "",
@@ -671,7 +671,7 @@ export function TempFileExplorer({ employee }: { employee: TempEmployee }) {
                                         previewImageUrl={`${tempFileUrl(
                                             employee.personnel_code,
                                             node.path,
-                                        )}?v=${revision}`}
+                                        )}&v=${revision}`}
                                         className="mx-auto h-24 w-full rounded"
                                         previewClassName="aspect-[4/3]"
                                     />
@@ -717,7 +717,7 @@ export function TempFileExplorer({ employee }: { employee: TempEmployee }) {
                 open={editingNode !== null}
                 imageUrl={
                     editingNode
-                        ? `${tempFileUrl(employee.personnel_code, editingNode.path)}?v=${revision}`
+                        ? `${tempFileUrl(employee.personnel_code, editingNode.path)}&v=${revision}`
                         : ""
                 }
                 fileName={editingNode?.name ?? ""}
