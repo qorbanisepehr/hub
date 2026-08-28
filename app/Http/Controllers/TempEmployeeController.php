@@ -79,7 +79,8 @@ class TempEmployeeController extends Controller
     }
 
     /**
-     * Stream one file inline for the lightbox/preview. The requested path is
+     * Stream one file for the lightbox/preview (inline) or, when
+     * `?download=1`, serve it as an attachment download. The requested path is
      * resolved against the real filesystem and must stay inside the
      * employee's folder — anything else is a 404, never a leak.
      */
@@ -100,9 +101,13 @@ class TempEmployeeController extends Controller
 
         abort_unless(is_file($full), 404);
 
+        $disposition = $request->boolean('download')
+            ? 'attachment'
+            : 'inline';
+
         return response()->file($full, [
             'Content-Type' => mime_content_type($full) ?: 'application/octet-stream',
-            'Content-Disposition' => 'inline; filename="'.basename($full).'"',
+            'Content-Disposition' => $disposition.'; filename="'.basename($full).'"',
         ]);
     }
 

@@ -132,6 +132,16 @@ test('it serves a file inline for preview', function () {
         ->assertHeader('Content-Disposition', 'inline; filename="note.txt"');
 });
 
+test('it serves a file as an attachment download when requested', function () {
+    $employee = tempEmployeeWithFiles();
+    $user = createUserWithPermissions([]);
+
+    $this->actingAs($user)
+        ->getJson("/api/temp-employees/{$employee->personnel_code}/file?path=".urlencode('note.txt').'&download=1')
+        ->assertOk()
+        ->assertHeader('Content-Disposition', 'attachment; filename="note.txt"');
+});
+
 test('path traversal is rejected with a 404', function () {
     $employee = tempEmployeeWithFiles();
     $user = createUserWithPermissions([]);
