@@ -34,6 +34,7 @@
         "pdfjs-dist": "^6.2.108",
         "qr-code-styling": "^1.9.2",
         "react": "^19.2.8",
+        "react-advanced-cropper": "^0.20.1",
         "react-dom": "^19.2.8",
         "recharts": "^3.10.1",
         "shadcn": "^4.16.2",
