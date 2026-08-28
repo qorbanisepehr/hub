@@ -6,6 +6,7 @@ use App\Domains\TempEmployees\Models\TempEmployee;
 use App\Domains\TempEmployees\Services\TempEmployeeSyncService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -211,6 +212,49 @@ class TempEmployeeController
         return response()->file($full, [
             'Content-Type' => mime_content_type($full) ?: 'application/octet-stream',
             'Content-Disposition' => $disposition.'; filename="'.basename($full).'"',
+        ]);
+    }
+
+    /**
+     * Replace an existing image file with an edited upload. Mirrors the path
+     * resolution + traversal guard of `file()`; the uploaded image overwrites
+     * the file at `path`. Only image uploads are accepted. Returns the
+     * refreshed file node for the updated entry.
+     */
+    public function replaceFile(Request $request, TempEmployee $employee): JsonResponse
+    {
+        $validated = $request->validate([
+            'file' => ['required', 'file', 'image', 'max:20480'],
+            'path' => ['required', 'string', 'max:1024'],
+        ]);
+
+        $disk = Storage::disk('local');
+        $base = realpath($disk->path($employee->filesDirectory()));
+
+        abort_if($base === false, 404);
+
+        $full = realpath($base.DIRECTORY_SEPARATOR.$validated['path']);
+
+        abort_if(
+            $full === false || ! str_starts_with($full, $base.DIRECTORY_SEPARATOR),
+            422,
+        );
+        abort_unless(is_file($full), 404);
+
+        /** @var UploadedFile $uploaded */
+        $uploaded = $request->file('file');
+
+        file_put_contents($full, (string) $uploaded->getContent());
+
+        return response()->json([
+            'data' => [
+                'name' => basename($full),
+                'path' => $validated['path'],
+                'type' => 'file',
+                'size' => filesize($full) ?: null,
+                'mime' => mime_content_type($full) ?: null,
+                'modified_at' => date('Y-m-d H:i:s', (int) filemtime($full)),
+            ],
         ]);
     }
 

@@ -5,6 +5,7 @@ use App\Domains\Employee\Models\Employee;
 use App\Domains\TempEmployees\Models\TempEmployee;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 
 uses(RefreshDatabase::class);
@@ -224,4 +225,59 @@ test('path traversal is rejected with a 404', function () {
             ->getJson("/api/temp-employees/{$employee->personnel_code}/file?path={$attempt}")
             ->assertNotFound();
     }
+});
+
+test('guests cannot replace a file', function () {
+    $employee = tempEmployeeWithFiles();
+
+    $this->postJson("/api/temp-employees/{$employee->personnel_code}/file", [
+        'file' => UploadedFile::fake()->image('x.png'),
+        'path' => 'note.txt',
+    ])->assertUnauthorized();
+});
+
+test('a user can replace an image file on disk', function () {
+    $employee = tempEmployeeWithFiles();
+    Storage::disk('local')->put('temp-files/7777/photo.png', 'original');
+    $user = createUserWithPermissions([]);
+
+    $replacement = UploadedFile::fake()->image('new.png', 100, 100);
+
+    $response = $this->actingAs($user)
+        ->postJson("/api/temp-employees/{$employee->personnel_code}/file", [
+            'file' => $replacement,
+            'path' => 'photo.png',
+        ])
+        ->assertOk();
+
+    expect($response->json('data.path'))->toBe('photo.png')
+        ->and($response->json('data.mime'))->toBe('image/png')
+        ->and(Storage::disk('local')->exists('temp-files/7777/photo.png'))->toBeTrue()
+        // The original marker bytes were replaced by the uploaded PNG.
+        ->and(Storage::disk('local')->size('temp-files/7777/photo.png'))->toBeGreaterThan(4);
+});
+
+test('non-image uploads are rejected when replacing a file', function () {
+    $employee = tempEmployeeWithFiles();
+    Storage::disk('local')->put('temp-files/7777/photo.png', 'original');
+    $user = createUserWithPermissions([]);
+
+    $this->actingAs($user)
+        ->postJson("/api/temp-employees/{$employee->personnel_code}/file", [
+            'file' => UploadedFile::fake()->create('doc.pdf', 50, 'application/pdf'),
+            'path' => 'photo.png',
+        ])
+        ->assertUnprocessable();
+});
+
+test('replace path traversal is rejected', function () {
+    $employee = tempEmployeeWithFiles();
+    $user = createUserWithPermissions([]);
+
+    $this->actingAs($user)
+        ->postJson("/api/temp-employees/{$employee->personnel_code}/file", [
+            'file' => UploadedFile::fake()->image('x.png'),
+            'path' => '../notes.txt',
+        ])
+        ->assertStatus(422);
 });

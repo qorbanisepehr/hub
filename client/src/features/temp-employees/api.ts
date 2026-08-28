@@ -46,3 +46,20 @@ export function tempFileUrl(personnelCode: string, path: string): string {
 export function tempFileDownloadUrl(personnelCode: string, path: string): string {
     return `${tempFileUrl(personnelCode, path)}&download=1`;
 }
+
+/** Overwrite an existing image file on disk with an edited upload. */
+export function replaceTempEmployeeFile(
+    personnelCode: string,
+    path: string,
+    file: File,
+) {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("path", path);
+
+    return api.post<{ data: TempFileNode }>(
+        `/temp-employees/${personnelCode}/file`,
+        formData,
+        { headers: { "Content-Type": "multipart/form-data" } },
+    );
+}

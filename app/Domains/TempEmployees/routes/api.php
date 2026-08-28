@@ -9,4 +9,5 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('temp-employees/sync', [TempEmployeeController::class, 'sync']);
     Route::get('temp-employees/{employee:personnel_code}/tree', [TempEmployeeController::class, 'tree']);
     Route::get('temp-employees/{employee:personnel_code}/file', [TempEmployeeController::class, 'file']);
+    Route::post('temp-employees/{employee:personnel_code}/file', [TempEmployeeController::class, 'replaceFile']);
 });

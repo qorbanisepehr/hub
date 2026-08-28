@@ -36,6 +36,8 @@ export type ImageCropDialogProps = {
     fileName: string;
     fileType: string;
     config: NormalizedImageEditorConfig;
+    /** True while the caller persists the edited file (blocks closing). */
+    isSaving?: boolean;
     onOpenChange: (open: boolean) => void;
     onConfirm: (file: File) => void;
 };
@@ -61,6 +63,7 @@ export function ImageCropDialog({
     fileName,
     fileType,
     config,
+    isSaving = false,
     onOpenChange,
     onConfirm,
 }: ImageCropDialogProps) {
@@ -155,6 +158,7 @@ export function ImageCropDialog({
                                 <Button
                                     variant="ghost"
                                     size="icon-sm"
+                                    disabled={isSaving}
                                     className="text-white/80 hover:bg-white/10 hover:text-white"
                                 />
                             }
@@ -300,14 +304,21 @@ export function ImageCropDialog({
                         <Button
                             variant="ghost"
                             className="text-white/80 hover:bg-white/10 hover:text-white"
-                            disabled={isApplying}
+                            disabled={isApplying || isSaving}
                             onClick={() => onOpenChange(false)}
                         >
                             انصراف
                         </Button>
-                        <Button onClick={handleConfirm} disabled={isApplying}>
+                        <Button
+                            onClick={handleConfirm}
+                            disabled={isApplying || isSaving}
+                        >
                             <IconCheck className="size-4" />
-                            {isApplying ? "در حال اعمال..." : "تأیید"}
+                            {isSaving
+                                ? "در حال ذخیره..."
+                                : isApplying
+                                  ? "در حال اعمال..."
+                                  : "تأیید"}
                         </Button>
                     </div>
                 </DialogPrimitive.Popup>

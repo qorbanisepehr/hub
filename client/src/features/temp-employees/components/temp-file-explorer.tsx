@@ -1,5 +1,6 @@
 import * as React from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import {
     IconChevronDown,
     IconChevronLeft,
@@ -7,6 +8,7 @@ import {
     IconChevronsLeft,
     IconChevronsRight,
     IconDownload,
+    IconEdit,
     IconFolder,
     IconFolderOpen,
     IconLayoutGrid,
@@ -18,6 +20,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FileThumbnail } from "@/components/ui/file-thumbnail";
+import { ImageCropDialog } from "@/components/ui/image-crop-dialog";
+import {
+    normalizeImageEditorConfig,
+    type NormalizedImageEditorConfig,
+} from "@/components/ui/image-editor";
 import {
     Select,
     SelectContent,
@@ -27,7 +34,12 @@ import {
 } from "@/components/ui/select";
 import { DocumentPreviewLightbox } from "@/features/documents/components/document-preview-lightbox";
 import type { Document } from "@/features/documents/types";
-import { fetchTempEmployeeTree, tempFileDownloadUrl, tempFileUrl } from "../api";
+import {
+    fetchTempEmployeeTree,
+    replaceTempEmployeeFile,
+    tempFileDownloadUrl,
+    tempFileUrl,
+} from "../api";
 import type { TempEmployee, TempFileNode } from "../types";
 import { getFileColorClasses, getFileIcon, getFileTypeLabel, formatBytes } from "@/lib/file-utils";
 import { toPersianDate } from "@/lib/date-format";
@@ -99,6 +111,7 @@ function toLightboxDoc(
     employee: TempEmployee,
     node: TempFileNode,
     index: number,
+    revision: number,
 ): Document {
     return {
         id: index + 1,
@@ -116,7 +129,7 @@ function toLightboxDoc(
         size: node.size ?? 0,
         uploaded_by: null,
         uploader_name: null,
-        url: tempFileUrl(employee.personnel_code, node.path),
+        url: `${tempFileUrl(employee.personnel_code, node.path)}${revision ? `?v=${revision}` : ""}`,
         download_url: tempFileDownloadUrl(employee.personnel_code, node.path),
         created_at: node.modified_at ?? "",
         updated_at: node.modified_at ?? "",
@@ -133,6 +146,10 @@ function guessMime(name: string): string {
     return "application/octet-stream";
 }
 
+function isImageFile(node: TempFileNode): boolean {
+    return (node.mime ?? guessMime(node.name)).startsWith("image/");
+}
+
 function TreeRow({
     node,
     depth,
@@ -141,6 +158,7 @@ function TreeRow({
     toggle,
     onPreview,
     onDownload,
+    onEdit,
 }: {
     node: TempFileNode;
     depth: number;
@@ -149,6 +167,7 @@ function TreeRow({
     toggle: (path: string) => void;
     onPreview: (node: TempFileNode) => void;
     onDownload: (node: TempFileNode) => void;
+    onEdit: (node: TempFileNode) => void;
 }) {
     const isOpen = expanded.has(node.path);
 
@@ -205,6 +224,7 @@ function TreeRow({
                             toggle={toggle}
                             onPreview={onPreview}
                             onDownload={onDownload}
+                            onEdit={onEdit}
                         />
                     ))}
             </div>
@@ -236,6 +256,16 @@ function TreeRow({
                     {formatBytes(node.size)}
                 </span>
             )}
+            {isImageFile(node) && (
+                <button
+                    type="button"
+                    title="ویرایش تصویر"
+                    onClick={() => onEdit(node)}
+                    className="rounded p-1 text-muted-foreground opacity-0 hover:bg-muted hover:text-foreground focus:opacity-100 group-hover:opacity-100"
+                >
+                    <IconEdit className="size-4" />
+                </button>
+            )}
             <button
                 type="button"
                 title="دانلود"
@@ -264,6 +294,51 @@ export function TempFileExplorer({ employee }: { employee: TempEmployee }) {
     }, [searchInput]);
 
     const { data: tree, isLoading } = useTreeQuery(employee.personnel_code);
+
+    const queryClient = useQueryClient();
+    const [editingNode, setEditingNode] = React.useState<TempFileNode | null>(
+        null,
+    );
+    const [isSaving, setIsSaving] = React.useState(false);
+    // Bumped after each successful edit to bust the browser image cache.
+    const [revision, setRevision] = React.useState(0);
+    const editorConfig = React.useMemo(
+        () => normalizeImageEditorConfig(true) as NormalizedImageEditorConfig,
+        [],
+    );
+
+    function openEdit(node: TempFileNode) {
+        setEditingNode(node);
+    }
+
+    async function handleEditConfirm(file: File) {
+        const node = editingNode;
+        if (!node) return;
+
+        setIsSaving(true);
+        try {
+            await replaceTempEmployeeFile(
+                employee.personnel_code,
+                node.path,
+                file,
+            );
+            queryClient.invalidateQueries({
+                queryKey: [
+                    "temp-employees",
+                    employee.personnel_code,
+                    "tree",
+                ],
+            });
+            setEditingNode(null);
+            setRevision((r) => r + 1);
+            toast.success("تصویر با موفقیت ذخیره شد.");
+        } catch (error) {
+            console.error("Failed to replace image file:", error);
+            toast.error("ذخیره تصویر ناموفق بود. دوباره تلاش کنید.");
+        } finally {
+            setIsSaving(false);
+        }
+    }
 
     const filteredNodes = React.useMemo(() => {
         const raw = tree ?? [];
@@ -302,8 +377,8 @@ export function TempFileExplorer({ employee }: { employee: TempEmployee }) {
     }, [employee.personnel_code, files]);
 
     const lightboxDocs = React.useMemo(
-        () => files.map((node, index) => toLightboxDoc(employee, node, index)),
-        [employee, files],
+        () => files.map((node, index) => toLightboxDoc(employee, node, index, revision)),
+        [employee, files, revision],
     );
 
     const totalPages = Math.max(1, Math.ceil(files.length / pageSize));
@@ -481,6 +556,7 @@ export function TempFileExplorer({ employee }: { employee: TempEmployee }) {
                                 toggle={toggle}
                                 onPreview={openPreview}
                                 onDownload={download}
+                                onEdit={openEdit}
                             />
                         ))}
                 </div>
@@ -544,6 +620,19 @@ export function TempFileExplorer({ employee }: { employee: TempEmployee }) {
                                                     : "—"}
                                             </td>
                                             <td className="px-3 py-2 text-end">
+                                                {isImageFile(node) && (
+                                                    <button
+                                                        type="button"
+                                                        title="ویرایش تصویر"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            openEdit(node);
+                                                        }}
+                                                        className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                                                    >
+                                                        <IconEdit className="size-4" />
+                                                    </button>
+                                                )}
                                                 <button
                                                     type="button"
                                                     title="دانلود"
@@ -579,10 +668,10 @@ export function TempFileExplorer({ employee }: { employee: TempEmployee }) {
                                 >
                                     <FileThumbnail
                                         file={{ name: node.name, type: node.mime ?? guessMime(node.name) }}
-                                        previewImageUrl={tempFileUrl(
+                                        previewImageUrl={`${tempFileUrl(
                                             employee.personnel_code,
                                             node.path,
-                                        )}
+                                        )}?v=${revision}`}
                                         className="mx-auto h-24 w-full rounded"
                                         previewClassName="aspect-[4/3]"
                                     />
@@ -591,6 +680,16 @@ export function TempFileExplorer({ employee }: { employee: TempEmployee }) {
                                         {node.size !== null ? formatBytes(node.size) : ""}
                                     </p>
                                 </button>
+                                {isImageFile(node) && (
+                                    <button
+                                        type="button"
+                                        title="ویرایش تصویر"
+                                        onClick={() => openEdit(node)}
+                                        className="absolute start-2 top-2 rounded-full bg-background/80 p-1.5 text-muted-foreground opacity-0 shadow-sm backdrop-blur transition-opacity hover:text-foreground group-hover:opacity-100"
+                                    >
+                                        <IconEdit className="size-4" />
+                                    </button>
+                                )}
                                 <button
                                     type="button"
                                     title="دانلود"
@@ -612,6 +711,23 @@ export function TempFileExplorer({ employee }: { employee: TempEmployee }) {
                 open={previewIndex !== null}
                 onClose={() => setPreviewIndex(null)}
                 onNavigate={setPreviewIndex}
+            />
+
+            <ImageCropDialog
+                open={editingNode !== null}
+                imageUrl={
+                    editingNode
+                        ? `${tempFileUrl(employee.personnel_code, editingNode.path)}?v=${revision}`
+                        : ""
+                }
+                fileName={editingNode?.name ?? ""}
+                fileType={editingNode?.mime ?? ""}
+                config={editorConfig}
+                onOpenChange={(open) => {
+                    if (!open) setEditingNode(null);
+                }}
+                onConfirm={handleEditConfirm}
+                isSaving={isSaving}
             />
         </div>
     );
