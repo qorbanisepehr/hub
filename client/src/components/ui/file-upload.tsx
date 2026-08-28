@@ -14,6 +14,13 @@ import { getFileColorClasses } from "@/lib/file-utils";
 import { formatBytes } from "@/lib/file-utils";
 import { Card } from "@/components/ui/card";
 import { FileThumbnail } from "@/components/ui/file-thumbnail";
+import { ImageCropDialog } from "@/components/ui/image-crop-dialog";
+import {
+    isEditableImage,
+    normalizeImageEditorConfig,
+    type ImageEditorConfig,
+    type NormalizedImageEditorConfig,
+} from "@/components/ui/image-editor";
 
 type FileUploadItem = {
     id: string;
@@ -35,6 +42,10 @@ type FileUploadProps = {
     className?: string;
     description?: string;
     draggingLabel?: string;
+    /** Enable the built-in image editor (crop/rotate/zoom/flip/resize) for
+     *  accepted images. `true` uses defaults; an object configures the tools
+     *  and output constraints. */
+    editor?: boolean | ImageEditorConfig;
     multiple?: boolean;
     showFileList?: boolean;
     title?: string;
@@ -149,12 +160,17 @@ export function FileUpload({
     className,
     description = "PDF, DOC/DOCX, XLSX, CSV, PNG, یا JPG",
     draggingLabel = "برای اضافه کردن رها کنید",
+    editor,
     multiple = true,
     showFileList = true,
     title = "برای آپلود کلیک کنید یا فایل‌ها را رها کنید",
     onFilesAccepted,
     onFilesChange,
 }: FileUploadProps) {
+    const editorConfig = React.useMemo(
+        () => normalizeImageEditorConfig(editor),
+        [editor],
+    );
     const dragDepthRef = React.useRef(0);
     const inputRef = React.useRef<HTMLInputElement>(null);
     const [isDragging, setIsDragging] = React.useState(false);
@@ -162,6 +178,10 @@ export function FileUpload({
     const [rejectionMessage, setRejectionMessage] = React.useState<
         string | null
     >(null);
+    const [isEditing, setIsEditing] = React.useState(false);
+    const [editQueue, setEditQueue] = React.useState<FileUploadItem[]>([]);
+    const [editedFiles, setEditedFiles] = React.useState<File[]>([]);
+    const [deferredFiles, setDeferredFiles] = React.useState<File[]>([]);
 
     const commitFiles = React.useCallback(
         (nextFiles: FileList | File[]) => {
@@ -175,17 +195,85 @@ export function FileUpload({
             }
 
             setRejectionMessage(null);
+
+            const commitItems = (items: FileUploadItem[]) => {
+                setFiles((previousFiles) => {
+                    previousFiles.forEach((file) =>
+                        URL.revokeObjectURL(file.url),
+                    );
+                    return items;
+                });
+                onFilesChange?.(items);
+            };
+
+            if (!editorConfig) {
+                onFilesAccepted?.(acceptedFiles);
+                commitItems(toUploadItems(acceptedFiles));
+                return;
+            }
+
             onFilesAccepted?.(acceptedFiles);
 
-            const items = toUploadItems(acceptedFiles);
-            setFiles((previousFiles) => {
-                previousFiles.forEach((file) => URL.revokeObjectURL(file.url));
-                return items;
-            });
-            onFilesChange?.(items);
+            const editable = acceptedFiles.filter((file) =>
+                isEditableImage(file),
+            );
+            const nonEditable = acceptedFiles.filter(
+                (file) => !isEditableImage(file),
+            );
+
+            if (editable.length === 0) {
+                commitItems(toUploadItems(acceptedFiles));
+                return;
+            }
+
+            setDeferredFiles(nonEditable);
+            setEditedFiles([]);
+            setEditQueue(toUploadItems(editable));
+            setIsEditing(true);
         },
-        [accept, multiple, onFilesAccepted, onFilesChange],
+        [accept, multiple, onFilesAccepted, onFilesChange, editorConfig],
     );
+
+    // When the last queued image is edited, commit the combined result list.
+    React.useEffect(() => {
+        if (!isEditing || editQueue.length > 0) return;
+
+        const combined = [...editedFiles, ...deferredFiles];
+        const items = toUploadItems(combined);
+        setFiles((previousFiles) => {
+            previousFiles.forEach((file) => URL.revokeObjectURL(file.url));
+            return items;
+        });
+        onFilesChange?.(items);
+        setEditedFiles([]);
+        setDeferredFiles([]);
+        setIsEditing(false);
+    }, [isEditing, editQueue.length, editedFiles, deferredFiles, onFilesChange]);
+
+    React.useEffect(() => {
+        return () => {
+            editQueue.forEach((file) => URL.revokeObjectURL(file.url));
+        };
+    }, [editQueue]);
+
+    const handleEditConfirm = React.useCallback((edited: File) => {
+        setEditedFiles((previous) => [...previous, edited]);
+        setEditQueue((previous) => {
+            const [head, ...rest] = previous;
+            if (head) URL.revokeObjectURL(head.url);
+            return rest;
+        });
+    }, []);
+
+    const handleEditClose = React.useCallback(() => {
+        setIsEditing(false);
+        setEditQueue((previous) => {
+            previous.forEach((file) => URL.revokeObjectURL(file.url));
+            return [];
+        });
+        setEditedFiles([]);
+        setDeferredFiles([]);
+    }, []);
 
     React.useEffect(() => {
         return () => {
@@ -332,6 +420,19 @@ export function FileUpload({
                         </div>
                     ))}
                 </div>
+            ) : null}
+            {editorConfig ? (
+                <ImageCropDialog
+                    open={isEditing && editQueue.length > 0}
+                    imageUrl={editQueue[0]?.url ?? ""}
+                    fileName={editQueue[0]?.name ?? ""}
+                    fileType={editQueue[0]?.type ?? ""}
+                    config={editorConfig}
+                    onOpenChange={(open) => {
+                        if (!open) handleEditClose();
+                    }}
+                    onConfirm={handleEditConfirm}
+                />
             ) : null}
         </div>
     );
