@@ -13,6 +13,7 @@ import {
     IconArrowsHorizontal,
     IconArrowsVertical,
     IconCheck,
+    IconPencil,
     IconRotate2,
     IconRotateClockwise2,
     IconX,
@@ -36,6 +37,10 @@ export type ImageCropDialogProps = {
     fileName: string;
     fileType: string;
     config: NormalizedImageEditorConfig;
+    /** When set, the title shows a rename control. The callback persists the
+     *  new name (e.g. renames the file on the server) and returns the
+     *  authoritative name to use for the edited output. */
+    onRename?: (newName: string) => Promise<string> | string;
     onOpenChange: (open: boolean) => void;
     onConfirm: (file: File) => void;
 };
@@ -55,12 +60,17 @@ function loadImageSize(
     });
 }
 
+function normalizeDegrees(degrees: number): number {
+    return ((degrees % 360) + 360) % 360;
+}
+
 export function ImageCropDialog({
     open,
     imageUrl,
     fileName,
     fileType,
     config,
+    onRename,
     onOpenChange,
     onConfirm,
 }: ImageCropDialogProps) {
@@ -74,6 +84,10 @@ export function ImageCropDialog({
         vertical: false,
     });
     const [isApplying, setIsApplying] = React.useState(false);
+    const [name, setName] = React.useState(fileName);
+    const [renaming, setRenaming] = React.useState(false);
+    const [renameDraft, setRenameDraft] = React.useState("");
+    const [rotation, setRotation] = React.useState(0);
 
     const rotateOnly = !config.tools.crop;
 
@@ -81,13 +95,17 @@ export function ImageCropDialog({
     React.useEffect(() => {
         if (!open) return;
 
+        setName(fileName);
+        setRenaming(false);
+        setRotation(0);
+
         setAspect(config.aspect === "original" ? undefined : config.aspect);
         setFlip({ horizontal: false, vertical: false });
 
         loadImageSize(imageUrl)
             .then((size) => setNaturalAspect(size.width / size.height))
             .catch(() => setNaturalAspect(1));
-    }, [open, imageUrl, config.aspect]);
+    }, [open, imageUrl, fileName, config.aspect]);
 
     const stencilAspectRatio = rotateOnly
         ? naturalAspect
@@ -97,6 +115,15 @@ export function ImageCropDialog({
 
     const rotateStep = (degrees: number) => {
         cropperRef.current?.rotateImage(degrees);
+        setRotation((r) => normalizeDegrees(r + degrees));
+    };
+
+    const handleRotationSlider = (value: number) => {
+        const cropper = cropperRef.current;
+        if (!cropper) return;
+        const current = cropper.getTransforms().rotate;
+        cropper.rotateImage(value - current, { transitions: false });
+        setRotation(value);
     };
 
     const zoomBy = (factor: number) => {
@@ -119,6 +146,25 @@ export function ImageCropDialog({
         }
     };
 
+    const startRename = () => {
+        setRenameDraft(name);
+        setRenaming(true);
+    };
+
+    const commitRename = async () => {
+        const trimmed = renameDraft.trim();
+        if (!trimmed || !onRename) {
+            setRenaming(false);
+            return;
+        }
+        try {
+            const result = await onRename(trimmed);
+            setName(result || trimmed);
+        } finally {
+            setRenaming(false);
+        }
+    };
+
     const handleConfirm = async () => {
         const cropper = cropperRef.current;
         const canvas = cropper?.getCanvas();
@@ -131,7 +177,7 @@ export function ImageCropDialog({
                 : canvas;
             const file = await canvasToFile(
                 resized,
-                fileName,
+                name,
                 resolveOutputType(fileType, config.format),
                 config.quality,
             );
@@ -147,9 +193,53 @@ export function ImageCropDialog({
                 <DialogOverlay className="z-50 bg-black/80" />
                 <DialogPrimitive.Popup className="fixed inset-0 z-50 flex flex-col bg-black/95 text-white outline-none data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0">
                     <div className="flex items-center justify-between gap-3 px-4 py-3">
-                        <DialogPrimitive.Title className="min-w-0 truncate text-sm font-medium">
-                            {fileName}
-                        </DialogPrimitive.Title>
+                        <div className="flex min-w-0 flex-1 items-center gap-2">
+                            {renaming ? (
+                                <form
+                                    className="flex min-w-0 flex-1 items-center gap-1"
+                                    onSubmit={(e) => {
+                                        e.preventDefault();
+                                        commitRename();
+                                    }}
+                                >
+                                    <input
+                                        autoFocus
+                                        value={renameDraft}
+                                        onChange={(e) =>
+                                            setRenameDraft(e.target.value)
+                                        }
+                                        className="w-full min-w-0 rounded bg-white/10 px-2 py-1 text-sm text-white outline-none focus:bg-white/15"
+                                        placeholder="نام جدید فایل"
+                                    />
+                                    <Button
+                                        type="submit"
+                                        variant="ghost"
+                                        size="icon-sm"
+                                        className="shrink-0 text-white/80 hover:bg-white/10 hover:text-white"
+                                    >
+                                        <IconCheck className="size-4" />
+                                    </Button>
+                                </form>
+                            ) : (
+                                <>
+                                    <DialogPrimitive.Title className="min-w-0 truncate text-sm font-medium">
+                                        {name}
+                                    </DialogPrimitive.Title>
+                                    {onRename ? (
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="icon-sm"
+                                            title="تغییر نام فایل"
+                                            className="shrink-0 text-white/60 hover:bg-white/10 hover:text-white"
+                                            onClick={startRename}
+                                        >
+                                            <IconPencil className="size-4" />
+                                        </Button>
+                                    ) : null}
+                                </>
+                            )}
+                        </div>
                         <DialogPrimitive.Close
                             render={
                                 <Button
@@ -185,28 +275,49 @@ export function ImageCropDialog({
                         />
                     </div>
 
-                    <div className="flex flex-wrap items-center justify-center gap-2 px-4 py-3">
+                    <div className="flex flex-col items-center gap-2 px-4 pb-1">
                         {config.tools.rotate ? (
-                            <div className="flex items-center gap-1">
-                                <Button
-                                    variant="ghost"
-                                    size="icon-sm"
-                                    title="چرخش به چپ"
-                                    className="text-white/80 hover:bg-white/10 hover:text-white"
-                                    onClick={() => rotateStep(-90)}
-                                >
-                                    <IconRotate2 className="size-4" />
-                                </Button>
-                                <Button
-                                    variant="ghost"
-                                    size="icon-sm"
-                                    title="چرخش به راست"
-                                    className="text-white/80 hover:bg-white/10 hover:text-white"
-                                    onClick={() => rotateStep(90)}
-                                >
-                                    <IconRotateClockwise2 className="size-4" />
-                                </Button>
-                            </div>
+                            <>
+                                <div className="flex items-center gap-1">
+                                    <Button
+                                        variant="ghost"
+                                        size="icon-sm"
+                                        title="چرخش به چپ"
+                                        className="text-white/80 hover:bg-white/10 hover:text-white"
+                                        onClick={() => rotateStep(-90)}
+                                    >
+                                        <IconRotate2 className="size-4" />
+                                    </Button>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon-sm"
+                                        title="چرخش به راست"
+                                        className="text-white/80 hover:bg-white/10 hover:text-white"
+                                        onClick={() => rotateStep(90)}
+                                    >
+                                        <IconRotateClockwise2 className="size-4" />
+                                    </Button>
+                                </div>
+                                <label className="flex w-full max-w-md items-center gap-3 text-xs text-white/70">
+                                    <IconRotateClockwise2 className="size-4 shrink-0" />
+                                    <input
+                                        type="range"
+                                        min={0}
+                                        max={360}
+                                        step={1}
+                                        value={rotation}
+                                        onChange={(e) =>
+                                            handleRotationSlider(
+                                                Number(e.target.value),
+                                            )
+                                        }
+                                        className="min-w-0 flex-1 accent-white"
+                                    />
+                                    <span className="w-10 shrink-0 text-end font-mono tabular-nums">
+                                        {rotation}°
+                                    </span>
+                                </label>
+                            </>
                         ) : null}
 
                         {config.tools.zoom ? (
