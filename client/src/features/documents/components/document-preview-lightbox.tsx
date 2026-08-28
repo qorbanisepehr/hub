@@ -4,6 +4,7 @@ import {
     IconChevronLeft,
     IconChevronRight,
     IconDownload,
+    IconEdit,
     IconInfoCircle,
     IconX,
 } from "@tabler/icons-react";
@@ -23,6 +24,9 @@ type DocumentPreviewLightboxProps = {
     open: boolean;
     onClose: () => void;
     onNavigate: (index: number) => void;
+    /** When set, shows an edit button (for image documents) that opens the
+     *  full image editor for the given document. */
+    onEdit?: (doc: Document, index: number) => void;
 };
 
 const AUTO_HIDE_DELAY = 3000;
@@ -125,6 +129,7 @@ export function DocumentPreviewLightbox({
     open,
     onClose,
     onNavigate,
+    onEdit,
 }: DocumentPreviewLightboxProps) {
     const [controlsVisible, setControlsVisible] = React.useState(true);
     const hideTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(
@@ -242,6 +247,17 @@ export function DocumentPreviewLightbox({
                     )}
                 </div>
                 <div className="flex items-center gap-1">
+                    {onEdit && getDocMimeType(doc).startsWith("image/") && (
+                        <button
+                            type="button"
+                            onClick={() => onEdit(doc, currentIndex)}
+                            className="rounded-full p-2 text-white/80 hover:bg-white/10 hover:text-white"
+                            aria-label="Edit"
+                            title="ویرایش تصویر"
+                        >
+                            <IconEdit className="size-5" />
+                        </button>
+                    )}
                     <button
                         type="button"
                         onClick={() => setShowInfo((prev) => !prev)}
