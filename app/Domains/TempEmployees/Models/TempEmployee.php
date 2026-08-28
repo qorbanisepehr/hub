@@ -1,8 +1,9 @@
 <?php
 
-namespace App\Models;
+namespace App\Domains\TempEmployees\Models;
 
 use Database\Factories\TempEmployeeFactory;
+use Illuminate\Database\Eloquent\Attributes\UseFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -10,6 +11,7 @@ use Illuminate\Database\Eloquent\Model;
  * Temporary record for the throwaway file-explorer tool. Each row maps to
  * one on-disk folder under storage "temp-files/{personnel_code}".
  */
+#[UseFactory(TempEmployeeFactory::class)]
 class TempEmployee extends Model
 {
     /** @use HasFactory<TempEmployeeFactory> */

@@ -1,6 +1,9 @@
 <?php
 
-use App\Models\TempEmployee;
+use App\Domains\Authorization\Models\Role;
+use App\Domains\Employee\Models\Employee;
+use App\Domains\TempEmployees\Models\TempEmployee;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 
@@ -140,6 +143,76 @@ test('it serves a file as an attachment download when requested', function () {
         ->getJson("/api/temp-employees/{$employee->personnel_code}/file?path=".urlencode('note.txt').'&download=1')
         ->assertOk()
         ->assertHeader('Content-Disposition', 'attachment; filename="note.txt"');
+});
+
+test('it enriches temp employees with matching employee rows', function () {
+    tempEmployeeWithFiles(); // personnel_code 7777
+    $user = createUserWithPermissions([]);
+
+    Employee::factory()->create([
+        'personnel_code' => '7777',
+        'first_name' => 'علی',
+        'last_name' => 'رضایی',
+        'id_number' => '1111222233',
+    ]);
+
+    $item = $this->actingAs($user)
+        ->getJson('/api/temp-employees?search=7777')
+        ->assertOk()
+        ->json('data.0');
+
+    expect($item['personnel_code'])->toBe('7777')
+        ->and($item['employee'])->not->toBeNull()
+        ->and($item['employee']['first_name'])->toBe('علی')
+        ->and($item['employee']['id_number'])->toBe('1111222233');
+});
+
+test('it includes only the linked user organization roles', function () {
+    tempEmployeeWithFiles(); // personnel_code 7777
+    $user = createUserWithPermissions([]);
+
+    $linkedUser = User::factory()->create();
+
+    $organizationRole = Role::create([
+        'name' => 'hr-expert',
+        'display_name' => 'کارشناس منابع انسانی',
+        'type' => 'organization',
+        'is_active' => true,
+    ]);
+    $systemRole = Role::create([
+        'name' => 'system.manager',
+        'display_name' => 'مدیر سامانه',
+        'type' => 'system',
+        'is_active' => true,
+    ]);
+
+    $linkedUser->assignRole($organizationRole->id, true);
+    $linkedUser->assignRole($systemRole->id, false);
+
+    Employee::factory()->create([
+        'personnel_code' => '7777',
+        'user_id' => $linkedUser->id,
+    ]);
+
+    $item = $this->actingAs($user)
+        ->getJson('/api/temp-employees?search=7777')
+        ->assertOk()
+        ->json('data.0');
+
+    expect($item['employee']['roles'])->toHaveCount(1)
+        ->and($item['employee']['roles'][0]['display_name'])
+        ->toBe('کارشناس منابع انسانی')
+        ->and($item['employee']['roles'][0]['active'])->toBeTrue();
+});
+
+test('it leaves employee null when no employee matches', function () {
+    tempEmployeeWithFiles(); // personnel_code 7777, without an Employee row
+    $user = createUserWithPermissions([]);
+
+    $this->actingAs($user)
+        ->getJson('/api/temp-employees?search=7777')
+        ->assertOk()
+        ->assertJsonPath('data.0.employee', null);
 });
 
 test('path traversal is rejected with a 404', function () {

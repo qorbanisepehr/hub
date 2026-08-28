@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Services;
+namespace App\Domains\TempEmployees\Services;
 
-use App\Models\TempEmployee;
+use App\Domains\TempEmployees\Models\TempEmployee;
 use Illuminate\Support\Facades\Storage;
 
 /**

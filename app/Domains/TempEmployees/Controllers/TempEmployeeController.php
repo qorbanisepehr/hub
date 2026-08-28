@@ -1,11 +1,12 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Domains\TempEmployees\Controllers;
 
-use App\Models\TempEmployee;
-use App\Services\TempEmployeeSyncService;
+use App\Domains\TempEmployees\Models\TempEmployee;
+use App\Domains\TempEmployees\Services\TempEmployeeSyncService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
@@ -14,7 +15,7 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
  * gated by plain Sanctum authentication (no dedicated permissions) — this is
  * throwaway tooling and must not be shipped to production as-is.
  */
-class TempEmployeeController extends Controller
+class TempEmployeeController
 {
     public function __construct(
         private readonly TempEmployeeSyncService $syncService,
@@ -23,6 +24,13 @@ class TempEmployeeController extends Controller
     /**
      * Paginated + searchable list. `?search=` matches personnel code,
      * national id, first, or last name; `?page=` / `?per_page=` paginate.
+     *
+     * Each temp record is enriched with the matching `employees` row (keyed by
+     * personnel code) so the tool can show the real employee when one exists,
+     * falling back to the temp record fields. The linked system user's active
+     * role and role list are also attached when available. This is a read-only
+     * lookup that stays entirely within this temporary tooling and does not
+     * modify any Employee- or Authorization-domain file.
      */
     public function index(Request $request): JsonResponse
     {
@@ -43,8 +51,103 @@ class TempEmployeeController extends Controller
                 page: (int) $request->query('page', 1) ?: 1,
             );
 
+        $employeesByCode = DB::table('employees')
+            ->whereIn('personnel_code', $paginator->getCollection()->pluck('personnel_code'))
+            ->select([
+                'personnel_code',
+                'user_id',
+                'first_name',
+                'last_name',
+                'id_number',
+                'email',
+                'mobile',
+                'gender',
+                'employment_status',
+                'employment_type',
+                'hire_date',
+            ])
+            ->get()
+            ->keyBy('personnel_code');
+
+        $userIds = $employeesByCode
+            ->filter(fn ($employee) => $employee->user_id !== null)
+            ->pluck('user_id')
+            ->unique()
+            ->values();
+
+        $activeRoleByUser = collect();
+        $rolesByUser = collect();
+
+        if ($userIds->isNotEmpty()) {
+            $activeRoleByUser = DB::table('users')
+                ->whereIn('id', $userIds)
+                ->pluck('active_role_id', 'id');
+
+            $rolesByUser = DB::table('roles')
+                ->join('role_user', 'roles.id', '=', 'role_user.role_id')
+                ->whereIn('role_user.user_id', $userIds)
+                ->where('roles.is_active', 1)
+                ->where('roles.type', 'organization')
+                ->select('role_user.user_id', 'roles.id', 'roles.display_name')
+                ->get()
+                ->groupBy('user_id');
+        }
+
+        $data = $paginator->getCollection()
+            ->map(function (TempEmployee $temp) use ($employeesByCode, $activeRoleByUser, $rolesByUser) {
+                $employee = $employeesByCode->get($temp->personnel_code);
+
+                if ($employee === null || $employee->user_id === null) {
+                    return [
+                        ...$temp->attributesToArray(),
+                        'employee' => $employee !== null ? [
+                            'personnel_code' => $employee->personnel_code,
+                            'first_name' => $employee->first_name,
+                            'last_name' => $employee->last_name,
+                            'id_number' => $employee->id_number,
+                            'email' => $employee->email,
+                            'mobile' => $employee->mobile,
+                            'gender' => $employee->gender,
+                            'employment_status' => $employee->employment_status,
+                            'employment_type' => $employee->employment_type,
+                            'hire_date' => $employee->hire_date,
+                            'roles' => [],
+                        ] : null,
+                    ];
+                }
+
+                $activeRoleId = (int) $activeRoleByUser->get($employee->user_id);
+
+                $roles = ($rolesByUser->get($employee->user_id) ?? collect())
+                    ->map(fn ($role): array => [
+                        'id' => (int) $role->id,
+                        'display_name' => $role->display_name,
+                        'active' => (int) $role->id === $activeRoleId,
+                    ])
+                    ->values()
+                    ->all();
+
+                return [
+                    ...$temp->attributesToArray(),
+                    'employee' => [
+                        'personnel_code' => $employee->personnel_code,
+                        'first_name' => $employee->first_name,
+                        'last_name' => $employee->last_name,
+                        'id_number' => $employee->id_number,
+                        'email' => $employee->email,
+                        'mobile' => $employee->mobile,
+                        'gender' => $employee->gender,
+                        'employment_status' => $employee->employment_status,
+                        'employment_type' => $employee->employment_type,
+                        'hire_date' => $employee->hire_date,
+                        'roles' => $roles,
+                    ],
+                ];
+            })
+            ->values();
+
         return response()->json([
-            'data' => $paginator->values(),
+            'data' => $data,
             'meta' => [
                 'current_page' => $paginator->currentPage(),
                 'last_page' => $paginator->lastPage(),
