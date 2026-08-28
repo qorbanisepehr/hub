@@ -1,4 +1,3 @@
-import type { ReactNode } from "react";
 import {
     IconClipboardList,
     IconDashboard,
@@ -8,8 +7,10 @@ import {
     IconListDetails,
     IconMasksTheater,
     IconSettings,
+    IconTabs,
     IconUsers,
 } from "@tabler/icons-react";
+import type { ReactNode } from "react";
 
 import { PERMISSIONS } from "@/lib/permissions";
 
@@ -30,6 +31,7 @@ export interface NavItem {
  */
 export const NAV_ITEMS: NavItem[] = [
     { title: "داشبورد", url: "/dashboard", icon: <IconDashboard /> },
+    { title: "پرونده های پرسنلی", url: "/docs", icon: <IconTabs /> },
     {
         title: "کارمندان",
         url: "/employees",

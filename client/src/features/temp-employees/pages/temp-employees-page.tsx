@@ -12,18 +12,10 @@ import { cn } from "@/lib/utils";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-    Card,
-    CardContent,
-    CardHeader,
-    CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/layout";
 import { SectionRow } from "@/components/shared/section-row";
-import {
-    fetchTempEmployees,
-    syncTempEmployees,
-} from "../api";
+import { fetchTempEmployees, syncTempEmployees } from "../api";
 import type { TempEmployee } from "../types";
 import { TempFileExplorer } from "../components/temp-file-explorer";
 
@@ -76,9 +68,7 @@ export function TempEmployeesPage() {
 
             const { created, updated, skipped } = response.data.data;
             const skippedNote =
-                skipped.length > 0
-                    ? `، ${skipped.length} پوشه بدون الگو`
-                    : "";
+                skipped.length > 0 ? `، ${skipped.length} پوشه بدون الگو` : "";
             toast.success(
                 `همگام‌سازی انجام شد: ${created} جدید، ${updated} به‌روزرسانی${skippedNote}`,
             );
@@ -87,9 +77,9 @@ export function TempEmployeesPage() {
     });
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 p-6">
             <PageHeader
-                title="پرونده‌ها"
+                title="مدارک پرسنلی"
                 description="مدیریت فایل‌های پرسنلی"
             />
 
@@ -97,7 +87,9 @@ export function TempEmployeesPage() {
                 <Card>
                     <CardHeader className="space-y-3">
                         <div className="flex items-center justify-between gap-2">
-                            <CardTitle className="text-base">کارمندان</CardTitle>
+                            <CardTitle className="text-base">
+                                کارمندان
+                            </CardTitle>
                             <Button
                                 type="button"
                                 variant="outline"
@@ -126,9 +118,7 @@ export function TempEmployeesPage() {
                             <IconSearch className="absolute top-1/2 size-4 -translate-y-1/2 text-muted-foreground start-2.5" />
                             <Input
                                 value={searchInput}
-                                onChange={(e) =>
-                                    setSearchInput(e.target.value)
-                                }
+                                onChange={(e) => setSearchInput(e.target.value)}
                                 placeholder="جستجو: کد پرسنلی، کد ملی، نام…"
                                 className="ps-8 pe-9"
                             />
@@ -164,8 +154,7 @@ export function TempEmployeesPage() {
                                 )}
                             >
                                 <span className="block">
-                                    {employee.first_name}{" "}
-                                    {employee.last_name}
+                                    {employee.first_name} {employee.last_name}
                                 </span>
                                 <span
                                     className="text-xs text-muted-foreground"

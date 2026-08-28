@@ -41,3 +41,8 @@ export function fetchTempEmployeeTree(personnelCode: string) {
 export function tempFileUrl(personnelCode: string, path: string): string {
     return `/api/temp-employees/${personnelCode}/file?path=${encodeURIComponent(path)}`;
 }
+
+/** Attachment (download) URL for a file. */
+export function tempFileDownloadUrl(personnelCode: string, path: string): string {
+    return `${tempFileUrl(personnelCode, path)}&download=1`;
+}
