@@ -259,6 +259,65 @@ class TempEmployeeController
     }
 
     /**
+     * Rename an existing file on disk. The new name must be a plain basename
+     * (no path separators); the file stays in its current directory. A target
+     * that already exists is rejected to avoid clobbering another file. Returns
+     * the refreshed file node under its new path.
+     */
+    public function renameFile(TempEmployee $employee): JsonResponse
+    {
+        $validated = request()->validate([
+            'path' => ['required', 'string', 'max:1024'],
+            'new_name' => ['required', 'string', 'max:255', 'not_regex:/[\/\\\\]/'],
+        ]);
+
+        $disk = Storage::disk('local');
+        $base = realpath($disk->path($employee->filesDirectory()));
+
+        abort_if($base === false, 404);
+
+        $relative = $validated['path'];
+
+        // Reject obvious traversal up-front so a missing-but-malicious path is
+        // reported as 422 rather than a misleading 404.
+        abort_if(str_contains($relative, '..'), 422);
+
+        $full = realpath($base.DIRECTORY_SEPARATOR.$relative);
+
+        abort_if($full === false, 404);
+        abort_unless(
+            str_starts_with($full, $base.DIRECTORY_SEPARATOR) && is_file($full),
+            404,
+        );
+
+        $newName = trim($validated['new_name']);
+        if ($newName === '' || $newName === '..' || $newName === '.') {
+            abort(422, 'نام فایل نامعتبر است.');
+        }
+
+        $newFull = dirname($full).DIRECTORY_SEPARATOR.$newName;
+
+        if ($newFull !== $full && file_exists($newFull)) {
+            abort(409, 'فایلی با این نام از قبل وجود دارد.');
+        }
+
+        if (! rename($full, $newFull)) {
+            abort(500, 'تغییر نام فایل ناموفق بود.');
+        }
+
+        return response()->json([
+            'data' => [
+                'name' => basename($newFull),
+                'path' => ltrim(str_replace($base.DIRECTORY_SEPARATOR, '', $newFull), DIRECTORY_SEPARATOR),
+                'type' => 'file',
+                'size' => filesize($newFull) ?: null,
+                'mime' => mime_content_type($newFull) ?: null,
+                'modified_at' => date('Y-m-d H:i:s', (int) filemtime($newFull)),
+            ],
+        ]);
+    }
+
+    /**
      * Recursive directory listing. Directories sort before files, both
      * case-insensitively by name.
      *

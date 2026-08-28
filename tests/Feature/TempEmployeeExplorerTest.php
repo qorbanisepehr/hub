@@ -281,3 +281,67 @@ test('replace path traversal is rejected', function () {
         ])
         ->assertStatus(422);
 });
+
+test('guests cannot rename a file', function () {
+    $employee = tempEmployeeWithFiles();
+
+    $this->patchJson("/api/temp-employees/{$employee->personnel_code}/file/rename", [
+        'path' => 'note.txt',
+        'new_name' => 'renamed.txt',
+    ])->assertUnauthorized();
+});
+
+test('a user can rename an existing file on disk', function () {
+    $employee = tempEmployeeWithFiles();
+    $user = createUserWithPermissions([]);
+
+    $response = $this->actingAs($user)
+        ->patchJson("/api/temp-employees/{$employee->personnel_code}/file/rename", [
+            'path' => 'note.txt',
+            'new_name' => 'renamed.txt',
+        ])
+        ->assertOk();
+
+    expect($response->json('data.name'))->toBe('renamed.txt')
+        ->and($response->json('data.path'))->toBe('renamed.txt')
+        ->and(Storage::disk('local')->exists('temp-files/7777/renamed.txt'))->toBeTrue()
+        ->and(Storage::disk('local')->exists('temp-files/7777/note.txt'))->toBeFalse()
+        ->and(Storage::disk('local')->get('temp-files/7777/renamed.txt'))->toBe('hello');
+});
+
+test('renaming into an existing name is rejected with a conflict', function () {
+    $employee = tempEmployeeWithFiles();
+    Storage::disk('local')->put('temp-files/7777/other.txt', 'other');
+    $user = createUserWithPermissions([]);
+
+    $this->actingAs($user)
+        ->patchJson("/api/temp-employees/{$employee->personnel_code}/file/rename", [
+            'path' => 'note.txt',
+            'new_name' => 'other.txt',
+        ])
+        ->assertStatus(409);
+});
+
+test('renaming rejects path traversal in the new name', function () {
+    $employee = tempEmployeeWithFiles();
+    $user = createUserWithPermissions([]);
+
+    $this->actingAs($user)
+        ->patchJson("/api/temp-employees/{$employee->personnel_code}/file/rename", [
+            'path' => 'note.txt',
+            'new_name' => '../evil.txt',
+        ])
+        ->assertUnprocessable();
+});
+
+test('renaming a missing file returns 404', function () {
+    $employee = tempEmployeeWithFiles();
+    $user = createUserWithPermissions([]);
+
+    $this->actingAs($user)
+        ->patchJson("/api/temp-employees/{$employee->personnel_code}/file/rename", [
+            'path' => 'nope.txt',
+            'new_name' => 'renamed.txt',
+        ])
+        ->assertNotFound();
+});

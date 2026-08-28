@@ -36,6 +36,7 @@ import { DocumentPreviewLightbox } from "@/features/documents/components/documen
 import type { Document } from "@/features/documents/types";
 import {
     fetchTempEmployeeTree,
+    renameTempEmployeeFile,
     replaceTempEmployeeFile,
     tempFileDownloadUrl,
     tempFileUrl,
@@ -300,6 +301,10 @@ export function TempFileExplorer({ employee }: { employee: TempEmployee }) {
         null,
     );
     const [isSaving, setIsSaving] = React.useState(false);
+    // The on-disk path the current edit session should write to. Updated on
+    // rename so a subsequent edit-save targets the new path without changing
+    // `editingNode` (which drives imageUrl and would remount the cropper).
+    const currentEditPathRef = React.useRef<string | null>(null);
     // Bumped after each successful edit to bust the browser image cache.
     const [revision, setRevision] = React.useState(0);
     const editorConfig = React.useMemo(
@@ -308,6 +313,7 @@ export function TempFileExplorer({ employee }: { employee: TempEmployee }) {
     );
 
     function openEdit(node: TempFileNode) {
+        currentEditPathRef.current = node.path;
         setEditingNode(node);
     }
 
@@ -315,11 +321,13 @@ export function TempFileExplorer({ employee }: { employee: TempEmployee }) {
         const node = editingNode;
         if (!node) return;
 
+        const targetPath = currentEditPathRef.current ?? node.path;
+
         setIsSaving(true);
         try {
             await replaceTempEmployeeFile(
                 employee.personnel_code,
-                node.path,
+                targetPath,
                 file,
             );
             queryClient.invalidateQueries({
@@ -338,6 +346,45 @@ export function TempFileExplorer({ employee }: { employee: TempEmployee }) {
         } finally {
             setIsSaving(false);
         }
+    }
+
+    async function handleRename(newName: string): Promise<string> {
+        const node = editingNode;
+        if (!node) return newName;
+
+        try {
+            const { data } = await renameTempEmployeeFile(
+                employee.personnel_code,
+                node.path,
+                newName,
+            );
+            // Keep the write target pointing at the renamed file so a
+            // subsequent edit-save targets the new path. `editingNode` stays
+            // unchanged so the cropper (keyed by imageUrl) is not remounted.
+            currentEditPathRef.current = data.data.path;
+            queryClient.invalidateQueries({
+                queryKey: [
+                    "temp-employees",
+                    employee.personnel_code,
+                    "tree",
+                ],
+            });
+            setRevision((r) => r + 1);
+            toast.success("نام فایل با موفقیت تغییر کرد.");
+            return data.data.name;
+        } catch (error) {
+            console.error("Failed to rename file:", error);
+            toast.error("تغییر نام فایل ناموفق بود. دوباره تلاش کنید.");
+            throw error;
+        }
+    }
+
+    /** Open the editor from the lightbox's edit button for the given image doc. */
+    function handleLightboxEdit(doc: Document, index: number) {
+        if (!isImageFile(files[index])) return;
+        currentEditPathRef.current = files[index].path;
+        setEditingNode(files[index]);
+        setPreviewIndex(null);
     }
 
     const filteredNodes = React.useMemo(() => {
@@ -711,6 +758,7 @@ export function TempFileExplorer({ employee }: { employee: TempEmployee }) {
                 open={previewIndex !== null}
                 onClose={() => setPreviewIndex(null)}
                 onNavigate={setPreviewIndex}
+                onEdit={handleLightboxEdit}
             />
 
             <ImageCropDialog
@@ -727,6 +775,7 @@ export function TempFileExplorer({ employee }: { employee: TempEmployee }) {
                     if (!open) setEditingNode(null);
                 }}
                 onConfirm={handleEditConfirm}
+                onRename={handleRename}
                 isSaving={isSaving}
             />
         </div>

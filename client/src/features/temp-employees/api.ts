@@ -63,3 +63,15 @@ export function replaceTempEmployeeFile(
         { headers: { "Content-Type": "multipart/form-data" } },
     );
 }
+
+/** Rename an existing file on disk. Returns the refreshed node under its new path. */
+export function renameTempEmployeeFile(
+    personnelCode: string,
+    path: string,
+    newName: string,
+) {
+    return api.patch<{ data: TempFileNode }>(
+        `/temp-employees/${personnelCode}/file/rename`,
+        { path, new_name: newName },
+    );
+}
