@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/layout";
 import { SectionRow } from "@/components/shared/section-row";
@@ -20,6 +21,36 @@ import type { TempEmployee } from "../types";
 import { TempFileExplorer } from "../components/temp-file-explorer";
 
 const PER_PAGE = 15;
+
+/** Prefer the real Employee's name when present, else fall back to temp fields. */
+function displayName(e: TempEmployee): string {
+    const emp = e.employee;
+    const first = emp?.first_name?.trim();
+    const last = emp?.last_name?.trim();
+    if (first && last) return `${first} ${last}`;
+    if (first) return first;
+    if (last) return last;
+    return `${e.first_name} ${e.last_name}`.trim();
+}
+
+/** Prefer the real Employee's id number when present, else fall back to temp. */
+function displayIdNumber(e: TempEmployee): string | null {
+    return e.employee?.id_number ?? e.id_number;
+}
+
+/** Employment status stored as raw keys — display localized labels. */
+const EMPLOYMENT_STATUS_LABELS: Record<string, string> = {
+    active: "فعال",
+    inactive: "غیرفعال",
+    suspended: "تعلیق",
+};
+
+/** Employment type stored as raw keys — display localized labels. */
+const EMPLOYMENT_TYPE_LABELS: Record<string, string> = {
+    official: "رسمی",
+    contractual: "قراردادی",
+    "project-based": "پروژه‌ای",
+};
 
 /**
  * Temporary tool: browse temp-employee records and explore the on-disk
@@ -153,8 +184,15 @@ export function TempEmployeesPage() {
                                         "bg-muted font-medium",
                                 )}
                             >
-                                <span className="block">
-                                    {employee.first_name} {employee.last_name}
+                                <span className="flex items-center justify-between gap-2">
+                                    <span className="block truncate">
+                                        {displayName(employee)}
+                                    </span>
+                                    {employee.employee && (
+                                        <Badge variant="secondary" className="shrink-0">
+                                            رسمی
+                                        </Badge>
+                                    )}
                                 </span>
                                 <span
                                     className="text-xs text-muted-foreground"
@@ -214,10 +252,16 @@ export function TempEmployeesPage() {
                         <>
                             <Card>
                                 <CardHeader>
-                                    <CardTitle className="text-base">
-                                        {selected.first_name}{" "}
-                                        {selected.last_name}
-                                    </CardTitle>
+                                    <div className="flex items-center justify-between gap-2">
+                                        <CardTitle className="text-base">
+                                            {displayName(selected)}
+                                        </CardTitle>
+                                        {selected.employee && (
+                                            <Badge variant="secondary">
+                                                از جدول کارمندان
+                                            </Badge>
+                                        )}
+                                    </div>
                                 </CardHeader>
                                 <CardContent className="divide-y">
                                     <SectionRow
@@ -226,16 +270,82 @@ export function TempEmployeesPage() {
                                     />
                                     <SectionRow
                                         label="کد ملی"
-                                        value={selected.id_number}
+                                        value={displayIdNumber(selected)}
                                     />
                                     <SectionRow
                                         label="نام"
-                                        value={selected.first_name}
+                                        value={
+                                            selected.employee?.first_name ??
+                                            selected.first_name
+                                        }
                                     />
                                     <SectionRow
                                         label="نام خانوادگی"
-                                        value={selected.last_name}
+                                        value={
+                                            selected.employee?.last_name ??
+                                            selected.last_name
+                                        }
                                     />
+                                    {selected.employee?.email && (
+                                        <SectionRow
+                                            label="ایمیل"
+                                            value={selected.employee.email}
+                                        />
+                                    )}
+                                    {selected.employee?.mobile && (
+                                        <SectionRow
+                                            label="موبایل"
+                                            value={selected.employee.mobile}
+                                        />
+                                    )}
+                                    {selected.employee?.employment_type && (
+                                        <SectionRow
+                                            label="نوع استخدام"
+                                            value={
+                                                EMPLOYMENT_TYPE_LABELS[
+                                                    selected.employee
+                                                        .employment_type
+                                                ] ??
+                                                selected.employee.employment_type
+                                            }
+                                        />
+                                    )}
+                                    {selected.employee?.employment_status && (
+                                        <SectionRow
+                                            label="وضعیت اشتغال"
+                                            value={
+                                                EMPLOYMENT_STATUS_LABELS[
+                                                    selected.employee
+                                                        .employment_status
+                                                ] ??
+                                                selected.employee.employment_status
+                                            }
+                                        />
+                                    )}
+                                    {selected.employee &&
+                                        selected.employee.roles.length > 0 && (
+                                            <div className="flex items-center justify-between gap-4 py-2">
+                                                <span className="text-sm font-medium">
+                                                    نقش‌ها
+                                                </span>
+                                                <div className="flex flex-wrap items-center justify-end gap-1.5">
+                                                    {selected.employee.roles.map(
+                                                        (role) => (
+                                                            <Badge
+                                                                key={role.id}
+                                                                variant={
+                                                                    role.active
+                                                                        ? "default"
+                                                                        : "secondary"
+                                                                }
+                                                            >
+                                                                {role.display_name}
+                                                            </Badge>
+                                                        ),
+                                                    )}
+                                                </div>
+                                            </div>
+                                        )}
                                 </CardContent>
                             </Card>
 
