@@ -8,6 +8,7 @@ use App\Domains\FormOptions\Requests\StoreFormOptionRequest;
 use App\Domains\FormOptions\Requests\UpdateFormOptionRequest;
 use App\Domains\FormOptions\Resources\FormOptionResource;
 use App\Domains\FormOptions\Services\FormOptionService;
+use App\Support\ListQuery;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -150,10 +151,8 @@ class FormOptionController
 
         $this->authorization->scope($request->user(), 'form-options.manage', $query);
 
-        $perPage = min(max((int) $request->query('per_page', 20), 1), 100);
-
         return FormOptionResource::collection(
-            $query->ordered()->paginate($perPage),
+            $query->ordered()->paginate(ListQuery::perPage($request, max: 100)),
         );
     }
 }

@@ -7,6 +7,7 @@ use App\Domains\Cv\Models\Cv;
 use App\Domains\Cv\Resources\CvResource;
 use App\Domains\Cv\Services\CvService;
 use App\Domains\Questionnaire\Resources\QuestionnaireResource;
+use App\Support\ListQuery;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -28,8 +29,7 @@ class CvBankController extends Controller
 
         $this->authorization->scope($request->user(), 'cv.view', $query);
 
-        if ($request->filled('filter')) {
-            $filter = $request->input('filter');
+        if ($filter = ListQuery::filter($request)) {
             $query->where(function ($q) use ($filter) {
                 $q->where('first_name', 'like', "%{$filter}%")
                     ->orWhere('last_name', 'like', "%{$filter}%")
@@ -42,15 +42,11 @@ class CvBankController extends Controller
             $query->where('status', $request->input('status'));
         }
 
-        $sortField = in_array($request->input('sort'), ['created_at', 'updated_at', 'version', 'first_name', 'last_name'])
-            ? $request->input('sort')
-            : 'created_at';
-        $sortDirection = $request->input('order', 'desc') === 'asc' ? 'asc' : 'desc';
+        $sortField = ListQuery::sort($request, ['created_at', 'updated_at', 'version', 'first_name', 'last_name'], 'created_at');
+        $sortDirection = ListQuery::order($request);
         $query->orderBy($sortField, $sortDirection);
 
-        $perPage = min(max((int) $request->input('per_page', 20), 1), 50);
-
-        return CvResource::collection($query->paginate($perPage));
+        return CvResource::collection($query->paginate(ListQuery::perPage($request)));
     }
 
     public function show(Request $request, string $cv): JsonResponse

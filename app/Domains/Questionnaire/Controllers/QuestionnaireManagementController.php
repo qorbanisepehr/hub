@@ -5,6 +5,7 @@ namespace App\Domains\Questionnaire\Controllers;
 use App\Contracts\Authorization;
 use App\Domains\Questionnaire\Models\Questionnaire;
 use App\Domains\Questionnaire\Resources\QuestionnaireResource;
+use App\Support\ListQuery;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -22,8 +23,7 @@ class QuestionnaireManagementController extends Controller
 
         $this->authorization->scope($request->user(), 'questionnaire.view', $query);
 
-        if ($request->filled('filter')) {
-            $filter = $request->input('filter');
+        if ($filter = ListQuery::filter($request)) {
             $query->where(function ($q) use ($filter) {
                 $q->where('first_name', 'like', "%{$filter}%")
                     ->orWhere('last_name', 'like', "%{$filter}%")
@@ -36,13 +36,11 @@ class QuestionnaireManagementController extends Controller
             $query->where('status', $request->input('status'));
         }
 
-        $sortField = $request->input('sort', 'created_at');
-        $sortDirection = $request->input('order', 'desc') === 'asc' ? 'asc' : 'desc';
+        $sortField = ListQuery::sort($request, default: 'created_at');
+        $sortDirection = ListQuery::order($request);
         $query->orderBy($sortField, $sortDirection);
 
-        $perPage = min(max((int) $request->input('per_page', 20), 1), 50);
-
-        $questionnaires = $query->paginate($perPage);
+        $questionnaires = $query->paginate(ListQuery::perPage($request));
 
         return QuestionnaireResource::collection($questionnaires);
     }

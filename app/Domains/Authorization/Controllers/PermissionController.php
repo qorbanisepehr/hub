@@ -9,6 +9,7 @@ use App\Domains\Authorization\Resources\PermissionGroupResource;
 use App\Domains\Authorization\Resources\PermissionResource;
 use App\Domains\Authorization\Services\AuthorizationVersion;
 use App\Domains\Authorization\Services\PermissionRegistrar;
+use App\Support\ListQuery;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -26,8 +27,7 @@ class PermissionController
     {
         $query = Permission::with('group');
 
-        if ($request->filled('filter')) {
-            $filter = $request->input('filter');
+        if ($filter = ListQuery::filter($request)) {
             $query->where(function ($q) use ($filter) {
                 $q->where('name', 'like', "%{$filter}%")
                     ->orWhere('display_name', 'like', "%{$filter}%");
@@ -36,8 +36,7 @@ class PermissionController
 
         $query->orderBy('name', 'asc');
 
-        $perPage = min(max((int) $request->input('per_page', 20), 1), 50);
-        $permissions = $query->paginate($perPage);
+        $permissions = $query->paginate(ListQuery::perPage($request));
 
         return PermissionResource::collection($permissions);
     }

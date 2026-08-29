@@ -15,6 +15,7 @@ use App\Domains\Employee\Requests\UpdateEmployeeRequest;
 use App\Domains\Employee\Resources\EmployeeResource;
 use App\Domains\Employee\Services\EmployeeService;
 use App\Http\Controllers\ApiController;
+use App\Support\ListQuery;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -45,8 +46,7 @@ class EmployeeController extends ApiController
 
         $this->authorization->scope($request->user(), 'employee.list', $query);
 
-        if ($request->filled('filter')) {
-            $filter = $request->input('filter');
+        if ($filter = ListQuery::filter($request)) {
             $query->where(function ($q) use ($filter) {
                 $q->where('personnel_code', 'like', "%{$filter}%")
                     ->orWhere('first_name', 'like', "%{$filter}%")
@@ -58,13 +58,11 @@ class EmployeeController extends ApiController
             $query->where('employment_status', $request->input('status'));
         }
 
-        $sortField = $request->input('sort', 'personnel_code');
-        $sortDirection = $request->input('order', 'desc') === 'asc' ? 'asc' : 'desc';
+        $sortField = ListQuery::sort($request, default: 'personnel_code');
+        $sortDirection = ListQuery::order($request);
         $query->orderBy($this->sortable[$sortField] ?? 'created_at', $sortDirection);
 
-        $perPage = min(max((int) $request->input('per_page', 20), 1), 50);
-
-        $employees = $query->paginate($perPage);
+        $employees = $query->paginate(ListQuery::perPage($request));
 
         return EmployeeResource::collection($employees);
     }

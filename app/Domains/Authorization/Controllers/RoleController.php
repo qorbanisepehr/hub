@@ -16,6 +16,7 @@ use App\Domains\Authorization\Requests\UpdateRoleRequest;
 use App\Domains\Authorization\Resources\RoleResource;
 use App\Domains\Authorization\Services\AuthorizationVersion;
 use App\Models\User;
+use App\Support\ListQuery;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -42,8 +43,7 @@ class RoleController
 
         $this->authorization->scope($request->user(), 'role.view', $query);
 
-        if ($request->filled('filter')) {
-            $filter = $request->input('filter');
+        if ($filter = ListQuery::filter($request)) {
             $query->where(function ($q) use ($filter) {
                 $q->where('name', 'like', "%{$filter}%")
                     ->orWhere('display_name', 'like', "%{$filter}%");
@@ -54,11 +54,11 @@ class RoleController
             $query->where('is_active', $request->boolean('is_active'));
         }
 
-        $sortField = $request->input('sort', 'display_name');
-        $sortDirection = $request->input('order', 'asc') === 'desc' ? 'desc' : 'asc';
+        $sortField = ListQuery::sort($request, default: 'display_name');
+        $sortDirection = ListQuery::order($request, default: 'asc');
         $query->orderBy($this->sortable[$sortField] ?? 'display_name', $sortDirection);
 
-        $perPage = min(max((int) $request->input('per_page', 20), 1), 50);
+        $perPage = ListQuery::perPage($request);
 
         $roles = $query->paginate($perPage);
 
