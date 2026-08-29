@@ -32,14 +32,6 @@ export function fetchEffectivePermissions() {
     return api.get<{ data: AuthorizationResponse }>("/auth/me/authorization");
 }
 
-export function checkPermission(data: {
-    permission: string;
-    resource_type?: string;
-    resource_id?: number;
-}) {
-    return api.post<{ allowed: boolean }>("/authorization/check", data);
-}
-
 export function updateProfile(data: { name?: string; email?: string; phone?: string }) {
     return api.put<{ data: User }>("/auth/profile", data);
 }
