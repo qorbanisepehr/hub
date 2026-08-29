@@ -2,11 +2,13 @@
 
 namespace App\Domains\Cv\Requests;
 
+use App\Domains\Document\Requests\Concerns\ValidatesDocumentUpload;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rules\File;
 
 class PublicStoreCvDocumentRequest extends FormRequest
 {
+    use ValidatesDocumentUpload;
+
     public function authorize(): bool
     {
         return true;
@@ -17,17 +19,7 @@ class PublicStoreCvDocumentRequest extends FormRequest
     {
         return [
             'document_category_id' => ['required', 'exists:document_categories,id'],
-            'file' => [
-                'required',
-                File::default()
-                    ->types(config('documents.cv.allowed_mime_types'))
-                    ->max(config('documents.cv.max_file_size')),
-            ],
-            'notes' => ['nullable', 'string', 'max:1000'],
-            'meta' => ['nullable', 'json', 'max:5000'],
-            'section_key' => ['nullable', 'string', 'max:100'],
-            'field_key' => ['nullable', 'string', 'max:100'],
-            'form_data' => ['nullable', 'json'],
+            ...$this->documentUploadRules('cv'),
         ];
     }
 }

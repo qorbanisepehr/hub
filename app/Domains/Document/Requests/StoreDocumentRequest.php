@@ -2,11 +2,13 @@
 
 namespace App\Domains\Document\Requests;
 
+use App\Domains\Document\Requests\Concerns\ValidatesDocumentUpload;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rules\File;
 
 class StoreDocumentRequest extends FormRequest
 {
+    use ValidatesDocumentUpload;
+
     public function authorize(): bool
     {
         return true;
@@ -19,15 +21,7 @@ class StoreDocumentRequest extends FormRequest
             'documentable_type' => ['required', 'string', 'in:employee,questionnaire'],
             'documentable_id' => ['required', 'integer', 'min:1'],
             'document_category_id' => ['required', 'exists:document_categories,id'],
-            'file' => [
-                'required',
-                File::default()
-                    ->types(config('documents.allowed_mime_types'))
-                    ->max(config('documents.max_file_size')),
-            ],
-            'section_key' => ['nullable', 'string', 'max:100'],
-            'field_key' => ['nullable', 'string', 'max:100'],
-            'notes' => ['nullable', 'string', 'max:1000'],
+            ...$this->documentUploadRules(null, withMeta: false),
         ];
     }
 }

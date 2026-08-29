@@ -169,4 +169,16 @@ describe('questionnaire document usages (shared files)', function () {
         $this->getJson("/api/questionnaire/{$uuidA}/documents", ['X-Access-Token' => grantToken($uuidA)])
             ->assertJsonCount(1, 'data');
     });
+
+    it('rejects a file above the configured size limit (bytes are converted to KB)', function () {
+        Storage::fake('local');
+        $uuid = createUsageDraft();
+        $skills = usageCategory('language-certificate');
+
+        $this->postJson("/api/questionnaire/{$uuid}/documents", [
+            'document_category_id' => $skills->id,
+            'file' => UploadedFile::fake()->create('oversized.pdf', 20 * 1024),
+        ])->assertUnprocessable()
+            ->assertJsonValidationErrors(['file']);
+    });
 });
