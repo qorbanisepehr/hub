@@ -42,15 +42,12 @@ class EducationSection extends BaseSection
             // declared in dynamicDocumentRequirements() instead.
             'academic-degree' => [
                 'required' => false,
-                // 'max_files' => ,
             ],
             'language-certificate' => [
                 'required' => false,
-                // 'max_files' => 1,
             ],
             'course-certificates' => [
                 'required' => false,
-                // 'max_files' => 5,
             ],
         ];
     }

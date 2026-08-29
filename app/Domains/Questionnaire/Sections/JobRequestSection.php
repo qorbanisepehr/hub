@@ -22,9 +22,6 @@ class JobRequestSection extends BaseSection
         return [
             'resume' => [
                 'required' => true,
-                // 'max_files' => 1,
-                // 'min_file_size' => 1000 * 1024,        // 1000KB
-                // 'max_file_size' => 1 * 1024,             //1KB
             ],
         ];
     }

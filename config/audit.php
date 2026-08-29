@@ -93,7 +93,6 @@ return [
         'auth.profile.updated' => ['category' => 'auth', 'sensitivity' => 'medium'],
 
         // Authorization
-        'authorization.denied' => ['category' => 'authorization', 'sensitivity' => 'medium'],
         'authorization.active_role.changed' => ['category' => 'authorization', 'sensitivity' => 'medium'],
         'authorization.permission.assigned' => ['category' => 'authorization', 'sensitivity' => 'high'],
         'authorization.role.assigned' => ['category' => 'authorization', 'sensitivity' => 'low'],
