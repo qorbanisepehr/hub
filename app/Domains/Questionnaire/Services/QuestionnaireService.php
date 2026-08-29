@@ -15,26 +15,23 @@ use App\Domains\Questionnaire\Sections\TrainingSection;
 use App\Domains\Questionnaire\Sections\WorkExperienceSection;
 use App\Support\MobileNumber;
 use App\Support\Sections\SectionDefinition;
+use App\Support\Sections\SectionRegistry;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
-use InvalidArgumentException;
 
-class QuestionnaireService
+class QuestionnaireService extends SectionRegistry
 {
-    /** @var array<string, SectionDefinition> */
-    private array $sections;
-
     public function __construct(
         private QuestionnaireRepositoryInterface $repository,
         private DocumentService $documentService,
     ) {
-        $this->registerSections();
+        parent::__construct();
     }
 
-    private function registerSections(): void
+    protected function definitions(): array
     {
-        $definitions = [
+        return [
             PersonalInfoSection::class,
             ContactInfoSection::class,
             EducationSection::class,
@@ -44,11 +41,6 @@ class QuestionnaireService
             AdditionalInfoSection::class,
             JobRequestSection::class,
         ];
-
-        foreach ($definitions as $class) {
-            $section = new $class;
-            $this->sections[$section->key()] = $section;
-        }
     }
 
     public function create(array $baseData): Questionnaire
@@ -159,26 +151,6 @@ class QuestionnaireService
     }
 
     /**
-     * Merge per-category document requirements declared by every section
-     * definition. Each requirement carries the placement (section_key from the
-     * declaring section) so uploads know where the document belongs.
-     *
-     * @return array<string, array<string, mixed>>
-     */
-    public function getDocumentRequirements(): array
-    {
-        $requirements = [];
-
-        foreach ($this->sections as $section) {
-            foreach ($section->documentRequirements() as $slug => $requirement) {
-                $requirements[$slug] = $requirement + ['section_key' => $section->key()];
-            }
-        }
-
-        return $requirements;
-    }
-
-    /**
      * Run completion validation against all sections.
      *
      * @return array<string, string[]>
@@ -203,28 +175,6 @@ class QuestionnaireService
         }
 
         return $allErrors;
-    }
-
-    /**
-     * Get section definition by key.
-     */
-    public function getSection(string $key): SectionDefinition
-    {
-        if (! isset($this->sections[$key])) {
-            throw new InvalidArgumentException("Unknown section: {$key}");
-        }
-
-        return $this->sections[$key];
-    }
-
-    /**
-     * Get all section keys.
-     *
-     * @return string[]
-     */
-    public function getSectionKeys(): array
-    {
-        return array_keys($this->sections);
     }
 
     /**

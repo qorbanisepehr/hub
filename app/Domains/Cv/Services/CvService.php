@@ -17,25 +17,22 @@ use App\Domains\Questionnaire\Sections\TrainingSection;
 use App\Domains\Questionnaire\Sections\WorkExperienceSection;
 use App\Support\MobileNumber;
 use App\Support\Sections\SectionDefinition;
+use App\Support\Sections\SectionRegistry;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
-use InvalidArgumentException;
 
-class CvService
+class CvService extends SectionRegistry
 {
-    /** @var array<string, SectionDefinition> */
-    private array $sections;
-
     public function __construct(
         private CvRepositoryInterface $repository,
         private DocumentService $documentService,
         private QuestionnaireRepositoryInterface $questionnaireRepository,
     ) {
-        $this->registerSections();
+        parent::__construct();
     }
 
-    private function registerSections(): void
+    protected function definitions(): array
     {
         // CV-specific definitions (slim field set / CV document requirements).
         $definitions = [
@@ -53,10 +50,13 @@ class CvService
             TrainingSection::class,
         ];
 
-        foreach ([...$definitions, ...$shared] as $class) {
-            $section = new $class;
-            $this->sections[$section->key()] = $section;
-        }
+        return [...$definitions, ...$shared];
+    }
+
+    protected function documentsSectionKey(): ?string
+    {
+        // CV documents are placed at the standalone 'documents' section.
+        return 'documents';
     }
 
     public function create(array $baseData): Cv
@@ -259,26 +259,6 @@ class CvService
     }
 
     /**
-     * Merge per-category document requirements declared by every section
-     * definition. CV documents are placed at the standalone 'documents'
-     * section (declared explicitly by the sections).
-     *
-     * @return array<string, array<string, mixed>>
-     */
-    public function getDocumentRequirements(): array
-    {
-        $requirements = [];
-
-        foreach ($this->sections as $section) {
-            foreach ($section->documentRequirements() as $slug => $requirement) {
-                $requirements[$slug] = $requirement + ['section_key' => 'documents'];
-            }
-        }
-
-        return $requirements;
-    }
-
-    /**
      * Run completion validation against all sections.
      *
      * @return array<string, string[]>
@@ -303,21 +283,6 @@ class CvService
         }
 
         return $allErrors;
-    }
-
-    public function getSection(string $key): SectionDefinition
-    {
-        if (! isset($this->sections[$key])) {
-            throw new InvalidArgumentException("Unknown section: {$key}");
-        }
-
-        return $this->sections[$key];
-    }
-
-    /** @return string[] */
-    public function getSectionKeys(): array
-    {
-        return array_keys($this->sections);
     }
 
     /**
