@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
-    IconAlertTriangle,
     IconChecks,
     IconClipboardCheck,
     IconLoader2,
@@ -12,6 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { ErrorBanner } from "@/components/layout";
 import { UnsavedChangesDialog } from "@/components/layout";
+import { SubmitErrors } from "@/components/wizards/submit-errors";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PersonalInfoSection } from "@/features/questionnaire/components/sections/personal-info-section";
 import { EducationSection } from "@/features/questionnaire/components/sections/education-section";
@@ -539,22 +539,7 @@ export function EmployeeProfileForm({ employee }: EmployeeProfileFormProps) {
                 </div>
             </div>
 
-            {submitErrors.length > 0 && (
-                <div className="flex items-start gap-3 rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
-                    <IconAlertTriangle className="mt-0.5 size-4 shrink-0" />
-                    <div className="flex-1">
-                        {submitErrors.length === 1 ? (
-                            <p>{submitErrors[0]}</p>
-                        ) : (
-                            <ul className="space-y-1 list-disc ms-4">
-                                {submitErrors.map((err, i) => (
-                                    <li key={i}>{err}</li>
-                                ))}
-                            </ul>
-                        )}
-                    </div>
-                </div>
-            )}
+            <SubmitErrors errors={submitErrors} />
 
             <Tabs
                 orientation="vertical"
