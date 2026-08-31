@@ -14,10 +14,9 @@ import {
     CardHeader,
     CardTitle,
 } from "@/components/ui/card";
-import {
-    FieldError,
-    FieldGroup,
-} from "@/components/ui/field";
+import { FieldError, FieldGroup } from "@/components/ui/field";
+import { Skeleton } from "@/components/ui/skeleton";
+import { IconLoader2 } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/features/auth";
 import { IdentifierField } from "@/features/auth/components/identifier-field";
@@ -43,6 +42,7 @@ export function LoginForm({
     const { data: branding } = useBranding();
     const [mode, setMode] = React.useState<LoginMode>("otp");
     const [otpSent, setOtpSent] = React.useState(false);
+    const [signedIn, setSignedIn] = React.useState(false);
     const [otpDestination, setOtpDestination] = React.useState<string | null>(
         null,
     );
@@ -66,6 +66,7 @@ export function LoginForm({
                     identifier: value.identifier,
                     password: value.password,
                 });
+                setSignedIn(true);
                 navigate({ to: redirectTo ?? "/dashboard" });
             }
         },
@@ -102,6 +103,7 @@ export function LoginForm({
                 code,
             }),
         onVerified: () => {
+            setSignedIn(true);
             form.setFieldValue("code", "");
             navigate({ to: redirectTo ?? "/dashboard" });
         },
@@ -123,7 +125,8 @@ export function LoginForm({
     };
 
     const error =
-        otpError ?? (mode === "password" ? getApiError(loginPassword.error) : null);
+        otpError ??
+        (mode === "password" ? getApiError(loginPassword.error) : null);
 
     return (
         <div className={cn("flex flex-col gap-6", className)} {...props}>
@@ -137,145 +140,171 @@ export function LoginForm({
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <form
-                        onSubmit={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            form.handleSubmit();
-                        }}
-                    >
-                        <FieldGroup>
-                            <form.Field
-                                name="identifier"
-                                validators={{ onSubmit: identifierSchema }}
-                            >
-                                {(field) => (
-                                    <IdentifierField field={field} disabled={otpSent} />
-                                )}
-                            </form.Field>
+                    {signedIn ? (
+                        <div className="flex flex-col items-center justify-center gap-4 py-10">
+                            <IconLoader2 className="size-8 animate-spin text-muted-foreground" />
+                            <div className="flex w-full flex-col gap-3">
+                                <Skeleton className="h-10 w-full" />
+                                <Skeleton className="h-10 w-full" />
+                                <Skeleton className="h-10 w-full" />
+                            </div>
+                            <p className="text-sm text-muted-foreground">
+                                در حال ورود به حساب...
+                            </p>
+                        </div>
+                    ) : (
+                        <form
+                            onSubmit={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                form.handleSubmit();
+                            }}
+                        >
+                            <FieldGroup>
+                                <form.Field
+                                    name="identifier"
+                                    validators={{ onSubmit: identifierSchema }}
+                                >
+                                    {(field) => (
+                                        <IdentifierField
+                                            field={field}
+                                            disabled={otpSent}
+                                        />
+                                    )}
+                                </form.Field>
 
-                            {otpSent ? (
-                                <>
-                                    <form.Field
-                                        name="code"
-                                        validators={{ onSubmit: codeSchema }}
-                                    >
-                                        {(field) => (
-                                            <CodeField field={field} />
-                                        )}
-                                    </form.Field>
+                                {otpSent ? (
+                                    <>
+                                        <form.Field
+                                            name="code"
+                                            validators={{
+                                                onSubmit: codeSchema,
+                                            }}
+                                        >
+                                            {(field) => (
+                                                <CodeField field={field} />
+                                            )}
+                                        </form.Field>
 
-                                    <Button
-                                        type="submit"
-                                        disabled={isVerifying}
-                                        className="w-full"
-                                    >
-                                        {isVerifying
-                                            ? "در حال بررسی..."
-                                            : "تایید کد"}
-                                    </Button>
-
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        size="sm"
-                                        disabled={isSending || countdown > 0}
-                                        onClick={handleSendOtp}
-                                        className="w-full"
-                                    >
-                                        {isSending
-                                            ? "در حال ارسال..."
-                                            : countdown > 0
-                                              ? `ارسال مجدد کد (${countdown} ثانیه)`
-                                              : "ارسال مجدد کد"}
-                                    </Button>
-
-                                    <Button
-                                        type="button"
-                                        variant="link"
-                                        size="sm"
-                                        className="text-muted-foreground"
-                                        onClick={handleBackToIdentifier}
-                                    >
-                                        تغییر ایمیل یا شماره موبایل
-                                    </Button>
-                                </>
-                            ) : (
-                                <>
-                                    {mode === "otp" && (
                                         <Button
                                             type="submit"
-                                            disabled={isSending}
+                                            disabled={isVerifying}
+                                            className="w-full"
+                                        >
+                                            {isVerifying
+                                                ? "در حال بررسی..."
+                                                : "تایید کد"}
+                                        </Button>
+
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            disabled={
+                                                isSending || countdown > 0
+                                            }
+                                            onClick={handleSendOtp}
                                             className="w-full"
                                         >
                                             {isSending
                                                 ? "در حال ارسال..."
-                                                : "ارسال کد یکبار مصرف"}
+                                                : countdown > 0
+                                                  ? `ارسال مجدد کد (${countdown} ثانیه)`
+                                                  : "ارسال مجدد کد"}
                                         </Button>
-                                    )}
 
-                                    {mode === "password" && (
-                                        <>
-                                            <form.Field
-                                                name="password"
-                                                validators={{
-                                                    onSubmit: passwordSchema,
-                                                }}
-                                            >
-                                                {(field) => (
-                                                    <PasswordField field={field} />
-                                                )}
-                                            </form.Field>
-
+                                        <Button
+                                            type="button"
+                                            variant="link"
+                                            size="sm"
+                                            className="text-muted-foreground"
+                                            onClick={handleBackToIdentifier}
+                                        >
+                                            تغییر ایمیل یا شماره موبایل
+                                        </Button>
+                                    </>
+                                ) : (
+                                    <>
+                                        {mode === "otp" && (
                                             <Button
                                                 type="submit"
-                                                disabled={loginPassword.isPending}
+                                                disabled={isSending}
                                                 className="w-full"
                                             >
-                                                {loginPassword.isPending
-                                                    ? "در حال ورود..."
-                                                    : "ورود با رمز عبور"}
+                                                {isSending
+                                                    ? "در حال ارسال..."
+                                                    : "ارسال کد یکبار مصرف"}
                                             </Button>
-                                        </>
-                                    )}
+                                        )}
 
-                                    <div className="relative my-4">
-                                        <div className="absolute inset-0 flex items-center">
-                                            <span className="w-full border-t" />
+                                        {mode === "password" && (
+                                            <>
+                                                <form.Field
+                                                    name="password"
+                                                    validators={{
+                                                        onSubmit:
+                                                            passwordSchema,
+                                                    }}
+                                                >
+                                                    {(field) => (
+                                                        <PasswordField
+                                                            field={field}
+                                                        />
+                                                    )}
+                                                </form.Field>
+
+                                                <Button
+                                                    type="submit"
+                                                    disabled={
+                                                        loginPassword.isPending
+                                                    }
+                                                    className="w-full"
+                                                >
+                                                    {loginPassword.isPending
+                                                        ? "در حال ورود..."
+                                                        : "ورود با رمز عبور"}
+                                                </Button>
+                                            </>
+                                        )}
+
+                                        <div className="relative my-4">
+                                            <div className="absolute inset-0 flex items-center">
+                                                <span className="w-full border-t" />
+                                            </div>
+                                            <div className="relative flex justify-center text-xs uppercase">
+                                                <span className="bg-card px-2 text-muted-foreground">
+                                                    یا
+                                                </span>
+                                            </div>
                                         </div>
-                                        <div className="relative flex justify-center text-xs uppercase">
-                                            <span className="bg-card px-2 text-muted-foreground">
-                                                یا
-                                            </span>
-                                        </div>
-                                    </div>
 
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        onClick={() =>
-                                            setMode(
-                                                mode === "otp"
-                                                    ? "password"
-                                                    : "otp",
-                                            )
-                                        }
-                                        className="w-full"
-                                    >
-                                        {mode === "otp"
-                                            ? "ورود با رمز عبور"
-                                            : "ارسال کد یکبار مصرف"}
-                                    </Button>
-                                </>
-                            )}
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            onClick={() =>
+                                                setMode(
+                                                    mode === "otp"
+                                                        ? "password"
+                                                        : "otp",
+                                                )
+                                            }
+                                            className="w-full"
+                                        >
+                                            {mode === "otp"
+                                                ? "ورود با رمز عبور"
+                                                : "ارسال کد یکبار مصرف"}
+                                        </Button>
+                                    </>
+                                )}
 
-                            {error && (
-                                <FieldError>
-                                    <p>{error}</p>
-                                </FieldError>
-                            )}
-                        </FieldGroup>
-                    </form>
+                                {error && (
+                                    <FieldError>
+                                        <p>{error}</p>
+                                    </FieldError>
+                                )}
+                            </FieldGroup>
+                        </form>
+                    )}
                 </CardContent>
             </Card>
         </div>
