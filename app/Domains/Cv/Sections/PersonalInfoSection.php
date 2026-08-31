@@ -4,21 +4,21 @@ namespace App\Domains\Cv\Sections;
 
 use App\Rules\FormOptionValue;
 use App\Rules\IdNumberRule;
-use App\Support\Sections\BaseSection;
+use App\Support\Sections\Definitions\PersonalInfoSection as BasePersonalInfoSection;
 use App\Support\ValidationRules;
-use Carbon\Carbon;
-use Illuminate\Contracts\Validation\Validator;
 
-class PersonalInfoSection extends BaseSection
+class PersonalInfoSection extends BasePersonalInfoSection
 {
-    public function key(): string
+    public function __construct()
     {
-        return 'personal_info';
+        parent::__construct(labelKey: 'cv.sections.personal_info');
     }
 
-    public function label(): string
+    public function documentRequirements(): array
     {
-        return __('cv.sections.personal_info');
+        // A CV declares its document requirements on other sections; the
+        // personal-info step carries none.
+        return [];
     }
 
     public function fields(): array
@@ -82,35 +82,5 @@ class PersonalInfoSection extends BaseSection
             'real' => ['first_name', 'last_name'],
             'jsonb' => 'section_personal',
         ];
-    }
-
-    public function searchMetadata(): array
-    {
-        return ['id_number', 'birth_certificate_number'];
-    }
-
-    public function prefill(): array
-    {
-        return [];
-    }
-
-    protected function afterValidation(Validator $validator, array $data, string $mode): void
-    {
-        $birthDate = $data['birth_date'] ?? null;
-        if ($mode === self::MODE_COMPLETION && $birthDate && Carbon::parse($birthDate)->age < 18) {
-            $validator->errors()->add(
-                "{$this->key()}.birth_date",
-                __('messages.validation.min_age'),
-            );
-        }
-
-        $militaryFrom = $data['military_status']['from'] ?? null;
-        $militaryTo = $data['military_status']['to'] ?? null;
-        if ($militaryFrom && $militaryTo && $militaryTo < $militaryFrom) {
-            $validator->errors()->add(
-                "{$this->key()}.military_status.to",
-                __('messages.validation.work_date_order'),
-            );
-        }
     }
 }

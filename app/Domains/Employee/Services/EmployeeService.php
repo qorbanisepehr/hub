@@ -8,8 +8,8 @@ use App\Domains\Employee\Sections\ContactInfoSection;
 use App\Domains\Employee\Sections\DependentsSection;
 use App\Domains\Employee\Sections\DocumentInquiriesSection;
 use App\Domains\Employee\Sections\EmploymentSection;
+use App\Domains\Employee\Sections\PersonalInfoSection;
 use App\Domains\Employee\Sections\SocialInsuranceSection;
-use App\Domains\Questionnaire\Sections\PersonalInfoSection;
 use App\Support\MobileNumber;
 use App\Support\Sections\Definitions\EducationSection;
 use App\Support\Sections\Definitions\SkillsSection;
@@ -25,11 +25,11 @@ use Illuminate\Validation\ValidationException;
 class EmployeeService extends SectionRegistry
 {
     /**
-     * All questionnaire sections except job_request (applicant-preference
-     * fields don't apply to existing employees). Definitions are reused
-     * cross-domain to keep a single source of validation rules. Contact
-     * info and additional info use employee-specific definitions because
-     * their real-column ownership differs from the questionnaire's.
+     * Employee-owned sections (personal/contact/employment/additional info and
+     * the HR-only sections) are defined per-domain; the applicant-shape
+     * sections (education, work experience, skills, training) are reused from
+     * the shared App\Support\Sections\Definitions so Employee stays decoupled
+     * from the Questionnaire and Cv domains (ADR-007).
      *
      * @return list<class-string<SectionDefinition>>
      */
