@@ -10,6 +10,7 @@ use App\Domains\Auth\Requests\LoginRequest;
 use App\Domains\Auth\Requests\LoginWithPasswordRequest;
 use App\Domains\Auth\Requests\VerifyOtpRequest;
 use App\Domains\Auth\Resources\UserResource;
+use App\Domains\Auth\Services\AuthService;
 use App\Enums\OtpContext;
 use App\Http\Responses\OtpResponder;
 use App\Models\User;
@@ -17,8 +18,6 @@ use App\Services\OtpService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\RateLimiter;
-use Illuminate\Support\Str;
 
 class AuthController
 {
@@ -26,12 +25,13 @@ class AuthController
 
     public function __construct(
         private OtpService $otpService,
+        private AuthService $authService,
         private Authorization $authorizationService,
     ) {}
 
     public function login(LoginRequest $request): JsonResponse
     {
-        $user = $this->resolveUser($request->identifier);
+        $user = $this->authService->resolveUser($request->identifier);
 
         if (! $user) {
             event(new LoginFailed($request->identifier, 'user_not_found'));
@@ -45,21 +45,21 @@ class AuthController
             return $inactive;
         }
 
-        $channel = $this->channelFor($request->identifier);
+        $channel = $this->authService->channelFor($request->identifier);
 
         $status = $this->otpService->sendWithCooldown($user, $channel, OtpContext::Login);
 
         $response = $this->respondToSend($user, $channel, OtpContext::Login, $status);
 
         $data = $response->getData(true);
-        $data['destination'] = $this->destination($request->identifier, $user);
+        $data['destination'] = $this->authService->destination($request->identifier, $user);
 
         return response()->json($data, $response->getStatusCode());
     }
 
     public function verifyOtp(VerifyOtpRequest $request): JsonResponse
     {
-        $user = $this->resolveUser($request->identifier);
+        $user = $this->authService->resolveUser($request->identifier);
 
         if (! $user) {
             return response()->json([
@@ -71,7 +71,7 @@ class AuthController
             return $inactive;
         }
 
-        $channel = $this->channelFor($request->identifier);
+        $channel = $this->authService->channelFor($request->identifier);
         $status = $this->otpService->attemptVerification($user, $channel, OtpContext::Login, $request->code);
 
         if ($response = $this->respondToVerification($user, $channel, OtpContext::Login, $status)) {
@@ -85,7 +85,7 @@ class AuthController
 
     public function loginWithPassword(LoginWithPasswordRequest $request): JsonResponse
     {
-        $user = $this->resolveUser($request->identifier);
+        $user = $this->authService->resolveUser($request->identifier);
 
         if (! $user) {
             event(new LoginFailed($request->identifier, 'user_not_found'));
@@ -106,7 +106,7 @@ class AuthController
         }
 
         if (! Hash::check($request->password, $user->password)) {
-            RateLimiter::hit($this->rateLimiterKey($user), config('rate-limits.auth-attempts.period', 60));
+            $this->authService->hitFailedAttempt($user);
 
             event(new LoginFailed($request->identifier, 'invalid_password'));
 
@@ -115,7 +115,7 @@ class AuthController
             ], 401);
         }
 
-        RateLimiter::clear($this->rateLimiterKey($user));
+        $this->authService->clearFailedAttempts($user);
 
         event(new LoginSucceeded($user, 'password'));
 
@@ -131,12 +131,10 @@ class AuthController
             $request->session()->invalidate();
             $request->session()->regenerateToken();
         } else {
-            $user->currentAccessToken()->delete();
+            $user->currentAccessToken()?->delete();
         }
 
-        if ($user) {
-            event(new LogoutSucceeded($user));
-        }
+        event(new LogoutSucceeded($user));
 
         app('auth')->forgetGuards();
 
@@ -182,7 +180,7 @@ class AuthController
             ]);
         }
 
-        $token = $this->createToken($user, $request);
+        $token = $this->authService->createToken($user, $request->ip(), $request->userAgent());
 
         return response()->json([
             'user' => new UserResource($user->load(['roles', 'activeRole', 'employee'])),
@@ -204,70 +202,13 @@ class AuthController
         };
     }
 
-    private function channelFor(string $identifier): string
-    {
-        return filter_var($identifier, FILTER_VALIDATE_EMAIL) !== false ? 'email' : 'mobile';
-    }
-
-    private function destination(string $identifier, User $user): string
-    {
-        if (filter_var($identifier, FILTER_VALIDATE_EMAIL) !== false && $user->email) {
-            $at = strpos($user->email, '@');
-
-            return substr_replace($user->email, '***', 1, max(1, $at - 2));
-        }
-
-        if ($user->phone) {
-            return substr_replace($user->phone, '***', 3, 4);
-        }
-
-        return $user->email ?: $identifier;
-    }
-
-    private function rateLimiterKey(User $user): string
-    {
-        return 'login-attempts:'.$user->id;
-    }
-
-    private function resolveUser(string $identifier): ?User
-    {
-        if (filter_var($identifier, FILTER_VALIDATE_EMAIL)) {
-            return User::where('email', $identifier)->first();
-        }
-
-        if (preg_match('/^(\+?\d{10,15})$/', $identifier)) {
-            return User::where('phone', $identifier)->first();
-        }
-
-        return User::where('username', $identifier)->first();
-    }
-
-    private function createToken(User $user, Request $request): string
-    {
-        $userAgent = $request->userAgent() ?? 'unknown';
-        $timestamp = now()->format('YmdHis');
-        $uniquePart = Str::random(8);
-
-        $tokenName = sprintf(
-            '%s:%s(%s)',
-            $request->ip(),
-            substr(md5($userAgent.$uniquePart), 0, 12),
-            $timestamp,
-        );
-
-        return $user->createToken(name: $tokenName)->plainTextToken;
-    }
-
     private function checkLocked(User $user): ?JsonResponse
     {
-        $key = $this->rateLimiterKey($user);
-        $maxAttempts = config('rate-limits.auth-attempts.limit', 5);
-
-        if (! RateLimiter::tooManyAttempts($key, $maxAttempts)) {
+        if (! $this->authService->isLocked($user)) {
             return null;
         }
 
-        $seconds = RateLimiter::availableIn($key);
+        $seconds = $this->authService->lockoutSeconds($user);
 
         return response()->json([
             'message' => __('auth.locked', ['seconds' => $seconds]),
