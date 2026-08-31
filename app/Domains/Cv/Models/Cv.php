@@ -8,17 +8,22 @@ use App\Contracts\DocumentableTrait;
 use App\Contracts\OtpVerifiable;
 use App\Domains\Cv\Enums\CvStatus;
 use App\Domains\Questionnaire\Models\Questionnaire;
+use App\Models\Traits\HasJsonSections;
+use App\Models\Traits\HasLifecycleVersion;
+use App\Models\Traits\VerifiesOtp;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Support\Str;
 
 class Cv extends Model implements Documentable, OtpVerifiable
 {
     use DocumentableTrait;
+    use HasJsonSections;
+    use HasLifecycleVersion;
     use SoftDeletes;
+    use VerifiesOtp;
 
     protected $fillable = [
         'uuid',
@@ -62,41 +67,22 @@ class Cv extends Model implements Documentable, OtpVerifiable
         'version' => 'integer',
     ];
 
-    protected static function boot(): void
+    /**
+     * Military service data only applies to male candidates; whenever gender
+     * changes away from male (male → female), drop any orphaned military
+     * record from the personal-info section. On a CV, gender lives inside the
+     * personal-info section, so this runs when that section changes.
+     */
+    protected function handleSectionPersistence(): void
     {
-        parent::boot();
+        if ($this->isDirty('section_personal') && (($this->getSection('personal')['gender'] ?? null) !== 'male')) {
+            $this->pruneNonMaleMilitaryStatus();
+        }
+    }
 
-        static::creating(function (Cv $model): void {
-            if (empty($model->uuid)) {
-                $model->uuid = (string) Str::uuid();
-            }
-        });
-
-        static::saving(function (Cv $model): void {
-            if (! $model->exists) {
-                return;
-            }
-
-            if ($model->isDirty('email')) {
-                $model->email_verified_at = null;
-            }
-            if ($model->isDirty('mobile')) {
-                $model->mobile_verified_at = null;
-            }
-
-            // Military service data only applies to male candidates; whenever
-            // gender changes away from male (male → female), drop any orphaned
-            // military record from the personal-info section.
-            if ($model->isDirty('section_personal')) {
-                $sectionPersonal = $model->section_personal ?? [];
-                if (($sectionPersonal['gender'] ?? null) !== 'male'
-                    && array_key_exists('military_status', $sectionPersonal)
-                    && $sectionPersonal['military_status'] !== null) {
-                    unset($sectionPersonal['military_status']);
-                    $model->section_personal = $sectionPersonal;
-                }
-            }
-        });
+    protected function otpIdentifierPrefix(): string
+    {
+        return 'cv';
     }
 
     /** @return BelongsTo<User, $this> */
@@ -146,18 +132,6 @@ class Cv extends Model implements Documentable, OtpVerifiable
         return $this->isDraft() || $this->isRejected();
     }
 
-    // ── OTP helpers ──
-
-    public function isMobileVerified(): bool
-    {
-        return $this->isOtpVerified('mobile');
-    }
-
-    public function isEmailVerified(): bool
-    {
-        return $this->isOtpVerified('email');
-    }
-
     /**
      * A CV is fully verified when the mobile is verified and, whenever an
      * email is present, that email is verified too. Email stays optional on
@@ -170,39 +144,6 @@ class Cv extends Model implements Documentable, OtpVerifiable
         }
 
         return blank($this->email) || $this->isEmailVerified();
-    }
-
-    // ── OtpVerifiable ──
-
-    public function getOtpIdentifier(): string
-    {
-        return "cv:{$this->uuid}";
-    }
-
-    public function markOtpVerified(string $channel): void
-    {
-        $this->update(["{$channel}_verified_at" => now()]);
-    }
-
-    public function isOtpVerified(string $channel): bool
-    {
-        return match ($channel) {
-            'mobile' => $this->mobile_verified_at !== null,
-            'email' => $this->email_verified_at !== null,
-            default => false,
-        };
-    }
-
-    // ── Section accessors ──
-
-    public function getSection(string $name): ?array
-    {
-        return $this->{"section_{$name}"} ?? null;
-    }
-
-    public function setSection(string $name, array $data): void
-    {
-        $this->{"section_{$name}"} = $data;
     }
 
     // ── Lifecycle ──
@@ -227,17 +168,5 @@ class Cv extends Model implements Documentable, OtpVerifiable
         $lifecycle = $this->lifecycle ?? [];
 
         return $lifecycle[array_key_last($lifecycle)] ?? null;
-    }
-
-    // ── Optimistic locking ──
-
-    public function incrementVersion(): void
-    {
-        $this->increment('version');
-    }
-
-    public function matchesVersion(int $expectedVersion): bool
-    {
-        return $this->version === $expectedVersion;
     }
 }
