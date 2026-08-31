@@ -3,42 +3,40 @@
 namespace App\Domains\Cv\Repositories;
 
 use App\Domains\Cv\Models\Cv;
+use App\Support\Repositories\SectionedDocumentRepository;
 
-class CvRepository implements CvRepositoryInterface
+/**
+ * @extends SectionedDocumentRepository<Cv>
+ */
+class CvRepository extends SectionedDocumentRepository implements CvRepositoryInterface
 {
+    protected function modelClass(): string
+    {
+        return Cv::class;
+    }
+
     public function create(array $data): Cv
     {
-        return Cv::create([
-            'status' => 'draft',
-            'version' => 1,
-        ] + $data);
+        return parent::performCreate($data);
     }
 
     public function findByUuid(string $uuid): ?Cv
     {
-        return Cv::where('uuid', $uuid)->first();
+        return parent::performFindByUuid($uuid);
     }
 
     public function updateSection(Cv $cv, string $jsonbColumn, array $data): Cv
     {
-        $cv->update([
-            $jsonbColumn => $data,
-        ]);
-
-        return $cv->fresh();
+        return parent::performUpdateSection($cv, $jsonbColumn, $data);
     }
 
     public function updateStatus(Cv $cv, string $status): Cv
     {
-        $cv->update(['status' => $status]);
-
-        return $cv->fresh();
+        return parent::performUpdateStatus($cv, $status);
     }
 
     public function incrementVersion(Cv $cv): Cv
     {
-        $cv->incrementVersion();
-
-        return $cv->fresh();
+        return parent::performIncrementVersion($cv);
     }
 }
