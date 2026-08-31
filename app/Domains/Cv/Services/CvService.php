@@ -11,11 +11,11 @@ use App\Domains\Cv\Sections\PersonalInfoSection;
 use App\Domains\Document\Services\DocumentService;
 use App\Domains\Questionnaire\Models\Questionnaire;
 use App\Domains\Questionnaire\Repositories\QuestionnaireRepositoryInterface;
-use App\Domains\Questionnaire\Sections\EducationSection;
-use App\Domains\Questionnaire\Sections\SkillsSection;
-use App\Domains\Questionnaire\Sections\TrainingSection;
-use App\Domains\Questionnaire\Sections\WorkExperienceSection;
 use App\Support\MobileNumber;
+use App\Support\Sections\Definitions\EducationSection;
+use App\Support\Sections\Definitions\SkillsSection;
+use App\Support\Sections\Definitions\TrainingSection;
+use App\Support\Sections\Definitions\WorkExperienceSection;
 use App\Support\Sections\SectionDefinition;
 use App\Support\Sections\SectionRegistry;
 use Illuminate\Support\Facades\DB;
@@ -41,8 +41,9 @@ class CvService extends SectionRegistry
             AdditionalInfoSection::class,
         ];
 
-        // Sections identical to the questionnaire's are reused cross-domain to
-        // avoid duplicating their rules (documented DRY pattern).
+        // Sections identical across domains are reused from the shared
+        // definitions (documented DRY pattern); note this keeps CV decoupled
+        // from the Questionnaire domain.
         $shared = [
             EducationSection::class,
             WorkExperienceSection::class,
