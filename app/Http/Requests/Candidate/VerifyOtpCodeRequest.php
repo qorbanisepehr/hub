@@ -1,10 +1,10 @@
 <?php
 
-namespace App\Domains\Questionnaire\Requests;
+namespace App\Http\Requests\Candidate;
 
 use Illuminate\Foundation\Http\FormRequest;
 
-class VerifyInitOtpRequest extends FormRequest
+class VerifyOtpCodeRequest extends FormRequest
 {
     public function authorize(): bool
     {
@@ -15,7 +15,6 @@ class VerifyInitOtpRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'uuid' => ['required', 'string', 'uuid'],
             'otp' => ['required', 'string', 'size:6'],
         ];
     }

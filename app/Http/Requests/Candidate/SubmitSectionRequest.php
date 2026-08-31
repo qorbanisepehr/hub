@@ -1,10 +1,10 @@
 <?php
 
-namespace App\Domains\Questionnaire\Requests;
+namespace App\Http\Requests\Candidate;
 
 use Illuminate\Foundation\Http\FormRequest;
 
-class SectionSaveRequest extends FormRequest
+class SubmitSectionRequest extends FormRequest
 {
     public function authorize(): bool
     {

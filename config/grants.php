@@ -26,11 +26,13 @@ return [
             'model' => Questionnaire::class,
             'channel' => 'mobile',
             'view_permission' => 'questionnaire.view',
+            'email_required' => true,
         ],
         'cv' => [
             'model' => Cv::class,
             'channel' => 'mobile',
             'view_permission' => 'cv.view',
+            'email_required' => false,
         ],
     ],
 ];

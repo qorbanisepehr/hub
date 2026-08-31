@@ -3,7 +3,6 @@
 use App\Domains\Questionnaire\Controllers\QuestionnaireController;
 use App\Domains\Questionnaire\Controllers\QuestionnaireDocumentController;
 use App\Domains\Questionnaire\Controllers\QuestionnaireManagementController;
-use App\Http\Controllers\GrantAccessController;
 use Illuminate\Support\Facades\Route;
 
 // Public routes (no auth required)
@@ -23,16 +22,6 @@ Route::post('questionnaire/{uuid}/verify-mobile-otp', [QuestionnaireController::
     ->middleware('throttle:questionnaire-otp-verify');
 Route::post('questionnaire/{uuid}/verify-email-otp', [QuestionnaireController::class, 'verifyEmailOtp'])
     ->middleware('throttle:questionnaire-otp-verify');
-
-// Grant issuance (public, OTP-gated)
-Route::post('{entity}/{uuid}/request-access', [GrantAccessController::class, 'requestAccess'])
-    ->middleware('throttle:questionnaire-otp-send');
-Route::post('{entity}/{uuid}/verify-access-otp', [GrantAccessController::class, 'verifyAccessOtp'])
-    ->middleware('throttle:questionnaire-otp-verify');
-
-// Existence check (public, no OTP/rate limit) so clients can show a 404 before
-// offering the protected access form.
-Route::get('{entity}/{uuid}/exists', [GrantAccessController::class, 'exists']);
 
 // Per-category document requirements for the questionnaire flow (public —
 // no sensitive data). Registered before the {uuid} routes so it never binds

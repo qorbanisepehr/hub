@@ -3,7 +3,6 @@
 use App\Domains\Cv\Controllers\CvBankController;
 use App\Domains\Cv\Controllers\CvController;
 use App\Domains\Cv\Controllers\CvDocumentController;
-use App\Http\Controllers\GrantAccessController;
 use Illuminate\Support\Facades\Route;
 
 // Public routes (no auth required)
@@ -27,16 +26,6 @@ Route::post('cv/{uuid}/verify-mobile-otp', [CvController::class, 'verifyMobileOt
 Route::post('cv/{uuid}/verify-email-otp', [CvController::class, 'verifyEmailOtp'])
     ->whereUuid('uuid')
     ->middleware('throttle:questionnaire-otp-verify');
-
-// Grant issuance (public, OTP-gated) for cv entities
-Route::post('{entity}/{uuid}/request-access', [GrantAccessController::class, 'requestAccess'])
-    ->middleware('throttle:questionnaire-otp-send');
-Route::post('{entity}/{uuid}/verify-access-otp', [GrantAccessController::class, 'verifyAccessOtp'])
-    ->middleware('throttle:questionnaire-otp-verify');
-
-// Existence check (public) so clients can show a 404 before offering the
-// protected access form.
-Route::get('{entity}/{uuid}/exists', [GrantAccessController::class, 'exists']);
 
 // Per-category document requirements for the CV flow (public — no sensitive
 // data). Registered before the {uuid} routes so it never binds to cv/{uuid}.

@@ -4,16 +4,14 @@ namespace App\Domains\Cv\Controllers;
 
 use App\Contracts\Authorization;
 use App\Domains\Cv\Models\Cv;
-use App\Domains\Cv\Requests\InitCvRequest;
 use App\Domains\Cv\Requests\RejectCvRequest;
 use App\Domains\Cv\Resources\CvResource;
 use App\Domains\Cv\Services\CvService;
-use App\Domains\Questionnaire\Requests\SectionSaveRequest;
-use App\Domains\Questionnaire\Requests\VerifyInitOtpRequest;
-use App\Domains\Questionnaire\Requests\VerifyQuestionnaireRequest;
-use App\Enums\GrantPurpose;
 use App\Enums\OtpContext;
 use App\Enums\OtpSendStatus;
+use App\Http\Concerns\InitiatesCandidate;
+use App\Http\Requests\Candidate\SubmitSectionRequest;
+use App\Http\Requests\Candidate\VerifyOtpCodeRequest;
 use App\Http\Responses\OtpResponder;
 use App\Models\PendingVerification;
 use App\Services\OtpService;
@@ -23,10 +21,10 @@ use App\Support\ValidationRules;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
-use Illuminate\Support\Arr;
 
 class CvController extends Controller
 {
+    use InitiatesCandidate;
     use OtpResponder;
 
     public function __construct(
@@ -36,110 +34,29 @@ class CvController extends Controller
         private SessionGrantStore $sessionGrants,
     ) {}
 
-    public function init(InitCvRequest $request): JsonResponse
+    protected function candidateType(): string
     {
-        $data = $request->validated();
-        $data['mobile'] = MobileNumber::normalize($data['mobile']);
-
-        $payload = Arr::only($data, ['first_name', 'last_name', 'email', 'mobile']);
-
-        $existing = PendingVerification::query()
-            ->where('type', 'cv')
-            ->where('mobile', $data['mobile'])
-            ->whereNull('verified_at')
-            ->latest()
-            ->first();
-
-        if ($existing) {
-            $existing->update([
-                'email' => $data['email'] ?? null,
-                'payload' => $payload,
-            ]);
-        }
-
-        $pending = $existing ?? PendingVerification::create([
-            'type' => 'cv',
-            'mobile' => $data['mobile'],
-            'email' => $data['email'] ?? null,
-            'payload' => $payload,
-        ]);
-
-        $status = $this->otpService->sendWithCooldown($pending, 'mobile', OtpContext::Register);
-
-        if ($status === OtpSendStatus::Locked) {
-            return $this->otpLockedResponse($pending, 'mobile', OtpContext::Register);
-        }
-
-        return response()->json([
-            'data' => ['uuid' => $pending->uuid],
-            'requires_otp' => true,
-            'code_sent' => $status === OtpSendStatus::Sent,
-            'expires_in' => $this->otpService->getExpiresIn($pending, 'mobile', OtpContext::Register),
-            'message' => $status === OtpSendStatus::Sent
-                ? __('cv.otp_sent')
-                : __('cv.otp_already_sent'),
-        ], $existing ? 200 : 201);
+        return 'cv';
     }
 
-    public function verifyInitOtp(VerifyInitOtpRequest $request): JsonResponse
+    protected function candidateModel(): string
     {
-        $pending = PendingVerification::where('uuid', $request->validated('uuid'))->firstOrFail();
+        return Cv::class;
+    }
 
-        if ($pending->isVerified()) {
-            return response()->json(['message' => __('cv.already_verified')], 422);
-        }
+    protected function candidateService(): object
+    {
+        return $this->cvService;
+    }
 
-        $status = $this->otpService->attemptVerification($pending, 'mobile', OtpContext::Register, $request->validated('otp'));
+    protected function candidateResource(mixed $record): mixed
+    {
+        return new CvResource($record);
+    }
 
-        if ($response = $this->respondToVerification($pending, 'mobile', OtpContext::Register, $status)) {
-            return $response;
-        }
-
-        // Check for an existing CV with this mobile
-        $existing = Cv::where('mobile', $pending->mobile)->first();
-
-        if ($existing && ! $existing->isApproved() && $existing->isSubmitted()) {
-            $existing->update(['status' => 'draft']);
-        }
-
-        // For existing CVs only re-apply contact info so the user can re-access
-        // after changing email/mobile. Names are set at creation and edited
-        // inside the wizard, so they must not be overwritten here. Approved
-        // records must not be silently mutated at all.
-        $updateData = $existing && ! $existing->isApproved()
-            ? Arr::only($pending->payload, ['email', 'mobile'])
-            : [];
-
-        if ($existing && $updateData) {
-            if (($updateData['email'] ?? null) !== null && $updateData['email'] !== $existing->email) {
-                $updateData['email_verified_at'] = null;
-            }
-            if (($updateData['mobile'] ?? null) !== null && $updateData['mobile'] !== $existing->mobile) {
-                $updateData['mobile_verified_at'] = null;
-            }
-            $existing->update($updateData);
-        }
-
-        $cv = $existing ?? $this->cvService->create($pending->payload);
-
-        $cv->markOtpVerified('mobile');
-
-        $pending->delete();
-
-        $token = $this->otpService->issueGrant($cv, 'mobile', OtpContext::AccessProtected, GrantPurpose::Edit);
-
-        // Bind the grant to the session so header-less browser requests
-        // (<img>, embed) can serve documents via their cookie.
-        $this->sessionGrants->remember($cv->getOtpIdentifier(), $token);
-
-        return response()->json([
-            'data' => new CvResource($cv->fresh()),
-            'access_token' => $token,
-            'expires_in' => $this->otpService->getGrantExpiresIn(GrantPurpose::Edit),
-            'message' => $existing
-                ? __('cv.verified')
-                : __('cv.created'),
-        ]);
+    protected function candidateIsFinalized(mixed $record): bool
+    {
+        return $record instanceof Cv && $record->isApproved();
     }
 
     public function resendInitOtp(string $uuid): JsonResponse
@@ -164,7 +81,7 @@ class CvController extends Controller
         ]);
     }
 
-    public function saveSection(string $uuid, string $section, SectionSaveRequest $request): JsonResponse
+    public function saveSection(string $uuid, string $section, SubmitSectionRequest $request): JsonResponse
     {
         $cv = $request->attributes->get('granted_resource');
 
@@ -220,7 +137,7 @@ class CvController extends Controller
         return $this->respondToSend($cv, 'email', OtpContext::VerifyEmail, $status);
     }
 
-    public function verifyMobileOtp(VerifyQuestionnaireRequest $request, string $uuid): JsonResponse
+    public function verifyMobileOtp(VerifyOtpCodeRequest $request, string $uuid): JsonResponse
     {
         $cv = $this->cvService->findByUuidOrFail($uuid);
 
@@ -239,7 +156,7 @@ class CvController extends Controller
         return $this->otpVerifiedResponse($cv, 'mobile');
     }
 
-    public function verifyEmailOtp(VerifyQuestionnaireRequest $request, string $uuid): JsonResponse
+    public function verifyEmailOtp(VerifyOtpCodeRequest $request, string $uuid): JsonResponse
     {
         $cv = $this->cvService->findByUuidOrFail($uuid);
 
