@@ -25,7 +25,8 @@ class CvBankController extends Controller
     {
         $query = Cv::query()
             ->with('documentUsages.document')
-            ->with('reviewer.employee');
+            ->with('reviewer.employee')
+            ->with('reviewer.activeRole');
 
         $this->authorization->scope($request->user(), 'cv.view', $query);
 
@@ -46,7 +47,10 @@ class CvBankController extends Controller
         $sortDirection = ListQuery::order($request);
         $query->orderBy($sortField, $sortDirection);
 
-        return CvResource::collection($query->paginate(ListQuery::perPage($request)));
+        $paginator = $query->paginate(ListQuery::perPage($request));
+        CvResource::preloadLifecycleUsers($request, $paginator->items());
+
+        return CvResource::collection($paginator);
     }
 
     public function show(Request $request, string $cv): JsonResponse
@@ -54,10 +58,11 @@ class CvBankController extends Controller
         // A UUID literal can't be compared against the uuid column by Postgres
         // when the route receives the numeric id, so branch on the value type.
         $model = Str::isUuid($cv)
-            ? Cv::with('questionnaire')->with('documentUsages.document')->with('reviewer.employee')->where('uuid', $cv)->firstOrFail()
-            : Cv::with('questionnaire')->with('documentUsages.document')->with('reviewer.employee')->where('id', $cv)->firstOrFail();
+            ? Cv::with('questionnaire')->with('documentUsages.document')->with('reviewer.employee')->with('reviewer.activeRole')->where('uuid', $cv)->firstOrFail()
+            : Cv::with('questionnaire')->with('documentUsages.document')->with('reviewer.employee')->with('reviewer.activeRole')->where('id', $cv)->firstOrFail();
 
         $this->authorization->authorize($request->user(), 'cv.view', $model);
+        CvResource::preloadLifecycleUsers($request, [$model]);
 
         return response()->json([
             'data' => new CvResource($model),

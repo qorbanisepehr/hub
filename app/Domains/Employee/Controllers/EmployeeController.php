@@ -35,7 +35,7 @@ class EmployeeController
 
     public function index(Request $request): AnonymousResourceCollection
     {
-        $query = Employee::with(['user']);
+        $query = Employee::with(['user.activeRole']);
 
         $this->authorization->scope($request->user(), 'employee.list', $query);
 

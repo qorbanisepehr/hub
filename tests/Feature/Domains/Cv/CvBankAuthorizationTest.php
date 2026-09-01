@@ -6,6 +6,7 @@ use App\Domains\Authorization\Models\PermissionGroup;
 use App\Domains\Authorization\Models\Role;
 use App\Domains\Cv\Models\Cv;
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 
 function scopedCvPermission(User $user, string $permissionName, array $policy): void
 {
@@ -127,6 +128,36 @@ describe('CV bank endpoint authorization', function () {
             ->postJson("/api/cv/bank/{$cv->uuid}/questionnaire")
             ->assertCreated()
             ->assertJsonPath('data.status', 'draft');
+    });
+
+    it('resolves lifecycle users for the CV bank list in a single batched query', function () {
+        $user = User::factory()->create();
+        scopedCvPermission($user, 'cv.view', scopedCvStatusPolicy('submitted'));
+
+        foreach (range(1, 15) as $i) {
+            $reviewer = User::factory()->create();
+            cvBankRecord('submitted', [
+                'lifecycle' => [
+                    ['action' => 'submitted', 'by' => $reviewer->id, 'at' => now()->toISOString()],
+                ],
+            ]);
+        }
+
+        $queries = [];
+        DB::listen(fn ($query) => $queries[] = $query->sql);
+
+        $this->actingAs($user)
+            ->getJson('/api/cv/bank')
+            ->assertOk();
+
+        // All lifecycle users (across every row) load in one batched lookup
+        // instead of one per CV. Without the batch, 15 rows would fire 15
+        // identical user lookups.
+        $batchedUserQueries = collect($queries)
+            ->filter(fn (string $sql) => str_contains($sql, 'from "users"') && str_contains($sql, 'where "users"."id" in'))
+            ->count();
+
+        expect($batchedUserQueries)->toBeLessThanOrEqual(1);
     });
 });
 

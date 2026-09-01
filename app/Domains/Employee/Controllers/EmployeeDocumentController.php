@@ -41,7 +41,7 @@ class EmployeeDocumentController extends Controller
         $this->authorizeEmployee($request, $employee, DocumentAction::View);
 
         $query = DocumentUsage::query()
-            ->with('document')
+            ->with('document.category')
             ->where('entity_type', Employee::class)
             ->where('entity_id', $employee->getKey());
 
@@ -96,7 +96,7 @@ class EmployeeDocumentController extends Controller
         );
 
         $query = DocumentUsage::query()
-            ->with('document')
+            ->with('document.category')
             ->where('entity_type', Employee::class)
             ->where('entity_id', $employee->getKey());
 
@@ -278,7 +278,7 @@ class EmployeeDocumentController extends Controller
             ->whereNotNull('document_usages.deleted_at')
             ->where('entity_type', Employee::class)
             ->where('entity_id', $employee->getKey())
-            ->with('document');
+            ->with('document.category');
 
         $query = $this->documentAuthorization->scope($actor, DocumentAction::View, $query, trashed: true);
 

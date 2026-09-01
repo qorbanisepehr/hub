@@ -29,7 +29,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(CvRepositoryInterface::class, CvRepository::class);
         $this->app->bind(DocumentRepositoryInterface::class, DocumentRepository::class);
         $this->app->bind(DocumentAuthorization::class, DocumentAuthorizationService::class);
-        $this->app->bind(Authorization::class, AuthorizationService::class);
+        $this->app->singleton(Authorization::class, AuthorizationService::class);
 
         $this->app->singleton(SettingsRepositoryInterface::class, FileSettingsRepository::class);
         $this->app->singleton(SettingsService::class);

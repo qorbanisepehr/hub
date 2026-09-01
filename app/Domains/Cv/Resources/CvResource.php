@@ -4,6 +4,7 @@ namespace App\Domains\Cv\Resources;
 
 use App\Contracts\Authorization;
 use App\Domains\Cv\Enums\CvStatus;
+use App\Domains\Cv\Models\Cv;
 use App\Domains\Document\Models\Document;
 use App\Domains\Document\Models\DocumentUsage;
 use App\Domains\Document\Services\DocumentService;
@@ -30,6 +31,13 @@ use Illuminate\Support\Collection;
 /** @property-read array|null $lifecycle */
 class CvResource extends JsonResource
 {
+    /**
+     * Request-attribute key under which the bank index/show stash the batch
+     * of lifecycle users (keyed by id) so collection rendering runs a single
+     * lookup instead of one per row.
+     */
+    public const LIFECYCLE_USERS_BAG = 'cv_lifecycle_users';
+
     public function toArray(Request $request): array
     {
         return [
@@ -56,7 +64,7 @@ class CvResource extends JsonResource
             'reviewer' => $this->reviewer
                 ? $this->reviewerSummary($this->reviewer)
                 : null,
-            'lifecycle' => $this->enrichLifecycle($this->lifecycle),
+            'lifecycle' => $this->enrichLifecycle($this->lifecycle, $request),
             'capabilities' => $this->capabilities($request),
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),
@@ -70,13 +78,13 @@ class CvResource extends JsonResource
      * @param  array<int, array<string, mixed>>|null  $lifecycle
      * @return array<int, array<string, mixed>>|null
      */
-    private function enrichLifecycle(?array $lifecycle): ?array
+    private function enrichLifecycle(?array $lifecycle, Request $request): ?array
     {
         if (empty($lifecycle)) {
             return $lifecycle;
         }
 
-        $users = $this->loadLifecycleUsers($lifecycle);
+        $users = $this->loadLifecycleUsers($lifecycle, $request);
 
         return array_map(function (array $event) use ($users): array {
             $event['by_user'] = isset($event['by'], $users[$event['by']])
@@ -88,10 +96,15 @@ class CvResource extends JsonResource
     }
 
     /**
+     * Resolve the users referenced by a lifecycle JSONB block, keyed by id.
+     * Prefers the request-stashed batch (set by the bank index/show via
+     * preloadLifecycleUsers) and falls back to a single lookup per CV for
+     * single-resource contexts (the candidate-facing endpoints).
+     *
      * @param  array<int, array<string, mixed>>  $lifecycle
      * @return Collection<int, User>
      */
-    private function loadLifecycleUsers(array $lifecycle): Collection
+    private function loadLifecycleUsers(array $lifecycle, Request $request): Collection
     {
         $userIds = collect($lifecycle)
             ->pluck('by')
@@ -103,11 +116,50 @@ class CvResource extends JsonResource
             return collect();
         }
 
+        $bag = $request->attributes->get(self::LIFECYCLE_USERS_BAG);
+
+        if ($bag instanceof Collection) {
+            return $bag;
+        }
+
         return User::query()
             ->with(['activeRole', 'employee'])
             ->whereIn('id', $userIds)
             ->get()
             ->keyBy('id');
+    }
+
+    /**
+     * Load every user referenced by any CV's lifecycle block in one query and
+     * stash it on the request so CvResource::loadLifecycleUsers reuses it.
+     *
+     * @param  array<int, Cv>  $cvs
+     */
+    public static function preloadLifecycleUsers(Request $request, array $cvs): void
+    {
+        if ($request->attributes->has(self::LIFECYCLE_USERS_BAG)) {
+            return;
+        }
+
+        $ids = collect($cvs)
+            ->flatMap(fn (Cv $cv) => collect($cv->lifecycle ?? [])->pluck('by')->filter())
+            ->unique()
+            ->values();
+
+        if ($ids->isEmpty()) {
+            $request->attributes->set(self::LIFECYCLE_USERS_BAG, collect());
+
+            return;
+        }
+
+        $request->attributes->set(
+            self::LIFECYCLE_USERS_BAG,
+            User::query()
+                ->with(['activeRole', 'employee'])
+                ->whereIn('id', $ids)
+                ->get()
+                ->keyBy('id'),
+        );
     }
 
     /**

@@ -35,7 +35,7 @@ class DocumentController extends Controller
     public function index(Request $request): AnonymousResourceCollection
     {
         $query = DocumentUsage::query()
-            ->with('document')
+            ->with('document.category')
             ->whereNull('document_usages.deleted_at');
 
         $this->applyEntityScope($query, $request);
@@ -185,7 +185,7 @@ class DocumentController extends Controller
     {
         $query = DocumentUsage::query()
             ->onlyTrashed()
-            ->with('document');
+            ->with('document.category');
 
         $this->applyEntityScope($query, $request);
 

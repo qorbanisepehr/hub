@@ -6,6 +6,7 @@ use App\Domains\Authorization\Models\PermissionGroup;
 use App\Domains\Authorization\Models\Role;
 use App\Domains\Employee\Models\Employee;
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 
 function employeeUpdateScopedRole(User $user): Role
 {
@@ -177,4 +178,21 @@ it('forbids deleting an employee outside the policy scope', function () {
         ->assertStatus(403);
 
     expect(Employee::find($outOfScope->id))->not->toBeNull();
+});
+
+it('resolves per-row capabilities on the employee index without repeating permission lookups per row', function () {
+    Employee::factory()->count(30)->create();
+    $user = createUserWithPermissions(['employee.list', 'employee.update']);
+
+    $queries = [];
+    DB::listen(fn ($query) => $queries[] = $query->sql);
+
+    $this->actingAs($user)
+        ->getJson('/api/employees?per_page=50')
+        ->assertOk();
+
+    // Permission + access-rule lookups are memoized per request, so the total
+    // stays bounded no matter how many rows carry a per-row capabilities set.
+    // Without the memo, the 30 rows would fire ~240 permission/rule queries.
+    expect(count($queries))->toBeLessThanOrEqual(50);
 });
