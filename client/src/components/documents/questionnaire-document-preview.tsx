@@ -11,15 +11,15 @@ import { getFileColorClasses } from "@/lib/file-utils";
 import { formatBytes } from "@/lib/file-utils";
 import { toLightboxDocument } from "@/components/documents";
 import { DocumentPreviewTrigger } from "@/components/documents/document-preview-trigger";
-import type { QuestionnaireDocument } from "@/features/questionnaire/hooks/use-questionnaire-documents";
+import type { EntityDocument } from "@/hooks/use-entity-documents";
 
 type QuestionnaireDocPreviewProps = {
-    documents: QuestionnaireDocument[];
+    documents: EntityDocument[];
     variant?: "thumbnail" | "list" | "compact";
     size?: "sm" | "md";
     showSize?: boolean;
     className?: string;
-    onDelete?: (doc: QuestionnaireDocument) => void;
+    onDelete?: (doc: EntityDocument) => void;
     isDeleting?: boolean;
 };
 
@@ -32,7 +32,7 @@ export function QuestionnaireDocThumbnail({
     onClick,
     size = "md",
 }: {
-    doc: QuestionnaireDocument;
+    doc: EntityDocument;
     onClick?: () => void;
     size?: "sm" | "md";
 }) {

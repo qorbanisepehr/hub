@@ -1,6 +1,6 @@
 import type {
     ValidationSection,
-    DocumentRequirement,
+    DocumentRequirementSpec,
 } from "@/lib/validation-helpers";
 
 import type { CvStatus } from "./types";
@@ -51,7 +51,7 @@ export const CV_VALIDATION_SECTIONS: ValidationSection[] = CV_WIZARD_STEPS.filte
     match: [step.key, ...(CV_SECTION_IDENTITY_MATCH[step.key] ?? [])],
 }));
 
-export const CV_DOC_REQUIREMENTS: DocumentRequirement[] = [
+export const CV_DOC_REQUIREMENTS: DocumentRequirementSpec[] = [
     { slug: CV_DOC_CATEGORY_SLUGS.RESUME, label: "رزومه", required: true, max: 1 },
     { slug: CV_DOC_CATEGORY_SLUGS.COVER_LETTER, label: "نامه معرفی", max: 1 },
     { slug: CV_DOC_CATEGORY_SLUGS.OTHER_DOCUMENTS, label: "سایر مدارک", max: 3 },

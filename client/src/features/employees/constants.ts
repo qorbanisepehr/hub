@@ -1,6 +1,6 @@
 import { DOC_CATEGORY_SLUGS } from "@/features/questionnaire/constants";
 import type {
-    DocumentRequirement,
+    DocumentRequirementSpec,
     ValidationSection,
 } from "@/lib/validation-helpers";
 
@@ -160,7 +160,7 @@ export const EMPLOYEE_SECTION_DOCS: { key: string; slugs: string[] }[] = [
  * documents section always exposes an upload for them (personnel-photo has no
  * upload field for employees, so it is intentionally not required).
  */
-export const EMPLOYEE_DOC_REQUIREMENTS: DocumentRequirement[] = [
+export const EMPLOYEE_DOC_REQUIREMENTS: DocumentRequirementSpec[] = [
     {
         slug: DOC_CATEGORY_SLUGS.NATIONAL_CARD,
         label: "کارت ملی",

@@ -119,7 +119,7 @@ export function groupFieldErrorsBySection(
         .filter((group) => group.items.length > 0);
 }
 
-export type DocumentRequirement = {
+export type DocumentRequirementSpec = {
     slug: string;
     label: string;
     required?: boolean;
@@ -134,7 +134,7 @@ export type DocumentRequirement = {
  */
 export function validateDocumentRequirements(
     documents: Array<{ category: { slug: string } | null; field_key?: string | null }>,
-    requirements: DocumentRequirement[],
+    requirements: DocumentRequirementSpec[],
 ): string[] {
     const messages: string[] = [];
     for (const requirement of requirements) {

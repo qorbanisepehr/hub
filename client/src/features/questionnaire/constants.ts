@@ -1,6 +1,6 @@
 import type {
     ValidationSection,
-    DocumentRequirement,
+    DocumentRequirementSpec,
 } from "@/lib/validation-helpers";
 
 export const BLOOD_GROUPS = [
@@ -220,7 +220,7 @@ export const QUESTIONNAIRE_VALIDATION_SECTIONS: ValidationSection[] =
         ],
     }));
 
-export const QUESTIONNAIRE_DOC_REQUIREMENTS: DocumentRequirement[] = [
+export const QUESTIONNAIRE_DOC_REQUIREMENTS: DocumentRequirementSpec[] = [
     {
         slug: DOC_CATEGORY_SLUGS.NATIONAL_CARD,
         label: "کارت ملی",
