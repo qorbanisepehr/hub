@@ -1,6 +1,8 @@
 export { FileUploadField } from './file-upload-field';
 export type { FileUploadFieldVariant, FileUploadActionsPlacement, FileUploadVariantProps } from './file-upload-field';
 export { DocumentFileItem } from './document-file-item';
+export { EntityDocumentsSection } from './entity-documents-section';
+export type { EntityDocumentsSectionProps } from './entity-documents-section';
 export { DocumentViewer, toLightboxDocument, groupDocumentsByCategory } from './document-viewer';
 export type { DocumentViewerMode } from './document-viewer';
 export { DocumentThumbnail } from './document-thumbnail';
