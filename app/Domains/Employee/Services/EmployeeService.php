@@ -96,13 +96,13 @@ class EmployeeService extends SectionRegistry
         $employee->update($data);
         $newValues = $employee->only(array_keys($data));
 
-        $actualChanges = $this->diffAttributes($oldValues, $newValues);
+        $changes = $this->diffAttributes($oldValues, $newValues);
 
-        if ($actualChanges !== []) {
+        if ($changes['old'] !== [] || $changes['new'] !== []) {
             event(new EmployeeUpdated(
                 $employee,
-                array_intersect_key($oldValues, $actualChanges),
-                array_intersect_key($newValues, $actualChanges),
+                $changes['old'],
+                $changes['new'],
             ));
         }
 
@@ -169,13 +169,13 @@ class EmployeeService extends SectionRegistry
         });
 
         $newValues = $employee->toArray();
-        $actualChanges = $this->diffAttributes($oldValues, $newValues);
+        $changes = $this->diffAttributes($oldValues, $newValues);
 
-        if ($actualChanges !== []) {
+        if ($changes['old'] !== [] || $changes['new'] !== []) {
             event(new EmployeeUpdated(
                 $employee,
-                array_intersect_key($oldValues, $actualChanges),
-                array_intersect_key($newValues, $actualChanges),
+                $changes['old'],
+                $changes['new'],
                 $sectionKey,
             ));
         }
@@ -345,22 +345,60 @@ class EmployeeService extends SectionRegistry
     }
 
     /**
-     * Compare two attribute arrays and return only keys where values actually differ.
+     * Compare two attribute arrays and return the changed values as parallel
+     * 'old' and 'new' maps. Nested arrays (JSONB section columns) are flattened
+     * to dotted leaf key paths so an edit inside a section records exactly
+     * which leaf changed instead of the whole section array; flat/top-level
+     * columns keep their key.
      *
      * @param  array<string, mixed>  $old
      * @param  array<string, mixed>  $new
-     * @return array<string, mixed>
+     * @return array{old: array<string, mixed>, new: array<string, mixed>}
      */
     private function diffAttributes(array $old, array $new): array
     {
-        $changes = [];
+        $oldFlat = $this->flattenAttributes($old);
+        $newFlat = $this->flattenAttributes($new);
 
-        foreach ($new as $key => $value) {
-            if (! array_key_exists($key, $old) || $old[$key] !== $value) {
-                $changes[$key] = $value;
+        $keys = array_unique(array_merge(array_keys($oldFlat), array_keys($newFlat)));
+
+        $oldChanged = [];
+        $newChanged = [];
+
+        foreach ($keys as $key) {
+            $oldValue = $oldFlat[$key] ?? null;
+            $newValue = $newFlat[$key] ?? null;
+
+            if ($oldValue !== $newValue) {
+                $oldChanged[$key] = $oldValue;
+                $newChanged[$key] = $newValue;
             }
         }
 
-        return $changes;
+        return ['old' => $oldChanged, 'new' => $newChanged];
+    }
+
+    /**
+     * Flatten a nested attribute array into dotted key paths. Scalar/missing
+     * leaves keep their key; nested arrays flatten to "<parent>.<child>...".
+     *
+     * @param  array<string, mixed>  $values
+     * @return array<string, mixed>
+     */
+    private function flattenAttributes(array $values, string $prefix = ''): array
+    {
+        $flattened = [];
+
+        foreach ($values as $key => $value) {
+            $path = $prefix === '' ? (string) $key : "{$prefix}.{$key}";
+
+            if (is_array($value)) {
+                $flattened = array_replace($flattened, $this->flattenAttributes($value, $path));
+            } else {
+                $flattened[$path] = $value;
+            }
+        }
+
+        return $flattened;
     }
 }

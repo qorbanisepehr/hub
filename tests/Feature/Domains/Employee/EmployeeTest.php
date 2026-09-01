@@ -557,8 +557,32 @@ describe('employee CRUD', function () {
                 ->first();
 
             expect($log)->not->toBeNull()
-                ->and($log->new_values['section_personal'] ?? null)->toBeArray()
-                ->and($log->new_values['section_personal']['religion'])->toBe('islam');
+                ->and($log->new_values['section_personal.religion'])->toBe('islam');
+        });
+
+        it('records only the changed leaf keys of a section in the audit diff', function () {
+            $user = createUserWithPermissions(['employee.update']);
+            $employee = Employee::factory()->create([
+                'section_personal' => [
+                    'father_name' => 'Ahmad',
+                    'religion' => 'zoroastrian',
+                ],
+            ]);
+
+            $this->actingAs($user)
+                ->postJson("/api/employees/{$employee->id}/sections/personal_info", validEmployeePersonalInfo())
+                ->assertOk();
+
+            $log = AuditLog::query()
+                ->where('event', 'employee.updated')
+                ->orderByDesc('id')
+                ->first();
+
+            expect($log)->not->toBeNull()
+                ->and($log->old_values['section_personal.religion'] ?? null)->toBe('zoroastrian')
+                ->and($log->new_values['section_personal.religion'])->toBe('islam')
+                ->and(array_key_exists('section_personal.father_name', $log->new_values ?? []))->toBeFalse()
+                ->and(array_key_exists('section_personal.father_name', $log->old_values ?? []))->toBeFalse();
         });
 
         it('persists contact info email and mobile into real columns', function () {
