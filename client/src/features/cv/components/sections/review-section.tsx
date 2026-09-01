@@ -11,7 +11,7 @@ import {
     CV_DOC_REQUIREMENTS,
     CV_WIZARD_STEPS,
 } from "@/features/cv/constants";
-import { buildValidateSubmitData } from "@/features/cv/validation";
+import { buildSubmitValidator } from "@/features/cv/validation";
 import { useCvSubmitOptions } from "@/features/cv/hooks/use-cv-submit-options";
 import { FormValidationSummary } from "@/components/forms";
 import {
@@ -56,7 +56,7 @@ export function ReviewSection({ form, cv, onNavigateToStep }: SectionProps) {
     const { submitOptions } = useCvSubmitOptions();
 
     const validateSubmit = useMemo(
-        () => buildValidateSubmitData(submitOptions),
+        () => buildSubmitValidator(submitOptions),
         [submitOptions],
     );
 

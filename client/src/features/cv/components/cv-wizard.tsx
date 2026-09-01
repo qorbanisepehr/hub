@@ -34,7 +34,7 @@ import {
 } from "@/features/cv/constants";
 import { useCvDocuments } from "@/features/cv/hooks/use-cv-documents";
 import { useCvSubmitOptions } from "@/features/cv/hooks/use-cv-submit-options";
-import { buildValidateSubmitData } from "@/features/cv/validation";
+import { buildSubmitValidator } from "@/features/cv/validation";
 import { useSectionForm } from "@/hooks/use-section-form";
 import { validateDocumentRequirements } from "@/lib/validation-helpers";
 import { cvKeys } from "@/lib/query-keys";
@@ -227,7 +227,7 @@ export function CvWizard({ cv }: CvWizardProps) {
     const { submitOptions, optionsReady } = useCvSubmitOptions();
 
     const validateSubmit = useMemo(
-        () => buildValidateSubmitData(submitOptions),
+        () => buildSubmitValidator(submitOptions),
         [submitOptions],
     );
 

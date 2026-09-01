@@ -70,7 +70,7 @@ import {
 } from "@/features/employees/constants";
 import { useEmployeeSubmitOptions } from "@/features/employees/hooks/use-employee-submit-options";
 import { useDependentDocsFeedback } from "@/features/employees/hooks/use-dependent-docs-feedback";
-import { buildValidateSubmitData } from "@/features/employees/validation";
+import { buildSubmitValidator } from "@/features/employees/validation";
 import { useSectionForm } from "@/hooks/use-section-form";
 import { getApiError } from "@/lib/error-utils";
 import { cleanServerSection } from "@/lib/form-utils";
@@ -254,7 +254,7 @@ export function EmployeeProfileForm({ employee }: EmployeeProfileFormProps) {
     const { submitOptions, optionsReady } = useEmployeeSubmitOptions();
 
     const validateSubmit = useMemo(
-        () => buildValidateSubmitData(submitOptions),
+        () => buildSubmitValidator(submitOptions),
         [submitOptions],
     );
 

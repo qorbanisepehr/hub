@@ -10,7 +10,7 @@ import {
     QUESTIONNAIRE_DOC_REQUIREMENTS,
     WIZARD_STEPS,
 } from "@/features/questionnaire/constants";
-import { buildValidateSubmitData } from "@/features/questionnaire/validation";
+import { buildSubmitValidator } from "@/features/questionnaire/validation";
 import { useQuestionnaireSubmitOptions } from "@/features/questionnaire/hooks/use-questionnaire-submit-options";
 import { FormValidationSummary } from "@/components/forms";
 import {
@@ -74,7 +74,7 @@ export function ReviewSection({ form, questionnaire, onNavigateToStep }: Section
     const { submitOptions } = useQuestionnaireSubmitOptions();
 
     const validateSubmit = useMemo(
-        () => buildValidateSubmitData(submitOptions),
+        () => buildSubmitValidator(submitOptions),
         [submitOptions],
     );
 

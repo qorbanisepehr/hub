@@ -37,7 +37,7 @@ import {
 } from "@/features/questionnaire/constants";
 import { useQuestionnaireDocuments } from "@/features/questionnaire/hooks/use-questionnaire-documents";
 import { useQuestionnaireSubmitOptions } from "@/features/questionnaire/hooks/use-questionnaire-submit-options";
-import { buildValidateSubmitData } from "@/features/questionnaire/validation";
+import { buildSubmitValidator } from "@/features/questionnaire/validation";
 import { useSectionForm } from "@/hooks/use-section-form";
 import { validateDocumentRequirements } from "@/lib/validation-helpers";
 import type { Questionnaire, QuestionnaireFormApi } from "@/features/questionnaire/types";
@@ -156,7 +156,7 @@ export function QuestionnaireWizard({
     const { submitOptions, optionsReady } = useQuestionnaireSubmitOptions();
 
     const validateSubmit = useMemo(
-        () => buildValidateSubmitData(submitOptions),
+        () => buildSubmitValidator(submitOptions),
         [submitOptions],
     );
 

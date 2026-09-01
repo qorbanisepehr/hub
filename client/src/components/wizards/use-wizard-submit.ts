@@ -8,18 +8,12 @@ import { toast } from "sonner";
 
 import { useInjectedFieldErrors } from "@/hooks/use-injected-field-errors";
 import { getSubmitErrors } from "@/lib/error-utils";
+import type { SubmitValidationResult } from "@/lib/submit-validation";
 import {
     countSectionFieldErrors,
     scrollToFirstInvalidField,
-    type FieldErrors,
     type ValidationSection,
 } from "@/lib/validation-helpers";
-
-type SubmitValidationResult = {
-    success: boolean;
-    errors: string[];
-    fieldErrors: FieldErrors;
-};
 
 type SubmitGuard = {
     /** Returns non-empty error messages to block the final submit. */
@@ -55,7 +49,7 @@ type UseWizardSubmitOptions = {
  * Shared final-submit + validate orchestration for the multi-section shells
  * (questionnaire wizard, CV wizard, employee profile tabs). Each shell already
  * funnels its form/save/dirty state through `useSectionForm` and its own
- * `buildValidateSubmitData(submitOptions)`; this hook owns the remaining
+ * `buildSubmitValidator(submitOptions)`; this hook owns the remaining
  * per-click glue — the submit mutation (invalidate + toast + flatten errors),
  * the clear-on-dirty effect, the ordered submit guard chain, and the validate
  * click with its per-section error injection and toast.

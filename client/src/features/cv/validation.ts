@@ -1,9 +1,10 @@
+import type { SubmitValidationResult } from "@/lib/submit-validation";
+
 export {
     buildSubmitSchema,
-    buildValidateSubmitData,
+    buildSubmitValidator,
     type SubmitOptions,
     type SubmitFormData,
-    type SubmitValidationResult,
     buildPersonalInfoSchemas,
     type PersonalInfoOptions,
     type PersonalInfoSchemas,
@@ -14,3 +15,5 @@ export {
     additionalInfoFieldSchemas,
     referenceSchema,
 } from "./schemas";
+
+export type { SubmitValidationResult };
