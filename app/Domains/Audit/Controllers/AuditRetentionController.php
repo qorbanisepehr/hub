@@ -10,14 +10,11 @@ use App\Domains\Audit\Requests\StoreRetentionPolicyRequest;
 use App\Domains\Audit\Requests\UpdateRetentionPolicyRequest;
 use App\Domains\Audit\Resources\AuditRetentionPolicyResource;
 use App\Domains\Audit\Services\PolicyResolver;
-use App\Http\Controllers\ApiController;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
-class AuditRetentionController extends ApiController
+class AuditRetentionController
 {
-    protected ?string $model = null;
-
     public function __construct(
         private PolicyResolver $policyResolver,
     ) {}

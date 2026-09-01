@@ -6,7 +6,6 @@ use App\Domains\Audit\Models\AuditLog;
 use App\Domains\Audit\Resources\AuditLogDetailResource;
 use App\Domains\Audit\Resources\AuditLogResource;
 use App\Domains\Audit\Services\AuditQueryService;
-use App\Http\Controllers\ApiController;
 use App\Support\ListQuery;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -16,10 +15,8 @@ use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
-class AuditLogController extends ApiController
+class AuditLogController
 {
-    protected ?string $model = null;
-
     /** @var list<string> Filters shared by the index, stats, and export endpoints. */
     private const FILTERS = [
         'event', 'category', 'actor_type', 'actor_id', 'actor_role_id',

@@ -14,16 +14,13 @@ use App\Domains\Employee\Requests\SubmitEmployeeRequest;
 use App\Domains\Employee\Requests\UpdateEmployeeRequest;
 use App\Domains\Employee\Resources\EmployeeResource;
 use App\Domains\Employee\Services\EmployeeService;
-use App\Http\Controllers\ApiController;
 use App\Support\ListQuery;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
-class EmployeeController extends ApiController
+class EmployeeController
 {
-    protected ?string $model = Employee::class;
-
     /** @var array<string, string> */
     private array $sortable = [
         'personnel_code' => 'personnel_code',
