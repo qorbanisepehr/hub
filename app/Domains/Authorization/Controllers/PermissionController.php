@@ -16,6 +16,10 @@ use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class PermissionController
 {
+    public function __construct(
+        private AuthorizationVersion $version,
+    ) {}
+
     public function index(): AnonymousResourceCollection
     {
         $groups = PermissionGroup::with('permissions')->orderBy('sort_order')->get();
@@ -50,7 +54,7 @@ class PermissionController
     {
         $permission = Permission::create($request->validated());
 
-        app(AuthorizationVersion::class)->bump();
+        $this->version->bump();
 
         return new PermissionResource($permission);
     }
@@ -60,7 +64,7 @@ class PermissionController
         $permission->roles()->detach();
         $permission->delete();
 
-        app(AuthorizationVersion::class)->bump();
+        $this->version->bump();
 
         return response()->json(['message' => __('authorization.permission_deleted')]);
     }

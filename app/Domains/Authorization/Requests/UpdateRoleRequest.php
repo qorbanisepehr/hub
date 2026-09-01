@@ -3,6 +3,7 @@
 namespace App\Domains\Authorization\Requests;
 
 use App\Domains\Authorization\Models\Role;
+use App\Domains\Authorization\Policies\PolicyValidator;
 use App\Domains\Authorization\Requests\Concerns\ValidatesAccessRules;
 use App\Domains\Authorization\Requests\Concerns\ValidatesRequirements;
 use App\Domains\Authorization\Services\RoleHierarchyInspector;
@@ -13,6 +14,14 @@ class UpdateRoleRequest extends FormRequest
 {
     use ValidatesAccessRules;
     use ValidatesRequirements;
+
+    public function __construct(
+        private readonly PolicyValidator $policyValidator,
+        private readonly RoleHierarchyInspector $roleHierarchyInspector,
+        ...$args,
+    ) {
+        parent::__construct(...$args);
+    }
 
     public function authorize(): bool
     {
@@ -85,6 +94,6 @@ class UpdateRoleRequest extends FormRequest
 
     private function wouldCreateCycle(int $roleId, int $parentId): bool
     {
-        return app(RoleHierarchyInspector::class)->wouldCreateCycle($roleId, $parentId);
+        return $this->roleHierarchyInspector->wouldCreateCycle($roleId, $parentId);
     }
 }

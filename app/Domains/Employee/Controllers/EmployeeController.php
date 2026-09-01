@@ -111,11 +111,10 @@ class EmployeeController
     public function saveSection(Employee $employee, string $section, SaveEmployeeSectionRequest $request): EmployeeResource
     {
         $actor = $request->user();
-        $authorization = app(Authorization::class);
         // OR semantics: the section's own save permission is sufficient on
         // its own, and the generic update permission keeps working.
-        if (! $authorization->can($actor, 'employee.update', $employee)
-            && ! $authorization->can($actor, $this->employeeService->savePermissionFor($section), $employee)) {
+        if (! $this->authorization->can($actor, 'employee.update', $employee)
+            && ! $this->authorization->can($actor, $this->employeeService->savePermissionFor($section), $employee)) {
             abort(403, __('messages.permission_denied'));
         }
 

@@ -24,7 +24,7 @@ class AuthorizationGrantAll extends Command
 
     protected $description = 'Grant every registered permission to one or more roles and optionally assign those roles to users';
 
-    public function handle(PermissionRegistrySynchronizer $synchronizer): int
+    public function handle(PermissionRegistrySynchronizer $synchronizer, AuthorizationVersion $version): int
     {
         $dryRun = (bool) $this->option('dry-run');
         $replace = (bool) $this->option('sync');
@@ -135,7 +135,7 @@ class AuthorizationGrantAll extends Command
         }
 
         if ($changed) {
-            app(AuthorizationVersion::class)->bump();
+            $version->bump();
         }
 
         if ($dryRun) {
