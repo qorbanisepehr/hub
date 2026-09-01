@@ -1,4 +1,4 @@
-import { api } from "@/lib/api";
+import { api, FORM_DATA_HEADERS } from "@/lib/api";
 import { publicApi } from "@/lib/public-api";
 import type {
     DocumentCategory,
@@ -48,7 +48,7 @@ export function uploadDocument(
         "/documents",
         formData,
         {
-            headers: { "Content-Type": "multipart/form-data" },
+            headers: FORM_DATA_HEADERS,
         },
     );
 }

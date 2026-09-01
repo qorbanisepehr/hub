@@ -54,3 +54,22 @@ export function numberField(
     }
     return z.preprocess(toNumber, schema.nullable().optional());
 }
+
+/**
+ * Shared list-route search schema: `page`/`per_page`/`sort`/`order`/`filter`
+ * plus any feature-specific query params. List route files call
+ * `paginatedSearchSchema({ status: z.string().optional() })` instead of
+ * re-declaring the same five fields.
+ */
+export function paginatedSearchSchema<T extends z.ZodRawShape = {}>(
+    extra: T = {} as T,
+) {
+    return z.object({
+        page: z.number().optional(),
+        per_page: z.number().optional(),
+        sort: z.string().optional(),
+        order: z.enum(["asc", "desc"]).optional(),
+        filter: z.string().optional(),
+        ...extra,
+    });
+}

@@ -1,4 +1,4 @@
-import { api } from "@/lib/api";
+import { api, FORM_DATA_HEADERS } from "@/lib/api";
 import type {
     AuthorizationResponse,
     LoginResponse,
@@ -40,7 +40,7 @@ export function uploadAvatar(file: File) {
     const formData = new FormData();
     formData.append("avatar", file);
     return api.post<{ data: User }>("/auth/avatar", formData, {
-        headers: { "Content-Type": "multipart/form-data" },
+        headers: FORM_DATA_HEADERS,
     });
 }
 

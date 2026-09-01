@@ -11,6 +11,7 @@ import {
     verifyEmailOtp,
 } from "@/features/questionnaire/api";
 import { getApiError } from "@/lib/error-utils";
+import { questionnaireKeys } from "@/lib/query-keys";
 import { zodFieldValidators } from "@/lib/validation-helpers";
 import { fieldSchemas } from "@/features/questionnaire/schemas/contact-info.schema";
 import type { Questionnaire, QuestionnaireFormApi } from "@/features/questionnaire/types";
@@ -42,7 +43,7 @@ export function ContactInfoSection({ form, questionnaire }: SectionProps) {
     const verifyMobileOtpMutation = useMutation({
         mutationFn: (otp: string) => verifyMobileOtp(uuid, otp),
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["questionnaire", uuid] });
+            queryClient.invalidateQueries({ queryKey: questionnaireKeys.detail(uuid) });
             toast.success("موبایل تأیید شد.");
         },
         onError: (err) => toast.error(getApiError(err)),
@@ -51,7 +52,7 @@ export function ContactInfoSection({ form, questionnaire }: SectionProps) {
     const verifyEmailOtpMutation = useMutation({
         mutationFn: (otp: string) => verifyEmailOtp(uuid, otp),
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["questionnaire", uuid] });
+            queryClient.invalidateQueries({ queryKey: questionnaireKeys.detail(uuid) });
             toast.success("ایمیل تأیید شد.");
         },
         onError: (err) => toast.error(getApiError(err)),
@@ -76,7 +77,7 @@ export function ContactInfoSection({ form, questionnaire }: SectionProps) {
                         sendOtp={(value) => sendEmailOtpMutation.mutateAsync(value)}
                         verifyOtp={(code) => verifyEmailOtpMutation.mutateAsync(code)}
                         onVerifiedChange={() => {
-                            queryClient.invalidateQueries({ queryKey: ["questionnaire", uuid] });
+                            queryClient.invalidateQueries({ queryKey: questionnaireKeys.detail(uuid) });
                         }}
                     />
                     )}
@@ -95,7 +96,7 @@ export function ContactInfoSection({ form, questionnaire }: SectionProps) {
                         sendOtp={(value) => sendMobileOtpMutation.mutateAsync(value)}
                         verifyOtp={(code) => verifyMobileOtpMutation.mutateAsync(code)}
                         onVerifiedChange={() => {
-                            queryClient.invalidateQueries({ queryKey: ["questionnaire", uuid] });
+                            queryClient.invalidateQueries({ queryKey: questionnaireKeys.detail(uuid) });
                         }}
                     />
                     )}

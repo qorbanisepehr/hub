@@ -5,17 +5,13 @@ import { Route as ProtectedRoute } from "@/routes/_protected";
 import { LazyRoute, RouteLoadingFallback } from "@/components/layout/lazy-route";
 import { requirePermission } from "@/features/auth/guards";
 import { PERMISSIONS } from "@/lib/permissions";
+import { paginatedSearchSchema } from "@/lib/zod-primitives";
 
 const AuditLogsPage = lazy(() =>
     import("@/features/audit/pages/audit-logs-page").then((m) => ({ default: m.AuditLogsPage }))
 );
 
-const auditLogsSearchSchema = z.object({
-    page: z.number().optional(),
-    per_page: z.number().optional(),
-    sort: z.string().optional(),
-    order: z.enum(["asc", "desc"]).optional(),
-    filter: z.string().optional(),
+const auditLogsSearchSchema = paginatedSearchSchema({
     category: z.string().optional(),
 });
 

@@ -2,7 +2,7 @@ import { useCallback } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
-import { api } from "@/lib/api";
+import { api, FORM_DATA_HEADERS } from "@/lib/api";
 import { publicApi } from "@/lib/public-api";
 import { getApiError } from "@/lib/error-utils";
 import { documentKeys } from "@/lib/query-keys";
@@ -59,7 +59,7 @@ export function useDocumentUpload({
                     `/${entity}/${uuid}/documents`,
                     formData,
                     {
-                        headers: { "Content-Type": "multipart/form-data" },
+                        headers: FORM_DATA_HEADERS,
                         ...(authed
                             ? {}
                             : {

@@ -30,6 +30,7 @@ import {
 } from "@/features/questionnaire/api";
 import { getApiError } from "@/lib/error-utils";
 import { cleanServerSection } from "@/lib/form-utils";
+import { questionnaireKeys } from "@/lib/query-keys";
 import {
     WIZARD_STEPS,
     QUESTIONNAIRE_VALIDATION_SECTIONS,
@@ -146,7 +147,7 @@ export function QuestionnaireWizard({
         extractSectionData,
         saveSection: (section, data) =>
             saveQuestionnaireSection(questionnaire.uuid, section, data),
-        detailQueryKey: () => ["questionnaire", questionnaire.uuid],
+        detailQueryKey: () => questionnaireKeys.detail(questionnaire.uuid),
         sectionTopLevelKeys: {
             personal_info: ["first_name", "last_name"],
             contact_info: ["email", "mobile"],
@@ -206,7 +207,7 @@ export function QuestionnaireWizard({
             reviewStepLabel: "خلاصه و تأیید",
             submit: {
                 submitFn: () => submitQuestionnaire(questionnaire.uuid),
-                detailQueryKey: () => ["questionnaire", questionnaire.uuid],
+detailQueryKey: () => questionnaireKeys.detail(questionnaire.uuid),
                 successMessage: "پرسشنامه با موفقیت ثبت شد.",
                 errorFallback: "خطا در ثبت پرسشنامه",
             },

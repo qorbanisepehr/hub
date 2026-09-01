@@ -1,12 +1,19 @@
+import { lazy } from "react";
 import { createRoute } from "@tanstack/react-router";
 import { Route as ProtectedRoute } from "@/routes/_protected";
-import { UserViewPage } from "@/features/rbac/pages/user-view-page";
+import { LazyRoute, RouteLoadingFallback } from "@/components/layout/lazy-route";
 import { requirePermission } from "@/features/auth/guards";
 import { PERMISSIONS } from "@/lib/permissions";
+
+const UserViewPage = lazy(() =>
+    import("@/features/rbac/pages/user-view-page").then((m) => ({ default: m.UserViewPage }))
+);
 
 export const Route = createRoute({
     getParentRoute: () => ProtectedRoute,
     path: "/users/$userId",
     beforeLoad: requirePermission(PERMISSIONS.USER_VIEW),
-    component: UserViewPage,
+    component: () => (
+        <LazyRoute component={UserViewPage} fallback={<RouteLoadingFallback />} />
+    ),
 });

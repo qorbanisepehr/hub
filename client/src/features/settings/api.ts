@@ -1,4 +1,4 @@
-import { api } from "@/lib/api";
+import { api, FORM_DATA_HEADERS } from "@/lib/api";
 import type { BrandingSettings, UpdateBrandingData } from "./types";
 
 export type BrandingImageKind = "logo" | "logotype" | "favicon" | "og_image";
@@ -12,7 +12,7 @@ export function uploadBrandingImage(kind: BrandingImageKind, file: File) {
     formData.append("file", file);
 
     return api.post<{ data: BrandingSettings }>(`/settings/branding/${kind}`, formData, {
-        headers: { "Content-Type": "multipart/form-data" },
+        headers: FORM_DATA_HEADERS,
     });
 }
 

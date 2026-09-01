@@ -1,4 +1,4 @@
-import { api } from "@/lib/api";
+import { api, FORM_DATA_HEADERS } from "@/lib/api";
 import type { PaginatedResponse, PaginatedListParams } from "@/lib/types";
 import type { EntityDocument } from "@/hooks/use-entity-documents";
 import type { Employee, EmployeeBaseFormData } from "./types";
@@ -90,6 +90,6 @@ export function replaceEmployeeDocument(
     return api.post<{ data: EntityDocument; message: string }>(
         `/employees/${id}/documents/${usageId}/replace`,
         formData,
-        { headers: { "Content-Type": "multipart/form-data" } },
+        { headers: FORM_DATA_HEADERS },
     );
 }
