@@ -20,14 +20,20 @@ use App\Support\Sections\Definitions\SkillsSection;
 use App\Support\Sections\Definitions\TrainingSection;
 use App\Support\Sections\Definitions\WorkExperienceSection;
 use App\Support\Sections\SectionDefinition;
-use App\Support\Sections\SectionRegistry;
+use App\Support\Sections\SectionService;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 
-class EmployeeService extends SectionRegistry
+class EmployeeService extends SectionService
 {
+    /**
+     * Employee submit-time completion validation also enforces each section's
+     * per-row document requirements.
+     */
+    protected bool $mergeCompletionDocumentErrors = true;
+
     /**
      * Employee-owned sections (personal/contact/employment/additional info and
      * the HR-only sections) are defined per-domain; the applicant-shape
@@ -201,13 +207,7 @@ class EmployeeService extends SectionRegistry
         $errors = $this->validateCompletion($employee);
 
         if (! empty($errors)) {
-            $validator = Validator::make([], []);
-            foreach ($errors as $field => $messages) {
-                foreach ($messages as $message) {
-                    $validator->errors()->add($field, $message);
-                }
-            }
-            throw new ValidationException($validator);
+            $this->throwValidationErrors($errors);
         }
 
         $employee = $employee->fresh();
@@ -227,33 +227,6 @@ class EmployeeService extends SectionRegistry
         $employee->delete();
 
         event(new EmployeeDeleted($employeeId));
-    }
-
-    /**
-     * Run completion validation against all registered sections.
-     *
-     * @return array<string, string[]>
-     */
-    public function validateCompletion(Employee $employee): array
-    {
-        $allData = $this->gatherAllData($employee);
-        $allErrors = [];
-
-        foreach ($this->sections as $key => $section) {
-            if (empty($section->rulesFor(SectionDefinition::MODE_COMPLETION))) {
-                continue;
-            }
-
-            $validator = $section->validateData($allData[$key] ?? [], SectionDefinition::MODE_COMPLETION);
-
-            if ($validator->fails()) {
-                $allErrors = array_merge($allErrors, $validator->errors()->toArray());
-            }
-
-            $allErrors = array_merge($allErrors, $section->completionDocumentErrors($employee));
-        }
-
-        return $allErrors;
     }
 
     /**
@@ -291,7 +264,7 @@ class EmployeeService extends SectionRegistry
      * @param  string[]  $realFields
      * @return array<string, mixed>
      */
-    private function extractRealFields(array $data, array $realFields): array
+    protected function extractRealFields(array $data, array $realFields): array
     {
         $realData = array_intersect_key($data, array_flip($realFields));
 
@@ -300,34 +273,6 @@ class EmployeeService extends SectionRegistry
         }
 
         return $realData;
-    }
-
-    /**
-     * Gather the full section data for completion validation, merging the real
-     * columns back into the JSONB remainder so rules see the complete object.
-     *
-     * @return array<string, mixed>
-     */
-    private function gatherAllData(Employee $employee): array
-    {
-        $data = [];
-
-        foreach ($this->sections as $key => $section) {
-            $storage = $section->storage();
-            $jsonbColumn = $storage['jsonb'] ?? null;
-            $sectionData = $jsonbColumn ? ($employee->{$jsonbColumn} ?? []) : [];
-
-            foreach ($storage['real'] ?? [] as $field) {
-                $value = $employee->{$field} ?? null;
-                if ($value !== null) {
-                    $sectionData[$field] = $value;
-                }
-            }
-
-            $data[$key] = $sectionData;
-        }
-
-        return $data;
     }
 
     private function extractJsonbData(

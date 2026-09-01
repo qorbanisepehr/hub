@@ -18,12 +18,11 @@ use App\Support\Sections\Definitions\SkillsSection;
 use App\Support\Sections\Definitions\TrainingSection;
 use App\Support\Sections\Definitions\WorkExperienceSection;
 use App\Support\Sections\SectionDefinition;
-use App\Support\Sections\SectionRegistry;
+use App\Support\Sections\SectionService;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 
-class QuestionnaireService extends SectionRegistry
+class QuestionnaireService extends SectionService
 {
     public function __construct(
         private QuestionnaireRepositoryInterface $repository,
@@ -122,16 +121,6 @@ class QuestionnaireService extends SectionRegistry
         });
     }
 
-    private function extractRealFields(
-        array $data,
-        array $realFields
-    ): array {
-        return array_intersect_key(
-            $data,
-            array_flip($realFields)
-        );
-    }
-
     /**
      * Submit questionnaire (completion validation across all sections).
      */
@@ -141,13 +130,7 @@ class QuestionnaireService extends SectionRegistry
         $errors = array_merge($errors, $this->documentService->validateRequirements($questionnaire, $this->getDocumentRequirements()));
 
         if (! empty($errors)) {
-            $validator = Validator::make([], []);
-            foreach ($errors as $field => $messages) {
-                foreach ($messages as $message) {
-                    $validator->errors()->add($field, $message);
-                }
-            }
-            throw new ValidationException($validator);
+            $this->throwValidationErrors($errors);
         }
 
         $questionnaire = $this->repository->updateStatus($questionnaire, 'submitted');
@@ -182,45 +165,19 @@ class QuestionnaireService extends SectionRegistry
     }
 
     /**
-     * Run completion validation against all sections.
-     *
-     * @return array<string, string[]>
-     */
-    public function validateCompletion(Questionnaire $questionnaire): array
-    {
-        $allData = $this->gatherAllData($questionnaire);
-        $allErrors = [];
-
-        foreach ($this->sections as $key => $section) {
-            $sectionData = $allData[$key] ?? null;
-
-            if (empty($section->rulesFor(SectionDefinition::MODE_COMPLETION))) {
-                continue;
-            }
-
-            $validator = $section->validateData($sectionData ?? [], SectionDefinition::MODE_COMPLETION);
-
-            if ($validator->fails()) {
-                $allErrors = array_merge($allErrors, $validator->errors()->toArray());
-            }
-        }
-
-        return $allErrors;
-    }
-
     /**
      * Gather all section data from questionnaire for completion validation.
      *
      * @return array<string, mixed>
      */
-    private function gatherAllData(Questionnaire $questionnaire): array
+    protected function gatherAllData(mixed $entity): array
     {
         $data = [];
 
         foreach ($this->sections as $key => $section) {
             $storage = $section->storage();
             $jsonbColumn = $storage['jsonb'] ?? null;
-            $data[$key] = $jsonbColumn ? ($questionnaire->{$jsonbColumn} ?? null) : null;
+            $data[$key] = $jsonbColumn ? ($entity->{$jsonbColumn} ?? null) : null;
         }
 
         return $data;

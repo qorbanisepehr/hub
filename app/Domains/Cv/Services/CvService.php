@@ -17,12 +17,11 @@ use App\Support\Sections\Definitions\SkillsSection;
 use App\Support\Sections\Definitions\TrainingSection;
 use App\Support\Sections\Definitions\WorkExperienceSection;
 use App\Support\Sections\SectionDefinition;
-use App\Support\Sections\SectionRegistry;
+use App\Support\Sections\SectionService;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 
-class CvService extends SectionRegistry
+class CvService extends SectionService
 {
     public function __construct(
         private CvRepositoryInterface $repository,
@@ -162,13 +161,7 @@ class CvService extends SectionRegistry
         $errors = array_merge($errors, $this->documentService->validateRequirements($cv, $this->getDocumentRequirements()));
 
         if (! empty($errors)) {
-            $validator = Validator::make([], []);
-            foreach ($errors as $field => $messages) {
-                foreach ($messages as $message) {
-                    $validator->errors()->add($field, $message);
-                }
-            }
-            throw new ValidationException($validator);
+            $this->throwValidationErrors($errors);
         }
 
         $cv->recordLifecycleEvent([
@@ -260,45 +253,18 @@ class CvService extends SectionRegistry
     }
 
     /**
-     * Run completion validation against all sections.
-     *
-     * @return array<string, string[]>
-     */
-    public function validateCompletion(Cv $cv): array
-    {
-        $allData = $this->gatherAllData($cv);
-        $allErrors = [];
-
-        foreach ($this->sections as $key => $section) {
-            $sectionData = $allData[$key] ?? null;
-
-            if (empty($section->rulesFor(SectionDefinition::MODE_COMPLETION))) {
-                continue;
-            }
-
-            $validator = $section->validateData($sectionData ?? [], SectionDefinition::MODE_COMPLETION);
-
-            if ($validator->fails()) {
-                $allErrors = array_merge($allErrors, $validator->errors()->toArray());
-            }
-        }
-
-        return $allErrors;
-    }
-
-    /**
      * Gather all section data from the CV for completion validation.
      *
      * @return array<string, mixed>
      */
-    private function gatherAllData(Cv $cv): array
+    protected function gatherAllData(mixed $entity): array
     {
         $data = [];
 
         foreach ($this->sections as $key => $section) {
             $storage = $section->storage();
             $jsonbColumn = $storage['jsonb'] ?? null;
-            $data[$key] = $jsonbColumn ? ($cv->{$jsonbColumn} ?? null) : null;
+            $data[$key] = $jsonbColumn ? ($entity->{$jsonbColumn} ?? null) : null;
         }
 
         // email/mobile are committed to real columns (init + OTP verification),
@@ -307,8 +273,8 @@ class CvService extends SectionRegistry
         $data['contact_info'] = array_merge(
             $data['contact_info'] ?? [],
             [
-                'email' => $cv->email,
-                'mobile' => $cv->mobile,
+                'email' => $entity->email,
+                'mobile' => $entity->mobile,
             ],
         );
 
@@ -329,15 +295,5 @@ class CvService extends SectionRegistry
             'mobile' => $cv->mobile,
             'sections' => $this->gatherAllData($cv),
         ];
-    }
-
-    private function extractRealFields(
-        array $data,
-        array $realFields
-    ): array {
-        return array_intersect_key(
-            $data,
-            array_flip($realFields)
-        );
     }
 }
