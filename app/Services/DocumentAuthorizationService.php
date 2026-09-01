@@ -8,7 +8,6 @@ use App\Contracts\DocumentAuthorization;
 use App\Domains\Authorization\Engine\AuthorizationContext;
 use App\Domains\Document\Auth\DocumentAuthorizationContext;
 use App\Domains\Document\Enums\DocumentAction;
-use App\Domains\Employee\Models\Employee;
 use App\Models\User;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Builder;
@@ -86,10 +85,6 @@ class DocumentAuthorizationService implements DocumentAuthorization
         if ($context->owner !== null) {
             $values['owner_id'] = $context->owner->getKey();
             $values['owner_type'] = get_class($context->owner);
-
-            if ($context->owner instanceof Employee) {
-                $values['employee_id'] = $context->owner->getKey();
-            }
         }
 
         if ($context->category !== null) {
