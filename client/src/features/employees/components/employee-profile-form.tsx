@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo } from "react";
 import { toast } from "sonner";
 import {
     IconChecks,
@@ -10,7 +10,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { ErrorBanner } from "@/components/layout";
 import { UnsavedChangesDialog } from "@/components/layout";
-import { useWizardSubmit, SubmitErrors } from "@/components/wizards";
+import { useWizardState, useWizardSubmit, SubmitErrors } from "@/components/wizards";
+import type { WizardStep } from "@/components/wizards";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PersonalInfoSection } from "@/features/questionnaire/components/sections/personal-info-section";
 import { EducationSection } from "@/features/questionnaire/components/sections/education-section";
@@ -85,23 +86,12 @@ type EmployeeProfileFormProps = {
     employee: Employee;
 };
 
-const PROFILE_TAB_KEYS = new Set<string>([
-    ...EMPLOYEE_SECTIONS.map((section) => section.key),
-    EMPLOYEE_DOCUMENTS_TAB.key,
-    EMPLOYEE_LINKED_USER_TAB.key,
-    EMPLOYEE_REVIEW_TAB.key,
-]);
-
-/** Read the active tab key from the URL hash (e.g. `#review`). */
-function getSectionFromHash(): string {
-    const hash = window.location.hash.replace("#", "");
-    if (PROFILE_TAB_KEYS.has(hash)) return hash;
-    return EMPLOYEE_SECTIONS[0].key;
-}
-
-function setSectionHash(key: string) {
-    window.location.hash = `#${key}`;
-}
+const PROFILE_STEPS = [
+    ...EMPLOYEE_SECTIONS,
+    EMPLOYEE_DOCUMENTS_TAB,
+    EMPLOYEE_LINKED_USER_TAB,
+    EMPLOYEE_REVIEW_TAB,
+] satisfies readonly WizardStep[];
 
 const SECTION_PAYLOAD_BUILDERS: Record<
     string,
@@ -207,30 +197,12 @@ function extractSectionData(
 }
 
 export function EmployeeProfileForm({ employee }: EmployeeProfileFormProps) {
-    const profileTabs = useMemo(
-        () => [
-            ...EMPLOYEE_SECTIONS,
-            EMPLOYEE_DOCUMENTS_TAB,
-            EMPLOYEE_LINKED_USER_TAB,
-            EMPLOYEE_REVIEW_TAB,
-        ],
-        [],
-    );
     const formSectionKeys = useMemo(
         () => new Set<string>(EMPLOYEE_SECTIONS.map((s) => s.key)),
         [],
     );
-    const [activeSection, setActiveSection] =
-        useState<string>(getSectionFromHash);
-
-    useEffect(() => {
-        const onHashChange = () => {
-            const key = getSectionFromHash();
-            setActiveSection((prev) => (prev === key ? prev : key));
-        };
-        window.addEventListener("hashchange", onHashChange);
-        return () => window.removeEventListener("hashchange", onHashChange);
-    }, []);
+    const { currentKey, goToKey } = useWizardState(PROFILE_STEPS);
+    const activeSection = currentKey ?? EMPLOYEE_SECTIONS[0].key;
 
     const { form, saveMutation, persistSection, isDirty, syncDefaults } =
         useSectionForm<Employee, EmployeeProfileFormData>({
@@ -321,13 +293,11 @@ export function EmployeeProfileForm({ employee }: EmployeeProfileFormProps) {
         if (next !== activeSection && formSectionKeys.has(activeSection)) {
             persistSection(activeSection);
         }
-        setActiveSection(next);
-        setSectionHash(next);
+        goToKey(next);
     };
 
     const navigateToSection = (key: string) => {
-        setActiveSection(key);
-        setSectionHash(key);
+        goToKey(key);
     };
 
     const renderSection = (sectionKey: string) => {
@@ -486,7 +456,7 @@ export function EmployeeProfileForm({ employee }: EmployeeProfileFormProps) {
                 className="gap-6 items-start"
             >
                 <TabsList className="w-64 shrink-0 self-start items-stretch gap-1 bg-transparent">
-                    {profileTabs.map((section) => (
+                    {PROFILE_STEPS.map((section) => (
                         <TabsTrigger
                             key={section.key}
                             value={section.key}
@@ -502,7 +472,7 @@ export function EmployeeProfileForm({ employee }: EmployeeProfileFormProps) {
                     ))}
                 </TabsList>
 
-                {profileTabs.map((section) => (
+                {PROFILE_STEPS.map((section) => (
                     <TabsContent
                         key={section.key}
                         value={section.key}
