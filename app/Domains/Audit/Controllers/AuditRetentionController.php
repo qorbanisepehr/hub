@@ -62,9 +62,10 @@ class AuditRetentionController
 
     public function destroy(AuditRetentionPolicy $auditRetentionPolicy): JsonResponse
     {
+        $auditRetentionPolicy->delete();
+
         event(new RetentionPolicyDeleted($auditRetentionPolicy));
 
-        $auditRetentionPolicy->delete();
         $this->policyResolver->flushCache();
 
         return response()->json(['message' => 'Retention policy deleted']);
