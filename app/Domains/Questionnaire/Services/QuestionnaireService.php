@@ -3,6 +3,9 @@
 namespace App\Domains\Questionnaire\Services;
 
 use App\Domains\Document\Services\DocumentService;
+use App\Domains\Questionnaire\Events\QuestionnaireRejected;
+use App\Domains\Questionnaire\Events\QuestionnaireReviewed;
+use App\Domains\Questionnaire\Events\QuestionnaireSubmitted;
 use App\Domains\Questionnaire\Models\Questionnaire;
 use App\Domains\Questionnaire\Repositories\QuestionnaireRepositoryInterface;
 use App\Domains\Questionnaire\Sections\AdditionalInfoSection;
@@ -147,7 +150,35 @@ class QuestionnaireService extends SectionRegistry
             throw new ValidationException($validator);
         }
 
-        return $this->repository->updateStatus($questionnaire, 'submitted');
+        $questionnaire = $this->repository->updateStatus($questionnaire, 'submitted');
+
+        event(new QuestionnaireSubmitted($questionnaire));
+
+        return $questionnaire;
+    }
+
+    /**
+     * Mark a submitted questionnaire as reviewed, recording the audit event.
+     */
+    public function review(Questionnaire $questionnaire): Questionnaire
+    {
+        $questionnaire = $this->repository->updateStatus($questionnaire, 'reviewed');
+
+        event(new QuestionnaireReviewed($questionnaire));
+
+        return $questionnaire;
+    }
+
+    /**
+     * Send a submitted questionnaire back to draft, recording the audit event.
+     */
+    public function reject(Questionnaire $questionnaire): Questionnaire
+    {
+        $questionnaire = $this->repository->updateStatus($questionnaire, 'draft');
+
+        event(new QuestionnaireRejected($questionnaire));
+
+        return $questionnaire;
     }
 
     /**
