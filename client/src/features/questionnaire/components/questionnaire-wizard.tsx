@@ -337,7 +337,7 @@ export function QuestionnaireWizard({
                                 submitMutation.isPending
                             }
                         >
-                            <IconArrowRight className="size-4 ms-1" />
+                            <IconArrowRight className="size-4 ms-1 ltr:-scale-x-100" />
                             مرحله قبل
                         </Button>
                     )}
@@ -385,7 +385,7 @@ export function QuestionnaireWizard({
                             }
                         >
                             مرحله بعد
-                            <IconArrowLeft className="size-4 me-1" />
+                            <IconArrowLeft className="size-4 me-1 ltr:-scale-x-100" />
                         </Button>
                     )}
 

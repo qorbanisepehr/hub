@@ -77,7 +77,7 @@ function TopLevelGroup({
                     <div className="flex items-center gap-1.5">
                         <IconChevronRight
                             className={cn(
-                                "size-3.5 text-muted-foreground transition-transform",
+                                "size-3.5 text-muted-foreground transition-transform rtl:-scale-x-100",
                                 expanded && "rotate-90",
                             )}
                         />
@@ -159,7 +159,7 @@ function FirstLevelGroup({
                     >
                         <IconChevronRight
                             className={cn(
-                                "size-3.5 text-muted-foreground transition-transform",
+                                "size-3.5 text-muted-foreground transition-transform rtl:-scale-x-100",
                                 expanded && "rotate-90",
                             )}
                         />

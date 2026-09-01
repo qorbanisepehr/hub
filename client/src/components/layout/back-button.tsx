@@ -19,7 +19,7 @@ export function BackButton({
 
     return (
         <Button variant="ghost" size="icon-sm" nativeButton={false} render={<Link to={to} />}>
-            <IconArrowRight className="size-4" />
+            <IconArrowRight className="size-4 ltr:-scale-x-100" />
         </Button>
     );
 }

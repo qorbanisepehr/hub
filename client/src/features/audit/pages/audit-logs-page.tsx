@@ -188,7 +188,7 @@ export function AuditLogsPage() {
                         {isExpanded ? (
                             <IconChevronDown className="size-4" />
                         ) : (
-                            <IconChevronRight className="size-4" />
+                            <IconChevronRight className="size-4 rtl:-scale-x-100" />
                         )}
                     </Button>
                 );
