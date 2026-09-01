@@ -3,6 +3,10 @@
 namespace App\Domains\Document\Services;
 
 use App\Contracts\Documentable;
+use App\Domains\Document\Events\DocumentDeleted;
+use App\Domains\Document\Events\DocumentPlaced;
+use App\Domains\Document\Events\DocumentRestored;
+use App\Domains\Document\Events\DocumentUploaded;
 use App\Domains\Document\Jobs\GenerateDocumentThumbnail;
 use App\Domains\Document\Models\Document;
 use App\Domains\Document\Models\DocumentCategory;
@@ -177,7 +181,11 @@ class DocumentService
         // Attach usage
         $this->repository->attachUsage($document, $entity, $sectionKey, $fieldKey, $metadata);
 
-        return $document->load('usages');
+        $document = $document->load('usages');
+
+        event(new DocumentUploaded($document, $entity, $category->name));
+
+        return $document;
     }
 
     /**
@@ -226,6 +234,8 @@ class DocumentService
 
         $usage->delete();
 
+        event(new DocumentDeleted($usageId, get_class($entity), $entity->getKey()));
+
         return true;
     }
 
@@ -246,6 +256,8 @@ class DocumentService
         }
 
         $usage->restore();
+
+        event(new DocumentRestored($usageId, get_class($entity), $entity->getKey()));
 
         return true;
     }
@@ -312,7 +324,11 @@ class DocumentService
 
         $this->repository->attachUsage($document, $entity, $sectionKey, $fieldKey, $metadata);
 
-        return $document->load('usages');
+        $document = $document->load('usages');
+
+        event(new DocumentPlaced($document));
+
+        return $document;
     }
 
     /**

@@ -6,12 +6,8 @@ use App\Contracts\Documentable;
 use App\Contracts\DocumentAuthorization;
 use App\Domains\Document\Auth\DocumentAuthorizationContext;
 use App\Domains\Document\Enums\DocumentAction;
-use App\Domains\Document\Events\DocumentDeleted;
 use App\Domains\Document\Events\DocumentDownloaded;
 use App\Domains\Document\Events\DocumentForceDeleted;
-use App\Domains\Document\Events\DocumentPlaced;
-use App\Domains\Document\Events\DocumentRestored;
-use App\Domains\Document\Events\DocumentUploaded;
 use App\Domains\Document\Models\Document;
 use App\Domains\Document\Models\DocumentCategory;
 use App\Domains\Document\Models\DocumentUsage;
@@ -97,8 +93,6 @@ class DocumentController extends Controller
             $metadata !== [] ? $metadata : null,
         );
 
-        event(new DocumentUploaded($document, $owner, $category->name));
-
         return new DocumentResource($document);
     }
 
@@ -157,8 +151,6 @@ class DocumentController extends Controller
             $metadata !== [] ? $metadata : null,
         );
 
-        event(new DocumentPlaced($document));
-
         return new DocumentResource($document);
     }
 
@@ -191,8 +183,6 @@ class DocumentController extends Controller
         );
 
         $this->documentService->trashUsage($document, $entity);
-
-        event(new DocumentDeleted($document, get_class($entity), $entity->getKey()));
 
         return response()->json(['message' => __('document.document_deleted')]);
     }
@@ -233,8 +223,6 @@ class DocumentController extends Controller
         );
 
         $this->documentService->restoreUsage($document, $entity);
-
-        event(new DocumentRestored($document, get_class($entity), $entity->getKey()));
 
         return response()->json(['message' => __('document.document_restored')]);
     }

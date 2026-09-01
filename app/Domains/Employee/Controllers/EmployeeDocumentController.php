@@ -6,8 +6,6 @@ use App\Contracts\DocumentAuthorization;
 use App\Domains\Document\Auth\DocumentAuthorizationContext;
 use App\Domains\Document\Enums\DocumentAction;
 use App\Domains\Document\Events\DocumentDeleted;
-use App\Domains\Document\Events\DocumentRestored;
-use App\Domains\Document\Events\DocumentUploaded;
 use App\Domains\Document\Models\Document;
 use App\Domains\Document\Models\DocumentCategory;
 use App\Domains\Document\Models\DocumentUsage;
@@ -176,8 +174,6 @@ class EmployeeDocumentController extends Controller
 
         $usage = $this->documentService->newestUsageFor($employee, $document->id, $fieldKey, $notes);
 
-        event(new DocumentUploaded($document, $employee, $category->name));
-
         return response()->json([
             'data' => $this->documentService->documentPayload($document, $usage, 'employee.documents.serve'),
             'message' => __('document.document_uploaded'),
@@ -237,8 +233,6 @@ class EmployeeDocumentController extends Controller
             return [$document, $usage];
         });
 
-        event(new DocumentUploaded($document, $employee, $category->name));
-
         return response()->json([
             'data' => $this->documentService->documentPayload($document, $usage, 'employee.documents.serve'),
             'message' => __('employee.documents.replaced'),
@@ -265,8 +259,6 @@ class EmployeeDocumentController extends Controller
         if (! $deleted) {
             abort(404);
         }
-
-        event(new DocumentDeleted($usageId, Employee::class, $employee->getKey()));
 
         return response()->json(['message' => __('employee.documents.trashed')]);
     }
@@ -321,8 +313,6 @@ class EmployeeDocumentController extends Controller
         if (! $restored) {
             abort(404);
         }
-
-        event(new DocumentRestored($usageId, Employee::class, $employee->getKey()));
 
         return response()->json(['message' => __('employee.documents.restored')]);
     }
