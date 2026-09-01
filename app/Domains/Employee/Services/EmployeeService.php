@@ -2,6 +2,10 @@
 
 namespace App\Domains\Employee\Services;
 
+use App\Domains\Employee\Events\EmployeeCreated;
+use App\Domains\Employee\Events\EmployeeDeleted;
+use App\Domains\Employee\Events\EmployeeSubmitted;
+use App\Domains\Employee\Events\EmployeeUpdated;
 use App\Domains\Employee\Models\Employee;
 use App\Domains\Employee\Sections\AdditionalInfoSection;
 use App\Domains\Employee\Sections\ContactInfoSection;
@@ -75,6 +79,33 @@ class EmployeeService extends SectionRegistry
             $this->saveSection($employee, $key, $data);
         }
 
+        event(new EmployeeCreated($employee));
+
+        return $employee;
+    }
+
+    /**
+     * Update the top-level employee attributes, recording an audit event only
+     * when the validated fields actually changed.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    public function update(Employee $employee, array $data): Employee
+    {
+        $oldValues = $employee->only(array_keys($data));
+        $employee->update($data);
+        $newValues = $employee->only(array_keys($data));
+
+        $actualChanges = $this->diffAttributes($oldValues, $newValues);
+
+        if ($actualChanges !== []) {
+            event(new EmployeeUpdated(
+                $employee,
+                array_intersect_key($oldValues, $actualChanges),
+                array_intersect_key($newValues, $actualChanges),
+            ));
+        }
+
         return $employee;
     }
 
@@ -102,8 +133,9 @@ class EmployeeService extends SectionRegistry
         }
 
         $data = $section->transformForSave($data, $actor, $employee);
+        $oldValues = $employee->toArray();
 
-        return DB::transaction(function () use (
+        $employee = DB::transaction(function () use (
             $employee,
             $section,
             $data
@@ -136,6 +168,19 @@ class EmployeeService extends SectionRegistry
             return $employee->fresh();
         });
 
+        $newValues = $employee->toArray();
+        $actualChanges = $this->diffAttributes($oldValues, $newValues);
+
+        if ($actualChanges !== []) {
+            event(new EmployeeUpdated(
+                $employee,
+                array_intersect_key($oldValues, $actualChanges),
+                array_intersect_key($newValues, $actualChanges),
+                $sectionKey,
+            ));
+        }
+
+        return $employee;
     }
 
     /**
@@ -165,7 +210,23 @@ class EmployeeService extends SectionRegistry
             throw new ValidationException($validator);
         }
 
-        return $employee->fresh();
+        $employee = $employee->fresh();
+
+        event(new EmployeeSubmitted($employee));
+
+        return $employee;
+    }
+
+    /**
+     * Delete an employee (capture the id before delete so the audit event can
+     * reference it) and record the deletion.
+     */
+    public function delete(Employee $employee): void
+    {
+        $employeeId = $employee->getKey();
+        $employee->delete();
+
+        event(new EmployeeDeleted($employeeId));
     }
 
     /**
@@ -281,5 +342,25 @@ class EmployeeService extends SectionRegistry
             $data,
             array_flip($realFields)
         );
+    }
+
+    /**
+     * Compare two attribute arrays and return only keys where values actually differ.
+     *
+     * @param  array<string, mixed>  $old
+     * @param  array<string, mixed>  $new
+     * @return array<string, mixed>
+     */
+    private function diffAttributes(array $old, array $new): array
+    {
+        $changes = [];
+
+        foreach ($new as $key => $value) {
+            if (! array_key_exists($key, $old) || $old[$key] !== $value) {
+                $changes[$key] = $value;
+            }
+        }
+
+        return $changes;
     }
 }
