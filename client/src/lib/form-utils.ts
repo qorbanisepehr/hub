@@ -7,11 +7,11 @@
  * auto-select useEffects and falsely marks the form dirty.
  */
 export function cleanServerSection(
-    serverData: Record<string, unknown> | null | undefined,
+    serverData: unknown,
 ): Record<string, unknown> {
-    if (!serverData) return {};
+    if (typeof serverData !== "object" || serverData === null) return {};
     return Object.fromEntries(
-        Object.entries(serverData).filter(
+        Object.entries(serverData as Record<string, unknown>).filter(
             ([, v]) => v !== null && v !== undefined,
         ),
     );

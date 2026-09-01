@@ -122,7 +122,7 @@ function RoleOrgChartInner({
     statusFilter: ChartStatusFilter;
 }) {
     const [uiState, dispatch] = useReducer(chartUIReducer, {
-        collapsedSet: new Set(),
+        collapsedSet: new Set<number>(),
         subtreeRootId: null,
         layoutDirection: "TB" as ChartDirection,
         selectedRoleId: null,
@@ -185,7 +185,7 @@ function RoleOrgChartInner({
                 return;
             }
             togglingRef.current = true;
-            const descendants = getDescendantIds(roleId, chartRoles);
+            const descendants = [...getDescendantIds(roleId, chartRoles)];
             dispatch({ type: "TOGGLE_COLLAPSE", roleId, descendants });
             requestAnimationFrame(() => {
                 togglingRef.current = false;

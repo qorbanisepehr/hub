@@ -192,8 +192,8 @@ export function useSectionForm<TEntity, TFormValues>({
      * effects settling once options load). Without this, derived defaults
      * written on mount would permanently count as unsaved changes.
      */
-    const syncDefaults = useCallback((newValues: TFormValues) => {
-        setSavedValues(newValues);
+    const syncDefaults = useCallback((newValues: unknown) => {
+        setSavedValues(newValues as TFormValues);
     }, []);
 
     return { form, saveMutation, persistSection, isDirty, isSectionDirty, syncDefaults };

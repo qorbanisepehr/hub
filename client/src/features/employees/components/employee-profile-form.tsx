@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
     IconChecks,
@@ -11,7 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { ErrorBanner } from "@/components/layout";
 import { UnsavedChangesDialog } from "@/components/layout";
-import { SubmitErrors } from "@/components/wizards/submit-errors";
+import { useWizardSubmit, SubmitErrors } from "@/components/wizards";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PersonalInfoSection } from "@/features/questionnaire/components/sections/personal-info-section";
 import { EducationSection } from "@/features/questionnaire/components/sections/education-section";
@@ -72,13 +71,8 @@ import {
 import { useEmployeeSubmitOptions } from "@/features/employees/hooks/use-employee-submit-options";
 import { useDependentDocsFeedback } from "@/features/employees/hooks/use-dependent-docs-feedback";
 import { buildValidateSubmitData } from "@/features/employees/validation";
-import { useInjectedFieldErrors } from "@/hooks/use-injected-field-errors";
 import { useSectionForm } from "@/hooks/use-section-form";
-import {
-    countSectionFieldErrors,
-    scrollToFirstInvalidField,
-} from "@/lib/validation-helpers";
-import { getApiError, getSubmitErrors } from "@/lib/error-utils";
+import { getApiError } from "@/lib/error-utils";
 import { cleanServerSection } from "@/lib/form-utils";
 import { employeeKeys } from "@/lib/query-keys";
 import type {
@@ -213,7 +207,6 @@ function extractSectionData(
 }
 
 export function EmployeeProfileForm({ employee }: EmployeeProfileFormProps) {
-    const queryClient = useQueryClient();
     const profileTabs = useMemo(
         () => [
             ...EMPLOYEE_SECTIONS,
@@ -229,7 +222,6 @@ export function EmployeeProfileForm({ employee }: EmployeeProfileFormProps) {
     );
     const [activeSection, setActiveSection] =
         useState<string>(getSectionFromHash);
-    const [submitErrors, setSubmitErrors] = useState<string[]>([]);
 
     useEffect(() => {
         const onHashChange = () => {
@@ -260,19 +252,6 @@ export function EmployeeProfileForm({ employee }: EmployeeProfileFormProps) {
     }, [activeSection, persistSection]);
 
     const { submitOptions, optionsReady } = useEmployeeSubmitOptions();
-
-    const submitMutation = useMutation({
-        mutationFn: () => submitEmployee(employee.id),
-        onSuccess: () => {
-            queryClient.invalidateQueries({
-                queryKey: employeeKeys.detail(employee.id),
-            });
-            toast.success("پروفایل کارمند با موفقیت ثبت شد.");
-        },
-        onError: (error: Error) => {
-            setSubmitErrors(getSubmitErrors(error, "خطا در ثبت پروفایل"));
-        },
-    });
 
     const validateSubmit = useMemo(
         () => buildValidateSubmitData(submitOptions),
@@ -309,72 +288,31 @@ export function EmployeeProfileForm({ employee }: EmployeeProfileFormProps) {
         { rowLabel: educationRowLabel },
     );
 
-    const { inject: injectFieldErrors, clear: clearInjectedErrors } =
-        useInjectedFieldErrors(form);
+    const rowDocErrors = [...dependentDocErrors, ...educationDocErrors];
 
-    useEffect(() => {
-        if (isDirty) {
-            setSubmitErrors([]);
-        }
-    }, [isDirty]);
+    const { submitErrors, submitMutation, handleSubmit, handleValidateClick } =
+        useWizardSubmit({
+            form,
+            isDirty,
+            optionsReady,
+            validateSubmit,
+            getCurrentSectionKey: () => activeSection,
+            validationSections: EMPLOYEE_VALIDATION_SECTIONS,
+            guards: [
+                {
+                    errors: () => rowDocErrors,
+                    message: "مدارک بارگذاری‌شده ناقص است.",
+                },
+            ],
+            submit: {
+                submitFn: () => submitEmployee(employee.id),
+                detailQueryKey: () => employeeKeys.detail(employee.id),
+                successMessage: "پروفایل کارمند با موفقیت ثبت شد.",
+                errorFallback: "خطا در ثبت پروفایل",
+            },
+        });
 
     const canSubmit = optionsReady && validation.success;
-
-    const handleSubmit = () => {
-        if (!optionsReady) return;
-        if (!validation.success) {
-            setSubmitErrors(validation.errors);
-            toast.error("لطفاً خطاهای زیر را اصلاح کنید.");
-            return;
-        }
-        const rowDocErrors = [...dependentDocErrors, ...educationDocErrors];
-        if (rowDocErrors.length > 0) {
-            setSubmitErrors(rowDocErrors);
-            toast.error("مدارک بارگذاری‌شده ناقص است.");
-            return;
-        }
-        setSubmitErrors([]);
-        submitMutation.mutate();
-    };
-
-    const handleValidateClick = () => {
-        if (!optionsReady) return;
-        const result = validateSubmit(form.state.values);
-
-        if (result.success) {
-            clearInjectedErrors();
-            toast.success("همه فیلدهای الزامی تکمیل شده‌اند.");
-            return;
-        }
-
-        const section = EMPLOYEE_VALIDATION_SECTIONS.find(
-            (s) => s.key === activeSection,
-        );
-        if (section) {
-            injectFieldErrors(result.fieldErrors, section);
-        }
-
-        const currentCount = section
-            ? countSectionFieldErrors(result.fieldErrors, section)
-            : 0;
-        const otherCount = result.errors.length - currentCount;
-
-        if (currentCount > 0) {
-            scrollToFirstInvalidField();
-        }
-
-        toast.error("فیلدهای الزامی ناقص هستند", {
-            description:
-                currentCount > 0
-                    ? `${currentCount} خطا در این بخش${
-                          otherCount > 0
-                              ? ` و ${otherCount} خطا در سایر بخش‌ها`
-                              : ""
-                      }`
-                    : `${otherCount} خطا در سایر بخش‌ها وجود دارد.`,
-            duration: 5000,
-        });
-    };
 
     const handleTabChange = (value: string | number | null) => {
         if (!value) return;

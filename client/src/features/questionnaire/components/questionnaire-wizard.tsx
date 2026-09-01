@@ -1,5 +1,4 @@
-import { useEffect, useState, useCallback, useMemo } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useCallback, useMemo } from "react";
 import { toast } from "sonner";
 import {
     IconLoader2,
@@ -24,12 +23,12 @@ import {
     StepperPanel,
     StepperContent,
 } from "@/components/reui/stepper";
-import { useWizardState, SubmitErrors } from "@/components/wizards";
+import { useWizardState, useWizardSubmit, SubmitErrors } from "@/components/wizards";
 import {
     saveQuestionnaireSection,
     submitQuestionnaire,
 } from "@/features/questionnaire/api";
-import { getApiError, getSubmitErrors } from "@/lib/error-utils";
+import { getApiError } from "@/lib/error-utils";
 import { cleanServerSection } from "@/lib/form-utils";
 import {
     WIZARD_STEPS,
@@ -39,13 +38,8 @@ import {
 import { useQuestionnaireDocuments } from "@/features/questionnaire/hooks/use-questionnaire-documents";
 import { useQuestionnaireSubmitOptions } from "@/features/questionnaire/hooks/use-questionnaire-submit-options";
 import { buildValidateSubmitData } from "@/features/questionnaire/validation";
-import { useInjectedFieldErrors } from "@/hooks/use-injected-field-errors";
 import { useSectionForm } from "@/hooks/use-section-form";
-import {
-    countSectionFieldErrors,
-    scrollToFirstInvalidField,
-    validateDocumentRequirements,
-} from "@/lib/validation-helpers";
+import { validateDocumentRequirements } from "@/lib/validation-helpers";
 import type { Questionnaire, QuestionnaireFormApi } from "@/features/questionnaire/types";
 import {
     defaultPersonalInfo,
@@ -98,16 +92,16 @@ function buildDefaultValues(questionnaire: Questionnaire): WizardFormValues {
         last_name: questionnaire.last_name ?? "",
         email: questionnaire.email ?? "",
         mobile: questionnaire.mobile ?? "",
-        personal_info: { ...defaultPersonalInfo(), ...cleanServerSection(questionnaire.personal_info as Record<string, unknown>) },
-        contact_info: { ...defaultContactInfo(), ...cleanServerSection(questionnaire.contact_info as Record<string, unknown>) },
-        education: { ...defaultEducation(), ...cleanServerSection(questionnaire.education as Record<string, unknown>) },
+        personal_info: { ...defaultPersonalInfo(), ...cleanServerSection(questionnaire.personal_info) },
+        contact_info: { ...defaultContactInfo(), ...cleanServerSection(questionnaire.contact_info) },
+        education: { ...defaultEducation(), ...cleanServerSection(questionnaire.education) },
         work_experience:
-            { ...defaultWorkExperience(), ...cleanServerSection(questionnaire.work_experience as Record<string, unknown>) },
-        skills: { ...defaultSkills(), ...cleanServerSection(questionnaire.skills as Record<string, unknown>) },
-        training: { ...defaultTraining(), ...cleanServerSection(questionnaire.training as Record<string, unknown>) },
+            { ...defaultWorkExperience(), ...cleanServerSection(questionnaire.work_experience) },
+        skills: { ...defaultSkills(), ...cleanServerSection(questionnaire.skills) },
+        training: { ...defaultTraining(), ...cleanServerSection(questionnaire.training) },
         additional_info:
-            { ...defaultAdditionalInfo(), ...cleanServerSection(questionnaire.additional_info as Record<string, unknown>) },
-        job_request: { ...defaultJobRequest(), ...cleanServerSection(questionnaire.job_request as Record<string, unknown>) },
+            { ...defaultAdditionalInfo(), ...cleanServerSection(questionnaire.additional_info) },
+        job_request: { ...defaultJobRequest(), ...cleanServerSection(questionnaire.job_request) },
     };
 }
 
@@ -141,9 +135,7 @@ function extractSectionData(
 export function QuestionnaireWizard({
     questionnaire,
 }: QuestionnaireWizardProps) {
-    const queryClient = useQueryClient();
     const { currentStep, goToStep: setStep } = useWizardState(WIZARD_STEPS);
-    const [submitErrors, setSubmitErrors] = useState<string[]>([]);
 
     const { form, saveMutation, persistSection, isDirty, isSectionDirty, syncDefaults } = useSectionForm<
         Questionnaire,
@@ -158,19 +150,6 @@ export function QuestionnaireWizard({
         sectionTopLevelKeys: {
             personal_info: ["first_name", "last_name"],
             contact_info: ["email", "mobile"],
-        },
-    });
-
-    const submitMutation = useMutation({
-        mutationFn: () => submitQuestionnaire(questionnaire.uuid),
-        onSuccess: () => {
-            queryClient.invalidateQueries({
-                queryKey: ["questionnaire", questionnaire.uuid],
-            });
-            toast.success("پرسشنامه با موفقیت ثبت شد.");
-        },
-        onError: (error: Error) => {
-            setSubmitErrors(getSubmitErrors(error, "خطا در ثبت پرسشنامه"));
         },
     });
 
@@ -189,19 +168,49 @@ export function QuestionnaireWizard({
         persistSection(sectionKey);
     }, [currentStep, persistSection]);
 
-    useEffect(() => {
-        if (isDirty) {
-            setSubmitErrors([]);
-        }
-    }, [isDirty]);
-
     const validation = validateSubmit(form.state.values);
 
     const { documents, isLoading: documentsLoading } = useQuestionnaireDocuments(
         questionnaire.uuid,
     );
-    const { inject: injectFieldErrors, clear: clearInjectedErrors } =
-        useInjectedFieldErrors(form);
+
+    const { submitErrors, submitMutation, handleSubmit, handleValidateClick } =
+        useWizardSubmit({
+            form,
+            isDirty,
+            optionsReady,
+            validateSubmit,
+            getCurrentSectionKey: () => WIZARD_STEPS[currentStep]?.key ?? "",
+            validationSections: QUESTIONNAIRE_VALIDATION_SECTIONS,
+            guards: [
+                {
+                    errors: () =>
+                        questionnaire.email_verified
+                            ? []
+                            : ["ایمیل تأیید نشده است."],
+                },
+                {
+                    errors: () =>
+                        questionnaire.mobile_verified
+                            ? []
+                            : ["شماره موبایل تأیید نشده است."],
+                },
+            ],
+            getDocumentErrors: () =>
+                documentsLoading
+                    ? []
+                    : validateDocumentRequirements(
+                          documents,
+                          QUESTIONNAIRE_DOC_REQUIREMENTS,
+                      ),
+            reviewStepLabel: "خلاصه و تأیید",
+            submit: {
+                submitFn: () => submitQuestionnaire(questionnaire.uuid),
+                detailQueryKey: () => ["questionnaire", questionnaire.uuid],
+                successMessage: "پرسشنامه با موفقیت ثبت شد.",
+                errorFallback: "خطا در ثبت پرسشنامه",
+            },
+        });
 
     const canSubmit =
         optionsReady &&
@@ -209,67 +218,6 @@ export function QuestionnaireWizard({
         questionnaire.email_verified &&
         questionnaire.mobile_verified &&
         questionnaire.status === "draft";
-
-    const handleSubmit = () => {
-        if (!optionsReady) return;
-        if (!validation.success) {
-            setSubmitErrors(validation.errors);
-            toast.error("لطفاً خطاهای زیر را اصلاح کنید.");
-            return;
-        }
-        if (!questionnaire.email_verified) {
-            setSubmitErrors(["ایمیل تأیید نشده است."]);
-            return;
-        }
-        if (!questionnaire.mobile_verified) {
-            setSubmitErrors(["شماره موبایل تأیید نشده است."]);
-            return;
-        }
-        setSubmitErrors([]);
-        submitMutation.mutate();
-    };
-
-    const handleValidateClick = () => {
-        if (!optionsReady) return;
-        const result = validateSubmit(form.state.values);
-        const docErrors = documentsLoading
-            ? []
-            : validateDocumentRequirements(documents, QUESTIONNAIRE_DOC_REQUIREMENTS);
-
-        if (result.success && docErrors.length === 0) {
-            clearInjectedErrors();
-            toast.success("همه فیلدهای الزامی تکمیل شده‌اند.");
-            return;
-        }
-
-        const sectionKey = WIZARD_STEPS[currentStep]?.key;
-        const section = QUESTIONNAIRE_VALIDATION_SECTIONS.find(
-            (s) => s.key === sectionKey,
-        );
-        if (section) {
-            injectFieldErrors(result.fieldErrors, section);
-        }
-
-        const currentFieldCount = section
-            ? countSectionFieldErrors(result.fieldErrors, section)
-            : 0;
-        const currentDocCount =
-            sectionKey === "documents" ? docErrors.length : 0;
-        const currentCount = currentFieldCount + currentDocCount;
-        const otherCount = result.errors.length + docErrors.length - currentCount;
-
-        if (currentCount > 0) {
-            scrollToFirstInvalidField();
-        }
-
-        toast.error("فیلدهای الزامی ناقص هستند", {
-            description:
-                currentCount > 0
-                    ? `${currentCount} خطا در این بخش${otherCount > 0 ? ` و ${otherCount} خطا در سایر بخش‌ها` : ""} (در «خلاصه و تأیید» قابل مشاهده است).`
-                    : `${otherCount} خطا در سایر بخش‌ها وجود دارد که در «خلاصه و تأیید» قابل مشاهده است.`,
-            duration: 5000,
-        });
-    };
 
     const goToStep = async (step: number) => {
         const sectionKey = WIZARD_STEPS[currentStep]?.key;
