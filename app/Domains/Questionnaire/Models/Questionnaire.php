@@ -4,12 +4,12 @@ namespace App\Domains\Questionnaire\Models;
 
 use App\Casts\MobileNumberCast;
 use App\Contracts\Documentable;
-use App\Contracts\DocumentableTrait;
 use App\Contracts\OtpVerifiable;
 use App\Models\Traits\HasJsonSections;
 use App\Models\Traits\HasLifecycleVersion;
 use App\Models\Traits\VerifiesOtp;
 use App\Models\User;
+use App\Support\DocumentableTrait;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;

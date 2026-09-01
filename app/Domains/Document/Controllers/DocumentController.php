@@ -15,8 +15,7 @@ use App\Domains\Document\Requests\StoreDocumentRequest;
 use App\Domains\Document\Requests\StoreFromLibraryRequest;
 use App\Domains\Document\Resources\DocumentResource;
 use App\Domains\Document\Services\DocumentService;
-use App\Domains\Employee\Models\Employee;
-use App\Domains\Questionnaire\Models\Questionnaire;
+use App\Support\DocumentRouteType;
 use App\Support\ListQuery;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -28,11 +27,6 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class DocumentController extends Controller
 {
-    private const ROUTE_TYPE_MAP = [
-        'employee' => Employee::class,
-        'questionnaire' => Questionnaire::class,
-    ];
-
     public function __construct(
         private readonly DocumentService $documentService,
         private readonly DocumentAuthorization $documentAuthorization,
@@ -61,7 +55,7 @@ class DocumentController extends Controller
     {
         $type = $request->input('documentable_type');
         $id = $request->input('documentable_id');
-        $class = self::ROUTE_TYPE_MAP[$type] ?? null;
+        $class = DocumentRouteType::classFor($type);
 
         if ($class === null) {
             abort(422, __('document.invalid_documentable_type'));
@@ -100,7 +94,7 @@ class DocumentController extends Controller
     {
         $type = $request->input('documentable_type');
         $id = $request->input('documentable_id');
-        $class = self::ROUTE_TYPE_MAP[$type] ?? null;
+        $class = DocumentRouteType::classFor($type);
 
         if ($class === null) {
             abort(422, __('document.invalid_documentable_type'));
@@ -295,7 +289,7 @@ class DocumentController extends Controller
     private function applyEntityScope(Builder $query, Request $request): void
     {
         if ($type = $request->input('type')) {
-            $class = self::ROUTE_TYPE_MAP[$type] ?? null;
+            $class = DocumentRouteType::classFor($type);
             if ($class) {
                 $query->where('entity_type', $class);
             }

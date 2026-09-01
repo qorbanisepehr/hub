@@ -3,9 +3,9 @@
 namespace App\Domains\Employee\Models;
 
 use App\Contracts\Documentable;
-use App\Contracts\DocumentableTrait;
 use App\Models\Traits\HasJsonSections;
 use App\Models\User;
+use App\Support\DocumentableTrait;
 use Database\Factories\EmployeeFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\UseFactory;

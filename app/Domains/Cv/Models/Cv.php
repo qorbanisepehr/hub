@@ -4,7 +4,6 @@ namespace App\Domains\Cv\Models;
 
 use App\Casts\MobileNumberCast;
 use App\Contracts\Documentable;
-use App\Contracts\DocumentableTrait;
 use App\Contracts\OtpVerifiable;
 use App\Domains\Cv\Enums\CvStatus;
 use App\Domains\Questionnaire\Models\Questionnaire;
@@ -12,6 +11,7 @@ use App\Models\Traits\HasJsonSections;
 use App\Models\Traits\HasLifecycleVersion;
 use App\Models\Traits\VerifiesOtp;
 use App\Models\User;
+use App\Support\DocumentableTrait;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
