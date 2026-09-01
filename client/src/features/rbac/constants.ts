@@ -6,6 +6,12 @@ export const MATRIX_MANAGER_TYPES = {
 
 export type MatrixManagerType = keyof typeof MATRIX_MANAGER_TYPES;
 
+
+export const MATRIX_MANAGER_TYPES_KEYS = [
+    "project",
+    "functional",
+    "technical",
+] as const;
 export const ROLE_TYPES = {
     system: "سیستمی",
     organization: "سازمانی",
@@ -22,3 +28,11 @@ export const EDUCATION_LEVELS = {
 } as const;
 
 export type EducationLevel = keyof typeof EDUCATION_LEVELS;
+
+export const EDUCATION_LEVELS_KEYS = [
+    "diploma",
+    "associate",
+    "bachelor",
+    "master",
+    "doctorate",
+] as const;
