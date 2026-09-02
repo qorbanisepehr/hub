@@ -2,9 +2,12 @@ import type { ReactNode } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DocumentFileItem } from "@/components/documents";
 import { SectionRow } from "@/components/shared/section-row";
+import { SectionRepeaterTable } from "@/components/shared/section-repeater-table";
+import { useOptionLabelResolver } from "@/components/section-views/use-option-label";
 import { useEmployeeDocuments } from "@/features/employees/hooks/use-employee-documents";
 import { toPersianDate } from "@/lib/date-format";
 import type { Employee } from "@/features/employees/types";
+import { DOC_CATEGORY_SLUGS } from "@/features/questionnaire/constants";
 
 type SocialInsuranceHistory = {
     workshop_name?: string;
@@ -15,11 +18,28 @@ type SocialInsuranceHistory = {
     description?: string;
 };
 
+type MonthlyBreakdownRow = {
+    days?: number | string;
+    wage?: string;
+};
+
+type JobTitleRow = {
+    insurance_number?: string;
+    start_date?: string;
+    job_title?: string;
+    workshop_code?: string;
+    workshop_name?: string;
+};
+
 type SocialInsuranceData = {
     social_insurance_number?: string;
     insurance_status?: string;
     insurance_start_date?: string;
     has_insurance_history?: boolean;
+    branch_name?: string;
+    days_count?: number | string;
+    monthly_breakdown?: MonthlyBreakdownRow[];
+    job_titles?: JobTitleRow[];
     histories?: SocialInsuranceHistory[];
 };
 
@@ -45,9 +65,28 @@ export function SocialInsuranceView({
 
     const hasHistory = section.has_insurance_history === true;
 
+    const resolveInsuranceStatus = useOptionLabelResolver("insurance_type");
+
+    const monthlyBreakdown = Array.isArray(section.monthly_breakdown)
+        ? section.monthly_breakdown
+        : [];
+
+    const jobTitles = Array.isArray(section.job_titles)
+        ? section.job_titles
+        : [];
+
     const { getDocumentsBySlug } = useEmployeeDocuments(employee.id);
 
-    const insuranceDocuments = getDocumentsBySlug("insurance-history");
+    const insuranceDocuments = [
+        ...getDocumentsBySlug(DOC_CATEGORY_SLUGS.INSURANCE_HISTORY),
+        ...getDocumentsBySlug(DOC_CATEGORY_SLUGS.INSURANCE_HISTORY_RIAL),
+        ...getDocumentsBySlug(DOC_CATEGORY_SLUGS.INSURANCE_HISTORY_SUMMARY),
+        ...getDocumentsBySlug(
+            DOC_CATEGORY_SLUGS.INSURANCE_HISTORY_RIAL_SUMMARY,
+        ),
+        ...getDocumentsBySlug(DOC_CATEGORY_SLUGS.INSURANCE_HISTORY_OVERALL),
+        ...getDocumentsBySlug(DOC_CATEGORY_SLUGS.INSURANCE_LAST_JOB_TITLES),
+    ];
 
     return (
         <Card>
@@ -72,7 +111,7 @@ export function SocialInsuranceView({
                         variant="between"
                         hideEmpty
                         label="وضعیت بیمه"
-                        value={section.insurance_status}
+                        value={resolveInsuranceStatus(section.insurance_status)}
                     />
 
                     <SectionRow
@@ -85,10 +124,94 @@ export function SocialInsuranceView({
                     <SectionRow
                         variant="between"
                         hideEmpty
+                        label="شعبه بازنشستگی"
+                        value={section.branch_name}
+                    />
+
+                    <SectionRow
+                        variant="between"
+                        hideEmpty
+                        label="تعداد روزهای بیمه"
+                        value={
+                            section.days_count === null ||
+                            section.days_count === undefined ||
+                            section.days_count === ""
+                                ? null
+                                : String(section.days_count)
+                        }
+                    />
+
+                    <SectionRow
+                        variant="between"
+                        hideEmpty
                         label="سابقه بیمه"
                         value={hasHistory ? "دارد" : "ندارد"}
                     />
                 </div>
+
+                {monthlyBreakdown.length > 0 && (
+                    <div className="space-y-3">
+                        <h3 className="text-sm font-medium">تفکیک ماهانه</h3>
+                        <SectionRepeaterTable
+                            items={monthlyBreakdown}
+                            emptyLabel="-"
+                            columns={[
+                                {
+                                    label: "روزها",
+                                    render: (i) =>
+                                        i.days === null ||
+                                        i.days === undefined
+                                            ? "-"
+                                            : String(i.days),
+                                },
+                                {
+                                    label: "دستمزد",
+                                    render: (i) => i.wage,
+                                },
+                            ]}
+                        />
+                    </div>
+                )}
+
+                {jobTitles.length > 0 && (
+                    <div className="space-y-3">
+                        <h3 className="text-sm font-medium">
+                            سوابق عناوین شغلی
+                        </h3>
+                        <SectionRepeaterTable
+                            items={jobTitles}
+                            emptyLabel="-"
+                            columns={[
+                                {
+                                    label: "شماره بیمه",
+                                    render: (i) => i.insurance_number,
+                                },
+                                {
+                                    label: "از تاریخ",
+                                    render: (i) =>
+                                        i.start_date === null ||
+                                        i.start_date === undefined
+                                            ? "-"
+                                            : toPersianDate(
+                                                  i.start_date as string,
+                                              ),
+                                },
+                                {
+                                    label: "عنوان شغلی",
+                                    render: (i) => i.job_title,
+                                },
+                                {
+                                    label: "کد کارگاه",
+                                    render: (i) => i.workshop_code,
+                                },
+                                {
+                                    label: "کارگاه / کارفرما",
+                                    render: (i) => i.workshop_name,
+                                },
+                            ]}
+                        />
+                    </div>
+                )}
 
                 {hasHistory && histories.length > 0 && (
                     <div className="space-y-3">

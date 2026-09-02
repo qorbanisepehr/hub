@@ -37,6 +37,9 @@ import { EmploymentInfoView } from "@/features/employees/components/views/employ
 import { SocialInsuranceView } from "@/features/employees/components/views/social-insurance-view";
 import { DependentsView } from "@/features/employees/components/views/dependents-view";
 import { DocumentInquiriesView } from "@/features/employees/components/views/document-inquiries-view";
+import { ContractsView } from "@/features/employees/components/views/contracts-view";
+import { FinancialView } from "@/features/employees/components/views/financial-view";
+import { SupplementaryInsuranceView } from "@/features/employees/components/views/supplementary-insurance-view";
 import { EducationView } from "@/components/section-views/education-view";
 import { WorkExperienceView } from "@/components/section-views/work-experience-view";
 import { SkillsView } from "@/components/section-views/skills-view";
@@ -204,6 +207,59 @@ export function EmployeeReviewSection({
                 title={label("social_insurance")}
                 action={
                     <SectionEditButton onClick={edit("social_insurance")} />
+                }
+                extra={
+                    <QuestionnaireDocumentPreview
+                        documents={docsFor("social_insurance")}
+                        variant="compact"
+                        className="mt-4 pt-4 border-t"
+                    />
+                }
+            />
+
+            <ContractsView
+                employee={employee}
+                data={sectionValue(values, "contracts")}
+                title={label("contracts")}
+                action={<SectionEditButton onClick={edit("contracts")} />}
+                extra={
+                    <QuestionnaireDocumentPreview
+                        documents={docsFor("contracts")}
+                        variant="compact"
+                        className="mt-4 pt-4 border-t"
+                    />
+                }
+            />
+
+            <FinancialView
+                employee={employee}
+                data={sectionValue(values, "financial")}
+                title={label("financial")}
+                action={<SectionEditButton onClick={edit("financial")} />}
+                extra={
+                    <QuestionnaireDocumentPreview
+                        documents={docsFor("financial")}
+                        variant="compact"
+                        className="mt-4 pt-4 border-t"
+                    />
+                }
+            />
+
+            <SupplementaryInsuranceView
+                employee={employee}
+                data={sectionValue(values, "supplementary_insurance")}
+                title={label("supplementary_insurance")}
+                action={
+                    <SectionEditButton
+                        onClick={edit("supplementary_insurance")}
+                    />
+                }
+                extra={
+                    <QuestionnaireDocumentPreview
+                        documents={docsFor("supplementary_insurance")}
+                        variant="compact"
+                        className="mt-4 pt-4 border-t"
+                    />
                 }
             />
 

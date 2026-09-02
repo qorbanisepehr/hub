@@ -6,6 +6,7 @@ export const educationRecordSchema = z
     .object({
         degree: requiredText("مدرک الزامی است.", 50),
         field: requiredText("رشته تحصیلی الزامی است.", 100),
+        orientation: text(100, "گرایش موضوعی"),
         institution: requiredText("دانشگاه الزامی است.", 100),
         location: text(100, "حداکثر ۱۰۰ کاراکتر."),
         from: requiredText("تاریخ شروع الزامی است."),

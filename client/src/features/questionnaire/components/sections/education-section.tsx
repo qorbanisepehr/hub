@@ -166,6 +166,21 @@ export function EducationSection({ form, uuid, onPersist, entity = "questionnair
                                             )}
                                         </form.Field>
                                         <form.Field
+                                            name={`education.education_records.${index}.orientation`}
+                                            validators={zodFieldValidators(
+                                                fieldSchemas
+                                                    .education_records_item
+                                                    .shape.orientation,
+                                            )}
+                                        >
+                                            {(f) => (
+                                                <FormTextField
+                                                    field={f}
+                                                    label="گرایش موضوعی"
+                                                />
+                                            )}
+                                        </form.Field>
+<form.Field
                                             name={`education.education_records.${index}.institution`}
                                             validators={zodFieldValidators(
                                                 fieldSchemas

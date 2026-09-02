@@ -129,6 +129,17 @@ export function TrainingSection({ form, uuid, onPersist, entity = "questionnaire
                                                 />
                                             )}
                                         </form.Field>
+                                        <form.Field
+                                            name={`training.training_courses.${index}.evaluation`}
+                                        >
+                                            {(f) => (
+                                                <FormTextarea
+                                                    field={f}
+                                                    label="ارزیابی دوره"
+                                                />
+                                            )}
+                                        </form.Field>
+
                                     </div>
                                     {uuid && (
                                         <FileUploadField

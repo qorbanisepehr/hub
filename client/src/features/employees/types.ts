@@ -31,6 +31,9 @@ export type Employee = {
     section_additional_info: Record<string, unknown> | null;
     social_insurance_number: string | null;
     section_social_insurance: Record<string, unknown> | null;
+    section_contracts: Record<string, unknown> | null;
+    section_financial: Record<string, unknown> | null;
+    section_supplementary_insurance: Record<string, unknown> | null;
     section_dependents: Record<string, unknown> | null;
     section_document_inquiries: Record<string, unknown> | null;
     user: {
@@ -67,6 +70,9 @@ export type EmployeeProfileFormData = {
     training?: Record<string, unknown>;
     additional_info?: Record<string, unknown>;
     social_insurance?: Record<string, unknown>;
+    contracts?: Record<string, unknown>;
+    financial?: Record<string, unknown>;
+    supplementary_insurance?: Record<string, unknown>;
     dependents?: Record<string, unknown>;
     document_inquiries?: Record<string, unknown>;
 };

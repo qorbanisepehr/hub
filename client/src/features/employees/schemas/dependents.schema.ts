@@ -6,11 +6,17 @@ const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
 
 const dependentRowSchema = z.object({
     relationship_type: z.string().or(z.literal("")).default(""),
+    custom_relationship: z.string().max(100).or(z.literal("")).default(""),
     first_name: z.string().max(100).or(z.literal("")).default(""),
     last_name: z.string().max(100).or(z.literal("")).default(""),
     id_number: z.string().max(10).or(z.literal("")).default(""),
     gender: z.string().or(z.literal("")).default(""),
     birth_date: z
+        .string()
+        .regex(dateRegex, "فرمت تاریخ نامعتبر است (YYYY-MM-DD)")
+        .or(z.literal(""))
+        .default(""),
+    marriage_date: z
         .string()
         .regex(dateRegex, "فرمت تاریخ نامعتبر است (YYYY-MM-DD)")
         .or(z.literal(""))
@@ -49,6 +55,28 @@ export const dependentsSubmitSchema = dependentsFieldSchema.superRefine(
             require("id_number", "کد ملی وابسته الزامی است.");
             require("gender", "جنسیت وابسته الزامی است.");
             require("birth_date", "تاریخ تولد وابسته الزامی است.");
+
+            if (
+                row.relationship_type === "spouse" &&
+                !row.marriage_date
+            ) {
+                ctx.addIssue({
+                    code: "custom",
+                    path: ["dependents", index, "marriage_date"],
+                    message: "برای همسر، تاریخ ازدواج الزامی است.",
+                });
+            }
+
+            if (
+                row.relationship_type === "other" &&
+                !row.custom_relationship
+            ) {
+                ctx.addIssue({
+                    code: "custom",
+                    path: ["dependents", index, "custom_relationship"],
+                    message: "برای سایر، نوشتن نسبت الزامی است.",
+                });
+            }
 
             if (row.id_number && !/^\d{10}$/.test(row.id_number)) {
                 ctx.addIssue({

@@ -3,15 +3,18 @@ import { IconTrash } from "@tabler/icons-react";
 
 import { Button } from "@/components/ui/button";
 import { FileUploadField } from "@/components/documents";
-import { EntityDocumentsSection } from "@/components/documents/entity-documents-section";
-import { useEmployeeDocuments } from "@/features/employees/hooks/use-employee-documents";
-import type { EmployeeDocument } from "@/features/employees/hooks/use-employee-documents";
-import { EmployeeDocumentTrashModal } from "./employee-document-trash-modal";
-import { EmployeeDocumentReplaceModal } from "./employee-document-replace-modal";
 import {
     DOC_CATEGORY_SLUGS,
     getFieldKeyLabel,
 } from "@/features/questionnaire/constants";
+import {
+    EntityDocumentsSection,
+    PERSONNEL_EXTRA_DOC_SLUGS,
+} from "@/components/documents/entity-documents-section";
+import { useEmployeeDocuments } from "@/features/employees/hooks/use-employee-documents";
+import type { EmployeeDocument } from "@/features/employees/hooks/use-employee-documents";
+import { EmployeeDocumentTrashModal } from "./employee-document-trash-modal";
+import { EmployeeDocumentReplaceModal } from "./employee-document-replace-modal";
 
 type SectionProps = {
     employeeId: number;
@@ -38,6 +41,18 @@ function docSectionReducer(
     }
 }
 
+const PERSONNEL_DOC_SLUGS = new Set<string>([
+    ...PERSONNEL_EXTRA_DOC_SLUGS,
+    DOC_CATEGORY_SLUGS.ACADEMIC_DEGREE,
+    DOC_CATEGORY_SLUGS.LANGUAGE_CERTIFICATE,
+    DOC_CATEGORY_SLUGS.COURSE_CERTIFICATES,
+    DOC_CATEGORY_SLUGS.SKILL_CERTIFICATE,
+    DOC_CATEGORY_SLUGS.EMPLOYMENT_CERTIFICATE,
+    DOC_CATEGORY_SLUGS.RESEARCH_DOCUMENTS,
+    DOC_CATEGORY_SLUGS.COVER_LETTER,
+    DOC_CATEGORY_SLUGS.OTHER_DOCUMENTS,
+]);
+
 export function DocumentsSection({ employeeId }: SectionProps) {
     const [state, dispatch] = useReducer(docSectionReducer, {
         trashOpen: false,
@@ -54,6 +69,7 @@ export function DocumentsSection({ employeeId }: SectionProps) {
             entity="employees"
             documents={documents}
             getDocumentsBySlugExcept={getDocumentsBySlugExcept}
+            extraDocSlugs={PERSONNEL_DOC_SLUGS}
             replaceEnabled={capabilities.replace}
             onReplace={(doc) =>
                 dispatch({ type: "SET_REPLACE_TARGET", doc })

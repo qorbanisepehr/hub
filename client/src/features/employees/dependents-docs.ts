@@ -1,8 +1,8 @@
 export type FormOptionLite = { value: string; label: string };
 
 /**
- * Heading for one dependent row: «فرزند 1» derived from the row's نسبت
- * option, falling back to the generic «وابسته N» while the field is empty.
+ * Heading for one dependent row: the row's نسبت option label, falling back to
+ * the generic «وابسته» while the field is empty. No row number.
  */
 export function dependentRowLabel(
     relationshipValue: unknown,
@@ -14,5 +14,5 @@ export function dependentRowLabel(
         (option) => option.value === value,
     )?.label;
 
-    return `${relationshipLabel ?? "وابسته"} ${index + 1}`;
+    return relationshipLabel ?? "وابسته";
 }

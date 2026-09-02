@@ -44,6 +44,7 @@ export function EducationView({
                     columns={[
                         { label: "مدرک", render: (i) => degreeLabel(i.degree as string | undefined) },
                         { label: "رشته", render: (i) => i.field },
+                        { label: "گرایش", render: (i) => i.orientation },
                         { label: "دانشگاه", render: (i) => universityLabel(i.institution as string | undefined) },
                         { label: "محل", render: (i) => i.location },
                         { label: "از تاریخ", render: (i) => dateValue(i.from) },

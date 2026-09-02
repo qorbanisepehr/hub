@@ -1,4 +1,5 @@
 export { ContactInfoSection } from './contact-info-section';
+export { ContractsSection } from './contracts-section';
 export { DependentsSection } from './dependents-section';
 export { DocumentInquiriesSection } from './document-inquiries-section';
 export { DocumentsSection } from './documents-section';
@@ -6,5 +7,7 @@ export { EmployeeDocumentReplaceModal } from './employee-document-replace-modal'
 export { EmployeeDocumentTrashModal } from './employee-document-trash-modal';
 export { EmployeeReviewSection } from './employee-review-section';
 export { EmploymentSection } from './employment-section';
+export { FinancialSection } from './financial-section';
 export { LinkedUserSection } from './linked-user-section';
 export { SocialInsuranceSection } from './social-insurance-section';
+export { SupplementaryInsuranceSection } from './supplementary-insurance-section';

@@ -28,6 +28,9 @@ import { EmploymentInfoView } from "./views/employment-info-view";
 import { DependentsView } from "./views/dependents-view";
 import { DocumentInquiriesView } from "./views/document-inquiries-view";
 import { SocialInsuranceView } from "./views/social-insurance-view";
+import { ContractsView } from "./views/contracts-view";
+import { FinancialView } from "./views/financial-view";
+import { SupplementaryInsuranceView } from "./views/supplementary-insurance-view";
 import { DOC_CATEGORY_SLUGS } from "@/features/questionnaire/constants";
 import { FileThumbnail } from "@/components/ui/file-thumbnail";
 import { useDocumentPreview } from "@/hooks/use-document-preview";
@@ -177,6 +180,11 @@ export function EmployeeProfileView({ employee }: EmployeeProfileViewProps) {
             />
         ),
         social_insurance: () => <SocialInsuranceView employee={employee} />,
+        contracts: () => <ContractsView employee={employee} />,
+        financial: () => <FinancialView employee={employee} />,
+        supplementary_insurance: () => (
+            <SupplementaryInsuranceView employee={employee} />
+        ),
         skills: () => (
             <SkillsView data={sectionData.skills} extra={docExtra("skills")} />
         ),

@@ -24,14 +24,11 @@ export const socialInsuranceFieldSchema = z.object({
         .or(z.literal(""))
         .default(""),
 
-    // TODO: Replace free-form validation when the canonical vocabulary
-    // is confirmed with domain specialists.
+    // Backed by the `insurance_type` FormOption group (rendered as a select).
     insurance_status: z
         .string()
-        .max(100, "وضعیت بیمه حداکثر ۱۰۰ کاراکتر است")
         .or(z.literal(""))
         .nullable()
-        // .optional()
         .transform((value) => value ?? ""),
 
     insurance_start_date: z
@@ -41,6 +38,33 @@ export const socialInsuranceFieldSchema = z.object({
         .default(""),
 
     has_insurance_history: z.boolean(),
+
+    branch_name: z.string().max(255).or(z.literal("")).nullable().transform((v) => v ?? ""),
+    days_count: z.union([z.number(), z.string(), z.literal("")]).nullable().transform((v) => v ?? ""),
+
+    monthly_breakdown: z.array(
+        z.object({
+            days: z
+                .union([z.number(), z.string(), z.literal("")])
+                .nullable()
+                .transform((v) => v ?? ""),
+            wage: z.string().max(30).or(z.literal("")).nullable().transform((v) => v ?? "").default(""),
+        }),
+    ).default([]),
+
+    job_titles: z.array(
+        z.object({
+            insurance_number: z.string().max(30).or(z.literal("")).default(""),
+            start_date: z
+                .string()
+                .regex(dateRegex, "فرمت تاریخ نامعتبر است (YYYY-MM-DD)")
+                .or(z.literal(""))
+                .default(""),
+            job_title: z.string().max(255).or(z.literal("")).default(""),
+            workshop_code: z.string().max(50).or(z.literal("")).default(""),
+            workshop_name: z.string().max(255).or(z.literal("")).default(""),
+        }),
+    ).default([]),
 
     histories: z.array(historySchema),
 });
@@ -123,6 +147,10 @@ export function defaultSocialInsurance() {
         insurance_status: "",
         insurance_start_date: "",
         has_insurance_history: false,
+        branch_name: "",
+        days_count: "",
+        monthly_breakdown: [],
+        job_titles: [],
         histories: [],
     };
 }

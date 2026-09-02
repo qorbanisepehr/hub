@@ -11,11 +11,13 @@ import type { Employee } from "@/features/employees/types";
 
 type DependentRow = {
     relationship_type?: string;
+    custom_relationship?: string;
     first_name?: string;
     last_name?: string;
     id_number?: string;
     gender?: string;
     birth_date?: string;
+    marriage_date?: string;
 };
 
 type DependentsData = {
@@ -119,6 +121,29 @@ export function DependentsView({
                                                     : ""
                                             }
                                         />
+                                        {dependent.relationship_type ===
+                                            "spouse" && (
+                                            <SectionRow
+                                                label="تاریخ ازدواج"
+                                                value={
+                                                    dependent.marriage_date
+                                                        ? toPersianDate(
+                                                              dependent.marriage_date,
+                                                          )
+                                                        : ""
+                                                }
+                                            />
+                                        )}
+                                        {dependent.relationship_type ===
+                                            "other" &&
+                                            dependent.custom_relationship && (
+                                                <SectionRow
+                                                    label="نسبت (سایر)"
+                                                    value={
+                                                        dependent.custom_relationship
+                                                    }
+                                                />
+                                            )}
                                     </div>
 
                                     <div className="mt-3 space-y-1">

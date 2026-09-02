@@ -20,6 +20,9 @@ import { requiredText } from "@/lib/zod-primitives";
 import { socialInsuranceSubmitSchema } from "./schemas/social-insurance.schema";
 import { dependentsSubmitSchema } from "./schemas/dependents.schema";
 import { documentInquiriesSubmitSchema } from "./schemas/document-inquiries.schema";
+import { contractsSubmitSchema } from "./schemas/contracts.schema";
+import { financialSubmitSchema } from "./schemas/financial.schema";
+import { supplementaryInsuranceSubmitSchema } from "./schemas/supplementary-insurance.schema";
 
 export type SubmitOptions = {
     personal_info: PersonalInfoOptions;
@@ -51,6 +54,9 @@ export function buildSubmitSchema(options: SubmitOptions) {
         education: educationFieldSchema,
         work_experience: workExperienceFieldSchema,
         social_insurance: socialInsuranceSubmitSchema,
+        contracts: contractsSubmitSchema,
+        financial: financialSubmitSchema,
+        supplementary_insurance: supplementaryInsuranceSubmitSchema,
         skills: skillsFieldSchema,
         training: trainingFieldSchema,
         additional_info: additionalInfoFieldSchema,

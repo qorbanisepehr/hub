@@ -3,9 +3,11 @@ import { useSelector } from "@tanstack/react-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
     FormDatePicker,
+    FormOptionSelectField,
     FormRadioGroup,
     FormTextField,
     FormTextarea,
+    FormNumberField,
 } from "@/components/forms";
 import { FileUploadField } from "@/components/documents";
 import { FormRepeater } from "@/components/forms";
@@ -73,12 +75,14 @@ export function SocialInsuranceSection({ form, uuid }: SectionProps) {
 
                     <form.Field
                         name="social_insurance.insurance_status"
-                        validators={zodFieldValidators(
-                            socialInsuranceFieldSchema.shape.insurance_status,
-                        )}
                     >
                         {(field) => (
-                            <FormTextField field={field} label="وضعیت بیمه" />
+                            <FormOptionSelectField
+                                field={field}
+                                label="وضعیت بیمه"
+                                group="insurance_type"
+                                placeholder="انتخاب کنید"
+                            />
                         )}
                     </form.Field>
 
@@ -93,6 +97,20 @@ export function SocialInsuranceSection({ form, uuid }: SectionProps) {
                             <FormDatePicker
                                 field={field}
                                 label="تاریخ شروع بیمه"
+                            />
+                        )}
+                    </form.Field>
+
+                    <form.Field
+                        name="social_insurance.branch_name"
+                        validators={zodFieldValidators(
+                            socialInsuranceFieldSchema.shape.branch_name,
+                        )}
+                    >
+                        {(field) => (
+                            <FormTextField
+                                field={field}
+                                label="شعبه بازنشستگی"
                             />
                         )}
                     </form.Field>
@@ -199,6 +217,122 @@ export function SocialInsuranceSection({ form, uuid }: SectionProps) {
                         )}
                     </form.Field>
                 )}
+
+                <form.Field
+                    name="social_insurance.monthly_breakdown"
+                    validators={zodFieldValidators(
+                        socialInsuranceFieldSchema.shape.monthly_breakdown,
+                    )}
+                >
+                    {(field) => (
+                        <FormRepeater
+                            defaultMode="table"
+                            field={field}
+                            label="تفکیک ماهانه"
+                            columns={[
+                                { key: "days", label: "روزها" },
+                                { key: "wage", label: "دستمزد" },
+                            ]}
+                            renderItem={(index) => (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <form.Field
+                                        name={`social_insurance.monthly_breakdown.${index}.days`}
+                                    >
+                                        {(f) => (
+                                            <FormNumberField
+                                                field={f}
+                                                label="روزها"
+                                            />
+                                        )}
+                                    </form.Field>
+                                    <form.Field
+                                        name={`social_insurance.monthly_breakdown.${index}.wage`}
+                                    >
+                                        {(f) => (
+                                            <FormTextField
+                                                field={f}
+                                                label="دستمزد"
+                                            />
+                                        )}
+                                    </form.Field>
+                                </div>
+                            )}
+                        />
+                    )}
+                </form.Field>
+
+                <form.Field
+                    name="social_insurance.job_titles"
+                    validators={zodFieldValidators(
+                        socialInsuranceFieldSchema.shape.job_titles,
+                    )}
+                >
+                    {(field) => (
+                        <FormRepeater
+                            defaultMode="table"
+                            field={field}
+                            label="سوابق عناوین شغلی"
+                            columns={[
+                                { key: "insurance_number", label: "شماره بیمه" },
+                                { key: "job_title", label: "عنوان شغلی" },
+                            ]}
+                            renderItem={(index) => (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <form.Field
+                                        name={`social_insurance.job_titles.${index}.insurance_number`}
+                                    >
+                                        {(f) => (
+                                            <FormTextField
+                                                field={f}
+                                                label="شماره بیمه"
+                                            />
+                                        )}
+                                    </form.Field>
+                                    <form.Field
+                                        name={`social_insurance.job_titles.${index}.start_date`}
+                                    >
+                                        {(f) => (
+                                            <FormDatePicker
+                                                field={f}
+                                                label="از تاریخ"
+                                            />
+                                        )}
+                                    </form.Field>
+                                    <form.Field
+                                        name={`social_insurance.job_titles.${index}.job_title`}
+                                    >
+                                        {(f) => (
+                                            <FormTextField
+                                                field={f}
+                                                label="عنوان شغلی"
+                                            />
+                                        )}
+                                    </form.Field>
+                                    <form.Field
+                                        name={`social_insurance.job_titles.${index}.workshop_code`}
+                                    >
+                                        {(f) => (
+                                            <FormTextField
+                                                field={f}
+                                                label="کد کارگاه"
+                                            />
+                                        )}
+                                    </form.Field>
+                                    <form.Field
+                                        name={`social_insurance.job_titles.${index}.workshop_name`}
+                                    >
+                                        {(f) => (
+                                            <FormTextField
+                                                field={f}
+                                                label="نام کارگاه / کارفرما"
+                                            />
+                                        )}
+                                    </form.Field>
+                                </div>
+                            )}
+                        />
+                    )}
+                </form.Field>
 
                 <FileUploadField
                     uuid={uuid}
