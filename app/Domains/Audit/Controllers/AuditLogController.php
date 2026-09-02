@@ -6,7 +6,7 @@ use App\Domains\Audit\Models\AuditLog;
 use App\Domains\Audit\Resources\AuditLogDetailResource;
 use App\Domains\Audit\Resources\AuditLogResource;
 use App\Domains\Audit\Services\AuditQueryService;
-use App\Http\Controllers\ApiController;
+use App\Support\ListQuery;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -15,10 +15,8 @@ use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
-class AuditLogController extends ApiController
+class AuditLogController
 {
-    protected ?string $model = null;
-
     /** @var list<string> Filters shared by the index, stats, and export endpoints. */
     private const FILTERS = [
         'event', 'category', 'actor_type', 'actor_id', 'actor_role_id',
@@ -42,18 +40,17 @@ class AuditLogController extends ApiController
 
         $filters = $request->only(self::FILTERS);
 
-        $perPage = min(max((int) $request->input('per_page', 20), 1), 100);
+        $perPage = ListQuery::perPage($request, max: 100);
 
         // Presence of the param opts into keyset pagination; `?cursor=` alone
         // fetches the first cursor page.
         $cursor = $request->has('cursor') ? (string) $request->input('cursor', '') : null;
-        $sort = $request->input('sort');
 
         $logs = $this->queryService->paginate(
             $filters,
             $perPage,
             $cursor,
-            is_string($sort) ? $sort : null,
+            ListQuery::sort($request),
         );
 
         return AuditLogResource::collection($logs);

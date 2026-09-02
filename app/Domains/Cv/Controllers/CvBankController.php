@@ -7,6 +7,7 @@ use App\Domains\Cv\Models\Cv;
 use App\Domains\Cv\Resources\CvResource;
 use App\Domains\Cv\Services\CvService;
 use App\Domains\Questionnaire\Resources\QuestionnaireResource;
+use App\Support\ListQuery;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -24,12 +25,12 @@ class CvBankController extends Controller
     {
         $query = Cv::query()
             ->with('documentUsages.document')
-            ->with('reviewer.employee');
+            ->with('reviewer.employee')
+            ->with('reviewer.activeRole');
 
         $this->authorization->scope($request->user(), 'cv.view', $query);
 
-        if ($request->filled('filter')) {
-            $filter = $request->input('filter');
+        if ($filter = ListQuery::filter($request)) {
             $query->where(function ($q) use ($filter) {
                 $q->where('first_name', 'like', "%{$filter}%")
                     ->orWhere('last_name', 'like', "%{$filter}%")
@@ -42,15 +43,14 @@ class CvBankController extends Controller
             $query->where('status', $request->input('status'));
         }
 
-        $sortField = in_array($request->input('sort'), ['created_at', 'updated_at', 'version', 'first_name', 'last_name'])
-            ? $request->input('sort')
-            : 'created_at';
-        $sortDirection = $request->input('order', 'desc') === 'asc' ? 'asc' : 'desc';
+        $sortField = ListQuery::sort($request, ['created_at', 'updated_at', 'version', 'first_name', 'last_name'], 'created_at');
+        $sortDirection = ListQuery::order($request);
         $query->orderBy($sortField, $sortDirection);
 
-        $perPage = min(max((int) $request->input('per_page', 20), 1), 50);
+        $paginator = $query->paginate(ListQuery::perPage($request));
+        CvResource::preloadLifecycleUsers($request, $paginator->items());
 
-        return CvResource::collection($query->paginate($perPage));
+        return CvResource::collection($paginator);
     }
 
     public function show(Request $request, string $cv): JsonResponse
@@ -58,10 +58,11 @@ class CvBankController extends Controller
         // A UUID literal can't be compared against the uuid column by Postgres
         // when the route receives the numeric id, so branch on the value type.
         $model = Str::isUuid($cv)
-            ? Cv::with('questionnaire')->with('documentUsages.document')->with('reviewer.employee')->where('uuid', $cv)->firstOrFail()
-            : Cv::with('questionnaire')->with('documentUsages.document')->with('reviewer.employee')->where('id', $cv)->firstOrFail();
+            ? Cv::with('questionnaire')->with('documentUsages.document')->with('reviewer.employee')->with('reviewer.activeRole')->where('uuid', $cv)->firstOrFail()
+            : Cv::with('questionnaire')->with('documentUsages.document')->with('reviewer.employee')->with('reviewer.activeRole')->where('id', $cv)->firstOrFail();
 
         $this->authorization->authorize($request->user(), 'cv.view', $model);
+        CvResource::preloadLifecycleUsers($request, [$model]);
 
         return response()->json([
             'data' => new CvResource($model),

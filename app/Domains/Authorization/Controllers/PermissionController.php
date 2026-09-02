@@ -9,12 +9,17 @@ use App\Domains\Authorization\Resources\PermissionGroupResource;
 use App\Domains\Authorization\Resources\PermissionResource;
 use App\Domains\Authorization\Services\AuthorizationVersion;
 use App\Domains\Authorization\Services\PermissionRegistrar;
+use App\Support\ListQuery;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class PermissionController
 {
+    public function __construct(
+        private AuthorizationVersion $version,
+    ) {}
+
     public function index(): AnonymousResourceCollection
     {
         $groups = PermissionGroup::with('permissions')->orderBy('sort_order')->get();
@@ -26,8 +31,7 @@ class PermissionController
     {
         $query = Permission::with('group');
 
-        if ($request->filled('filter')) {
-            $filter = $request->input('filter');
+        if ($filter = ListQuery::filter($request)) {
             $query->where(function ($q) use ($filter) {
                 $q->where('name', 'like', "%{$filter}%")
                     ->orWhere('display_name', 'like', "%{$filter}%");
@@ -36,8 +40,7 @@ class PermissionController
 
         $query->orderBy('name', 'asc');
 
-        $perPage = min(max((int) $request->input('per_page', 20), 1), 50);
-        $permissions = $query->paginate($perPage);
+        $permissions = $query->paginate(ListQuery::perPage($request));
 
         return PermissionResource::collection($permissions);
     }
@@ -51,7 +54,7 @@ class PermissionController
     {
         $permission = Permission::create($request->validated());
 
-        app(AuthorizationVersion::class)->bump();
+        $this->version->bump();
 
         return new PermissionResource($permission);
     }
@@ -61,7 +64,7 @@ class PermissionController
         $permission->roles()->detach();
         $permission->delete();
 
-        app(AuthorizationVersion::class)->bump();
+        $this->version->bump();
 
         return response()->json(['message' => __('authorization.permission_deleted')]);
     }

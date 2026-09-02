@@ -9,6 +9,7 @@ use App\Domains\Authorization\Events\UserUpdated;
 use App\Domains\Authorization\Requests\StoreUserRequest;
 use App\Domains\Authorization\Requests\UpdateUserRequest;
 use App\Models\User;
+use App\Support\ListQuery;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -34,8 +35,7 @@ class UserController
 
         $this->authorization->scope($request->user(), 'user.view', $query);
 
-        if ($request->filled('filter')) {
-            $filter = $request->input('filter');
+        if ($filter = ListQuery::filter($request)) {
             $query->where(function ($q) use ($filter) {
                 $q->where('name', 'like', "%{$filter}%")
                     ->orWhere('email', 'like', "%{$filter}%");
@@ -59,13 +59,11 @@ class UserController
             $query->where('is_active', filter_var($request->input('is_active'), FILTER_VALIDATE_BOOLEAN));
         }
 
-        $sortField = $request->input('sort', 'name');
-        $sortDirection = $request->input('order', 'asc') === 'desc' ? 'desc' : 'asc';
+        $sortField = ListQuery::sort($request, default: 'name');
+        $sortDirection = ListQuery::order($request, default: 'asc');
         $query->orderBy($this->sortable[$sortField] ?? 'name', $sortDirection);
 
-        $perPage = min(max((int) $request->input('per_page', 20), 1), 50);
-
-        $users = $query->paginate($perPage);
+        $users = $query->paginate(ListQuery::perPage($request));
 
         return UserResource::collection($users);
     }

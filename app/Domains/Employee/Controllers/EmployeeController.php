@@ -3,10 +3,6 @@
 namespace App\Domains\Employee\Controllers;
 
 use App\Contracts\Authorization;
-use App\Domains\Employee\Events\EmployeeCreated;
-use App\Domains\Employee\Events\EmployeeDeleted;
-use App\Domains\Employee\Events\EmployeeSubmitted;
-use App\Domains\Employee\Events\EmployeeUpdated;
 use App\Domains\Employee\Models\Employee;
 use App\Domains\Employee\Requests\SaveEmployeeSectionRequest;
 use App\Domains\Employee\Requests\StoreEmployeeRequest;
@@ -14,15 +10,13 @@ use App\Domains\Employee\Requests\SubmitEmployeeRequest;
 use App\Domains\Employee\Requests\UpdateEmployeeRequest;
 use App\Domains\Employee\Resources\EmployeeResource;
 use App\Domains\Employee\Services\EmployeeService;
-use App\Http\Controllers\ApiController;
+use App\Support\ListQuery;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
-class EmployeeController extends ApiController
+class EmployeeController
 {
-    protected ?string $model = Employee::class;
-
     /** @var array<string, string> */
     private array $sortable = [
         'personnel_code' => 'personnel_code',
@@ -41,12 +35,11 @@ class EmployeeController extends ApiController
 
     public function index(Request $request): AnonymousResourceCollection
     {
-        $query = Employee::with(['user']);
+        $query = Employee::with(['user.activeRole']);
 
         $this->authorization->scope($request->user(), 'employee.list', $query);
 
-        if ($request->filled('filter')) {
-            $filter = $request->input('filter');
+        if ($filter = ListQuery::filter($request)) {
             $query->where(function ($q) use ($filter) {
                 $q->where('personnel_code', 'like', "%{$filter}%")
                     ->orWhere('first_name', 'like', "%{$filter}%")
@@ -58,13 +51,11 @@ class EmployeeController extends ApiController
             $query->where('employment_status', $request->input('status'));
         }
 
-        $sortField = $request->input('sort', 'personnel_code');
-        $sortDirection = $request->input('order', 'desc') === 'asc' ? 'asc' : 'desc';
+        $sortField = ListQuery::sort($request, default: 'personnel_code');
+        $sortDirection = ListQuery::order($request);
         $query->orderBy($this->sortable[$sortField] ?? 'created_at', $sortDirection);
 
-        $perPage = min(max((int) $request->input('per_page', 20), 1), 50);
-
-        $employees = $query->paginate($perPage);
+        $employees = $query->paginate(ListQuery::perPage($request));
 
         return EmployeeResource::collection($employees);
     }
@@ -76,8 +67,6 @@ class EmployeeController extends ApiController
             $this->collectSections($request),
         );
         $employee->load(['user']);
-
-        event(new EmployeeCreated($employee));
 
         return new EmployeeResource($employee);
     }
@@ -95,20 +84,8 @@ class EmployeeController extends ApiController
     {
         $this->authorization->authorize($request->user(), 'employee.update', $employee);
 
-        $oldValues = $employee->only(array_keys($request->validated()));
-        $employee->update($request->validated());
-        $newValues = $employee->only(array_keys($request->validated()));
+        $this->employeeService->update($employee, $request->validated());
         $employee->load(['user']);
-
-        $actualChanges = $this->diffAttributes($oldValues, $newValues);
-
-        if ($actualChanges !== []) {
-            event(new EmployeeUpdated(
-                $employee,
-                array_intersect_key($oldValues, $actualChanges),
-                array_intersect_key($newValues, $actualChanges),
-            ));
-        }
 
         return new EmployeeResource($employee);
     }
@@ -116,31 +93,15 @@ class EmployeeController extends ApiController
     public function saveSection(Employee $employee, string $section, SaveEmployeeSectionRequest $request): EmployeeResource
     {
         $actor = $request->user();
-        $authorization = app(Authorization::class);
         // OR semantics: the section's own save permission is sufficient on
         // its own, and the generic update permission keeps working.
-        if (! $authorization->can($actor, 'employee.update', $employee)
-            && ! $authorization->can($actor, $this->employeeService->savePermissionFor($section), $employee)) {
+        if (! $this->authorization->can($actor, 'employee.update', $employee)
+            && ! $this->authorization->can($actor, $this->employeeService->savePermissionFor($section), $employee)) {
             abort(403, __('messages.permission_denied'));
         }
 
-        $oldValues = $employee->toArray();
-
         $employee = $this->employeeService->saveSection($employee, $section, $request->validated(), $request->user());
-
-        $newValues = $employee->toArray();
         $employee->load(['user']);
-
-        $actualChanges = $this->diffAttributes($oldValues, $newValues);
-
-        if ($actualChanges !== []) {
-            event(new EmployeeUpdated(
-                $employee,
-                array_intersect_key($oldValues, $actualChanges),
-                array_intersect_key($newValues, $actualChanges),
-                $section,
-            ));
-        }
 
         return new EmployeeResource($employee);
     }
@@ -152,8 +113,6 @@ class EmployeeController extends ApiController
         $employee = $this->employeeService->submit($employee);
         $employee->load(['user']);
 
-        event(new EmployeeSubmitted($employee));
-
         return new EmployeeResource($employee);
     }
 
@@ -161,10 +120,7 @@ class EmployeeController extends ApiController
     {
         $this->authorization->authorize($request->user(), 'employee.delete', $employee);
 
-        $employeeId = $employee->getKey();
-        $employee->delete();
-
-        event(new EmployeeDeleted($employeeId));
+        $this->employeeService->delete($employee);
 
         return response()->json(['message' => __('employee.deleted')]);
     }
@@ -186,25 +142,5 @@ class EmployeeController extends ApiController
         }
 
         return $sections;
-    }
-
-    /**
-     * Compare two attribute arrays and return only keys where values actually differ.
-     *
-     * @param  array<string, mixed>  $old
-     * @param  array<string, mixed>  $new
-     * @return array<string, mixed>
-     */
-    private function diffAttributes(array $old, array $new): array
-    {
-        $changes = [];
-
-        foreach ($new as $key => $value) {
-            if (! array_key_exists($key, $old) || $old[$key] !== $value) {
-                $changes[$key] = $value;
-            }
-        }
-
-        return $changes;
     }
 }

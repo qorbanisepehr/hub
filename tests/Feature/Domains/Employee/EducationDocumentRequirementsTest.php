@@ -2,7 +2,7 @@
 
 use App\Domains\Document\Models\DocumentCategory;
 use App\Domains\Employee\Models\Employee;
-use App\Domains\Questionnaire\Sections\EducationSection;
+use App\Support\Sections\Definitions\EducationSection;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;

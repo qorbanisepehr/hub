@@ -1,11 +1,8 @@
 <?php
 
-namespace App\Contracts;
+namespace App\Support;
 
-use App\Domains\Cv\Models\Cv;
 use App\Domains\Document\Models\DocumentUsage;
-use App\Domains\Employee\Models\Employee;
-use App\Domains\Questionnaire\Models\Questionnaire;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
@@ -20,13 +17,7 @@ trait DocumentableTrait
 
     public function getDocumentRouteType(): string
     {
-        $map = [
-            'employee' => Employee::class,
-            'questionnaire' => Questionnaire::class,
-            'cv' => Cv::class,
-        ];
-
-        return array_search(static::class, $map, true) ?: 'unknown';
+        return DocumentRouteType::routeTypeFor(static::class) ?? 'unknown';
     }
 
     public function resolveDocumentRouteBinding(string $key): ?Model

@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Domains\Questionnaire\Sections;
+namespace App\Support\Sections\Definitions;
 
 use App\Support\Sections\BaseSection;
 

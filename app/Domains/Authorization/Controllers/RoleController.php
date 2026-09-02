@@ -3,29 +3,23 @@
 namespace App\Domains\Authorization\Controllers;
 
 use App\Contracts\Authorization;
-use App\Domains\Authorization\Events\PermissionAssigned;
-use App\Domains\Authorization\Events\RoleCreated;
-use App\Domains\Authorization\Events\RoleDeleted;
-use App\Domains\Authorization\Events\RoleToggled;
-use App\Domains\Authorization\Events\RoleUpdated;
 use App\Domains\Authorization\Exports\RoleChartCsvExporter;
-use App\Domains\Authorization\Models\PermissionGroup;
 use App\Domains\Authorization\Models\Role;
 use App\Domains\Authorization\Requests\StoreRoleRequest;
 use App\Domains\Authorization\Requests\UpdateRoleRequest;
 use App\Domains\Authorization\Resources\RoleResource;
-use App\Domains\Authorization\Services\AuthorizationVersion;
+use App\Domains\Authorization\Services\RoleService;
 use App\Models\User;
+use App\Support\ListQuery;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
-use Illuminate\Http\Response;
-use Illuminate\Support\Facades\DB;
 
 class RoleController
 {
     public function __construct(
         private Authorization $authorization,
+        private RoleService $roleService,
     ) {}
 
     /** @var array<string, string> */
@@ -42,8 +36,7 @@ class RoleController
 
         $this->authorization->scope($request->user(), 'role.view', $query);
 
-        if ($request->filled('filter')) {
-            $filter = $request->input('filter');
+        if ($filter = ListQuery::filter($request)) {
             $query->where(function ($q) use ($filter) {
                 $q->where('name', 'like', "%{$filter}%")
                     ->orWhere('display_name', 'like', "%{$filter}%");
@@ -54,11 +47,11 @@ class RoleController
             $query->where('is_active', $request->boolean('is_active'));
         }
 
-        $sortField = $request->input('sort', 'display_name');
-        $sortDirection = $request->input('order', 'asc') === 'desc' ? 'desc' : 'asc';
+        $sortField = ListQuery::sort($request, default: 'display_name');
+        $sortDirection = ListQuery::order($request, default: 'asc');
         $query->orderBy($this->sortable[$sortField] ?? 'display_name', $sortDirection);
 
-        $perPage = min(max((int) $request->input('per_page', 20), 1), 50);
+        $perPage = ListQuery::perPage($request);
 
         $roles = $query->paginate($perPage);
 
@@ -136,13 +129,7 @@ class RoleController
 
     public function store(StoreRoleRequest $request): RoleResource
     {
-        $role = Role::create($this->withJsonFields($request, $request->validated()));
-
-        $this->syncPermissions($role, $request);
-
-        app(AuthorizationVersion::class)->bump();
-
-        event(new RoleCreated($role, $role->permissions->pluck('id')->toArray()));
+        $role = $this->roleService->store($request->validated(), $request);
 
         return new RoleResource($this->loadRelations($role));
     }
@@ -158,15 +145,7 @@ class RoleController
     {
         $this->authorization->authorize($request->user(), 'role.update', $role);
 
-        $old = $role->only(['name', 'display_name', 'description', 'is_active']);
-        $role->update($this->withJsonFields($request, $request->validated()));
-        $new = $role->only(['name', 'display_name', 'description', 'is_active']);
-
-        $this->syncPermissions($role, $request);
-
-        app(AuthorizationVersion::class)->bump();
-
-        event(new RoleUpdated($role, $old, $new));
+        $this->roleService->update($role, $request->validated(), $request);
 
         return new RoleResource($this->loadRelations($role));
     }
@@ -175,17 +154,7 @@ class RoleController
     {
         $this->authorization->authorize($request->user(), 'role.delete', $role);
 
-        $roleData = $role->only(['name', 'display_name']);
-
-        DB::transaction(function () use ($role) {
-            User::where('active_role_id', $role->id)->update(['active_role_id' => null]);
-            $role->users()->detach();
-            $role->delete();
-        });
-
-        app(AuthorizationVersion::class)->bump();
-
-        event(new RoleDeleted($role));
+        $this->roleService->destroy($role);
 
         return response()->json(['message' => __('authorization.role_deleted')]);
     }
@@ -202,16 +171,20 @@ class RoleController
         ]);
 
         $roles = Role::whereIn('id', $request->role_ids)->get();
-        $permissionIds = $this->resolvePermissionIds($request);
+
+        $permissionIds = $this->roleService->resolvePermissionIds(
+            $request->input('permission_ids', []),
+            $request->input('permission_group_ids', []),
+        );
 
         foreach ($roles as $role) {
             $this->authorization->authorize($request->user(), 'role.update', $role);
-            $role->grantPermissions($permissionIds);
-            $this->flushRoleUsersCaches($role);
-            event(new PermissionAssigned($role, $permissionIds));
         }
 
-        app(AuthorizationVersion::class)->bump();
+        $this->roleService->batchAssign(
+            array_map(fn ($id) => (int) $id, $request->role_ids),
+            $permissionIds,
+        );
 
         return response()->json(['message' => __('authorization.permissions_assigned')]);
     }
@@ -220,11 +193,7 @@ class RoleController
     {
         $this->authorization->authorize($request->user(), 'role.update', $role);
 
-        $role->update(['is_active' => ! $role->is_active]);
-
-        app(AuthorizationVersion::class)->bump();
-
-        event(new RoleToggled($role, $role->is_active));
+        $this->roleService->toggle($role);
 
         return new RoleResource($this->loadRelations($role));
     }
@@ -248,52 +217,6 @@ class RoleController
         return $role;
     }
 
-    private function syncPermissions(Role $role, Request $request): void
-    {
-        if ($request->has('access_rules')) {
-            $role->syncAccessRules($request->input('access_rules'));
-            $this->flushRoleUsersCaches($role);
-
-            return;
-        }
-
-        if ($request->has('permission_ids')) {
-            $role->syncPermissions($this->permissionIds($request));
-            $this->flushRoleUsersCaches($role);
-        }
-    }
-
-    /**
-     * Expand permission ids + permission group ids into a single permission id list.
-     *
-     * @return array<int, int>
-     */
-    private function resolvePermissionIds(Request $request): array
-    {
-        $ids = $this->permissionIds($request);
-
-        foreach ($request->input('permission_group_ids', []) as $groupId) {
-            foreach (PermissionGroup::findOrFail($groupId)->permissions()->pluck('id') as $permissionId) {
-                $ids[] = (int) $permissionId;
-            }
-        }
-
-        return array_values(array_unique($ids));
-    }
-
-    /**
-     * Cast the plain permission id list from the request.
-     *
-     * @return array<int, int>
-     */
-    private function permissionIds(Request $request): array
-    {
-        return array_map(
-            fn ($id) => (int) $id,
-            $request->input('permission_ids', []),
-        );
-    }
-
     public function exportChart(Request $request)
     {
         $scope = $request->query('scope', 'all');
@@ -302,11 +225,11 @@ class RoleController
         $fields = array_filter(array_map('trim', explode(',', (string) $request->query('fields', ''))));
 
         if ($format !== 'csv') {
-            return response()->json(['message' => 'این فرمت هنوز پشتیبانی نمی‌شود.'], 422);
+            return response()->json(['message' => __('authorization.format_not_supported')], 422);
         }
 
         if ($scope === 'subtree' && $rootId === null) {
-            return response()->json(['message' => 'برای خروجی زیرمجموعه، انتخاب نقش ریشه الزامی است.'], 422);
+            return response()->json(['message' => __('authorization.subtree_root_required')], 422);
         }
 
         if ($rootId !== null) {
@@ -334,30 +257,5 @@ class RoleController
         return response()->json([
             'data' => (new RoleChartCsvExporter)->availableFields(),
         ]);
-    }
-
-    /**
-     * Restore json fields whose empty values are omitted from validated data.
-     *
-     * Laravel's validator drops empty arrays for fields that have explicit
-     * nested rules, so re-attach them when the request actually sent them.
-     *
-     * @param  array<string, mixed>  $validated
-     * @return array<string, mixed>
-     */
-    private function withJsonFields(Request $request, array $validated): array
-    {
-        foreach (['matrix_managers', 'requirements'] as $field) {
-            if ($request->has($field)) {
-                $validated[$field] = $request->input($field);
-            }
-        }
-
-        return $validated;
-    }
-
-    private function flushRoleUsersCaches(Role $role): void
-    {
-        $role->users->each(fn (User $user) => $user->flushPermissionCache());
     }
 }

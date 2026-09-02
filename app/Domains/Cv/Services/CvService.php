@@ -11,31 +11,27 @@ use App\Domains\Cv\Sections\PersonalInfoSection;
 use App\Domains\Document\Services\DocumentService;
 use App\Domains\Questionnaire\Models\Questionnaire;
 use App\Domains\Questionnaire\Repositories\QuestionnaireRepositoryInterface;
-use App\Domains\Questionnaire\Sections\EducationSection;
-use App\Domains\Questionnaire\Sections\SkillsSection;
-use App\Domains\Questionnaire\Sections\TrainingSection;
-use App\Domains\Questionnaire\Sections\WorkExperienceSection;
 use App\Support\MobileNumber;
+use App\Support\Sections\Definitions\EducationSection;
+use App\Support\Sections\Definitions\SkillsSection;
+use App\Support\Sections\Definitions\TrainingSection;
+use App\Support\Sections\Definitions\WorkExperienceSection;
 use App\Support\Sections\SectionDefinition;
+use App\Support\Sections\SectionService;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
-use InvalidArgumentException;
 
-class CvService
+class CvService extends SectionService
 {
-    /** @var array<string, SectionDefinition> */
-    private array $sections;
-
     public function __construct(
         private CvRepositoryInterface $repository,
         private DocumentService $documentService,
         private QuestionnaireRepositoryInterface $questionnaireRepository,
     ) {
-        $this->registerSections();
+        parent::__construct();
     }
 
-    private function registerSections(): void
+    protected function definitions(): array
     {
         // CV-specific definitions (slim field set / CV document requirements).
         $definitions = [
@@ -44,8 +40,9 @@ class CvService
             AdditionalInfoSection::class,
         ];
 
-        // Sections identical to the questionnaire's are reused cross-domain to
-        // avoid duplicating their rules (documented DRY pattern).
+        // Sections identical across domains are reused from the shared
+        // definitions (documented DRY pattern); note this keeps CV decoupled
+        // from the Questionnaire domain.
         $shared = [
             EducationSection::class,
             WorkExperienceSection::class,
@@ -53,10 +50,13 @@ class CvService
             TrainingSection::class,
         ];
 
-        foreach ([...$definitions, ...$shared] as $class) {
-            $section = new $class;
-            $this->sections[$section->key()] = $section;
-        }
+        return [...$definitions, ...$shared];
+    }
+
+    protected function documentsSectionKey(): ?string
+    {
+        // CV documents are placed at the standalone 'documents' section.
+        return 'documents';
     }
 
     public function create(array $baseData): Cv
@@ -161,13 +161,7 @@ class CvService
         $errors = array_merge($errors, $this->documentService->validateRequirements($cv, $this->getDocumentRequirements()));
 
         if (! empty($errors)) {
-            $validator = Validator::make([], []);
-            foreach ($errors as $field => $messages) {
-                foreach ($messages as $message) {
-                    $validator->errors()->add($field, $message);
-                }
-            }
-            throw new ValidationException($validator);
+            $this->throwValidationErrors($errors);
         }
 
         $cv->recordLifecycleEvent([
@@ -259,80 +253,18 @@ class CvService
     }
 
     /**
-     * Merge per-category document requirements declared by every section
-     * definition. CV documents are placed at the standalone 'documents'
-     * section (declared explicitly by the sections).
-     *
-     * @return array<string, array<string, mixed>>
-     */
-    public function getDocumentRequirements(): array
-    {
-        $requirements = [];
-
-        foreach ($this->sections as $section) {
-            foreach ($section->documentRequirements() as $slug => $requirement) {
-                $requirements[$slug] = $requirement + ['section_key' => 'documents'];
-            }
-        }
-
-        return $requirements;
-    }
-
-    /**
-     * Run completion validation against all sections.
-     *
-     * @return array<string, string[]>
-     */
-    public function validateCompletion(Cv $cv): array
-    {
-        $allData = $this->gatherAllData($cv);
-        $allErrors = [];
-
-        foreach ($this->sections as $key => $section) {
-            $sectionData = $allData[$key] ?? null;
-
-            if (empty($section->rulesFor(SectionDefinition::MODE_COMPLETION))) {
-                continue;
-            }
-
-            $validator = $section->validateData($sectionData ?? [], SectionDefinition::MODE_COMPLETION);
-
-            if ($validator->fails()) {
-                $allErrors = array_merge($allErrors, $validator->errors()->toArray());
-            }
-        }
-
-        return $allErrors;
-    }
-
-    public function getSection(string $key): SectionDefinition
-    {
-        if (! isset($this->sections[$key])) {
-            throw new InvalidArgumentException("Unknown section: {$key}");
-        }
-
-        return $this->sections[$key];
-    }
-
-    /** @return string[] */
-    public function getSectionKeys(): array
-    {
-        return array_keys($this->sections);
-    }
-
-    /**
      * Gather all section data from the CV for completion validation.
      *
      * @return array<string, mixed>
      */
-    private function gatherAllData(Cv $cv): array
+    protected function gatherAllData(mixed $entity): array
     {
         $data = [];
 
         foreach ($this->sections as $key => $section) {
             $storage = $section->storage();
             $jsonbColumn = $storage['jsonb'] ?? null;
-            $data[$key] = $jsonbColumn ? ($cv->{$jsonbColumn} ?? null) : null;
+            $data[$key] = $jsonbColumn ? ($entity->{$jsonbColumn} ?? null) : null;
         }
 
         // email/mobile are committed to real columns (init + OTP verification),
@@ -341,8 +273,8 @@ class CvService
         $data['contact_info'] = array_merge(
             $data['contact_info'] ?? [],
             [
-                'email' => $cv->email,
-                'mobile' => $cv->mobile,
+                'email' => $entity->email,
+                'mobile' => $entity->mobile,
             ],
         );
 
@@ -363,15 +295,5 @@ class CvService
             'mobile' => $cv->mobile,
             'sections' => $this->gatherAllData($cv),
         ];
-    }
-
-    private function extractRealFields(
-        array $data,
-        array $realFields
-    ): array {
-        return array_intersect_key(
-            $data,
-            array_flip($realFields)
-        );
     }
 }

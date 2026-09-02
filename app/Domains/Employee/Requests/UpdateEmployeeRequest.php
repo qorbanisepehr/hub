@@ -4,17 +4,11 @@ namespace App\Domains\Employee\Requests;
 
 use App\Rules\FormOptionValue;
 use App\Support\ValidationRules;
-use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Unique;
 
-class UpdateEmployeeRequest extends FormRequest
+class UpdateEmployeeRequest extends StoreEmployeeRequest
 {
-    public function authorize(): bool
-    {
-        return true;
-    }
-
     /** @return array<string, array<int, string|Unique|FormOptionValue>> */
     public function rules(): array
     {
@@ -35,25 +29,6 @@ class UpdateEmployeeRequest extends FormRequest
             'hire_date' => ['nullable', 'date'],
             'employment_status' => ['nullable', 'string', 'in:active,inactive,suspended'],
             'user_id' => ['nullable', 'integer', 'exists:users,id', Rule::unique('employees', 'user_id')->ignore($this->route('employee'))],
-        ];
-    }
-
-    /** @return array<string, string> */
-    public function messages(): array
-    {
-        return [
-            'personnel_code.required' => 'کد پرسنلی الزامی است.',
-            'personnel_code.unique' => 'این کد پرسنلی قبلاً استفاده شده است.',
-            'first_name.required' => 'نام الزامی است.',
-            'last_name.required' => 'نام خانوادگی الزامی است.',
-            'gender.required' => 'جنسیت الزامی است.',
-            'id_number.unique' => 'این کد ملی قبلاً در سیستم ثبت شده است.',
-            'id_number.min' => 'کد ملی باید ۱۰ رقم باشد.',
-            'id_number.max' => 'کد ملی باید ۱۰ رقم باشد.',
-            'employment_type.in' => 'نوع استخدام نامعتبر است.',
-            'employment_status.in' => 'وضعیت استخدام نامعتبر است.',
-            'user_id.exists' => 'کاربر مورد نظر یافت نشد.',
-            'user_id.unique' => 'این کاربر قبلاً به کارمند دیگری اختصاص داده شده است.',
         ];
     }
 }

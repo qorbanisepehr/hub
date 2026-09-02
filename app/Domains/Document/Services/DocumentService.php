@@ -3,6 +3,10 @@
 namespace App\Domains\Document\Services;
 
 use App\Contracts\Documentable;
+use App\Domains\Document\Events\DocumentDeleted;
+use App\Domains\Document\Events\DocumentPlaced;
+use App\Domains\Document\Events\DocumentRestored;
+use App\Domains\Document\Events\DocumentUploaded;
 use App\Domains\Document\Jobs\GenerateDocumentThumbnail;
 use App\Domains\Document\Models\Document;
 use App\Domains\Document\Models\DocumentCategory;
@@ -12,8 +16,11 @@ use App\Support\Sections\SectionDefinition;
 use App\Support\Sections\SectionRegistryLocator;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class DocumentService
 {
@@ -174,7 +181,11 @@ class DocumentService
         // Attach usage
         $this->repository->attachUsage($document, $entity, $sectionKey, $fieldKey, $metadata);
 
-        return $document->load('usages');
+        $document = $document->load('usages');
+
+        event(new DocumentUploaded($document, $entity, $category->name));
+
+        return $document;
     }
 
     /**
@@ -223,6 +234,8 @@ class DocumentService
 
         $usage->delete();
 
+        event(new DocumentDeleted($usageId, get_class($entity), $entity->getKey()));
+
         return true;
     }
 
@@ -243,6 +256,8 @@ class DocumentService
         }
 
         $usage->restore();
+
+        event(new DocumentRestored($usageId, get_class($entity), $entity->getKey()));
 
         return true;
     }
@@ -309,7 +324,11 @@ class DocumentService
 
         $this->repository->attachUsage($document, $entity, $sectionKey, $fieldKey, $metadata);
 
-        return $document->load('usages');
+        $document = $document->load('usages');
+
+        event(new DocumentPlaced($document));
+
+        return $document;
     }
 
     /**
@@ -434,6 +453,135 @@ class DocumentService
         }
 
         return $bytes.' bytes';
+    }
+
+    /**
+     * Decode a JSON request field into an array (null-safe).
+     *
+     * @return array<string, mixed>|null
+     */
+    public function decodeJson(?string $value): ?array
+    {
+        if (! $value) {
+            return null;
+        }
+
+        $decoded = json_decode($value, true);
+
+        return is_array($decoded) ? $decoded : null;
+    }
+
+    /**
+     * Shared document payload used by every entity document endpoint. The
+     * superset carries the lifecycle keys (document_id, deleted_at) as
+     * additive fields; consumers read the keys they know.
+     */
+    public function documentPayload(Document $document, DocumentUsage $usage, string $serveRouteName): array
+    {
+        $names = $this->structureNames($document, $usage);
+
+        return [
+            'id' => $document->id,
+            'usage_id' => $usage->id,
+            'document_id' => $document->id,
+            'uuid' => $document->uuid,
+            'mime_type' => $document->mime_type,
+            'size' => $document->size,
+            'category' => $document->category ? [
+                'id' => $document->category->id,
+                'name' => $document->category->name,
+                'slug' => $document->category->slug,
+            ] : null,
+            'structure_name' => $names['name'],
+            'structure_name_slug' => $names['slug'],
+            'section_key' => $usage->section_key,
+            'field_key' => $usage->field_key,
+            'notes' => $usage->metadata['notes'] ?? null,
+            'metadata' => $usage->metadata ?? [],
+            'deleted_at' => $usage->deleted_at?->toIso8601String(),
+            'url' => route($serveRouteName, ['uuid' => $document->uuid], false),
+            'download_url' => route($serveRouteName, ['uuid' => $document->uuid, 'download' => 1], false),
+        ];
+    }
+
+    /**
+     * Count active usages matching a category (and optional placement) on an
+     * entity, for per-category max-files enforcement.
+     */
+    public function usageCountForPlacement(Documentable $entity, int $categoryId, ?string $fieldKey = null, ?string $notes = null): int
+    {
+        return DocumentUsage::query()
+            ->where('entity_type', $entity::class)
+            ->where('entity_id', $entity->getKey())
+            ->whereHas('document', fn ($query) => $query->where('category_id', $categoryId))
+            ->when($fieldKey !== null, fn ($query) => $query->where('field_key', $fieldKey))
+            ->when($notes !== null, fn ($query) => $query->where('metadata->notes', $notes))
+            ->count();
+    }
+
+    /**
+     * Total active usages across all categories on an entity.
+     */
+    public function totalUsageCount(Documentable $entity): int
+    {
+        return DocumentUsage::query()
+            ->where('entity_type', $entity::class)
+            ->where('entity_id', $entity->getKey())
+            ->count();
+    }
+
+    /**
+     * Total-cap per entity type. The config key falls back to the document
+     * route type so every Documentable resolves its own limit.
+     */
+    public function maxFilesFor(Documentable $entity): int
+    {
+        $configKey = $entity->getDocumentConfigKey() ?? $entity->getDocumentRouteType();
+
+        return (int) config("documents.{$configKey}.max_files", 20);
+    }
+
+    /**
+     * Re-query the usage for a freshly uploaded document (optional placement
+     * filters preserved from the upload call).
+     */
+    public function newestUsageFor(Documentable $entity, int $documentId, ?string $fieldKey = null, ?string $notes = null): DocumentUsage
+    {
+        return DocumentUsage::query()
+            ->where('document_id', $documentId)
+            ->where('entity_type', $entity::class)
+            ->where('entity_id', $entity->getKey())
+            ->when($fieldKey !== null, fn ($query) => $query->where('field_key', $fieldKey))
+            ->when($notes !== null, fn ($query) => $query->where('metadata->notes', $notes))
+            ->latest('id')
+            ->firstOrFail();
+    }
+
+    /**
+     * Serve a document file with optional thumbnail and download branches.
+     */
+    public function serve(Document $document, Request $request): StreamedResponse
+    {
+        $disk = $document->disk;
+        $path = $document->path;
+
+        if ($request->boolean('thumbnail')) {
+            $thumbPath = $this->repository->getThumbnailPath($path);
+
+            if (Storage::disk($disk)->exists($thumbPath)) {
+                return Storage::disk($disk)->response($thumbPath);
+            }
+        }
+
+        if (! Storage::disk($disk)->exists($path)) {
+            abort(404);
+        }
+
+        if ($request->boolean('download')) {
+            return Storage::disk($disk)->download($path, $this->downloadName($document));
+        }
+
+        return Storage::disk($disk)->response($path);
     }
 
     private function getIdentifier(Documentable $entity): string

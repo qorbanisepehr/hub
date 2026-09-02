@@ -11,6 +11,10 @@ class DynamicPolicy
 {
     private const KNOWN_ABILITIES = ['viewAny', 'view', 'create', 'update', 'delete', 'upload', 'download'];
 
+    public function __construct(
+        private Authorization $authorization,
+    ) {}
+
     /**
      * Resolve the full config for a model.
      *
@@ -108,7 +112,7 @@ class DynamicPolicy
     protected function resolve(User $user, mixed $permission, Model $model, ?array $config = null, ?Model $resource = null): bool
     {
         return match (true) {
-            is_string($permission) => app(Authorization::class)->can($user, $permission, $resource),
+            is_string($permission) => $this->authorization->can($user, $permission, $resource),
             is_array($permission) => $user->hasAnyPermission($permission),
             default => false,
         };

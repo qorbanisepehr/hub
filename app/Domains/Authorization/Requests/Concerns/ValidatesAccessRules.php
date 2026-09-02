@@ -10,8 +10,10 @@ use Illuminate\Validation\Rule;
  * Shared access rule validation for the role store/update requests. Rules must
  * reference an existing permission and an allowed effect; a policy (condition
  * tree) is validated against the permission's resolved resource type.
- */
-trait ValidatesAccessRules
+ *
+ * Consuming requests must promote a `private readonly PolicyValidator
+ * $policyValidator` constructor property.
+ */ trait ValidatesAccessRules
 {
     /**
      * @return array<string, mixed>
@@ -27,7 +29,7 @@ trait ValidatesAccessRules
                 $index = (int) explode('.', $attribute)[1];
                 $permissionId = (int) $this->input("access_rules.{$index}.permission_id");
 
-                $errors = app(PolicyValidator::class)->errorsForPermission($value, $permissionId);
+                $errors = $this->policyValidator->errorsForPermission($value, $permissionId);
 
                 if ($errors !== []) {
                     $fail(implode(' ', $errors));

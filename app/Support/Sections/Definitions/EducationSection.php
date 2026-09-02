@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Domains\Questionnaire\Sections;
+namespace App\Support\Sections\Definitions;
 
 use App\Contracts\Documentable;
 use App\Rules\FormOptionValue;
@@ -16,7 +16,7 @@ use Illuminate\Contracts\Validation\Validator;
  * Document placement: every education row owns a dynamic placement group
  * `edu-{index}` under section `education` for its academic degree pages.
  * Submit-time enforcement of those counts comes from the
- * EnforcesRowDocuments trait (wired through EmployeeService completion).
+ * EnforcesRowDocuments trait (wired through employee completion).
  */
 class EducationSection extends BaseSection
 {
@@ -42,15 +42,12 @@ class EducationSection extends BaseSection
             // declared in dynamicDocumentRequirements() instead.
             'academic-degree' => [
                 'required' => false,
-                // 'max_files' => ,
             ],
             'language-certificate' => [
                 'required' => false,
-                // 'max_files' => 1,
             ],
             'course-certificates' => [
                 'required' => false,
-                // 'max_files' => 5,
             ],
         ];
     }

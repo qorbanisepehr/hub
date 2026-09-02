@@ -4,18 +4,23 @@ namespace App\Domains\Questionnaire\Models;
 
 use App\Casts\MobileNumberCast;
 use App\Contracts\Documentable;
-use App\Contracts\DocumentableTrait;
 use App\Contracts\OtpVerifiable;
+use App\Models\Traits\HasJsonSections;
+use App\Models\Traits\HasLifecycleVersion;
+use App\Models\Traits\VerifiesOtp;
 use App\Models\User;
+use App\Support\DocumentableTrait;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Support\Str;
 
 class Questionnaire extends Model implements Documentable, OtpVerifiable
 {
     use DocumentableTrait;
+    use HasJsonSections;
+    use HasLifecycleVersion;
     use SoftDeletes;
+    use VerifiesOtp;
 
     protected $fillable = [
         'uuid',
@@ -94,39 +99,22 @@ class Questionnaire extends Model implements Documentable, OtpVerifiable
         'section_job_request' => 'array',
     ];
 
-    protected static function boot(): void
+    /**
+     * Military service data only applies to male candidates; whenever gender
+     * changes away from male (male → female), drop any orphaned military
+     * record from the personal-info section. On a questionnaire, gender is a
+     * real column, so this runs when that column changes.
+     */
+    protected function handleSectionPersistence(): void
     {
-        parent::boot();
+        if ($this->isDirty('gender') && $this->gender !== 'male') {
+            $this->pruneNonMaleMilitaryStatus();
+        }
+    }
 
-        static::creating(function (Questionnaire $model): void {
-            if (empty($model->uuid)) {
-                $model->uuid = (string) Str::uuid();
-            }
-        });
-
-        static::saving(function (Questionnaire $model): void {
-            if (! $model->exists) {
-                return;
-            }
-
-            if ($model->isDirty('email')) {
-                $model->email_verified_at = null;
-            }
-            if ($model->isDirty('mobile')) {
-                $model->mobile_verified_at = null;
-            }
-
-            // Military service data only applies to male candidates; whenever
-            // gender changes away from male (male → female), drop any orphaned
-            // military record from the personal-info section.
-            if ($model->isDirty('gender') && $model->gender !== 'male') {
-                $sectionPersonal = $model->section_personal ?? [];
-                if (array_key_exists('military_status', $sectionPersonal) && $sectionPersonal['military_status'] !== null) {
-                    unset($sectionPersonal['military_status']);
-                    $model->section_personal = $sectionPersonal;
-                }
-            }
-        });
+    protected function otpIdentifierPrefix(): string
+    {
+        return 'questionnaire';
     }
 
     /** @return BelongsTo<User, $this> */
@@ -157,65 +145,8 @@ class Questionnaire extends Model implements Documentable, OtpVerifiable
         return $this->status === 'reviewed';
     }
 
-    // ── OTP helpers ──
-
-    public function isMobileVerified(): bool
-    {
-        return $this->isOtpVerified('mobile');
-    }
-
-    public function isEmailVerified(): bool
-    {
-        return $this->isOtpVerified('email');
-    }
-
     public function isFullyVerified(): bool
     {
         return $this->isMobileVerified() && $this->isEmailVerified();
-    }
-
-    // ── OtpVerifiable ──
-
-    public function getOtpIdentifier(): string
-    {
-        return "questionnaire:{$this->uuid}";
-    }
-
-    public function markOtpVerified(string $channel): void
-    {
-        $this->update(["{$channel}_verified_at" => now()]);
-    }
-
-    public function isOtpVerified(string $channel): bool
-    {
-        return match ($channel) {
-            'mobile' => $this->mobile_verified_at !== null,
-            'email' => $this->email_verified_at !== null,
-            default => false,
-        };
-    }
-
-    // ── Section accessors ──
-
-    public function getSection(string $name): ?array
-    {
-        return $this->{"section_{$name}"} ?? null;
-    }
-
-    public function setSection(string $name, array $data): void
-    {
-        $this->{"section_{$name}"} = $data;
-    }
-
-    // ── Optimistic locking ──
-
-    public function incrementVersion(): void
-    {
-        $this->increment('version');
-    }
-
-    public function matchesVersion(int $expectedVersion): bool
-    {
-        return $this->version === $expectedVersion;
     }
 }

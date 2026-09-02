@@ -2,26 +2,22 @@
 
 namespace App\Domains\Cv\Controllers;
 
-use App\Domains\Cv\Models\Cv;
 use App\Domains\Cv\Requests\PublicStoreCvDocumentRequest;
 use App\Domains\Cv\Services\CvService;
 use App\Domains\Document\Models\Document;
 use App\Domains\Document\Models\DocumentCategory;
 use App\Domains\Document\Models\DocumentUsage;
-use App\Domains\Document\Repositories\DocumentRepositoryInterface;
 use App\Domains\Document\Services\DocumentCapabilities;
 use App\Domains\Document\Services\DocumentService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
-use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class CvDocumentController extends Controller
 {
     public function __construct(
         private DocumentService $documentService,
-        private DocumentRepositoryInterface $documentRepository,
         private CvService $cvService,
         private DocumentCapabilities $documentCapabilities,
     ) {}
@@ -35,7 +31,7 @@ class CvDocumentController extends Controller
         return response()->json([
             'data' => $documents
                 ->flatMap(fn (Document $document) => $document->usages->map(
-                    fn (DocumentUsage $usage) => $this->documentPayload($document, $usage),
+                    fn (DocumentUsage $usage) => $this->documentService->documentPayload($document, $usage, 'cv.documents.serve'),
                 ))
                 ->values(),
             'capabilities' => $this->documentCapabilities->forEntity($request->user(), $cv),
@@ -78,13 +74,7 @@ class CvDocumentController extends Controller
         $fieldKey = $request->input('field_key');
         $notes = $request->input('notes');
 
-        $usageCount = DocumentUsage::query()
-            ->where('entity_type', Cv::class)
-            ->where('entity_id', $cv->getKey())
-            ->whereHas('document', fn ($query) => $query->where('category_id', $category->id))
-            ->when($fieldKey !== null, fn ($query) => $query->where('field_key', $fieldKey))
-            ->when($notes !== null, fn ($query) => $query->where('metadata->notes', $notes))
-            ->count();
+        $usageCount = $this->documentService->usageCountForPlacement($cv, $category->id, $fieldKey, $notes);
 
         if ($requirement && ($max = $requirement['max_files'] ?? null) !== null && $usageCount >= $max) {
             return response()->json([
@@ -92,11 +82,8 @@ class CvDocumentController extends Controller
             ], 422);
         }
 
-        $totalMax = config('documents.cv.max_files', 20);
-        $totalCount = DocumentUsage::query()
-            ->where('entity_type', Cv::class)
-            ->where('entity_id', $cv->getKey())
-            ->count();
+        $totalMax = $this->documentService->maxFilesFor($cv);
+        $totalCount = $this->documentService->totalUsageCount($cv);
         if ($totalCount >= $totalMax) {
             return response()->json([
                 'message' => __('cv.documents.total_max_files_reached', ['count' => $totalMax]),
@@ -105,8 +92,8 @@ class CvDocumentController extends Controller
 
         $metadata = array_filter([
             'notes' => $request->input('notes'),
-            'meta' => $this->decodeJson($request->input('meta')),
-            'form_data' => $this->decodeJson($request->input('form_data')),
+            'meta' => $this->documentService->decodeJson($request->input('meta')),
+            'form_data' => $this->documentService->decodeJson($request->input('form_data')),
         ], fn ($value) => $value !== null);
 
         $document = $this->documentService->upload(
@@ -118,17 +105,10 @@ class CvDocumentController extends Controller
             $metadata !== [] ? $metadata : null,
         );
 
-        $usage = DocumentUsage::query()
-            ->where('document_id', $document->id)
-            ->where('entity_type', Cv::class)
-            ->where('entity_id', $cv->id)
-            ->when($fieldKey !== null, fn ($query) => $query->where('field_key', $fieldKey))
-            ->when($notes !== null, fn ($query) => $query->where('metadata->notes', $notes))
-            ->latest('id')
-            ->firstOrFail();
+        $usage = $this->documentService->newestUsageFor($cv, $document->id, $fieldKey, $notes);
 
         return response()->json([
-            'data' => $this->documentPayload($document, $usage),
+            'data' => $this->documentService->documentPayload($document, $usage, 'cv.documents.serve'),
             'message' => __('document.document_uploaded'),
         ], 201);
     }
@@ -153,72 +133,6 @@ class CvDocumentController extends Controller
             ->whereHas('usages')
             ->firstOrFail();
 
-        $disk = $document->disk;
-        $path = $document->path;
-
-        if ($request->boolean('thumbnail')) {
-            $thumbPath = $this->documentRepository->getThumbnailPath($path);
-
-            if (Storage::disk($disk)->exists($thumbPath)) {
-                return Storage::disk($disk)->response($thumbPath);
-            }
-        }
-
-        if (! Storage::disk($disk)->exists($path)) {
-            abort(404);
-        }
-
-        if ($request->boolean('download')) {
-            return Storage::disk($disk)->download($path, $this->documentService->downloadName($document));
-        }
-
-        return Storage::disk($disk)->response($path);
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function documentPayload(Document $document, DocumentUsage $usage): array
-    {
-        $names = $this->documentService->structureNames($document, $usage);
-
-        return [
-            'id' => $document->id,
-            'usage_id' => $usage->id,
-            'uuid' => $document->uuid,
-            'mime_type' => $document->mime_type,
-            'size' => $document->size,
-            'category' => $document->category ? [
-                'id' => $document->category->id,
-                'name' => $document->category->name,
-                'slug' => $document->category->slug,
-            ] : null,
-            'structure_name' => $names['name'],
-            'structure_name_slug' => $names['slug'],
-            'section_key' => $usage->section_key,
-            'field_key' => $usage->field_key,
-            'notes' => $usage->metadata['notes'] ?? null,
-            'metadata' => $usage->metadata ?? [],
-            'url' => route('cv.documents.serve', ['uuid' => $document->uuid], false),
-            'download_url' => route(
-                'cv.documents.serve',
-                ['uuid' => $document->uuid, 'download' => 1],
-                false,
-            ),
-        ];
-    }
-
-    /**
-     * @return array<string, mixed>|null
-     */
-    private function decodeJson(?string $value): ?array
-    {
-        if (! $value) {
-            return null;
-        }
-
-        $decoded = json_decode($value, true);
-
-        return is_array($decoded) ? $decoded : null;
+        return $this->documentService->serve($document, $request);
     }
 }

@@ -6,12 +6,8 @@ use App\Contracts\Documentable;
 use App\Contracts\DocumentAuthorization;
 use App\Domains\Document\Auth\DocumentAuthorizationContext;
 use App\Domains\Document\Enums\DocumentAction;
-use App\Domains\Document\Events\DocumentDeleted;
 use App\Domains\Document\Events\DocumentDownloaded;
 use App\Domains\Document\Events\DocumentForceDeleted;
-use App\Domains\Document\Events\DocumentPlaced;
-use App\Domains\Document\Events\DocumentRestored;
-use App\Domains\Document\Events\DocumentUploaded;
 use App\Domains\Document\Models\Document;
 use App\Domains\Document\Models\DocumentCategory;
 use App\Domains\Document\Models\DocumentUsage;
@@ -19,8 +15,8 @@ use App\Domains\Document\Requests\StoreDocumentRequest;
 use App\Domains\Document\Requests\StoreFromLibraryRequest;
 use App\Domains\Document\Resources\DocumentResource;
 use App\Domains\Document\Services\DocumentService;
-use App\Domains\Employee\Models\Employee;
-use App\Domains\Questionnaire\Models\Questionnaire;
+use App\Support\DocumentRouteType;
+use App\Support\ListQuery;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -31,11 +27,6 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class DocumentController extends Controller
 {
-    private const ROUTE_TYPE_MAP = [
-        'employee' => Employee::class,
-        'questionnaire' => Questionnaire::class,
-    ];
-
     public function __construct(
         private readonly DocumentService $documentService,
         private readonly DocumentAuthorization $documentAuthorization,
@@ -44,7 +35,7 @@ class DocumentController extends Controller
     public function index(Request $request): AnonymousResourceCollection
     {
         $query = DocumentUsage::query()
-            ->with('document')
+            ->with('document.category')
             ->whereNull('document_usages.deleted_at');
 
         $this->applyEntityScope($query, $request);
@@ -56,7 +47,7 @@ class DocumentController extends Controller
         );
 
         return DocumentResource::collection(
-            $query->latest('document_usages.id')->paginate($request->input('per_page', 50)),
+            $query->latest('document_usages.id')->paginate(ListQuery::perPage($request, default: 50, max: 100)),
         );
     }
 
@@ -64,7 +55,7 @@ class DocumentController extends Controller
     {
         $type = $request->input('documentable_type');
         $id = $request->input('documentable_id');
-        $class = self::ROUTE_TYPE_MAP[$type] ?? null;
+        $class = DocumentRouteType::classFor($type);
 
         if ($class === null) {
             abort(422, __('document.invalid_documentable_type'));
@@ -96,8 +87,6 @@ class DocumentController extends Controller
             $metadata !== [] ? $metadata : null,
         );
 
-        event(new DocumentUploaded($document, $owner, $category->name));
-
         return new DocumentResource($document);
     }
 
@@ -105,7 +94,7 @@ class DocumentController extends Controller
     {
         $type = $request->input('documentable_type');
         $id = $request->input('documentable_id');
-        $class = self::ROUTE_TYPE_MAP[$type] ?? null;
+        $class = DocumentRouteType::classFor($type);
 
         if ($class === null) {
             abort(422, __('document.invalid_documentable_type'));
@@ -156,8 +145,6 @@ class DocumentController extends Controller
             $metadata !== [] ? $metadata : null,
         );
 
-        event(new DocumentPlaced($document));
-
         return new DocumentResource($document);
     }
 
@@ -191,8 +178,6 @@ class DocumentController extends Controller
 
         $this->documentService->trashUsage($document, $entity);
 
-        event(new DocumentDeleted($document, get_class($entity), $entity->getKey()));
-
         return response()->json(['message' => __('document.document_deleted')]);
     }
 
@@ -200,7 +185,7 @@ class DocumentController extends Controller
     {
         $query = DocumentUsage::query()
             ->onlyTrashed()
-            ->with('document');
+            ->with('document.category');
 
         $this->applyEntityScope($query, $request);
 
@@ -212,7 +197,7 @@ class DocumentController extends Controller
         );
 
         return DocumentResource::collection(
-            $query->latest('document_usages.id')->paginate($request->input('per_page', 50)),
+            $query->latest('document_usages.id')->paginate(ListQuery::perPage($request, default: 50, max: 100)),
         );
     }
 
@@ -232,8 +217,6 @@ class DocumentController extends Controller
         );
 
         $this->documentService->restoreUsage($document, $entity);
-
-        event(new DocumentRestored($document, get_class($entity), $entity->getKey()));
 
         return response()->json(['message' => __('document.document_restored')]);
     }
@@ -306,7 +289,7 @@ class DocumentController extends Controller
     private function applyEntityScope(Builder $query, Request $request): void
     {
         if ($type = $request->input('type')) {
-            $class = self::ROUTE_TYPE_MAP[$type] ?? null;
+            $class = DocumentRouteType::classFor($type);
             if ($class) {
                 $query->where('entity_type', $class);
             }

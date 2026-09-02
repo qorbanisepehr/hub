@@ -5,23 +5,19 @@ namespace App\Domains\Questionnaire\Controllers;
 use App\Domains\Document\Models\Document;
 use App\Domains\Document\Models\DocumentCategory;
 use App\Domains\Document\Models\DocumentUsage;
-use App\Domains\Document\Repositories\DocumentRepositoryInterface;
 use App\Domains\Document\Services\DocumentCapabilities;
 use App\Domains\Document\Services\DocumentService;
-use App\Domains\Questionnaire\Models\Questionnaire;
 use App\Domains\Questionnaire\Requests\PublicStoreDocumentRequest;
 use App\Domains\Questionnaire\Services\QuestionnaireService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
-use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class QuestionnaireDocumentController extends Controller
 {
     public function __construct(
         private DocumentService $documentService,
-        private DocumentRepositoryInterface $documentRepository,
         private QuestionnaireService $questionnaireService,
         private DocumentCapabilities $documentCapabilities,
     ) {}
@@ -35,7 +31,7 @@ class QuestionnaireDocumentController extends Controller
         return response()->json([
             'data' => $documents
                 ->flatMap(fn (Document $document) => $document->usages->map(
-                    fn (DocumentUsage $usage) => $this->documentPayload($document, $usage),
+                    fn (DocumentUsage $usage) => $this->documentService->documentPayload($document, $usage, 'questionnaire.documents.serve'),
                 ))
                 ->values(),
             'capabilities' => $this->documentCapabilities->forEntity($request->user(), $questionnaire),
@@ -65,7 +61,6 @@ class QuestionnaireDocumentController extends Controller
         $requirements = $this->questionnaireService->getDocumentRequirements();
         $requirement = $requirements[$category->slug] ?? null;
 
-        // ── Validate document constraints ──
         $validationErrors = $this->documentService->validateDocument($file, $requirement ?? []);
 
         if (! empty($validationErrors)) {
@@ -79,13 +74,7 @@ class QuestionnaireDocumentController extends Controller
         $fieldKey = $request->input('field_key');
         $notes = $request->input('notes');
 
-        $usageCount = DocumentUsage::query()
-            ->where('entity_type', Questionnaire::class)
-            ->where('entity_id', $questionnaire->getKey())
-            ->whereHas('document', fn ($query) => $query->where('category_id', $category->id))
-            ->when($fieldKey !== null, fn ($query) => $query->where('field_key', $fieldKey))
-            ->when($notes !== null, fn ($query) => $query->where('metadata->notes', $notes))
-            ->count();
+        $usageCount = $this->documentService->usageCountForPlacement($questionnaire, $category->id, $fieldKey, $notes);
 
         if ($requirement && ($max = $requirement['max_files'] ?? null) !== null && $usageCount >= $max) {
             return response()->json([
@@ -93,11 +82,8 @@ class QuestionnaireDocumentController extends Controller
             ], 422);
         }
 
-        $totalMax = config('documents.questionnaire.max_files', 10);
-        $totalCount = DocumentUsage::query()
-            ->where('entity_type', Questionnaire::class)
-            ->where('entity_id', $questionnaire->getKey())
-            ->count();
+        $totalMax = $this->documentService->maxFilesFor($questionnaire);
+        $totalCount = $this->documentService->totalUsageCount($questionnaire);
         if ($totalCount >= $totalMax) {
             return response()->json([
                 'message' => __('questionnaire.documents.total_max_files_reached', ['count' => $totalMax]),
@@ -106,8 +92,8 @@ class QuestionnaireDocumentController extends Controller
 
         $metadata = array_filter([
             'notes' => $request->input('notes'),
-            'meta' => $this->decodeJson($request->input('meta')),
-            'form_data' => $this->decodeJson($request->input('form_data')),
+            'meta' => $this->documentService->decodeJson($request->input('meta')),
+            'form_data' => $this->documentService->decodeJson($request->input('form_data')),
         ], fn ($value) => $value !== null);
 
         $document = $this->documentService->upload(
@@ -119,17 +105,10 @@ class QuestionnaireDocumentController extends Controller
             $metadata !== [] ? $metadata : null,
         );
 
-        $usage = DocumentUsage::query()
-            ->where('document_id', $document->id)
-            ->where('entity_type', Questionnaire::class)
-            ->where('entity_id', $questionnaire->id)
-            ->when($fieldKey !== null, fn ($query) => $query->where('field_key', $fieldKey))
-            ->when($notes !== null, fn ($query) => $query->where('metadata->notes', $notes))
-            ->latest('id')
-            ->firstOrFail();
+        $usage = $this->documentService->newestUsageFor($questionnaire, $document->id, $fieldKey, $notes);
 
         return response()->json([
-            'data' => $this->documentPayload($document, $usage),
+            'data' => $this->documentService->documentPayload($document, $usage, 'questionnaire.documents.serve'),
             'message' => __('document.document_uploaded'),
         ], 201);
     }
@@ -154,66 +133,6 @@ class QuestionnaireDocumentController extends Controller
             ->whereHas('usages')
             ->firstOrFail();
 
-        $disk = $document->disk;
-        $path = $document->path;
-
-        // Serve thumbnail if requested and it exists
-        if ($request->boolean('thumbnail')) {
-            $thumbPath = $this->documentRepository->getThumbnailPath($path);
-
-            if (Storage::disk($disk)->exists($thumbPath)) {
-                return Storage::disk($disk)->response($thumbPath);
-            }
-        }
-
-        if (! Storage::disk($disk)->exists($path)) {
-            abort(404);
-        }
-
-        return Storage::disk($disk)->response($path);
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function documentPayload(Document $document, DocumentUsage $usage): array
-    {
-        $names = $this->documentService->structureNames($document, $usage);
-
-        return [
-            'id' => $document->id,
-            'usage_id' => $usage->id,
-            'uuid' => $document->uuid,
-            'mime_type' => $document->mime_type,
-            'size' => $document->size,
-            'category' => $document->category ? [
-                'id' => $document->category->id,
-                'name' => $document->category->name,
-                'slug' => $document->category->slug,
-            ] : null,
-            'structure_name' => $names['name'],
-            'structure_name_slug' => $names['slug'],
-            'section_key' => $usage->section_key,
-            'field_key' => $usage->field_key,
-            'notes' => $usage->metadata['notes'] ?? null,
-            'metadata' => $usage->metadata ?? [],
-            'url' => route('questionnaire.documents.serve', ['uuid' => $document->uuid], false),
-        ];
-    }
-
-    /**
-     * Decode a JSON request field into an array (null-safe).
-     *
-     * @return array<string, mixed>|null
-     */
-    private function decodeJson(?string $value): ?array
-    {
-        if (! $value) {
-            return null;
-        }
-
-        $decoded = json_decode($value, true);
-
-        return is_array($decoded) ? $decoded : null;
+        return $this->documentService->serve($document, $request);
     }
 }

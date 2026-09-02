@@ -27,6 +27,20 @@ final class AuthorizationEngine
         private readonly ConditionEvaluator $evaluator,
     ) {}
 
+    /**
+     * Request-scoped lookups so that per-row capability evaluation (e.g. a
+     * 50-row employee page calling the same permission set on every row) hits
+     * the database once per unique permission/role instead of once per row.
+     * The engine is resolved as a singleton, so these live for the request and
+     * are discarded when it ends (a fresh instance per request in tests).
+     *
+     * @var array<string, Permission|null>
+     */
+    private array $permissionCache = [];
+
+    /** @var array<string, Collection<int, AccessRule>> */
+    private array $rulesCache = [];
+
     public function evaluate(
         User $actor,
         string $permission,
@@ -121,10 +135,22 @@ final class AuthorizationEngine
 
     private function findPermission(string $permission): ?Permission
     {
-        return Permission::query()
+        if (array_key_exists($permission, $this->permissionCache)) {
+            return $this->permissionCache[$permission];
+        }
+
+        $model = Permission::query()
             ->where('name', $permission)
             ->where('is_active', true)
             ->first();
+
+        // Cache only hits. A miss is not memoized so a permission created later
+        // in the same request/application lifetime is still discovered.
+        if ($model !== null) {
+            $this->permissionCache[$permission] = $model;
+        }
+
+        return $model;
     }
 
     private function noRulesDecision(
@@ -185,12 +211,26 @@ final class AuthorizationEngine
      */
     private function rulesFor(Role $role, int $permissionId): Collection
     {
-        return AccessRule::query()
+        $key = $role->id.':'.$permissionId;
+
+        if (array_key_exists($key, $this->rulesCache)) {
+            return $this->rulesCache[$key];
+        }
+
+        $rules = AccessRule::query()
             ->whereIn('role_id', $role->getInheritedRoleIds())
             ->where('permission_id', $permissionId)
             ->where('is_active', true)
             ->with('role:id,name')
             ->get();
+
+        // Cache only a non-empty result; an empty rule set is not memoized so
+        // rules granted later in the same request are still observed.
+        if ($rules->isNotEmpty()) {
+            $this->rulesCache[$key] = $rules;
+        }
+
+        return $rules;
     }
 
     /**

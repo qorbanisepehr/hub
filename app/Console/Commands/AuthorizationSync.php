@@ -14,7 +14,7 @@ class AuthorizationSync extends Command
 
     protected $description = 'Synchronize registered permission groups and permissions with the database';
 
-    public function handle(PermissionRegistrySynchronizer $synchronizer): int
+    public function handle(PermissionRegistrySynchronizer $synchronizer, AuthorizationVersion $version): int
     {
         $dryRun = (bool) $this->option('dry-run');
         $prune = (bool) $this->option('prune');
@@ -50,7 +50,7 @@ class AuthorizationSync extends Command
         if ($totalChanges === 0) {
             $this->info('The permission registry is already synchronized.');
         } else {
-            app(AuthorizationVersion::class)->bump();
+            $version->bump();
         }
 
         return self::SUCCESS;

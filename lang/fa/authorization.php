@@ -8,4 +8,6 @@ return [
     'role_deleted' => 'نقش با موفقیت حذف شد.',
     'permissions_assigned' => 'دسترسی‌ها با موفقیت به نقش‌ها اختصاص یافت.',
     'permission_deleted' => 'دسترسی با موفقیت حذف شد.',
+    'format_not_supported' => 'این فرمت هنوز پشتیبانی نمی‌شود.',
+    'subtree_root_required' => 'برای خروجی زیرمجموعه، انتخاب نقش ریشه الزامی است.',
 ];

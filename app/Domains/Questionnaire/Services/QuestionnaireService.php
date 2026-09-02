@@ -3,38 +3,37 @@
 namespace App\Domains\Questionnaire\Services;
 
 use App\Domains\Document\Services\DocumentService;
+use App\Domains\Questionnaire\Events\QuestionnaireRejected;
+use App\Domains\Questionnaire\Events\QuestionnaireReviewed;
+use App\Domains\Questionnaire\Events\QuestionnaireSubmitted;
 use App\Domains\Questionnaire\Models\Questionnaire;
 use App\Domains\Questionnaire\Repositories\QuestionnaireRepositoryInterface;
 use App\Domains\Questionnaire\Sections\AdditionalInfoSection;
 use App\Domains\Questionnaire\Sections\ContactInfoSection;
-use App\Domains\Questionnaire\Sections\EducationSection;
 use App\Domains\Questionnaire\Sections\JobRequestSection;
 use App\Domains\Questionnaire\Sections\PersonalInfoSection;
-use App\Domains\Questionnaire\Sections\SkillsSection;
-use App\Domains\Questionnaire\Sections\TrainingSection;
-use App\Domains\Questionnaire\Sections\WorkExperienceSection;
 use App\Support\MobileNumber;
+use App\Support\Sections\Definitions\EducationSection;
+use App\Support\Sections\Definitions\SkillsSection;
+use App\Support\Sections\Definitions\TrainingSection;
+use App\Support\Sections\Definitions\WorkExperienceSection;
 use App\Support\Sections\SectionDefinition;
+use App\Support\Sections\SectionService;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
-use InvalidArgumentException;
 
-class QuestionnaireService
+class QuestionnaireService extends SectionService
 {
-    /** @var array<string, SectionDefinition> */
-    private array $sections;
-
     public function __construct(
         private QuestionnaireRepositoryInterface $repository,
         private DocumentService $documentService,
     ) {
-        $this->registerSections();
+        parent::__construct();
     }
 
-    private function registerSections(): void
+    protected function definitions(): array
     {
-        $definitions = [
+        return [
             PersonalInfoSection::class,
             ContactInfoSection::class,
             EducationSection::class,
@@ -44,11 +43,6 @@ class QuestionnaireService
             AdditionalInfoSection::class,
             JobRequestSection::class,
         ];
-
-        foreach ($definitions as $class) {
-            $section = new $class;
-            $this->sections[$section->key()] = $section;
-        }
     }
 
     public function create(array $baseData): Questionnaire
@@ -127,16 +121,6 @@ class QuestionnaireService
         });
     }
 
-    private function extractRealFields(
-        array $data,
-        array $realFields
-    ): array {
-        return array_intersect_key(
-            $data,
-            array_flip($realFields)
-        );
-    }
-
     /**
      * Submit questionnaire (completion validation across all sections).
      */
@@ -146,100 +130,54 @@ class QuestionnaireService
         $errors = array_merge($errors, $this->documentService->validateRequirements($questionnaire, $this->getDocumentRequirements()));
 
         if (! empty($errors)) {
-            $validator = Validator::make([], []);
-            foreach ($errors as $field => $messages) {
-                foreach ($messages as $message) {
-                    $validator->errors()->add($field, $message);
-                }
-            }
-            throw new ValidationException($validator);
+            $this->throwValidationErrors($errors);
         }
 
-        return $this->repository->updateStatus($questionnaire, 'submitted');
+        $questionnaire = $this->repository->updateStatus($questionnaire, 'submitted');
+
+        event(new QuestionnaireSubmitted($questionnaire));
+
+        return $questionnaire;
     }
 
     /**
-     * Merge per-category document requirements declared by every section
-     * definition. Each requirement carries the placement (section_key from the
-     * declaring section) so uploads know where the document belongs.
-     *
-     * @return array<string, array<string, mixed>>
+     * Mark a submitted questionnaire as reviewed, recording the audit event.
      */
-    public function getDocumentRequirements(): array
+    public function review(Questionnaire $questionnaire): Questionnaire
     {
-        $requirements = [];
+        $questionnaire = $this->repository->updateStatus($questionnaire, 'reviewed');
 
-        foreach ($this->sections as $section) {
-            foreach ($section->documentRequirements() as $slug => $requirement) {
-                $requirements[$slug] = $requirement + ['section_key' => $section->key()];
-            }
-        }
+        event(new QuestionnaireReviewed($questionnaire));
 
-        return $requirements;
+        return $questionnaire;
     }
 
     /**
-     * Run completion validation against all sections.
-     *
-     * @return array<string, string[]>
+     * Send a submitted questionnaire back to draft, recording the audit event.
      */
-    public function validateCompletion(Questionnaire $questionnaire): array
+    public function reject(Questionnaire $questionnaire): Questionnaire
     {
-        $allData = $this->gatherAllData($questionnaire);
-        $allErrors = [];
+        $questionnaire = $this->repository->updateStatus($questionnaire, 'draft');
 
-        foreach ($this->sections as $key => $section) {
-            $sectionData = $allData[$key] ?? null;
+        event(new QuestionnaireRejected($questionnaire));
 
-            if (empty($section->rulesFor(SectionDefinition::MODE_COMPLETION))) {
-                continue;
-            }
-
-            $validator = $section->validateData($sectionData ?? [], SectionDefinition::MODE_COMPLETION);
-
-            if ($validator->fails()) {
-                $allErrors = array_merge($allErrors, $validator->errors()->toArray());
-            }
-        }
-
-        return $allErrors;
+        return $questionnaire;
     }
 
     /**
-     * Get section definition by key.
-     */
-    public function getSection(string $key): SectionDefinition
-    {
-        if (! isset($this->sections[$key])) {
-            throw new InvalidArgumentException("Unknown section: {$key}");
-        }
-
-        return $this->sections[$key];
-    }
-
-    /**
-     * Get all section keys.
-     *
-     * @return string[]
-     */
-    public function getSectionKeys(): array
-    {
-        return array_keys($this->sections);
-    }
-
     /**
      * Gather all section data from questionnaire for completion validation.
      *
      * @return array<string, mixed>
      */
-    private function gatherAllData(Questionnaire $questionnaire): array
+    protected function gatherAllData(mixed $entity): array
     {
         $data = [];
 
         foreach ($this->sections as $key => $section) {
             $storage = $section->storage();
             $jsonbColumn = $storage['jsonb'] ?? null;
-            $data[$key] = $jsonbColumn ? ($questionnaire->{$jsonbColumn} ?? null) : null;
+            $data[$key] = $jsonbColumn ? ($entity->{$jsonbColumn} ?? null) : null;
         }
 
         return $data;

@@ -63,7 +63,7 @@ class UserRoleController
 
         $oldRole = $user->activeRole;
         $user->setActiveRole($request->role_id);
-        $newRole = $user->fresh()?->activeRole;
+        $newRole = $user->activeRole;
 
         event(new ActiveRoleChanged(
             $user,

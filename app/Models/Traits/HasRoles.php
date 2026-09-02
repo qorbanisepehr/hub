@@ -10,7 +10,6 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\DB;
 
 trait HasRoles
 {
@@ -174,9 +173,11 @@ trait HasRoles
             return;
         }
 
-        DB::table('users')->where('id', $this->id)->update(['active_role_id' => $fallbackRole->id]);
-        $this->active_role_id = $fallbackRole->id;
-        $this->setRelation('activeRole', $fallbackRole);
+        $this->timestamps = false;
+        $this->updateQuietly(['active_role_id' => $fallbackRole->id]);
+        $this->timestamps = true;
+
+        $this->unsetRelation('activeRole');
         $this->flushPermissionCache();
     }
 

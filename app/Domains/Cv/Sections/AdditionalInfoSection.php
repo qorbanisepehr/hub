@@ -3,18 +3,13 @@
 namespace App\Domains\Cv\Sections;
 
 use App\Rules\FormOptionValue;
-use App\Support\Sections\BaseSection;
+use App\Support\Sections\Definitions\AdditionalInfoSection as BaseAdditionalInfoSection;
 
-class AdditionalInfoSection extends BaseSection
+class AdditionalInfoSection extends BaseAdditionalInfoSection
 {
-    public function key(): string
+    public function __construct()
     {
-        return 'additional_info';
-    }
-
-    public function label(): string
-    {
-        return __('cv.sections.additional_info');
+        parent::__construct(labelKey: 'cv.sections.additional_info');
     }
 
     public function documentRequirements(): array
@@ -84,19 +79,6 @@ class AdditionalInfoSection extends BaseSection
             'references.*.relationship' => 'required_with:references|nullable|string|max:50',
             'references.*.workplace_phone' => 'required_with:references|nullable|string|max:15',
         ];
-    }
-
-    public function storage(): array
-    {
-        return [
-            'real' => [],
-            'jsonb' => 'section_additional_info',
-        ];
-    }
-
-    public function searchMetadata(): array
-    {
-        return [];
     }
 
     public function prefill(): array

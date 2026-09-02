@@ -9,6 +9,13 @@ use Illuminate\Validation\Rule;
 
 class StoreFormOptionRequest extends FormRequest
 {
+    public function __construct(
+        private readonly FormOptionService $formOptionService,
+        ...$args,
+    ) {
+        parent::__construct(...$args);
+    }
+
     /** @return array<string, mixed> */
     public function rules(): array
     {
@@ -37,21 +44,19 @@ class StoreFormOptionRequest extends FormRequest
      */
     protected function parentValueRules(?string $group): array
     {
-        $service = app(FormOptionService::class);
-
         return [
             'parent_value' => [
                 'nullable',
                 'string',
                 'max:100',
-                function (string $attribute, mixed $value, Closure $fail) use ($service, $group): void {
+                function (string $attribute, mixed $value, Closure $fail) use ($group): void {
                     if (! is_string($value) || $value === '') {
                         return;
                     }
 
-                    $parentGroup = $service->parentGroupFor((string) $group);
+                    $parentGroup = $this->formOptionService->parentGroupFor((string) $group);
 
-                    if ($parentGroup === null || $service->isValid($parentGroup, $value)) {
+                    if ($parentGroup === null || $this->formOptionService->isValid($parentGroup, $value)) {
                         return;
                     }
 

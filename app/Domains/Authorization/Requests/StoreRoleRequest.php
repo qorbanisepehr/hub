@@ -3,6 +3,7 @@
 namespace App\Domains\Authorization\Requests;
 
 use App\Domains\Authorization\Models\Role;
+use App\Domains\Authorization\Policies\PolicyValidator;
 use App\Domains\Authorization\Requests\Concerns\ValidatesAccessRules;
 use App\Domains\Authorization\Requests\Concerns\ValidatesRequirements;
 use Illuminate\Foundation\Http\FormRequest;
@@ -12,6 +13,13 @@ class StoreRoleRequest extends FormRequest
 {
     use ValidatesAccessRules;
     use ValidatesRequirements;
+
+    public function __construct(
+        private readonly PolicyValidator $policyValidator,
+        ...$args,
+    ) {
+        parent::__construct(...$args);
+    }
 
     public function authorize(): bool
     {

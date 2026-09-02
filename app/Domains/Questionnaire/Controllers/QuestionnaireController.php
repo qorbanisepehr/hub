@@ -3,19 +3,14 @@
 namespace App\Domains\Questionnaire\Controllers;
 
 use App\Contracts\Authorization;
-use App\Domains\Questionnaire\Events\QuestionnaireRejected;
-use App\Domains\Questionnaire\Events\QuestionnaireReviewed;
-use App\Domains\Questionnaire\Events\QuestionnaireSubmitted;
 use App\Domains\Questionnaire\Models\Questionnaire;
-use App\Domains\Questionnaire\Requests\InitQuestionnaireRequest;
-use App\Domains\Questionnaire\Requests\SectionSaveRequest;
-use App\Domains\Questionnaire\Requests\VerifyInitOtpRequest;
-use App\Domains\Questionnaire\Requests\VerifyQuestionnaireRequest;
 use App\Domains\Questionnaire\Resources\QuestionnaireResource;
 use App\Domains\Questionnaire\Services\QuestionnaireService;
-use App\Enums\GrantPurpose;
 use App\Enums\OtpContext;
 use App\Enums\OtpSendStatus;
+use App\Http\Concerns\InitiatesCandidate;
+use App\Http\Requests\Candidate\SubmitSectionRequest;
+use App\Http\Requests\Candidate\VerifyOtpCodeRequest;
 use App\Http\Responses\OtpResponder;
 use App\Models\PendingVerification;
 use App\Services\OtpService;
@@ -25,10 +20,10 @@ use App\Support\ValidationRules;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
-use Illuminate\Support\Arr;
 
 class QuestionnaireController extends Controller
 {
+    use InitiatesCandidate;
     use OtpResponder;
 
     public function __construct(
@@ -38,117 +33,29 @@ class QuestionnaireController extends Controller
         private SessionGrantStore $sessionGrants,
     ) {}
 
-    public function init(InitQuestionnaireRequest $request): JsonResponse
+    protected function candidateType(): string
     {
-        $data = $request->validated();
-        $data['mobile'] = MobileNumber::normalize($data['mobile']);
-
-        $payload = [
-            'first_name' => $data['first_name'],
-            'last_name' => $data['last_name'],
-            'email' => $data['email'],
-            'mobile' => $data['mobile'],
-        ];
-
-        $existing = PendingVerification::query()
-            ->where('type', 'questionnaire')
-            ->where('mobile', $data['mobile'])
-            ->whereNull('verified_at')
-            ->latest()
-            ->first();
-
-        if ($existing) {
-            $existing->update([
-                'email' => $data['email'],
-                'payload' => $payload,
-            ]);
-        }
-
-        $pending = $existing ?? PendingVerification::create([
-            'type' => 'questionnaire',
-            'mobile' => $data['mobile'],
-            'email' => $data['email'],
-            'payload' => $payload,
-        ]);
-
-        $status = $this->otpService->sendWithCooldown($pending, 'mobile', OtpContext::Register);
-
-        if ($status === OtpSendStatus::Locked) {
-            return $this->otpLockedResponse($pending, 'mobile', OtpContext::Register);
-        }
-
-        return response()->json([
-            'data' => ['uuid' => $pending->uuid],
-            'requires_otp' => true,
-            'code_sent' => $status === OtpSendStatus::Sent,
-            'expires_in' => $this->otpService->getExpiresIn($pending, 'mobile', OtpContext::Register),
-            'message' => $status === OtpSendStatus::Sent
-                ? __('questionnaire.questionnaire.otp_sent')
-                : __('questionnaire.questionnaire.otp_already_sent'),
-        ], $existing ? 200 : 201);
+        return 'questionnaire';
     }
 
-    public function verifyInitOtp(VerifyInitOtpRequest $request): JsonResponse
+    protected function candidateModel(): string
     {
-        $pending = PendingVerification::where('uuid', $request->validated('uuid'))->firstOrFail();
+        return Questionnaire::class;
+    }
 
-        if ($pending->isVerified()) {
-            return response()->json(['message' => __('questionnaire.questionnaire.already_verified')], 422);
-        }
+    protected function candidateService(): object
+    {
+        return $this->questionnaireService;
+    }
 
-        $status = $this->otpService->attemptVerification($pending, 'mobile', OtpContext::Register, $request->validated('otp'));
+    protected function candidateResource(mixed $record): mixed
+    {
+        return new QuestionnaireResource($record);
+    }
 
-        if ($response = $this->respondToVerification($pending, 'mobile', OtpContext::Register, $status)) {
-            return $response;
-        }
-
-        // Check for existing questionnaire with this mobile
-        $existing = Questionnaire::where('mobile', $pending->mobile)->first();
-
-        if ($existing && ! $existing->isReviewed() && $existing->isSubmitted()) {
-            $existing->update(['status' => 'draft']);
-        }
-
-        // For existing questionnaires only re-apply contact info so the user
-        // can re-access after changing email/mobile. Names are set at creation
-        // and edited inside the wizard, so they must not be overwritten here
-        // (which would silently revert wizard edits). Reviewed records must
-        // not be silently mutated at all.
-        $updateData = $existing && ! $existing->isReviewed()
-            ? Arr::only($pending->payload, ['email', 'mobile'])
-            : [];
-
-        if ($existing && $updateData) {
-            // Reset verification if contact data changed
-            if (isset($updateData['email']) && $updateData['email'] !== $existing->email) {
-                $updateData['email_verified_at'] = null;
-            }
-            if (isset($updateData['mobile']) && $updateData['mobile'] !== $existing->mobile) {
-                $updateData['mobile_verified_at'] = null;
-            }
-            $existing->update($updateData);
-        }
-
-        $questionnaire = $existing ?? $this->questionnaireService->create($pending->payload);
-
-        $questionnaire->markOtpVerified('mobile');
-
-        $pending->delete();
-
-        $token = $this->otpService->issueGrant($questionnaire, 'mobile', OtpContext::AccessProtected, GrantPurpose::Edit);
-
-        // Bind the grant to the session so header-less browser requests
-        // (<img>, embed) can serve documents via their cookie.
-        $this->sessionGrants->remember($questionnaire->getOtpIdentifier(), $token);
-
-        return response()->json([
-            'data' => new QuestionnaireResource($questionnaire->fresh()),
-            'access_token' => $token,
-            'expires_in' => $this->otpService->getGrantExpiresIn(GrantPurpose::Edit),
-            'message' => $existing
-                ? __('questionnaire.questionnaire.verified')
-                : __('questionnaire.questionnaire.created'),
-        ]);
+    protected function candidateIsFinalized(mixed $record): bool
+    {
+        return $record instanceof Questionnaire && $record->isReviewed();
     }
 
     public function show(Request $request, string $uuid): JsonResponse
@@ -160,7 +67,7 @@ class QuestionnaireController extends Controller
         ]);
     }
 
-    public function saveSection(string $uuid, string $section, SectionSaveRequest $request): JsonResponse
+    public function saveSection(string $uuid, string $section, SubmitSectionRequest $request): JsonResponse
     {
         $questionnaire = $request->attributes->get('granted_resource');
 
@@ -231,7 +138,7 @@ class QuestionnaireController extends Controller
         return $this->respondToSend($questionnaire, 'email', OtpContext::VerifyEmail, $status);
     }
 
-    public function verifyMobileOtp(VerifyQuestionnaireRequest $request, string $uuid): JsonResponse
+    public function verifyMobileOtp(VerifyOtpCodeRequest $request, string $uuid): JsonResponse
     {
         $questionnaire = $this->questionnaireService->findByUuidOrFail($uuid);
 
@@ -250,7 +157,7 @@ class QuestionnaireController extends Controller
         return $this->otpVerifiedResponse($questionnaire, 'mobile');
     }
 
-    public function verifyEmailOtp(VerifyQuestionnaireRequest $request, string $uuid): JsonResponse
+    public function verifyEmailOtp(VerifyOtpCodeRequest $request, string $uuid): JsonResponse
     {
         $questionnaire = $this->questionnaireService->findByUuidOrFail($uuid);
 
@@ -287,8 +194,6 @@ class QuestionnaireController extends Controller
 
         $questionnaire = $this->questionnaireService->submit($questionnaire);
 
-        event(new QuestionnaireSubmitted($questionnaire));
-
         return response()->json([
             'data' => new QuestionnaireResource($questionnaire),
             'message' => __('questionnaire.questionnaire.submitted'),
@@ -307,9 +212,7 @@ class QuestionnaireController extends Controller
             ], 422);
         }
 
-        $questionnaire = $this->questionnaireService->updateStatus($questionnaire, 'reviewed');
-
-        event(new QuestionnaireReviewed($questionnaire));
+        $questionnaire = $this->questionnaireService->review($questionnaire);
 
         return response()->json([
             'data' => new QuestionnaireResource($questionnaire),
@@ -329,9 +232,7 @@ class QuestionnaireController extends Controller
             ], 422);
         }
 
-        $questionnaire = $this->questionnaireService->updateStatus($questionnaire, 'draft');
-
-        event(new QuestionnaireRejected($questionnaire));
+        $questionnaire = $this->questionnaireService->reject($questionnaire);
 
         return response()->json([
             'data' => new QuestionnaireResource($questionnaire),

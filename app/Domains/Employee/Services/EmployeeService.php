@@ -2,34 +2,44 @@
 
 namespace App\Domains\Employee\Services;
 
+use App\Domains\Employee\Events\EmployeeCreated;
+use App\Domains\Employee\Events\EmployeeDeleted;
+use App\Domains\Employee\Events\EmployeeSubmitted;
+use App\Domains\Employee\Events\EmployeeUpdated;
 use App\Domains\Employee\Models\Employee;
 use App\Domains\Employee\Sections\AdditionalInfoSection;
 use App\Domains\Employee\Sections\ContactInfoSection;
 use App\Domains\Employee\Sections\DependentsSection;
 use App\Domains\Employee\Sections\DocumentInquiriesSection;
 use App\Domains\Employee\Sections\EmploymentSection;
+use App\Domains\Employee\Sections\PersonalInfoSection;
 use App\Domains\Employee\Sections\SocialInsuranceSection;
-use App\Domains\Questionnaire\Sections\EducationSection;
-use App\Domains\Questionnaire\Sections\PersonalInfoSection;
-use App\Domains\Questionnaire\Sections\SkillsSection;
-use App\Domains\Questionnaire\Sections\TrainingSection;
-use App\Domains\Questionnaire\Sections\WorkExperienceSection;
 use App\Support\MobileNumber;
+use App\Support\Sections\Definitions\EducationSection;
+use App\Support\Sections\Definitions\SkillsSection;
+use App\Support\Sections\Definitions\TrainingSection;
+use App\Support\Sections\Definitions\WorkExperienceSection;
 use App\Support\Sections\SectionDefinition;
-use App\Support\Sections\SectionRegistry;
+use App\Support\Sections\SectionService;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 
-class EmployeeService extends SectionRegistry
+class EmployeeService extends SectionService
 {
     /**
-     * All questionnaire sections except job_request (applicant-preference
-     * fields don't apply to existing employees). Definitions are reused
-     * cross-domain to keep a single source of validation rules. Contact
-     * info and additional info use employee-specific definitions because
-     * their real-column ownership differs from the questionnaire's.
+     * Employee submit-time completion validation also enforces each section's
+     * per-row document requirements.
+     */
+    protected bool $mergeCompletionDocumentErrors = true;
+
+    /**
+     * Employee-owned sections (personal/contact/employment/additional info and
+     * the HR-only sections) are defined per-domain; the applicant-shape
+     * sections (education, work experience, skills, training) are reused from
+     * the shared App\Support\Sections\Definitions so Employee stays decoupled
+     * from the Questionnaire and Cv domains (ADR-007).
      *
      * @return list<class-string<SectionDefinition>>
      */
@@ -75,6 +85,33 @@ class EmployeeService extends SectionRegistry
             $this->saveSection($employee, $key, $data);
         }
 
+        event(new EmployeeCreated($employee));
+
+        return $employee;
+    }
+
+    /**
+     * Update the top-level employee attributes, recording an audit event only
+     * when the validated fields actually changed.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    public function update(Employee $employee, array $data): Employee
+    {
+        $oldValues = $employee->only(array_keys($data));
+        $employee->update($data);
+        $newValues = $employee->only(array_keys($data));
+
+        $changes = $this->diffAttributes($oldValues, $newValues);
+
+        if ($changes['old'] !== [] || $changes['new'] !== []) {
+            event(new EmployeeUpdated(
+                $employee,
+                $changes['old'],
+                $changes['new'],
+            ));
+        }
+
         return $employee;
     }
 
@@ -102,8 +139,9 @@ class EmployeeService extends SectionRegistry
         }
 
         $data = $section->transformForSave($data, $actor, $employee);
+        $oldValues = $employee->toArray();
 
-        return DB::transaction(function () use (
+        $employee = DB::transaction(function () use (
             $employee,
             $section,
             $data
@@ -136,6 +174,19 @@ class EmployeeService extends SectionRegistry
             return $employee->fresh();
         });
 
+        $newValues = $employee->toArray();
+        $changes = $this->diffAttributes($oldValues, $newValues);
+
+        if ($changes['old'] !== [] || $changes['new'] !== []) {
+            event(new EmployeeUpdated(
+                $employee,
+                $changes['old'],
+                $changes['new'],
+                $sectionKey,
+            ));
+        }
+
+        return $employee;
     }
 
     /**
@@ -156,43 +207,26 @@ class EmployeeService extends SectionRegistry
         $errors = $this->validateCompletion($employee);
 
         if (! empty($errors)) {
-            $validator = Validator::make([], []);
-            foreach ($errors as $field => $messages) {
-                foreach ($messages as $message) {
-                    $validator->errors()->add($field, $message);
-                }
-            }
-            throw new ValidationException($validator);
+            $this->throwValidationErrors($errors);
         }
 
-        return $employee->fresh();
+        $employee = $employee->fresh();
+
+        event(new EmployeeSubmitted($employee));
+
+        return $employee;
     }
 
     /**
-     * Run completion validation against all registered sections.
-     *
-     * @return array<string, string[]>
+     * Delete an employee (capture the id before delete so the audit event can
+     * reference it) and record the deletion.
      */
-    public function validateCompletion(Employee $employee): array
+    public function delete(Employee $employee): void
     {
-        $allData = $this->gatherAllData($employee);
-        $allErrors = [];
+        $employeeId = $employee->getKey();
+        $employee->delete();
 
-        foreach ($this->sections as $key => $section) {
-            if (empty($section->rulesFor(SectionDefinition::MODE_COMPLETION))) {
-                continue;
-            }
-
-            $validator = $section->validateData($allData[$key] ?? [], SectionDefinition::MODE_COMPLETION);
-
-            if ($validator->fails()) {
-                $allErrors = array_merge($allErrors, $validator->errors()->toArray());
-            }
-
-            $allErrors = array_merge($allErrors, $section->completionDocumentErrors($employee));
-        }
-
-        return $allErrors;
+        event(new EmployeeDeleted($employeeId));
     }
 
     /**
@@ -230,7 +264,7 @@ class EmployeeService extends SectionRegistry
      * @param  string[]  $realFields
      * @return array<string, mixed>
      */
-    private function extractRealFields(array $data, array $realFields): array
+    protected function extractRealFields(array $data, array $realFields): array
     {
         $realData = array_intersect_key($data, array_flip($realFields));
 
@@ -239,34 +273,6 @@ class EmployeeService extends SectionRegistry
         }
 
         return $realData;
-    }
-
-    /**
-     * Gather the full section data for completion validation, merging the real
-     * columns back into the JSONB remainder so rules see the complete object.
-     *
-     * @return array<string, mixed>
-     */
-    private function gatherAllData(Employee $employee): array
-    {
-        $data = [];
-
-        foreach ($this->sections as $key => $section) {
-            $storage = $section->storage();
-            $jsonbColumn = $storage['jsonb'] ?? null;
-            $sectionData = $jsonbColumn ? ($employee->{$jsonbColumn} ?? []) : [];
-
-            foreach ($storage['real'] ?? [] as $field) {
-                $value = $employee->{$field} ?? null;
-                if ($value !== null) {
-                    $sectionData[$field] = $value;
-                }
-            }
-
-            $data[$key] = $sectionData;
-        }
-
-        return $data;
     }
 
     private function extractJsonbData(
@@ -281,5 +287,63 @@ class EmployeeService extends SectionRegistry
             $data,
             array_flip($realFields)
         );
+    }
+
+    /**
+     * Compare two attribute arrays and return the changed values as parallel
+     * 'old' and 'new' maps. Nested arrays (JSONB section columns) are flattened
+     * to dotted leaf key paths so an edit inside a section records exactly
+     * which leaf changed instead of the whole section array; flat/top-level
+     * columns keep their key.
+     *
+     * @param  array<string, mixed>  $old
+     * @param  array<string, mixed>  $new
+     * @return array{old: array<string, mixed>, new: array<string, mixed>}
+     */
+    private function diffAttributes(array $old, array $new): array
+    {
+        $oldFlat = $this->flattenAttributes($old);
+        $newFlat = $this->flattenAttributes($new);
+
+        $keys = array_unique(array_merge(array_keys($oldFlat), array_keys($newFlat)));
+
+        $oldChanged = [];
+        $newChanged = [];
+
+        foreach ($keys as $key) {
+            $oldValue = $oldFlat[$key] ?? null;
+            $newValue = $newFlat[$key] ?? null;
+
+            if ($oldValue !== $newValue) {
+                $oldChanged[$key] = $oldValue;
+                $newChanged[$key] = $newValue;
+            }
+        }
+
+        return ['old' => $oldChanged, 'new' => $newChanged];
+    }
+
+    /**
+     * Flatten a nested attribute array into dotted key paths. Scalar/missing
+     * leaves keep their key; nested arrays flatten to "<parent>.<child>...".
+     *
+     * @param  array<string, mixed>  $values
+     * @return array<string, mixed>
+     */
+    private function flattenAttributes(array $values, string $prefix = ''): array
+    {
+        $flattened = [];
+
+        foreach ($values as $key => $value) {
+            $path = $prefix === '' ? (string) $key : "{$prefix}.{$key}";
+
+            if (is_array($value)) {
+                $flattened = array_replace($flattened, $this->flattenAttributes($value, $path));
+            } else {
+                $flattened[$path] = $value;
+            }
+        }
+
+        return $flattened;
     }
 }

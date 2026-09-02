@@ -3,8 +3,9 @@
 namespace App\Domains\Employee\Models;
 
 use App\Contracts\Documentable;
-use App\Contracts\DocumentableTrait;
+use App\Models\Traits\HasJsonSections;
 use App\Models\User;
+use App\Support\DocumentableTrait;
 use Database\Factories\EmployeeFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\UseFactory;
@@ -47,10 +48,21 @@ class Employee extends Model implements Documentable
     /** @use HasFactory<EmployeeFactory> */
     use HasFactory, SoftDeletes;
 
+    use HasJsonSections;
+
     /** @return BelongsTo<User, $this> */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * Employees carry no uuid column, so HasJsonSections must not
+     * auto-generate one on create.
+     */
+    protected function sectionUuidColumn(): ?string
+    {
+        return null;
     }
 
     protected function casts(): array
@@ -69,18 +81,6 @@ class Employee extends Model implements Documentable
             'section_dependents' => 'array',
             'section_document_inquiries' => 'array',
         ];
-    }
-
-    // ── Section accessors ──
-
-    public function getSection(string $name): ?array
-    {
-        return $this->{"section_{$name}"} ?? null;
-    }
-
-    public function setSection(string $name, array $data): void
-    {
-        $this->{"section_{$name}"} = $data;
     }
 
     /**

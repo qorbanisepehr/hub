@@ -3,45 +3,43 @@
 namespace App\Domains\Questionnaire\Repositories;
 
 use App\Domains\Questionnaire\Models\Questionnaire;
+use App\Support\Repositories\SectionedDocumentRepository;
 
-class QuestionnaireRepository implements QuestionnaireRepositoryInterface
+/**
+ * @extends SectionedDocumentRepository<Questionnaire>
+ */
+class QuestionnaireRepository extends SectionedDocumentRepository implements QuestionnaireRepositoryInterface
 {
+    protected function modelClass(): string
+    {
+        return Questionnaire::class;
+    }
+
     public function create(array $data): Questionnaire
     {
-        return Questionnaire::create([
-            'status' => 'draft',
-            'version' => 1,
-        ] + $data);
+        return parent::performCreate($data);
     }
 
     public function findByUuid(string $uuid): ?Questionnaire
     {
-        return Questionnaire::where('uuid', $uuid)->first();
+        return parent::performFindByUuid($uuid);
     }
 
     public function updateSection(
         Questionnaire $questionnaire,
         string $jsonbColumn,
-        array $data
+        array $data,
     ): Questionnaire {
-        $questionnaire->update([
-            $jsonbColumn => $data,
-        ]);
-
-        return $questionnaire;
+        return parent::performUpdateSection($questionnaire, $jsonbColumn, $data);
     }
 
     public function updateStatus(Questionnaire $questionnaire, string $status): Questionnaire
     {
-        $questionnaire->update(['status' => $status]);
-
-        return $questionnaire->fresh();
+        return parent::performUpdateStatus($questionnaire, $status);
     }
 
     public function incrementVersion(Questionnaire $questionnaire): Questionnaire
     {
-        $questionnaire->incrementVersion();
-
-        return $questionnaire->fresh();
+        return parent::performIncrementVersion($questionnaire);
     }
 }
