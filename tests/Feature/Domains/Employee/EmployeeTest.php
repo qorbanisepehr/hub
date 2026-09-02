@@ -744,19 +744,39 @@ describe('employee CRUD', function () {
 
             $this->actingAs($user)
                 ->postJson("/api/employees/{$employee->id}/sections/financial", [
-                    'bank_name' => 'ملت',
-                    'account_number' => '1234567890',
-                    'card_number' => '1111222233334444',
-                    'shaba_number' => 'IR123456789012345678901234',
+                    'bank_accounts' => [
+                        [
+                            'bank_name' => 'ملت',
+                            'account_number' => '1234567890',
+                            'card_number' => '1111222233334444',
+                            'shaba_number' => 'IR123456789012345678901234',
+                        ],
+                        [
+                            'bank_name' => 'رفاه',
+                            'account_number' => '9876543210',
+                            'card_number' => '4444333322221111',
+                            'shaba_number' => 'IR987654321098765432109876',
+                        ],
+                    ],
                 ])
                 ->assertStatus(200);
 
             $saved = $employee->fresh();
             expect($saved->section_financial)->toBe([
-                'bank_name' => 'ملت',
-                'account_number' => '1234567890',
-                'card_number' => '1111222233334444',
-                'shaba_number' => 'IR123456789012345678901234',
+                'bank_accounts' => [
+                    [
+                        'bank_name' => 'ملت',
+                        'account_number' => '1234567890',
+                        'card_number' => '1111222233334444',
+                        'shaba_number' => 'IR123456789012345678901234',
+                    ],
+                    [
+                        'bank_name' => 'رفاه',
+                        'account_number' => '9876543210',
+                        'card_number' => '4444333322221111',
+                        'shaba_number' => 'IR987654321098765432109876',
+                    ],
+                ],
             ]);
         });
 
@@ -766,7 +786,7 @@ describe('employee CRUD', function () {
 
             $this->actingAs($user)
                 ->postJson("/api/employees/{$employee->id}/sections/supplementary_insurance", [
-                    'selected_bank_account' => 'ملت',
+                    'selected_bank_account' => '1234567890',
                     'insurance_dependents' => [
                         ['first_name' => 'علی', 'last_name' => 'رضایی', 'relationship' => 'spouse'],
                     ],
@@ -775,7 +795,7 @@ describe('employee CRUD', function () {
 
             $saved = $employee->fresh();
             expect($saved->section_supplementary_insurance)->toBe([
-                'selected_bank_account' => 'ملت',
+                'selected_bank_account' => '1234567890',
                 'insurance_dependents' => [
                     ['first_name' => 'علی', 'last_name' => 'رضایی', 'relationship' => 'spouse'],
                 ],

@@ -29,6 +29,7 @@ return [
             'id_number' => 'National ID',
             'gender' => 'Gender',
             'birth_date' => 'Birth date',
+            'custom_relationship' => 'Relationship (other)',
             'marriage_date' => 'Marriage date',
         ],
         'validation' => [

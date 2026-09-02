@@ -29,6 +29,7 @@ return [
             'id_number' => 'کد ملی',
             'gender' => 'جنسیت',
             'birth_date' => 'تاریخ تولد',
+            'custom_relationship' => 'نسبت (سایر)',
             'marriage_date' => 'تاریخ عقد',
         ],
         'validation' => [

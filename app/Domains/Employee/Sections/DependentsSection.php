@@ -48,6 +48,7 @@ class DependentsSection extends BaseSection
         return [
             'dependents' => 'array',
             'dependents.*.relationship_type' => 'string',
+            'dependents.*.custom_relationship' => 'string',
             'dependents.*.first_name' => 'string',
             'dependents.*.last_name' => 'string',
             'dependents.*.id_number' => 'string',
@@ -67,6 +68,7 @@ class DependentsSection extends BaseSection
             'dependents' => 'nullable|array',
 
             'dependents.*.relationship_type' => ['nullable', new FormOptionValue('relationship_type')],
+            'dependents.*.custom_relationship' => 'nullable|string|max:100',
             'dependents.*.first_name' => 'nullable|string|max:100',
             'dependents.*.last_name' => 'nullable|string|max:100',
             'dependents.*.id_number' => ['nullable', 'string', 'max:10', new IdNumberRule],
@@ -87,6 +89,13 @@ class DependentsSection extends BaseSection
             'dependents' => 'nullable|array',
 
             'dependents.*.relationship_type' => ['required_with:dependents', 'nullable', new FormOptionValue('relationship_type')],
+            'dependents.*.custom_relationship' => [
+                // عنوان آزاد نسبت فقط برای ردیف سایر (relationship_type = other) معنی‌دار است.
+                'required_if:relationship_type,other',
+                'nullable',
+                'string',
+                'max:100',
+            ],
             'dependents.*.first_name' => 'required_with:dependents|nullable|string|max:100',
             'dependents.*.last_name' => 'required_with:dependents|nullable|string|max:100',
             'dependents.*.id_number' => ['required_with:dependents', 'nullable', 'string', 'max:10', new IdNumberRule],
