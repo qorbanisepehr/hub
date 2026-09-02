@@ -9,11 +9,14 @@ use App\Domains\Employee\Events\EmployeeUpdated;
 use App\Domains\Employee\Models\Employee;
 use App\Domains\Employee\Sections\AdditionalInfoSection;
 use App\Domains\Employee\Sections\ContactInfoSection;
+use App\Domains\Employee\Sections\ContractsSection;
 use App\Domains\Employee\Sections\DependentsSection;
 use App\Domains\Employee\Sections\DocumentInquiriesSection;
 use App\Domains\Employee\Sections\EmploymentSection;
+use App\Domains\Employee\Sections\FinancialSection;
 use App\Domains\Employee\Sections\PersonalInfoSection;
 use App\Domains\Employee\Sections\SocialInsuranceSection;
+use App\Domains\Employee\Sections\SupplementaryInsuranceSection;
 use App\Support\MobileNumber;
 use App\Support\Sections\Definitions\EducationSection;
 use App\Support\Sections\Definitions\SkillsSection;
@@ -55,6 +58,9 @@ class EmployeeService extends SectionService
             TrainingSection::class,
             AdditionalInfoSection::class,
             SocialInsuranceSection::class,
+            ContractsSection::class,
+            FinancialSection::class,
+            SupplementaryInsuranceSection::class,
             DependentsSection::class,
             DocumentInquiriesSection::class,
         ];

@@ -15,6 +15,9 @@ return [
         'training' => 'Training & Courses',
         'additional_info' => 'Additional Information',
         'social_insurance' => 'Social Insurance',
+        'contracts' => 'Contracts',
+        'financial' => 'Financial Information',
+        'supplementary_insurance' => 'Supplementary Insurance',
         'dependents' => 'Dependents',
         'document_inquiries' => 'Document Inquiries',
     ],
@@ -26,11 +29,21 @@ return [
             'id_number' => 'National ID',
             'gender' => 'Gender',
             'birth_date' => 'Birth date',
+            'marriage_date' => 'Marriage date',
         ],
         'validation' => [
             'birth_date_not_future' => 'The dependent birth date cannot be in the future.',
         ],
         'field_label' => 'Dependent :n',
+    ],
+    'social_insurance' => [
+        'fields' => [
+            'start_date' => 'Start date',
+            'end_date' => 'End date',
+        ],
+        'validation' => [
+            'end_date_before_start_date' => 'The end date must not be earlier than the start date.',
+        ],
     ],
     'document_inquiries' => [
         'field_labels' => [

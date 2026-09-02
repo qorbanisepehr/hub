@@ -47,7 +47,9 @@ return [
             'back' => 'Back',
             'page_1' => 'Page 1',
             'page_2' => 'Page 2',
-            'page_3' => 'Last page',
+            'page_3' => 'Page 3',
+            'page_4' => 'Page 4',
+            'page_extra' => 'Extra page',
         ],
     ],
 ];

@@ -37,6 +37,9 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     'section_training',
     'section_additional_info',
     'section_social_insurance',
+    'section_contracts',
+    'section_financial',
+    'section_supplementary_insurance',
     'section_dependents',
     'section_document_inquiries',
 ])]
@@ -78,6 +81,9 @@ class Employee extends Model implements Documentable
             'section_training' => 'array',
             'section_additional_info' => 'array',
             'section_social_insurance' => 'array',
+            'section_contracts' => 'array',
+            'section_financial' => 'array',
+            'section_supplementary_insurance' => 'array',
             'section_dependents' => 'array',
             'section_document_inquiries' => 'array',
         ];

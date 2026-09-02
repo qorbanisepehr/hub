@@ -30,6 +30,7 @@ class TrainingSection extends BaseSection
     {
         return [
             'training_courses' => 'array',
+            'training_courses.*.evaluation' => 'string',
             'professional_memberships' => 'string',
             'researches' => 'array',
         ];
@@ -43,6 +44,7 @@ class TrainingSection extends BaseSection
             'training_courses.*.duration' => 'nullable|string|max:50',
             'training_courses.*.institution' => 'nullable|string|max:100',
             'training_courses.*.held_at' => 'nullable|string',
+            'training_courses.*.evaluation' => 'nullable|string|max:1000',
             'training_courses.*.certificate' => 'nullable|string|max:100',
             'professional_memberships' => 'nullable|string|max:1000',
             'researches' => 'nullable|array',

@@ -2,6 +2,7 @@
 
 namespace App\Domains\Employee\Sections;
 
+use App\Rules\FormOptionValue;
 use App\Support\Sections\BaseSection;
 use Carbon\Carbon;
 use Illuminate\Contracts\Validation\Validator;
@@ -25,6 +26,17 @@ class SocialInsuranceSection extends BaseSection
             'has_insurance_history' => 'boolean',
             'insurance_status' => 'string',
             'insurance_start_date' => 'date',
+            'branch_name' => 'string',
+            'days_count' => 'integer',
+            'monthly_breakdown' => 'array',
+            'monthly_breakdown.*.days' => 'integer',
+            'monthly_breakdown.*.wage' => 'string',
+            'job_titles' => 'array',
+            'job_titles.*.insurance_number' => 'string',
+            'job_titles.*.start_date' => 'date',
+            'job_titles.*.job_title' => 'string',
+            'job_titles.*.workshop_code' => 'string',
+            'job_titles.*.workshop_name' => 'string',
             'histories' => 'array',
         ];
     }
@@ -36,9 +48,24 @@ class SocialInsuranceSection extends BaseSection
 
             'has_insurance_history' => 'nullable|boolean',
 
-            'insurance_status' => 'nullable|string|max:100',
+            'insurance_status' => ['nullable', new FormOptionValue('insurance_type')],
 
             'insurance_start_date' => 'nullable|date',
+
+            'branch_name' => 'nullable|string|max:255',
+
+            'days_count' => 'nullable|integer|min:0',
+
+            'monthly_breakdown' => 'nullable|array',
+            'monthly_breakdown.*.days' => 'nullable|integer|min:0',
+            'monthly_breakdown.*.wage' => 'nullable|string|max:30',
+
+            'job_titles' => 'nullable|array',
+            'job_titles.*.insurance_number' => 'nullable|string|max:30',
+            'job_titles.*.start_date' => 'nullable|date',
+            'job_titles.*.job_title' => 'nullable|string|max:255',
+            'job_titles.*.workshop_code' => 'nullable|string|max:50',
+            'job_titles.*.workshop_name' => 'nullable|string|max:255',
 
             'histories' => 'nullable|array',
 
@@ -56,8 +83,9 @@ class SocialInsuranceSection extends BaseSection
         return [
             'social_insurance_number' => 'required|string|max:30',
 
-            // TODO: Replace with the confirmed insurance status vocabulary.
-            'insurance_status' => 'required|string|max:100',
+            // Structured record type now backed by the `insurance_type`
+            // FormOption group — replaces the earlier free-text TODO.
+            'insurance_status' => ['required', new FormOptionValue('insurance_type')],
 
             // Intentionally optional for now. It may later be removed if
             // histories[].start_date becomes the sole source of this concept.
@@ -65,8 +93,22 @@ class SocialInsuranceSection extends BaseSection
 
             'has_insurance_history' => 'required|boolean',
 
+            'branch_name' => 'nullable|string|max:255',
+
+            'days_count' => 'nullable|integer|min:0',
+
+            'monthly_breakdown' => 'nullable|array',
+            'monthly_breakdown.*.days' => 'nullable|integer|min:0',
+            'monthly_breakdown.*.wage' => 'nullable|string|max:30',
+
+            'job_titles' => 'nullable|array',
+            'job_titles.*.insurance_number' => 'nullable|string|max:30',
+            'job_titles.*.start_date' => 'nullable|date',
+            'job_titles.*.job_title' => 'nullable|string|max:255',
+            'job_titles.*.workshop_code' => 'nullable|string|max:50',
+            'job_titles.*.workshop_name' => 'nullable|string|max:255',
+
             'histories' => 'required_if:has_insurance_history,true|array',
-            //             'histories' => 'nullable|array',
 
             'histories.*.workshop_name' => 'required_if:has_insurance_history,true|string|max:255',
             'histories.*.workshop_code' => 'nullable|string|max:50',
@@ -98,6 +140,7 @@ class SocialInsuranceSection extends BaseSection
         return [
             'has_insurance_history' => false,
             'histories' => [],
+            'job_titles' => [],
         ];
     }
 
@@ -105,6 +148,26 @@ class SocialInsuranceSection extends BaseSection
     {
         return [
             'insurance-history' => [
+                'required' => false,
+                'max_files' => 1,
+            ],
+            'insurance-history-rial' => [
+                'required' => false,
+                'max_files' => 1,
+            ],
+            'insurance-history-summary' => [
+                'required' => false,
+                'max_files' => 1,
+            ],
+            'insurance-history-rial-summary' => [
+                'required' => false,
+                'max_files' => 1,
+            ],
+            'insurance-history-overall' => [
+                'required' => false,
+                'max_files' => 1,
+            ],
+            'insurance-last-job-titles' => [
                 'required' => false,
                 'max_files' => 1,
             ],
@@ -136,7 +199,7 @@ class SocialInsuranceSection extends BaseSection
                 $validator->errors()->add(
                     "{$this->key()}.histories.{$index}.start_date",
                     __('validation.before_or_equal', [
-                        'attribute' => __('employee.sections.social_insurance.fields.start_date'),
+                        'attribute' => __('employee.social_insurance.fields.start_date'),
                         'date' => $today->toDateString(),
                     ]),
                 );
@@ -146,7 +209,7 @@ class SocialInsuranceSection extends BaseSection
                 $validator->errors()->add(
                     "{$this->key()}.histories.{$index}.end_date",
                     __('validation.before_or_equal', [
-                        'attribute' => __('employee.sections.social_insurance.fields.end_date'),
+                        'attribute' => __('employee.social_insurance.fields.end_date'),
                         'date' => $today->toDateString(),
                     ]),
                 );
@@ -159,7 +222,7 @@ class SocialInsuranceSection extends BaseSection
             ) {
                 $validator->errors()->add(
                     "{$this->key()}.histories.{$index}.end_date",
-                    __('employee.sections.social_insurance.validation.end_date_before_start_date'),
+                    __('employee.social_insurance.validation.end_date_before_start_date'),
                 );
             }
         }

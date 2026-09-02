@@ -15,6 +15,9 @@ return [
         'training' => 'دوره‌ها و آموزش‌ها',
         'additional_info' => 'اطلاعات تکمیلی',
         'social_insurance' => 'بیمه تأمین اجتماعی',
+        'contracts' => 'قراردادها',
+        'financial' => 'اطلاعات مالی',
+        'supplementary_insurance' => 'بیمه تکمیلی',
         'dependents' => 'بستگان و افراد تحت تکفل',
         'document_inquiries' => 'استعلام مدارک',
     ],
@@ -26,11 +29,21 @@ return [
             'id_number' => 'کد ملی',
             'gender' => 'جنسیت',
             'birth_date' => 'تاریخ تولد',
+            'marriage_date' => 'تاریخ عقد',
         ],
         'validation' => [
             'birth_date_not_future' => 'تاریخ تولد وابسته نمی‌تواند در آینده باشد.',
         ],
         'field_label' => 'وابسته :n',
+    ],
+    'social_insurance' => [
+        'fields' => [
+            'start_date' => 'تاریخ شروع',
+            'end_date' => 'تاریخ پایان',
+        ],
+        'validation' => [
+            'end_date_before_start_date' => 'تاریخ پایان نباید زودتر از تاریخ شروع باشد.',
+        ],
     ],
     'document_inquiries' => [
         'field_labels' => [

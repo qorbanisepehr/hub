@@ -4,11 +4,14 @@ namespace Tests\Unit\Domains\Employee\Sections;
 
 use App\Domains\Employee\Sections\SocialInsuranceSection;
 use Carbon\Carbon;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Validator;
 use Tests\TestCase;
 
 class SocialInsuranceSectionTest extends TestCase
 {
+    use RefreshDatabase;
+
     private SocialInsuranceSection $section;
 
     protected function setUp(): void
@@ -16,6 +19,8 @@ class SocialInsuranceSectionTest extends TestCase
         parent::setUp();
 
         $this->section = new SocialInsuranceSection;
+
+        seedFormOptions(['insurance_type']);
     }
 
     public function test_section_has_expected_key(): void
@@ -43,6 +48,7 @@ class SocialInsuranceSectionTest extends TestCase
             [
                 'has_insurance_history' => false,
                 'histories' => [],
+                'job_titles' => [],
             ],
             $this->section->prefill()
         );
@@ -204,6 +210,15 @@ class SocialInsuranceSectionTest extends TestCase
         $this->assertInvalid($data, 'insurance_status');
     }
 
+    public function test_insurance_status_must_be_a_valid_form_option_value(): void
+    {
+        $data = $this->validData([
+            'insurance_status' => 'active',
+        ]);
+
+        $this->assertInvalid($data, 'insurance_status');
+    }
+
     public function test_insurance_start_date_is_optional(): void
     {
         $data = $this->validData([
@@ -217,7 +232,7 @@ class SocialInsuranceSectionTest extends TestCase
     {
         return array_replace_recursive([
             'social_insurance_number' => '1234567890',
-            'insurance_status' => 'active',
+            'insurance_status' => 'social_security',
             'insurance_start_date' => null,
             'has_insurance_history' => false,
             'histories' => [],
