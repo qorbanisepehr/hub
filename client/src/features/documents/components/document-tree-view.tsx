@@ -71,7 +71,7 @@ function TopLevelFolder({
             >
                 <IconChevronRight
                     className={cn(
-                        "size-3.5 shrink-0 text-muted-foreground transition-transform",
+                        "size-3.5 shrink-0 text-muted-foreground transition-transform rtl:-scale-x-100",
                         expanded && "rotate-90",
                     )}
                 />
@@ -153,7 +153,7 @@ function FirstLevelFolder({
             >
                 <IconChevronRight
                     className={cn(
-                        "size-3.5 shrink-0 text-muted-foreground transition-transform",
+                        "size-3.5 shrink-0 text-muted-foreground transition-transform rtl:-scale-x-100",
                         expanded && "rotate-90",
                     )}
                 />

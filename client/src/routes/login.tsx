@@ -1,8 +1,13 @@
+import { lazy, Suspense } from "react";
 import { createRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { Route as RootRoute } from "@/routes/__root";
-import { LoginPage } from "@/features/auth/pages/login-page";
+import { RouteLoadingFallback } from "@/components/layout/lazy-route";
 import { redirectIfAuthenticated } from "@/features/auth/guards";
+
+const LoginPage = lazy(() =>
+    import("@/features/auth/pages/login-page").then((m) => ({ default: m.LoginPage }))
+);
 
 export const Route = createRoute({
     getParentRoute: () => RootRoute,
@@ -14,6 +19,10 @@ export const Route = createRoute({
     component: function LoginRouteComponent() {
         const { redirect: redirectTo } = Route.useSearch();
 
-        return <LoginPage redirectTo={redirectTo} />;
+        return (
+            <Suspense fallback={<RouteLoadingFallback />}>
+                <LoginPage redirectTo={redirectTo} />
+            </Suspense>
+        );
     },
 });

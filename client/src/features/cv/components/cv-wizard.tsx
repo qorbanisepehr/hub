@@ -1,5 +1,4 @@
-import { useEffect, useState, useCallback, useMemo } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useCallback, useMemo } from "react";
 import { toast } from "sonner";
 import {
     IconLoader2,
@@ -24,9 +23,9 @@ import {
     StepperPanel,
     StepperContent,
 } from "@/components/reui/stepper";
-import { useWizardState, SubmitErrors } from "@/components/wizards";
+import { useWizardState, useWizardSubmit, SubmitErrors } from "@/components/wizards";
 import { saveCvSection, submitCv } from "@/features/cv/api";
-import { getApiError, getSubmitErrors } from "@/lib/error-utils";
+import { getApiError } from "@/lib/error-utils";
 import { cleanServerSection } from "@/lib/form-utils";
 import {
     CV_WIZARD_STEPS,
@@ -35,14 +34,9 @@ import {
 } from "@/features/cv/constants";
 import { useCvDocuments } from "@/features/cv/hooks/use-cv-documents";
 import { useCvSubmitOptions } from "@/features/cv/hooks/use-cv-submit-options";
-import { buildValidateSubmitData } from "@/features/cv/validation";
-import { useInjectedFieldErrors } from "@/hooks/use-injected-field-errors";
+import { buildSubmitValidator } from "@/features/cv/validation";
 import { useSectionForm } from "@/hooks/use-section-form";
-import {
-    countSectionFieldErrors,
-    scrollToFirstInvalidField,
-    validateDocumentRequirements,
-} from "@/lib/validation-helpers";
+import { validateDocumentRequirements } from "@/lib/validation-helpers";
 import { cvKeys } from "@/lib/query-keys";
 import type { Cv, CvFormApi } from "@/features/cv/types";
 
@@ -95,7 +89,7 @@ function buildDefaultValues(cv: Cv): WizardFormValues {
             id_number: "",
             birth_place: "",
             birth_certificate_number: "",
-            ...cleanServerSection(cv.personal_info as Record<string, unknown>),
+            ...cleanServerSection(cv.personal_info),
         },
         contact_info: {
             phone: "",
@@ -110,7 +104,7 @@ function buildDefaultValues(cv: Cv): WizardFormValues {
                 unit: "",
                 neighborhood: "",
             },
-            ...cleanServerSection(cv.contact_info as Record<string, unknown>),
+            ...cleanServerSection(cv.contact_info),
         },
         education: {
             education_records: [],
@@ -130,33 +124,33 @@ function buildDefaultValues(cv: Cv): WizardFormValues {
             student_thesis_title: "",
             free_days_per_week: null,
             education_description: "",
-            ...cleanServerSection(cv.education as Record<string, unknown>),
+            ...cleanServerSection(cv.education),
         },
         work_experience: {
             work_experiences: [],
             achievements: "",
             allow_contact_previous_managers: false,
             contact_restriction_description: "",
-            ...cleanServerSection(cv.work_experience as Record<string, unknown>),
+            ...cleanServerSection(cv.work_experience),
         },
         skills: {
             languages: [],
             certificates: [],
             special_skills: [],
             software_skills: { specialized: [], general: [] },
-            ...cleanServerSection(cv.skills as Record<string, unknown>),
+            ...cleanServerSection(cv.skills),
         },
         training: {
             training_courses: [],
             professional_memberships: "",
             researches: [],
-            ...cleanServerSection(cv.training as Record<string, unknown>),
+            ...cleanServerSection(cv.training),
         },
         additional_info: {
             hobbies: "",
             references: [],
             strengths_and_improvements: "",
-            ...cleanServerSection(cv.additional_info as Record<string, unknown>),
+            ...cleanServerSection(cv.additional_info),
         },
     };
 }
@@ -201,9 +195,7 @@ function extractSectionData(
 }
 
 export function CvWizard({ cv }: CvWizardProps) {
-    const queryClient = useQueryClient();
     const { currentStep, goToStep: setStep } = useWizardState(CV_WIZARD_STEPS);
-    const [submitErrors, setSubmitErrors] = useState<string[]>([]);
 
     const { form, saveMutation, persistSection, isDirty, isSectionDirty, syncDefaults } = useSectionForm<
         Cv,
@@ -220,19 +212,6 @@ export function CvWizard({ cv }: CvWizardProps) {
         },
     });
 
-    const submitMutation = useMutation({
-        mutationFn: () => submitCv(cv.uuid),
-        onSuccess: () => {
-            queryClient.invalidateQueries({
-                queryKey: cvKeys.detail(cv.uuid),
-            });
-            toast.success("رزومه با موفقیت ارسال شد.");
-        },
-        onError: (error: Error) => {
-            setSubmitErrors(getSubmitErrors(error, "خطا در ارسال رزومه"));
-        },
-    });
-
     const handlePersist = useCallback(() => {
         const sectionKey = CV_WIZARD_STEPS[currentStep]?.key;
         if (
@@ -245,28 +224,60 @@ export function CvWizard({ cv }: CvWizardProps) {
         persistSection(sectionKey);
     }, [currentStep, persistSection]);
 
-    useEffect(() => {
-        if (isDirty) {
-            setSubmitErrors([]);
-        }
-    }, [isDirty]);
-
     const { submitOptions, optionsReady } = useCvSubmitOptions();
 
     const validateSubmit = useMemo(
-        () => buildValidateSubmitData(submitOptions),
+        () => buildSubmitValidator(submitOptions),
         [submitOptions],
     );
 
     const validation = validateSubmit(form.state.values);
 
     const { documents, isLoading: documentsLoading } = useCvDocuments(cv.uuid);
-    const { inject: injectFieldErrors, clear: clearInjectedErrors } =
-        useInjectedFieldErrors(form);
 
     // Email stays optional on a CV; when filled it must be OTP-verified.
     const emailIsSettled =
         !cv.email || cv.email_verified || form.state.values.email === "";
+
+    const { submitErrors, submitMutation, handleSubmit, handleValidateClick } =
+        useWizardSubmit({
+            form,
+            isDirty,
+            optionsReady,
+            validateSubmit,
+            getCurrentSectionKey: () => CV_WIZARD_STEPS[currentStep]?.key ?? "",
+            validationSections: CV_VALIDATION_SECTIONS,
+            guards: [
+                {
+                    errors: () =>
+                        cv.mobile_verified
+                            ? []
+                            : ["شماره موبایل تأیید نشده است."],
+                },
+                {
+                    errors: () =>
+                        cv.email &&
+                        !cv.email_verified &&
+                        form.state.values.email !== ""
+                            ? ["ایمیل تأیید نشده است."]
+                            : [],
+                },
+            ],
+            getDocumentErrors: () =>
+                documentsLoading
+                    ? []
+                    : validateDocumentRequirements(
+                          documents,
+                          CV_DOC_REQUIREMENTS,
+                      ),
+            reviewStepLabel: "خلاصه و تأیید",
+            submit: {
+                submitFn: () => submitCv(cv.uuid),
+                detailQueryKey: () => cvKeys.detail(cv.uuid),
+                successMessage: "رزومه با موفقیت ارسال شد.",
+                errorFallback: "خطا در ارسال رزومه",
+            },
+        });
 
     const canSubmit =
         optionsReady &&
@@ -274,65 +285,6 @@ export function CvWizard({ cv }: CvWizardProps) {
         cv.mobile_verified &&
         emailIsSettled &&
         (cv.status === "draft" || cv.status === "rejected");
-
-    const handleSubmit = () => {
-        if (!optionsReady) return;
-        if (!validation.success) {
-            setSubmitErrors(validation.errors);
-            toast.error("لطفاً خطاهای زیر را اصلاح کنید.");
-            return;
-        }
-        if (!cv.mobile_verified) {
-            setSubmitErrors(["شماره موبایل تأیید نشده است."]);
-            return;
-        }
-        if (cv.email && !cv.email_verified && form.state.values.email !== "") {
-            setSubmitErrors(["ایمیل تأیید نشده است."]);
-            return;
-        }
-        setSubmitErrors([]);
-        submitMutation.mutate();
-    };
-
-    const handleValidateClick = () => {
-        if (!optionsReady) return;
-        const result = validateSubmit(form.state.values);
-        const docErrors = documentsLoading
-            ? []
-            : validateDocumentRequirements(documents, CV_DOC_REQUIREMENTS);
-
-        if (result.success && docErrors.length === 0) {
-            clearInjectedErrors();
-            toast.success("همه فیلدهای الزامی تکمیل شده‌اند.");
-            return;
-        }
-
-        const sectionKey = CV_WIZARD_STEPS[currentStep]?.key;
-        const section = CV_VALIDATION_SECTIONS.find((s) => s.key === sectionKey);
-        if (section) {
-            injectFieldErrors(result.fieldErrors, section);
-        }
-
-        const currentFieldCount = section
-            ? countSectionFieldErrors(result.fieldErrors, section)
-            : 0;
-        const currentDocCount =
-            sectionKey === "documents" ? docErrors.length : 0;
-        const currentCount = currentFieldCount + currentDocCount;
-        const otherCount = result.errors.length + docErrors.length - currentCount;
-
-        if (currentCount > 0) {
-            scrollToFirstInvalidField();
-        }
-
-        toast.error("فیلدهای الزامی ناقص هستند", {
-            description:
-                currentCount > 0
-                    ? `${currentCount} خطا در این بخش${otherCount > 0 ? ` و ${otherCount} خطا در سایر بخش‌ها` : ""} (در «خلاصه و تأیید» قابل مشاهده است).`
-                    : `${otherCount} خطا در سایر بخش‌ها وجود دارد که در «خلاصه و تأیید» قابل مشاهده است.`,
-            duration: 5000,
-        });
-    };
 
     const goToStep = async (step: number) => {
         const sectionKey = CV_WIZARD_STEPS[currentStep]?.key;
@@ -470,7 +422,7 @@ export function CvWizard({ cv }: CvWizardProps) {
                                 submitMutation.isPending
                             }
                         >
-                            <IconArrowRight className="size-4 ms-1" />
+                            <IconArrowRight className="size-4 ms-1 ltr:-scale-x-100" />
                             مرحله قبل
                         </Button>
                     )}
@@ -518,7 +470,7 @@ export function CvWizard({ cv }: CvWizardProps) {
                             }
                         >
                             مرحله بعد
-                            <IconArrowLeft className="size-4 me-1" />
+                            <IconArrowLeft className="size-4 me-1 ltr:-scale-x-100" />
                         </Button>
                     )}
 

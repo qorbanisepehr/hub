@@ -13,10 +13,9 @@ import { trainingFieldSchema } from "@/features/questionnaire/schemas/training.s
 import { additionalInfoFieldSchema } from "@/features/questionnaire/schemas/additional-info.schema";
 import { email, mobile } from "@/lib/field-rules";
 import {
-    zodFieldErrors,
-    zodIssueMessage,
-    type FieldErrors,
-} from "@/lib/validation-helpers";
+    buildValidateSubmitData,
+    type SubmitValidationResult,
+} from "@/lib/submit-validation";
 import { requiredText } from "@/lib/zod-primitives";
 import { socialInsuranceSubmitSchema } from "./schemas/social-insurance.schema";
 import { dependentsSubmitSchema } from "./schemas/dependents.schema";
@@ -62,35 +61,16 @@ export function buildSubmitSchema(options: SubmitOptions) {
 
 export type SubmitFormData = z.infer<ReturnType<typeof buildSubmitSchema>>;
 
-export type SubmitValidationResult = {
-    success: boolean;
-    errors: string[];
-    fieldErrors: FieldErrors;
-};
-
 /**
  * Build a submit validator from fetched options. Pass `undefined` while the
  * options are still loading: the validator then reports no errors (so the
  * profile doesn't flash spurious errors) and callers gate submission on
  * `optionsReady` instead.
  */
-export function buildValidateSubmitData(
+export function buildSubmitValidator(
     options: SubmitOptions | undefined,
 ): (data: unknown) => SubmitValidationResult {
-    const schema = options ? buildSubmitSchema(options) : undefined;
-
-    return (data) => {
-        if (!schema) {
-            return { success: false, errors: [], fieldErrors: {} };
-        }
-        const result = schema.safeParse(data);
-        if (result.success) {
-            return { success: true, errors: [], fieldErrors: {} };
-        }
-        return {
-            success: false,
-            errors: result.error.issues.map((issue) => zodIssueMessage(issue)),
-            fieldErrors: zodFieldErrors(result.error),
-        };
-    };
+    return buildValidateSubmitData(
+        options ? buildSubmitSchema(options) : undefined,
+    );
 }

@@ -1,4 +1,4 @@
-import { Fragment, useState } from "react";
+import { useState } from "react";
 import {
     flexRender,
     stockFeatures,
@@ -8,11 +8,7 @@ import {
     type Row,
     type StockFeatures,
 } from "@tanstack/react-table";
-import {
-    IconListDetails,
-    IconPencil,
-    IconPlus,
-} from "@tabler/icons-react";
+import { IconListDetails, IconPencil, IconPlus } from "@tabler/icons-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -24,9 +20,8 @@ import {
     CardTitle,
 } from "@/components/ui/card";
 import { ConfirmDeleteButton } from "@/components/ui/confirm-delete-button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { ResponsiveDialog } from "@/components/ui/responsive-dialog";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
 import {
     Select,
     SelectContent,
@@ -34,8 +29,6 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Switch } from "@/components/ui/switch";
 import {
     Table,
     TableBody,
@@ -53,58 +46,21 @@ import {
     useAdminFormOptionGroups,
     useAdminFormOptions,
     useFormOptionsAdmin,
-    useFormOptionsByGroup,
 } from "@/features/form-options/hooks/use-form-options";
 import type { FormOption } from "@/features/form-options/types";
 import { PAGINATION } from "@/lib/constants";
 import { PERMISSIONS } from "@/lib/permissions";
-
-type OptionFormState = {
-    value: string;
-    label: string;
-    parent_value: string;
-    group_label: string;
-    meta: string;
-    sort_order: string;
-    is_active: boolean;
-};
-
-function emptyForm(nextSortOrder: number): OptionFormState {
-    return {
-        value: "",
-        label: "",
-        parent_value: "",
-        group_label: "",
-        meta: "",
-        sort_order: String(nextSortOrder),
-        is_active: true,
-    };
-}
-
-function formFromOption(option: FormOption): OptionFormState {
-    return {
-        value: option.value,
-        label: option.label,
-        parent_value: option.parent_value ?? "",
-        group_label: option.group_label ?? "",
-        meta: option.meta ? JSON.stringify(option.meta, null, 2) : "",
-        sort_order: String(option.sort_order),
-        is_active: option.is_active,
-    };
-}
-
-function parseMeta(raw: string): Record<string, unknown> | null {
-    const trimmed = raw.trim();
-    if (!trimmed) return null;
-    try {
-        const parsed = JSON.parse(trimmed);
-        return parsed && typeof parsed === "object" && !Array.isArray(parsed)
-            ? parsed
-            : null;
-    } catch {
-        return null;
-    }
-}
+import { OptionEditorDialog } from "./option-editor-dialog";
+import {
+    emptyForm,
+    formFromOption,
+    type OptionFormState,
+    type OptionFormActions,
+} from "./form-option-form-state";
+import {
+    buildUpdatePayload,
+    saveDisabled,
+} from "./form-option-form-state";
 
 export function FormOptionsSection() {
     const canManage = usePermission([PERMISSIONS.FORM_OPTIONS_MANAGE]);
@@ -121,25 +77,19 @@ export function FormOptionsSection() {
 
     const { data: groups = [], isLoading: groupsLoading } =
         useAdminFormOptionGroups();
-    const {
-        data,
-        isLoading,
-        isError,
-        refetch,
-    } = useAdminFormOptions(
+    const { data, isLoading, isError, refetch } = useAdminFormOptions(
         selectedGroup || undefined,
         pagination.pageIndex + 1,
         pagination.pageSize,
     );
-    // A city option's parent must be an active province; the dialog swaps the
-    // free-text parent field for a province selector. The province list is
-    // session-cached, so fetching it unconditionally is cheap.
-    const { data: provinceOptions = [] } = useFormOptionsByGroup("province");
 
     const rows = data?.data ?? [];
     const meta = data?.meta;
-
     const activeGroup = groups.find((g) => g.group === selectedGroup);
+
+    const formActions: OptionFormActions = {
+        patch: (patch) => setForm((f) => ({ ...f, ...patch })),
+    };
 
     const openCreate = () => {
         if (!selectedGroup) return;
@@ -157,15 +107,7 @@ export function FormOptionsSection() {
     };
 
     const handleSave = () => {
-        const payload = {
-            label: form.label.trim(),
-            parent_value: form.parent_value.trim() || null,
-            group_label: form.group_label.trim() || null,
-            meta: parseMeta(form.meta),
-            sort_order: Number(form.sort_order) || 0,
-            is_active: form.is_active,
-        };
-
+        const payload = buildUpdatePayload(form);
         if (editing) {
             admin.update.mutate({ id: editing.id, data: payload });
         } else {
@@ -178,8 +120,6 @@ export function FormOptionsSection() {
         setDialogOpen(false);
     };
 
-    const saveDisabled = (editing ? false : !form.value.trim()) || !form.label.trim();
-
     const groupLabel = selectedGroup
         ? groupDisplayName(selectedGroup, activeGroup?.label ?? undefined)
         : "";
@@ -188,11 +128,7 @@ export function FormOptionsSection() {
         {
             accessorKey: "label",
             header: "عنوان",
-            cell: ({
-                row,
-            }: {
-                row: Row<StockFeatures, FormOption>;
-            }) => (
+            cell: ({ row }: { row: Row<StockFeatures, FormOption> }) => (
                 <span className="font-medium">{row.original.label}</span>
             ),
         },
@@ -323,7 +259,8 @@ export function FormOptionsSection() {
                     گزینه‌های فرم
                 </CardTitle>
                 <CardDescription>
-                    مدیریت گزینه‌های بازشو (جنسیت، وضعیت تأهل، استان و شهر و…) در فرم‌ها
+                    مدیریت گزینه‌های بازشو (جنسیت، وضعیت تأهل، استان و شهر و…) در
+                    فرم‌ها
                 </CardDescription>
             </CardHeader>
             <CardContent>
@@ -358,7 +295,10 @@ export function FormOptionsSection() {
                                     key={group.group}
                                     value={group.group}
                                 >
-                                    {groupDisplayName(group.group, group.label ?? undefined)}
+                                    {groupDisplayName(
+                                        group.group,
+                                        group.label ?? undefined,
+                                    )}
                                     ({group.count.toLocaleString("fa-IR")})
                                 </SelectItem>
                             ))}
@@ -369,7 +309,9 @@ export function FormOptionsSection() {
                         <Button
                             type="button"
                             onClick={openCreate}
-                            disabled={!selectedGroup || admin.create.isPending}
+                            disabled={
+                                !selectedGroup || admin.create.isPending
+                            }
                         >
                             <IconPlus className="size-4" />
                             افزودن گزینه
@@ -392,39 +334,57 @@ export function FormOptionsSection() {
                         <div className="mt-6 overflow-x-auto rounded-lg border">
                             <Table>
                                 <TableHeader>
-                                    {table.getHeaderGroups().map((headerGroup) => (
-                                        <TableRow key={headerGroup.id}>
-                                            {headerGroup.headers.map((header) => (
-                                                <TableHead key={header.id}>
-                                                    {header.isPlaceholder
-                                                        ? null
-                                                        : flexRender(
-                                                              header.column
-                                                                  .columnDef.header,
-                                                              header.getContext(),
-                                                          )}
-                                                </TableHead>
-                                            ))}
-                                        </TableRow>
-                                    ))}
+                                    {table
+                                        .getHeaderGroups()
+                                        .map((headerGroup) => (
+                                            <TableRow key={headerGroup.id}>
+                                                {headerGroup.headers.map(
+                                                    (header) => (
+                                                        <TableHead
+                                                            key={header.id}
+                                                        >
+                                                            {header.isPlaceholder
+                                                                ? null
+                                                                : flexRender(
+                                                                      header
+                                                                          .column
+                                                                          .columnDef
+                                                                          .header,
+                                                                      header.getContext(),
+                                                                  )}
+                                                        </TableHead>
+                                                    ),
+                                                )}
+                                            </TableRow>
+                                        ))}
                                 </TableHeader>
                                 <TableBody>
                                     {table.getRowModel().rows.length ? (
-                                        table.getRowModel().rows.map((row) => (
-                                            <TableRow key={row.id}>
-                                                {row.getVisibleCells().map((cell) => (
-                                                    <TableCell key={cell.id}>
-                                                        {flexRender(
-                                                            cell.column.columnDef.cell,
-                                                            cell.getContext(),
-                                                        )}
-                                                    </TableCell>
-                                                ))}
-                                            </TableRow>
-                                        ))
+                                        table
+                                            .getRowModel()
+                                            .rows.map((row) => (
+                                                <TableRow key={row.id}>
+                                                    {row
+                                                        .getVisibleCells()
+                                                        .map((cell) => (
+                                                            <TableCell
+                                                                key={cell.id}
+                                                            >
+                                                                {flexRender(
+                                                                    cell.column
+                                                                        .columnDef
+                                                                        .cell,
+                                                                    cell.getContext(),
+                                                                )}
+                                                            </TableCell>
+                                                        ))}
+                                                </TableRow>
+                                            ))
                                     ) : (
                                         <TableRow>
-                                            <TableCell colSpan={columns.length}>
+                                            <TableCell
+                                                colSpan={columns.length}
+                                            >
                                                 <EmptyState
                                                     icon={IconListDetails}
                                                     message="هنوز گزینه‌ای در این گروه ثبت نشده است"
@@ -437,172 +397,28 @@ export function FormOptionsSection() {
                         </div>
                         {meta && meta.total > 0 && (
                             <div className="mt-4 border-t pt-3">
-                                <DataTablePagination table={table} meta={meta} />
+                                <DataTablePagination
+                                    table={table}
+                                    meta={meta}
+                                />
                             </div>
                         )}
                     </>
                 )}
             </CardContent>
 
-            <ResponsiveDialog
+            <OptionEditorDialog
                 open={dialogOpen}
                 onOpenChange={setDialogOpen}
-                title={editing ? "ویرایش گزینه" : "افزودن گزینه"}
-                description={
-                    editing
-                        ? `گزینه «${groupLabel}»`
-                        : `گزینه جدید در گروه «${groupLabel}»`
-                }
-                footer={
-                    <Fragment>
-                        <Button
-                            variant="outline"
-                            className="flex-1"
-                            onClick={() => setDialogOpen(false)}
-                        >
-                            انصراف
-                        </Button>
-                        <Button
-                            className="flex-1"
-                            onClick={handleSave}
-                            disabled={
-                                saveDisabled ||
-                                admin.create.isPending ||
-                                admin.update.isPending
-                            }
-                        >
-                            {editing ? "ذخیره تغییرات" : "افزودن"}
-                        </Button>
-                    </Fragment>
-                }
-            >
-                <div className="grid gap-4 py-2">
-                    {!editing && (
-                        <div className="grid gap-2">
-                            <Label>مقدار (ارسال به سرور)</Label>
-                            <Input
-                                dir="ltr"
-                                value={form.value}
-                                onChange={(e) =>
-                                    setForm((f) => ({ ...f, value: e.target.value }))
-                                }
-                                placeholder="مثلاً single"
-                            />
-                        </div>
-                    )}
-                    <div className="grid gap-2">
-                        <Label>عنوان نمایشی</Label>
-                        <Input
-                            value={form.label}
-                            onChange={(e) =>
-                                setForm((f) => ({ ...f, label: e.target.value }))
-                            }
-                            placeholder="مثلاً مجرد"
-                        />
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="grid gap-2">
-                            <Label>عنوان گروه</Label>
-                            <Input
-                                value={form.group_label}
-                                onChange={(e) =>
-                                    setForm((f) => ({
-                                        ...f,
-                                        group_label: e.target.value,
-                                    }))
-                                }
-                            />
-                        </div>
-                        <div className="grid gap-2">
-                            <Label>ترتیب</Label>
-                            <Input
-                                dir="ltr"
-                                type="number"
-                                value={form.sort_order}
-                                onChange={(e) =>
-                                    setForm((f) => ({
-                                        ...f,
-                                        sort_order: e.target.value,
-                                    }))
-                                }
-                            />
-                        </div>
-                    </div>
-                    <div className="grid gap-2">
-                        {selectedGroup === "city" ? (
-                            <>
-                                <Label>استان والد</Label>
-                                <Select
-                                    value={form.parent_value || null}
-                                    onValueChange={(value: string | null) => {
-                                        if (value === null) return;
-                                        setForm((f) => ({
-                                            ...f,
-                                            parent_value: value,
-                                        }));
-                                    }}
-                                    itemToStringLabel={(val) =>
-                                        provinceOptions.find(
-                                            (o) => o.value === val,
-                                        )?.label ?? (val as string)
-                                    }
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="انتخاب استان" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {provinceOptions.map((option) => (
-                                            <SelectItem
-                                                key={option.value}
-                                                value={option.value}
-                                            >
-                                                {option.label}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </>
-                        ) : (
-                            <>
-                                <Label>وابسته به (مقدار والد)</Label>
-                                <Input
-                                    dir="ltr"
-                                    value={form.parent_value}
-                                    onChange={(e) =>
-                                        setForm((f) => ({
-                                            ...f,
-                                            parent_value: e.target.value,
-                                        }))
-                                    }
-                                    placeholder="در صورت نیاز"
-                                />
-                            </>
-                        )}
-                    </div>
-                    <div className="grid gap-2">
-                        <Label>متادیتا (JSON)</Label>
-                        <textarea
-                            dir="ltr"
-                            rows={4}
-                            value={form.meta}
-                            onChange={(e) =>
-                                setForm((f) => ({ ...f, meta: e.target.value }))
-                            }
-                            placeholder='مثلاً {"slug":"markazi"}'
-                            className="flex min-h-[6rem] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-                        />
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <Switch
-                            checked={form.is_active}
-                            onCheckedChange={(checked) =>
-                                setForm((f) => ({ ...f, is_active: checked }))
-                            }
-                        />
-                        <Label>فعال</Label>
-                    </div>
-                </div>
-            </ResponsiveDialog>
+                editing={editing}
+                groupLabel={groupLabel}
+                selectedGroup={selectedGroup}
+                form={form}
+                actions={formActions}
+                saveDisabled={saveDisabled(editing !== null, form)}
+                isPending={admin.create.isPending || admin.update.isPending}
+                onSave={handleSave}
+            />
         </Card>
     );
 }

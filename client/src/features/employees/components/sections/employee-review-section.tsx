@@ -14,7 +14,7 @@ import {
 } from "@/features/employees/constants";
 import { useEmployeeDocuments } from "@/features/employees/hooks/use-employee-documents";
 import { useEmployeeSubmitOptions } from "@/features/employees/hooks/use-employee-submit-options";
-import { buildValidateSubmitData } from "@/features/employees/validation";
+import { buildSubmitValidator } from "@/features/employees/validation";
 import {
     groupFieldErrorsBySection,
     validateDocumentRequirements,
@@ -70,7 +70,7 @@ export function EmployeeReviewSection({
     const { submitOptions } = useEmployeeSubmitOptions();
 
     const validateSubmit = useMemo(
-        () => buildValidateSubmitData(submitOptions),
+        () => buildSubmitValidator(submitOptions),
         [submitOptions],
     );
 

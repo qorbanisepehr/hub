@@ -26,4 +26,6 @@ export { AddressForm } from './address-form';
 export { PhysicalConditionFields } from './physical-condition-fields';
 export { OtpVerificationForm } from './otp-verification-form';
 export { OtpVerifiedInput } from './otp-verified-input';
+export { ContactInfoSection } from './contact-info-section';
+export type { ContactOtpConfig } from './contact-info-section';
 export { RepeaterAttachmentCell, repeaterAttachmentColumn } from './repeater-attachment-cell';

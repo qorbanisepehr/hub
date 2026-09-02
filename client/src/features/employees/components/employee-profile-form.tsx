@@ -1,8 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useCallback, useMemo } from "react";
 import { toast } from "sonner";
 import {
-    IconAlertTriangle,
     IconChecks,
     IconClipboardCheck,
     IconLoader2,
@@ -12,6 +10,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { ErrorBanner } from "@/components/layout";
 import { UnsavedChangesDialog } from "@/components/layout";
+import { useWizardState, useWizardSubmit, SubmitErrors } from "@/components/wizards";
+import type { WizardStep } from "@/components/wizards";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PersonalInfoSection } from "@/features/questionnaire/components/sections/personal-info-section";
 import { EducationSection } from "@/features/questionnaire/components/sections/education-section";
@@ -71,14 +71,9 @@ import {
 } from "@/features/employees/constants";
 import { useEmployeeSubmitOptions } from "@/features/employees/hooks/use-employee-submit-options";
 import { useDependentDocsFeedback } from "@/features/employees/hooks/use-dependent-docs-feedback";
-import { buildValidateSubmitData } from "@/features/employees/validation";
-import { useInjectedFieldErrors } from "@/hooks/use-injected-field-errors";
+import { buildSubmitValidator } from "@/features/employees/validation";
 import { useSectionForm } from "@/hooks/use-section-form";
-import {
-    countSectionFieldErrors,
-    scrollToFirstInvalidField,
-} from "@/lib/validation-helpers";
-import { getApiError, getSubmitErrors } from "@/lib/error-utils";
+import { getApiError } from "@/lib/error-utils";
 import { cleanServerSection } from "@/lib/form-utils";
 import { employeeKeys } from "@/lib/query-keys";
 import type {
@@ -91,23 +86,12 @@ type EmployeeProfileFormProps = {
     employee: Employee;
 };
 
-const PROFILE_TAB_KEYS = new Set<string>([
-    ...EMPLOYEE_SECTIONS.map((section) => section.key),
-    EMPLOYEE_DOCUMENTS_TAB.key,
-    EMPLOYEE_LINKED_USER_TAB.key,
-    EMPLOYEE_REVIEW_TAB.key,
-]);
-
-/** Read the active tab key from the URL hash (e.g. `#review`). */
-function getSectionFromHash(): string {
-    const hash = window.location.hash.replace("#", "");
-    if (PROFILE_TAB_KEYS.has(hash)) return hash;
-    return EMPLOYEE_SECTIONS[0].key;
-}
-
-function setSectionHash(key: string) {
-    window.location.hash = `#${key}`;
-}
+const PROFILE_STEPS = [
+    ...EMPLOYEE_SECTIONS,
+    EMPLOYEE_DOCUMENTS_TAB,
+    EMPLOYEE_LINKED_USER_TAB,
+    EMPLOYEE_REVIEW_TAB,
+] satisfies readonly WizardStep[];
 
 const SECTION_PAYLOAD_BUILDERS: Record<
     string,
@@ -213,32 +197,12 @@ function extractSectionData(
 }
 
 export function EmployeeProfileForm({ employee }: EmployeeProfileFormProps) {
-    const queryClient = useQueryClient();
-    const profileTabs = useMemo(
-        () => [
-            ...EMPLOYEE_SECTIONS,
-            EMPLOYEE_DOCUMENTS_TAB,
-            EMPLOYEE_LINKED_USER_TAB,
-            EMPLOYEE_REVIEW_TAB,
-        ],
-        [],
-    );
     const formSectionKeys = useMemo(
         () => new Set<string>(EMPLOYEE_SECTIONS.map((s) => s.key)),
         [],
     );
-    const [activeSection, setActiveSection] =
-        useState<string>(getSectionFromHash);
-    const [submitErrors, setSubmitErrors] = useState<string[]>([]);
-
-    useEffect(() => {
-        const onHashChange = () => {
-            const key = getSectionFromHash();
-            setActiveSection((prev) => (prev === key ? prev : key));
-        };
-        window.addEventListener("hashchange", onHashChange);
-        return () => window.removeEventListener("hashchange", onHashChange);
-    }, []);
+    const { currentKey, goToKey } = useWizardState(PROFILE_STEPS);
+    const activeSection = currentKey ?? EMPLOYEE_SECTIONS[0].key;
 
     const { form, saveMutation, persistSection, isDirty, syncDefaults } =
         useSectionForm<Employee, EmployeeProfileFormData>({
@@ -261,21 +225,8 @@ export function EmployeeProfileForm({ employee }: EmployeeProfileFormProps) {
 
     const { submitOptions, optionsReady } = useEmployeeSubmitOptions();
 
-    const submitMutation = useMutation({
-        mutationFn: () => submitEmployee(employee.id),
-        onSuccess: () => {
-            queryClient.invalidateQueries({
-                queryKey: employeeKeys.detail(employee.id),
-            });
-            toast.success("پروفایل کارمند با موفقیت ثبت شد.");
-        },
-        onError: (error: Error) => {
-            setSubmitErrors(getSubmitErrors(error, "خطا در ثبت پروفایل"));
-        },
-    });
-
     const validateSubmit = useMemo(
-        () => buildValidateSubmitData(submitOptions),
+        () => buildSubmitValidator(submitOptions),
         [submitOptions],
     );
 
@@ -309,72 +260,31 @@ export function EmployeeProfileForm({ employee }: EmployeeProfileFormProps) {
         { rowLabel: educationRowLabel },
     );
 
-    const { inject: injectFieldErrors, clear: clearInjectedErrors } =
-        useInjectedFieldErrors(form);
+    const rowDocErrors = [...dependentDocErrors, ...educationDocErrors];
 
-    useEffect(() => {
-        if (isDirty) {
-            setSubmitErrors([]);
-        }
-    }, [isDirty]);
+    const { submitErrors, submitMutation, handleSubmit, handleValidateClick } =
+        useWizardSubmit({
+            form,
+            isDirty,
+            optionsReady,
+            validateSubmit,
+            getCurrentSectionKey: () => activeSection,
+            validationSections: EMPLOYEE_VALIDATION_SECTIONS,
+            guards: [
+                {
+                    errors: () => rowDocErrors,
+                    message: "مدارک بارگذاری‌شده ناقص است.",
+                },
+            ],
+            submit: {
+                submitFn: () => submitEmployee(employee.id),
+                detailQueryKey: () => employeeKeys.detail(employee.id),
+                successMessage: "پروفایل کارمند با موفقیت ثبت شد.",
+                errorFallback: "خطا در ثبت پروفایل",
+            },
+        });
 
     const canSubmit = optionsReady && validation.success;
-
-    const handleSubmit = () => {
-        if (!optionsReady) return;
-        if (!validation.success) {
-            setSubmitErrors(validation.errors);
-            toast.error("لطفاً خطاهای زیر را اصلاح کنید.");
-            return;
-        }
-        const rowDocErrors = [...dependentDocErrors, ...educationDocErrors];
-        if (rowDocErrors.length > 0) {
-            setSubmitErrors(rowDocErrors);
-            toast.error("مدارک بارگذاری‌شده ناقص است.");
-            return;
-        }
-        setSubmitErrors([]);
-        submitMutation.mutate();
-    };
-
-    const handleValidateClick = () => {
-        if (!optionsReady) return;
-        const result = validateSubmit(form.state.values);
-
-        if (result.success) {
-            clearInjectedErrors();
-            toast.success("همه فیلدهای الزامی تکمیل شده‌اند.");
-            return;
-        }
-
-        const section = EMPLOYEE_VALIDATION_SECTIONS.find(
-            (s) => s.key === activeSection,
-        );
-        if (section) {
-            injectFieldErrors(result.fieldErrors, section);
-        }
-
-        const currentCount = section
-            ? countSectionFieldErrors(result.fieldErrors, section)
-            : 0;
-        const otherCount = result.errors.length - currentCount;
-
-        if (currentCount > 0) {
-            scrollToFirstInvalidField();
-        }
-
-        toast.error("فیلدهای الزامی ناقص هستند", {
-            description:
-                currentCount > 0
-                    ? `${currentCount} خطا در این بخش${
-                          otherCount > 0
-                              ? ` و ${otherCount} خطا در سایر بخش‌ها`
-                              : ""
-                      }`
-                    : `${otherCount} خطا در سایر بخش‌ها وجود دارد.`,
-            duration: 5000,
-        });
-    };
 
     const handleTabChange = (value: string | number | null) => {
         if (!value) return;
@@ -383,13 +293,11 @@ export function EmployeeProfileForm({ employee }: EmployeeProfileFormProps) {
         if (next !== activeSection && formSectionKeys.has(activeSection)) {
             persistSection(activeSection);
         }
-        setActiveSection(next);
-        setSectionHash(next);
+        goToKey(next);
     };
 
     const navigateToSection = (key: string) => {
-        setActiveSection(key);
-        setSectionHash(key);
+        goToKey(key);
     };
 
     const renderSection = (sectionKey: string) => {
@@ -539,22 +447,7 @@ export function EmployeeProfileForm({ employee }: EmployeeProfileFormProps) {
                 </div>
             </div>
 
-            {submitErrors.length > 0 && (
-                <div className="flex items-start gap-3 rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
-                    <IconAlertTriangle className="mt-0.5 size-4 shrink-0" />
-                    <div className="flex-1">
-                        {submitErrors.length === 1 ? (
-                            <p>{submitErrors[0]}</p>
-                        ) : (
-                            <ul className="space-y-1 list-disc ms-4">
-                                {submitErrors.map((err, i) => (
-                                    <li key={i}>{err}</li>
-                                ))}
-                            </ul>
-                        )}
-                    </div>
-                </div>
-            )}
+            <SubmitErrors errors={submitErrors} />
 
             <Tabs
                 orientation="vertical"
@@ -563,7 +456,7 @@ export function EmployeeProfileForm({ employee }: EmployeeProfileFormProps) {
                 className="gap-6 items-start"
             >
                 <TabsList className="w-64 shrink-0 self-start items-stretch gap-1 bg-transparent">
-                    {profileTabs.map((section) => (
+                    {PROFILE_STEPS.map((section) => (
                         <TabsTrigger
                             key={section.key}
                             value={section.key}
@@ -579,7 +472,7 @@ export function EmployeeProfileForm({ employee }: EmployeeProfileFormProps) {
                     ))}
                 </TabsList>
 
-                {profileTabs.map((section) => (
+                {PROFILE_STEPS.map((section) => (
                     <TabsContent
                         key={section.key}
                         value={section.key}

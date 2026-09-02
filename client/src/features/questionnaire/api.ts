@@ -1,5 +1,6 @@
 import { api } from "@/lib/api";
 import { publicApi } from "@/lib/public-api";
+import type { PaginatedResponse, PaginatedListParams } from "@/lib/types";
 import type { GrantPurpose } from "@/lib/grant";
 import type {
     Questionnaire,
@@ -118,15 +119,10 @@ export function submitQuestionnaire(uuid: string) {
     );
 }
 
-export function fetchQuestionnaires(params?: {
-    page?: number;
-    per_page?: number;
-    sort?: string;
-    order?: string;
-    filter?: string;
-    status?: string;
-}) {
-    return api.get("/questionnaires", { params });
+export function fetchQuestionnaires(
+    params?: PaginatedListParams & { filter?: string; status?: string },
+) {
+    return api.get<PaginatedResponse<Questionnaire>>("/questionnaires", { params });
 }
 
 export function getQuestionnaireDetail(id: number) {

@@ -1,5 +1,6 @@
 import { api } from "@/lib/api";
 import { publicApi } from "@/lib/public-api";
+import type { PaginatedResponse, PaginatedListParams } from "@/lib/types";
 import type {
     Cv,
     InitCvResponse,
@@ -87,15 +88,10 @@ export function submitCv(uuid: string) {
     );
 }
 
-export function fetchCvBank(params?: {
-    page?: number;
-    per_page?: number;
-    sort?: string;
-    order?: string;
-    filter?: string;
-    status?: string;
-}) {
-    return api.get("/cv/bank", { params });
+export function fetchCvBank(
+    params?: PaginatedListParams & { filter?: string; status?: string },
+) {
+    return api.get<PaginatedResponse<Cv>>("/cv/bank", { params });
 }
 
 export function getCvBankDetail(id: number | string) {

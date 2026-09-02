@@ -7,6 +7,7 @@ import type {
     Skills,
     Training,
     Address,
+    Reference,
     RequestAccessResponse,
     VerifyAccessResponse,
 } from "@/features/questionnaire/types";
@@ -33,12 +34,6 @@ export interface CvContactInfo {
     phone: string;
     emergency_phone: string;
     address: Address;
-}
-
-export interface Reference {
-    full_name: string;
-    relationship: string;
-    workplace_phone: string;
 }
 
 export interface CvAdditionalInfo {

@@ -5,17 +5,13 @@ import { Route as ProtectedRoute } from "@/routes/_protected";
 import { LazyRoute, RouteLoadingFallback } from "@/components/layout/lazy-route";
 import { requirePermission } from "@/features/auth/guards";
 import { PERMISSIONS } from "@/lib/permissions";
+import { paginatedSearchSchema } from "@/lib/zod-primitives";
 
 const EmployeesPage = lazy(() =>
     import("@/features/employees/pages/employees-page").then((m) => ({ default: m.EmployeesPage }))
 );
 
-const employeesSearchSchema = z.object({
-    page: z.number().optional(),
-    per_page: z.number().optional(),
-    sort: z.string().optional(),
-    order: z.enum(["asc", "desc"]).optional(),
-    filter: z.string().optional(),
+const employeesSearchSchema = paginatedSearchSchema({
     status: z.string().optional(),
 });
 

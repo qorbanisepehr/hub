@@ -99,7 +99,7 @@ export function DataTablePagination<TData extends RowData>({
                         disabled={!table.getCanPreviousPage()}
                     >
                         <span className="sr-only">Go to first page</span>
-                        <IconChevronsRight className="size-4" />
+                        <IconChevronsRight className="size-4 ltr:-scale-x-100" />
                     </Button>
                     <Button
                         variant="outline"
@@ -108,7 +108,7 @@ export function DataTablePagination<TData extends RowData>({
                         disabled={!table.getCanPreviousPage()}
                     >
                         <span className="sr-only">Go to previous page</span>
-                        <IconChevronRight className="size-4" />
+                        <IconChevronRight className="size-4 ltr:-scale-x-100" />
                     </Button>
 
                     {pageNumbers.map((pageNumber, index) => (
@@ -150,7 +150,7 @@ export function DataTablePagination<TData extends RowData>({
                         disabled={!table.getCanNextPage()}
                     >
                         <span className="sr-only">Go to next page</span>
-                        <IconChevronLeft className="size-4" />
+                        <IconChevronLeft className="size-4 ltr:-scale-x-100" />
                     </Button>
                     <Button
                         variant="outline"
@@ -161,7 +161,7 @@ export function DataTablePagination<TData extends RowData>({
                         disabled={!table.getCanNextPage()}
                     >
                         <span className="sr-only">Go to last page</span>
-                        <IconChevronsLeft className="size-4" />
+                        <IconChevronsLeft className="size-4 ltr:-scale-x-100" />
                     </Button>
                 </div>
             </div>

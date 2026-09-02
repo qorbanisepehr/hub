@@ -1,9 +1,14 @@
+import { lazy } from "react";
 import { createRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { Route as ProtectedRoute } from "@/routes/_protected";
-import { SettingsPage } from "@/features/settings/pages/settings-page";
+import { LazyRoute, RouteLoadingFallback } from "@/components/layout/lazy-route";
 import { requirePermission } from "@/features/auth/guards";
 import { PERMISSIONS } from "@/lib/permissions";
+
+const SettingsPage = lazy(() =>
+    import("@/features/settings/pages/settings-page").then((m) => ({ default: m.SettingsPage }))
+);
 
 export const Route = createRoute({
     getParentRoute: () => ProtectedRoute,
@@ -19,5 +24,7 @@ export const Route = createRoute({
         PERMISSIONS.FORM_OPTIONS_VIEW,
         PERMISSIONS.FORM_OPTIONS_MANAGE,
     ]),
-    component: SettingsPage,
+    component: () => (
+        <LazyRoute component={SettingsPage} fallback={<RouteLoadingFallback />} />
+    ),
 });

@@ -78,6 +78,11 @@ export const ruleBuilderKeys = {
     meta: () => [...ruleBuilderKeys.all, "meta"] as const,
 };
 
+export const questionnaireKeys = {
+    all: ["questionnaire"] as const,
+    detail: (uuid: string) => [...questionnaireKeys.all, uuid] as const,
+};
+
 export const cvKeys = {
     all: ["cvs"] as const,
     lists: () => [...cvKeys.all, "list"] as const,

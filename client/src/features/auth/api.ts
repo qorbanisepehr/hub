@@ -1,4 +1,4 @@
-import { api } from "@/lib/api";
+import { api, FORM_DATA_HEADERS } from "@/lib/api";
 import type {
     AuthorizationResponse,
     LoginResponse,
@@ -32,14 +32,6 @@ export function fetchEffectivePermissions() {
     return api.get<{ data: AuthorizationResponse }>("/auth/me/authorization");
 }
 
-export function checkPermission(data: {
-    permission: string;
-    resource_type?: string;
-    resource_id?: number;
-}) {
-    return api.post<{ allowed: boolean }>("/authorization/check", data);
-}
-
 export function updateProfile(data: { name?: string; email?: string; phone?: string }) {
     return api.put<{ data: User }>("/auth/profile", data);
 }
@@ -48,7 +40,7 @@ export function uploadAvatar(file: File) {
     const formData = new FormData();
     formData.append("avatar", file);
     return api.post<{ data: User }>("/auth/avatar", formData, {
-        headers: { "Content-Type": "multipart/form-data" },
+        headers: FORM_DATA_HEADERS,
     });
 }
 

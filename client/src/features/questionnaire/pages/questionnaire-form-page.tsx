@@ -9,6 +9,7 @@ import { ErrorPage } from "@/components/layout";
 import { QrCode } from "@/components/shared/qr-code";
 import { ShareDialog } from "@/components/shared/share-dialog";
 import { getQuestionnaire } from "@/features/questionnaire/api";
+import { questionnaireKeys } from "@/lib/query-keys";
 import { QuestionnaireWizard } from "@/features/questionnaire/components/questionnaire-wizard";
 import { QuestionnaireSuccessPage } from "./questionnaire-success-page";
 
@@ -48,7 +49,7 @@ function QuestionnaireFormContent({
     const [shareOpen, setShareOpen] = useState(false);
 
     const { data, isLoading, isError } = useQuery({
-        queryKey: ["questionnaire", uuid],
+        queryKey: questionnaireKeys.detail(uuid),
         queryFn: () => getQuestionnaire(uuid),
     });
 

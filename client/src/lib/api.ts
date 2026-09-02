@@ -13,6 +13,9 @@ export const api = axios.create({
     },
 });
 
+/** Shared header for multi-part (file upload) requests. */
+export const FORM_DATA_HEADERS = { "Content-Type": "multipart/form-data" };
+
 api.interceptors.response.use(
     (response) => response,
     (error) => {
