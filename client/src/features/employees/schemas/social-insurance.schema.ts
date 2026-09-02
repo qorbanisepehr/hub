@@ -2,6 +2,21 @@ import { z } from "zod";
 
 const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
 
+const monthlyBreakdownRowSchema = z.object({
+    days: z
+        .union([z.number(), z.string(), z.literal("")])
+        .nullable()
+        .transform((v) => v ?? "")
+        .default(""),
+    wage: z
+        .string()
+        .max(30)
+        .or(z.literal(""))
+        .nullable()
+        .transform((v) => v ?? "")
+        .default(""),
+});
+
 const historySchema = z.object({
     workshop_name: z.string().max(255).or(z.literal("")),
     workshop_code: z.string().max(50).or(z.literal("")),
@@ -15,6 +30,7 @@ const historySchema = z.object({
         .regex(dateRegex, "فرمت تاریخ نامعتبر است (YYYY-MM-DD)")
         .or(z.literal("")),
     description: z.string().max(1000).or(z.literal("")).default(""),
+    monthly_breakdown: z.array(monthlyBreakdownRowSchema).default([]),
 });
 
 export const socialInsuranceFieldSchema = z.object({
@@ -41,16 +57,6 @@ export const socialInsuranceFieldSchema = z.object({
 
     branch_name: z.string().max(255).or(z.literal("")).nullable().transform((v) => v ?? ""),
     days_count: z.union([z.number(), z.string(), z.literal("")]).nullable().transform((v) => v ?? ""),
-
-    monthly_breakdown: z.array(
-        z.object({
-            days: z
-                .union([z.number(), z.string(), z.literal("")])
-                .nullable()
-                .transform((v) => v ?? ""),
-            wage: z.string().max(30).or(z.literal("")).nullable().transform((v) => v ?? "").default(""),
-        }),
-    ).default([]),
 
     job_titles: z.array(
         z.object({
@@ -149,7 +155,6 @@ export function defaultSocialInsurance() {
         has_insurance_history: false,
         branch_name: "",
         days_count: "",
-        monthly_breakdown: [],
         job_titles: [],
         histories: [],
     };

@@ -2,9 +2,10 @@ import type { ReactNode } from "react";
 import { SectionRepeaterTable } from "@/components/shared/section-repeater-table";
 import { SectionCard } from "@/components/section-views/section-card";
 import { dateValue } from "@/components/section-views/shared";
+import { DocumentFileItem } from "@/components/documents";
 import type { Employee } from "@/features/employees/types";
 import { useEmployeeDocuments } from "@/features/employees/hooks/use-employee-documents";
-import { DocumentFileItem } from "@/components/documents";
+import { DOC_CATEGORY_SLUGS } from "@/features/questionnaire/constants";
 
 type ContractRow = {
     start_date?: string;
@@ -32,7 +33,13 @@ export function ContractsView({
         : [];
 
     const { getDocumentsBySlug } = useEmployeeDocuments(employee.id);
-    const documents = getDocumentsBySlug("contract");
+
+    const rowDocs = (index: number) =>
+        getDocumentsBySlug(DOC_CATEGORY_SLUGS.CONTRACT, `con-${index}`);
+
+    const hasAnyDoc = contracts.some(
+        (_row, index) => rowDocs(index).length > 0,
+    );
 
     return (
         <SectionCard title={title} action={action}>
@@ -40,35 +47,49 @@ export function ContractsView({
                 items={contracts}
                 emptyLabel="دوره‌ای قراردادی ثبت نشده است."
                 columns={[
-                    { label: "تاریخ شروع", render: (i) => dateValue(i.start_date) },
-                    { label: "تاریخ پایان", render: (i) => dateValue(i.end_date) },
+                    { label: "از تاریخ", render: (i) => dateValue(i.start_date) },
+                    { label: "تا تاریخ", render: (i) => dateValue(i.end_date) },
                 ]}
             />
 
-            <div className="space-y-3">
-                <h3 className="text-sm font-medium">قراردادها</h3>
+            {hasAnyDoc && (
+                <div className="space-y-4">
+                    <h3 className="text-sm font-medium">اسکن قراردادها</h3>
 
-                {documents.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">
-                        مدرکی برای قرارداد بارگذاری نشده است.
-                    </p>
-                ) : (
-                    <div className="flex flex-wrap gap-4">
-                        {documents.map((document) => (
-                            <DocumentFileItem
-                                key={document.usage_id}
-                                uuid={String(employee.id)}
-                                entity="employees"
-                                doc={document}
-                                layout="compact"
-                                thumbnailSize="size-20"
-                                actionsEnabled={false}
-                                label={document.structure_name}
-                            />
-                        ))}
+                    <div className="space-y-4">
+                        {contracts.map((_row, index) => {
+                            const documents = rowDocs(index);
+
+                            if (documents.length === 0) return null;
+
+                            return (
+                                <div
+                                    key={`con-${index}`}
+                                    className="space-y-2"
+                                >
+                                    <p className="text-xs text-muted-foreground">
+                                        {`قرارداد ${index + 1}`}
+                                    </p>
+                                    <div className="flex flex-wrap gap-4">
+                                        {documents.map((document) => (
+                                            <DocumentFileItem
+                                                key={document.usage_id}
+                                                uuid={String(employee.id)}
+                                                entity="employees"
+                                                doc={document}
+                                                layout="compact"
+                                                thumbnailSize="size-20"
+                                                actionsEnabled={false}
+                                                label={document.structure_name}
+                                            />
+                                        ))}
+                                    </div>
+                                </div>
+                            );
+                        })}
                     </div>
-                )}
-            </div>
+                </div>
+            )}
             {extra}
         </SectionCard>
     );

@@ -16,6 +16,7 @@ type SocialInsuranceHistory = {
     start_date?: string;
     end_date?: string;
     description?: string;
+    monthly_breakdown?: MonthlyBreakdownRow[];
 };
 
 type MonthlyBreakdownRow = {
@@ -66,10 +67,6 @@ export function SocialInsuranceView({
     const hasHistory = section.has_insurance_history === true;
 
     const resolveInsuranceStatus = useOptionLabelResolver("insurance_type");
-
-    const monthlyBreakdown = Array.isArray(section.monthly_breakdown)
-        ? section.monthly_breakdown
-        : [];
 
     const jobTitles = Array.isArray(section.job_titles)
         ? section.job_titles
@@ -148,30 +145,6 @@ export function SocialInsuranceView({
                         value={hasHistory ? "دارد" : "ندارد"}
                     />
                 </div>
-
-                {monthlyBreakdown.length > 0 && (
-                    <div className="space-y-3">
-                        <h3 className="text-sm font-medium">تفکیک ماهانه</h3>
-                        <SectionRepeaterTable
-                            items={monthlyBreakdown}
-                            emptyLabel="-"
-                            columns={[
-                                {
-                                    label: "روزها",
-                                    render: (i) =>
-                                        i.days === null ||
-                                        i.days === undefined
-                                            ? "-"
-                                            : String(i.days),
-                                },
-                                {
-                                    label: "دستمزد",
-                                    render: (i) => i.wage,
-                                },
-                            ]}
-                        />
-                    </div>
-                )}
 
                 {jobTitles.length > 0 && (
                     <div className="space-y-3">
@@ -281,6 +254,43 @@ export function SocialInsuranceView({
                                                 }
                                             />
                                         </div>
+
+                                        {Array.isArray(
+                                            history.monthly_breakdown,
+                                        ) &&
+                                            history.monthly_breakdown.length >
+                                                0 && (
+                                                <div className="mt-4 space-y-2">
+                                                    <p className="text-xs font-medium text-muted-foreground">
+                                                        تفکیک ماهانه
+                                                    </p>
+                                                    <SectionRepeaterTable
+                                                        items={
+                                                            history.monthly_breakdown
+                                                        }
+                                                        emptyLabel="-"
+                                                        columns={[
+                                                            {
+                                                                label: "روز",
+                                                                render: (i) =>
+                                                                    i.days ===
+                                                                        null ||
+                                                                    i.days ===
+                                                                        undefined
+                                                                        ? "-"
+                                                                        : String(
+                                                                              i.days,
+                                                                          ),
+                                                            },
+                                                            {
+                                                                label: "دستمزد",
+                                                                render: (i) =>
+                                                                    i.wage,
+                                                            },
+                                                        ]}
+                                                    />
+                                                </div>
+                                            )}
                                     </CardContent>
                                 </Card>
                             ))}

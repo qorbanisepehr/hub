@@ -7,10 +7,11 @@ const inquiryEntrySchema = z.object({
 
 export const documentInquiriesFieldSchema = z.object({
     inquiries: z.object({
-        /** Keyed by the education row index («edu-{index}» placement). */
+        /** Keyed by the education row index (�edu-{index}� placement). */
         education: z.record(z.string(), inquiryEntrySchema),
         criminal_record: inquiryEntrySchema,
         social_insurance: inquiryEntrySchema,
+        sana_verification: inquiryEntrySchema,
     }),
 });
 
@@ -26,13 +27,20 @@ export type DocumentInquiriesFormData = z.infer<
  */
 export const documentInquiriesSubmitSchema = documentInquiriesFieldSchema;
 
+/**
+ * Status every inquiry node starts from (بدون استعلام) — also used as the
+ * select placeholder when a legacy row has no status yet.
+ */
+export const INQUIRY_STATUS_DEFAULT = "no_inquiry";
+
 /** Default (draft) values for the document inquiries section. */
 export function defaultDocumentInquiries() {
     return {
         inquiries: {
             education: {},
-            criminal_record: { status: "", note: "" },
-            social_insurance: { status: "", note: "" },
+            criminal_record: { status: INQUIRY_STATUS_DEFAULT, note: "" },
+            social_insurance: { status: INQUIRY_STATUS_DEFAULT, note: "" },
+            sana_verification: { status: INQUIRY_STATUS_DEFAULT, note: "" },
         },
     };
 }
