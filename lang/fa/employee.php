@@ -46,11 +46,17 @@ return [
             'end_date_before_start_date' => 'تاریخ پایان نباید زودتر از تاریخ شروع باشد.',
         ],
     ],
+    'contracts' => [
+        'field_label' => 'قرارداد :n',
+        'field_label_range' => 'قرارداد از :start تا :end',
+        'field_label_from' => 'قرارداد از :start',
+    ],
     'document_inquiries' => [
         'field_labels' => [
             'education_degree' => 'استعلام مدرک تحصیلی :n',
             'criminal-record' => 'استعلام عدم سوء پیشینه',
             'social-insurance' => 'استعلام بیمه تأمین اجتماعی',
+            'sana-verification' => 'استعلام صحت‌سنجی ثنا',
         ],
         'validation' => [
             'invalid_education_index' => 'شناسه مدرک تحصیلی برای استعلام نامعتبر است.',

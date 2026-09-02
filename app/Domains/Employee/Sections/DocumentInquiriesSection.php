@@ -32,7 +32,7 @@ class DocumentInquiriesSection extends BaseSection
     public const EDU_FIELD_KEY_PATTERN = '/^inq-edu-(\d+)$/';
 
     /** Placement pattern for the fixed single-node inquiries. */
-    public const FIXED_FIELD_KEY_PATTERN = '/^inq-(criminal-record|social-insurance)$/';
+    public const FIXED_FIELD_KEY_PATTERN = '/^inq-(criminal-record|social-insurance|sana-verification)$/';
 
     public function key(): string
     {
@@ -55,6 +55,8 @@ class DocumentInquiriesSection extends BaseSection
             'inquiries.criminal_record.note' => 'string',
             'inquiries.social_insurance.status' => 'string',
             'inquiries.social_insurance.note' => 'string',
+            'inquiries.sana_verification.status' => 'string',
+            'inquiries.sana_verification.note' => 'string',
         ];
     }
 
@@ -79,6 +81,10 @@ class DocumentInquiriesSection extends BaseSection
             'inquiries.social_insurance' => 'nullable|array',
             'inquiries.social_insurance.status' => ['nullable', new FormOptionValue('inquiry_status')],
             'inquiries.social_insurance.note' => 'nullable|string|max:1000',
+
+            'inquiries.sana_verification' => 'nullable|array',
+            'inquiries.sana_verification.status' => ['nullable', new FormOptionValue('inquiry_status')],
+            'inquiries.sana_verification.note' => 'nullable|string|max:1000',
         ];
     }
 
@@ -255,7 +261,7 @@ class DocumentInquiriesSection extends BaseSection
             }
         }
 
-        foreach (['criminal_record', 'social_insurance'] as $key) {
+        foreach (['criminal_record', 'social_insurance', 'sana_verification'] as $key) {
             if (is_array($data['inquiries'][$key] ?? null)) {
                 $data['inquiries'][$key] = $apply(
                     $data['inquiries'][$key],

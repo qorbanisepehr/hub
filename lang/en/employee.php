@@ -46,11 +46,17 @@ return [
             'end_date_before_start_date' => 'The end date must not be earlier than the start date.',
         ],
     ],
+    'contracts' => [
+        'field_label' => 'Contract :n',
+        'field_label_range' => 'Contract from :start to :end',
+        'field_label_from' => 'Contract from :start',
+    ],
     'document_inquiries' => [
         'field_labels' => [
             'education_degree' => 'Education degree inquiry :n',
             'criminal-record' => 'Criminal record inquiry',
             'social-insurance' => 'Social insurance inquiry',
+            'sana-verification' => 'Sana verification inquiry',
         ],
         'validation' => [
             'invalid_education_index' => 'Invalid education record reference for an inquiry.',
