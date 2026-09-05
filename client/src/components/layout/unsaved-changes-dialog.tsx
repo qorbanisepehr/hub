@@ -16,11 +16,23 @@ type UnsavedChangesDialogProps = {
     isSubmitting?: boolean;
 };
 
+/**
+ * Confirms leaving the form with unsaved edits.
+ *
+ * Only navigations that actually leave the form's route are blocked:
+ * in-form step/tab switches (employee sections, wizard steps) change the
+ * URL hash on the SAME route — the form stays mounted, its state and the
+ * per-section auto-save keep running, so nothing is lost and blocking
+ * there would fight the auto-save itself (the alert fired on every tab
+ * change while a section save was in flight). While a save or submit is
+ * pending the blocker stays disabled for the same reason.
+ */
 export function UnsavedChangesDialog({ isDirty, isSubmitting }: UnsavedChangesDialogProps) {
     const shouldBlock = isDirty && !isSubmitting;
 
     const blocker = useBlocker({
-        shouldBlockFn: () => shouldBlock,
+        shouldBlockFn: ({ current, next }) =>
+            shouldBlock && current.pathname !== next.pathname,
         enableBeforeUnload: () => shouldBlock,
         withResolver: true,
     });
@@ -39,8 +51,8 @@ export function UnsavedChangesDialog({ isDirty, isSubmitting }: UnsavedChangesDi
                         تغییرات ذخیره نشده
                     </DialogTitle>
                     <DialogDescription className="py-4 leading-6">
-                        تغییراتی اعمال کرده‌اید که ذخیره نشده است. آیا مطمئن
-                        هستید که می‌خواهید این صفحه را ترک کنید؟
+                        تغییرات شما ذخیره نشده است. اگر خارج شوید، تغییرات
+                        از دست می‌رود.
                     </DialogDescription>
                 </DialogHeader>
                 <DialogFooter>
@@ -51,7 +63,7 @@ export function UnsavedChangesDialog({ isDirty, isSubmitting }: UnsavedChangesDi
                         variant="default"
                         onClick={() => blocker.proceed?.()}
                     >
-                        ترک صفحه
+                        خروج بدون ذخیره
                     </Button>
                 </DialogFooter>
             </DialogContent>

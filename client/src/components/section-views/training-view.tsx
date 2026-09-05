@@ -29,6 +29,7 @@ export function TrainingView({
                             { label: "نام دوره", render: (i) => i.course_name },
                             { label: "مدت", render: (i) => i.duration },
                             { label: "موسسه", render: (i) => i.institution },
+                            { label: "ارزیابی", render: (i) => i.evaluation },
                         ]}
                     />
                 </div>

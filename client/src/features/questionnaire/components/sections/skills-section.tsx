@@ -105,7 +105,8 @@ export function SkillsSection({ form, uuid, onPersist, entity = "questionnaire" 
             categorySlug: DOC_CATEGORY_SLUGS.LANGUAGE_CERTIFICATE,
             fieldKeyPrefix: "lang-",
             getDocumentsBySlug,
-        }),
+            enablePreview: true,
+            }),
     ];
     const specializedColumns: TableColumn[] = [
         ...SOFTWARE_COLUMNS,
@@ -113,7 +114,8 @@ export function SkillsSection({ form, uuid, onPersist, entity = "questionnaire" 
             categorySlug: DOC_CATEGORY_SLUGS.SKILL_CERTIFICATE,
             fieldKeyPrefix: "sw-spec-",
             getDocumentsBySlug,
-        }),
+            enablePreview: true,
+            }),
     ];
     const generalColumns: TableColumn[] = [
         ...SOFTWARE_COLUMNS,
@@ -121,7 +123,8 @@ export function SkillsSection({ form, uuid, onPersist, entity = "questionnaire" 
             categorySlug: DOC_CATEGORY_SLUGS.SKILL_CERTIFICATE,
             fieldKeyPrefix: "sw-gen-",
             getDocumentsBySlug,
-        }),
+            enablePreview: true,
+            }),
     ];
     const certificateColumns: TableColumn[] = [
         ...CERTIFICATE_COLUMNS,
@@ -129,7 +132,8 @@ export function SkillsSection({ form, uuid, onPersist, entity = "questionnaire" 
             categorySlug: DOC_CATEGORY_SLUGS.COURSE_CERTIFICATES,
             fieldKeyPrefix: "cert-",
             getDocumentsBySlug,
-        }),
+            enablePreview: true,
+            }),
     ];
     const specialSkillColumns: TableColumn[] = [
         { key: "value", label: "مهارت" },
@@ -137,7 +141,8 @@ export function SkillsSection({ form, uuid, onPersist, entity = "questionnaire" 
             categorySlug: DOC_CATEGORY_SLUGS.SKILL_CERTIFICATE,
             fieldKeyPrefix: "spc-",
             getDocumentsBySlug,
-        }),
+            enablePreview: true,
+            }),
     ];
 
     return (

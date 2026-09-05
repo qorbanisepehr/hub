@@ -22,6 +22,9 @@ import { AdditionalInfoSection } from "@/features/questionnaire/components/secti
 import { DependentsSection } from "@/features/employees/components/sections/dependents-section";
 import { DocumentInquiriesSection } from "./sections/document-inquiries-section";
 import { SocialInsuranceSection } from "@/features/employees/components/sections/social-insurance-section";
+import { ContractsSection } from "@/features/employees/components/sections/contracts-section";
+import { FinancialSection } from "@/features/employees/components/sections/financial-section";
+import { SupplementaryInsuranceSection } from "@/features/employees/components/sections/supplementary-insurance-section";
 import { useRowDocsFeedback } from "@/features/documents/hooks/use-row-docs-feedback";
 import {
     educationRowLabel,
@@ -53,6 +56,18 @@ import {
     defaultSocialInsurance,
     toSocialInsurancePayload,
 } from "@/features/employees/schemas/social-insurance.schema";
+import {
+    defaultContracts,
+    toContractsPayload,
+} from "@/features/employees/schemas/contracts.schema";
+import {
+    defaultFinancial,
+    toFinancialPayload,
+} from "@/features/employees/schemas/financial.schema";
+import {
+    defaultSupplementaryInsurance,
+    toSupplementaryInsurancePayload,
+} from "@/features/employees/schemas/supplementary-insurance.schema";
 import {
     defaultDependents,
     toDependentsPayload,
@@ -101,6 +116,9 @@ const SECTION_PAYLOAD_BUILDERS: Record<
     contact_info: toContactInfoPayload,
     employment: toEmploymentPayload,
     social_insurance: toSocialInsurancePayload,
+    contracts: toContractsPayload,
+    financial: toFinancialPayload,
+    supplementary_insurance: toSupplementaryInsurancePayload,
     dependents: toDependentsPayload,
     document_inquiries: toDocumentInquiriesPayload,
 };
@@ -152,6 +170,20 @@ function buildDefaultValues(employee: Employee): EmployeeProfileFormData {
             ...defaultSocialInsurance(),
             ...cleanServerSection(employee.section_social_insurance ?? {}),
             social_insurance_number: employee.social_insurance_number ?? "",
+        },
+        contracts: {
+            ...defaultContracts(),
+            ...cleanServerSection(employee.section_contracts ?? {}),
+        },
+        financial: {
+            ...defaultFinancial(),
+            ...cleanServerSection(employee.section_financial ?? {}),
+        },
+        supplementary_insurance: {
+            ...defaultSupplementaryInsurance(),
+            ...cleanServerSection(
+                employee.section_supplementary_insurance ?? {},
+            ),
         },
         dependents: {
             ...defaultDependents(),
@@ -347,6 +379,29 @@ export function EmployeeProfileForm({ employee }: EmployeeProfileFormProps) {
                     <SocialInsuranceSection
                         form={form as unknown as EmployeeFormApi}
                         uuid={String(employee.id)}
+                    />
+                );
+            case "contracts":
+                return (
+                    <ContractsSection
+                        form={form as unknown as EmployeeFormApi}
+                        uuid={String(employee.id)}
+                        onPersist={handlePersist}
+                    />
+                );
+            case "financial":
+                return (
+                    <FinancialSection
+                        form={form as unknown as EmployeeFormApi}
+                        uuid={String(employee.id)}
+                    />
+                );
+            case "supplementary_insurance":
+                return (
+                    <SupplementaryInsuranceSection
+                        form={form as unknown as EmployeeFormApi}
+                        uuid={String(employee.id)}
+                        onPersist={handlePersist}
                     />
                 );
             case "dependents":

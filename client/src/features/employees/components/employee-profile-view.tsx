@@ -1,6 +1,5 @@
-import { useState } from "react";
-
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useWizardState } from "@/components/wizards";
 import { DocumentSection } from "@/features/documents/components/document-section";
 import { LinkedUserSection } from "@/features/employees/components/sections/linked-user-section";
 import {
@@ -28,6 +27,9 @@ import { EmploymentInfoView } from "./views/employment-info-view";
 import { DependentsView } from "./views/dependents-view";
 import { DocumentInquiriesView } from "./views/document-inquiries-view";
 import { SocialInsuranceView } from "./views/social-insurance-view";
+import { ContractsView } from "./views/contracts-view";
+import { FinancialView } from "./views/financial-view";
+import { SupplementaryInsuranceView } from "./views/supplementary-insurance-view";
 import { DOC_CATEGORY_SLUGS } from "@/features/questionnaire/constants";
 import { FileThumbnail } from "@/components/ui/file-thumbnail";
 import { useDocumentPreview } from "@/hooks/use-document-preview";
@@ -36,9 +38,15 @@ import { DocumentPreviewLightbox } from "@/features/documents/components/documen
 const DOC_EXTRA_CLASS = "mt-4 pt-4 border-t";
 
 export function EmployeeProfileView({ employee }: EmployeeProfileViewProps) {
-    const [activeTab, setActiveTab] = useState<string>(
-        EMPLOYEE_SECTIONS[0].key,
-    );
+    // Same keyed-hash wizard state as the edit form: the active tab syncs to
+    // the URL hash (#contracts, #documents, ...) and survives reload/back.
+    const tabs = [
+        ...EMPLOYEE_SECTIONS,
+        EMPLOYEE_DOCUMENTS_TAB,
+        EMPLOYEE_LINKED_USER_TAB,
+    ];
+    const { currentKey, goToKey } = useWizardState(tabs);
+    const activeTab = currentKey ?? EMPLOYEE_SECTIONS[0].key;
     const { getDocumentsBySlug, capabilities } = useEmployeeDocuments(
         employee.id,
     );
@@ -60,12 +68,6 @@ export function EmployeeProfileView({ employee }: EmployeeProfileViewProps) {
         educationRecords,
         { rowLabel: educationRowLabel },
     );
-    const tabs = [
-        ...EMPLOYEE_SECTIONS,
-        EMPLOYEE_DOCUMENTS_TAB,
-        EMPLOYEE_LINKED_USER_TAB,
-    ];
-
     const personnelPhoto = getDocumentsBySlug(
         DOC_CATEGORY_SLUGS.PERSONNEL_PHOTO,
     )[0];
@@ -167,16 +169,33 @@ export function EmployeeProfileView({ employee }: EmployeeProfileViewProps) {
             <EducationView
                 data={sectionData.education}
                 missingFor={educationMissing}
+                docsFor={(index) =>
+                    getDocumentsBySlug(
+                        DOC_CATEGORY_SLUGS.ACADEMIC_DEGREE,
+                        `edu-${index}`,
+                    )
+                }
                 extra={docExtra("education")}
             />
         ),
         work_experience: () => (
             <WorkExperienceView
                 data={sectionData.work_experience}
+                docsFor={(index) =>
+                    getDocumentsBySlug(
+                        DOC_CATEGORY_SLUGS.EMPLOYMENT_CERTIFICATE,
+                        `work-${index}`,
+                    )
+                }
                 extra={docExtra("work_experience")}
             />
         ),
         social_insurance: () => <SocialInsuranceView employee={employee} />,
+        contracts: () => <ContractsView employee={employee} />,
+        financial: () => <FinancialView employee={employee} />,
+        supplementary_insurance: () => (
+            <SupplementaryInsuranceView employee={employee} />
+        ),
         skills: () => (
             <SkillsView data={sectionData.skills} extra={docExtra("skills")} />
         ),
@@ -219,7 +238,7 @@ export function EmployeeProfileView({ employee }: EmployeeProfileViewProps) {
         <Tabs
             value={activeTab}
             onValueChange={(value) => {
-                if (value) setActiveTab(String(value));
+                if (value) goToKey(String(value));
             }}
             className="space-y-6"
         >

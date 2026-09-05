@@ -25,6 +25,7 @@ type InquiriesData = {
         education?: Record<string, InquiryEntry>;
         criminal_record?: InquiryEntry;
         social_insurance?: InquiryEntry;
+        sana_verification?: InquiryEntry;
     };
 };
 
@@ -40,8 +41,9 @@ const INQUIRY_RESULT_SLUG = "inquiry-result";
 
 /** Badge variant per inquiry status value; falls back to outline. */
 const STATUS_VARIANTS: Record<string, "secondary" | "success" | "destructive"> = {
+    no_inquiry: "secondary",
     pending: "secondary",
-    received: "success",
+    approved: "success",
     mismatch: "destructive",
 };
 
@@ -52,15 +54,18 @@ function StatusBadge({
     value: unknown;
     options: { value: string; label: string }[] | undefined;
 }) {
-    if (typeof value !== "string" || value === "") {
-        return <Badge variant="outline">بدون وضعیت</Badge>;
-    }
+    // An empty legacy status reads as «بدون استعلام» — the group default.
+    const resolved =
+        typeof value !== "string" || value === ""
+            ? "no_inquiry"
+            : value;
 
     const label =
-        options?.find((option) => option.value === value)?.label ?? value;
+        options?.find((option) => option.value === resolved)?.label ??
+        resolved;
 
     return (
-        <Badge variant={STATUS_VARIANTS[value] ?? "outline"}>{label}</Badge>
+        <Badge variant={STATUS_VARIANTS[resolved] ?? "outline"}>{label}</Badge>
     );
 }
 
@@ -192,6 +197,11 @@ export function DocumentInquiriesView({
             label: "استعلام بیمه تأمین اجتماعی",
             fieldKey: "inq-social-insurance",
             entry: inquiries.social_insurance,
+        },
+        {
+            label: "استعلام صحت‌سنجی ثنا",
+            fieldKey: "inq-sana-verification",
+            entry: inquiries.sana_verification,
         },
     ];
 

@@ -8,6 +8,7 @@ export const trainingCourseSchema = z.object({
     institution: text(100, "حداکثر ۱۰۰ کاراکتر."),
     held_at: text(),
     certificate: text(100, "حداکثر ۱۰۰ کاراکتر."),
+    evaluation: text(1000, "ارزیابی دوره"),
 });
 
 export type TrainingCourseFormData = z.infer<typeof trainingCourseSchema>;

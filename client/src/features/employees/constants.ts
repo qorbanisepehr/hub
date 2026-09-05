@@ -54,6 +54,21 @@ export const EMPLOYEE_SECTIONS = [
         description: "شماره بیمه و سوابق بیمه",
     },
     {
+        key: "contracts",
+        label: "قراردادها",
+        description: "دوره‌های قراردادی",
+    },
+    {
+        key: "financial",
+        label: "اطلاعات مالی",
+        description: "حساب بانکی و اطلاعات مالی",
+    },
+    {
+        key: "supplementary_insurance",
+        label: "بیمه تکمیلی",
+        description: "بیمه تکمیلی و افراد تحت پوشش",
+    },
+    {
         key: "work_experience",
         label: "سوابق شغلی",
         description: "تجربیات کاری قبلی",
@@ -126,6 +141,36 @@ export const EMPLOYEE_SECTION_DOCS: { key: string; slugs: string[] }[] = [
         slugs: [DOC_CATEGORY_SLUGS.ACADEMIC_DEGREE],
     },
     {
+        key: "social_insurance",
+        slugs: [
+            DOC_CATEGORY_SLUGS.INSURANCE_HISTORY,
+            DOC_CATEGORY_SLUGS.INSURANCE_HISTORY_RIAL,
+            DOC_CATEGORY_SLUGS.INSURANCE_HISTORY_SUMMARY,
+            DOC_CATEGORY_SLUGS.INSURANCE_HISTORY_RIAL_SUMMARY,
+            DOC_CATEGORY_SLUGS.INSURANCE_HISTORY_OVERALL,
+            DOC_CATEGORY_SLUGS.INSURANCE_LAST_JOB_TITLES,
+        ],
+    },
+    {
+        key: "contracts",
+        slugs: [DOC_CATEGORY_SLUGS.CONTRACT],
+    },
+    {
+        key: "financial",
+        slugs: [
+            DOC_CATEGORY_SLUGS.PAYSLIP,
+            DOC_CATEGORY_SLUGS.SALARY_DEDUCTION_LETTER,
+            DOC_CATEGORY_SLUGS.SALARY_DECREE,
+            DOC_CATEGORY_SLUGS.INITIAL_SALARY,
+            DOC_CATEGORY_SLUGS.SALARY_CHANGE,
+            DOC_CATEGORY_SLUGS.FINANCIAL_AFFIDAVIT,
+        ],
+    },
+    {
+        key: "supplementary_insurance",
+        slugs: [DOC_CATEGORY_SLUGS.SUPPLEMENTARY_INSURANCE_FORM],
+    },
+    {
         key: "work_experience",
         slugs: [DOC_CATEGORY_SLUGS.EMPLOYMENT_CERTIFICATE],
     },
@@ -180,6 +225,7 @@ export const EMPLOYEE_DOC_REQUIREMENTS: DocumentRequirementSpec[] = [
             { fieldKey: "page-1", label: "صفحه اول" },
             { fieldKey: "page-2", label: "صفحه دوم" },
             { fieldKey: "page-3", label: "صفحه آخر" },
+            { fieldKey: "page-4", label: "صفحه چهارم" },
         ],
     },
     {
@@ -207,6 +253,71 @@ export const EMPLOYEE_DOC_REQUIREMENTS: DocumentRequirementSpec[] = [
         max: 1,
     },
     { slug: DOC_CATEGORY_SLUGS.COVER_LETTER, label: "نامه معرفی", max: 1 },
+    {
+        slug: DOC_CATEGORY_SLUGS.CONTRACT,
+        label: "قرارداد",
+    },
+    {
+        slug: DOC_CATEGORY_SLUGS.PAYSLIP,
+        label: "فیش حقوقی",
+    },
+    {
+        slug: DOC_CATEGORY_SLUGS.SALARY_DEDUCTION_LETTER,
+        label: "نامه کسر از حقوق",
+    },
+    {
+        slug: DOC_CATEGORY_SLUGS.SALARY_DECREE,
+        label: "حکم حقوق",
+    },
+    {
+        slug: DOC_CATEGORY_SLUGS.INITIAL_SALARY,
+        label: "حقوق اولیه",
+        max: 1,
+    },
+    {
+        slug: DOC_CATEGORY_SLUGS.SALARY_CHANGE,
+        label: "تغییر حقوق",
+    },
+    {
+        slug: DOC_CATEGORY_SLUGS.FINANCIAL_AFFIDAVIT,
+        label: "تعهدنامه مالی",
+        max: 1,
+    },
+    {
+        slug: DOC_CATEGORY_SLUGS.SUPPLEMENTARY_INSURANCE_FORM,
+        label: "فرم بیمه تکمیلی",
+        max: 1,
+    },
+    {
+        slug: DOC_CATEGORY_SLUGS.INSURANCE_HISTORY,
+        label: "سوابق بیمه",
+        max: 1,
+    },
+    {
+        slug: DOC_CATEGORY_SLUGS.INSURANCE_HISTORY_RIAL,
+        label: "لیست سوابق بیمه",
+        max: 1,
+    },
+    {
+        slug: DOC_CATEGORY_SLUGS.INSURANCE_HISTORY_SUMMARY,
+        label: "خلاصه سوابق بیمه",
+        max: 1,
+    },
+    {
+        slug: DOC_CATEGORY_SLUGS.INSURANCE_HISTORY_RIAL_SUMMARY,
+        label: "خلاصه لیست سوابق بیمه",
+        max: 1,
+    },
+    {
+        slug: DOC_CATEGORY_SLUGS.INSURANCE_HISTORY_OVERALL,
+        label: "سوابق کلی بیمه",
+        max: 1,
+    },
+    {
+        slug: DOC_CATEGORY_SLUGS.INSURANCE_LAST_JOB_TITLES,
+        label: "آخرین عناوین شغلی سوابق بیمه",
+        max: 1,
+    },
     { slug: DOC_CATEGORY_SLUGS.OTHER_DOCUMENTS, label: "سایر مدارک", max: 3 },
 ];
 

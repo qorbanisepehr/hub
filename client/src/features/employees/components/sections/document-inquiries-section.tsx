@@ -7,6 +7,7 @@ import { FormOptionSelectField } from "@/components/forms";
 import { FileUploadField } from "@/components/documents";
 import { useFormOptionsByGroup } from "@/features/form-options/hooks/use-form-options";
 import { DOC_CATEGORY_SLUGS } from "@/features/questionnaire/constants";
+import { INQUIRY_STATUS_DEFAULT } from "@/features/employees/schemas/document-inquiries.schema";
 import type { EmployeeFormApi } from "@/features/employees/types";
 
 type SectionProps = {
@@ -25,7 +26,8 @@ type EducationRecordRow = {
  * FileUploadField (dropzone, previews, delete) pinned to the node's
  * `inq-*` placement and the inquiry-result category. Shared by the
  * per-degree education rows and the fixed nodes so every placement
- * renders — and gates — identically.
+ * renders — and gates — identically. Empty statuses read as
+ * «بدون استعلام» (the group's default option).
  */
 function InquiryNode({
     form,
@@ -53,7 +55,6 @@ function InquiryNode({
                             field={f}
                             label="وضعیت استعلام"
                             group="inquiry_status"
-                            placeholder="انتخاب کنید"
                             disabled={!canUpdate}
                         />
                     )}
@@ -113,8 +114,8 @@ function InquiryGroup({
 /**
  * Document inquiries (استعلام مدارک) — HR-side tracking of external
  * verification requests. One node per education degree (keyed by its row
- * index so results attach to `inq-edu-{index}`), plus fixed criminal-record
- * and social-insurance nodes.
+ * index so results attach to `inq-edu-{index}`), plus fixed criminal-record,
+ * social-insurance, and sana-verification nodes.
  */
 export function DocumentInquiriesSection({
     form,
@@ -122,6 +123,7 @@ export function DocumentInquiriesSection({
     canUpdate = true,
 }: SectionProps) {
     const { data: degreeOptions } = useFormOptionsByGroup("degree");
+    const { data: statusOptions } = useFormOptionsByGroup("inquiry_status");
 
     const records =
         (
@@ -133,6 +135,13 @@ export function DocumentInquiriesSection({
     const degreeLabel = (value: unknown, index: number) =>
         degreeOptions?.find((option) => option.value === value)?.label ??
         `مدرک ${index + 1}`;
+
+    // «بدون استعلام» is the group's first option — shown as the select's
+    // placeholder for legacy rows whose status is still empty.
+    const statusPlaceholder =
+        statusOptions?.find(
+            (option) => option.value === INQUIRY_STATUS_DEFAULT,
+        )?.label ?? "بدون استعلام";
 
     return (
         <Card>
@@ -191,6 +200,21 @@ export function DocumentInquiriesSection({
                         canUpdate={canUpdate}
                     />
                 </InquiryGroup>
+
+                <InquiryGroup title="صحت‌سنجی ثنا">
+                    <InquiryNode
+                        form={form}
+                        uuid={uuid}
+                        name="document_inquiries.inquiries.sana_verification"
+                        fieldKey="inq-sana-verification"
+                        title="صحت‌سنجی ثنا"
+                        canUpdate={canUpdate}
+                    />
+                </InquiryGroup>
+
+                <p className="text-xs text-muted-foreground">
+                    وضعیت پیش‌فرض هر استعلام «{statusPlaceholder}» است.
+                </p>
             </CardContent>
         </Card>
     );

@@ -85,6 +85,22 @@ export const SOFTWARE_LEVEL_OPTIONS = [
     { value: "4", label: "۴" },
 ];
 
+/** Jalali (Persian) month names, in calendar order. */
+export const JALALI_MONTH_OPTIONS = [
+    { value: "farvardin", label: "فروردین" },
+    { value: "ordibehesht", label: "اردیبهشت" },
+    { value: "khordad", label: "خرداد" },
+    { value: "tir", label: "تیر" },
+    { value: "mordad", label: "مرداد" },
+    { value: "shahrivar", label: "شهریور" },
+    { value: "mehr", label: "مهر" },
+    { value: "aban", label: "آبان" },
+    { value: "azar", label: "آذر" },
+    { value: "dey", label: "دی" },
+    { value: "bahman", label: "بهمن" },
+    { value: "esfand", label: "اسفند" },
+];
+
 export const YES_NO_OPTIONS = [
     { value: "true", label: "بلی" },
     { value: "false", label: "خیر" },
@@ -187,6 +203,21 @@ export const DOC_CATEGORY_SLUGS = {
     OTHER_DOCUMENTS: "other-documents",
     SIGNATURE_SAMPLE: "signature-sample",
     INQUIRY_RESULT: "inquiry-result",
+
+    CONTRACT: "contract",
+    PAYSLIP: "payslip",
+    SALARY_DEDUCTION_LETTER: "salary-deduction-letter",
+    SALARY_DECREE: "salary-decree",
+    INITIAL_SALARY: "initial-salary",
+    SALARY_CHANGE: "salary-change",
+    FINANCIAL_AFFIDAVIT: "financial-affidavit",
+    SUPPLEMENTARY_INSURANCE_FORM: "supplementary-insurance-form",
+    INSURANCE_HISTORY: "insurance-history",
+    INSURANCE_HISTORY_RIAL: "insurance-history-rial",
+    INSURANCE_HISTORY_SUMMARY: "insurance-history-summary",
+    INSURANCE_HISTORY_RIAL_SUMMARY: "insurance-history-rial-summary",
+    INSURANCE_HISTORY_OVERALL: "insurance-history-overall",
+    INSURANCE_LAST_JOB_TITLES: "insurance-last-job-titles",
 } as const;
 
 export const FIELD_KEY_LABELS: Record<string, string> = {
@@ -195,6 +226,8 @@ export const FIELD_KEY_LABELS: Record<string, string> = {
     "page-1": "صفحه اول",
     "page-2": "صفحه دوم",
     "page-3": "صفحه آخر",
+    "page-4": "صفحه چهارم",
+    "page-extra": "صفحه اضافی",
     photo: "تصویر پرسنلی",
 };
 
@@ -240,6 +273,7 @@ export const QUESTIONNAIRE_DOC_REQUIREMENTS: DocumentRequirementSpec[] = [
             { fieldKey: "page-1", label: "صفحه اول" },
             { fieldKey: "page-2", label: "صفحه دوم" },
             { fieldKey: "page-3", label: "صفحه آخر" },
+            { fieldKey: "page-4", label: "صفحه چهارم" },
         ],
     },
     {

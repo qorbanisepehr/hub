@@ -45,7 +45,8 @@ export function WorkExperienceSection({ form, uuid, onPersist, entity = "questio
             categorySlug: DOC_CATEGORY_SLUGS.EMPLOYMENT_CERTIFICATE,
             fieldKeyPrefix: "work-",
             getDocumentsBySlug,
-        }),
+            enablePreview: true,
+            }),
     ];
     return (
         <Card>

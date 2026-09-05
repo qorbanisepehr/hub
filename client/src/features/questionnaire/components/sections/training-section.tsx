@@ -42,7 +42,8 @@ export function TrainingSection({ form, uuid, onPersist, entity = "questionnaire
             categorySlug: DOC_CATEGORY_SLUGS.COURSE_CERTIFICATES,
             fieldKeyPrefix: "train-",
             getDocumentsBySlug,
-        }),
+            enablePreview: true,
+            }),
     ];
     const researchColumns: TableColumn[] = [
         ...RESEARCH_COLUMNS,
@@ -50,7 +51,8 @@ export function TrainingSection({ form, uuid, onPersist, entity = "questionnaire
             categorySlug: DOC_CATEGORY_SLUGS.RESEARCH_DOCUMENTS,
             fieldKeyPrefix: "res-",
             getDocumentsBySlug,
-        }),
+            enablePreview: true,
+            }),
     ];
 
     return (
@@ -129,6 +131,17 @@ export function TrainingSection({ form, uuid, onPersist, entity = "questionnaire
                                                 />
                                             )}
                                         </form.Field>
+                                        <form.Field
+                                            name={`training.training_courses.${index}.evaluation`}
+                                        >
+                                            {(f) => (
+                                                <FormTextarea
+                                                    field={f}
+                                                    label="ارزیابی دوره"
+                                                />
+                                            )}
+                                        </form.Field>
+
                                     </div>
                                     {uuid && (
                                         <FileUploadField
@@ -153,17 +166,20 @@ export function TrainingSection({ form, uuid, onPersist, entity = "questionnaire
                     )}
                 </form.Field>
 
-                <form.Field name="training.researches">
+<form.Field name="training.researches">
                     {(field) => (
                         <FormRepeater
-                            defaultMode="card"
+                            defaultMode="table"
                             field={field}
-                            label="تحقیقات و پژوهش‌ها"
+                            label="??????? ? ????????"
                             columns={researchColumns}
                             onPersist={onPersist}
+                            getSummary={(item) => ({
+                                title: item.title,
+                            })}
                             renderHeader={(item, index) => (
                                 <span>
-                                    {String(item.title || `پژوهش ${index + 1}`)}
+                                    {String(item.title || `????? ${index + 1}`)}
                                 </span>
                             )}
                             renderItem={(index) => (

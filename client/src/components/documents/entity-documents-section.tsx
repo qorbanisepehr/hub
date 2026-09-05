@@ -37,9 +37,37 @@ const EXTRA_DOC_SLUGS = new Set<string>([
     DOC_CATEGORY_SLUGS.OTHER_DOCUMENTS,
 ]);
 
+/**
+ * Personnel-only categories additionally offered in the employee documents
+ * step's «سایر مدارک» picker (contract, financial, supplementary-insurance
+ * and social-security document groups).
+ */
+export const PERSONNEL_EXTRA_DOC_SLUGS = new Set<string>([
+    DOC_CATEGORY_SLUGS.CONTRACT,
+    DOC_CATEGORY_SLUGS.PAYSLIP,
+    DOC_CATEGORY_SLUGS.SALARY_DEDUCTION_LETTER,
+    DOC_CATEGORY_SLUGS.SALARY_DECREE,
+    DOC_CATEGORY_SLUGS.INITIAL_SALARY,
+    DOC_CATEGORY_SLUGS.SALARY_CHANGE,
+    DOC_CATEGORY_SLUGS.FINANCIAL_AFFIDAVIT,
+    DOC_CATEGORY_SLUGS.SUPPLEMENTARY_INSURANCE_FORM,
+    DOC_CATEGORY_SLUGS.INSURANCE_HISTORY,
+    DOC_CATEGORY_SLUGS.INSURANCE_HISTORY_RIAL,
+    DOC_CATEGORY_SLUGS.INSURANCE_HISTORY_SUMMARY,
+    DOC_CATEGORY_SLUGS.INSURANCE_HISTORY_RIAL_SUMMARY,
+    DOC_CATEGORY_SLUGS.INSURANCE_HISTORY_OVERALL,
+    DOC_CATEGORY_SLUGS.INSURANCE_LAST_JOB_TITLES,
+]);
+
 const CATEGORY_KNOWN_FIELD_KEYS: Record<string, string[]> = {
     [DOC_CATEGORY_SLUGS.NATIONAL_CARD]: ["front", "back"],
-    [DOC_CATEGORY_SLUGS.BIRTH_CERTIFICATE]: ["page-1", "page-2", "page-3"],
+    [DOC_CATEGORY_SLUGS.BIRTH_CERTIFICATE]: [
+        "page-1",
+        "page-2",
+        "page-3",
+        "page-4",
+        "page-extra",
+    ],
 };
 
 type ExtraDocEntry = {
@@ -63,11 +91,12 @@ function flattenCategoryMap(cats: DocumentCategory[]): Map<string, string> {
 function deriveExtraEntries(
     documents: EntityDocument[],
     labels: Map<string, string>,
+    slugs: Set<string>,
 ): ExtraDocEntry[] {
     const entries = new Map<string, ExtraDocEntry>();
     for (const doc of documents) {
         const slug = doc.category?.slug;
-        if (!slug || !EXTRA_DOC_SLUGS.has(slug)) continue;
+        if (!slug || !slugs.has(slug)) continue;
         const notes = doc.notes ?? "";
         const key = `${slug}::${notes}`;
         if (entries.has(key)) continue;
@@ -101,6 +130,11 @@ export type EntityDocumentsSectionProps = {
     onReplace?: (doc: EntityDocument) => void;
     /** Label resolution for orphaned documents. Defaults to field-key label. */
     orphanLabel?: (doc: EntityDocument) => string;
+    /**
+     * Category slugs offered in the «سایر مدارک» picker. Defaults to the
+     * applicant set; the employee documents step passes the personnel set.
+     */
+    extraDocSlugs?: Set<string>;
 };
 
 export function EntityDocumentsSection({
@@ -114,6 +148,7 @@ export function EntityDocumentsSection({
     replaceEnabled,
     onReplace,
     orphanLabel,
+    extraDocSlugs = EXTRA_DOC_SLUGS,
 }: EntityDocumentsSectionProps) {
     const [addedEntries, setAddedEntries] = useState<ExtraDocEntry[]>([]);
     const [pickSlug, setPickSlug] = useState<string>(
@@ -138,14 +173,14 @@ export function EntityDocumentsSection({
         () =>
             (categories ?? [])
                 .flatMap((c) => [c, ...(c.children ?? [])])
-                .filter((c) => EXTRA_DOC_SLUGS.has(c.slug))
+                .filter((c) => extraDocSlugs.has(c.slug))
                 .map((c) => ({ slug: c.slug, label: c.name })),
-        [categories],
+        [categories, extraDocSlugs],
     );
 
     const serverExtraEntries = useMemo(
-        () => deriveExtraEntries(documents, categoryLabels),
-        [documents, categoryLabels],
+        () => deriveExtraEntries(documents, categoryLabels, extraDocSlugs),
+        [documents, categoryLabels, extraDocSlugs],
     );
 
     const extraDocs = useMemo(() => {
@@ -287,6 +322,31 @@ export function EntityDocumentsSection({
                                 accept="image/jpeg,image/png,image/webp,.pdf"
                                 fieldKey="page-3"
                                 required
+                                replaceEnabled={replaceEnabled}
+                                onReplace={onReplace}
+                            />
+                            <FileUploadField
+                                uuid={uuid}
+                                entity={entity}
+                                categorySlug={
+                                    DOC_CATEGORY_SLUGS.BIRTH_CERTIFICATE
+                                }
+                                label="شناسنامه — صفحه چهارم"
+                                accept="image/jpeg,image/png,image/webp,.pdf"
+                                fieldKey="page-4"
+                                required
+                                replaceEnabled={replaceEnabled}
+                                onReplace={onReplace}
+                            />
+                            <FileUploadField
+                                uuid={uuid}
+                                entity={entity}
+                                categorySlug={
+                                    DOC_CATEGORY_SLUGS.BIRTH_CERTIFICATE
+                                }
+                                label="شناسنامه — صفحه اضافی"
+                                accept="image/jpeg,image/png,image/webp,.pdf"
+                                fieldKey="page-extra"
                                 replaceEnabled={replaceEnabled}
                                 onReplace={onReplace}
                             />
