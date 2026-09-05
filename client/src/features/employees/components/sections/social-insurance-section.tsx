@@ -7,12 +7,14 @@ import {
     FormOptionSelectField,
     FormRadioGroup,
     FormRepeater,
+    FormSelectField,
     FormTextField,
     FormTextarea,
 } from "@/components/forms";
 import type { TableColumn } from "@/components/forms";
 import { FileUploadField } from "@/components/documents";
 import {
+    JALALI_MONTH_OPTIONS,
     YES_NO_OPTIONS,
     parseBoolean,
 } from "@/features/questionnaire/constants";
@@ -41,6 +43,7 @@ const JOB_TITLE_COLUMNS: TableColumn[] = [
 ];
 
 const MONTHLY_BREAKDOWN_COLUMNS: TableColumn[] = [
+    { key: "month", label: "ماه" },
     { key: "days", label: "روز" },
     { key: "wage", label: "دستمزد" },
 ];
@@ -71,9 +74,14 @@ export function SocialInsuranceSection({ form, uuid }: SectionProps) {
 
     useEffect(() => {
         if (!hasHistory) {
-            const current = form.state.values.social_insurance?.histories;
+            const social = form.state.values.social_insurance;
+            const current = social?.histories;
             if (current && current.length > 0) {
                 form.setFieldValue("social_insurance.histories", [], { dontUpdateMeta: true });
+            }
+            const jobTitles = social?.job_titles;
+            if (jobTitles && jobTitles.length > 0) {
+                form.setFieldValue("social_insurance.job_titles", [], { dontUpdateMeta: true });
             }
         }
     }, [hasHistory, form]);
@@ -273,11 +281,28 @@ export function SocialInsuranceSection({ form, uuid }: SectionProps) {
                                                         columns={MONTHLY_BREAKDOWN_COLUMNS}
                                                         emptyMessage="هنوز ماهی اضافه نشده است."
                                                         getSummary={(item) => ({
+                                                            month: JALALI_MONTH_OPTIONS.find(
+                                                                (option) =>
+                                                                    option.value ===
+                                                                    item.month,
+                                                            )?.label ?? item.month,
                                                             days: item.days,
                                                             wage: item.wage,
                                                         })}
                                                         renderItem={(monthIndex) => (
-                                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                                                <form.Field
+                                                                    name={`social_insurance.histories.${index}.monthly_breakdown.${monthIndex}.month`}
+                                                                >
+                                                                    {(f) => (
+                                                                        <FormSelectField
+                                                                            field={f}
+                                                                            label="ماه"
+                                                                            options={JALALI_MONTH_OPTIONS}
+                                                                            placeholder="انتخاب کنید"
+                                                                        />
+                                                                    )}
+                                                                </form.Field>
                                                                 <form.Field
                                                                     name={`social_insurance.histories.${index}.monthly_breakdown.${monthIndex}.days`}
                                                                 >
@@ -311,12 +336,13 @@ export function SocialInsuranceSection({ form, uuid }: SectionProps) {
                     </form.Field>
                 )}
 
-                <form.Field
-                    name="social_insurance.job_titles"
-                    validators={zodFieldValidators(
-                        socialInsuranceFieldSchema.shape.job_titles,
-                    )}
-                >
+                {hasHistory && (
+                    <form.Field
+                        name="social_insurance.job_titles"
+                        validators={zodFieldValidators(
+                            socialInsuranceFieldSchema.shape.job_titles,
+                        )}
+                    >
                     {(field) => (
                         <FormRepeater
                             defaultMode="card"
@@ -393,6 +419,7 @@ export function SocialInsuranceSection({ form, uuid }: SectionProps) {
                         />
                     )}
                 </form.Field>
+                )}
 
                 <FileUploadField
                     uuid={uuid}

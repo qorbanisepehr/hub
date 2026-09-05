@@ -85,6 +85,22 @@ export const SOFTWARE_LEVEL_OPTIONS = [
     { value: "4", label: "۴" },
 ];
 
+/** Jalali (Persian) month names, in calendar order. */
+export const JALALI_MONTH_OPTIONS = [
+    { value: "farvardin", label: "فروردین" },
+    { value: "ordibehesht", label: "اردیبهشت" },
+    { value: "khordad", label: "خرداد" },
+    { value: "tir", label: "تیر" },
+    { value: "mordad", label: "مرداد" },
+    { value: "shahrivar", label: "شهریور" },
+    { value: "mehr", label: "مهر" },
+    { value: "aban", label: "آبان" },
+    { value: "azar", label: "آذر" },
+    { value: "dey", label: "دی" },
+    { value: "bahman", label: "بهمن" },
+    { value: "esfand", label: "اسفند" },
+];
+
 export const YES_NO_OPTIONS = [
     { value: "true", label: "بلی" },
     { value: "false", label: "خیر" },

@@ -7,7 +7,10 @@ import { useOptionLabelResolver } from "@/components/section-views/use-option-la
 import { useEmployeeDocuments } from "@/features/employees/hooks/use-employee-documents";
 import { toPersianDate } from "@/lib/date-format";
 import type { Employee } from "@/features/employees/types";
-import { DOC_CATEGORY_SLUGS } from "@/features/questionnaire/constants";
+import {
+    DOC_CATEGORY_SLUGS,
+    JALALI_MONTH_OPTIONS,
+} from "@/features/questionnaire/constants";
 
 type SocialInsuranceHistory = {
     workshop_name?: string;
@@ -20,6 +23,7 @@ type SocialInsuranceHistory = {
 };
 
 type MonthlyBreakdownRow = {
+    month?: string;
     days?: number | string;
     wage?: string;
 };
@@ -146,7 +150,7 @@ export function SocialInsuranceView({
                     />
                 </div>
 
-                {jobTitles.length > 0 && (
+                {hasHistory && jobTitles.length > 0 && (
                     <div className="space-y-3">
                         <h3 className="text-sm font-medium">
                             سوابق عناوین شغلی
@@ -270,6 +274,24 @@ export function SocialInsuranceView({
                                                         }
                                                         emptyLabel="-"
                                                         columns={[
+                                                            {
+                                                                label: "ماه",
+                                                                render: (i) =>
+                                                                    typeof i.month ===
+                                                                        "string" &&
+                                                                    i.month !==
+                                                                        ""
+                                                                        ? (JALALI_MONTH_OPTIONS.find(
+                                                                              (
+                                                                                  option,
+                                                                              ) =>
+                                                                                  option.value ===
+                                                                                  i.month,
+                                                                          )
+                                                                              ?.label ??
+                                                                              i.month)
+                                                                        : "-",
+                                                            },
                                                             {
                                                                 label: "روز",
                                                                 render: (i) =>
