@@ -43,18 +43,24 @@ type SocialInsuranceData = {
     has_insurance_history?: boolean;
     branch_name?: string;
     days_count?: number | string;
-    monthly_breakdown?: MonthlyBreakdownRow[];
     job_titles?: JobTitleRow[];
     histories?: SocialInsuranceHistory[];
 };
 
 type SocialInsuranceViewProps = {
     employee: Employee;
-    data?: SocialInsuranceData;
+    data?: Record<string, unknown>;
     title?: string;
     action?: ReactNode;
     extra?: ReactNode;
 };
+
+/** Display label for a stored Jalali month value (falls back to the raw value). */
+function monthLabel(value: unknown): string {
+    if (typeof value !== "string" || value === "") return "-";
+    return JALALI_MONTH_OPTIONS.find((option) => option.value === value)
+        ?.label ?? value;
+}
 
 export function SocialInsuranceView({
     employee,
@@ -88,6 +94,54 @@ export function SocialInsuranceView({
         ...getDocumentsBySlug(DOC_CATEGORY_SLUGS.INSURANCE_HISTORY_OVERALL),
         ...getDocumentsBySlug(DOC_CATEGORY_SLUGS.INSURANCE_LAST_JOB_TITLES),
     ];
+
+    /** Expanded row: this history's monthly breakdown + description. */
+    const renderHistoryDetail = (item: Record<string, unknown>) => {
+        const breakdown = Array.isArray(item.monthly_breakdown)
+            ? item.monthly_breakdown
+            : [];
+
+        return (
+            <div className="space-y-4 p-4">
+                {typeof item.description === "string" &&
+                    item.description !== "" && (
+                        <SectionRow
+                            variant="between"
+                            label="توضیحات"
+                            value={item.description}
+                        />
+                    )}
+
+                <div className="space-y-2">
+                    <p className="text-xs font-medium text-muted-foreground">
+                        تفکیک ماهانه
+                    </p>
+                    <SectionRepeaterTable
+                        items={breakdown}
+                        emptyLabel="ماهی ثبت نشده است."
+                        columns={[
+                            {
+                                label: "ماه",
+                                render: (row) => monthLabel(row.month),
+                            },
+                            {
+                                label: "روز",
+                                render: (row) =>
+                                    row.days === null ||
+                                    row.days === undefined
+                                        ? "-"
+                                        : String(row.days),
+                            },
+                            {
+                                label: "دستمزد",
+                                render: (row) => row.wage,
+                            },
+                        ]}
+                    />
+                </div>
+            </div>
+        );
+    };
 
     return (
         <Card>
@@ -150,6 +204,43 @@ export function SocialInsuranceView({
                     />
                 </div>
 
+                {hasHistory && histories.length > 0 && (
+                    <div className="space-y-3">
+                        <h3 className="text-sm font-medium">سوابق بیمه</h3>
+
+                        <SectionRepeaterTable
+                            items={histories}
+                            emptyLabel="سابقه‌ای ثبت نشده است."
+                            columns={[
+                                {
+                                    label: "کارگاه / کارفرما",
+                                    render: (i) => i.workshop_name,
+                                },
+                                {
+                                    label: "کد کارگاه",
+                                    render: (i) => i.workshop_code,
+                                },
+                                {
+                                    label: "عنوان شغلی",
+                                    render: (i) => i.job_title,
+                                },
+                                {
+                                    label: "از تاریخ",
+                                    render: (i) => toPersianDate(i.start_date as string | null | undefined),
+                                },
+                                {
+                                    label: "تا تاریخ",
+                                    render: (i) =>
+                                        i.end_date
+                                            ? toPersianDate(i.end_date as string)
+                                            : "ادامه دارد",
+                                },
+                            ]}
+                            renderExpandedRow={renderHistoryDetail}
+                        />
+                    </div>
+                )}
+
                 {hasHistory && jobTitles.length > 0 && (
                     <div className="space-y-3">
                         <h3 className="text-sm font-medium">
@@ -187,136 +278,6 @@ export function SocialInsuranceView({
                                 },
                             ]}
                         />
-                    </div>
-                )}
-
-                {hasHistory && histories.length > 0 && (
-                    <div className="space-y-3">
-                        <h3 className="text-sm font-medium">سوابق بیمه</h3>
-
-                        <div className="space-y-3">
-                            {histories.map((history, index) => (
-                                <Card
-                                    key={`${history.start_date ?? "history"}-${index}`}
-                                    className="border bg-muted/20"
-                                >
-                                    <CardContent className="p-4">
-                                        <div className="divide-y">
-                                            <SectionRow
-                                                variant="between"
-                                                hideEmpty
-                                                label="کارگاه / کارفرما"
-                                                value={
-                                                    history.workshop_name
-                                                }
-                                            />
-
-                                            <SectionRow
-                                                variant="between"
-                                                hideEmpty
-                                                label="کد کارگاه"
-                                                value={
-                                                    history.workshop_code
-                                                }
-                                            />
-
-                                            <SectionRow
-                                                variant="between"
-                                                hideEmpty
-                                                label="عنوان شغلی"
-                                                value={history.job_title}
-                                            />
-
-                                            <SectionRow
-                                                variant="between"
-                                                hideEmpty
-                                                label="از تاریخ"
-                                                value={toPersianDate(
-                                                    history.start_date,
-                                                )}
-                                            />
-
-                                            <SectionRow
-                                                variant="between"
-                                                hideEmpty
-                                                label="تا تاریخ"
-                                                value={
-                                                    history.end_date
-                                                        ? toPersianDate(
-                                                              history.end_date,
-                                                          )
-                                                        : "ادامه دارد"
-                                                }
-                                            />
-
-                                            <SectionRow
-                                                variant="between"
-                                                hideEmpty
-                                                label="توضیحات"
-                                                value={
-                                                    history.description
-                                                }
-                                            />
-                                        </div>
-
-                                        {Array.isArray(
-                                            history.monthly_breakdown,
-                                        ) &&
-                                            history.monthly_breakdown.length >
-                                                0 && (
-                                                <div className="mt-4 space-y-2">
-                                                    <p className="text-xs font-medium text-muted-foreground">
-                                                        تفکیک ماهانه
-                                                    </p>
-                                                    <SectionRepeaterTable
-                                                        items={
-                                                            history.monthly_breakdown
-                                                        }
-                                                        emptyLabel="-"
-                                                        columns={[
-                                                            {
-                                                                label: "ماه",
-                                                                render: (i) =>
-                                                                    typeof i.month ===
-                                                                        "string" &&
-                                                                    i.month !==
-                                                                        ""
-                                                                        ? (JALALI_MONTH_OPTIONS.find(
-                                                                              (
-                                                                                  option,
-                                                                              ) =>
-                                                                                  option.value ===
-                                                                                  i.month,
-                                                                          )
-                                                                              ?.label ??
-                                                                              i.month)
-                                                                        : "-",
-                                                            },
-                                                            {
-                                                                label: "روز",
-                                                                render: (i) =>
-                                                                    i.days ===
-                                                                        null ||
-                                                                    i.days ===
-                                                                        undefined
-                                                                        ? "-"
-                                                                        : String(
-                                                                              i.days,
-                                                                          ),
-                                                            },
-                                                            {
-                                                                label: "دستمزد",
-                                                                render: (i) =>
-                                                                    i.wage,
-                                                            },
-                                                        ]}
-                                                    />
-                                                </div>
-                                            )}
-                                    </CardContent>
-                                </Card>
-                            ))}
-                        </div>
                     </div>
                 )}
 
