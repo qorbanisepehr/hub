@@ -36,6 +36,7 @@ class SocialInsuranceSection extends BaseSection
             'job_titles.*.workshop_name' => 'string',
             'histories' => 'array',
             'histories.*.monthly_breakdown' => 'array',
+            'histories.*.monthly_breakdown.*.month' => 'string',
             'histories.*.monthly_breakdown.*.days' => 'integer',
             'histories.*.monthly_breakdown.*.wage' => 'string',
         ];
@@ -65,6 +66,7 @@ class SocialInsuranceSection extends BaseSection
 
             'histories' => 'nullable|array',
             'histories.*.monthly_breakdown' => 'nullable|array',
+            'histories.*.monthly_breakdown.*.month' => 'nullable|string|max:30',
             'histories.*.monthly_breakdown.*.days' => 'nullable|integer|min:0',
             'histories.*.monthly_breakdown.*.wage' => 'nullable|string|max:30',
 
@@ -105,6 +107,7 @@ class SocialInsuranceSection extends BaseSection
 
             'histories' => 'required_if:has_insurance_history,true|array',
             'histories.*.monthly_breakdown' => 'nullable|array',
+            'histories.*.monthly_breakdown.*.month' => 'nullable|string|max:30',
             'histories.*.monthly_breakdown.*.days' => 'nullable|integer|min:0',
             'histories.*.monthly_breakdown.*.wage' => 'nullable|string|max:30',
 

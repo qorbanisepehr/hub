@@ -716,6 +716,45 @@ describe('employee CRUD', function () {
                 ->and($saved->section_social_insurance)->not->toHaveKey('social_insurance_number');
         });
 
+        it('persists per-history monthly breakdown rows with their month', function () {
+            $user = createUserWithPermissions(['employee.update']);
+            $employee = Employee::factory()->create();
+
+            $this->actingAs($user)
+                ->postJson("/api/employees/{$employee->id}/sections/social_insurance", [
+                    'social_insurance_number' => '1234567890',
+                    'insurance_status' => 'social_security',
+                    'has_insurance_history' => true,
+                    'histories' => [
+                        [
+                            'workshop_name' => 'Company A',
+                            'start_date' => '2023-01-01',
+                            'monthly_breakdown' => [
+                                ['month' => 'farvardin', 'days' => 20, 'wage' => '5000000'],
+                                ['month' => 'ordibehesht', 'days' => 22, 'wage' => '5500000'],
+                            ],
+                        ],
+                    ],
+                    'job_titles' => [
+                        [
+                            'insurance_number' => '9876543210',
+                            'start_date' => '2023-01-01',
+                            'job_title' => 'Developer',
+                            'workshop_code' => '12345',
+                            'workshop_name' => 'Company A',
+                        ],
+                    ],
+                ])
+                ->assertStatus(200);
+
+            $saved = $employee->fresh();
+            expect($saved->section_social_insurance['histories'][0]['monthly_breakdown'])->toBe([
+                ['month' => 'farvardin', 'days' => 20, 'wage' => '5000000'],
+                ['month' => 'ordibehesht', 'days' => 22, 'wage' => '5500000'],
+            ])
+                ->and($saved->section_social_insurance['job_titles'][0]['job_title'])->toBe('Developer');
+        });
+
         it('persists the contracts section into its jsonb column', function () {
             $user = createUserWithPermissions(['employee.update']);
             $employee = Employee::factory()->create();
