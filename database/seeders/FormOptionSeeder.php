@@ -98,9 +98,10 @@ class FormOptionSeeder extends Seeder
 
             // ── inquiry_status — وضعیت استعلام مدارک (بخش استعلام مدارک؛
             //    مقادیر در حال تغییر هستند و از طریق FormOptions قابل ویرایش‌اند)
-            ['group' => 'inquiry_status', 'value' => 'pending', 'label' => 'در انتظار استعلام', 'sort_order' => 1],
-            ['group' => 'inquiry_status', 'value' => 'received', 'label' => 'پاسخ دریافت شد', 'sort_order' => 2],
-            ['group' => 'inquiry_status', 'value' => 'mismatch', 'label' => 'مغایرت دارد', 'sort_order' => 3],
+            ['group' => 'inquiry_status', 'value' => 'no_inquiry', 'label' => 'بدون استعلام', 'sort_order' => 1],
+            ['group' => 'inquiry_status', 'value' => 'pending', 'label' => 'در انتظار پاسخ', 'sort_order' => 2],
+            ['group' => 'inquiry_status', 'value' => 'approved', 'label' => 'تایید شد', 'sort_order' => 3],
+            ['group' => 'inquiry_status', 'value' => 'mismatch', 'label' => 'مغایرت دارد', 'sort_order' => 4],
 
             // ── property_status — وضعیت ملک
             ['group' => 'property_status', 'value' => 'owned', 'label' => 'شخصی', 'sort_order' => 1],
@@ -489,6 +490,27 @@ class FormOptionSeeder extends Seeder
                 ['group' => $option['group'], 'value' => $option['value']],
                 $option,
             );
+        }
+
+        // Drop options whose canonical value was retired (e.g. the old
+        // inquiry_status `received`), so stale rows never resurface in
+        // already-seeded databases.
+        $prune = [
+            'inquiry_status' => array_values(array_filter(
+                array_map(fn (array $option) => $option['group'] === 'inquiry_status' ? $option['value'] : null, $this->options()),
+                fn (?string $value) => $value !== null,
+            )),
+        ];
+
+        foreach ($prune as $group => $values) {
+            if ($groups !== null && ! in_array($group, $groups, true)) {
+                continue;
+            }
+
+            FormOption::query()
+                ->where('group', $group)
+                ->whereNotIn('value', $values)
+                ->delete();
         }
     }
 }

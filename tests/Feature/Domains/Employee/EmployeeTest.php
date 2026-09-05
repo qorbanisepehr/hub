@@ -178,7 +178,7 @@ function validEmployeeSocialInsurance(): array
     return [
         'social_insurance_number' => '1234567890',
         'has_insurance_history' => true,
-        'insurance_status' => 'active',
+        'insurance_status' => 'social_security',
         'insurance_start_date' => '2023-01-01',
         'histories' => [
             [
@@ -195,6 +195,7 @@ beforeEach(function () {
     seedFormOptions([
         'gender', 'blood_group', 'marital_status', 'military_status',
         'spouse_employment_status', 'religion', 'religion_sect', 'degree', 'university',
+        'insurance_type', 'relationship_type',
     ]);
     seedLocationOptions();
 });
@@ -698,7 +699,7 @@ describe('employee CRUD', function () {
             $this->actingAs($user)
                 ->postJson("/api/employees/{$employee->id}/sections/social_insurance", [
                     'social_insurance_number' => '1234567890',
-                    'insurance_status' => 'active',
+                    'insurance_status' => 'social_security',
                     'has_insurance_history' => true,
                     'histories' => [
                         [
@@ -711,8 +712,133 @@ describe('employee CRUD', function () {
 
             $saved = $employee->fresh();
             expect($saved->social_insurance_number)->toBe('1234567890')
-                ->and($saved->section_social_insurance['insurance_status'])->toBe('active')
+                ->and($saved->section_social_insurance['insurance_status'])->toBe('social_security')
                 ->and($saved->section_social_insurance)->not->toHaveKey('social_insurance_number');
+        });
+
+        it('persists per-history monthly breakdown rows with their month', function () {
+            $user = createUserWithPermissions(['employee.update']);
+            $employee = Employee::factory()->create();
+
+            $this->actingAs($user)
+                ->postJson("/api/employees/{$employee->id}/sections/social_insurance", [
+                    'social_insurance_number' => '1234567890',
+                    'insurance_status' => 'social_security',
+                    'has_insurance_history' => true,
+                    'histories' => [
+                        [
+                            'workshop_name' => 'Company A',
+                            'start_date' => '2023-01-01',
+                            'monthly_breakdown' => [
+                                ['month' => 'farvardin', 'days' => 20, 'wage' => '5000000'],
+                                ['month' => 'ordibehesht', 'days' => 22, 'wage' => '5500000'],
+                            ],
+                        ],
+                    ],
+                    'job_titles' => [
+                        [
+                            'insurance_number' => '9876543210',
+                            'start_date' => '2023-01-01',
+                            'job_title' => 'Developer',
+                            'workshop_code' => '12345',
+                            'workshop_name' => 'Company A',
+                        ],
+                    ],
+                ])
+                ->assertStatus(200);
+
+            $saved = $employee->fresh();
+            expect($saved->section_social_insurance['histories'][0]['monthly_breakdown'])->toBe([
+                ['month' => 'farvardin', 'days' => 20, 'wage' => '5000000'],
+                ['month' => 'ordibehesht', 'days' => 22, 'wage' => '5500000'],
+            ])
+                ->and($saved->section_social_insurance['job_titles'][0]['job_title'])->toBe('Developer');
+        });
+
+        it('persists the contracts section into its jsonb column', function () {
+            $user = createUserWithPermissions(['employee.update']);
+            $employee = Employee::factory()->create();
+
+            $this->actingAs($user)
+                ->postJson("/api/employees/{$employee->id}/sections/contracts", [
+                    'contracts' => [
+                        ['start_date' => '2023-06-01', 'end_date' => '2024-06-01'],
+                        ['start_date' => '2024-06-02', 'end_date' => null],
+                    ],
+                ])
+                ->assertStatus(200);
+
+            $saved = $employee->fresh();
+            expect($saved->section_contracts)->toBe([
+                'contracts' => [
+                    ['start_date' => '2023-06-01', 'end_date' => '2024-06-01'],
+                    ['start_date' => '2024-06-02', 'end_date' => null],
+                ],
+            ]);
+        });
+
+        it('persists the financial section into its jsonb column', function () {
+            $user = createUserWithPermissions(['employee.update']);
+            $employee = Employee::factory()->create();
+
+            $this->actingAs($user)
+                ->postJson("/api/employees/{$employee->id}/sections/financial", [
+                    'bank_accounts' => [
+                        [
+                            'bank_name' => 'ملت',
+                            'account_number' => '1234567890',
+                            'card_number' => '1111222233334444',
+                            'shaba_number' => 'IR123456789012345678901234',
+                        ],
+                        [
+                            'bank_name' => 'رفاه',
+                            'account_number' => '9876543210',
+                            'card_number' => '4444333322221111',
+                            'shaba_number' => 'IR987654321098765432109876',
+                        ],
+                    ],
+                ])
+                ->assertStatus(200);
+
+            $saved = $employee->fresh();
+            expect($saved->section_financial)->toBe([
+                'bank_accounts' => [
+                    [
+                        'bank_name' => 'ملت',
+                        'account_number' => '1234567890',
+                        'card_number' => '1111222233334444',
+                        'shaba_number' => 'IR123456789012345678901234',
+                    ],
+                    [
+                        'bank_name' => 'رفاه',
+                        'account_number' => '9876543210',
+                        'card_number' => '4444333322221111',
+                        'shaba_number' => 'IR987654321098765432109876',
+                    ],
+                ],
+            ]);
+        });
+
+        it('persists the supplementary insurance section into its jsonb column', function () {
+            $user = createUserWithPermissions(['employee.update']);
+            $employee = Employee::factory()->create();
+
+            $this->actingAs($user)
+                ->postJson("/api/employees/{$employee->id}/sections/supplementary_insurance", [
+                    'selected_bank_account' => '1234567890',
+                    'insurance_dependents' => [
+                        ['first_name' => 'علی', 'last_name' => 'رضایی', 'relationship' => 'spouse', 'note' => 'همسر'],
+                    ],
+                ])
+                ->assertStatus(200);
+
+            $saved = $employee->fresh();
+            expect($saved->section_supplementary_insurance)->toBe([
+                'selected_bank_account' => '1234567890',
+                'insurance_dependents' => [
+                    ['first_name' => 'علی', 'last_name' => 'رضایی', 'relationship' => 'spouse', 'note' => 'همسر'],
+                ],
+            ]);
         });
     });
 

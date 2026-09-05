@@ -11,9 +11,10 @@ beforeEach(function () {
     $this->employee = Employee::factory()->create();
 
     foreach ([
-        ['group' => 'inquiry_status', 'value' => 'pending', 'label' => 'در انتظار استعلام', 'sort_order' => 1],
-        ['group' => 'inquiry_status', 'value' => 'received', 'label' => 'پاسخ دریافت شد', 'sort_order' => 2],
-        ['group' => 'inquiry_status', 'value' => 'mismatch', 'label' => 'مغایرت دارد', 'sort_order' => 3],
+        ['group' => 'inquiry_status', 'value' => 'no_inquiry', 'label' => 'بدون استعلام', 'sort_order' => 1],
+        ['group' => 'inquiry_status', 'value' => 'pending', 'label' => 'در انتظار پاسخ', 'sort_order' => 2],
+        ['group' => 'inquiry_status', 'value' => 'approved', 'label' => 'تایید شد', 'sort_order' => 3],
+        ['group' => 'inquiry_status', 'value' => 'mismatch', 'label' => 'مغایرت دارد', 'sort_order' => 4],
     ] as $option) {
         FormOption::create($option);
     }
@@ -26,7 +27,7 @@ test('an employee can save the document inquiries section', function () {
         ->postJson("/api/employees/{$this->employee->id}/sections/document_inquiries", [
             'inquiries' => [
                 'education' => [
-                    '0' => ['status' => 'received', 'note' => 'مطابقت دارد'],
+                    '0' => ['status' => 'approved', 'note' => 'مطابقت دارد'],
                 ],
                 'criminal_record' => ['status' => 'pending'],
                 'social_insurance' => ['status' => 'mismatch', 'note' => 'سابقه ناقص'],
@@ -82,7 +83,7 @@ test('changed inquiry nodes are stamped with user, role, and date', function () 
     $this->actingAs($user)
         ->postJson("/api/employees/{$this->employee->id}/sections/document_inquiries", [
             'inquiries' => [
-                'criminal_record' => ['status' => 'received'],
+                'criminal_record' => ['status' => 'approved'],
             ],
         ])
         ->assertOk();
@@ -100,7 +101,7 @@ test('unchanged nodes keep their previous stamp', function () {
     $this->actingAs($first)
         ->postJson("/api/employees/{$this->employee->id}/sections/document_inquiries", [
             'inquiries' => [
-                'education' => ['0' => ['status' => 'received', 'note' => 'مطابقت دارد']],
+                'education' => ['0' => ['status' => 'approved', 'note' => 'مطابقت دارد']],
             ],
         ])
         ->assertOk();
@@ -109,7 +110,7 @@ test('unchanged nodes keep their previous stamp', function () {
     $this->actingAs($second)
         ->postJson("/api/employees/{$this->employee->id}/sections/document_inquiries", [
             'inquiries' => [
-                'education' => ['0' => ['status' => 'received', 'note' => 'مطابقت دارد']],
+                'education' => ['0' => ['status' => 'approved', 'note' => 'مطابقت دارد']],
                 'social_insurance' => ['status' => 'mismatch'],
             ],
         ])
@@ -139,7 +140,7 @@ test('the generic update permission still authorizes saving inquiries', function
     $this->actingAs($user)
         ->postJson("/api/employees/{$this->employee->id}/sections/document_inquiries", [
             'inquiries' => [
-                'criminal_record' => ['status' => 'received'],
+                'criminal_record' => ['status' => 'approved'],
             ],
         ])
         ->assertOk();
@@ -151,8 +152,35 @@ test('saving inquiries is forbidden without either permission', function () {
     $this->actingAs($user)
         ->postJson("/api/employees/{$this->employee->id}/sections/document_inquiries", [
             'inquiries' => [
-                'criminal_record' => ['status' => 'received'],
+                'criminal_record' => ['status' => 'approved'],
             ],
         ])
         ->assertForbidden();
+});
+
+test('the sana verification inquiry node saves and stamps like the others', function () {
+    $user = createUserWithPermissions(['employee.update']);
+
+    $this->actingAs($user)
+        ->postJson("/api/employees/{$this->employee->id}/sections/document_inquiries", [
+            'inquiries' => [
+                'sana_verification' => ['status' => 'pending', 'note' => 'ارسال شد'],
+            ],
+        ])
+        ->assertOk()
+        ->assertJsonPath('data.section_document_inquiries.inquiries.sana_verification.status', 'pending');
+
+    $node = $this->employee->fresh()->section_document_inquiries['inquiries']['sana_verification'];
+
+    expect($node['updated_by'])->toBe($user->id)
+        ->and($node['updated_at'])->toBeString();
+});
+
+test('the sana verification placement maps its own labels and slugs', function () {
+    $section = app(EmployeeService::class)->getSection('document_inquiries');
+
+    expect($section->documentFieldKeyLabel($this->employee, 'inq-sana-verification'))
+        ->toBe('استعلام صحت‌سنجی ثنا')
+        ->and($section->documentFieldKeySlug($this->employee, 'inq-sana-verification'))
+        ->toBe('sana-verification-inquiry');
 });

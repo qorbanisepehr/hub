@@ -48,11 +48,13 @@ class DependentsSection extends BaseSection
         return [
             'dependents' => 'array',
             'dependents.*.relationship_type' => 'string',
+            'dependents.*.custom_relationship' => 'string',
             'dependents.*.first_name' => 'string',
             'dependents.*.last_name' => 'string',
             'dependents.*.id_number' => 'string',
             'dependents.*.gender' => 'string',
             'dependents.*.birth_date' => 'date',
+            'dependents.*.marriage_date' => 'date',
         ];
     }
 
@@ -66,11 +68,13 @@ class DependentsSection extends BaseSection
             'dependents' => 'nullable|array',
 
             'dependents.*.relationship_type' => ['nullable', new FormOptionValue('relationship_type')],
+            'dependents.*.custom_relationship' => 'nullable|string|max:100',
             'dependents.*.first_name' => 'nullable|string|max:100',
             'dependents.*.last_name' => 'nullable|string|max:100',
             'dependents.*.id_number' => ['nullable', 'string', 'max:10', new IdNumberRule],
             'dependents.*.gender' => ['nullable', new FormOptionValue('gender')],
             'dependents.*.birth_date' => 'nullable|date',
+            'dependents.*.marriage_date' => 'nullable|date',
         ];
     }
 
@@ -85,11 +89,24 @@ class DependentsSection extends BaseSection
             'dependents' => 'nullable|array',
 
             'dependents.*.relationship_type' => ['required_with:dependents', 'nullable', new FormOptionValue('relationship_type')],
+            'dependents.*.custom_relationship' => [
+                // عنوان آزاد نسبت فقط برای ردیف سایر (relationship_type = other) معنی‌دار است.
+                'required_if:relationship_type,other',
+                'nullable',
+                'string',
+                'max:100',
+            ],
             'dependents.*.first_name' => 'required_with:dependents|nullable|string|max:100',
             'dependents.*.last_name' => 'required_with:dependents|nullable|string|max:100',
             'dependents.*.id_number' => ['required_with:dependents', 'nullable', 'string', 'max:10', new IdNumberRule],
             'dependents.*.gender' => ['required_with:dependents', 'nullable', new FormOptionValue('gender')],
             'dependents.*.birth_date' => 'required_with:dependents|nullable|date',
+            'dependents.*.marriage_date' => [
+                // تاریخ عقد فقط برای ردیف همسر (relationship_type = spouse) معنی‌دار است.
+                'required_if:relationship_type,spouse',
+                'nullable',
+                'date',
+            ],
         ];
     }
 
@@ -142,6 +159,12 @@ class DependentsSection extends BaseSection
      */
     public function dynamicDocumentRequirements(): array
     {
+        // TODO(dynamic-condition): per-relationship requirements are deferred.
+        // The plan exempts father/mother rows from identity-document
+        // requirements; the relationship field is not yet expressible as a
+        // document condition, so every row currently stays required. Spinning
+        // out the deferred conditional-document sprint must pull father/mother
+        // rows out of `required` using the relationship-based condition.
         return [
             self::FIELD_KEY_PATTERN => [
                 'national-card' => [
@@ -151,8 +174,8 @@ class DependentsSection extends BaseSection
                 ],
                 'birth-certificate' => [
                     'required' => true,
-                    'min_files' => 5,
-                    'max_files' => 5,
+                    'min_files' => 4,
+                    'max_files' => null,
                 ],
             ],
         ];

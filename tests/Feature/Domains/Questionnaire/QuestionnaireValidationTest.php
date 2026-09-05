@@ -1833,7 +1833,7 @@ describe('section definitions', function () {
             ->and($requirements['national-card']['field_keys'])->toBe(['front', 'back'])
             ->and($requirements['national-card']['section_key'])->toBe('personal_info')
             ->and($requirements['birth-certificate']['required'])->toBeTrue()
-            ->and($requirements['birth-certificate']['field_keys'])->toBe(['page-1', 'page-2', 'page-3'])
+            ->and($requirements['birth-certificate']['field_keys'])->toBe(['page-1', 'page-2', 'page-3', 'page-4', 'page-extra'])
             ->and($requirements['personnel-photo']['required'])->toBeTrue()
             ->and($requirements['resume']['required'])->toBeTrue()
             ->and($requirements['resume']['section_key'])->toBe('job_request')

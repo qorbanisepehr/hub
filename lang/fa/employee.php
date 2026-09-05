@@ -15,6 +15,9 @@ return [
         'training' => 'دوره‌ها و آموزش‌ها',
         'additional_info' => 'اطلاعات تکمیلی',
         'social_insurance' => 'بیمه تأمین اجتماعی',
+        'contracts' => 'قراردادها',
+        'financial' => 'اطلاعات مالی',
+        'supplementary_insurance' => 'بیمه تکمیلی',
         'dependents' => 'بستگان و افراد تحت تکفل',
         'document_inquiries' => 'استعلام مدارک',
     ],
@@ -26,17 +29,34 @@ return [
             'id_number' => 'کد ملی',
             'gender' => 'جنسیت',
             'birth_date' => 'تاریخ تولد',
+            'custom_relationship' => 'نسبت (سایر)',
+            'marriage_date' => 'تاریخ عقد',
         ],
         'validation' => [
             'birth_date_not_future' => 'تاریخ تولد وابسته نمی‌تواند در آینده باشد.',
         ],
         'field_label' => 'وابسته :n',
     ],
+    'social_insurance' => [
+        'fields' => [
+            'start_date' => 'تاریخ شروع',
+            'end_date' => 'تاریخ پایان',
+        ],
+        'validation' => [
+            'end_date_before_start_date' => 'تاریخ پایان نباید زودتر از تاریخ شروع باشد.',
+        ],
+    ],
+    'contracts' => [
+        'field_label' => 'قرارداد :n',
+        'field_label_range' => 'قرارداد از :start تا :end',
+        'field_label_from' => 'قرارداد از :start',
+    ],
     'document_inquiries' => [
         'field_labels' => [
             'education_degree' => 'استعلام مدرک تحصیلی :n',
             'criminal-record' => 'استعلام عدم سوء پیشینه',
             'social-insurance' => 'استعلام بیمه تأمین اجتماعی',
+            'sana-verification' => 'استعلام صحت‌سنجی ثنا',
         ],
         'validation' => [
             'invalid_education_index' => 'شناسه مدرک تحصیلی برای استعلام نامعتبر است.',

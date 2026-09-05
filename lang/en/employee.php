@@ -15,6 +15,9 @@ return [
         'training' => 'Training & Courses',
         'additional_info' => 'Additional Information',
         'social_insurance' => 'Social Insurance',
+        'contracts' => 'Contracts',
+        'financial' => 'Financial Information',
+        'supplementary_insurance' => 'Supplementary Insurance',
         'dependents' => 'Dependents',
         'document_inquiries' => 'Document Inquiries',
     ],
@@ -26,17 +29,34 @@ return [
             'id_number' => 'National ID',
             'gender' => 'Gender',
             'birth_date' => 'Birth date',
+            'custom_relationship' => 'Relationship (other)',
+            'marriage_date' => 'Marriage date',
         ],
         'validation' => [
             'birth_date_not_future' => 'The dependent birth date cannot be in the future.',
         ],
         'field_label' => 'Dependent :n',
     ],
+    'social_insurance' => [
+        'fields' => [
+            'start_date' => 'Start date',
+            'end_date' => 'End date',
+        ],
+        'validation' => [
+            'end_date_before_start_date' => 'The end date must not be earlier than the start date.',
+        ],
+    ],
+    'contracts' => [
+        'field_label' => 'Contract :n',
+        'field_label_range' => 'Contract from :start to :end',
+        'field_label_from' => 'Contract from :start',
+    ],
     'document_inquiries' => [
         'field_labels' => [
             'education_degree' => 'Education degree inquiry :n',
             'criminal-record' => 'Criminal record inquiry',
             'social-insurance' => 'Social insurance inquiry',
+            'sana-verification' => 'Sana verification inquiry',
         ],
         'validation' => [
             'invalid_education_index' => 'Invalid education record reference for an inquiry.',

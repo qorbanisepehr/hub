@@ -51,7 +51,7 @@ abstract class PersonalInfoSection extends BaseSection
             'birth-certificate' => [
                 'required' => true,
                 'max_files' => 1,
-                'field_keys' => ['page-1', 'page-2', 'page-3'],
+                'field_keys' => ['page-1', 'page-2', 'page-3', 'page-4', 'page-extra'],
             ],
             'personnel-photo' => [
                 'required' => true,
@@ -82,6 +82,8 @@ abstract class PersonalInfoSection extends BaseSection
             'page-1' => __('questionnaire.documents.fields.page_1'),
             'page-2' => __('questionnaire.documents.fields.page_2'),
             'page-3' => __('questionnaire.documents.fields.page_3'),
+            'page-4' => __('questionnaire.documents.fields.page_4'),
+            'page-extra' => __('questionnaire.documents.fields.page_extra'),
         ][$fieldKey] ?? null;
     }
 
@@ -96,6 +98,8 @@ abstract class PersonalInfoSection extends BaseSection
             'page-1' => 'page-1',
             'page-2' => 'page-2',
             'page-3' => 'page-3',
+            'page-4' => 'page-4',
+            'page-extra' => 'page-extra',
         ][$fieldKey] ?? null;
     }
 

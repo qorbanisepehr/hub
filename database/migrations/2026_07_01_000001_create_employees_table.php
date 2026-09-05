@@ -32,6 +32,11 @@ return new class extends Migration
             $table->json('section_training')->nullable();
             $table->json('section_additional_info')->nullable();
             $table->json('section_social_insurance')->nullable();
+            $table->json('section_contracts')->nullable();
+            $table->json('section_financial')->nullable();
+            $table->json('section_supplementary_insurance')->nullable();
+            $table->json('section_dependents')->nullable();
+            $table->json('section_document_inquiries')->nullable();
             $table->timestamps();
             $table->softDeletes();
         });

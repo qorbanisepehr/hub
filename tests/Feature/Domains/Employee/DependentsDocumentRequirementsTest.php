@@ -58,7 +58,7 @@ test('requirements endpoint exposes the dependents dynamic requirement group', f
     expect($group)->not->toBeNull()
         ->and($group['pattern'])->toBe(DependentsSection::FIELD_KEY_PATTERN)
         ->and($group['requirements']['national-card']['min_files'])->toBe(2)
-        ->and($group['requirements']['birth-certificate']['min_files'])->toBe(5);
+        ->and($group['requirements']['birth-certificate']['min_files'])->toBe(4);
 });
 
 test('a dependent placement accepts exactly the declared page count', function () {
@@ -73,15 +73,22 @@ test('a dependent placement rejects files beyond the page cap', function () {
 });
 
 test('page caps are per dependent row', function () {
-    uploadDependentFile($this->employee, $this->birthCertificate, 'dependent-0')->assertCreated();
+    uploadDependentFile($this->employee, $this->nationalCard, 'dependent-0')->assertCreated();
 
-    // dependent-1 has its own independent 5-page group.
-    for ($i = 0; $i < 5; $i++) {
-        uploadDependentFile($this->employee, $this->birthCertificate, 'dependent-1')->assertCreated();
+    // dependent-1 has its own independent 2-page national-card cap.
+    uploadDependentFile($this->employee, $this->nationalCard, 'dependent-1')->assertCreated();
+    uploadDependentFile($this->employee, $this->nationalCard, 'dependent-1')->assertCreated();
+
+    // A 3rd national-card page for dependent-1 is rejected.
+    uploadDependentFile($this->employee, $this->nationalCard, 'dependent-1')->assertStatus(422);
+});
+
+test('a dependent placement accepts unlimited birth-certificate pages', function () {
+    for ($i = 0; $i < 3; $i++) {
+        uploadDependentFile($this->employee, $this->birthCertificate, 'dependent-0')->assertCreated();
     }
 
-    // A 6th page for dependent-1 is rejected.
-    uploadDependentFile($this->employee, $this->birthCertificate, 'dependent-1')->assertStatus(422);
+    uploadDependentFile($this->employee, $this->birthCertificate, 'dependent-0')->assertStatus(201);
 });
 
 test('employee own national card keeps its one-per-field cap', function () {

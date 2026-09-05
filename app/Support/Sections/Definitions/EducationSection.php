@@ -67,7 +67,7 @@ class EducationSection extends BaseSection
                 'academic-degree' => [
                     'required' => true,
                     'min_files' => 1,
-                    'max_files' => 3,
+                    'max_files' => null,
                 ],
             ],
         ];
@@ -102,6 +102,7 @@ class EducationSection extends BaseSection
     {
         return [
             'education_records' => 'array',
+            'education_records.*.orientation' => 'string',
             'is_student' => 'boolean',
             'student_degree' => 'string',
             'student_field' => 'string',
@@ -127,6 +128,7 @@ class EducationSection extends BaseSection
             'education_records' => 'nullable|array',
             'education_records.*.degree' => 'nullable|string|max:50',
             'education_records.*.field' => 'nullable|string|max:100',
+            'education_records.*.orientation' => 'nullable|string|max:100',
             'education_records.*.institution' => 'nullable|string|max:100',
             'education_records.*.location' => 'nullable|string|max:100',
             'education_records.*.from' => 'nullable|'.ValidationRules::DATE_YMD,
@@ -159,6 +161,7 @@ class EducationSection extends BaseSection
             'education_records' => 'required|array|min:1',
             'education_records.*.degree' => 'required|string|max:50',
             'education_records.*.field' => 'required|string|max:100',
+            'education_records.*.orientation' => 'nullable|string|max:100',
             'education_records.*.institution' => 'required|string|max:100',
             'education_records.*.from' => 'required|'.ValidationRules::DATE_YMD,
             'education_records.*.to' => 'required|'.ValidationRules::DATE_YMD,

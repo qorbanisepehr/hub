@@ -15,9 +15,10 @@ beforeEach(function () {
     $this->employee = Employee::factory()->create();
 
     foreach ([
-        ['group' => 'inquiry_status', 'value' => 'pending', 'label' => 'در انتظار استعلام', 'sort_order' => 1],
-        ['group' => 'inquiry_status', 'value' => 'received', 'label' => 'پاسخ دریافت شد', 'sort_order' => 2],
-        ['group' => 'inquiry_status', 'value' => 'mismatch', 'label' => 'مغایرت دارد', 'sort_order' => 3],
+        ['group' => 'inquiry_status', 'value' => 'no_inquiry', 'label' => 'بدون استعلام', 'sort_order' => 1],
+        ['group' => 'inquiry_status', 'value' => 'pending', 'label' => 'در انتظار پاسخ', 'sort_order' => 2],
+        ['group' => 'inquiry_status', 'value' => 'approved', 'label' => 'تایید شد', 'sort_order' => 3],
+        ['group' => 'inquiry_status', 'value' => 'mismatch', 'label' => 'مغایرت دارد', 'sort_order' => 4],
     ] as $option) {
         FormOption::create($option);
     }
@@ -90,11 +91,11 @@ test('the section saves partial inquiry data as a draft', function () {
         ->postJson("/api/employees/{$this->employee->id}/sections/document_inquiries", [
             'inquiries' => [
                 'education' => ['0' => ['status' => 'pending', 'note' => 'در صف استعلام']],
-                'criminal_record' => ['status' => 'received'],
+                'criminal_record' => ['status' => 'approved'],
             ],
         ])
         ->assertOk();
 
     expect($this->employee->fresh()->section_document_inquiries['inquiries']['criminal_record']['status'])
-        ->toBe('received');
+        ->toBe('approved');
 });

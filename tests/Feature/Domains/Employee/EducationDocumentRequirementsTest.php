@@ -38,15 +38,15 @@ function uploadEducationFile($employee, $category, string $fieldKey)
     );
 }
 
-test('an education placement caps degree pages per row', function () {
-    uploadEducationFile($this->employee, $this->academicDegree, 'edu-0')->assertCreated();
-    uploadEducationFile($this->employee, $this->academicDegree, 'edu-0')->assertCreated();
-    uploadEducationFile($this->employee, $this->academicDegree, 'edu-0')->assertCreated();
+test('an education placement accepts unlimited degree pages per row', function () {
+    for ($i = 0; $i < 4; $i++) {
+        uploadEducationFile($this->employee, $this->academicDegree, 'edu-0')->assertCreated();
+    }
 
-    // A 4th page for edu-0 is rejected...
-    uploadEducationFile($this->employee, $this->academicDegree, 'edu-0')->assertStatus(422);
+    // More degree pages for the same row are accepted (no hard cap).
+    uploadEducationFile($this->employee, $this->academicDegree, 'edu-0')->assertStatus(201);
 
-    // ...but edu-1 has its own independent cap.
+    // edu-1 has its own independent group.
     uploadEducationFile($this->employee, $this->academicDegree, 'edu-1')->assertCreated();
 });
 
@@ -63,7 +63,7 @@ test('requirements endpoint exposes the education dynamic requirement group', fu
     expect($group)->not->toBeNull()
         ->and($group['pattern'])->toBe(EducationSection::FIELD_KEY_PATTERN)
         ->and($group['requirements']['academic-degree']['min_files'])->toBe(1)
-        ->and($group['requirements']['academic-degree']['max_files'])->toBe(3);
+        ->and($group['requirements']['academic-degree']['max_files'])->toBeNull();
 });
 
 test('education document structure name carries owner, category and row label', function () {
