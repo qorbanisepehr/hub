@@ -827,7 +827,7 @@ describe('employee CRUD', function () {
                 ->postJson("/api/employees/{$employee->id}/sections/supplementary_insurance", [
                     'selected_bank_account' => '1234567890',
                     'insurance_dependents' => [
-                        ['first_name' => 'علی', 'last_name' => 'رضایی', 'relationship' => 'spouse'],
+                        ['first_name' => 'علی', 'last_name' => 'رضایی', 'relationship' => 'spouse', 'note' => 'همسر'],
                     ],
                 ])
                 ->assertStatus(200);
@@ -836,7 +836,7 @@ describe('employee CRUD', function () {
             expect($saved->section_supplementary_insurance)->toBe([
                 'selected_bank_account' => '1234567890',
                 'insurance_dependents' => [
-                    ['first_name' => 'علی', 'last_name' => 'رضایی', 'relationship' => 'spouse'],
+                    ['first_name' => 'علی', 'last_name' => 'رضایی', 'relationship' => 'spouse', 'note' => 'همسر'],
                 ],
             ]);
         });

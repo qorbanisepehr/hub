@@ -33,6 +33,7 @@ class SupplementaryInsuranceSection extends BaseSection
             'insurance_dependents.*.first_name' => 'string',
             'insurance_dependents.*.last_name' => 'string',
             'insurance_dependents.*.relationship' => 'string',
+            'insurance_dependents.*.note' => 'string',
         ];
     }
 
@@ -44,6 +45,7 @@ class SupplementaryInsuranceSection extends BaseSection
             'insurance_dependents.*.first_name' => 'nullable|string|max:100',
             'insurance_dependents.*.last_name' => 'nullable|string|max:100',
             'insurance_dependents.*.relationship' => ['nullable', new FormOptionValue('relationship_type')],
+            'insurance_dependents.*.note' => 'nullable|string|max:1000',
         ];
     }
 
@@ -55,6 +57,7 @@ class SupplementaryInsuranceSection extends BaseSection
             'insurance_dependents.*.first_name' => 'required_with:insurance_dependents|nullable|string|max:100',
             'insurance_dependents.*.last_name' => 'required_with:insurance_dependents|nullable|string|max:100',
             'insurance_dependents.*.relationship' => ['required_with:insurance_dependents', 'nullable', new FormOptionValue('relationship_type')],
+            'insurance_dependents.*.note' => 'nullable|string|max:1000',
         ];
     }
 
