@@ -1,6 +1,5 @@
-import { useState } from "react";
-
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useWizardState } from "@/components/wizards";
 import { DocumentSection } from "@/features/documents/components/document-section";
 import { LinkedUserSection } from "@/features/employees/components/sections/linked-user-section";
 import {
@@ -39,9 +38,15 @@ import { DocumentPreviewLightbox } from "@/features/documents/components/documen
 const DOC_EXTRA_CLASS = "mt-4 pt-4 border-t";
 
 export function EmployeeProfileView({ employee }: EmployeeProfileViewProps) {
-    const [activeTab, setActiveTab] = useState<string>(
-        EMPLOYEE_SECTIONS[0].key,
-    );
+    // Same keyed-hash wizard state as the edit form: the active tab syncs to
+    // the URL hash (#contracts, #documents, ...) and survives reload/back.
+    const tabs = [
+        ...EMPLOYEE_SECTIONS,
+        EMPLOYEE_DOCUMENTS_TAB,
+        EMPLOYEE_LINKED_USER_TAB,
+    ];
+    const { currentKey, goToKey } = useWizardState(tabs);
+    const activeTab = currentKey ?? EMPLOYEE_SECTIONS[0].key;
     const { getDocumentsBySlug, capabilities } = useEmployeeDocuments(
         employee.id,
     );
@@ -63,12 +68,6 @@ export function EmployeeProfileView({ employee }: EmployeeProfileViewProps) {
         educationRecords,
         { rowLabel: educationRowLabel },
     );
-    const tabs = [
-        ...EMPLOYEE_SECTIONS,
-        EMPLOYEE_DOCUMENTS_TAB,
-        EMPLOYEE_LINKED_USER_TAB,
-    ];
-
     const personnelPhoto = getDocumentsBySlug(
         DOC_CATEGORY_SLUGS.PERSONNEL_PHOTO,
     )[0];
@@ -170,12 +169,24 @@ export function EmployeeProfileView({ employee }: EmployeeProfileViewProps) {
             <EducationView
                 data={sectionData.education}
                 missingFor={educationMissing}
+                docsFor={(index) =>
+                    getDocumentsBySlug(
+                        DOC_CATEGORY_SLUGS.ACADEMIC_DEGREE,
+                        `edu-${index}`,
+                    )
+                }
                 extra={docExtra("education")}
             />
         ),
         work_experience: () => (
             <WorkExperienceView
                 data={sectionData.work_experience}
+                docsFor={(index) =>
+                    getDocumentsBySlug(
+                        DOC_CATEGORY_SLUGS.EMPLOYMENT_CERTIFICATE,
+                        `work-${index}`,
+                    )
+                }
                 extra={docExtra("work_experience")}
             />
         ),
@@ -227,7 +238,7 @@ export function EmployeeProfileView({ employee }: EmployeeProfileViewProps) {
         <Tabs
             value={activeTab}
             onValueChange={(value) => {
-                if (value) setActiveTab(String(value));
+                if (value) goToKey(String(value));
             }}
             className="space-y-6"
         >

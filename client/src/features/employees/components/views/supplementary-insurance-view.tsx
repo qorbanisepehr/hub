@@ -12,6 +12,7 @@ type InsuranceDependentRow = {
     first_name?: string;
     last_name?: string;
     relationship?: string;
+    note?: string;
 };
 
 type SupplementaryInsuranceData = {
@@ -98,6 +99,13 @@ export function SupplementaryInsuranceView({
                                     ? i.relationship
                                     : undefined,
                             ),
+                    },
+                    {
+                        label: "توضیحات",
+                        render: (i) =>
+                            typeof i.note === "string" && i.note !== ""
+                                ? i.note
+                                : null,
                     },
                 ]}
             />

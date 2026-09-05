@@ -25,6 +25,7 @@ import { toEmploymentPayload } from "@/features/employees/schemas/employment.sch
 import { toSocialInsurancePayload } from "@/features/employees/schemas/social-insurance.schema";
 import { toDependentsPayload } from "@/features/employees/schemas/dependents.schema";
 import type { DependentRow } from "@/features/employees/schemas/dependents.schema";
+import { DOC_CATEGORY_SLUGS } from "@/features/questionnaire/constants";
 import { useDependentDocsFeedback } from "@/features/employees/hooks/use-dependent-docs-feedback";
 import { useRowDocsFeedback } from "@/features/documents/hooks/use-row-docs-feedback";
 import {
@@ -192,6 +193,12 @@ export function EmployeeReviewSection({
                 title={label("education")}
                 action={<SectionEditButton onClick={edit("education")} />}
                 missingFor={educationMissing}
+                docsFor={(index) =>
+                    getDocumentsBySlug(
+                        DOC_CATEGORY_SLUGS.ACADEMIC_DEGREE,
+                        `edu-${index}`,
+                    )
+                }
                 extra={
                     <QuestionnaireDocumentPreview
                         documents={docsFor("education")}
@@ -280,12 +287,18 @@ export function EmployeeReviewSection({
             />
 
             <WorkExperienceView
-                data={sectionValue(values, "work_experience")}
-                title={label("work_experience")}
-                action={
-                    <SectionEditButton onClick={edit("work_experience")} />
-                }
-                extra={
+data={sectionValue(values, "work_experience")}
+            title={label("work_experience")}
+            action={
+                <SectionEditButton onClick={edit("work_experience")} />
+            }
+            docsFor={(index) =>
+                getDocumentsBySlug(
+                    DOC_CATEGORY_SLUGS.EMPLOYMENT_CERTIFICATE,
+                    `work-${index}`,
+                )
+            }
+            extra={
                     <QuestionnaireDocumentPreview
                         documents={docsFor("work_experience")}
                         variant="compact"

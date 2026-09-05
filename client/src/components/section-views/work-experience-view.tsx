@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 
+import { RepeaterAttachmentCell } from "@/components/forms";
+import type { EntityDocument } from "@/hooks/use-entity-documents";
 import { SectionRow } from "@/components/shared/section-row";
 import { SectionRepeaterTable } from "@/components/shared/section-repeater-table";
 import { SectionCard } from "./section-card";
@@ -10,6 +12,12 @@ type WorkExperienceViewProps = {
     title?: string;
     action?: ReactNode;
     extra?: ReactNode;
+    /**
+     * Per-row employment-certificate documents (e.g. from getDocumentsBySlug
+     * with the `work-{index}` placement). When provided, a «پیوست» column
+     * shows each row's uploads as clickable preview thumbnails.
+     */
+    docsFor?: (index: number) => EntityDocument[];
 };
 
 export function WorkExperienceView({
@@ -17,6 +25,7 @@ export function WorkExperienceView({
     title = "سوابق شغلی",
     action,
     extra,
+    docsFor,
 }: WorkExperienceViewProps) {
     return (
         <SectionCard title={title} action={action}>
@@ -45,6 +54,22 @@ export function WorkExperienceView({
                         },
                         { label: "مدیر", render: (i) => i.manager_name },
                         { label: "تلفن", render: (i) => i.phone },
+                        ...(docsFor
+                            ? [
+                                  {
+                                      label: "پیوست",
+                                      render: (
+                                          _i: Record<string, unknown>,
+                                          index: number,
+                                      ) => (
+                                          <RepeaterAttachmentCell
+                                              docs={docsFor(index)}
+                                              enablePreview
+                                          />
+                                      ),
+                                  },
+                              ]
+                            : []),
                     ]}
                 />
                 <SectionRow

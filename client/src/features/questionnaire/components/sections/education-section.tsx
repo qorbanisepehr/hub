@@ -91,6 +91,7 @@ export function EducationSection({ form, uuid, onPersist, entity = "questionnair
             categorySlug: DOC_CATEGORY_SLUGS.ACADEMIC_DEGREE,
             fieldKeyPrefix: "edu-",
             getDocumentsBySlug,
+            enablePreview: true,
         }),
     ];
     return (

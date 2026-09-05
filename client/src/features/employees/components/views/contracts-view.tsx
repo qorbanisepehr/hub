@@ -54,7 +54,10 @@ export function ContractsView({
                     {
                         label: "پیوست",
                         render: (_item, index) => (
-                            <RepeaterAttachmentCell docs={rowDocs(index)} />
+                            <RepeaterAttachmentCell
+                                docs={rowDocs(index)}
+                                enablePreview
+                            />
                         ),
                     },
                 ]}

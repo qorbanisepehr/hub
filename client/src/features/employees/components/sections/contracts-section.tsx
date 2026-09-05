@@ -1,8 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-    FormDatePicker,
-    FormRepeater,
-} from "@/components/forms";
+import { FormDatePicker, FormRepeater } from "@/components/forms";
 import type { TableColumn } from "@/components/forms";
 import { FileUploadField } from "@/components/documents";
 import { repeaterAttachmentColumn } from "@/components/forms";
@@ -52,6 +49,7 @@ export function ContractsSection({ form, uuid, onPersist }: SectionProps) {
             categorySlug: DOC_CATEGORY_SLUGS.CONTRACT,
             fieldKeyPrefix: "con-",
             getDocumentsBySlug,
+            enablePreview: true,
         }),
     ];
 
@@ -109,9 +107,11 @@ export function ContractsSection({ form, uuid, onPersist }: SectionProps) {
                                     <FileUploadField
                                         uuid={uuid}
                                         entity="employees"
-                                        categorySlug={DOC_CATEGORY_SLUGS.CONTRACT}
+                                        categorySlug={
+                                            DOC_CATEGORY_SLUGS.CONTRACT
+                                        }
                                         label="اسکن قرارداد"
-                                        variant="card"
+                                        variant="default"
                                         multiple
                                         maxFiles={5}
                                         fieldKey={`con-${index}`}

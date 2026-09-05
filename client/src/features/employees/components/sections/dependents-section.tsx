@@ -223,11 +223,39 @@ export function DependentsSection({ form, uuid, onPersist }: SectionProps) {
                 <form.Field name="dependents.dependents">
                     {(field) => (
                         <FormRepeater
-                            defaultMode="card"
+                            defaultMode="table"
                             field={field}
                             label="بستگان"
+                            columns={[
+                                { key: "relationship_type", label: "نسبت" },
+                                { key: "first_name", label: "نام" },
+                                { key: "last_name", label: "نام خانوادگی" },
+                                { key: "id_number", label: "کد ملی" },
+                                { key: "birth_date", label: "تاریخ تولد", type: "date" },
+                                {
+                                    key: "_docs_status",
+                                    label: "وضعیت مدارک",
+                                    render: (_value, _item, index) => (
+                                        <MissingDocsBadge
+                                            missing={getMissing(index)}
+                                        />
+                                    ),
+                                },
+                            ]}
                             emptyMessage="هنوز وابسته‌ای اضافه نشده است."
                             onPersist={onPersist}
+                            getSummary={(item) => ({
+                                relationship_type:
+                                    relationshipOptions?.find(
+                                        (option) =>
+                                            option.value ===
+                                            item.relationship_type,
+                                    )?.label ?? item.relationship_type,
+                                first_name: item.first_name,
+                                last_name: item.last_name,
+                                id_number: item.id_number,
+                                birth_date: item.birth_date,
+                            })}
                             renderHeader={(item, index) => (
                                 <span className="flex items-center gap-2 font-medium">
                                     {dependentRowLabel(
@@ -238,9 +266,6 @@ export function DependentsSection({ form, uuid, onPersist }: SectionProps) {
                                     {item.first_name || item.last_name
                                         ? `: ${String(item.first_name ?? "")} ${String(item.last_name ?? "")}`.trim()
                                         : ""}
-                                    <MissingDocsBadge
-                                        missing={getMissing(index)}
-                                    />
                                 </span>
                             )}
                             renderItem={(index) => (

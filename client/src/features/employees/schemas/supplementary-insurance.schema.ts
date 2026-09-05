@@ -4,6 +4,7 @@ const insuranceDependentRowSchema = z.object({
     first_name: z.string().max(100).or(z.literal("")).default(""),
     last_name: z.string().max(100).or(z.literal("")).default(""),
     relationship: z.string().or(z.literal("")).default(""),
+    note: z.string().max(1000).or(z.literal("")).default(""),
 });
 
 export const supplementaryInsuranceFieldSchema = z.object({

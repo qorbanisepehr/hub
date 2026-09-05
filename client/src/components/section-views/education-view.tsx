@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
 import { MissingDocsBadge } from "@/components/documents";
+import { RepeaterAttachmentCell } from "@/components/forms";
 import type { MissingRowDoc } from "@/features/documents/docs-feedback";
 import { Card, CardContent } from "@/components/ui/card";
 import { SectionRow } from "@/components/shared/section-row";
@@ -10,6 +11,8 @@ import { boolLabel, dateValue } from "./shared";
 import {
     useOptionLabelResolver,
 } from "./use-option-label";
+
+import type { EntityDocument } from "@/hooks/use-entity-documents";
 
 type EducationViewProps = {
     data: Record<string, unknown>;
@@ -21,6 +24,12 @@ type EducationViewProps = {
      * When provided, a «وضعیت مدارک» column shows a badge per row.
      */
     missingFor?: (index: number) => MissingRowDoc[];
+    /**
+     * Per-row degree-page documents (e.g. from getDocumentsBySlug with the
+     * `edu-{index}` placement). When provided, a «پیوست» column shows each
+     * row's uploads as clickable preview thumbnails.
+     */
+    docsFor?: (index: number) => EntityDocument[];
 };
 
 export function EducationView({
@@ -29,6 +38,7 @@ export function EducationView({
     action,
     extra,
     missingFor,
+    docsFor,
 }: EducationViewProps) {
     const education = data;
     const isStudent = Boolean(education.is_student);
@@ -55,6 +65,19 @@ export function EducationView({
                         },
                         { label: "معدل", render: (i) => i.gpa },
                         { label: "پایان‌نامه", render: (i) => i.thesis_title },
+                        ...(docsFor
+                            ? [
+                                  {
+                                      label: "پیوست",
+                                      render: (_i: Record<string, unknown>, index: number) => (
+                                          <RepeaterAttachmentCell
+                                              docs={docsFor(index)}
+                                              enablePreview
+                                          />
+                                      ),
+                                  },
+                              ]
+                            : []),
                         ...(missingFor
                             ? [
                                   {

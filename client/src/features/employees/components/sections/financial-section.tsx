@@ -32,11 +32,17 @@ export function FinancialSection({ form, uuid, onPersist }: SectionProps) {
                 <form.Field name="financial.bank_accounts">
                     {(field) => (
                         <FormRepeater
-                            defaultMode="card"
+                            defaultMode="table"
                             field={field}
                             label="حساب‌های بانکی"
+                            columns={ACCOUNT_COLUMNS}
                             emptyMessage="هنوز حساب بانکی اضافه نشده است."
                             onPersist={onPersist}
+                            getSummary={(item) => ({
+                                bank_name: item.bank_name,
+                                account_number: item.account_number,
+                                card_number: item.card_number,
+                            })}
                             renderItem={(index) => (
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <form.Field
