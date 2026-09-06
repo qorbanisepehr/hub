@@ -4,10 +4,11 @@ use App\Domains\Audit\Models\AuditLog;
 use App\Domains\Authorization\Enums\AccessRuleEffect;
 use App\Domains\Authorization\Models\Permission;
 use App\Domains\Authorization\Models\PermissionGroup;
+use App\Domains\Document\Models\Document;
 use App\Domains\Document\Models\DocumentCategory;
+use App\Domains\Document\Models\DocumentUsage;
 use App\Domains\Employee\Models\Employee;
 use App\Models\User;
-use Illuminate\Http\UploadedFile;
 
 /**
  * Grant the given permission and immediately add a deny rule for it on the
@@ -189,6 +190,62 @@ function validEmployeeSocialInsurance(): array
             ],
         ],
     ];
+}
+
+/**
+ * Seed every REQUIRED category-level document (plus the given extra
+ * placements) directly through the models so submit's static recheck passes
+ * without fighting upload-time dimension/size constraints. Mirrors what the
+ * documents step would have uploaded for a complete profile.
+ */
+function seedStaticEmployeeDocuments($employee, array $extraPlacements = []): void
+{
+    $static = [
+        'national-card' => ['front', 'back'],
+        'birth-certificate' => ['page-1', 'page-2', 'page-3', 'page-4'],
+        'personnel-photo' => [null],
+        'resume' => [null],
+        'signature-sample' => [null],
+    ];
+
+    $placements = [];
+
+    foreach ($static as $slug => $fieldKeys) {
+        foreach ($fieldKeys as $fieldKey) {
+            $placements[$slug][] = $fieldKey;
+        }
+    }
+
+    foreach ($extraPlacements as $slug => $fieldKeys) {
+        foreach ($fieldKeys as $fieldKey) {
+            $placements[$slug][] = $fieldKey;
+        }
+    }
+
+    foreach ($placements as $slug => $fieldKeys) {
+        $category = DocumentCategory::firstOrCreate(
+            ['slug' => $slug],
+            ['name' => $slug, 'type' => 'personnel'],
+        );
+
+        // Per-row placements (education degrees) live under their own
+        // section key; the static identity documents under personal_info.
+        $sectionKey = $slug === 'academic-degree' ? 'education' : 'personal_info';
+
+        foreach ($fieldKeys as $fieldKey) {
+            $document = Document::factory()->create([
+                'category_id' => $category->id,
+            ]);
+
+            DocumentUsage::create([
+                'document_id' => $document->id,
+                'entity_type' => Employee::class,
+                'entity_id' => $employee->id,
+                'section_key' => $sectionKey,
+                'field_key' => $fieldKey,
+            ]);
+        }
+    }
 }
 
 beforeEach(function () {
@@ -873,29 +930,91 @@ describe('employee CRUD', function () {
                     ->assertStatus(200);
             }
 
-            // Education rows now require their academic degree pages.
-            $uploader = createUserWithPermissions([
-                'employee.documents.upload',
-                'employee.documents.view',
+            // Education rows require their academic degree pages; the static
+            // identity documents satisfy the category-level recheck.
+            seedStaticEmployeeDocuments($employee, [
+                'academic-degree' => ['edu-0'],
             ]);
-            $degree = DocumentCategory::create([
-                'name' => 'مدرک تحصیلی',
-                'slug' => 'academic-degree',
-                'type' => 'personnel',
-            ]);
-            $this->actingAs($uploader)
-                ->postJson("/api/employees/{$employee->id}/documents", [
-                    'document_category_id' => $degree->id,
-                    'file' => UploadedFile::fake()->image('degree.jpg'),
-                    'section_key' => 'education',
-                    'field_key' => 'edu-0',
-                ])
-                ->assertCreated();
 
             $this->actingAs($user)
                 ->postJson("/api/employees/{$employee->id}/submit")
                 ->assertStatus(200)
                 ->assertJsonPath('data.id', $employee->id);
+        });
+
+        it('rejects submission when a required identity document is missing', function () {
+            $user = createUserWithPermissions(['employee.update']);
+            $employee = Employee::factory()->create();
+
+            foreach ([
+                'personal_info' => validEmployeePersonalInfo(),
+                'contact_info' => validEmployeeContactInfo(),
+                'education' => validEmployeeEducation(),
+                'work_experience' => validEmployeeWorkExperience(),
+                'skills' => validEmployeeSkills(),
+                'training' => validEmployeeTraining(),
+                'additional_info' => validEmployeeAdditionalInfo(),
+                'social_insurance' => validEmployeeSocialInsurance(),
+            ] as $key => $data) {
+                $this->actingAs($user)
+                    ->postJson("/api/employees/{$employee->id}/sections/{$key}", $data)
+                    ->assertStatus(200);
+            }
+
+            seedStaticEmployeeDocuments($employee, [
+                'academic-degree' => ['edu-0'],
+            ]);
+
+            // Every static doc is present — remove one birth-certificate page
+            // to prove the field-level static recheck fires at submit.
+            DocumentUsage::query()
+                ->where('entity_type', Employee::class)
+                ->where('entity_id', $employee->id)
+                ->where('field_key', 'page-2')
+                ->delete();
+
+            $response = $this->actingAs($user)
+                ->postJson("/api/employees/{$employee->id}/submit")
+                ->assertStatus(422);
+
+            expect(array_keys($response->json('errors')))->toContain('birth-certificate');
+        });
+
+        it('rejects submission when a required category is absent entirely', function () {
+            $user = createUserWithPermissions(['employee.update']);
+            $employee = Employee::factory()->create();
+
+            foreach ([
+                'personal_info' => validEmployeePersonalInfo(),
+                'contact_info' => validEmployeeContactInfo(),
+                'education' => validEmployeeEducation(),
+                'work_experience' => validEmployeeWorkExperience(),
+                'skills' => validEmployeeSkills(),
+                'training' => validEmployeeTraining(),
+                'additional_info' => validEmployeeAdditionalInfo(),
+                'social_insurance' => validEmployeeSocialInsurance(),
+            ] as $key => $data) {
+                $this->actingAs($user)
+                    ->postJson("/api/employees/{$employee->id}/sections/{$key}", $data)
+                    ->assertStatus(200);
+            }
+
+            seedStaticEmployeeDocuments($employee, [
+                'academic-degree' => ['edu-0'],
+            ]);
+
+            // No resume uploaded at all.
+            DocumentUsage::query()
+                ->where('entity_type', Employee::class)
+                ->where('entity_id', $employee->id)
+                ->whereHas('document', fn ($query) => $query->whereHas('category', fn ($q) => $q->where('slug', 'resume')))
+                ->delete();
+
+            $response = $this->actingAs($user)
+                ->postJson("/api/employees/{$employee->id}/submit")
+                ->assertStatus(422);
+
+            expect(array_keys($response->json('errors')))->toContain('resume');
         });
 
         it('denies submit without update permission', function () {

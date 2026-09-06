@@ -2,6 +2,9 @@
 
 namespace App\Support\Sections;
 
+use App\Domains\Document\Models\DocumentCategory;
+use App\Domains\Document\Models\DocumentUsage;
+
 /**
  * Owns the set of SectionDefinitions for one entity domain and answers the
  * generic placement questions (requirement resolution, eligibility, labels)
@@ -199,5 +202,78 @@ abstract class SectionRegistry
         }
 
         return null;
+    }
+
+    /**
+     * Submit-time check that every REQUIRED category-level (static) document
+     * requirement is satisfied by the entity's active usages: one document
+     * must exist per category and, when the requirement declares field_keys,
+     * one must exist per declared key (front/back, page-1..4, ...). Mirrors
+     * the per-row trait so the two enforcement paths stay symmetric — the
+     * frontend's review-tab validation is no longer the only line of defense.
+     *
+     * Error keys are the category slug; safe to merge with per-row errors
+     * (keyed by section paths).
+     *
+     * @return array<string, list<string>>
+     */
+    public function completionStaticDocumentErrors(mixed $entity): array
+    {
+        $required = collect($this->getDocumentRequirements())
+            ->filter(fn (array $requirement) => ($requirement['required'] ?? false) === true);
+
+        if ($required->isEmpty()) {
+            return [];
+        }
+
+        $entityType = $entity::class;
+
+        // Per-slug active usages keyed by field_key (null = no field key).
+        $usages = DocumentUsage::query()
+            ->select('document_usages.field_key', 'document_categories.slug')
+            ->join('documents', 'documents.id', '=', 'document_usages.document_id')
+            ->join('document_categories', 'document_categories.id', '=', 'documents.category_id')
+            ->where('document_usages.entity_type', $entityType)
+            ->where('document_usages.entity_id', $entity->getKey())
+            ->whereNull('document_usages.deleted_at')
+            ->whereIn('document_categories.slug', $required->keys())
+            ->get();
+
+        $presentBySlug = [];
+        foreach ($usages as $usage) {
+            $presentBySlug[$usage->slug][] = $usage->field_key;
+        }
+
+        $categoryNames = DocumentCategory::query()
+            ->whereIn('slug', $required->keys())
+            ->pluck('name', 'slug');
+
+        $errors = [];
+
+        foreach ($required as $slug => $requirement) {
+            $present = $presentBySlug[$slug] ?? [];
+            $name = $categoryNames[$slug] ?? $slug;
+
+            if ($present === []) {
+                $errors[$slug] = [__('sections.static_document_required', ['category' => $name])];
+
+                continue;
+            }
+
+            foreach ($requirement['required_field_keys'] ?? $requirement['field_keys'] ?? [] as $fieldKey) {
+                if (! in_array($fieldKey, $present, true)) {
+                    $labelKey = 'questionnaire.documents.fields.'.str_replace('-', '_', $fieldKey);
+                    $fieldLabel = __($labelKey);
+
+                    $errors[$slug] = [__('sections.static_document_field_required', [
+                        'category' => $name,
+                        'field' => $fieldLabel !== $labelKey ? $fieldLabel : $fieldKey,
+                    ])];
+                    break;
+                }
+            }
+        }
+
+        return $errors;
     }
 }

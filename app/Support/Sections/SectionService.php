@@ -30,6 +30,14 @@ abstract class SectionService extends SectionRegistry
     protected bool $mergeCompletionDocumentErrors = false;
 
     /**
+     * Whether submit-time completion validation also enforces the required
+     * category-level (static) document requirements — one upload per required
+     * category and per declared field key. Employee enables this so the server
+     * matches the review-tab contract (audit answer: یکسان‌سازی submit).
+     */
+    protected bool $enforceStaticDocumentRequirements = false;
+
+    /**
      * Extract the real-column values for a section from `storage()`. Empty
      * strings are kept as-is here; Employee overrides to normalize `''` to
      * `null` so its nullable unique columns never collide.
@@ -67,6 +75,10 @@ abstract class SectionService extends SectionRegistry
             if ($this->mergeCompletionDocumentErrors) {
                 $allErrors = array_merge($allErrors, $section->completionDocumentErrors($entity));
             }
+        }
+
+        if ($this->enforceStaticDocumentRequirements) {
+            $allErrors = array_merge($allErrors, $this->completionStaticDocumentErrors($entity));
         }
 
         return $allErrors;

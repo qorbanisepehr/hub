@@ -21,8 +21,9 @@ class WorkExperienceSection extends BaseSection
     {
         return [
             'employment-certificate' => [
+                // Unlimited and never an error when absent (plan: نامحدود و
+                // بدون خطا در صورت نبود) — no max_files key at all.
                 'required' => false,
-                'max_files' => 1,
             ],
         ];
     }

@@ -51,7 +51,11 @@ abstract class PersonalInfoSection extends BaseSection
             'birth-certificate' => [
                 'required' => true,
                 'max_files' => 1,
+                // field_keys: every known placement (the extra page slot is
+                // uploadable but optional); required_field_keys: the four
+                // mandatory pages enforced at submit.
                 'field_keys' => ['page-1', 'page-2', 'page-3', 'page-4', 'page-extra'],
+                'required_field_keys' => ['page-1', 'page-2', 'page-3', 'page-4'],
             ],
             'personnel-photo' => [
                 'required' => true,

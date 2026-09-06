@@ -38,6 +38,13 @@ class EmployeeService extends SectionService
     protected bool $mergeCompletionDocumentErrors = true;
 
     /**
+     * …and the required category-level documents (identity pages, resume,
+     * signature sample), so submit parity holds server-side instead of only
+     * in the review tab.
+     */
+    protected bool $enforceStaticDocumentRequirements = true;
+
+    /**
      * Employee-owned sections (personal/contact/employment/additional info and
      * the HR-only sections) are defined per-domain; the applicant-shape
      * sections (education, work experience, skills, training) are reused from
