@@ -18,6 +18,8 @@ import { EmployeeDocumentReplaceModal } from "./employee-document-replace-modal"
 
 type SectionProps = {
     employeeId: number;
+    /** Male employees additionally upload their military service card. */
+    gender?: string | null;
 };
 
 type DocSectionState = {
@@ -53,7 +55,7 @@ const PERSONNEL_DOC_SLUGS = new Set<string>([
     DOC_CATEGORY_SLUGS.OTHER_DOCUMENTS,
 ]);
 
-export function DocumentsSection({ employeeId }: SectionProps) {
+export function DocumentsSection({ employeeId, gender }: SectionProps) {
     const [state, dispatch] = useReducer(docSectionReducer, {
         trashOpen: false,
         replaceTarget: null,
@@ -80,20 +82,37 @@ export function DocumentsSection({ employeeId }: SectionProps) {
                 doc.field_key
             }
             extraFixedFields={
-                <FileUploadField
-                    uuid={uuid}
-                    entity="employees"
-                    categorySlug={DOC_CATEGORY_SLUGS.SIGNATURE_SAMPLE}
-                    label="نمونه امضا"
-                    maxFiles={1}
-                    fieldKey="signature"
-                    required
-                    accept="image/jpeg,image/png,image/webp"
-                    replaceEnabled={capabilities.replace}
-                    onReplace={(doc) =>
-                        dispatch({ type: "SET_REPLACE_TARGET", doc })
-                    }
-                />
+                <>
+                    <FileUploadField
+                        uuid={uuid}
+                        entity="employees"
+                        categorySlug={DOC_CATEGORY_SLUGS.SIGNATURE_SAMPLE}
+                        label="نمونه امضا"
+                        maxFiles={1}
+                        fieldKey="signature"
+                        required
+                        accept="image/jpeg,image/png,image/webp"
+                        replaceEnabled={capabilities.replace}
+                        onReplace={(doc) =>
+                            dispatch({ type: "SET_REPLACE_TARGET", doc })
+                        }
+                    />
+                    {gender === "male" && (
+                        <FileUploadField
+                            uuid={uuid}
+                            entity="employees"
+                            categorySlug={DOC_CATEGORY_SLUGS.MILITARY_CARD}
+                            label="کارت پایان خدمت"
+                            maxFiles={1}
+                            accept="application/pdf,image/jpeg,image/png,image/webp"
+                            description="برای آقایان؛ در صورت وجود بارگذاری شود."
+                            replaceEnabled={capabilities.replace}
+                            onReplace={(doc) =>
+                                dispatch({ type: "SET_REPLACE_TARGET", doc })
+                            }
+                        />
+                    )}
+                </>
             }
             headerActions={
                 <Button

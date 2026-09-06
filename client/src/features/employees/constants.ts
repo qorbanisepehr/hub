@@ -233,6 +233,10 @@ export const EMPLOYEE_DOC_REQUIREMENTS: DocumentRequirementSpec[] = [
         label: "نمونه امضا",
         required: true,
     },
+    {
+        slug: DOC_CATEGORY_SLUGS.MILITARY_CARD,
+        label: "کارت پایان خدمت",
+    },
     { slug: DOC_CATEGORY_SLUGS.RESUME, label: "رزومه", required: true },
     { slug: DOC_CATEGORY_SLUGS.ACADEMIC_DEGREE, label: "مدرک تحصیلی" },
     { slug: DOC_CATEGORY_SLUGS.LANGUAGE_CERTIFICATE, label: "گواهینامه زبان" },
@@ -245,7 +249,6 @@ export const EMPLOYEE_DOC_REQUIREMENTS: DocumentRequirementSpec[] = [
     {
         slug: DOC_CATEGORY_SLUGS.EMPLOYMENT_CERTIFICATE,
         label: "گواهی اشتغال به کار",
-        max: 1,
     },
     {
         slug: DOC_CATEGORY_SLUGS.RESEARCH_DOCUMENTS,

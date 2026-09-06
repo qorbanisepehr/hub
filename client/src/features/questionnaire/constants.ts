@@ -202,6 +202,7 @@ export const DOC_CATEGORY_SLUGS = {
     COVER_LETTER: "cover-letter",
     OTHER_DOCUMENTS: "other-documents",
     SIGNATURE_SAMPLE: "signature-sample",
+    MILITARY_CARD: "military-card",
     INQUIRY_RESULT: "inquiry-result",
 
     CONTRACT: "contract",

@@ -448,7 +448,7 @@ export function EmployeeProfileForm({ employee }: EmployeeProfileFormProps) {
                     />
                 );
             case "documents":
-                return <DocumentsSection employeeId={employee.id} />;
+                return <DocumentsSection employeeId={employee.id} gender={employee.gender} />;
             case "linked_user":
                 return <LinkedUserSection employee={employee} />;
             case "review":
