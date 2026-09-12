@@ -4,13 +4,14 @@ import { useStore } from "@tanstack/react-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
     FormTextField,
-    FormNumberField,
+    FormCountField,
     FormDatePicker,
 } from "@/components/forms";
 import {
     PlaceFields,
     FormOptionRadioGroup,
     FormOptionSelectField,
+    OptionHierarchyField,
 } from "@/components/forms";
 import { FileUploadField } from "@/components/documents";
 import { DOC_CATEGORY_SLUGS } from "@/features/questionnaire/constants";
@@ -345,36 +346,32 @@ export function PersonalInfoSection({
                                 : undefined
                         }
                     >
-                        {(field) => (
-                            <FormOptionSelectField
-                                field={field}
-                                label="دین"
-                                group="religion"
-                            />
-                        )}
-                    </form.Field>
-                    <form.Field
-                        name="personal_info.religion_sect"
-                        validators={
-                            schemas
-                                ? zodFieldValidators(schemas.fieldSchemas.religion_sect)
-                                : undefined
-                        }
-                    >
-                        {(field) => (
-                            <FormOptionSelectField
-                                field={field}
-                                label="مذهب"
-                                group="religion_sect"
-                                filter={(option) =>
-                                    option.parent_value === religion
+                        {(religionField) => (
+                            <form.Field
+                                name="personal_info.religion_sect"
+                                validators={
+                                    schemas
+                                        ? zodFieldValidators(
+                                              schemas.fieldSchemas.religion_sect,
+                                          )
+                                        : undefined
                                 }
-                                placeholder={
-                                    religion
-                                        ? "انتخاب مذهب"
-                                        : "ابتدا دین را انتخاب کنید"
-                                }
-                            />
+                            >
+                                {(sectField) => (
+                                    <OptionHierarchyField
+                                        parentField={religionField}
+                                        childField={sectField}
+                                        parentGroup="religion"
+                                        childGroup="religion_sect"
+                                        parentLabel="دین"
+                                        childLabel="مذهب"
+                                        childValueMode="plain"
+                                        label="دین و مذهب"
+                                        placeholder="انتخاب دین و مذهب"
+                                        deepSearch
+                                    />
+                                )}
+                            </form.Field>
                         )}
                     </form.Field>
                     <form.Field
@@ -414,7 +411,7 @@ export function PersonalInfoSection({
                     </form.Field>
                     <form.Field name="personal_info.dependents_count">
                         {(field) => (
-                            <FormNumberField
+                            <FormCountField
                                 field={field}
                                 label="تعداد افراد تحت تکفل"
                             />
@@ -422,7 +419,7 @@ export function PersonalInfoSection({
                     </form.Field>
                     <form.Field name="personal_info.children_count">
                         {(field) => (
-                            <FormNumberField
+                            <FormCountField
                                 field={field}
                                 label="تعداد فرزندان"
                             />
