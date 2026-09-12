@@ -1,4 +1,6 @@
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useEffect, useMemo, useRef } from "react";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
+import { SectionTabNav } from "@/components/wizards/section-tab-nav";
 import { useWizardState } from "@/components/wizards";
 import { DocumentSection } from "@/features/documents/components/document-section";
 import { LinkedUserSection } from "@/features/employees/components/sections/linked-user-section";
@@ -37,16 +39,29 @@ import { DocumentPreviewLightbox } from "@/features/documents/components/documen
 
 const DOC_EXTRA_CLASS = "mt-4 pt-4 border-t";
 
-export function EmployeeProfileView({ employee }: EmployeeProfileViewProps) {
+export function EmployeeProfileView({
+    employee,
+    onActiveTabChange,
+}: EmployeeProfileViewProps) {
     // Same keyed-hash wizard state as the edit form: the active tab syncs to
     // the URL hash (#contracts, #documents, ...) and survives reload/back.
-    const tabs = [
-        ...EMPLOYEE_SECTIONS,
-        EMPLOYEE_DOCUMENTS_TAB,
-        EMPLOYEE_LINKED_USER_TAB,
-    ];
+    const tabs = useMemo(
+        () => [
+            ...EMPLOYEE_SECTIONS,
+            EMPLOYEE_DOCUMENTS_TAB,
+            EMPLOYEE_LINKED_USER_TAB,
+        ],
+        [],
+    );
     const { currentKey, goToKey } = useWizardState(tabs);
     const activeTab = currentKey ?? EMPLOYEE_SECTIONS[0].key;
+
+    // The page uses the active tab to deep-link the edit button (edit form
+    // opens on the same tab the user was reading).
+    useEffect(() => {
+        onActiveTabChange?.(activeTab);
+    }, [activeTab, onActiveTabChange]);
+    const contentRef = useRef<HTMLDivElement>(null);
     const { getDocumentsBySlug, capabilities } = useEmployeeDocuments(
         employee.id,
     );
@@ -121,9 +136,11 @@ export function EmployeeProfileView({ employee }: EmployeeProfileViewProps) {
         />
     );
 
-    const sectionViews: Record<string, () => React.ReactNode> = {
-        personal_info: () => {
-            return (
+    // Rebuilt only when the employee snapshot or its documents change — the
+    // view factories otherwise re-created on every render.
+    const sectionViews = useMemo<Record<string, () => React.ReactNode>>(
+        () => ({
+            personal_info: () => (
                 <PersonalInfoView
                     data={sectionData.personal_info}
                     topRight={
@@ -150,72 +167,74 @@ export function EmployeeProfileView({ employee }: EmployeeProfileViewProps) {
                     }
                     extra={docExtra("personal_info")}
                 />
-            );
-        },
-        contact_info: () => <ContactInfoView data={sectionData.contact_info} />,
-        employment: () => (
-            <EmploymentInfoView
-                data={{
-                    personnel_code: employee.personnel_code ?? "",
-                    employment_type: employee.employment_type ?? "",
-                    hire_date: employee.hire_date ?? "",
-                    employment_status: employee.employment_status ?? "",
-                }}
-                user={employee.user}
-                extra={docExtra("employment")}
-            />
-        ),
-        education: () => (
-            <EducationView
-                data={sectionData.education}
-                missingFor={educationMissing}
-                docsFor={(index) =>
-                    getDocumentsBySlug(
-                        DOC_CATEGORY_SLUGS.ACADEMIC_DEGREE,
-                        `edu-${index}`,
-                    )
-                }
-                extra={docExtra("education")}
-            />
-        ),
-        work_experience: () => (
-            <WorkExperienceView
-                data={sectionData.work_experience}
-                docsFor={(index) =>
-                    getDocumentsBySlug(
-                        DOC_CATEGORY_SLUGS.EMPLOYMENT_CERTIFICATE,
-                        `work-${index}`,
-                    )
-                }
-                extra={docExtra("work_experience")}
-            />
-        ),
-        social_insurance: () => <SocialInsuranceView employee={employee} />,
-        contracts: () => <ContractsView employee={employee} />,
-        financial: () => <FinancialView employee={employee} />,
-        supplementary_insurance: () => (
-            <SupplementaryInsuranceView employee={employee} />
-        ),
-        skills: () => (
-            <SkillsView data={sectionData.skills} extra={docExtra("skills")} />
-        ),
-        training: () => (
-            <TrainingView
-                data={sectionData.training}
-                extra={docExtra("training")}
-            />
-        ),
-        additional_info: () => (
-            <AdditionalInfoView data={sectionData.additional_info} />
-        ),
-        dependents: () => <DependentsView employee={employee} />,
-        document_inquiries: () => (
-            <DocumentInquiriesView
-                employee={employee}
-                data={sectionData.document_inquiries}
-            />
-        ),
-    };
+            ),
+            contact_info: () => <ContactInfoView data={sectionData.contact_info} />,
+            employment: () => (
+                <EmploymentInfoView
+                    data={{
+                        personnel_code: employee.personnel_code ?? "",
+                        employment_type: employee.employment_type ?? "",
+                        hire_date: employee.hire_date ?? "",
+                        employment_status: employee.employment_status ?? "",
+                    }}
+                    user={employee.user}
+                    extra={docExtra("employment")}
+                />
+            ),
+            education: () => (
+                <EducationView
+                    data={sectionData.education}
+                    missingFor={educationMissing}
+                    docsFor={(index) =>
+                        getDocumentsBySlug(
+                            DOC_CATEGORY_SLUGS.ACADEMIC_DEGREE,
+                            `edu-${index}`,
+                        )
+                    }
+                    extra={docExtra("education")}
+                />
+            ),
+            work_experience: () => (
+                <WorkExperienceView
+                    data={sectionData.work_experience}
+                    docsFor={(index) =>
+                        getDocumentsBySlug(
+                            DOC_CATEGORY_SLUGS.EMPLOYMENT_CERTIFICATE,
+                            `work-${index}`,
+                        )
+                    }
+                    extra={docExtra("work_experience")}
+                />
+            ),
+            social_insurance: () => <SocialInsuranceView employee={employee} />,
+            contracts: () => <ContractsView employee={employee} />,
+            financial: () => <FinancialView employee={employee} />,
+            supplementary_insurance: () => (
+                <SupplementaryInsuranceView employee={employee} />
+            ),
+            skills: () => (
+                <SkillsView data={sectionData.skills} extra={docExtra("skills")} />
+            ),
+            training: () => (
+                <TrainingView
+                    data={sectionData.training}
+                    extra={docExtra("training")}
+                />
+            ),
+            additional_info: () => (
+                <AdditionalInfoView data={sectionData.additional_info} />
+            ),
+            dependents: () => <DependentsView employee={employee} />,
+            document_inquiries: () => (
+                <DocumentInquiriesView
+                    employee={employee}
+                    data={sectionData.document_inquiries}
+                />
+            ),
+        }),
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [employee, personnelPhoto, educationMissing],
+    );
 
     const renderTab = (key: string) => {
         if (key === EMPLOYEE_DOCUMENTS_TAB.key) {
@@ -240,20 +259,22 @@ export function EmployeeProfileView({ employee }: EmployeeProfileViewProps) {
             onValueChange={(value) => {
                 if (value) goToKey(String(value));
             }}
-            className="space-y-6"
+            orientation="vertical"
+            className="flex-col gap-4 lg:flex-row lg:gap-6 items-stretch lg:items-start"
         >
-            <TabsList className="flex-wrap bg-muted/50">
+            <SectionTabNav
+                tabs={tabs}
+                value={activeTab}
+                onValueChange={(key) => goToKey(key)}
+                contentRef={contentRef}
+            />
+            <div ref={contentRef} className="min-w-0 flex-1">
                 {tabs.map((tab) => (
-                    <TabsTrigger key={tab.key} value={tab.key}>
-                        {tab.label}
-                    </TabsTrigger>
+                    <TabsContent key={tab.key} value={tab.key}>
+                        {renderTab(tab.key)}
+                    </TabsContent>
                 ))}
-            </TabsList>
-            {tabs.map((tab) => (
-                <TabsContent key={tab.key} value={tab.key}>
-                    {renderTab(tab.key)}
-                </TabsContent>
-            ))}
+            </div>
             <DocumentPreviewLightbox
                 documents={lightboxDocs}
                 currentIndex={lightboxIndex ?? 0}
@@ -267,4 +288,7 @@ export function EmployeeProfileView({ employee }: EmployeeProfileViewProps) {
 
 type EmployeeProfileViewProps = {
     employee: Employee;
+    /** Reports the active section key so the page can deep-link the edit
+     * button to the same tab of the edit form. */
+    onActiveTabChange?: (key: string) => void;
 };

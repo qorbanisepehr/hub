@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { IconPencil } from "@tabler/icons-react";
 import { isAxiosError } from "axios";
 import { toast } from "sonner";
+import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { ConfirmDeleteButton } from "@/components/ui/confirm-delete-button";
@@ -20,6 +21,11 @@ export function EmployeeViewPage() {
     const navigate = useNavigate();
     const queryClient = useQueryClient();
     const employeeId = Number(id);
+    // The active view tab deep-links the edit button: the edit form opens on
+    // the same keyed hash section the user was reading (#contracts, ...).
+    const [activeTabKey, setActiveTabKey] = useState(
+        () => window.location.hash.replace("#", "") || undefined,
+    );
 
     const {
         data: employee,
@@ -90,6 +96,7 @@ export function EmployeeViewPage() {
                                 <Link
                                     to="/employees/$id/edit"
                                     params={{ id: String(employee.id) }}
+                                    hash={activeTabKey}
                                 />
                             }
                         >
@@ -106,13 +113,10 @@ export function EmployeeViewPage() {
                 </div>
             </PageHeader>
 
-            {deleteMutation.isError && (
-                <div className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
-                    {getApiError(deleteMutation.error)}
-                </div>
-            )}
-
-            <EmployeeProfileView employee={employee} />
+            <EmployeeProfileView
+                employee={employee}
+                onActiveTabChange={setActiveTabKey}
+            />
         </PageLayout>
     );
 }

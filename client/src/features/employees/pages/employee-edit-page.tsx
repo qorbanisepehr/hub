@@ -51,13 +51,21 @@ export function EmployeeEditPage() {
 
     return (
         <PageLayout>
-            <PageHeader
-                title="پروفایل کارمند"
-                description={`${employee.first_name} ${employee.last_name} — کد پرسنلی: ${employee.personnel_code}`}
-                backTo="/employees"
+            {/* The final-submit toolbar lives in the header (drops below the
+                title on narrow screens via PageHeader's flex-wrap). */}
+            <EmployeeProfileForm
+                key={employee.id}
+                employee={employee}
+                header={(actions) => (
+                    <PageHeader
+                        title="پروفایل کارمند"
+                        description={`${employee.first_name} ${employee.last_name} — کد پرسنلی: ${employee.personnel_code}`}
+                        backTo="/employees"
+                    >
+                        {actions}
+                    </PageHeader>
+                )}
             />
-
-            <EmployeeProfileForm key={employee.id} employee={employee} />
         </PageLayout>
     );
 }

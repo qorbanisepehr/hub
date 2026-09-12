@@ -1,8 +1,9 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, type ReactNode } from "react";
 import { toast } from "sonner";
 import {
     IconChecks,
     IconClipboardCheck,
+    IconExclamationCircle,
     IconLoader2,
     IconSend,
 } from "@tabler/icons-react";
@@ -10,9 +11,14 @@ import {
 import { Button } from "@/components/ui/button";
 import { ErrorBanner } from "@/components/layout";
 import { UnsavedChangesDialog } from "@/components/layout";
-import { useWizardState, useWizardSubmit, SubmitErrors } from "@/components/wizards";
+import {
+    useWizardState,
+    useWizardSubmit,
+    SubmitErrors,
+} from "@/components/wizards";
+import { SectionTabNav } from "@/components/wizards/section-tab-nav";
 import type { WizardStep } from "@/components/wizards";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { PersonalInfoSection } from "@/features/questionnaire/components/sections/personal-info-section";
 import { EducationSection } from "@/features/questionnaire/components/sections/education-section";
 import { WorkExperienceSection } from "@/features/questionnaire/components/sections/work-experience-section";
@@ -99,6 +105,12 @@ import type {
 
 type EmployeeProfileFormProps = {
     employee: Employee;
+    /**
+     * Render-prop receiving the final-submit toolbar (ثبت نهایی + validation
+     * state) so a page can place it in its header instead of the form body.
+     * When omitted the toolbar renders as a bar above the tabs.
+     */
+    header?: (actions: ReactNode) => ReactNode;
 };
 
 const PROFILE_STEPS = [
@@ -228,7 +240,7 @@ function extractSectionData(
     );
 }
 
-export function EmployeeProfileForm({ employee }: EmployeeProfileFormProps) {
+export function EmployeeProfileForm({ employee, header }: EmployeeProfileFormProps) {
     const formSectionKeys = useMemo(
         () => new Set<string>(EMPLOYEE_SECTIONS.map((s) => s.key)),
         [],
@@ -448,7 +460,12 @@ export function EmployeeProfileForm({ employee }: EmployeeProfileFormProps) {
                     />
                 );
             case "documents":
-                return <DocumentsSection employeeId={employee.id} gender={employee.gender} />;
+                return (
+                    <DocumentsSection
+                        employeeId={employee.id}
+                        gender={employee.gender}
+                    />
+                );
             case "linked_user":
                 return <LinkedUserSection employee={employee} />;
             case "review":
@@ -464,6 +481,38 @@ export function EmployeeProfileForm({ employee }: EmployeeProfileFormProps) {
         }
     };
 
+    // The final-submit toolbar: the page may place it in its header via the
+    // `header` render-prop; without one it renders as a bar above the tabs.
+    // Loose nodes (no layout div) so the header's own flex-wrap lays them out.
+    const finalSubmitActions = (
+        <>
+            {!validation.success && (
+                <Button
+                    type="button"
+                    variant="outline"
+                    size="icon-sm"
+                    onClick={handleValidateClick}
+                    disabled={saveMutation.isPending || submitMutation.isPending}
+                    title="همه فیلدهای الزامی باید تکمیل شوند"
+                >
+                    <IconExclamationCircle className="size-4" />
+                </Button>
+            )}
+            <Button
+                type="button"
+                onClick={handleSubmit}
+                disabled={submitMutation.isPending || !canSubmit}
+            >
+                {submitMutation.isPending ? (
+                    <IconLoader2 className="size-4 animate-spin" />
+                ) : (
+                    <IconSend className="size-4" />
+                )}
+                ثبت نهایی
+            </Button>
+        </>
+    );
+
     return (
         <div className="space-y-6">
             <UnsavedChangesDialog
@@ -473,34 +522,22 @@ export function EmployeeProfileForm({ employee }: EmployeeProfileFormProps) {
                 }
             />
 
-            <div className="flex items-center justify-between rounded-lg border p-4">
-                <div>
-                    <p className="text-sm text-muted-foreground">
-                        هر بخش به‌صورت جداگانه ذخیره می‌شود؛ پس از تکمیل همه
-                        بخش‌ها، پروفایل را ثبت نهایی کنید.
-                    </p>
-                </div>
-                <div className="flex flex-col items-end gap-1">
-                    <Button
-                        type="button"
-                        onClick={handleSubmit}
-                        disabled={submitMutation.isPending || !canSubmit}
-                    >
-                        {submitMutation.isPending ? (
-                            <IconLoader2 className="size-4 animate-spin" />
-                        ) : (
-                            <IconSend className="size-4" />
+            {header ? (
+                header(finalSubmitActions)
+            ) : (
+                <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border p-4">
+                    <div>
+                        {!validation.success && (
+                            <p className="text-sm text-muted-foreground">
+                                همه فیلدهای الزامی باید تکمیل شوند
+                            </p>
                         )}
-                        ثبت نهایی پروفایل
-                    </Button>
-                    {!canSubmit && optionsReady && (
-                        <p className="text-xs text-muted-foreground">
-                            {!validation.success &&
-                                "همه فیلدهای الزامی باید تکمیل شوند"}
-                        </p>
-                    )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                        {finalSubmitActions}
+                    </div>
                 </div>
-            </div>
+            )}
 
             <SubmitErrors errors={submitErrors} />
 
@@ -508,24 +545,13 @@ export function EmployeeProfileForm({ employee }: EmployeeProfileFormProps) {
                 orientation="vertical"
                 value={activeSection}
                 onValueChange={handleTabChange}
-                className="gap-6 items-start"
+                className="flex-col gap-4 lg:flex-row lg:gap-6 items-stretch lg:items-start"
             >
-                <TabsList className="w-64 shrink-0 self-start items-stretch gap-1 bg-transparent">
-                    {PROFILE_STEPS.map((section) => (
-                        <TabsTrigger
-                            key={section.key}
-                            value={section.key}
-                            className="h-auto flex-col items-start gap-0.5 rounded-lg px-3 py-2.5"
-                        >
-                            <span className="text-sm font-medium">
-                                {section.label}
-                            </span>
-                            <span className="text-xs text-muted-foreground">
-                                {section.description}
-                            </span>
-                        </TabsTrigger>
-                    ))}
-                </TabsList>
+                <SectionTabNav
+                    tabs={PROFILE_STEPS}
+                    value={activeSection}
+                    onValueChange={(key) => handleTabChange(key)}
+                />
 
                 {PROFILE_STEPS.map((section) => (
                     <TabsContent
