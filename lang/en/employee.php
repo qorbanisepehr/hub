@@ -63,7 +63,7 @@ return [
         ],
     ],
     'documents' => [
-        'max_files_reached' => 'The maximum of :count files for this document type has been reached.',
+        'max_files_reached' => 'The maximum of :count items for this document type has been reached.',
         'total_max_files_reached' => 'The maximum of :count files for this employee has been reached.',
         'trashed' => 'Document moved to trash.',
         'restored' => 'Document restored.',

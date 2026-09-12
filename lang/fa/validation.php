@@ -267,8 +267,8 @@ return [
         ],
         // ── Education ──
         'education.education_records' => [
-            'required' => 'حداقل یک سوابق تحصیلی الزامی است.',
-            'min' => 'حداقل یک سوابق تحصیلی الزامی است.',
+            'required' => 'حداقل یک سابقه تحصیلی الزامی است.',
+            'min' => 'حداقل یک سابقه تحصیلی الزامی است.',
         ],
         'education.education_records.*.degree' => [
             'required' => 'مدرک الزامی است.',

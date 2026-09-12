@@ -40,7 +40,7 @@ return [
     ],
     'documents' => [
         'missing' => 'بارگذاری «:document» الزامی است.',
-        'max_files_reached' => 'حداکثر :count فایل برای این دسته مجاز است.',
+        'max_files_reached' => 'حداکثر :count مورد برای این دسته مجاز است.',
         'total_max_files_reached' => 'حداکثر :count فایل مجاز است.',
         'fields' => [
             'front' => 'رو',
@@ -49,7 +49,7 @@ return [
             'page_2' => 'صفحه دوم',
             'page_3' => 'صفحه سوم',
             'page_4' => 'صفحه چهارم',
-            'page_extra' => 'صفحه اضافه',
+            'page_extra' => 'صفحه پنجم',
         ],
     ],
 ];
