@@ -40,7 +40,7 @@ function ProtectedLayout() {
             }
         >
             <AppSidebar variant="inset" side="right" collapsible="icon" />
-            <SidebarInset>
+            <SidebarInset className="max-w-svw overflow-hidden">
                 <SiteHeader />
                 <Outlet />
             </SidebarInset>

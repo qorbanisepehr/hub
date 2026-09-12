@@ -12,6 +12,34 @@ export default defineConfig({
         }),
         tailwindcss(),
     ],
+    build: {
+        rolldownOptions: {
+            output: {
+                advancedChunks: {
+                    groups: [
+                        // Keep the biggest vendor libs in their own cacheable chunks so
+                        // the shared app "forms" chunk stays under 500kB.
+                        {
+                            name: "vendor-react",
+                            test: /node_modules[\\/](react|react-dom|scheduler)[\\/]/,
+                        },
+                        {
+                            name: "vendor-tanstack",
+                            test: /node_modules[\\/]@tanstack[\\/]/,
+                        },
+                        {
+                            name: "vendor-baseui",
+                            test: /node_modules[\\/]@base-ui[\\/]/,
+                        },
+                        {
+                            name: "vendor-forms",
+                            test: /node_modules[\\/](react-number-format|zod)[\\/]/,
+                        },
+                    ],
+                },
+            },
+        },
+    },
     server: {
         origin: "http://localhost:5173",
         watch: {
