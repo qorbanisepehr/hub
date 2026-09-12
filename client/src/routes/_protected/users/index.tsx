@@ -13,6 +13,7 @@ const UsersPage = lazy(() =>
 
 const usersSearchSchema = paginatedSearchSchema({
     role: z.string().optional(),
+    is_active: z.boolean().optional(),
 });
 
 export const Route = createRoute({

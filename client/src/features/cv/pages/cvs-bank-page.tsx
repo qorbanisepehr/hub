@@ -8,7 +8,8 @@ import {
 } from "@tanstack/react-table";
 import { IconFileCv } from "@tabler/icons-react";
 
-import { DataTablePage, DataTableToolbar } from "@/components/data-table";
+import { DataTablePage, DataTableToolbar, TableFilterBar } from "@/components/data-table";
+import { ListPageHeader } from "@/components/layout";
 import { fetchCvBank } from "@/features/cv/api";
 import { cvBankColumns } from "@/features/cv/columns";
 import { CV_STATUS_OPTIONS } from "@/features/cv/constants";
@@ -51,12 +52,22 @@ export function CvsBankPage() {
                 searchKey: "status",
                 type: "string",
             },
+            {
+                columnId: "status_not",
+                searchKey: "status_not",
+                type: "string",
+            },
         ],
     });
 
     const activeSort = sorting[0];
     const activeStatus = (
         columnFilters.find((f) => f.id === "status")?.value as
+            | string[]
+            | undefined
+    )?.[0];
+    const activeStatusNot = (
+        columnFilters.find((f) => f.id === "status_not")?.value as
             | string[]
             | undefined
     )?.[0];
@@ -69,6 +80,7 @@ export function CvsBankPage() {
             order: activeSort?.desc ? "desc" : "asc",
             filter: globalFilter,
             status: activeStatus,
+            status_not: activeStatusNot,
         }),
         queryFn: async () => {
             const { data } = await fetchCvBank({
@@ -78,6 +90,7 @@ export function CvsBankPage() {
                 order: activeSort?.desc ? "desc" : "asc",
                 filter: globalFilter || undefined,
                 status: activeStatus,
+                status_not: activeStatusNot,
             });
             return data;
         },
@@ -121,14 +134,10 @@ export function CvsBankPage() {
             totalLabel="رزومه"
             icon={IconFileCv}
             header={
-                <div>
-                    <h1 className="text-2xl font-bold tracking-tight">
-                        بانک رزومه
-                    </h1>
-                    <p className="text-sm text-muted-foreground mt-1">
-                        همه رزومه‌های داوطلبان (قابل فیلتر بر اساس وضعیت)
-                    </p>
-                </div>
+                <ListPageHeader
+                    title="بانک رزومه"
+                    description="همه رزومه‌های داوطلبان (قابل فیلتر بر اساس وضعیت)"
+                />
             }
             toolbar={
                 <DataTableToolbar
@@ -136,13 +145,21 @@ export function CvsBankPage() {
                     searchPlaceholder="جستجوی رزومه..."
                     globalFilter={globalFilter}
                     onGlobalFilterChange={onGlobalFilterChange}
-                    filters={[
-                        {
-                            columnId: "status",
-                            title: "وضعیت",
-                            options: CV_STATUS_OPTIONS,
-                        },
-                    ]}
+                    filterBar={
+                        <TableFilterBar
+                            fields={[
+                                {
+                                    id: "status",
+                                    label: "وضعیت",
+                                    type: "select",
+                                    options: CV_STATUS_OPTIONS,
+                                    negatable: true,
+                                },
+                            ]}
+                            columnFilters={columnFilters}
+                            onColumnFiltersChange={onColumnFiltersChange}
+                        />
+                    }
                 />
             }
             emptyAction={null}

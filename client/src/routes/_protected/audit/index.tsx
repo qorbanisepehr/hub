@@ -13,6 +13,11 @@ const AuditLogsPage = lazy(() =>
 
 const auditLogsSearchSchema = paginatedSearchSchema({
     category: z.string().optional(),
+    category_not: z.string().optional(),
+    event: z.string().optional(),
+    event_not: z.string().optional(),
+    date_from: z.string().optional(),
+    date_to: z.string().optional(),
 });
 
 export const Route = createRoute({

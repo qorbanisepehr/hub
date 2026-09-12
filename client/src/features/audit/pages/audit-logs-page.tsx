@@ -15,8 +15,10 @@ import { toast } from "sonner";
 import { useAuditLogs, useAuditEvents, useAuditLogDetail } from "@/features/audit/hooks";
 import { exportAuditLogs } from "@/features/audit/api";
 import { getAuditLogColumns } from "@/features/audit/audit-logs-columns";
-import { DataTablePage, DataTableToolbar } from "@/components/data-table";
+import { DataTablePage, DataTableToolbar, TableFilterBar } from "@/components/data-table";
+import { ListPageHeader } from "@/components/layout";
 import { useTableUrlState } from "@/hooks/use-table-url-state";
+import { getApiError } from "@/lib/error-utils";
 import { PERMISSIONS } from "@/lib/permissions";
 import { auditKeys } from "@/lib/query-keys";
 import { PAGINATION } from "@/lib/constants";
@@ -132,36 +134,60 @@ export function AuditLogsPage() {
                 type: "string",
             },
             {
+                columnId: "category_not",
+                searchKey: "category_not",
+                type: "string",
+            },
+            {
                 columnId: "event",
                 searchKey: "event",
+                type: "string",
+            },
+            {
+                columnId: "event_not",
+                searchKey: "event_not",
+                type: "string",
+            },
+            {
+                columnId: "date_from",
+                searchKey: "date_from",
+                type: "string",
+            },
+            {
+                columnId: "date_to",
+                searchKey: "date_to",
                 type: "string",
             },
         ],
     });
 
     const activeSort = sorting[0];
-    const activeCategory = (
-        columnFilters.find((f) => f.id === "category")?.value as
-            | string[]
-            | undefined
-    )?.[0] as AuditCategory | undefined;
-    const activeEvent = (
-        columnFilters.find((f) => f.id === "event")?.value as
-            | string[]
-            | undefined
-    )?.[0] as string | undefined;
+    const filterValue = (id: string) =>
+        (
+            columnFilters.find((f) => f.id === id)?.value as
+                | string[]
+                | undefined
+        )?.[0];
+    const activeCategory = filterValue("category") as AuditCategory | undefined;
+    const activeCategoryNot = filterValue("category_not");
+    const activeEvent = filterValue("event");
+    const activeEventNot = filterValue("event_not");
+    const activeDateFrom = filterValue("date_from");
+    const activeDateTo = filterValue("date_to");
 
     const { data: availableEvents = [] } = useAuditEvents(activeCategory);
     const { data, isLoading, isError, isFetching } = useAuditLogs({
         page: pagination.pageIndex + 1,
         per_page: pagination.pageSize,
-        // Backend contract (v6): `sort=column` asc, `sort=-column` desc.
-        sort: activeSort
-            ? `${activeSort.desc ? "-" : ""}${activeSort.id}`
-            : undefined,
-        search: globalFilter || undefined,
+        sort: activeSort?.id,
+        order: activeSort ? (activeSort.desc ? "desc" : "asc") : undefined,
+        filter: globalFilter || undefined,
         category: activeCategory,
+        category_not: activeCategoryNot || undefined,
         event: activeEvent,
+        event_not: activeEventNot || undefined,
+        date_from: activeDateFrom || undefined,
+        date_to: activeDateTo || undefined,
     });
 
     const tableData = data?.data ?? [];
@@ -228,9 +254,13 @@ export function AuditLogsPage() {
         try {
             const response = await exportAuditLogs({
                 format: "csv",
-                search: globalFilter || undefined,
+                filter: globalFilter || undefined,
                 category: activeCategory,
+                category_not: activeCategoryNot || undefined,
                 event: activeEvent,
+                event_not: activeEventNot || undefined,
+                date_from: activeDateFrom || undefined,
+                date_to: activeDateTo || undefined,
             });
 
             const blob =
@@ -248,8 +278,8 @@ export function AuditLogsPage() {
             link.click();
             link.remove();
             window.URL.revokeObjectURL(url);
-        } catch {
-            toast.error("خطا در دریافت فایل خروجی");
+        } catch (err) {
+            toast.error(getApiError(err) ?? "خطا در دریافت فایل خروجی");
         } finally {
             setIsExporting(false);
         }
@@ -268,14 +298,10 @@ export function AuditLogsPage() {
             getExpandedRowId={(log) => String(log.id)}
             renderExpandedRow={(log) => <ExpandedRowContent log={log} />}
             header={
-                <div>
-                    <h1 className="text-2xl font-bold tracking-tight">
-                        لاگ فعالیت
-                    </h1>
-                    <p className="text-sm text-muted-foreground mt-1">
-                        مشاهده تمام رویدادهای سیستم
-                    </p>
-                </div>
+                <ListPageHeader
+                    title="لاگ فعالیت"
+                    description="مشاهده تمام رویدادهای سیستم"
+                />
             }
             toolbar={
                 <div className="flex items-center gap-2">
@@ -284,26 +310,50 @@ export function AuditLogsPage() {
                         searchPlaceholder="جستجو در لاگ..."
                         globalFilter={globalFilter}
                         onGlobalFilterChange={onGlobalFilterChange}
-                        filters={[
-                            {
-                                columnId: "category",
-                                title: "دسته‌بندی",
-                                options: Object.entries(AUDIT_CATEGORY_LABELS).map(
-                                    ([value, label]) => ({
-                                        label,
-                                        value,
-                                    }),
-                                ),
-                            },
-                            {
-                                columnId: "event",
-                                title: "رویداد",
-                                options: availableEvents.map((event) => ({
-                                    label: AUDIT_EVENT_LABELS[event] ?? event,
-                                    value: event,
-                                })),
-                            },
-                        ]}
+                        filterBar={
+                            <TableFilterBar
+                                fields={[
+                                    {
+                                        id: "category",
+                                        label: "دسته‌بندی",
+                                        type: "select",
+                                        options: Object.entries(
+                                            AUDIT_CATEGORY_LABELS,
+                                        ).map(([value, label]) => ({
+                                            label,
+                                            value,
+                                        })),
+                                        negatable: true,
+                                    },
+                                    {
+                                        id: "event",
+                                        label: "رویداد",
+                                        type: "select",
+                                        options: availableEvents.map(
+                                            (event) => ({
+                                                label:
+                                                    AUDIT_EVENT_LABELS[event] ??
+                                                    event,
+                                                value: event,
+                                            }),
+                                        ),
+                                        negatable: true,
+                                    },
+                                    {
+                                        id: "date_from",
+                                        label: "از تاریخ",
+                                        type: "date",
+                                    },
+                                    {
+                                        id: "date_to",
+                                        label: "تا تاریخ",
+                                        type: "date",
+                                    },
+                                ]}
+                                columnFilters={columnFilters}
+                                onColumnFiltersChange={onColumnFiltersChange}
+                            />
+                        }
                     />
                     <Button
                         variant="outline"

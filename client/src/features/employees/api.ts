@@ -6,6 +6,7 @@ import type { Employee, EmployeeBaseFormData } from "./types";
 export type EmployeeListParams = PaginatedListParams & {
     filter?: string;
     status?: string;
+    status_not?: string;
 };
 
 export function fetchEmployees(params: EmployeeListParams = {}) {

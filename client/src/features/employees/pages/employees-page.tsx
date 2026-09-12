@@ -11,7 +11,8 @@ import { IconPlus, IconUsers } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import { fetchEmployees } from "@/features/employees/api";
 import { employeeColumns } from "@/features/employees/columns";
-import { DataTablePage, DataTableToolbar } from "@/components/data-table";
+import { DataTablePage, DataTableToolbar, TableFilterBar } from "@/components/data-table";
+import { ListPageHeader } from "@/components/layout";
 import { useTableUrlState } from "@/hooks/use-table-url-state";
 import { PermissionGuard } from "@/features/auth/components/permission-guard";
 import { PERMISSIONS } from "@/lib/permissions";
@@ -53,6 +54,11 @@ export function EmployeesPage() {
                 searchKey: "status",
                 type: "string",
             },
+            {
+                columnId: "employment_status_not",
+                searchKey: "status_not",
+                type: "string",
+            },
         ],
     });
 
@@ -62,6 +68,17 @@ export function EmployeesPage() {
             | string[]
             | undefined
     )?.[0];
+    const activeStatusNot = (
+        columnFilters.find((f) => f.id === "employment_status_not")?.value as
+            | string[]
+            | undefined
+    )?.[0];
+
+    const statusFilterOptions = [
+        { label: "فعال", value: "active" },
+        { label: "غیرفعال", value: "inactive" },
+        { label: "تعلیق", value: "suspended" },
+    ];
 
     const { data, isLoading, isError } = useQuery({
         queryKey: employeeKeys.list({
@@ -71,6 +88,7 @@ export function EmployeesPage() {
             order: activeSort?.desc ? "desc" : "asc",
             filter: globalFilter,
             status: activeStatus,
+            status_not: activeStatusNot,
         }),
         queryFn: async () => {
             const { data } = await fetchEmployees({
@@ -80,6 +98,7 @@ export function EmployeesPage() {
                 order: activeSort?.desc ? "desc" : "asc",
                 filter: globalFilter || undefined,
                 status: activeStatus,
+                status_not: activeStatusNot,
             });
             return data;
         },
@@ -124,25 +143,21 @@ export function EmployeesPage() {
             totalLabel="کارمند"
             icon={IconUsers}
             header={
-                <>
-                    <div>
-                        <h1 className="text-2xl font-bold tracking-tight">
-                            کارمندان
-                        </h1>
-                        <p className="text-sm text-muted-foreground mt-1">
-                            مدیریت اطلاعات کارمندان شرکت
-                        </p>
-                    </div>
-                    <PermissionGuard permission={PERMISSIONS.EMPLOYEE_CREATE}>
-                        <Button
-                            nativeButton={false}
-                            render={<Link to="/employees/create" />}
-                        >
-                            <IconPlus className="size-4" />
-                            کارمند جدید
-                        </Button>
-                    </PermissionGuard>
-                </>
+                <ListPageHeader
+                    title="کارمندان"
+                    description="مدیریت اطلاعات کارمندان شرکت"
+                    action={
+                        <PermissionGuard permission={PERMISSIONS.EMPLOYEE_CREATE}>
+                            <Button
+                                nativeButton={false}
+                                render={<Link to="/employees/create" />}
+                            >
+                                <IconPlus className="size-4" />
+                                کارمند جدید
+                            </Button>
+                        </PermissionGuard>
+                    }
+                />
             }
             toolbar={
                 <DataTableToolbar
@@ -150,17 +165,21 @@ export function EmployeesPage() {
                     searchPlaceholder="جستجوی کارمند..."
                     globalFilter={globalFilter}
                     onGlobalFilterChange={onGlobalFilterChange}
-                    filters={[
-                        {
-                            columnId: "employment_status",
-                            title: "وضعیت اشتغال",
-                            options: [
-                                { label: "فعال", value: "active" },
-                                { label: "غیرفعال", value: "inactive" },
-                                { label: "تعلیق", value: "suspended" },
-                            ],
-                        },
-                    ]}
+                    filterBar={
+                        <TableFilterBar
+                            fields={[
+                                {
+                                    id: "employment_status",
+                                    label: "وضعیت اشتغال",
+                                    type: "select",
+                                    options: statusFilterOptions,
+                                    negatable: true,
+                                },
+                            ]}
+                            columnFilters={columnFilters}
+                            onColumnFiltersChange={onColumnFiltersChange}
+                        />
+                    }
                 />
             }
             emptyAction={

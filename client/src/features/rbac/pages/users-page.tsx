@@ -9,9 +9,10 @@ import {
 import { IconPlus, IconUsers } from "@tabler/icons-react";
 
 import { Button } from "@/components/ui/button";
-import { fetchUsers, fetchAllRoles } from "@/features/rbac/api";
+import { fetchUsers, fetchRoleOptions } from "@/features/rbac/api";
 import { getUserColumns } from "@/features/rbac/user-columns";
-import { DataTablePage, DataTableToolbar } from "@/components/data-table";
+import { DataTablePage, DataTableToolbar, TableFilterBar } from "@/components/data-table";
+import { ListPageHeader } from "@/components/layout";
 import { useTableUrlState } from "@/hooks/use-table-url-state";
 import { PermissionGuard } from "@/features/auth/components/permission-guard";
 import { PERMISSIONS } from "@/lib/permissions";
@@ -114,7 +115,7 @@ export function UsersPage() {
     const { data: rolesData } = useQuery({
         queryKey: roleKeys.filterOptions(),
         queryFn: async () => {
-            const { data } = await fetchAllRoles();
+            const { data } = await fetchRoleOptions();
             return data.data;
         },
     });
@@ -153,7 +154,7 @@ export function UsersPage() {
     const roleFilterOptions = useMemo(
         () =>
             rolesData?.map((r) => ({
-                label: r.display_name,
+                label: r.label,
                 value: String(r.id),
             })) ?? [],
         [rolesData],
@@ -169,25 +170,21 @@ export function UsersPage() {
             totalLabel="کاربر"
             icon={IconUsers}
             header={
-                <>
-                    <div>
-                        <h1 className="text-2xl font-bold tracking-tight">
-                            کاربران
-                        </h1>
-                        <p className="text-sm text-muted-foreground mt-1">
-                            مدیریت نقش‌های کاربران
-                        </p>
-                    </div>
-                    <PermissionGuard permission={PERMISSIONS.USER_CREATE}>
-                        <Button
-                            nativeButton={false}
-                            render={<Link to="/users/create" />}
-                        >
-                            <IconPlus className="size-4" />
-                            کاربر جدید
-                        </Button>
-                    </PermissionGuard>
-                </>
+                <ListPageHeader
+                    title="کاربران"
+                    description="مدیریت نقش‌های کاربران"
+                    action={
+                        <PermissionGuard permission={PERMISSIONS.USER_CREATE}>
+                            <Button
+                                nativeButton={false}
+                                render={<Link to="/users/create" />}
+                            >
+                                <IconPlus className="size-4" />
+                                کاربر جدید
+                            </Button>
+                        </PermissionGuard>
+                    }
+                />
             }
             toolbar={
                 <DataTableToolbar
@@ -195,25 +192,33 @@ export function UsersPage() {
                     searchPlaceholder="جستجوی کاربر..."
                     globalFilter={globalFilter}
                     onGlobalFilterChange={onGlobalFilterChange}
-                    filters={[
-                        ...(roleFilterOptions.length > 0
-                            ? [
-                                  {
-                                      columnId: "roles",
-                                      title: "نقش",
-                                      options: roleFilterOptions,
-                                  },
-                              ]
-                            : []),
-                        {
-                            columnId: "is_active",
-                            title: "وضعیت",
-                            options: [
-                                { label: "فعال", value: "true" },
-                                { label: "غیرفعال", value: "false" },
-                            ],
-                        },
-                    ]}
+                    filterBar={
+                        <TableFilterBar
+                            fields={[
+                                ...(roleFilterOptions.length > 0
+                                    ? [
+                                          {
+                                              id: "roles",
+                                              label: "نقش",
+                                              type: "select" as const,
+                                              options: roleFilterOptions,
+                                          },
+                                      ]
+                                    : []),
+                                {
+                                    id: "is_active",
+                                    label: "وضعیت",
+                                    type: "select",
+                                    options: [
+                                        { label: "فعال", value: "true" },
+                                        { label: "غیرفعال", value: "false" },
+                                    ],
+                                },
+                            ]}
+                            columnFilters={columnFilters}
+                            onColumnFiltersChange={onColumnFiltersChange}
+                        />
+                    }
                 />
             }
             emptyAction={

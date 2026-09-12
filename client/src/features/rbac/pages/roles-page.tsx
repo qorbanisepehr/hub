@@ -15,7 +15,8 @@ import { getRoleColumns } from "@/features/rbac/columns";
 import { getApiError } from "@/lib/error-utils";
 import { PermissionGuard } from "@/features/auth/components/permission-guard";
 import { PERMISSIONS } from "@/lib/permissions";
-import { DataTablePage, DataTableToolbar } from "@/components/data-table";
+import { DataTablePage, DataTableToolbar, TableFilterBar } from "@/components/data-table";
+import { ListPageHeader } from "@/components/layout";
 import { useTableUrlState } from "@/hooks/use-table-url-state";
 import { roleKeys } from "@/lib/query-keys";
 import { PAGINATION } from "@/lib/constants";
@@ -169,25 +170,21 @@ export function RolesPage() {
             totalLabel="نقش"
             icon={IconUserCog}
             header={
-                <>
-                    <div>
-                        <h1 className="text-2xl font-bold tracking-tight">
-                            نقش‌ها
-                        </h1>
-                        <p className="text-sm text-muted-foreground mt-1">
-                            مدیریت نقش‌ها و سطوح دسترسی
-                        </p>
-                    </div>
-                    <PermissionGuard permission={PERMISSIONS.ROLE_CREATE}>
-                        <Button
-                            nativeButton={false}
-                            render={<Link to="/roles/create" />}
-                        >
-                            <IconPlus className="size-4" />
-                            نقش جدید
-                        </Button>
-                    </PermissionGuard>
-                </>
+                <ListPageHeader
+                    title="نقش‌ها"
+                    description="مدیریت نقش‌ها و سطوح دسترسی"
+                    action={
+                        <PermissionGuard permission={PERMISSIONS.ROLE_CREATE}>
+                            <Button
+                                nativeButton={false}
+                                render={<Link to="/roles/create" />}
+                            >
+                                <IconPlus className="size-4" />
+                                نقش جدید
+                            </Button>
+                        </PermissionGuard>
+                    }
+                />
             }
             toolbar={
                 <DataTableToolbar
@@ -195,16 +192,23 @@ export function RolesPage() {
                     searchPlaceholder="جستجوی نقش..."
                     globalFilter={globalFilter}
                     onGlobalFilterChange={onGlobalFilterChange}
-                    filters={[
-                        {
-                            columnId: "is_active",
-                            title: "وضعیت",
-                            options: [
-                                { label: "فعال", value: "true" },
-                                { label: "غیرفعال", value: "false" },
-                            ],
-                        },
-                    ]}
+                    filterBar={
+                        <TableFilterBar
+                            fields={[
+                                {
+                                    id: "is_active",
+                                    label: "وضعیت",
+                                    type: "select",
+                                    options: [
+                                        { label: "فعال", value: "true" },
+                                        { label: "غیرفعال", value: "false" },
+                                    ],
+                                },
+                            ]}
+                            columnFilters={columnFilters}
+                            onColumnFiltersChange={onColumnFiltersChange}
+                        />
+                    }
                 />
             }
             emptyAction={

@@ -7,7 +7,6 @@ import {
 import { IconSearch, IconX } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { DataTableFacetedFilter } from "./faceted-filter";
 import { DataTableViewOptions } from "./view-options";
 
 type DataTableToolbarProps<TData extends RowData> = {
@@ -16,15 +15,7 @@ type DataTableToolbarProps<TData extends RowData> = {
     searchKey?: string;
     globalFilter?: string;
     onGlobalFilterChange?: (value: string) => void;
-    filters?: {
-        columnId: string;
-        title: string;
-        options: {
-            label: string;
-            value: string;
-            icon?: React.ComponentType<{ className?: string }>;
-        }[];
-    }[];
+    filterBar?: React.ReactNode;
 };
 
 export function DataTableToolbar<TData extends RowData>({
@@ -33,7 +24,7 @@ export function DataTableToolbar<TData extends RowData>({
     searchKey,
     globalFilter,
     onGlobalFilterChange,
-    filters = [],
+    filterBar,
 }: DataTableToolbarProps<TData>) {
     const isFiltered =
         table.store.state.columnFilters.length > 0 ||
@@ -67,7 +58,7 @@ export function DataTableToolbar<TData extends RowData>({
     };
 
     return (
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between w-full">
             <div className="flex flex-1 flex-col-reverse items-start gap-y-2 sm:flex-row sm:items-center sm:space-x-2">
                 <div className="flex gap-x-2">
                     {(searchKey || onGlobalFilterChange) && (
@@ -89,7 +80,7 @@ export function DataTableToolbar<TData extends RowData>({
                                     variant="ghost"
                                     size="icon-xs"
                                     onClick={clear}
-                                    className="absolute end-7 top-1/2 -translate-y-1/2"
+                                    className="absolute inset-e-7 top-1/2 -translate-y-1/2"
                                 >
                                     <IconX className="size-3.5" />
                                 </Button>
@@ -98,28 +89,16 @@ export function DataTableToolbar<TData extends RowData>({
                                 variant="ghost"
                                 size="icon-xs"
                                 onClick={commit}
-                                className="absolute end-1 top-1/2 -translate-y-1/2"
+                                disabled={!localValue}
+                                className="absolute inset-e-1 top-1/2 -translate-y-1/2! active:-translate-y-1/2! active:mt-px!"
                             >
                                 <IconSearch className="size-3.5" />
                             </Button>
                         </div>
                     )}
                 </div>
-                <div className="flex gap-x-2">
-                    {filters.map((filter) => {
-                        const column = table.getColumn(filter.columnId);
-                        if (!column) return null;
-                        return (
-                            <DataTableFacetedFilter
-                                key={filter.columnId}
-                                column={column}
-                                title={filter.title}
-                                options={filter.options}
-                            />
-                        );
-                    })}
-                </div>
-                {isFiltered && (
+                <div className="flex gap-x-2">{filterBar}</div>
+                {isFiltered && !filterBar && (
                     <Button
                         variant="ghost"
                         onClick={() => {
@@ -129,7 +108,6 @@ export function DataTableToolbar<TData extends RowData>({
                         }}
                         className="h-8 px-2 lg:px-3"
                     >
-                        پاک کردن
                         <IconX className="ms-2 size-4" />
                     </Button>
                 )}

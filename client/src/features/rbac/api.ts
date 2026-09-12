@@ -43,10 +43,25 @@ export function fetchRoles(params: RoleListParams = {}) {
     return api.get<PaginatedResponse<Role>>("/roles", { params });
 }
 
+// NOTE: still capped at 50 server-side; for dropdowns prefer fetchRoleOptions.
 export function fetchAllRoles() {
     return api.get<{ data: Role[] }>("/roles", {
         params: { per_page: PAGINATION.FETCH_ALL_SIZE },
     });
+}
+
+/** Lightweight id + label list for filter dropdowns and search-selects. */
+export function fetchRoleOptions() {
+    return api.get<{ data: { id: number; label: string }[] }>(
+        "/roles/options",
+    );
+}
+
+/** Lightweight id + label list for filter dropdowns and search-selects. */
+export function fetchUserOptions() {
+    return api.get<{ data: { id: number; label: string }[] }>(
+        "/users/options",
+    );
 }
 
 export function fetchRolesChart() {
