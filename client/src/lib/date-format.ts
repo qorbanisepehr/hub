@@ -12,3 +12,13 @@ export function toPersianDate(value: string | Date | null | undefined): string {
     }
     return persianDateFormatter.format(date);
 }
+
+/** Group a 16-digit card number as 4-4-4-4 for display; passes through others. */
+export function formatCardNumber(
+    value: string | null | undefined,
+): string | null {
+    if (!value) return null;
+    const digits = value.replace(/\D/g, "");
+    if (digits.length !== 16) return value;
+    return digits.replace(/(\d{4})(?=\d)/g, "$1-");
+}

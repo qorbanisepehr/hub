@@ -3,6 +3,7 @@ import { toast } from "sonner";
 
 import { api } from "@/lib/api";
 import { publicApi } from "@/lib/public-api";
+import { getApiError } from "@/lib/error-utils";
 import { documentKeys } from "@/lib/query-keys";
 import { isAuthedDocumentEntity } from "@/hooks/use-entity-documents";
 
@@ -36,7 +37,9 @@ export function useDocumentDelete({
             });
             toast.success(successMessage);
         },
-        onError: () => toast.error(errorMessage),
+        onError: (err: unknown) => {
+            toast.error(getApiError(err) ?? errorMessage);
+        },
     });
 
     return {

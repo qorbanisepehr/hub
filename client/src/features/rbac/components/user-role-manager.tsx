@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
     IconCheck,
     IconLoader2,
+    IconMasksTheater,
     IconPlus,
     IconTrash,
 } from "@tabler/icons-react";
@@ -10,6 +11,8 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/layout";
 import {
     fetchUserRoles,
     assignUserRole,
@@ -105,10 +108,7 @@ export function UserRoleManager({
         return (
             <div className="space-y-3">
                 {Array.from({ length: 3 }).map((_, i) => (
-                    <div
-                        key={i}
-                        className="h-14 animate-pulse rounded-lg bg-muted"
-                    />
+                    <Skeleton key={i} className="h-14 w-full rounded-lg" />
                 ))}
             </div>
         );
@@ -161,9 +161,7 @@ export function UserRoleManager({
                                                 removeMutation.mutate(role.id)
                                             }
                                             isPending={removeMutation.isPending}
-                                            label=""
-                                            confirmLabel=""
-                                            cancelLabel=""
+                                            iconOnly
                                             size="icon-sm"
                                             variant="ghost"
                                         />
@@ -173,9 +171,11 @@ export function UserRoleManager({
                         })}
                     </div>
                 ) : (
-                    <p className="text-sm text-muted-foreground text-center py-8">
-                        هیچ نقشی تخصیص داده نشده است
-                    </p>
+                    <EmptyState
+                        icon={IconMasksTheater}
+                        message="هیچ نقشی تخصیص داده نشده است"
+                        variant="compact"
+                    />
                 )}
 
                 {/* Add role section */}

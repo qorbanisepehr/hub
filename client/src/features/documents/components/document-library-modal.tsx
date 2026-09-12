@@ -10,6 +10,7 @@ import { toast } from "sonner";
 
 import { documentKeys } from "@/lib/query-keys";
 import { getApiError } from "@/lib/error-utils";
+import { EmptyState } from "@/components/layout";
 import { formatBytes } from "@/lib/file-utils";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -95,10 +96,11 @@ export function DocumentLibraryModal({
                     ))}
                 </div>
             ) : !documents?.length ? (
-                <div className="flex flex-col items-center justify-center py-10 text-muted-foreground">
-                    <IconLibrary className="size-10 mb-3 opacity-30" />
-                    <p className="text-sm">کتابخانه خالی است</p>
-                </div>
+                <EmptyState
+                    icon={IconLibrary}
+                    message="کتابخانه خالی است"
+                    variant="compact"
+                />
             ) : (
                 <div className="max-h-80 space-y-2 overflow-y-auto py-1">
                     {documents.map((doc) => {

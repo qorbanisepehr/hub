@@ -65,9 +65,9 @@ export function SupplementaryInsuranceSection({
         (state) =>
             ((state.values.financial as Record<string, unknown> | undefined)
                 ?.bank_accounts ?? []) as {
-            bank_name?: string;
-            account_number?: string;
-        }[],
+                bank_name?: string;
+                account_number?: string;
+            }[],
     );
 
     const dependents = useSelector(
@@ -80,9 +80,11 @@ export function SupplementaryInsuranceSection({
     const insuranceRows = useSelector(
         form.store,
         (state) =>
-            ((state.values.supplementary_insurance as
-                | Record<string, unknown>
-                | undefined)?.insurance_dependents ?? []) as InsuranceDependentRow[],
+            ((
+                state.values.supplementary_insurance as
+                    | Record<string, unknown>
+                    | undefined
+            )?.insurance_dependents ?? []) as InsuranceDependentRow[],
     );
 
     const accountOptions = accounts
@@ -96,14 +98,14 @@ export function SupplementaryInsuranceSection({
         useFormOptionsByGroup("relationship_type");
 
     const relationshipLabel = (value: unknown) =>
-        relationshipOptions?.find(
-            (option) => option.value === value,
-        )?.label ?? String(value ?? "");
+        relationshipOptions?.find((option) => option.value === value)?.label ??
+        String(value ?? "");
 
     /** One select option per بستگان row. */
     const dependentOptions = dependents
         .map((dependent, index) => {
-            const name = `${String(dependent.first_name ?? "")} ${String(dependent.last_name ?? "")}`.trim();
+            const name =
+                `${String(dependent.first_name ?? "")} ${String(dependent.last_name ?? "")}`.trim();
             if (name === "") return null;
 
             return {
@@ -111,8 +113,9 @@ export function SupplementaryInsuranceSection({
                 label: `${name}${dependent.birth_date ? ` (${toPersianDate(dependent.birth_date)})` : ""}`,
             };
         })
-        .filter((option): option is { value: string; label: string } =>
-            option !== null,
+        .filter(
+            (option): option is { value: string; label: string } =>
+                option !== null,
         );
 
     /** Match an insurance row back to its dependent select value (empty when unmatched). */
@@ -204,15 +207,9 @@ export function SupplementaryInsuranceSection({
                                         .flatMap((otherRow, otherIndex) =>
                                             otherIndex === index
                                                 ? []
-                                                : [
-                                                      rowDependentValue(
-                                                          otherRow,
-                                                      ),
-                                                  ],
+                                                : [rowDependentValue(otherRow)],
                                         )
-                                        .filter(
-                                            (value) => value !== "",
-                                        ),
+                                        .filter((value) => value !== ""),
                                 );
 
                                 return (
@@ -223,7 +220,9 @@ export function SupplementaryInsuranceSection({
                                                     انتخاب از بستگان
                                                 </FieldLabel>
                                                 <Select
-                                                    value={selectedValue || null}
+                                                    value={
+                                                        selectedValue || null
+                                                    }
                                                     items={dependentOptions.map(
                                                         (option) => ({
                                                             value: option.value,
@@ -321,11 +320,6 @@ export function SupplementaryInsuranceSection({
                                                 )}
                                             </form.Field>
                                         </div>
-
-                                        <p className="text-xs text-muted-foreground">
-                                            نام، نام خانوادگی و نسبت از ردیف
-                                            انتخاب‌شده بستگان کپی می‌شود.
-                                        </p>
                                     </div>
                                 );
                             }}

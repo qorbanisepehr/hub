@@ -28,17 +28,18 @@ export function DataTableViewOptions<TData extends RowData>({
                 render={
                     <Button
                         variant="outline"
-                        size="sm"
+                        size="icon"
                         className="ms-auto hidden h-8 lg:flex"
                     >
                         <IconTableOptions className="size-4" />
-                        نمایش ستون‌ها
                     </Button>
                 }
             />
             <DropdownMenuContent align="end" className="w-38">
                 <DropdownMenuGroup>
-                    <DropdownMenuLabel>نمایش/مخفی کردن ستون‌ها</DropdownMenuLabel>
+                    <DropdownMenuLabel>
+                        نمایش/مخفی کردن ستون‌ها
+                    </DropdownMenuLabel>
                     <DropdownMenuSeparator />
                     {table
                         .getAllColumns()
@@ -57,7 +58,8 @@ export function DataTableViewOptions<TData extends RowData>({
                                         column.toggleVisibility(!!value)
                                     }
                                 >
-                                    {column.columnDef.meta?.displayName ?? column.id}
+                                    {column.columnDef.meta?.displayName ??
+                                        column.id}
                                 </DropdownMenuCheckboxItem>
                             );
                         })}

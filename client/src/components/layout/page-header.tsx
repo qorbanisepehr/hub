@@ -13,10 +13,10 @@ export function PageHeader({
     children?: ReactNode;
 }) {
     return (
-        <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-y-3">
+            <div className="flex min-w-0 items-center gap-3">
                 {backTo && <BackButton to={backTo} />}
-                <div>
+                <div className="min-w-0">
                     <h1 className="text-2xl font-bold tracking-tight">
                         {title}
                     </h1>
@@ -27,7 +27,9 @@ export function PageHeader({
                     )}
                 </div>
             </div>
-            {children}
+            {children && (
+                <div className="flex flex-wrap items-center gap-2">{children}</div>
+            )}
         </div>
     );
 }

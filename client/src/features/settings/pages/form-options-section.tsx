@@ -10,7 +10,7 @@ import {
 } from "@tanstack/react-table";
 import { IconListDetails, IconPencil, IconPlus } from "@tabler/icons-react";
 
-import { Badge } from "@/components/ui/badge";
+import { ActiveBadge } from "@/components/shared/active-badge";
 import { Button } from "@/components/ui/button";
 import {
     Card,
@@ -197,13 +197,7 @@ export function FormOptionsSection() {
                     </div>
                 ) : (
                     <div className="flex justify-center">
-                        <Badge
-                            variant={
-                                row.original.is_active ? "default" : "secondary"
-                            }
-                        >
-                            {row.original.is_active ? "فعال" : "غیرفعال"}
-                        </Badge>
+                        <ActiveBadge isActive={row.original.is_active} />
                     </div>
                 ),
         },

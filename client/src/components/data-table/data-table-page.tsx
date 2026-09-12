@@ -78,7 +78,7 @@ export function DataTablePage<TData extends RowData>({
     return (
         <PageLayout>
             {header && (
-                <div className="flex items-center justify-between">
+                <div className="flex flex-wrap items-center justify-between gap-y-3">
                     {header}
                 </div>
             )}
@@ -103,11 +103,15 @@ export function DataTablePage<TData extends RowData>({
                     ) : isError ? (
                         <ErrorSection icon={Icon} onRetry={onRetry} />
                     ) : (
-                        <div className="overflow-x-auto">
+                        <>
+                            {/* Toolbar stays OUTSIDE the horizontal scroll
+                                container so filters never scroll away on
+                                mobile. */}
                             {toolbar && (
                                 <div className="px-4 pt-3 pb-3">{toolbar}</div>
                             )}
-                            <Table>
+                            <div className="overflow-x-auto">
+                                <Table>
                                 <TableHeader>
                                     {table
                                         .getHeaderGroups()
@@ -206,7 +210,8 @@ export function DataTablePage<TData extends RowData>({
                                     )}
                                 </TableBody>
                             </Table>
-                        </div>
+                            </div>
+                        </>
                     )}
                 </CardContent>
                 {!isLoading && !isError && (

@@ -7,7 +7,10 @@ import { FormRepeater } from "@/components/forms";
 import { PhysicalConditionFields } from "@/components/forms";
 import { zodFieldValidators } from "@/lib/validation-helpers";
 import { useFormOptionsByGroup } from "@/features/form-options/hooks/use-form-options";
-import { buildAdditionalInfoSchemas, fieldSchemas } from "@/features/questionnaire/schemas/additional-info.schema";
+import {
+    buildAdditionalInfoSchemas,
+    fieldSchemas,
+} from "@/features/questionnaire/schemas/additional-info.schema";
 import type { QuestionnaireFormApi } from "@/features/questionnaire/types";
 
 import { YesNoWithDescription } from "./yes-no-with-description";
@@ -18,8 +21,10 @@ type SectionProps = {
 };
 
 export function AdditionalInfoSection({ form, onPersist }: SectionProps) {
-    const { data: physicalConditionOptions } = useFormOptionsByGroup("physical_condition");
-    const { data: disabilityTypeOptions } = useFormOptionsByGroup("disability_type");
+    const { data: physicalConditionOptions } =
+        useFormOptionsByGroup("physical_condition");
+    const { data: disabilityTypeOptions } =
+        useFormOptionsByGroup("disability_type");
 
     const optionsLoaded =
         physicalConditionOptions !== undefined &&
@@ -40,7 +45,9 @@ export function AdditionalInfoSection({ form, onPersist }: SectionProps) {
             </CardHeader>
             <CardContent className="space-y-2">
                 {/* ── Health ── */}
-                <span className="text-sm font-medium">وضعیت جسمانی و پزشکی</span>
+                <span className="text-sm font-medium">
+                    وضعیت جسمانی و پزشکی
+                </span>
 
                 <YesNoWithDescription
                     form={form}
@@ -79,10 +86,15 @@ export function AdditionalInfoSection({ form, onPersist }: SectionProps) {
 
                 <form.Field
                     name="additional_info.company_introduction_method"
-                    validators={zodFieldValidators(schemas.company_introduction_method)}
+                    validators={zodFieldValidators(
+                        schemas.company_introduction_method,
+                    )}
                 >
                     {(field) => (
-                        <FormTextarea field={field} label="نحوه آشنایی با شرکت" />
+                        <FormTextarea
+                            field={field}
+                            label="نحوه آشنایی با شرکت"
+                        />
                     )}
                 </form.Field>
 
@@ -90,7 +102,12 @@ export function AdditionalInfoSection({ form, onPersist }: SectionProps) {
                     name="additional_info.reason_for_joining"
                     validators={zodFieldValidators(schemas.reason_for_joining)}
                 >
-                    {(field) => <FormTextarea field={field} label="دلیل تمایل به همکاری" />}
+                    {(field) => (
+                        <FormTextarea
+                            field={field}
+                            label="دلیل تمایل به همکاری"
+                        />
+                    )}
                 </form.Field>
 
                 <YesNoWithDescription
@@ -118,12 +135,19 @@ export function AdditionalInfoSection({ form, onPersist }: SectionProps) {
                     name="additional_info.hobbies"
                     validators={zodFieldValidators(schemas.hobbies)}
                 >
-                    {(field) => <FormTextarea field={field} label="علاقه‌مندی‌ها و سرگرمی‌ها" />}
+                    {(field) => (
+                        <FormTextarea
+                            field={field}
+                            label="علاقه‌مندی‌ها و سرگرمی‌ها"
+                        />
+                    )}
                 </form.Field>
 
                 <form.Field
                     name="additional_info.strengths_and_improvements"
-                    validators={zodFieldValidators(schemas.strengths_and_improvements)}
+                    validators={zodFieldValidators(
+                        schemas.strengths_and_improvements,
+                    )}
                 >
                     {(field) => (
                         <FormTextarea
@@ -140,7 +164,7 @@ export function AdditionalInfoSection({ form, onPersist }: SectionProps) {
                     {(field) => (
                         <FormRepeater
                             field={field}
-                            label="ارجاعات"
+                            label="معرف‌ها"
                             onPersist={onPersist}
                             columns={[
                                 { key: "full_name", label: "نام" },
@@ -156,19 +180,38 @@ export function AdditionalInfoSection({ form, onPersist }: SectionProps) {
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     <form.Field
                                         name={`additional_info.references.${index}.full_name`}
-                                        validators={zodFieldValidators(schemas.reference_item.shape.full_name)}
+                                        validators={zodFieldValidators(
+                                            schemas.reference_item.shape
+                                                .full_name,
+                                        )}
                                     >
-                                        {(f) => <FormTextField field={f} label="نام و نام خانوادگی" />}
+                                        {(f) => (
+                                            <FormTextField
+                                                field={f}
+                                                label="نام و نام خانوادگی"
+                                            />
+                                        )}
                                     </form.Field>
                                     <form.Field
                                         name={`additional_info.references.${index}.relationship`}
-                                        validators={zodFieldValidators(schemas.reference_item.shape.relationship)}
+                                        validators={zodFieldValidators(
+                                            schemas.reference_item.shape
+                                                .relationship,
+                                        )}
                                     >
-                                        {(f) => <FormTextField field={f} label="رابطه" />}
+                                        {(f) => (
+                                            <FormTextField
+                                                field={f}
+                                                label="رابطه"
+                                            />
+                                        )}
                                     </form.Field>
                                     <form.Field
                                         name={`additional_info.references.${index}.workplace_phone`}
-                                        validators={zodFieldValidators(schemas.reference_item.shape.workplace_phone)}
+                                        validators={zodFieldValidators(
+                                            schemas.reference_item.shape
+                                                .workplace_phone,
+                                        )}
                                     >
                                         {(f) => (
                                             <FormTextField

@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { getApiError } from "@/lib/error-utils";
 import { documentKeys } from "@/lib/query-keys";
+import { EmptyState, ErrorSection } from "@/components/layout";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -247,7 +248,7 @@ export function DocumentList({
         string | null
     >(null);
 
-    const { data: documents, isLoading, error } = useQuery({
+    const { data: documents, isLoading, error, refetch } = useQuery({
         queryKey: documentKeys.list({ type: documentableType, entity_id: String(documentableId) }),
         queryFn: async () => {
             const { data } = await fetchDocuments(documentableType, String(documentableId));
@@ -320,19 +321,21 @@ export function DocumentList({
 
     if (error) {
         return (
-            <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-                <IconFile className="size-10 mb-3 opacity-30" />
-                <p className="text-sm text-destructive">خطا در بارگذاری مدارک</p>
-            </div>
+            <ErrorSection
+                icon={IconFile}
+                description={getApiError(error) ?? "خطا در بارگذاری مدارک"}
+                onRetry={() => refetch()}
+            />
         );
     }
 
     if (!documents?.length) {
         return (
-            <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-                <IconFile className="size-10 mb-3 opacity-30" />
-                <p className="text-sm">هیچ مدرکی آپلود نشده است</p>
-            </div>
+            <EmptyState
+                icon={IconFile}
+                message="هیچ مدرکی آپلود نشده است"
+                variant="compact"
+            />
         );
     }
 

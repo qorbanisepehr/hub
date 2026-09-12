@@ -64,7 +64,12 @@ export function useFormOptions() {
  * hitting their dedicated endpoint — the city group is far too large to embed
  * in the dictionary and location filtering/searching is server-side.
  */
-export function useFormOptionsByGroup(group: string, parentValue?: string, search?: string) {
+export function useFormOptionsByGroup(
+    group: string,
+    parentValue?: string,
+    search?: string,
+    enabled = true,
+) {
     const needsDedicatedFetch =
         parentValue !== undefined || search !== undefined || LOCATION_GROUPS.has(group);
 
@@ -73,7 +78,7 @@ export function useFormOptionsByGroup(group: string, parentValue?: string, searc
     const shared = useQuery({
         queryKey: formOptionKeys.all(),
         queryFn: fetchAllOptionsMap,
-        enabled: !needsDedicatedFetch,
+        enabled: !needsDedicatedFetch && enabled,
         staleTime: Infinity,
         select: (map: FormOptionsMap): PublicFormOption[] => map[group] ?? [],
     });
@@ -84,7 +89,7 @@ export function useFormOptionsByGroup(group: string, parentValue?: string, searc
             const { data } = await fetchFormOptionsByGroup(group, parentValue, search);
             return data.data;
         },
-        enabled: needsDedicatedFetch,
+        enabled: needsDedicatedFetch && enabled,
         staleTime: Infinity,
     });
 

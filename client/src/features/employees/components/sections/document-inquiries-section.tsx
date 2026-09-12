@@ -139,9 +139,8 @@ export function DocumentInquiriesSection({
     // «بدون استعلام» is the group's first option — shown as the select's
     // placeholder for legacy rows whose status is still empty.
     const statusPlaceholder =
-        statusOptions?.find(
-            (option) => option.value === INQUIRY_STATUS_DEFAULT,
-        )?.label ?? "بدون استعلام";
+        statusOptions?.find((option) => option.value === INQUIRY_STATUS_DEFAULT)
+            ?.label ?? "بدون استعلام";
 
     return (
         <Card>
@@ -211,10 +210,6 @@ export function DocumentInquiriesSection({
                         canUpdate={canUpdate}
                     />
                 </InquiryGroup>
-
-                <p className="text-xs text-muted-foreground">
-                    وضعیت پیش‌فرض هر استعلام «{statusPlaceholder}» است.
-                </p>
             </CardContent>
         </Card>
     );

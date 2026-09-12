@@ -3,6 +3,7 @@ import { IconCalendarEvent, IconShieldCheck, IconUser } from "@tabler/icons-reac
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { EmptyState } from "@/components/layout";
 import { SectionRow } from "@/components/shared/section-row";
 import { DocumentFileItem } from "@/components/documents";
 import { useFormOptionsByGroup } from "@/features/form-options/hooks/use-form-options";
@@ -218,9 +219,11 @@ export function DocumentInquiriesView({
                 </div>
 
                 {rendered.every((node) => node === null) ? (
-                    <p className="text-sm text-muted-foreground">
-                        استعلامی ثبت نشده است.
-                    </p>
+                    <EmptyState
+                        icon={IconShieldCheck}
+                        message="استعلامی ثبت نشده است."
+                        variant="compact"
+                    />
                 ) : (
                     <div
                         className={cn(

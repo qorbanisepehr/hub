@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { RepeaterEmptyState } from "@/components/shared";
 import { usePermissions } from "@/features/rbac/hooks/use-permissions";
 import { PermissionAddModal } from "@/features/rbac/components/permission-add-modal";
 
@@ -59,13 +60,17 @@ export function PermissionSelector({
             (groups ?? []).filter((group) =>
                 (group.permissions ?? []).some(
                     (perm) =>
-                        selectedPermSet.has(perm.id) || inheritedSet.has(perm.id),
+                        selectedPermSet.has(perm.id) ||
+                        inheritedSet.has(perm.id),
                 ),
             ),
         [groups, selectedPermSet, inheritedSet],
     );
 
-    const normalizedSearch = useMemo(() => search.trim().toLowerCase(), [search]);
+    const normalizedSearch = useMemo(
+        () => search.trim().toLowerCase(),
+        [search],
+    );
     const isSearching = normalizedSearch.length > 0;
 
     /**
@@ -167,14 +172,9 @@ export function PermissionSelector({
             {isLoading ? (
                 <SkeletonList />
             ) : activeGroups.length === 0 ? (
-                <p className="rounded-lg border border-dashed px-3 py-6 text-center text-sm text-muted-foreground">
-                    هیچ مجوزی انتخاب نشده است. با دکمه «افزودن مجوز» دسترسی‌های
-                    این نقش را تعیین کنید.
-                </p>
+                <RepeaterEmptyState message="هیچ مجوزی انتخاب نشده است. با دکمه «افزودن مجوز» دسترسی‌های این نقش را تعیین کنید." />
             ) : visibleGroups.length === 0 ? (
-                <p className="rounded-lg border border-dashed px-3 py-6 text-center text-sm text-muted-foreground">
-                    موردی یافت نشد
-                </p>
+                <RepeaterEmptyState message="موردی یافت نشد" />
             ) : (
                 <div className="max-h-80 divide-y divide-border overflow-y-auto overscroll-contain rounded-lg border">
                     {visibleGroups.map(({ group, permissions }) => {
@@ -213,7 +213,8 @@ export function PermissionSelector({
                                         <IconChevronDown
                                             className={cn(
                                                 "size-4 shrink-0 text-muted-foreground transition-transform",
-                                                !isOpen && "-rotate-90",
+                                                !isOpen &&
+                                                    "-rotate-90 rtl:rotate-90",
                                             )}
                                         />
                                         <span className="truncate text-sm font-medium">

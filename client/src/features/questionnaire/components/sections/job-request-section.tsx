@@ -4,6 +4,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldLabel } from "@/components/ui/field";
 import {
     FormTextField,
+    FormCountField,
     FormNumberField,
     FormTextarea,
     FormRadioGroup,
@@ -71,7 +72,7 @@ export function JobRequestSection({ form }: SectionProps) {
                     </form.Field>
                     <form.Field name="job_request.minimum_hours_per_month">
                         {(field) => (
-                            <FormNumberField field={field} label="حداقل ساعات کاری در ماه" />
+                            <FormCountField field={field} label="حداقل ساعات کاری در ماه" />
                         )}
                     </form.Field>
                     <form.Field name="job_request.expected_hourly_salary">

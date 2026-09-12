@@ -5,6 +5,7 @@ import { toast } from "sonner";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FormTextField } from "@/components/forms";
+import { FormMobileNumberField } from "@/components/forms";
 import { AddressForm } from "@/components/forms";
 import { OtpVerifiedInput } from "@/components/forms";
 import type { SectionFormApi } from "@/types/form-types";
@@ -168,11 +169,9 @@ export function ContactInfoSection({
                             validators={mobileValidators}
                         >
                             {(field) => (
-                                <FormTextField
+                                <FormMobileNumberField
                                     field={field}
                                     label="شماره موبایل"
-                                    placeholder="09121234567"
-                                    dir="ltr"
                                 />
                             )}
                         </form.Field>

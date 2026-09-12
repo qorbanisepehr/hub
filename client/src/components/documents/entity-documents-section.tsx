@@ -318,7 +318,7 @@ export function EntityDocumentsSection({
                                 categorySlug={
                                     DOC_CATEGORY_SLUGS.BIRTH_CERTIFICATE
                                 }
-                                label="شناسنامه — صفحه آخر"
+                                label="شناسنامه — صفحه سوم"
                                 accept="image/jpeg,image/png,image/webp,.pdf"
                                 fieldKey="page-3"
                                 required
@@ -344,7 +344,7 @@ export function EntityDocumentsSection({
                                 categorySlug={
                                     DOC_CATEGORY_SLUGS.BIRTH_CERTIFICATE
                                 }
-                                label="شناسنامه — صفحه اضافی"
+                                label="شناسنامه — صفحه پنجم"
                                 accept="image/jpeg,image/png,image/webp,.pdf"
                                 fieldKey="page-extra"
                                 replaceEnabled={replaceEnabled}
@@ -394,11 +394,11 @@ export function EntityDocumentsSection({
 
                 {/* ── مدارک تکمیلی ── */}
                 <div className="space-y-4">
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
                         <span className="text-sm font-medium">
                             مدارک تکمیلی
                         </span>
-                        <div className="flex items-center gap-2">
+                        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
                             <Select
                                 value={pickSlug}
                                 onValueChange={(v) =>
@@ -409,7 +409,7 @@ export function EntityDocumentsSection({
                                         ?.label ?? val
                                 }
                             >
-                                <SelectTrigger className="w-48 h-8 text-xs">
+                                <SelectTrigger className="h-8 w-full text-xs sm:w-48">
                                     <SelectValue placeholder="نوع مدرک" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -427,12 +427,13 @@ export function EntityDocumentsSection({
                                 value={pickNotes}
                                 onChange={(e) => setPickNotes(e.target.value)}
                                 placeholder="توضیحات (اختیاری)"
-                                className="h-8 text-xs w-40"
+                                className="h-8 w-full text-xs sm:w-40"
                             />
                             <Button
                                 type="button"
                                 variant="outline"
                                 size="sm"
+                                className="sm:ms-auto"
                                 onClick={handleAddExtra}
                             >
                                 <IconPlus className="size-3.5 ms-1" />

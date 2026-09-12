@@ -8,14 +8,6 @@ import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from "@/components/ui/dialog";
-import {
     Select,
     SelectContent,
     SelectGroup,
@@ -24,6 +16,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import { ResponsiveDialog } from "@/components/ui/responsive-dialog";
 import { Field, FieldLabel, FieldError } from "@/components/ui/field";
 import { UserSearchSelect } from "@/features/rbac/components/user-search-select";
 import { previewRule } from "@/features/rbac/api";
@@ -182,26 +175,35 @@ export function RuleEditorDialog({
     const operatorOptions = meta?.operators ?? [];
 
     return (
-        <Dialog
+        <ResponsiveDialog
             key={initialRule?.permission_id ?? "new"}
             open={open}
             onOpenChange={(next) => {
                 if (!next) previewMutation.reset();
                 onOpenChange(next);
             }}
+            title={initialRule ? "ویرایش قانون دسترسی" : "قانون دسترسی جدید"}
+            description="مجوز، اثر و شرایط دسترسی را تعیین کنید. شرایط با «همه موارد» به هم می‌پیوندند."
+            footer={
+                <>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => onOpenChange(false)}
+                    >
+                        انصراف
+                    </Button>
+                    <Button
+                        type="button"
+                        onClick={handleSaveClick}
+                        disabled={!draft.permission_id}
+                    >
+                        ذخیره قانون
+                    </Button>
+                </>
+            }
         >
-            <DialogContent className="sm:max-w-2xl">
-                <DialogHeader>
-                    <DialogTitle>
-                        {initialRule ? "ویرایش قانون دسترسی" : "قانون دسترسی جدید"}
-                    </DialogTitle>
-                    <DialogDescription>
-                        مجوز، اثر و شرایط دسترسی را تعیین کنید. شرایط با «همه
-                        موارد» به هم می‌پیوندند.
-                    </DialogDescription>
-                </DialogHeader>
-
-                <div className="space-y-4 py-2">
+            <div className="space-y-4 py-2">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <Field>
                             <FieldLabel>مجوز</FieldLabel>
@@ -243,7 +245,7 @@ export function RuleEditorDialog({
                             </Select>
                         </Field>
 
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                             <Field>
                                 <FieldLabel>اثر</FieldLabel>
                                 <Select
@@ -499,24 +501,6 @@ export function RuleEditorDialog({
                         )}
                     </div>
                 </div>
-
-                <DialogFooter>
-                    <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => onOpenChange(false)}
-                    >
-                        انصراف
-                    </Button>
-                    <Button
-                        type="button"
-                        onClick={handleSaveClick}
-                        disabled={!draft.permission_id}
-                    >
-                        ذخیره قانون
-                    </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
+        </ResponsiveDialog>
     );
 }

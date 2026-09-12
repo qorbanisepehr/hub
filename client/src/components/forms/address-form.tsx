@@ -1,7 +1,7 @@
 import type { ReactFormExtendedApi } from "@tanstack/react-form";
 
 import { FormTextField, FormTextarea } from "@/components/forms";
-import { ProvinceCityFields } from "@/components/forms";
+import { PlaceCascader } from "@/components/forms";
 import { zodFieldValidators } from "@/lib/validation-helpers";
 import { fieldSchemas } from "@/features/questionnaire/schemas/contact-info.schema";
 
@@ -31,9 +31,10 @@ export function AddressForm({ form, prefix, mode = "full" }: AddressFormProps) {
                                 validators={zodFieldValidators(fieldSchemas.address_city)}
                             >
                                 {(cityField) => (
-                                    <ProvinceCityFields
+                                    <PlaceCascader
                                         provinceField={provinceField}
                                         cityField={cityField}
+                                        label="استان و شهر"
                                     />
                                 )}
                             </form.Field>
@@ -75,9 +76,10 @@ export function AddressForm({ form, prefix, mode = "full" }: AddressFormProps) {
                             validators={zodFieldValidators(fieldSchemas.address_city)}
                         >
                             {(cityField) => (
-                                <ProvinceCityFields
+                                <PlaceCascader
                                     provinceField={provinceField}
                                     cityField={cityField}
+                                    label="استان و شهر"
                                 />
                             )}
                         </form.Field>

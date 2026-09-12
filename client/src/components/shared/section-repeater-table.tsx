@@ -2,6 +2,7 @@ import { Fragment, useState, type ReactNode } from "react";
 import { IconChevronDown, IconChevronRight } from "@tabler/icons-react";
 
 import { Button } from "@/components/ui/button";
+import { RepeaterEmptyState } from "./repeater-empty-state";
 
 function asRecord(value: unknown): Record<string, unknown> {
     return value && typeof value === "object"
@@ -46,7 +47,7 @@ export function SectionRepeaterTable({
 
     const list = Array.isArray(items) ? items.map(asRecord) : [];
     if (list.length === 0) {
-        return <p className="text-sm text-muted-foreground">{emptyLabel}</p>;
+        return <RepeaterEmptyState message={emptyLabel} />;
     }
     const cellValue = (value: unknown): ReactNode =>
         value === null || value === undefined || value === "" ? "-" : (value as ReactNode);

@@ -10,13 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-    DialogDescription,
-} from "@/components/ui/dialog";
+import { ResponsiveDialog } from "@/components/ui/responsive-dialog";
 import { usePermissions } from "@/features/rbac/hooks/use-permissions";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { fetchPermissionsPaginated } from "@/features/rbac/api";
@@ -329,52 +323,50 @@ export function PermissionAddModal({
     const [tab, setTab] = useState("groups");
 
     return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-md gap-0 p-0 overflow-hidden">
-                <DialogHeader className="px-4 pt-4 pb-2">
-                    <DialogTitle className="flex items-center gap-2">
-                        افزودن مجوز
-                    </DialogTitle>
-                    <DialogDescription>
-                        گروه یا مجوز مورد نظر را انتخاب کنید{" "}
-                        {selectedPermissionIds.length > 0 && (
-                            <Badge variant="secondary" className="text-xs">
-                                {selectedPermissionIds.length}
-                            </Badge>
-                        )}
-                    </DialogDescription>
-                </DialogHeader>
+        <ResponsiveDialog
+            open={open}
+            onOpenChange={onOpenChange}
+            title={
+                <span className="flex items-center gap-2">
+                    افزودن مجوز
+                    {selectedPermissionIds.length > 0 && (
+                        <Badge variant="secondary" className="text-xs">
+                            {selectedPermissionIds.length}
+                        </Badge>
+                    )}
+                </span>
+            }
+            description="گروه یا مجوز مورد نظر را انتخاب کنید"
+        >
+            <Tabs
+                value={tab}
+                onValueChange={(v) => setTab(v as string)}
+                className="w-full"
+            >
+                <TabsList className="w-full">
+                    <TabsTrigger value="groups" className="flex-1">
+                        گروه‌ها
+                    </TabsTrigger>
+                    <TabsTrigger value="permissions" className="flex-1">
+                        مجوزها
+                    </TabsTrigger>
+                </TabsList>
 
-                <Tabs
-                    value={tab}
-                    onValueChange={(v) => setTab(v as string)}
-                    className="px-4"
-                >
-                    <TabsList className="w-full">
-                        <TabsTrigger value="groups" className="flex-1">
-                            گروه‌ها
-                        </TabsTrigger>
-                        <TabsTrigger value="permissions" className="flex-1">
-                            مجوزها
-                        </TabsTrigger>
-                    </TabsList>
-
-                    <div className="py-2">
-                        <TabsContent value="groups">
-                            <GroupsTab
-                                selectedPermissionIds={selectedPermissionIds}
-                                onGroupToggle={onGroupToggle}
-                            />
-                        </TabsContent>
-                        <TabsContent value="permissions">
-                            <PermissionsTab
-                                selectedPermissionIds={selectedPermissionIds}
-                                onPermissionToggle={onPermissionToggle}
-                            />
-                        </TabsContent>
-                    </div>
-                </Tabs>
-            </DialogContent>
-        </Dialog>
+                <div className="py-2">
+                    <TabsContent value="groups">
+                        <GroupsTab
+                            selectedPermissionIds={selectedPermissionIds}
+                            onGroupToggle={onGroupToggle}
+                        />
+                    </TabsContent>
+                    <TabsContent value="permissions">
+                        <PermissionsTab
+                            selectedPermissionIds={selectedPermissionIds}
+                            onPermissionToggle={onPermissionToggle}
+                        />
+                    </TabsContent>
+                </div>
+            </Tabs>
+        </ResponsiveDialog>
     );
 }

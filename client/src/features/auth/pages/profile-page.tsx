@@ -13,13 +13,14 @@ import {
     CardDescription,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { ActiveBadge } from "@/components/shared/active-badge";
 import { useAuth } from "@/features/auth";
 import { authKeys } from "@/lib/query-keys";
 import { uploadAvatar, deleteAvatar } from "@/features/auth/api";
 import { getApiError } from "@/lib/error-utils";
 import { AvatarUpload } from "@/components/shared/avatar-upload";
 import { RoleSwitcher } from "@/features/auth/components/role-switcher";
-import { InfoRow } from "@/components/shared/info-row";
+import { SectionRow } from "@/components/shared/section-row";
 import { PageLayout } from "@/components/layout";
 import { ErrorPage } from "@/components/layout";
 import { PageHeader } from "@/components/layout";
@@ -109,23 +110,19 @@ export function ProfilePage() {
                         <CardDescription>اطلاعات هویتی حساب کاربری</CardDescription>
                     </CardHeader>
                     <CardContent className="divide-y">
-                        <InfoRow label="نام" value={user.name} />
-                        <InfoRow
+                        <SectionRow label="نام" value={user.name} />
+                        <SectionRow
                             label="ایمیل"
                             value={<span dir="ltr">{user.email}</span>}
                         />
-                        <InfoRow
+                        <SectionRow
                             label="تلفن"
                             value={user.phone ? <span dir="ltr">{user.phone}</span> : "—"}
                         />
-                        <InfoRow label="نام کاربری" value={user.username ?? "—"} />
-                        <InfoRow
+                        <SectionRow label="نام کاربری" value={user.username ?? "—"} />
+                        <SectionRow
                             label="وضعیت"
-                            value={
-                                <Badge variant={user.is_active ? "default" : "secondary"}>
-                                    {user.is_active ? "فعال" : "غیرفعال"}
-                                </Badge>
-                            }
+                            value={<ActiveBadge isActive={user.is_active} />}
                         />
                     </CardContent>
                 </Card>

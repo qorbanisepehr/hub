@@ -9,6 +9,7 @@ import {
 } from "@tabler/icons-react";
 
 import { cn } from "@/lib/utils";
+import { toPersianDate } from "@/lib/date-format";
 import { getFileIcon } from "@/lib/file-utils";
 import { getFileColorClasses } from "@/lib/file-utils";
 import { getFileTypeLabel } from "@/lib/file-utils";
@@ -137,6 +138,15 @@ export function DocumentPreviewLightbox({
     const hasPrev = currentIndex > 0;
     const hasNext = currentIndex < documents.length - 1;
 
+    // Reading direction decides which physical side is "previous": in RTL
+    // (fa) the trail continues right-to-left, so the previous button sits at
+    // the END edge and the next button at the START edge, mirrored from LTR.
+    const isRtl =
+        typeof document !== "undefined" &&
+        document.documentElement
+            ?.getAttribute("dir")
+            ?.toLowerCase() === "rtl";
+
     const resetHideTimer = React.useCallback(() => {
         setControlsVisible(true);
         if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
@@ -159,8 +169,12 @@ export function DocumentPreviewLightbox({
 
         function handleKeyDown(e: KeyboardEvent) {
             if (e.key === "Escape") onClose();
-            if (e.key === "ArrowLeft" && hasPrev) onNavigate(currentIndex - 1);
-            if (e.key === "ArrowRight" && hasNext) onNavigate(currentIndex + 1);
+            // Arrows follow reading direction: in RTL, ArrowLeft means
+            // "next" and ArrowRight "previous".
+            const prevKey = isRtl ? "ArrowRight" : "ArrowLeft";
+            const nextKey = isRtl ? "ArrowLeft" : "ArrowRight";
+            if (e.key === prevKey && hasPrev) onNavigate(currentIndex - 1);
+            if (e.key === nextKey && hasNext) onNavigate(currentIndex + 1);
             resetHideTimer();
         }
 
@@ -171,6 +185,7 @@ export function DocumentPreviewLightbox({
         currentIndex,
         hasPrev,
         hasNext,
+        isRtl,
         onClose,
         onNavigate,
         resetHideTimer,
@@ -198,8 +213,13 @@ export function DocumentPreviewLightbox({
         touchStartRef.current = null;
 
         if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > SWIPE_THRESHOLD) {
-            if (dx > 0 && hasPrev) onNavigate(currentIndex - 1);
-            if (dx < 0 && hasNext) onNavigate(currentIndex + 1);
+            // Swipe direction follows reading order: in RTL, swiping toward
+            // the start edge (leftward, dx < 0) goes to the previous item.
+            const swipeForward = isRtl ? dx > 0 : dx < 0;
+            const swipeBack = isRtl ? dx < 0 : dx > 0;
+
+            if (swipeBack && hasPrev) onNavigate(currentIndex - 1);
+            if (swipeForward && hasNext) onNavigate(currentIndex + 1);
         }
     }
 
@@ -273,7 +293,7 @@ export function DocumentPreviewLightbox({
             {/* Info panel */}
             <div
                 className={cn(
-                    "absolute right-4 top-14 w-64 rounded-lg border border-white/10 bg-black/70 p-3 text-sm text-white backdrop-blur-md transition-opacity duration-300",
+                    "absolute top-14 end-4 w-64 rounded-lg border border-white/10 bg-black/70 p-3 text-sm text-white backdrop-blur-md transition-opacity duration-300",
                     showInfo && controlsVisible
                         ? "opacity-100"
                         : "opacity-0 pointer-events-none",
@@ -294,7 +314,7 @@ export function DocumentPreviewLightbox({
                     {doc.created_at && (
                         <InfoRow
                             label="تاریخ"
-                            value={doc.created_at.split("T")[0]}
+                            value={toPersianDate(doc.created_at)}
                         />
                     )}
                     {doc.notes && (
@@ -310,20 +330,23 @@ export function DocumentPreviewLightbox({
                 </div>
             </div>
 
-            {/* Navigation arrows */}
+            {/* Navigation arrows — logical edges only: `start-`/`end-` already
+                flip with direction (prev at the start edge users read from,
+                next at the end edge). Icons mirror via rtl:/ltr: variants —
+                no manual isRtl branching on position (that double-flips). */}
             {hasPrev && (
                 <button
                     type="button"
                     onClick={() => onNavigate(currentIndex - 1)}
                     className={cn(
-                        "absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-white/10 p-2 text-white backdrop-blur-sm transition-all duration-300 hover:bg-white/20 sm:left-4 sm:p-3",
+                        "absolute top-1/2 start-2 -translate-y-1/2 rounded-full bg-white/10 p-2 text-white backdrop-blur-sm transition-all duration-300 hover:bg-white/20 sm:start-4 sm:p-3",
                         controlsVisible
                             ? "opacity-100"
                             : "opacity-0 pointer-events-none",
                     )}
                     aria-label="Previous"
                 >
-                    <IconChevronLeft className="size-5 sm:size-6" />
+                    <IconChevronLeft className="size-5 rtl:-scale-x-100 sm:size-6" />
                 </button>
             )}
             {hasNext && (
@@ -331,14 +354,14 @@ export function DocumentPreviewLightbox({
                     type="button"
                     onClick={() => onNavigate(currentIndex + 1)}
                     className={cn(
-                        "absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-white/10 p-2 text-white backdrop-blur-sm transition-all duration-300 hover:bg-white/20 sm:right-4 sm:p-3",
+                        "absolute top-1/2 end-2 -translate-y-1/2 rounded-full bg-white/10 p-2 text-white backdrop-blur-sm transition-all duration-300 hover:bg-white/20 sm:end-4 sm:p-3",
                         controlsVisible
                             ? "opacity-100"
                             : "opacity-0 pointer-events-none",
                     )}
                     aria-label="Next"
                 >
-                    <IconChevronRight className="size-5 sm:size-6" />
+                    <IconChevronRight className="size-5 rtl:-scale-x-100 sm:size-6" />
                 </button>
             )}
 
@@ -350,7 +373,7 @@ export function DocumentPreviewLightbox({
             {/* Bottom counter */}
             <div
                 className={cn(
-                    "absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-black/50 px-3 py-1 text-xs text-white/70 backdrop-blur-sm transition-opacity duration-300",
+                    "absolute bottom-4 start-1/2 translate-x-[-50%] rtl:translate-x-[50%] rounded-full bg-black/50 px-3 py-1 text-xs text-white/70 backdrop-blur-sm transition-opacity duration-300",
                     controlsVisible ? "opacity-100" : "opacity-0",
                 )}
             >

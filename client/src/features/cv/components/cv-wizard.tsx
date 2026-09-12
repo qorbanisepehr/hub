@@ -23,7 +23,12 @@ import {
     StepperPanel,
     StepperContent,
 } from "@/components/reui/stepper";
-import { useWizardState, useWizardSubmit, SubmitErrors } from "@/components/wizards";
+import {
+    useWizardState,
+    useWizardSubmit,
+    SubmitErrors,
+    StepperNavResponsive,
+} from "@/components/wizards";
 import { saveCvSection, submitCv } from "@/features/cv/api";
 import { getApiError } from "@/lib/error-utils";
 import { cleanServerSection } from "@/lib/form-utils";
@@ -313,7 +318,12 @@ export function CvWizard({ cv }: CvWizardProps) {
             />
 
             <Stepper value={currentStep} onValueChange={goToStep}>
-                <StepperNav className="mb-4 gap-5">
+                <StepperNavResponsive
+                    steps={CV_WIZARD_STEPS}
+                    value={currentStep}
+                    onValueChange={goToStep}
+                >
+                    <StepperNav className="mb-4 gap-5">
                     {CV_WIZARD_STEPS.map((step, index) => (
                         <StepperItem
                             key={step.id}
@@ -334,6 +344,7 @@ export function CvWizard({ cv }: CvWizardProps) {
                         </StepperItem>
                     ))}
                 </StepperNav>
+                </StepperNavResponsive>
 
                 <StepperPanel>
                     <StepperContent index={0}>

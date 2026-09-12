@@ -5,6 +5,7 @@ import { IconDownload, IconLoader2 } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { getApiError } from "@/lib/error-utils";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
     Select,
@@ -101,8 +102,8 @@ export function ExportChartDialog({
 
             toast.success("خروجی با موفقیت ایجاد شد.");
             onOpenChange(false);
-        } catch {
-            toast.error("خطا در ایجاد خروجی.");
+        } catch (err) {
+            toast.error(getApiError(err) ?? "خطا در ایجاد خروجی.");
         } finally {
             setIsExporting(false);
         }

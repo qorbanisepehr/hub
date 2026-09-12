@@ -1,7 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
+import { IconMasksTheater, IconLock } from "@tabler/icons-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmptyState } from "@/components/layout";
 import { Skeleton } from "@/components/ui/skeleton";
 import { usePermission } from "@/features/auth/components/permission-guard";
 import { fetchUserRoles } from "@/features/rbac/api";
@@ -32,9 +34,11 @@ export function LinkedUserRolesView({
                     <CardTitle>نقش‌های کاربر</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <p className="text-sm text-muted-foreground">
-                        برای مشاهده نقش‌های کاربر دسترسی کافی ندارید
-                    </p>
+                    <EmptyState
+                        icon={IconLock}
+                        message="برای مشاهده نقش‌های کاربر دسترسی کافی ندارید"
+                        variant="compact"
+                    />
                 </CardContent>
             </Card>
         );
@@ -55,9 +59,11 @@ export function LinkedUserRolesView({
                         <Skeleton className="h-8 w-32" />
                     </div>
                 ) : roles.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">
-                        هیچ نقشی تخصیص داده نشده است
-                    </p>
+                    <EmptyState
+                        icon={IconMasksTheater}
+                        message="هیچ نقشی تخصیص داده نشده است"
+                        variant="compact"
+                    />
                 ) : (
                     roles.map((role) => (
                         <div

@@ -5,6 +5,7 @@ import { toast } from "sonner";
 
 import { getApiError } from "@/lib/error-utils";
 import { documentKeys } from "@/lib/query-keys";
+import { EmptyState } from "@/components/layout";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { ResponsiveDialog } from "@/components/ui/responsive-dialog";
@@ -127,10 +128,11 @@ export function EmployeeDocumentTrashModal({
                     ))}
                 </div>
             ) : !trashedDocuments?.length ? (
-                <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-                    <IconTrashOff className="size-10 mb-3 opacity-30" />
-                    <p className="text-sm">سطل زباله خالی است</p>
-                </div>
+                <EmptyState
+                    icon={IconTrashOff}
+                    message="سطل زباله خالی است"
+                    variant="compact"
+                />
             ) : (
                 <div className="divide-y">
                     {trashedDocuments.map((doc) => {

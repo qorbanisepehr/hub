@@ -123,6 +123,11 @@ export type DocumentRequirementSpec = {
     slug: string;
     label: string;
     required?: boolean;
+    /**
+     * Slot-based categories (requiredFields) treat `max` as the per-slot cap
+     * (one file per page/side); plain categories treat it as a category-wide
+     * file cap.
+     */
     max?: number;
     /** Per-field-key requirements — each field must have at least one file. */
     requiredFields?: { fieldKey: string; label: string }[];
@@ -130,7 +135,8 @@ export type DocumentRequirementSpec = {
 
 /**
  * Validate uploaded documents against per-category requirements. Mirrors the
- * backend enforcement (CvService/QuestionnaireService documentRequirements).
+ * backend enforcement (per-placement max_files for slotted categories,
+ * category-wide caps for the rest).
  */
 export function validateDocumentRequirements(
     documents: Array<{ category: { slug: string } | null; field_key?: string | null }>,
@@ -142,18 +148,24 @@ export function validateDocumentRequirements(
         if (requirement.required && categoryDocs.length === 0) {
             messages.push(`«${requirement.label}» الزامی است و بارگذاری نشده است.`);
         }
-        if (requirement.max !== undefined && categoryDocs.length > requirement.max) {
-            messages.push(`حداکثر ${requirement.max} فایل برای «${requirement.label}» مجاز است.`);
-        }
         if (requirement.requiredFields) {
+            const slotCapacity = requirement.max ?? 1;
             for (const field of requirement.requiredFields) {
                 const count = categoryDocs.filter((d) => d.field_key === field.fieldKey).length;
                 if (count === 0) {
                     messages.push(
                         `«${requirement.label} — ${field.label}» الزامی است و بارگذاری نشده است.`,
                     );
+                } else if (count > slotCapacity) {
+                    messages.push(
+                        `حداکثر ${slotCapacity} صفحه برای «${requirement.label} — ${field.label}» مجاز است.`,
+                    );
                 }
             }
+            continue;
+        }
+        if (requirement.max !== undefined && categoryDocs.length > requirement.max) {
+            messages.push(`حداکثر ${requirement.max} مورد برای «${requirement.label}» مجاز است.`);
         }
     }
     return messages;

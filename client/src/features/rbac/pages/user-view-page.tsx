@@ -5,6 +5,7 @@ import {
     IconPencil,
     IconMasksTheater,
     IconShieldCheck,
+    IconShieldOff,
 } from "@tabler/icons-react";
 import { isAxiosError } from "axios";
 
@@ -27,8 +28,9 @@ import { getUserDisplayName } from "@/lib/user-display";
 import { PermissionGuard } from "@/features/auth/components/permission-guard";
 import { PERMISSIONS } from "@/lib/permissions";
 import { ResponsiveDialog } from "@/components/ui/responsive-dialog";
-import { ViewSkeleton } from "@/components/layout";
-import { InfoRow } from "@/components/shared/info-row";
+import { EmptyState, ViewSkeleton } from "@/components/layout";
+import { ActiveBadge } from "@/components/shared/active-badge";
+import { SectionRow } from "@/components/shared/section-row";
 import { PageLayout } from "@/components/layout";
 import { ErrorPage } from "@/components/layout";
 import { PageHeader } from "@/components/layout";
@@ -135,28 +137,26 @@ export function UserViewPage() {
                                             کارمند
                                         </Badge>
                                     )}
-                                    <Badge variant={user.is_active ? "default" : "secondary"}>
-                                        {user.is_active ? "فعال" : "غیرفعال"}
-                                    </Badge>
+                                    <ActiveBadge isActive={user.is_active} />
                                 </div>
                             </div>
                         </div>
                         <CardDescription>اطلاعات هویتی کاربر</CardDescription>
                     </CardHeader>
                     <CardContent className="divide-y">
-                        <InfoRow label="نام" value={displayName} />
+                        <SectionRow label="نام" value={displayName} />
                         {user.employee?.personnel_code && (
-                            <InfoRow
+                            <SectionRow
                                 label="کد پرسنلی"
                                 value={<span dir="ltr">{user.employee.personnel_code}</span>}
                             />
                         )}
-                        <InfoRow
+                        <SectionRow
                             label="ایمیل"
                             value={<span dir="ltr">{user.email}</span>}
                         />
-                        <InfoRow label="تلفن" value={user.phone ?? "—"} />
-                        <InfoRow label="نام کاربری" value={user.username ?? "—"} />
+                        <SectionRow label="تلفن" value={user.phone ?? "—"} />
+                        <SectionRow label="نام کاربری" value={user.username ?? "—"} />
                     </CardContent>
                 </Card>
 
@@ -181,9 +181,11 @@ export function UserViewPage() {
                                 ))}
                             </div>
                         ) : (
-                            <p className="text-sm text-muted-foreground text-center py-6">
-                                هیچ نقشی تخصیص داده نشده است
-                            </p>
+                            <EmptyState
+                                icon={IconMasksTheater}
+                                message="هیچ نقشی تخصیص داده نشده است"
+                                variant="compact"
+                            />
                         )}
                     </CardContent>
                 </Card>
