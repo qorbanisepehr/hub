@@ -2,13 +2,15 @@
 
 namespace App\Support;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 
 /**
  * Standard clamps and typed reads for list endpoints: per-page ceiling, sort
- * whitelist/default fallback, sort direction, and free-text filter. Replaces
- * the inline min(max(...)) per_page clamps (caps drifted to 50/100 across ~9
- * endpoints) and the previously unclamped DocumentController paginate() calls.
+ * whitelist/default fallback, sort direction, free-text filter, and the
+ * escaped LIKE search over whitelisted columns. Replaces the inline
+ * min(max(...)) per_page clamps (caps drifted to 50/100 across ~9 endpoints)
+ * and the previously unclamped DocumentController paginate() calls.
  */
 final class ListQuery
 {
@@ -55,5 +57,27 @@ final class ListQuery
         $filter = $request->input('filter');
 
         return is_string($filter) && $filter !== '' ? $filter : null;
+    }
+
+    /**
+     * Escaped LIKE search over $columns: % and _ wildcards in the term are
+     * literal, so user input cannot broaden the match. A null term (absent or
+     * empty) leaves the query untouched.
+     *
+     * @param  array<int, string>  $columns
+     */
+    public static function search(Builder $query, ?string $term, array $columns): Builder
+    {
+        if ($term === null || $term === '' || $columns === []) {
+            return $query;
+        }
+
+        $escaped = addcslashes($term, '%_\\');
+
+        return $query->where(function (Builder $group) use ($columns, $escaped): void {
+            foreach ($columns as $column) {
+                $group->orWhere($column, 'like', "%{$escaped}%");
+            }
+        });
     }
 }

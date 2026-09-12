@@ -17,15 +17,21 @@ use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class EmployeeController
 {
-    /** @var array<string, string> */
-    private array $sortable = [
-        'personnel_code' => 'personnel_code',
-        'first_name' => 'first_name',
-        'last_name' => 'last_name',
-        'gender' => 'gender',
-        'employment_status' => 'employment_status',
-        'hire_date' => 'hire_date',
-        'created_at' => 'created_at',
+    private const SORTABLE = [
+        'personnel_code',
+        'first_name',
+        'full_name',
+        'last_name',
+        'gender',
+        'employment_status',
+        'hire_date',
+        'created_at',
+    ];
+
+    private const SEARCHABLE = [
+        'personnel_code',
+        'first_name',
+        'last_name',
     ];
 
     public function __construct(
@@ -33,27 +39,35 @@ class EmployeeController
         private Authorization $authorization,
     ) {}
 
+    /**
+     * The UI sorts the combined name column under one id; the database sorts
+     * by the leading first name.
+     */
+    private function sortColumn(string $id): string
+    {
+        return $id === 'full_name' ? 'first_name' : $id;
+    }
+
     public function index(Request $request): AnonymousResourceCollection
     {
         $query = Employee::with(['user.activeRole']);
 
         $this->authorization->scope($request->user(), 'employee.list', $query);
 
-        if ($filter = ListQuery::filter($request)) {
-            $query->where(function ($q) use ($filter) {
-                $q->where('personnel_code', 'like', "%{$filter}%")
-                    ->orWhere('first_name', 'like', "%{$filter}%")
-                    ->orWhere('last_name', 'like', "%{$filter}%");
-            });
-        }
+        ListQuery::search($query, ListQuery::filter($request), self::SEARCHABLE);
 
         if ($request->filled('status')) {
             $query->where('employment_status', $request->input('status'));
         }
 
-        $sortField = ListQuery::sort($request, default: 'personnel_code');
-        $sortDirection = ListQuery::order($request);
-        $query->orderBy($this->sortable[$sortField] ?? 'created_at', $sortDirection);
+        if ($request->filled('status_not')) {
+            $query->where('employment_status', '!=', $request->input('status_not'));
+        }
+
+        $query->orderBy(
+            $this->sortColumn(ListQuery::sort($request, self::SORTABLE, 'personnel_code')),
+            ListQuery::order($request),
+        );
 
         $employees = $query->paginate(ListQuery::perPage($request));
 

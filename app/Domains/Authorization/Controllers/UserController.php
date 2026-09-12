@@ -16,16 +16,21 @@ use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class UserController
 {
+    private const SORTABLE = [
+        'name',
+        'email',
+        'is_active',
+        'created_at',
+    ];
+
+    private const SEARCHABLE = [
+        'name',
+        'email',
+    ];
+
     public function __construct(
         private Authorization $authorization,
     ) {}
-
-    /** @var array<string, string> */
-    private array $sortable = [
-        'name' => 'name',
-        'email' => 'email',
-        'created_at' => 'created_at',
-    ];
 
     private const EMPLOYEE_COLUMNS = 'employee:id,user_id,first_name,last_name,personnel_code';
 
@@ -35,12 +40,7 @@ class UserController
 
         $this->authorization->scope($request->user(), 'user.view', $query);
 
-        if ($filter = ListQuery::filter($request)) {
-            $query->where(function ($q) use ($filter) {
-                $q->where('name', 'like', "%{$filter}%")
-                    ->orWhere('email', 'like', "%{$filter}%");
-            });
-        }
+        ListQuery::search($query, ListQuery::filter($request), self::SEARCHABLE);
 
         if ($request->filled('role')) {
             $query->whereHas('roles', function ($q) use ($request) {
@@ -59,13 +59,35 @@ class UserController
             $query->where('is_active', filter_var($request->input('is_active'), FILTER_VALIDATE_BOOLEAN));
         }
 
-        $sortField = ListQuery::sort($request, default: 'name');
-        $sortDirection = ListQuery::order($request, default: 'asc');
-        $query->orderBy($this->sortable[$sortField] ?? 'name', $sortDirection);
+        $query->orderBy(
+            ListQuery::sort($request, self::SORTABLE, 'name'),
+            ListQuery::order($request, default: 'asc'),
+        );
 
         $users = $query->paginate(ListQuery::perPage($request));
 
         return UserResource::collection($users);
+    }
+
+    /**
+     * Lightweight id + label list for filter dropdowns and search-selects —
+     * unpaginated (scoped to user.view), so option lists never silently
+     * truncate the way a per_page-clamped list endpoint does.
+     */
+    public function options(Request $request): JsonResponse
+    {
+        $query = User::query()->orderBy('name');
+
+        $this->authorization->scope($request->user(), 'user.view', $query);
+
+        return response()->json([
+            'data' => $query->get(['id', 'name as label'])->map(
+                fn (User $user): array => [
+                    'id' => $user->id,
+                    'label' => $user->label,
+                ],
+            ),
+        ]);
     }
 
     public function store(StoreUserRequest $request): JsonResponse

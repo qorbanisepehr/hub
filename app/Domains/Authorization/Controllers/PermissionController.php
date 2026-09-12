@@ -16,6 +16,11 @@ use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class PermissionController
 {
+    private const SEARCHABLE = [
+        'name',
+        'display_name',
+    ];
+
     public function __construct(
         private AuthorizationVersion $version,
     ) {}
@@ -31,12 +36,7 @@ class PermissionController
     {
         $query = Permission::with('group');
 
-        if ($filter = ListQuery::filter($request)) {
-            $query->where(function ($q) use ($filter) {
-                $q->where('name', 'like', "%{$filter}%")
-                    ->orWhere('display_name', 'like', "%{$filter}%");
-            });
-        }
+        ListQuery::search($query, ListQuery::filter($request), self::SEARCHABLE);
 
         $query->orderBy('name', 'asc');
 

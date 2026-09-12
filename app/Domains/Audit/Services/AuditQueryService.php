@@ -3,6 +3,7 @@
 namespace App\Domains\Audit\Services;
 
 use App\Domains\Audit\Models\AuditLog;
+use App\Support\ListQuery;
 use Illuminate\Contracts\Pagination\CursorPaginator;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
@@ -27,8 +28,16 @@ final class AuditQueryService
             $query->where('event', $filters['event']);
         }
 
+        if (isset($filters['event_not'])) {
+            $query->where('event', '!=', $filters['event_not']);
+        }
+
         if (isset($filters['category'])) {
             $query->where('category', $filters['category']);
+        }
+
+        if (isset($filters['category_not'])) {
+            $query->where('category', '!=', $filters['category_not']);
         }
 
         if (isset($filters['actor_type'])) {
@@ -71,10 +80,9 @@ final class AuditQueryService
             $query->where('ip_address', $filters['ip']);
         }
 
-        if (isset($filters['search'])) {
-            $search = str_replace(['%', '_'], ['\\%', '\\_'], $filters['search']);
-            $query->where('description', 'like', "%{$search}%");
-        }
+        // Unified free-text param is `filter`; `search` is the legacy alias.
+        $term = $filters['filter'] ?? $filters['search'] ?? null;
+        ListQuery::search($query, is_string($term) ? $term : null, ['description']);
 
         return $query;
     }
@@ -93,15 +101,21 @@ final class AuditQueryService
      * cheap on large tables where offset pagination would degrade. Without a
      * cursor the classic page/total shape is returned for existing clients.
      *
-     * Sort accepts `column` (default direction) or `-column` (descending).
-     * Unknown columns fall back to the newest-first default so arbitrary
-     * columns can never be ordered by.
+     * Sorting follows the unified list contract: `sort` names a whitelisted
+     * column and `order` its direction. The legacy `-column` prefixed form is
+     * still honoured. Unknown columns fall back to the newest-first default so
+     * arbitrary columns can never be ordered by.
      *
      * @param  array<string, mixed>  $filters
      */
-    public function paginate(array $filters = [], int $perPage = 20, ?string $cursor = null, ?string $sort = null): CursorPaginator|LengthAwarePaginator
-    {
-        [$column, $direction] = $this->resolveSort($sort);
+    public function paginate(
+        array $filters = [],
+        int $perPage = 20,
+        ?string $cursor = null,
+        ?string $sort = null,
+        ?string $order = null,
+    ): CursorPaginator|LengthAwarePaginator {
+        [$column, $direction] = $this->resolveSort($sort, $order);
 
         $query = $this->query($filters)
             ->orderBy($column, $direction)
@@ -117,17 +131,22 @@ final class AuditQueryService
     /**
      * @return array{0: string, 1: string} Column and direction
      */
-    private function resolveSort(?string $sort): array
+    private function resolveSort(?string $sort, ?string $order = null): array
     {
         if ($sort === null || $sort === '') {
             return ['created_at', 'desc'];
         }
 
+        // Legacy wire format: `-column` prefixes descending.
         $descending = str_starts_with($sort, '-');
         $column = ltrim($sort, '-');
 
         if (! isset(self::SORTABLE[$column])) {
             return ['created_at', 'desc'];
+        }
+
+        if ($order !== null && $order !== '') {
+            return [$column, $order === 'asc' ? 'asc' : 'desc'];
         }
 
         return [$column, $descending ? 'desc' : self::SORTABLE[$column]];

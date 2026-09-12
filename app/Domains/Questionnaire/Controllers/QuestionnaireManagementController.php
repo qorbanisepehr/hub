@@ -13,32 +13,38 @@ use Illuminate\Routing\Controller;
 
 class QuestionnaireManagementController extends Controller
 {
+    private const SORTABLE = [
+        'created_at',
+        'updated_at',
+        'first_name',
+        'last_name',
+    ];
+
+    private const SEARCHABLE = [
+        'first_name',
+        'last_name',
+        'email',
+        'mobile',
+    ];
+
     public function __construct(
         private Authorization $authorization,
     ) {}
 
     public function index(Request $request): AnonymousResourceCollection
     {
+        // The management list only surfaces submitted questionnaires; a
+        // per-status filter would fight this base constraint.
         $query = Questionnaire::query()->where('status', 'submitted');
 
         $this->authorization->scope($request->user(), 'questionnaire.view', $query);
 
-        if ($filter = ListQuery::filter($request)) {
-            $query->where(function ($q) use ($filter) {
-                $q->where('first_name', 'like', "%{$filter}%")
-                    ->orWhere('last_name', 'like', "%{$filter}%")
-                    ->orWhere('email', 'like', "%{$filter}%")
-                    ->orWhere('mobile', 'like', "%{$filter}%");
-            });
-        }
+        ListQuery::search($query, ListQuery::filter($request), self::SEARCHABLE);
 
-        if ($request->filled('status')) {
-            $query->where('status', $request->input('status'));
-        }
-
-        $sortField = ListQuery::sort($request, default: 'created_at');
-        $sortDirection = ListQuery::order($request);
-        $query->orderBy($sortField, $sortDirection);
+        $query->orderBy(
+            ListQuery::sort($request, self::SORTABLE, 'created_at'),
+            ListQuery::order($request),
+        );
 
         $questionnaires = $query->paginate(ListQuery::perPage($request));
 

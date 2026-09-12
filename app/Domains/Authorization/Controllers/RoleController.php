@@ -17,18 +17,22 @@ use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class RoleController
 {
+    private const SORTABLE = [
+        'name',
+        'display_name',
+        'is_active',
+        'created_at',
+    ];
+
+    private const SEARCHABLE = [
+        'name',
+        'display_name',
+    ];
+
     public function __construct(
         private Authorization $authorization,
         private RoleService $roleService,
     ) {}
-
-    /** @var array<string, string> */
-    private array $sortable = [
-        'name' => 'name',
-        'display_name' => 'display_name',
-        'is_active' => 'is_active',
-        'created_at' => 'created_at',
-    ];
 
     public function index(Request $request): AnonymousResourceCollection
     {
@@ -36,26 +40,43 @@ class RoleController
 
         $this->authorization->scope($request->user(), 'role.view', $query);
 
-        if ($filter = ListQuery::filter($request)) {
-            $query->where(function ($q) use ($filter) {
-                $q->where('name', 'like', "%{$filter}%")
-                    ->orWhere('display_name', 'like', "%{$filter}%");
-            });
-        }
+        ListQuery::search($query, ListQuery::filter($request), self::SEARCHABLE);
 
         if ($request->filled('is_active')) {
             $query->where('is_active', $request->boolean('is_active'));
         }
 
-        $sortField = ListQuery::sort($request, default: 'display_name');
-        $sortDirection = ListQuery::order($request, default: 'asc');
-        $query->orderBy($this->sortable[$sortField] ?? 'display_name', $sortDirection);
+        $query->orderBy(
+            ListQuery::sort($request, self::SORTABLE, 'display_name'),
+            ListQuery::order($request, default: 'asc'),
+        );
 
         $perPage = ListQuery::perPage($request);
 
         $roles = $query->paginate($perPage);
 
         return RoleResource::collection($roles);
+    }
+
+    /**
+     * Lightweight id + label list for filter dropdowns and search-selects —
+     * unpaginated (scoped to role.view), so option lists never silently
+     * truncate the way a per_page-clamped list endpoint does.
+     */
+    public function options(Request $request): JsonResponse
+    {
+        $query = Role::query()->orderBy('display_name');
+
+        $this->authorization->scope($request->user(), 'role.view', $query);
+
+        return response()->json([
+            'data' => $query->get(['id', 'display_name as label'])->map(
+                fn (Role $role): array => [
+                    'id' => $role->id,
+                    'label' => $role->label,
+                ],
+            ),
+        ]);
     }
 
     public function chart(Request $request): JsonResponse
