@@ -5,7 +5,6 @@ import {
     IconPencil,
     IconMasksTheater,
     IconShieldCheck,
-    IconShieldOff,
 } from "@tabler/icons-react";
 import { isAxiosError } from "axios";
 

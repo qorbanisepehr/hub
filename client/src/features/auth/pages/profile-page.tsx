@@ -12,7 +12,6 @@ import {
     CardTitle,
     CardDescription,
 } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { ActiveBadge } from "@/components/shared/active-badge";
 import { useAuth } from "@/features/auth";
 import { authKeys } from "@/lib/query-keys";

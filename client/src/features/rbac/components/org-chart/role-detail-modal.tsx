@@ -31,7 +31,6 @@ import { roleKeys, userKeys } from "@/lib/query-keys";
 import { getUserDisplayName } from "@/lib/user-display";
 import { cn } from "@/lib/utils";
 import {
-    IconBriefcase,
     IconBuilding,
     IconDotsVertical,
     IconLoader2,
@@ -39,7 +38,6 @@ import {
     IconPencil,
     IconPlus,
     IconUserEdit,
-    IconUsers,
 } from "@tabler/icons-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";

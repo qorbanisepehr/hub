@@ -91,7 +91,7 @@ export function EmployeesPage() {
             status_not: activeStatusNot,
         }),
         queryFn: async () => {
-            const { data } = await fetchEmployees({
+            const { data: response } = await fetchEmployees({
                 page: pagination.pageIndex + 1,
                 per_page: pagination.pageSize,
                 sort: activeSort?.id,
@@ -100,7 +100,7 @@ export function EmployeesPage() {
                 status: activeStatus,
                 status_not: activeStatusNot,
             });
-            return data;
+            return response;
         },
     });
 

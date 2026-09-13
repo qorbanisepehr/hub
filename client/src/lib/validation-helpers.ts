@@ -17,7 +17,7 @@ export function zodIssueMessage(issue: z.ZodIssue): string {
         return message;
     }
     if (issue.code === "invalid_format" || issue.code === "invalid_value") {
-        if (/^Invalid/.test(message)) {
+        if (message.startsWith("Invalid")) {
             return "فرمت مقدار واردشده صحیح نیست.";
         }
         return message;

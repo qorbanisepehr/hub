@@ -83,7 +83,7 @@ export function CvsBankPage() {
             status_not: activeStatusNot,
         }),
         queryFn: async () => {
-            const { data } = await fetchCvBank({
+            const { data: response } = await fetchCvBank({
                 page: pagination.pageIndex + 1,
                 per_page: pagination.pageSize,
                 sort: activeSort?.id,
@@ -92,7 +92,7 @@ export function CvsBankPage() {
                 status: activeStatus,
                 status_not: activeStatusNot,
             });
-            return data;
+            return response;
         },
     });
 

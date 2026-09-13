@@ -8,7 +8,7 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 
 export type SectionTabItem = {
@@ -51,6 +51,8 @@ export function SectionTabNav({
         activeTriggerRef.current?.scrollIntoView({
             block: "nearest",
         });
+        // Runs on tab change; the ref content is read imperatively.
+        // oxlint-disable-next-line react/exhaustive-effect-dependencies -- trigger-only
     }, [value]);
 
     const selectTab = (key: string) => {

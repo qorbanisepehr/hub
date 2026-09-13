@@ -1,4 +1,4 @@
-import { useState, useCallback, Fragment } from "react";
+import { useState, useCallback, Fragment, useMemo } from "react";
 import type { AnyFieldApi } from "@tanstack/react-form";
 import {
     IconPlus,
@@ -71,8 +71,6 @@ export function FormRepeater({
     const hasSummary = typeof getSummary === "function";
     const canToggle = hasColumns && hasSummary;
 
-    const items: Record<string, unknown>[] = (field.state.value ??
-        []) as Record<string, unknown>[];
     const effectiveMode = canToggle ? mode : "card";
 
     const handleToggle = useCallback(() => {
@@ -127,6 +125,19 @@ export function FormRepeater({
 
 // ── Table Repeater ──
 
+/**
+ * Stable array identity for the repeater's items: the raw `field.state.value`
+ * is a fresh array on every store update, which invalidated every callback's
+ * dependency list. Memoizing on the field identity keeps `items` referentially
+ * stable between edits.
+ */
+function useRepeaterItems(field: AnyFieldApi): Record<string, unknown>[] {
+    return useMemo(
+        () => (field.state.value ?? []) as Record<string, unknown>[],
+        [field],
+    );
+}
+
 function TableRepeaterInner({
     field,
     label,
@@ -151,8 +162,7 @@ function TableRepeaterInner({
     toggleButton: React.ReactNode;
     onPersist?: (items: Record<string, unknown>[]) => void;
 }) {
-    const items: Record<string, unknown>[] = (field.state.value ??
-        []) as Record<string, unknown>[];
+    const items: Record<string, unknown>[] = useRepeaterItems(field);
     const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
     const [originalSnapshot, setOriginalSnapshot] = useState<Record<
         string,
@@ -168,25 +178,8 @@ function TableRepeaterInner({
         setOriginalSnapshot(null);
     }, [items, field]);
 
-    const handleToggleExpand = useCallback(
-        (index: number) => {
-            if (expandedIndex === index) {
-                handleCancel();
-                return;
-            }
-            if (isFormOpen) return;
-            setOriginalSnapshot({ ...items[index] });
-            setExpandedIndex(index);
-        },
-        [expandedIndex, isFormOpen, items],
-    );
-
-    const handleConfirm = useCallback(() => {
-        setExpandedIndex(null);
-        setOriginalSnapshot(null);
-        onPersist?.(field.state.value as Record<string, unknown>[]);
-    }, [field, onPersist]);
-
+    // Declared BEFORE handleToggleExpand: the toggle collapses via handleCancel,
+    // so the forward reference would read the variable during its own TDZ.
     const handleCancel = useCallback(() => {
         if (expandedIndex === null) return;
         if (originalSnapshot !== null) {
@@ -199,6 +192,25 @@ function TableRepeaterInner({
         setExpandedIndex(null);
         setOriginalSnapshot(null);
     }, [expandedIndex, originalSnapshot, items, field]);
+
+    const handleToggleExpand = useCallback(
+        (index: number) => {
+            if (expandedIndex === index) {
+                handleCancel();
+                return;
+            }
+            if (isFormOpen) return;
+            setOriginalSnapshot({ ...items[index] });
+            setExpandedIndex(index);
+        },
+        [expandedIndex, isFormOpen, items, handleCancel],
+    );
+
+    const handleConfirm = useCallback(() => {
+        setExpandedIndex(null);
+        setOriginalSnapshot(null);
+        onPersist?.(field.state.value as Record<string, unknown>[]);
+    }, [field, onPersist]);
 
     const handleDelete = useCallback(
         (index: number) => {
@@ -216,7 +228,6 @@ function TableRepeaterInner({
     );
 
     const isAddMode = expandedIndex !== null && originalSnapshot === null;
-    const isEditMode = expandedIndex !== null && originalSnapshot !== null;
 
     return (
         <div className="space-y-3">
@@ -258,7 +269,10 @@ function TableRepeaterInner({
                                 const summary = getSummary(item, index);
                                 const isExpanded = expandedIndex === index;
                                 return (
-                                    <Fragment key={`item-${index}`}>
+                                    <Fragment
+                                        // oxlint-disable-next-line react/no-array-index-key -- rows are positional; index is the field path segment
+                                        key={`item-${index}`}
+                                    >
                                         <TableRow
                                             className={cn(
                                                 isExpanded && "bg-muted/50",
@@ -408,8 +422,7 @@ function CardRepeaterInner({
     toggleButton: React.ReactNode;
     onPersist?: (items: Record<string, unknown>[]) => void;
 }) {
-    const items: Record<string, unknown>[] = (field.state.value ??
-        []) as Record<string, unknown>[];
+    const items: Record<string, unknown>[] = useRepeaterItems(field);
     const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
 
     const canAdd = !maxItems || items.length < maxItems;
@@ -472,6 +485,7 @@ function CardRepeaterInner({
                 const isExpanded = expandedIndex === index;
                 return (
                     <Card
+                        // oxlint-disable-next-line react/no-array-index-key -- rows are positional; index is the field path segment
                         key={index}
                         className={cn(
                             "py-1",

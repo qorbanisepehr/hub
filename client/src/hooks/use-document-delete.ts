@@ -26,11 +26,12 @@ export function useDocumentDelete({
 
     const deleteMutation = useMutation({
         mutationFn: (usageId: number) =>
-            docClient.delete(`/${entity}/${uuid}/documents/${usageId}`, {
-                ...(authed
+            docClient.delete(
+                `/${entity}/${uuid}/documents/${usageId}`,
+                authed
                     ? {}
-                    : { grant: { entity, uuid, purpose: "edit" } }),
-            }),
+                    : { grant: { entity, uuid, purpose: "edit" } },
+            ),
         onSuccess: () => {
             queryClient.invalidateQueries({
                 queryKey: documentKeys.entityDocuments(entity, uuid),

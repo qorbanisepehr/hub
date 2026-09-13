@@ -19,11 +19,17 @@ interface PermissionSelectorProps {
     onPermissionToggle: (permissionId: number) => void;
 }
 
+const EMPTY_INHERITED_IDS: number[] = [];
+
 const SkeletonList = memo(function SkeletonList() {
     return (
         <div className="space-y-2 rounded-lg border p-3">
             {Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="flex items-center gap-2 py-1">
+                <div
+                    // oxlint-disable-next-line react/no-array-index-key -- static skeleton placeholders
+                    key={i}
+                    className="flex items-center gap-2 py-1"
+                >
                     <Skeleton className="size-4 rounded" />
                     <Skeleton className="h-4 w-32" />
                 </div>
@@ -34,7 +40,7 @@ const SkeletonList = memo(function SkeletonList() {
 
 export function PermissionSelector({
     selectedPermissionIds,
-    inheritedPermissionIds = [],
+    inheritedPermissionIds = EMPTY_INHERITED_IDS,
     onGroupToggle,
     onPermissionToggle,
 }: PermissionSelectorProps) {

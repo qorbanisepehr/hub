@@ -3,7 +3,7 @@ import {
     type StockFeatures,
 } from "@tanstack/react-table";
 import { Link } from "@tanstack/react-router";
-import { IconPencil, IconTrash } from "@tabler/icons-react";
+import { IconPencil } from "@tabler/icons-react";
 import { Badge } from "@/components/ui/badge";
 import { DataTableColumnHeader } from "@/components/data-table";
 import { RowActions } from "@/components/shared/row-actions";

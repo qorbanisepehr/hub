@@ -42,6 +42,7 @@ export function ErrorBanner({
                 ) : (
                     <ul className="space-y-1 list-disc ms-4">
                         {list.map((err, i) => (
+                            // oxlint-disable-next-line react/no-array-index-key -- static error list; strings may repeat
                             <li key={i}>{err}</li>
                         ))}
                     </ul>

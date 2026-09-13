@@ -27,8 +27,6 @@ type ExportChartDialogProps = {
     onOpenChange: (open: boolean) => void;
 };
 
-const DEFAULT_FIELDS = ["description", "is_active", "user_count"];
-
 export function ExportChartDialog({
     open,
     onOpenChange,
@@ -52,9 +50,9 @@ export function ExportChartDialog({
 
     const rootOptions = useMemo(
         () =>
-            (roles ?? [])
-                .slice()
-                .sort((a, b) => a.display_name.localeCompare(b.display_name, "fa")),
+            (roles ?? []).toSorted(
+                (a, b) => a.display_name.localeCompare(b.display_name, "fa"),
+            ),
         [roles],
     );
 

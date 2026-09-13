@@ -11,7 +11,7 @@ import {
 } from "../docs-feedback";
 import { useDocumentRequirements } from "./use-document-requirements";
 
-type UseRowDocsFeedbackConfig<Row> = {
+type UseRowDocsFeedbackConfig = {
     /** Entity API segment, e.g. "employees". */
     entity: string;
     uuid: string | number | undefined;
@@ -31,7 +31,7 @@ type UseRowDocsFeedbackConfig<Row> = {
  * sees the same state without extra requests.
  */
 export function useRowDocsFeedback<Row>(
-    { entity, uuid, sectionKey, categories, fieldKeyFor }: UseRowDocsFeedbackConfig<Row>,
+    { entity, uuid, sectionKey, categories, fieldKeyFor }: UseRowDocsFeedbackConfig,
     rows: Row[],
     options?: {
         /** Skip feedback while a repeater edit is in flight. */
@@ -77,7 +77,7 @@ export function useRowDocsFeedback<Row>(
                 rowDocsMessage(categoryLabel, label, min),
             );
         });
-    }, [rows, getMissing, isLoading, options?.rowLabel]);
+    }, [rows, getMissing, isLoading, options]);
 
     return { isLoading, group, getMissing, messages };
 }

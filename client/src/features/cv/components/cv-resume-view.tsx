@@ -22,16 +22,18 @@ import { SkillsView } from "@/components/section-views/skills-view";
 import { TrainingView } from "@/components/section-views/training-view";
 import { AdditionalInfoView } from "@/components/section-views/additional-info-view";
 
+const EMPTY_DOCUMENTS: EntityDocument[] = [];
+
 export function CvResumeView({
     cv,
-    documents = [],
+    documents = EMPTY_DOCUMENTS,
 }: {
     cv: Cv;
     documents?: EntityDocument[];
 }) {
-    const personal: Record<string, unknown> = { ...(cv.personal_info ?? {}) };
-    const contact: Record<string, unknown> = { ...(cv.contact_info ?? {}) };
-    const additional: Record<string, unknown> = { ...(cv.additional_info ?? {}) };
+    const personal: Record<string, unknown> = { ...cv.personal_info };
+    const contact: Record<string, unknown> = { ...cv.contact_info };
+    const additional: Record<string, unknown> = { ...cv.additional_info };
 
     const docsBySlug = (slug: string) =>
         documents.filter((doc) => doc.category?.slug === slug);

@@ -128,8 +128,9 @@ export function CvFeedbackMenu({ cv }: { cv: Cv }) {
 
                 {rejections.length ? (
                     <div className="space-y-2.5">
-                        {[...rejections].reverse().map((rejection, index) => (
+                        {rejections.toReversed().map((rejection, index) => (
                             <div
+                                // oxlint-disable-next-line react/no-array-index-key -- lifecycle events carry no id; list is append-only
                                 key={index}
                                 className="rounded-md bg-muted/50 p-3"
                             >

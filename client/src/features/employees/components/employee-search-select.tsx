@@ -17,12 +17,14 @@ type EmployeeSearchSelectProps = {
     className?: string;
 };
 
+const EMPTY_EXCLUDE_IDS: number[] = [];
+
 export function EmployeeSearchSelect({
     value,
     onChange,
     placeholder = "انتخاب کارمند",
     disabled = false,
-    excludeIds = [],
+    excludeIds = EMPTY_EXCLUDE_IDS,
     className,
 }: EmployeeSearchSelectProps) {
     const navigate = useNavigate();
@@ -33,12 +35,12 @@ export function EmployeeSearchSelect({
         useInfiniteQuery({
             queryKey: employeeKeys.select(debouncedSearch),
             queryFn: async ({ pageParam = 1 }) => {
-                const { data } = await fetchEmployees({
+                const { data: response } = await fetchEmployees({
                     filter: debouncedSearch || undefined,
                     per_page: PAGINATION.SEARCH_PAGE_SIZE,
                     page: pageParam,
                 });
-                return data;
+                return response;
             },
             getNextPageParam: (lastPage) =>
                 lastPage.meta.current_page < lastPage.meta.last_page

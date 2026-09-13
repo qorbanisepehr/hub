@@ -1,7 +1,6 @@
 import * as React from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-    IconFile,
     IconLoader2,
     IconLibrary,
     IconPlus,
@@ -92,6 +91,7 @@ export function DocumentLibraryModal({
             {isLoading ? (
                 <div className="space-y-3 py-4">
                     {Array.from({ length: 3 }).map((_, i) => (
+                        // oxlint-disable-next-line react/no-array-index-key -- static skeleton placeholders
                         <Skeleton key={i} className="h-14 w-full rounded-lg" />
                     ))}
                 </div>

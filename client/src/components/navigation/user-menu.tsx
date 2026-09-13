@@ -34,11 +34,15 @@ type UserMenuProps = {
     children?: ReactNode;
 };
 
+const DEFAULT_TRIGGER = (
+    <Button variant="ghost" className="size-8 rounded-lg p-0" />
+);
+
 export function UserMenu({
     align = "end",
     side = "bottom",
     sideOffset = 4,
-    trigger = <Button variant="ghost" className="size-8 rounded-lg p-0" />,
+    trigger = DEFAULT_TRIGGER,
     children,
 }: UserMenuProps) {
     const { user, logout, isLoggingOut } = useAuth();

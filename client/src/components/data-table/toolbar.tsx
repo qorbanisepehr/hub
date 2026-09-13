@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
     type RowData,
     type StockFeatures,
@@ -35,10 +35,13 @@ export function DataTableToolbar<TData extends RowData>({
         : (globalFilter ?? "");
 
     const [localValue, setLocalValue] = useState(committedValue);
-
-    useEffect(() => {
+    const [lastCommitted, setLastCommitted] = useState(committedValue);
+    if (committedValue !== lastCommitted) {
+        // External filter change (e.g. URL-persisted filters): re-sync the
+        // local input during render instead of in an effect.
+        setLastCommitted(committedValue);
         setLocalValue(committedValue);
-    }, [committedValue]);
+    }
 
     const commit = () => {
         if (searchKey) {

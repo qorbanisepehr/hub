@@ -17,7 +17,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { ResponsiveDialog } from "@/components/ui/responsive-dialog";
-import { Field, FieldLabel, FieldError } from "@/components/ui/field";
+import { Field, FieldLabel } from "@/components/ui/field";
 import { UserSearchSelect } from "@/features/rbac/components/user-search-select";
 import { previewRule } from "@/features/rbac/api";
 import { getApiError } from "@/lib/error-utils";
@@ -333,6 +333,7 @@ export function RuleEditorDialog({
                                     <div className="space-y-3">
                                         {draft.conditions.map((condition, index) => (
                                             <ConditionRow
+                                                // oxlint-disable-next-line react/no-array-index-key -- conditions have no id; rows are positional
                                                 key={index}
                                                 index={index}
                                                 condition={condition}

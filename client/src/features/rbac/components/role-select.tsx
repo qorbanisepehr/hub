@@ -18,6 +18,8 @@ interface RoleSelectProps {
     excludeIds?: number[];
 }
 
+const EMPTY_EXCLUDE_IDS: number[] = [];
+
 export function RoleSelect({
     value,
     onValueChange,
@@ -25,7 +27,7 @@ export function RoleSelect({
     clearable = false,
     clearLabel = "بدون",
     disabled = false,
-    excludeIds = [],
+    excludeIds = EMPTY_EXCLUDE_IDS,
 }: RoleSelectProps) {
     const { data: rolesData, isLoading } = useRoles();
 

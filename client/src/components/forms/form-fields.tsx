@@ -1,13 +1,18 @@
-import type { AnyFieldApi } from "@tanstack/react-form";
-import { useStore } from "@tanstack/react-form";
 import { IconLoader2 } from "@tabler/icons-react";
+import type { AnyFieldApi } from "@tanstack/react-form";
 
-import { cn } from "@/lib/utils";
+import {
+    NumberField,
+    NumberFieldDecrement,
+    NumberFieldGroup,
+    NumberFieldIncrement,
+    NumberFieldInput,
+} from "@/components/reui/number-field";
+import { Checkbox } from "@/components/ui/checkbox";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
     Select,
     SelectContent,
@@ -15,16 +20,8 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { Button } from "@/components/ui/button";
-import { IconPlus, IconTrash } from "@tabler/icons-react";
-import { DatePicker } from "@/components/ui/date-picker";
-import {
-    NumberField,
-    NumberFieldGroup,
-    NumberFieldInput,
-    NumberFieldIncrement,
-    NumberFieldDecrement,
-} from "@/components/reui/number-field";
+import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
 
 // ── Text Input ──
 

@@ -32,6 +32,7 @@ const GroupsSkeleton = memo(function GroupsSkeleton() {
         <div className="space-y-2 p-1">
             {Array.from({ length: 5 }).map((_, i) => (
                 <div
+                    // oxlint-disable-next-line react/no-array-index-key -- static skeleton placeholders
                     key={i}
                     className="flex items-center gap-3 rounded-lg px-2 py-2"
                 >
@@ -51,6 +52,7 @@ const PermissionsSkeleton = memo(function PermissionsSkeleton() {
         <div className="space-y-1 p-1">
             {Array.from({ length: 5 }).map((_, i) => (
                 <div
+                    // oxlint-disable-next-line react/no-array-index-key -- static skeleton placeholders
                     key={i}
                     className="flex items-center gap-3 rounded-lg px-2 py-2"
                 >

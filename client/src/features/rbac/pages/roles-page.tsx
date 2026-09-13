@@ -85,7 +85,7 @@ export function RolesPage() {
             is_active: activeIsActive,
         }),
         queryFn: async () => {
-            const { data } = await fetchRoles({
+            const { data: response } = await fetchRoles({
                 page: pagination.pageIndex + 1,
                 per_page: pagination.pageSize,
                 sort: activeSort?.id,
@@ -98,7 +98,7 @@ export function RolesPage() {
                           ? false
                           : undefined,
             });
-            return data;
+            return response;
         },
     });
 

@@ -141,12 +141,6 @@ function ruleValues(rule: FilterRule): unknown[] {
     return [rule.value];
 }
 
-function fieldType(
-    id: string,
-    fields: readonly ListFilterFieldDef[],
-): string | undefined {
-    return fields.find((field) => field.id === id)?.type;
-}
 
 /**
  * Content equality for column filters, order-insensitive: our own URL

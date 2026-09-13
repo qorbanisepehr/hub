@@ -26,7 +26,11 @@ export function FormSkeleton() {
             {/* Step rail */}
             <div className="grid grid-cols-3 gap-4 md:grid-cols-5 lg:grid-cols-9">
                 {Array.from({ length: 9 }).map((_, i) => (
-                    <div key={i} className="space-y-2">
+                    <div
+                        // oxlint-disable-next-line react/no-array-index-key -- static skeleton placeholders
+                        key={i}
+                        className="space-y-2"
+                    >
                         <Skeleton className="h-1 w-full rounded-full" />
                         <Skeleton className="h-4 w-3/4" />
                     </div>
@@ -41,7 +45,11 @@ export function FormSkeleton() {
                 </div>
                 <div className="grid gap-6 md:grid-cols-2">
                     {Array.from({ length: 6 }).map((_, i) => (
-                        <div key={i} className="space-y-2">
+                        <div
+                            // oxlint-disable-next-line react/no-array-index-key -- static skeleton placeholders
+                            key={i}
+                            className="space-y-2"
+                        >
                             <Skeleton className="h-4 w-24" />
                             <Skeleton className="h-9 w-full rounded-lg" />
                         </div>

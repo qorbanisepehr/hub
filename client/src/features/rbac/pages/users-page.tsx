@@ -94,7 +94,7 @@ export function UsersPage() {
             is_active: activeIsActive,
         }),
         queryFn: async () => {
-            const { data } = await fetchUsers({
+            const { data: response } = await fetchUsers({
                 page: pagination.pageIndex + 1,
                 per_page: pagination.pageSize,
                 sort: activeSort?.id,
@@ -108,15 +108,15 @@ export function UsersPage() {
                           ? false
                           : undefined,
             });
-            return data;
+            return response;
         },
     });
 
     const { data: rolesData } = useQuery({
         queryKey: roleKeys.filterOptions(),
         queryFn: async () => {
-            const { data } = await fetchRoleOptions();
-            return data.data;
+            const { data: response } = await fetchRoleOptions();
+            return response.data;
         },
     });
 

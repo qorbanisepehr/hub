@@ -23,7 +23,6 @@ import type {
     AccessRuleInput,
     Permission,
     PermissionGroup,
-    RuleBuilderMeta,
 } from "@/features/rbac/types";
 import { EFFECT_LABELS } from "./types";
 import { RuleEditorDialog } from "./rule-editor-dialog";
@@ -175,9 +174,9 @@ export function RuleBuilder({ value, onChange }: RuleBuilderProps) {
                     </SelectTrigger>
                     <SelectContent>
                         {Object.entries(STATUS_FILTERS).map(
-                            ([value, label]) => (
-                                <SelectItem key={value} value={value}>
-                                    {label}
+                            ([statusValue, statusLabel]) => (
+                                <SelectItem key={statusValue} value={statusValue}>
+                                    {statusLabel}
                                 </SelectItem>
                             ),
                         )}

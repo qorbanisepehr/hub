@@ -26,7 +26,7 @@ const ACCOUNT_COLUMNS: TableColumn[] = [
  * documents live in the standalone documents step under the `financial`
  * categories.
  */
-export function FinancialSection({ form, uuid, onPersist }: SectionProps) {
+export function FinancialSection({ form, onPersist }: SectionProps) {
     return (
         <Card>
             <CardHeader>

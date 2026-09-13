@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useMemo, useState } from "react";
 import {
     IconChevronDown,
     IconPlus,
@@ -89,6 +89,7 @@ const SkeletonList = memo(function SkeletonList() {
         <div className="space-y-1 p-1">
             {Array.from({ length: 5 }).map((_, i) => (
                 <div
+                    // oxlint-disable-next-line react/no-array-index-key -- static skeleton placeholders
                     key={i}
                     className="flex items-center gap-3 rounded-lg px-2 py-2"
                 >

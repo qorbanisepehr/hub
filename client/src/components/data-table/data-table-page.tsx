@@ -121,22 +121,22 @@ export function DataTablePage<TData extends RowData>({
                                                 className="group/row"
                                             >
                                                 {headerGroup.headers.map(
-                                                    (header) => (
+                                                    (headerCell) => (
                                                         <TableHead
-                                                            key={header.id}
+                                                            key={headerCell.id}
                                                             colSpan={
-                                                                header.colSpan
+                                                                headerCell.colSpan
                                                             }
                                                             className="bg-background group-hover/row:bg-muted"
                                                         >
-                                                            {header.isPlaceholder
+                                                            {headerCell.isPlaceholder
                                                                 ? null
                                                                 : flexRender(
-                                                                      header
+                                                                      headerCell
                                                                           .column
                                                                           .columnDef
                                                                           .header,
-                                                                      header.getContext(),
+                                                                      headerCell.getContext(),
                                                                   )}
                                                         </TableHead>
                                                     ),

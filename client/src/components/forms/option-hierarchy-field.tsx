@@ -175,15 +175,17 @@ type OptionHierarchyFieldProps = {
             else childrenOf.set(bucketKey, [node]);
         }
         return parents.map((parentNode) => ({
-            ...parentNode,
+            value: parentNode.value,
+            label: parentNode.label,
+            hasChildren: parentNode.hasChildren,
             children: childrenOf.get(parentNode.value) ?? [],
         }));
     }, [parentOptions, childOptions, deepSearch, plain]);
 
     // The stored child → its tree node value.
-    const childNodeValue = (ownValue: string, parentValue: string) =>
+    const childNodeValue = (ownValue: string, parentNodeValue: string) =>
         plain
-            ? `${parentValue}${HIERARCHY_SEPARATOR}${ownValue}`
+            ? `${parentNodeValue}${HIERARCHY_SEPARATOR}${ownValue}`
             : ownValue;
 
     const handleValueChange = (value: string) => {

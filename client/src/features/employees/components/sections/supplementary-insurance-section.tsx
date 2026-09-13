@@ -57,7 +57,6 @@ const DEPENDENT_COLUMNS: TableColumn[] = [
  */
 export function SupplementaryInsuranceSection({
     form,
-    uuid,
     onPersist,
 }: SectionProps) {
     const accounts = useSelector(
@@ -75,16 +74,6 @@ export function SupplementaryInsuranceSection({
         (state) =>
             ((state.values.dependents as Record<string, unknown> | undefined)
                 ?.dependents ?? []) as DependentRow[],
-    );
-
-    const insuranceRows = useSelector(
-        form.store,
-        (state) =>
-            ((
-                state.values.supplementary_insurance as
-                    | Record<string, unknown>
-                    | undefined
-            )?.insurance_dependents ?? []) as InsuranceDependentRow[],
     );
 
     const accountOptions = accounts

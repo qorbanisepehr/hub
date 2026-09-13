@@ -50,8 +50,7 @@ export function DependentsView({
         ? section.dependents
         : [];
 
-    const { isLoading: documentsLoading, getDocumentsBySlug } =
-        useEmployeeDocuments(employee.id);
+    const { getDocumentsBySlug } = useEmployeeDocuments(employee.id);
 
     // Shared feedback state — same query caches the section and submit
     // guard read, so no extra requests.
@@ -81,7 +80,11 @@ export function DependentsView({
                             const missing = getMissing(index);
 
                             return (
-                                <div key={index} className="py-4 first:pt-0">
+                                <div
+                                    // oxlint-disable-next-line react/no-array-index-key -- rows are positional; index is also the doc field key
+                                    key={index}
+                                    className="py-4 first:pt-0"
+                                >
                                     <div className="mb-2 flex items-center justify-between">
                                         <p className="text-sm font-medium">
                                             {dependentRowLabel(

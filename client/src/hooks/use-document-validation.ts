@@ -42,43 +42,51 @@ export function useDocumentValidation(requirement: DocumentRequirement | null) {
                     const img = new Image();
                     const objectUrl = URL.createObjectURL(file);
 
-                    img.onload = () => {
-                        URL.revokeObjectURL(objectUrl);
-                        const {
-                            min_width,
-                            min_height,
-                            max_width,
-                            max_height,
-                        } = requirement.dimensions!;
+                    img.addEventListener(
+                        "load",
+                        () => {
+                            URL.revokeObjectURL(objectUrl);
+                            const {
+                                min_width,
+                                min_height,
+                                max_width,
+                                max_height,
+                            } = requirement.dimensions!;
 
-                        if (min_width && img.width < min_width) {
-                            errors.push(
-                                `عرض تصویر باید حداقل ${min_width} پیکسل باشد.`,
-                            );
-                        }
-                        if (min_height && img.height < min_height) {
-                            errors.push(
-                                `ارتفاع تصویر باید حداقل ${min_height} پیکسل باشد.`,
-                            );
-                        }
-                        if (max_width && img.width > max_width) {
-                            errors.push(
-                                `عرض تصویر نباید بیشتر از ${max_width} پیکسل باشد.`,
-                            );
-                        }
-                        if (max_height && img.height > max_height) {
-                            errors.push(
-                                `ارتفاع تصویر نباید بیشتر از ${max_height} پیکسل باشد.`,
-                            );
-                        }
-                        resolve();
-                    };
+                            if (min_width && img.width < min_width) {
+                                errors.push(
+                                    `عرض تصویر باید حداقل ${min_width} پیکسل باشد.`,
+                                );
+                            }
+                            if (min_height && img.height < min_height) {
+                                errors.push(
+                                    `ارتفاع تصویر باید حداقل ${min_height} پیکسل باشد.`,
+                                );
+                            }
+                            if (max_width && img.width > max_width) {
+                                errors.push(
+                                    `عرض تصویر نباید بیشتر از ${max_width} پیکسل باشد.`,
+                                );
+                            }
+                            if (max_height && img.height > max_height) {
+                                errors.push(
+                                    `ارتفاع تصویر نباید بیشتر از ${max_height} پیکسل باشد.`,
+                                );
+                            }
+                            resolve();
+                        },
+                        { once: true },
+                    );
 
-                    img.onerror = () => {
-                        URL.revokeObjectURL(objectUrl);
-                        errors.push("فایل تصویری معتبر نیست.");
-                        resolve();
-                    };
+                    img.addEventListener(
+                        "error",
+                        () => {
+                            URL.revokeObjectURL(objectUrl);
+                            errors.push("فایل تصویری معتبر نیست.");
+                            resolve();
+                        },
+                        { once: true },
+                    );
 
                     img.src = objectUrl;
                 });

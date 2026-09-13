@@ -9,8 +9,6 @@ import {
 } from "@tabler/icons-react";
 
 import { cn } from "@/lib/utils";
-import { getFileIcon } from "@/lib/file-utils";
-import { getFileColorClasses } from "@/lib/file-utils";
 import { getFileTypeLabel } from "@/lib/file-utils";
 import { DocumentThumbnail } from "@/components/documents";
 import { Checkbox } from "@/components/ui/checkbox";

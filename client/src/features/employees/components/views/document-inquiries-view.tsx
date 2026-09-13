@@ -179,7 +179,7 @@ export function DocumentInquiriesView({
         );
     };
 
-    const educationEntries = Object.entries(inquiries.education ?? {}).sort(
+    const educationEntries = Object.entries(inquiries.education ?? {}).toSorted(
         ([a], [b]) => Number(a) - Number(b),
     );
 

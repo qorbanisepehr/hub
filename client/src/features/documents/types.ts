@@ -173,22 +173,25 @@ export function buildParentPath(
     return path.join(" > ");
 }
 
+function findCategoryName(
+    cats: DocumentCategory[],
+    targetId: number,
+): string | null {
+    for (const cat of cats) {
+        if (cat.id === targetId) return cat.name;
+        if (cat.children) {
+            const found = findCategoryName(cat.children, targetId);
+            if (found) return found;
+        }
+    }
+    return null;
+}
+
 export function getExactCategoryName(
     categories: DocumentCategory[],
     categoryId: number,
 ): string {
-    function find(cats: DocumentCategory[], targetId: number): string | null {
-        for (const cat of cats) {
-            if (cat.id === targetId) return cat.name;
-            if (cat.children) {
-                const found = find(cat.children, targetId);
-                if (found) return found;
-            }
-        }
-        return null;
-    }
-
-    return find(categories, categoryId) ?? "";
+    return findCategoryName(categories, categoryId) ?? "";
 }
 
 // Helper functions to access display data from a Document

@@ -7,7 +7,6 @@ import { FormOptionSelectField } from "@/components/forms";
 import { FileUploadField } from "@/components/documents";
 import { useFormOptionsByGroup } from "@/features/form-options/hooks/use-form-options";
 import { DOC_CATEGORY_SLUGS } from "@/features/questionnaire/constants";
-import { INQUIRY_STATUS_DEFAULT } from "@/features/employees/schemas/document-inquiries.schema";
 import type { EmployeeFormApi } from "@/features/employees/types";
 
 type SectionProps = {
@@ -123,7 +122,6 @@ export function DocumentInquiriesSection({
     canUpdate = true,
 }: SectionProps) {
     const { data: degreeOptions } = useFormOptionsByGroup("degree");
-    const { data: statusOptions } = useFormOptionsByGroup("inquiry_status");
 
     const records =
         (
@@ -135,12 +133,6 @@ export function DocumentInquiriesSection({
     const degreeLabel = (value: unknown, index: number) =>
         degreeOptions?.find((option) => option.value === value)?.label ??
         `مدرک ${index + 1}`;
-
-    // «بدون استعلام» is the group's first option — shown as the select's
-    // placeholder for legacy rows whose status is still empty.
-    const statusPlaceholder =
-        statusOptions?.find((option) => option.value === INQUIRY_STATUS_DEFAULT)
-            ?.label ?? "بدون استعلام";
 
     return (
         <Card>
@@ -166,6 +158,7 @@ export function DocumentInquiriesSection({
                     <div className="space-y-4">
                         {records.map((record, index) => (
                             <InquiryNode
+                                // oxlint-disable-next-line react/no-array-index-key -- rows are positional; index is the field path segment
                                 key={index}
                                 form={form}
                                 uuid={uuid}

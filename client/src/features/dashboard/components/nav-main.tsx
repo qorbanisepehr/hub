@@ -118,16 +118,18 @@ function NavGroup({ item }: { item: NavItem }) {
     );
 }
 
+function renderNavItem(item: NavItem): ReactNode {
+    return item.children ? <NavGroup item={item} /> : <NavLeaf item={item} />;
+}
+
 export function NavMain() {
-    const renderItem = (item: NavItem): ReactNode =>
-        item.children ? <NavGroup item={item} /> : <NavLeaf item={item} />;
 
     return (
         <SidebarGroup>
             <SidebarGroupContent className="flex flex-col gap-2">
                 <SidebarMenu>
                     {NAV_ITEMS.map((item) => (
-                        <Fragment key={item.title}>{renderItem(item)}</Fragment>
+                        <Fragment key={item.title}>{renderNavItem(item)}</Fragment>
                     ))}
                 </SidebarMenu>
             </SidebarGroupContent>

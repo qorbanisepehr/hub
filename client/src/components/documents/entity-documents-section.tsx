@@ -169,14 +169,20 @@ export function EntityDocumentsSection({
         [categories],
     );
 
-    const extraDocOptions = useMemo(
-        () =>
-            (categories ?? [])
-                .flatMap((c) => [c, ...(c.children ?? [])])
-                .filter((c) => extraDocSlugs.has(c.slug))
-                .map((c) => ({ slug: c.slug, label: c.name })),
-        [categories, extraDocSlugs],
-    );
+    const extraDocOptions = useMemo(() => {
+        const options: { slug: string; label: string }[] = [];
+        for (const category of categories ?? []) {
+            if (extraDocSlugs.has(category.slug)) {
+                options.push({ slug: category.slug, label: category.name });
+            }
+            for (const child of category.children ?? []) {
+                if (extraDocSlugs.has(child.slug)) {
+                    options.push({ slug: child.slug, label: child.name });
+                }
+            }
+        }
+        return options;
+    }, [categories, extraDocSlugs]);
 
     const serverExtraEntries = useMemo(
         () => deriveExtraEntries(documents, categoryLabels, extraDocSlugs),

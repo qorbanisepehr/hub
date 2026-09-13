@@ -122,7 +122,7 @@ export const formOptionKeys = {
             ...formOptionKeys.all(),
             group,
             "resolve",
-            [...values].sort().join(","),
+            values.toSorted().join(","),
         ] as const,
     admin: (group?: string, params?: Record<string, unknown>) =>
         [

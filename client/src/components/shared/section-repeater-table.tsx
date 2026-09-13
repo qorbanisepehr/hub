@@ -37,6 +37,10 @@ type SectionRepeaterTableProps = {
     ) => ReactNode;
 };
 
+function cellValue(value: unknown): ReactNode {
+    return value === null || value === undefined || value === "" ? "-" : (value as ReactNode);
+}
+
 export function SectionRepeaterTable({
     items,
     columns,
@@ -49,8 +53,6 @@ export function SectionRepeaterTable({
     if (list.length === 0) {
         return <RepeaterEmptyState message={emptyLabel} />;
     }
-    const cellValue = (value: unknown): ReactNode =>
-        value === null || value === undefined || value === "" ? "-" : (value as ReactNode);
     const colCount = columns.length + (renderExpandedRow ? 1 : 0);
 
     return (
@@ -73,7 +75,10 @@ export function SectionRepeaterTable({
                 </thead>
                 <tbody>
                     {list.map((item, index) => (
-                        <Fragment key={index}>
+                        <Fragment
+                            // oxlint-disable-next-line react/no-array-index-key -- rows are positional; read-only display table
+                            key={index}
+                        >
                             <tr className="border-b last:border-b-0">
                                 {renderExpandedRow && (
                                     <td className="px-3 py-2">
