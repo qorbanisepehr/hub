@@ -4,6 +4,7 @@ use App\Domains\Audit\Models\AuditLog;
 use App\Domains\Authorization\Models\Role;
 use App\Domains\Cv\Models\Cv;
 use App\Domains\Employee\Models\Employee;
+use App\Domains\FormOptions\Models\FormOption;
 use App\Models\User;
 
 use function Pest\Laravel\actingAs;
@@ -208,6 +209,59 @@ describe('ListQuery contract', function () {
             actingAs($this->admin)
                 ->getJson('/api/roles?sort=injection;drop&order=asc')
                 ->assertOk();
+        });
+    });
+
+    describe('admin form options', function () {
+        it('searches label and value with the unified filter param', function () {
+            $manager = createUserWithPermissions(['form-options.manage']);
+            FormOption::create([
+                'group' => 'gender',
+                'value' => 'needle_value',
+                'label' => 'سوزن',
+                'sort_order' => 0,
+                'is_active' => true,
+            ]);
+            FormOption::create([
+                'group' => 'gender',
+                'value' => 'other',
+                'label' => 'دیگر',
+                'sort_order' => 1,
+                'is_active' => true,
+            ]);
+
+            actingAs($manager)
+                ->getJson('/api/admin/form-options?filter=needle_value')
+                ->assertOk()
+                ->assertJsonCount(1, 'data');
+
+            actingAs($manager)
+                ->getJson('/api/admin/form-options?filter='.urlencode('سوزن'))
+                ->assertOk()
+                ->assertJsonCount(1, 'data');
+        });
+
+        it('keeps the fixed sort order', function () {
+            $manager = createUserWithPermissions(['form-options.manage']);
+            FormOption::create([
+                'group' => 'gender',
+                'value' => 'b',
+                'label' => 'B',
+                'sort_order' => 2,
+                'is_active' => true,
+            ]);
+            $first = FormOption::create([
+                'group' => 'gender',
+                'value' => 'a',
+                'label' => 'A',
+                'sort_order' => 1,
+                'is_active' => true,
+            ]);
+
+            actingAs($manager)
+                ->getJson('/api/admin/form-options?group=gender')
+                ->assertOk()
+                ->assertJsonPath('data.0.id', $first->id);
         });
     });
 

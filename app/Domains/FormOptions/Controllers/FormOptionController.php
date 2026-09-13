@@ -151,6 +151,8 @@ class FormOptionController
 
         $this->authorization->scope($request->user(), 'form-options.manage', $query);
 
+        ListQuery::search($query, ListQuery::filter($request), ['label', 'value']);
+
         return FormOptionResource::collection(
             $query->ordered()->paginate(ListQuery::perPage($request, max: 100)),
         );

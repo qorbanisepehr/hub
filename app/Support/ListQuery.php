@@ -64,6 +64,13 @@ final class ListQuery
      * literal, so user input cannot broaden the match. A null term (absent or
      * empty) leaves the query untouched.
      *
+     * The escape is declared EXPLICITLY: Postgres and MySQL default LIKE's
+     * escape to backslash, but sqlite has NO default escape — an escaped term
+     * would match a literal backslash there and never find the row. Declaring
+     * `escape '\'` makes the behaviour identical on every driver (and keeps
+     * the test suite's sqlite honest against the production Postgres). Same
+     * pattern as FormOptionService's public option search.
+     *
      * @param  array<int, string>  $columns
      */
     public static function search(Builder $query, ?string $term, array $columns): Builder
@@ -72,11 +79,18 @@ final class ListQuery
             return $query;
         }
 
-        $escaped = addcslashes($term, '%_\\');
+        $needle = str_replace(
+            ['\\', '%', '_'],
+            ['\\\\', '\\%', '\\_'],
+            $term,
+        );
 
-        return $query->where(function (Builder $group) use ($columns, $escaped): void {
+        return $query->where(function (Builder $group) use ($columns, $needle): void {
             foreach ($columns as $column) {
-                $group->orWhere($column, 'like', "%{$escaped}%");
+                $group->orWhereRaw(
+                    "{$column} like ? escape '\\'",
+                    ["%{$needle}%"],
+                );
             }
         });
     }
