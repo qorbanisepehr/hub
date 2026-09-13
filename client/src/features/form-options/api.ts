@@ -38,12 +38,18 @@ export function fetchFormOptionsByValues(group: string, values: string[]) {
     );
 }
 
-export function fetchAdminFormOptions(group?: string, page = 1, perPage = 20) {
+export function fetchAdminFormOptions(
+    group?: string,
+    page = 1,
+    perPage = 20,
+    filter?: string,
+) {
     return api.get<PaginatedResponse<FormOption>>("/admin/form-options", {
         params: {
             group: group || undefined,
             page,
             per_page: perPage,
+            filter: filter || undefined,
         },
     });
 }

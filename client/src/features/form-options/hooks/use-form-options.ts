@@ -152,11 +152,16 @@ export function useFormOptionsWithPlaces<T>(
  * explicitly requested). Returns the full paginated envelope so callers can
  * drive the data table's pagination controls from `meta`.
  */
-export function useAdminFormOptions(group?: string, page = 1, perPage = 20) {
+export function useAdminFormOptions(
+    group?: string,
+    page = 1,
+    perPage = 20,
+    filter?: string,
+) {
     return useQuery({
-        queryKey: formOptionKeys.admin(group, { page, per_page: perPage }),
+        queryKey: formOptionKeys.admin(group, { page, per_page: perPage, filter }),
         queryFn: async () => {
-            const { data } = await fetchAdminFormOptions(group, page, perPage);
+            const { data } = await fetchAdminFormOptions(group, page, perPage, filter);
             return data;
         },
     });

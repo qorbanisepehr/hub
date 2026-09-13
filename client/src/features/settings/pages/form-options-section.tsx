@@ -4,13 +4,13 @@ import {
     stockFeatures,
     useTable,
     type ColumnDef,
-    type PaginationState,
     type Row,
     type StockFeatures,
 } from "@tanstack/react-table";
 import { IconListDetails, IconPencil, IconPlus } from "@tabler/icons-react";
 
 import { ActiveBadge } from "@/components/shared/active-badge";
+import { DataTableToolbar } from "@/components/data-table/toolbar";
 import { Button } from "@/components/ui/button";
 import {
     Card,
@@ -42,14 +42,12 @@ import { EmptyState } from "@/components/layout";
 import { ErrorSection } from "@/components/layout";
 import { usePermission } from "@/features/auth/components/permission-guard";
 import { groupDisplayName } from "@/features/form-options/groups";
-import {
-    useAdminFormOptionGroups,
-    useAdminFormOptions,
-    useFormOptionsAdmin,
-} from "@/features/form-options/hooks/use-form-options";
+import { useTableUrlState } from "@/hooks/use-table-url-state";
+import { useAdminFormOptionGroups, useAdminFormOptions, useFormOptionsAdmin } from "@/features/form-options/hooks/use-form-options";
 import type { FormOption } from "@/features/form-options/types";
 import { PAGINATION } from "@/lib/constants";
 import { PERMISSIONS } from "@/lib/permissions";
+import { Route } from "@/routes/_protected/settings";
 import { OptionEditorDialog } from "./option-editor-dialog";
 import {
     emptyForm,
@@ -66,13 +64,28 @@ export function FormOptionsSection() {
     const canManage = usePermission([PERMISSIONS.FORM_OPTIONS_MANAGE]);
     const admin = useFormOptionsAdmin();
 
-    const [selectedGroup, setSelectedGroup] = useState<string>("");
+    const search = Route.useSearch();
+    const navigate = Route.useNavigate();
+
+    const selectedGroup = search.group ?? "";
+
     const [dialogOpen, setDialogOpen] = useState(false);
     const [editing, setEditing] = useState<FormOption | null>(null);
     const [form, setForm] = useState<OptionFormState>(emptyForm(0));
-    const [pagination, setPagination] = useState<PaginationState>({
-        pageIndex: 0,
-        pageSize: PAGINATION.DEFAULT_PAGE_SIZE,
+
+    const {
+        globalFilter,
+        onGlobalFilterChange,
+        pagination,
+        onPaginationChange,
+    } = useTableUrlState({
+        search: search as unknown as Record<string, unknown>,
+        navigate: navigate as never,
+        pagination: {
+            defaultPage: 1,
+            defaultPageSize: PAGINATION.DEFAULT_PAGE_SIZE,
+        },
+        globalFilter: { enabled: true, key: "filter" },
     });
 
     const { data: groups = [], isLoading: groupsLoading } =
@@ -81,6 +94,7 @@ export function FormOptionsSection() {
         selectedGroup || undefined,
         pagination.pageIndex + 1,
         pagination.pageSize,
+        globalFilter || undefined,
     );
 
     const rows = data?.data ?? [];
@@ -240,7 +254,7 @@ export function FormOptionsSection() {
         data: rows,
         columns,
         state: { pagination },
-        onPaginationChange: setPagination,
+        onPaginationChange,
         manualPagination: true,
         pageCount: meta?.last_page ?? 1,
     });
@@ -259,63 +273,81 @@ export function FormOptionsSection() {
             </CardHeader>
             <CardContent>
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                    <Select
-                        value={selectedGroup || null}
-                        onValueChange={(value: string | null) => {
-                            if (!value) return;
-                            setSelectedGroup(value);
-                            setPagination((p) => ({ ...p, pageIndex: 0 }));
-                        }}
-                        itemToStringLabel={(val) =>
-                            groupDisplayName(
-                                val as string,
-                                groups.find((g) => g.group === val)?.label ??
-                                    undefined,
-                            )
-                        }
-                    >
-                        <SelectTrigger className="w-full sm:w-64">
-                            <SelectValue
-                                placeholder={
-                                    groupsLoading
-                                        ? "در حال بارگذاری…"
-                                        : "انتخاب گروه"
-                                }
-                            />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {groups.map((group) => (
-                                <SelectItem
-                                    key={group.group}
-                                    value={group.group}
-                                >
-                                    {groupDisplayName(
-                                        group.group,
-                                        group.label ?? undefined,
-                                    )}
-                                    ({group.count.toLocaleString("fa-IR")})
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
+                    <div className="w-full sm:w-auto">
+                        <DataTableToolbar
+                            table={table}
+                            searchPlaceholder="جستجوی عنوان یا مقدار…"
+                            globalFilter={globalFilter}
+                            onGlobalFilterChange={onGlobalFilterChange}
+                        />
+                    </div>
 
-                    {canManage && (
-                        <Button
-                            type="button"
-                            onClick={openCreate}
-                            disabled={
-                                !selectedGroup || admin.create.isPending
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                        <Select
+                            value={selectedGroup || null}
+                            onValueChange={(value: string | null) => {
+                                if (!value) return;
+                                navigate({
+                                    search: (prev) => ({
+                                        ...prev,
+                                        tab: "form-options",
+                                        group: value,
+                                        page: undefined,
+                                    }),
+                                });
+                            }}
+                            itemToStringLabel={(val) =>
+                                groupDisplayName(
+                                    val as string,
+                                    groups.find((g) => g.group === val)?.label ??
+                                        undefined,
+                                )
                             }
                         >
-                            <IconPlus className="size-4" />
-                            افزودن گزینه
-                        </Button>
-                    )}
+                            <SelectTrigger className="w-full sm:w-64">
+                                <SelectValue
+                                    placeholder={
+                                        groupsLoading
+                                            ? "در حال بارگذاری…"
+                                            : "انتخاب گروه"
+                                    }
+                                />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {groups.map((group) => (
+                                    <SelectItem
+                                        key={group.group}
+                                        value={group.group}
+                                    >
+                                        {groupDisplayName(
+                                            group.group,
+                                            group.label ?? undefined,
+                                        )}
+                                        ({group.count.toLocaleString("fa-IR")})
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+
+                        {canManage && (
+                            <Button
+                                type="button"
+                                onClick={openCreate}
+                                disabled={
+                                    !selectedGroup || admin.create.isPending
+                                }
+                            >
+                                <IconPlus className="size-4" />
+                                افزودن گزینه
+                            </Button>
+                        )}
+                    </div>
                 </div>
 
                 {isLoading ? (
                     <div className="mt-6 space-y-2">
                         {Array.from({ length: 5 }).map((_, i) => (
+                            // oxlint-disable-next-line react/no-array-index-key -- static skeleton placeholders
                             <Skeleton key={i} className="h-10 w-full" />
                         ))}
                     </div>
