@@ -1,16 +1,15 @@
-import { useStore } from "@tanstack/react-form";
+import { useSelector } from "@tanstack/react-form";
 
+import { FormSelectField, FormTextField } from "@/components/forms";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Field } from "@/components/ui/field";
-import { FieldLabel } from "@/components/ui/field";
+import { Field, FieldLabel } from "@/components/ui/field";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { FormTextField, FormSelectField } from "@/components/forms";
 import { RoleSearchSelect } from "@/features/rbac/components/role-search-select";
 import { ROLE_TYPES } from "@/features/rbac/constants";
-import { roleSchema, type RoleFormApi } from "./role-form-schema";
 import { zodFieldValidators } from "@/lib/validation-helpers";
+import { roleSchema, type RoleFormApi } from "./role-form-schema";
 
 type BaseInfoCardProps = {
     form: RoleFormApi;
@@ -21,10 +20,7 @@ export function RoleBaseInfoCard({
     form,
     excludeParentIds,
 }: BaseInfoCardProps) {
-    const parentId = useStore(
-        form.store,
-        (state) => state.values.parent_id,
-    );
+    const parentId = useSelector(form.store, (state) => state.values.parent_id);
 
     return (
         <Card>

@@ -1,4 +1,4 @@
-import type { ReactFormExtendedApi } from "@tanstack/react-form";
+import type { SectionFormApi } from "@/types/form-types";
 
 import { FormTextField, FormTextarea } from "@/components/forms";
 import { PlaceCascader } from "@/components/forms";
@@ -6,7 +6,7 @@ import { zodFieldValidators } from "@/lib/validation-helpers";
 import { fieldSchemas } from "@/features/questionnaire/schemas/contact-info.schema";
 
 type AddressFormProps = {
-    form: ReactFormExtendedApi<any, any, any, any, any, any, any, any, any, any, any, any>;
+    form: SectionFormApi;
     prefix: string;
     /**
      * `"full"` (default): province/city are province + city option selects

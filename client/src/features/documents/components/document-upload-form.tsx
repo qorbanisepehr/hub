@@ -1,7 +1,3 @@
-import * as React from "react";
-import { useForm } from "@tanstack/react-form";
-import { useStore } from "@tanstack/react-form";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
     IconFile,
     IconFileText,
@@ -10,10 +6,11 @@ import {
     IconSelector,
     IconX,
 } from "@tabler/icons-react";
+import { useForm, useSelector } from "@tanstack/react-form";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import * as React from "react";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Field, FieldLabel } from "@/components/ui/field";
 import {
     Command,
     CommandEmpty,
@@ -21,15 +18,21 @@ import {
     CommandItem,
     CommandList,
 } from "@/components/ui/command";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Field, FieldLabel } from "@/components/ui/field";
 import { FileUpload } from "@/components/ui/file-upload";
+import { Input } from "@/components/ui/input";
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from "@/components/ui/popover";
 import {
     fetchDocumentCategories,
     uploadDocument,
 } from "@/features/documents/api";
+import { FILE_UPLOAD } from "@/lib/constants";
 import { getApiError } from "@/lib/error-utils";
 import { documentKeys } from "@/lib/query-keys";
-import { FILE_UPLOAD } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
 type FileItem = {
@@ -46,16 +49,43 @@ type DocumentUploadFormProps = {
 };
 
 function validateDocumentFile(file: File): string | null {
-    if (file.size > FILE_UPLOAD.MAX_SIZE) return `${file.name}: حداکثر اندازه ۵۰ مگابایت`;
+    if (file.size > FILE_UPLOAD.MAX_SIZE)
+        return `${file.name}: حداکثر اندازه ۵۰ مگابایت`;
     const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
-    if (["pdf","jpg","jpeg","png","gif","webp","doc","docx","xls","xlsx","ppt","pptx","txt","csv"].includes(ext)) return null;
+    if (
+        [
+            "pdf",
+            "jpg",
+            "jpeg",
+            "png",
+            "gif",
+            "webp",
+            "doc",
+            "docx",
+            "xls",
+            "xlsx",
+            "ppt",
+            "pptx",
+            "txt",
+            "csv",
+        ].includes(ext)
+    )
+        return null;
     return `${file.name}: فرمت پشتیبانی نمی‌شود`;
 }
 
 type FlatCategory = { id: number; name: string; depth: number; path: string };
 
 function flattenCategories(
-    cats: { id: number; name: string; children?: { id: number; name: string; children?: { id: number; name: string }[] }[] }[],
+    cats: {
+        id: number;
+        name: string;
+        children?: {
+            id: number;
+            name: string;
+            children?: { id: number; name: string }[];
+        }[];
+    }[],
     depth = 0,
     parentPath = "",
 ): FlatCategory[] {
@@ -90,7 +120,11 @@ export function DocumentUploadForm({
     });
 
     const uploadMutation = useMutation({
-        mutationFn: (payload: { category: string; notes: string; file: File }) => {
+        mutationFn: (payload: {
+            category: string;
+            notes: string;
+            file: File;
+        }) => {
             const formData = new FormData();
             formData.append("document_category_id", payload.category);
             formData.append("documentable_type", documentableType);
@@ -142,7 +176,7 @@ export function DocumentUploadForm({
         },
     });
 
-    const formDirty = useStore(form.store, (state) => state.isDirty);
+    const formDirty = useSelector(form.store, (state) => state.isDirty);
     const hasFile = file !== null;
     const isDirty = formDirty || hasFile;
     const isUploading = uploadMutation.isPending;
@@ -204,10 +238,16 @@ export function DocumentUploadForm({
                         <span className="text-xs text-emerald-500">✓</span>
                     )}
                     {file.status === "error" && (
-                        <span className="text-xs text-destructive">{file.error}</span>
+                        <span className="text-xs text-destructive">
+                            {file.error}
+                        </span>
                     )}
                     {!isUploading && (
-                        <Button variant="ghost" size="icon-xs" onClick={removeFile}>
+                        <Button
+                            variant="ghost"
+                            size="icon-xs"
+                            onClick={removeFile}
+                        >
                             <IconX className="size-3" />
                         </Button>
                     )}
@@ -217,12 +257,19 @@ export function DocumentUploadForm({
             <form.Field name="document_category_id">
                 {(field) => {
                     const flat = flattenCategories(categories ?? []);
-                    const selected = flat.find((c) => String(c.id) === field.state.value);
+                    const selected = flat.find(
+                        (c) => String(c.id) === field.state.value,
+                    );
 
                     return (
                         <Field>
-                            <FieldLabel htmlFor={field.name}>دسته‌بندی</FieldLabel>
-                            <Popover open={categoryOpen} onOpenChange={setCategoryOpen}>
+                            <FieldLabel htmlFor={field.name}>
+                                دسته‌بندی
+                            </FieldLabel>
+                            <Popover
+                                open={categoryOpen}
+                                onOpenChange={setCategoryOpen}
+                            >
                                 <PopoverTrigger
                                     render={
                                         <button
@@ -241,25 +288,40 @@ export function DocumentUploadForm({
                                         />
                                     }
                                 >
-                                    <span className={selected ? "" : "text-muted-foreground"}>
+                                    <span
+                                        className={
+                                            selected
+                                                ? ""
+                                                : "text-muted-foreground"
+                                        }
+                                    >
                                         {selected?.path ?? "انتخاب دسته‌بندی"}
                                     </span>
                                     <IconSelector className="size-4 shrink-0 opacity-50" />
                                 </PopoverTrigger>
-                                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                                <PopoverContent
+                                    className="w-[--radix-popover-trigger-width] p-0"
+                                    align="start"
+                                >
                                     <Command>
                                         <CommandInput placeholder="جستجو..." />
                                         <CommandList>
-                                            <CommandEmpty>یافت نشد</CommandEmpty>
+                                            <CommandEmpty>
+                                                یافت نشد
+                                            </CommandEmpty>
                                             {flat.map((item) => (
                                                 <CommandItem
                                                     key={item.id}
                                                     value={item.name}
                                                     onSelect={() => {
-                                                        field.handleChange(String(item.id));
+                                                        field.handleChange(
+                                                            String(item.id),
+                                                        );
                                                         setCategoryOpen(false);
                                                     }}
-                                                    style={{ paddingInlineStart: `${8 + item.depth * 16}px` }}
+                                                    style={{
+                                                        paddingInlineStart: `${8 + item.depth * 16}px`,
+                                                    }}
                                                 >
                                                     {item.depth === 0 ? (
                                                         <span className="text-muted-foreground">
@@ -307,10 +369,7 @@ export function DocumentUploadForm({
                 <p className="text-sm text-destructive">{serverError}</p>
             )}
 
-            <Button
-                type="submit"
-                disabled={!file || isUploading}
-            >
+            <Button type="submit" disabled={!file || isUploading}>
                 {isUploading ? (
                     <IconLoader2 className="size-4 animate-spin" />
                 ) : (

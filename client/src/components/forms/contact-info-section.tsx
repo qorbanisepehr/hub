@@ -10,6 +10,10 @@ import { AddressForm } from "@/components/forms";
 import { OtpVerifiedInput } from "@/components/forms";
 import type { SectionFormApi } from "@/types/form-types";
 import { getApiError } from "@/lib/error-utils";
+import type {
+    OtpSendPayload,
+    OtpVerifyPayload,
+} from "@/hooks/use-otp-verification";
 import { zodFieldValidators } from "@/lib/validation-helpers";
 import { fieldSchemas } from "@/features/questionnaire/schemas/contact-info.schema";
 
@@ -24,10 +28,22 @@ export type ContactOtpConfig = {
     mobileVerified: boolean;
     /** Query-key factory for the entity detail, used for invalidation. */
     detailKey: (uuid: string) => readonly unknown[];
-    sendEmailOtp: (uuid: string, value: string) => Promise<unknown>;
-    sendMobileOtp: (uuid: string, value: string) => Promise<unknown>;
-    verifyEmailOtp: (uuid: string, otp: string) => Promise<unknown>;
-    verifyMobileOtp: (uuid: string, otp: string) => Promise<unknown>;
+    sendEmailOtp: (
+        uuid: string,
+        value: string,
+    ) => Promise<{ data?: OtpSendPayload }>;
+    sendMobileOtp: (
+        uuid: string,
+        value: string,
+    ) => Promise<{ data?: OtpSendPayload }>;
+    verifyEmailOtp: (
+        uuid: string,
+        otp: string,
+    ) => Promise<{ data: OtpVerifyPayload }>;
+    verifyMobileOtp: (
+        uuid: string,
+        otp: string,
+    ) => Promise<{ data: OtpVerifyPayload }>;
 };
 
 type ContactValidators = ReturnType<typeof zodFieldValidators>;
@@ -62,8 +78,11 @@ function ContactOtpField({
     validators: ContactValidators;
     isVerified: boolean;
     detailKey: (uuid: string) => readonly unknown[];
-    sendOtp: (uuid: string, value: string) => Promise<unknown>;
-    verifyOtp: (uuid: string, otp: string) => Promise<unknown>;
+    sendOtp: (uuid: string, value: string) => Promise<{ data?: OtpSendPayload }>;
+    verifyOtp: (
+        uuid: string,
+        otp: string,
+    ) => Promise<{ data: OtpVerifyPayload }>;
     placeholder: string;
     successMessage: string;
 }) {
