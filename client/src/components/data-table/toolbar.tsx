@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
     type RowData,
     type StockFeatures,
@@ -8,6 +8,8 @@ import { IconSearch, IconX } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DataTableViewOptions } from "./view-options";
+
+const SEARCH_DEBOUNCE_MS = 400;
 
 type DataTableToolbarProps<TData extends RowData> = {
     table: Table<StockFeatures, TData>;
@@ -43,21 +45,48 @@ export function DataTableToolbar<TData extends RowData>({
         setLocalValue(committedValue);
     }
 
-    const commit = () => {
+    const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    const cancelPending = useCallback(() => {
+        if (debounceRef.current) {
+            clearTimeout(debounceRef.current);
+            debounceRef.current = null;
+        }
+    }, []);
+
+    // Clear any queued auto-commit on unmount; [] is correct because the
+    // handler below never re-arms the timer on its own.
+    useEffect(() => cancelPending, [cancelPending]);
+
+    const commitWith = (value: string) => {
         if (searchKey) {
-            table.getColumn(searchKey)?.setFilterValue(localValue);
+            table.getColumn(searchKey)?.setFilterValue(value);
         } else {
-            onGlobalFilterChange?.(localValue);
+            onGlobalFilterChange?.(value);
         }
     };
 
+    const handleInputChange = (value: string) => {
+        setLocalValue(value);
+        cancelPending();
+        // Auto-commit shortly after the user stops typing; a URL re-sync (or
+        // Enter/clear below) never re-arms it because the value matches.
+        if (value === committedValue) return;
+        debounceRef.current = setTimeout(() => {
+            debounceRef.current = null;
+            commitWith(value);
+        }, SEARCH_DEBOUNCE_MS);
+    };
+
+    const commit = () => {
+        cancelPending();
+        commitWith(localValue);
+    };
+
     const clear = () => {
+        cancelPending();
         setLocalValue("");
-        if (searchKey) {
-            table.getColumn(searchKey)?.setFilterValue("");
-        } else {
-            onGlobalFilterChange?.("");
-        }
+        commitWith("");
     };
 
     return (
@@ -69,7 +98,9 @@ export function DataTableToolbar<TData extends RowData>({
                             <Input
                                 placeholder={searchPlaceholder}
                                 value={localValue}
-                                onChange={(e) => setLocalValue(e.target.value)}
+                                onChange={(e) =>
+                                    handleInputChange(e.target.value)
+                                }
                                 onKeyDown={(e) => {
                                     if (e.key === "Enter") {
                                         e.preventDefault();
