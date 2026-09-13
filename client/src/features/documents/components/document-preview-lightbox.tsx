@@ -32,6 +32,13 @@ const SWIPE_THRESHOLD = 50;
 function PreviewContent({ doc }: { doc: Document }) {
     const [pdfImageUrl, setPdfImageUrl] = React.useState<string | null>(null);
     const [imageLoaded, setImageLoaded] = React.useState(false);
+    const [lastDocId, setLastDocId] = React.useState(doc.id);
+    if (doc.id !== lastDocId) {
+        // New document selected: reset the load flag during render instead of
+        // in an effect, so the spinner shows for the new doc immediately.
+        setLastDocId(doc.id);
+        setImageLoaded(false);
+    }
 
     React.useEffect(() => {
         if (getDocMimeType(doc) !== "application/pdf" || !getDocServeUrl(doc, true)) return;
@@ -49,10 +56,6 @@ function PreviewContent({ doc }: { doc: Document }) {
             isCurrent = false;
         };
     }, [doc]);
-
-    React.useEffect(() => {
-        setImageLoaded(false);
-    }, [doc.id]);
 
     if (getDocMimeType(doc).startsWith("image/")) {
         return (

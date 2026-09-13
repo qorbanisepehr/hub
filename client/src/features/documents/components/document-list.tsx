@@ -7,7 +7,6 @@ import {
     IconTable,
     IconColumns,
     IconFolder,
-    IconFolderOpen,
 } from "@tabler/icons-react";
 import { toast } from "sonner";
 
@@ -19,9 +18,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { fetchDocuments, deleteDocument, fetchDocumentCategories } from "@/features/documents/api";
-import { getDocServeUrl, getDocDownloadUrl, collectDocs } from "@/features/documents/types";
+import { getDocDownloadUrl, collectDocs } from "@/features/documents/types";
 import type { Document, DocumentCategory } from "@/features/documents/types";
-import { DocumentPreviewLightbox } from "./document-preview-lightbox";
+import {
+    closePreview,
+    openPreview,
+} from "@/features/documents/preview-store";
 import { DocumentTable } from "./document-table";
 import { DocumentGroupedTable } from "./document-grouped-table";
 import { DocumentTreeView } from "./document-tree-view";
@@ -235,9 +237,6 @@ export function DocumentList({
 }: DocumentListProps) {
     const queryClient = useQueryClient();
     const [viewMode, setViewMode] = React.useState<ViewMode>("grouped");
-    const [lightboxIndex, setLightboxIndex] = React.useState<number | null>(
-        null,
-    );
     const [confirmingDeleteId, setConfirmingDeleteId] = React.useState<
         number | null
     >(null);
@@ -279,7 +278,7 @@ export function DocumentList({
                 queryKey: documentKeys.trashed(documentableType, String(documentableId)),
             });
             setDeletingIds(new Set());
-            setLightboxIndex(null);
+            closePreview();
             onSelectionChange(selectedIds.filter((id) => id !== documentId));
             toast.success("مدرک حذف شد");
         },
@@ -292,7 +291,7 @@ export function DocumentList({
     function handlePreview(doc: Document) {
         if (!documents) return;
         const index = documents.findIndex((d) => d.id === doc.id);
-        if (index !== -1) setLightboxIndex(index);
+        if (index !== -1) openPreview(documents, index);
     }
 
     function handleStartDelete(documentId: number) {
@@ -313,6 +312,7 @@ export function DocumentList({
         return (
             <div className="space-y-3">
                 {Array.from({ length: 3 }).map((_, i) => (
+                    // oxlint-disable-next-line react/no-array-index-key -- static skeleton placeholders
                     <Skeleton key={i} className="h-14 w-full rounded-lg" />
                 ))}
             </div>
@@ -431,13 +431,6 @@ export function DocumentList({
                 />
             )}
 
-            <DocumentPreviewLightbox
-                documents={documents}
-                currentIndex={lightboxIndex ?? 0}
-                open={lightboxIndex !== null}
-                onClose={() => setLightboxIndex(null)}
-                onNavigate={setLightboxIndex}
-            />
         </div>
     );
 }

@@ -41,7 +41,6 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { FileThumbnail } from "@/components/ui/file-thumbnail";
-import { DocumentPreviewLightbox } from "@/features/documents/components/document-preview-lightbox";
 import type { Document } from "@/features/documents/types";
 import type { EntityDocument } from "@/hooks/use-entity-documents";
 import { useDocumentPreview } from "@/hooks/use-document-preview";
@@ -510,14 +509,7 @@ export function DocumentViewer({ documents, className }: DocumentViewerProps) {
     const [viewMode, setViewMode] =
         React.useState<DocumentViewerMode>("grouped");
 
-    const {
-        lightboxDocs,
-        lightboxIndex,
-        isPreviewOpen,
-        openPreview,
-        closePreview,
-        navigatePreview,
-    } = useDocumentPreview(documents);
+    const { openPreview } = useDocumentPreview(documents);
 
     const groups = React.useMemo(
         () => groupDocumentsByCategory(documents),
@@ -584,14 +576,6 @@ export function DocumentViewer({ documents, className }: DocumentViewerProps) {
                     onPreview={openPreview}
                 />
             )}
-
-            <DocumentPreviewLightbox
-                documents={lightboxDocs}
-                currentIndex={lightboxIndex ?? 0}
-                open={isPreviewOpen}
-                onClose={closePreview}
-                onNavigate={navigatePreview}
-            />
         </div>
     );
 }
