@@ -10,7 +10,6 @@ import {
 } from "@tabler/icons-react";
 import { toast } from "sonner";
 
-import { cn } from "@/lib/utils";
 import { getApiError } from "@/lib/error-utils";
 import { documentKeys } from "@/lib/query-keys";
 import { EmptyState, ErrorSection } from "@/components/layout";
@@ -29,6 +28,13 @@ import { DocumentGroupedTable } from "./document-grouped-table";
 import { DocumentTreeView } from "./document-tree-view";
 import { ListAttachmentItem } from "./list-attachment-item";
 import { CardAttachmentItem } from "./card-attachment-item";
+import {
+    Tabs,
+    TabsList,
+    TabsTrigger,
+} from "@/components/ui/tabs";
+
+const ALL_CATEGORY_KEY = "__all__";
 
 type FilterOption = {
     key: string;
@@ -102,39 +108,33 @@ function NestedCategoryCards({
     return (
         <div className="space-y-3">
             {filterOptions.length > 1 && (
-                <div className="flex gap-1 overflow-x-auto" role="tablist">
-                    <button
-                        type="button"
-                        role="tab"
-                        aria-selected={selectedCategory === null}
-                        onClick={() => onCategoryChange(null)}
-                        className={cn(
-                            "shrink-0 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
-                            selectedCategory === null
-                                ? "bg-secondary text-secondary-foreground"
-                                : "text-muted-foreground hover:text-foreground",
-                        )}
-                    >
-                        همه ({totalCount})
-                    </button>
-                    {filterOptions.map((opt) => (
-                        <button
-                            key={opt.key}
-                            type="button"
-                            role="tab"
-                            aria-selected={selectedCategory === opt.key}
-                            onClick={() => onCategoryChange(opt.key)}
-                            className={cn(
-                                "shrink-0 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
-                                selectedCategory === opt.key
-                                    ? "bg-secondary text-secondary-foreground"
-                                    : "text-muted-foreground hover:text-foreground",
-                            )}
+                <Tabs
+                    value={selectedCategory ?? ALL_CATEGORY_KEY}
+                    onValueChange={(value) =>
+                        onCategoryChange(
+                            value === ALL_CATEGORY_KEY ? null : value,
+                        )
+                    }
+                    className="w-full"
+                >
+                    <TabsList className="flex w-full overflow-x-auto">
+                        <TabsTrigger
+                            value={ALL_CATEGORY_KEY}
+                            className="shrink-0"
                         >
-                            {opt.label} ({opt.count})
-                        </button>
-                    ))}
-                </div>
+                            همه ({totalCount})
+                        </TabsTrigger>
+                        {filterOptions.map((opt) => (
+                            <TabsTrigger
+                                key={opt.key}
+                                value={opt.key}
+                                className="shrink-0"
+                            >
+                                {opt.label} ({opt.count})
+                            </TabsTrigger>
+                        ))}
+                    </TabsList>
+                </Tabs>
             )}
             {filteredCategories.map((topCat) => {
                 const children = selectedCategory
