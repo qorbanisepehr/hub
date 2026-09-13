@@ -1,15 +1,16 @@
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useSelector } from "@tanstack/react-store";
 import { IconPencil } from "@tabler/icons-react";
 import { isAxiosError } from "axios";
 import { toast } from "sonner";
-import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { ConfirmDeleteButton } from "@/components/ui/confirm-delete-button";
 import { fetchEmployee, deleteEmployee } from "@/features/employees/api";
 import { getApiError } from "@/lib/error-utils";
 import { EmployeeProfileView } from "@/features/employees/components/employee-profile-view";
+import { profileViewStore } from "@/features/employees/profile-view-store";
 import { ViewSkeleton } from "@/components/layout";
 import { PageLayout } from "@/components/layout";
 import { ErrorPage } from "@/components/layout";
@@ -23,9 +24,8 @@ export function EmployeeViewPage() {
     const employeeId = Number(id);
     // The active view tab deep-links the edit button: the edit form opens on
     // the same keyed hash section the user was reading (#contracts, ...).
-    const [activeTabKey, setActiveTabKey] = useState(
-        () => window.location.hash.replace("#", "") || undefined,
-    );
+    // Written by EmployeeProfileView into the shared profile-view store.
+    const activeTabKey = useSelector(profileViewStore, (s) => s.activeTab);
 
     const {
         data: employee,
@@ -96,7 +96,7 @@ export function EmployeeViewPage() {
                                 <Link
                                     to="/employees/$id/edit"
                                     params={{ id: String(employee.id) }}
-                                    hash={activeTabKey}
+                                    hash={activeTabKey ?? true}
                                 />
                             }
                         >
@@ -113,10 +113,7 @@ export function EmployeeViewPage() {
                 </div>
             </PageHeader>
 
-            <EmployeeProfileView
-                employee={employee}
-                onActiveTabChange={setActiveTabKey}
-            />
+            <EmployeeProfileView employee={employee} />
         </PageLayout>
     );
 }

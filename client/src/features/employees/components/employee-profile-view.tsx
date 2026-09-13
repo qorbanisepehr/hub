@@ -11,6 +11,10 @@ import {
     EMPLOYEE_SECTIONS,
 } from "@/features/employees/constants";
 import { useEmployeeDocuments } from "@/features/employees/hooks/use-employee-documents";
+import {
+    clearActiveTab,
+    setActiveTab,
+} from "@/features/employees/profile-view-store";
 import type { Employee } from "@/features/employees/types";
 import { useRowDocsFeedback } from "@/features/documents/hooks/use-row-docs-feedback";
 import {
@@ -35,13 +39,11 @@ import { SupplementaryInsuranceView } from "./views/supplementary-insurance-view
 import { DOC_CATEGORY_SLUGS } from "@/features/questionnaire/constants";
 import { FileThumbnail } from "@/components/ui/file-thumbnail";
 import { useDocumentPreview } from "@/hooks/use-document-preview";
-import { DocumentPreviewLightbox } from "@/features/documents/components/document-preview-lightbox";
 
 const DOC_EXTRA_CLASS = "mt-4 pt-4 border-t";
 
 export function EmployeeProfileView({
     employee,
-    onActiveTabChange,
 }: EmployeeProfileViewProps) {
     // Same keyed-hash wizard state as the edit form: the active tab syncs to
     // the URL hash (#contracts, #documents, ...) and survives reload/back.
@@ -56,11 +58,15 @@ export function EmployeeProfileView({
     const { currentKey, goToKey } = useWizardState(tabs);
     const activeTab = currentKey ?? EMPLOYEE_SECTIONS[0].key;
 
-    // The page uses the active tab to deep-link the edit button (edit form
-    // opens on the same tab the user was reading).
+    // The page header's edit button reads the active tab from the store to
+    // deep-link the edit form (same tab the user was reading). One-way sync:
+    // useWizardState stays the source of truth; the store is the read side.
+    // Cleared on unmount so the next employee's page never inherits a
+    // previous employee's tab.
     useEffect(() => {
-        onActiveTabChange?.(activeTab);
-    }, [activeTab, onActiveTabChange]);
+        setActiveTab(activeTab);
+        return () => clearActiveTab();
+    }, [activeTab]);
     const contentRef = useRef<HTMLDivElement>(null);
     const { getDocumentsBySlug, capabilities } = useEmployeeDocuments(
         employee.id,
@@ -87,18 +93,13 @@ export function EmployeeProfileView({
         DOC_CATEGORY_SLUGS.PERSONNEL_PHOTO,
     )[0];
 
-    const {
-        lightboxDocs,
-        lightboxIndex,
-        isPreviewOpen,
-        openPreview,
-        closePreview,
-        navigatePreview,
-    } = useDocumentPreview(personnelPhoto ? [personnelPhoto] : []);
+    const { openPreview } = useDocumentPreview(
+        personnelPhoto ? [personnelPhoto] : [],
+    );
 
     const sectionData: Record<string, Record<string, unknown>> = {
         personal_info: {
-            ...(employee.section_personal ?? {}),
+            ...employee.section_personal,
             first_name: employee.first_name ?? "",
             last_name: employee.last_name ?? "",
             id_number: employee.id_number ?? "",
@@ -107,7 +108,7 @@ export function EmployeeProfileView({
             marital_status: employee.marital_status ?? "",
         },
         contact_info: {
-            ...(employee.section_contact_address ?? {}),
+            ...employee.section_contact_address,
             email: employee.email ?? "",
             mobile: employee.mobile ?? "",
         },
@@ -275,20 +276,10 @@ export function EmployeeProfileView({
                     </TabsContent>
                 ))}
             </div>
-            <DocumentPreviewLightbox
-                documents={lightboxDocs}
-                currentIndex={lightboxIndex ?? 0}
-                open={isPreviewOpen}
-                onClose={closePreview}
-                onNavigate={navigatePreview}
-            />
         </Tabs>
     );
 }
 
 type EmployeeProfileViewProps = {
     employee: Employee;
-    /** Reports the active section key so the page can deep-link the edit
-     * button to the same tab of the edit form. */
-    onActiveTabChange?: (key: string) => void;
 };
