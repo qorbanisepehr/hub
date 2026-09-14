@@ -22,7 +22,7 @@ class AuditLogController
         'event', 'event_not', 'category', 'category_not',
         'actor_type', 'actor_id', 'actor_role_id',
         'subject_type', 'subject_id', 'date_from', 'date_to',
-        'request_id', 'trace_id', 'ip', 'search', 'filter',
+        'request_id', 'trace_id', 'ip', 'filter',
     ];
 
     private const EXPORT_COLUMNS = [
@@ -41,12 +41,6 @@ class AuditLogController
 
         $filters = $request->only(self::FILTERS);
 
-        // Unified list contract: `filter` is the canonical free-text param;
-        // the legacy `search` is honoured until the frontend migrates off it.
-        if (isset($filters['search']) && ! isset($filters['filter'])) {
-            $filters['filter'] = $filters['search'];
-        }
-
         $perPage = ListQuery::perPage($request, max: 100);
 
         // Presence of the param opts into keyset pagination; `?cursor=` alone
@@ -58,9 +52,7 @@ class AuditLogController
             $perPage,
             $cursor,
             ListQuery::sort($request),
-            // Null unless explicitly provided, so the per-column default
-            // direction applies when `order` is absent (legacy `sort=column`).
-            $request->input('order'),
+            ListQuery::order($request),
         );
 
         return AuditLogResource::collection($logs);

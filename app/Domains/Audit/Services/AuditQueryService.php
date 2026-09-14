@@ -80,14 +80,14 @@ final class AuditQueryService
             $query->where('ip_address', $filters['ip']);
         }
 
-        // Unified free-text param is `filter`; `search` is the legacy alias.
-        $term = $filters['filter'] ?? $filters['search'] ?? null;
+        // Unified free-text param is `filter`.
+        $term = $filters['filter'] ?? null;
         ListQuery::search($query, is_string($term) ? $term : null, ['description']);
 
         return $query;
     }
 
-    /** @var array<string, string> Sortable columns and their default direction. */
+    /** @var array<string, string> Sortable columns (keys) — whitelist only. */
     private const SORTABLE = [
         'created_at' => 'desc',
         'event' => 'asc',
@@ -113,7 +113,7 @@ final class AuditQueryService
         int $perPage = 20,
         ?string $cursor = null,
         ?string $sort = null,
-        ?string $order = null,
+        string $order = 'desc',
     ): CursorPaginator|LengthAwarePaginator {
         [$column, $direction] = $this->resolveSort($sort, $order);
 
@@ -131,25 +131,13 @@ final class AuditQueryService
     /**
      * @return array{0: string, 1: string} Column and direction
      */
-    private function resolveSort(?string $sort, ?string $order = null): array
+    private function resolveSort(?string $sort, string $order): array
     {
-        if ($sort === null || $sort === '') {
-            return ['created_at', 'desc'];
+        if ($sort === null || $sort === '' || ! isset(self::SORTABLE[$sort])) {
+            return ['created_at', $order === 'asc' ? 'asc' : 'desc'];
         }
 
-        // Legacy wire format: `-column` prefixes descending.
-        $descending = str_starts_with($sort, '-');
-        $column = ltrim($sort, '-');
-
-        if (! isset(self::SORTABLE[$column])) {
-            return ['created_at', 'desc'];
-        }
-
-        if ($order !== null && $order !== '') {
-            return [$column, $order === 'asc' ? 'asc' : 'desc'];
-        }
-
-        return [$column, $descending ? 'desc' : self::SORTABLE[$column]];
+        return [$sort, $order === 'asc' ? 'asc' : 'desc'];
     }
 
     /**

@@ -68,13 +68,13 @@ describe('Audit Log API', function () {
                 ->assertJsonCount(5, 'data'); // 3 document + 2 auth
         });
 
-        it('filters by search term', function () {
+        it('filters by free-text term', function () {
             AuditLog::factory()->count(3)->create([
                 'description' => 'Employee created successfully',
             ]);
 
             actingAs($this->user)
-                ->getJson('/api/audit-logs?search=created')
+                ->getJson('/api/audit-logs?filter=created')
                 ->assertOk()
                 ->assertJsonCount(3, 'data');
         });
@@ -113,7 +113,7 @@ describe('Audit Log API', function () {
 
         it('paginates by cursor without meta totals', function () {
             $first = actingAs($this->user)
-                ->getJson('/api/audit-logs?per_page=4&sort=-created_at&cursor=')
+                ->getJson('/api/audit-logs?per_page=4&sort=created_at&order=desc&cursor=')
                 ->assertOk()
                 ->json();
 
@@ -140,7 +140,7 @@ describe('Audit Log API', function () {
 
         it('sorts ascending by event name', function () {
             $response = actingAs($this->user)
-                ->getJson('/api/audit-logs?sort=event&per_page=10')
+                ->getJson('/api/audit-logs?sort=event&order=asc&per_page=10')
                 ->assertOk();
 
             $events = collect($response->json('data'))->pluck('event')->values();
