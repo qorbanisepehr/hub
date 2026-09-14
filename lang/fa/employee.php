@@ -62,6 +62,14 @@ return [
             'invalid_education_index' => 'شناسه مدرک تحصیلی برای استعلام نامعتبر است.',
         ],
     ],
+    'exports' => [
+        'fields' => [
+            'employment.personnel_code' => 'کد پرسنلی',
+            'employment.employment_type' => 'نوع استخدام',
+            'employment.employment_status' => 'وضعیت اشتغال',
+            'employment.hire_date' => 'تاریخ استخدام',
+        ],
+    ],
     'documents' => [
         'max_files_reached' => 'حداکثر :count مورد مجاز برای این نوع مدرک بارگذاری شده است.',
         'total_max_files_reached' => 'حداکثر :count فایل برای این کارمند بارگذاری شده است.',

@@ -62,6 +62,14 @@ return [
             'invalid_education_index' => 'Invalid education record reference for an inquiry.',
         ],
     ],
+    'exports' => [
+        'fields' => [
+            'employment.personnel_code' => 'Personnel code',
+            'employment.employment_type' => 'Employment type',
+            'employment.employment_status' => 'Employment status',
+            'employment.hire_date' => 'Hire date',
+        ],
+    ],
     'documents' => [
         'max_files_reached' => 'The maximum of :count items for this document type has been reached.',
         'total_max_files_reached' => 'The maximum of :count files for this employee has been reached.',

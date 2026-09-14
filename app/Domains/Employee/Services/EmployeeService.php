@@ -6,6 +6,7 @@ use App\Domains\Employee\Events\EmployeeCreated;
 use App\Domains\Employee\Events\EmployeeDeleted;
 use App\Domains\Employee\Events\EmployeeSubmitted;
 use App\Domains\Employee\Events\EmployeeUpdated;
+use App\Domains\Employee\Exports\EmployeeExporter;
 use App\Domains\Employee\Models\Employee;
 use App\Domains\Employee\Sections\AdditionalInfoSection;
 use App\Domains\Employee\Sections\ContactInfoSection;
@@ -25,6 +26,7 @@ use App\Support\Sections\Definitions\WorkExperienceSection;
 use App\Support\Sections\SectionDefinition;
 use App\Support\Sections\SectionService;
 use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
@@ -81,6 +83,16 @@ class EmployeeService extends SectionService
     protected function documentsSectionKey(): ?string
     {
         return 'documents';
+    }
+
+    /**
+     * Build an employee exporter over the given (already authorization-
+     * scoped by the caller) query. Central here so the export pipeline and
+     * any future import share one column-catalog source.
+     */
+    public function exporter(Builder $query): EmployeeExporter
+    {
+        return new EmployeeExporter($this, $query);
     }
 
     /**

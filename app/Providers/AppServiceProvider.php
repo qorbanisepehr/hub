@@ -20,6 +20,7 @@ use App\Support\Exports\ExportService;
 use App\Support\Exports\Writer\CsvWriter;
 use App\Support\Exports\Writer\JsonlWriter;
 use App\Support\Exports\Writer\TsvWriter;
+use App\Support\Exports\Writer\XlsxWriter;
 use App\Support\Exports\WriterRegistry;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
@@ -46,6 +47,7 @@ class AppServiceProvider extends ServiceProvider
             $registry->register('csv', new CsvWriter);
             $registry->register('tsv', new TsvWriter);
             $registry->register('jsonl', new JsonlWriter);
+            $registry->register('xlsx', new XlsxWriter);
 
             return $registry;
         });

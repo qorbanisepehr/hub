@@ -3,6 +3,7 @@
 namespace App\Domains\Employee\Controllers;
 
 use App\Contracts\Authorization;
+use App\Domains\Employee\Exports\EmployeeExporter;
 use App\Domains\Employee\Models\Employee;
 use App\Domains\Employee\Requests\SaveEmployeeSectionRequest;
 use App\Domains\Employee\Requests\StoreEmployeeRequest;
@@ -10,10 +11,15 @@ use App\Domains\Employee\Requests\SubmitEmployeeRequest;
 use App\Domains\Employee\Requests\UpdateEmployeeRequest;
 use App\Domains\Employee\Resources\EmployeeResource;
 use App\Domains\Employee\Services\EmployeeService;
+use App\Support\Exports\ExportService;
+use App\Support\Exports\Value\ExportFile;
+use App\Support\Exports\Value\ExportRequest;
 use App\Support\ListQuery;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Symfony\Component\HttpFoundation\StreamedResponse as SymfonyStreamedResponse;
 
 class EmployeeController
 {
@@ -37,6 +43,7 @@ class EmployeeController
     public function __construct(
         private EmployeeService $employeeService,
         private Authorization $authorization,
+        private ExportService $exports,
     ) {}
 
     /**
@@ -72,6 +79,64 @@ class EmployeeController
         $employees = $query->paginate(ListQuery::perPage($request));
 
         return EmployeeResource::collection($employees);
+    }
+
+    /**
+     * Field catalog for the export dialog picker — same payload shape the
+     * role-chart fields endpoint publishes, so one client picker serves both.
+     */
+    public function exportFields(): JsonResponse
+    {
+        $fields = collect($this->employeeService->exporter($this->baseQuery())->columns())
+            ->map(fn ($column) => $column->toArray())
+            ->values();
+
+        return response()->json(['data' => $fields]);
+    }
+
+    /**
+     * Fill-and-import template: the exporter's default columns, no data
+     * rows, plus the `_meta` sheet when the format can host one.
+     */
+    public function exportTemplate(Request $request): SymfonyStreamedResponse
+    {
+        $format = $request->query('format', 'xlsx');
+
+        if (! in_array($format, ['xlsx', 'csv'], true)) {
+            return response()->json(['message' => __('authorization.format_not_supported')], 422);
+        }
+
+        $file = $this->exports->template(
+            $this->employeeService->exporter($this->baseQuery()),
+            new ExportRequest(format: $format, options: EmployeeExporter::defaultOptions($format)),
+        );
+
+        return $this->streamFile($file);
+    }
+
+    /**
+     * Streamed employee export. The query is scoped by the same rules as
+     * index() and honors the same status filter, so the export never shows
+     * more than the list the user is allowed to see.
+     */
+    public function export(Request $request): SymfonyStreamedResponse|JsonResponse
+    {
+        $format = $request->query('format', 'xlsx');
+
+        if (! in_array($format, ['xlsx', 'csv'], true)) {
+            return response()->json(['message' => __('authorization.format_not_supported')], 422);
+        }
+
+        $file = $this->exports->run(
+            $this->employeeService->exporter($this->scopedQuery($request)),
+            new ExportRequest(
+                fields: EmployeeController::fieldsFromQuery($request),
+                format: $format,
+                options: EmployeeExporter::defaultOptions($format),
+            ),
+        );
+
+        return $this->streamFile($file);
     }
 
     public function store(StoreEmployeeRequest $request): EmployeeResource
@@ -137,6 +202,62 @@ class EmployeeController
         $this->employeeService->delete($employee);
 
         return response()->json(['message' => __('employee.deleted')]);
+    }
+
+    /**
+     * The export base query — nothing attached yet. Exporters get their own
+     * scope from the caller; see scopedQuery() and exporter().
+     */
+    private function baseQuery(): Builder
+    {
+        return Employee::query();
+    }
+
+    /**
+     * Query with the exact visibility of index(): the same authorization
+     * scope and the same employment-status filter, so an export never
+     * exceeds what the user may list.
+     */
+    private function scopedQuery(Request $request): Builder
+    {
+        $query = $this->baseQuery();
+
+        $this->authorization->scope($request->user(), 'employee.list', $query);
+
+        if ($request->filled('status')) {
+            $query->where('employment_status', $request->input('status'));
+        }
+
+        if ($request->filled('status_not')) {
+            $query->where('employment_status', '!=', $request->input('status_not'));
+        }
+
+        return $query;
+    }
+
+    /**
+     * Stream an ExportFile as a download response.
+     */
+    private function streamFile(ExportFile $file): SymfonyStreamedResponse
+    {
+        return response()->streamDownload(function () use ($file): void {
+            $stream = fopen('php://output', 'w');
+            $file->copyTo($stream);
+        }, $this->exports->dispositionFilename($file), [
+            'Content-Type' => $file->mimeType,
+            'Cache-Control' => 'no-store',
+        ]);
+    }
+
+    /**
+     * Comma-separated `fields` query param → list<string> for ExportRequest.
+     */
+    private static function fieldsFromQuery(Request $request): array
+    {
+        return array_values(array_filter(array_map(
+            'trim',
+            explode(',', (string) $request->query('fields', '')),
+        )));
     }
 
     /**

@@ -3,6 +3,8 @@
 namespace App\Support\Exports;
 
 use App\Support\Exports\Contract\TabularExporter;
+use App\Support\Exports\Contract\TemplateMetaProvider;
+use App\Support\Exports\Contract\TemplateWriter;
 use App\Support\Exports\Value\ExportFile;
 use App\Support\Exports\Value\ExportRequest;
 use Illuminate\Support\Str;
@@ -25,22 +27,29 @@ final class ExportService
      */
     public function run(TabularExporter $exporter, ExportRequest $request, $stream = null): ExportFile
     {
-        $writer = $this->writers->get($request->format);
-        $columns = $exporter->columnsFor($request);
-        $stream ??= fopen('php://temp', 'r+');
+        return $this->emit($exporter, $request, $exporter->rows($request), $stream, '', null);
+    }
 
-        $writer->write(
-            $exporter->rows($request),
-            $columns,
-            $request->options,
-            $stream,
-        );
+    /**
+     * A fill-and-import template: the exporter's default columns with zero
+     * data rows. Emitted through the same pipeline as run() — identical file
+     * shape and column order — so a filled template round-trips through the
+     * M2 import validation unchanged.
+     *
+     * When the chosen format can host a meta sheet (TemplateWriter) and the
+     * exporter can describe one (TemplateMetaProvider), the template carries
+     * its schema version and column labels on the extra sheet; other formats
+     * degrade to a plain header-only file.
+     *
+     * @param  resource|null  $stream
+     */
+    public function template(TabularExporter $exporter, ExportRequest $request, $stream = null): ExportFile
+    {
+        $metaPairs = $exporter instanceof TemplateMetaProvider
+            ? $exporter->templateMeta()
+            : [];
 
-        return new ExportFile(
-            filename: ExportFilename::make($exporter->baseFilename(), $writer->extension()),
-            mimeType: $writer->contentType(),
-            stream: $stream,
-        );
+        return $this->emit($exporter, $request, [], $stream, '-template', $metaPairs);
     }
 
     /**
@@ -56,5 +65,29 @@ final class ExportService
         }
 
         return rawurlencode($file->filename);
+    }
+
+    /**
+     * @param  iterable<array<string, string|int|float|bool|null>>  $rows
+     * @param  array<string, string>|null  $metaPairs
+     * @param  resource|null  $stream
+     */
+    private function emit(TabularExporter $exporter, ExportRequest $request, iterable $rows, $stream, string $filenameSuffix, ?array $metaPairs): ExportFile
+    {
+        $writer = $this->writers->get($request->format);
+        $columns = $exporter->columnsFor($request);
+        $stream ??= fopen('php://temp', 'r+');
+
+        if ($metaPairs !== null && $writer instanceof TemplateWriter) {
+            $writer->writeTemplate($rows, $columns, $request->options, $metaPairs, $stream);
+        } else {
+            $writer->write($rows, $columns, $request->options, $stream);
+        }
+
+        return new ExportFile(
+            filename: ExportFilename::make($exporter->baseFilename().$filenameSuffix, $writer->extension()),
+            mimeType: $writer->contentType(),
+            stream: $stream,
+        );
     }
 }
