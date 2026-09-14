@@ -8,8 +8,12 @@ import { IconSearch, IconX } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DataTableViewOptions } from "./view-options";
+import { DEBOUNCE } from "@/lib/constants";
 
-const SEARCH_DEBOUNCE_MS = 400;
+// Debounced auto-commit only kicks in once the query is long enough;
+// shorter inputs always wait for Enter so a single keystroke never
+// triggers a server round-trip.
+const MIN_AUTO_SEARCH_CHARS = 2;
 
 type DataTableToolbarProps<TData extends RowData> = {
     table: Table<StockFeatures, TData>;
@@ -69,13 +73,15 @@ export function DataTableToolbar<TData extends RowData>({
     const handleInputChange = (value: string) => {
         setLocalValue(value);
         cancelPending();
-        // Auto-commit shortly after the user stops typing; a URL re-sync (or
+        // Auto-commit shortly after the user stops typing, but only for
+        // queries of MIN_AUTO_SEARCH_CHARS or more; a URL re-sync (or
         // Enter/clear below) never re-arms it because the value matches.
+        if (value.trim().length < MIN_AUTO_SEARCH_CHARS) return;
         if (value === committedValue) return;
         debounceRef.current = setTimeout(() => {
             debounceRef.current = null;
             commitWith(value);
-        }, SEARCH_DEBOUNCE_MS);
+        }, DEBOUNCE.SEARCH);
     };
 
     const commit = () => {
