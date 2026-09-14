@@ -55,7 +55,6 @@ export const userKeys = {
     lists: () => [...userKeys.all, "list"] as const,
     list: (params: Record<string, unknown>) =>
         [...userKeys.lists(), params] as const,
-    allList: () => [...userKeys.all, "all"] as const,
     details: () => [...userKeys.all, "detail"] as const,
     detail: (id: number) => [...userKeys.details(), id] as const,
     select: (search: string, hasEmployee?: boolean) =>

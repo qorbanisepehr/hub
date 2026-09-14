@@ -6,6 +6,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { useRoles } from "@/features/rbac/hooks/use-roles";
+import { PAGINATION } from "@/lib/constants";
 import type { Role } from "@/features/rbac/types";
 
 interface RoleSelectProps {
@@ -33,6 +34,8 @@ export function RoleSelect({
 
     const roles =
         rolesData?.filter((role) => !excludeIds.includes(role.id)) ?? [];
+    const visibleRoles = roles.slice(0, PAGINATION.MAX_SELECT_OPTIONS);
+    const hiddenCount = roles.length - visibleRoles.length;
     const roleMap = new Map<string, string>(
         roles.map((r: Role) => [String(r.id), r.display_name]),
     );
@@ -55,11 +58,20 @@ export function RoleSelect({
                 {clearable && value && (
                     <SelectItem value="__clear__">{clearLabel}</SelectItem>
                 )}
-                {roles.map((role: Role) => (
+                {visibleRoles.map((role: Role) => (
                     <SelectItem key={role.id} value={String(role.id)}>
                         {role.display_name}
                     </SelectItem>
                 ))}
+                {hiddenCount > 0 && (
+                    <SelectItem
+                        value={`__hidden_${String(hiddenCount)}`}
+                        disabled
+                    >
+                        {hiddenCount.toLocaleString("fa-IR")} مورد دیگر — از
+                        جستجو استفاده کنید
+                    </SelectItem>
+                )}
             </SelectContent>
         </Select>
     );
