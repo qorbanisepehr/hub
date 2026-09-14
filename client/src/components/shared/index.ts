@@ -2,6 +2,7 @@ export { AccessGate } from './access-gate';
 export { ActiveBadge } from './active-badge';
 export { AvatarUpload } from './avatar-upload';
 export { BaseDropzone } from './base-dropzone';
+export { ExportDialog } from './export-dialog';
 export { ImageUpload } from './image-upload';
 export { QrCode } from './qr-code';
 export { RepeaterEmptyState } from './repeater-empty-state';

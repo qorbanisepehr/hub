@@ -6,10 +6,16 @@ import {
     stockFeatures,
     type ColumnVisibilityState,
 } from "@tanstack/react-table";
-import { IconPlus, IconUsers } from "@tabler/icons-react";
+import { IconDownload, IconPlus, IconUsers } from "@tabler/icons-react";
 
 import { Button } from "@/components/ui/button";
-import { fetchEmployees } from "@/features/employees/api";
+import { ExportDialog } from "@/components/shared";
+import {
+    exportEmployees,
+    fetchEmployeeExportFields,
+    fetchEmployeeExportTemplate,
+    fetchEmployees,
+} from "@/features/employees/api";
 import { employeeColumns } from "@/features/employees/columns";
 import { DataTablePage, DataTableToolbar, TableFilterBar } from "@/components/data-table";
 import { ListPageHeader } from "@/components/layout";
@@ -18,8 +24,21 @@ import { PermissionGuard } from "@/features/auth/components/permission-guard";
 import { PERMISSIONS } from "@/lib/permissions";
 import { employeeKeys } from "@/lib/query-keys";
 import { PAGINATION } from "@/lib/constants";
+import { saveBlobResponse, exportDateStamp } from "@/lib/download";
 
 const route = getRouteApi("/protected/employees");
+
+async function downloadEmployeeExportTemplate(format: "xlsx" | "csv") {
+    const response = await fetchEmployeeExportTemplate(format);
+
+    saveBlobResponse(
+        response,
+        `employees-template-${exportDateStamp()}.${format}`,
+        format === "csv"
+            ? "text/csv;charset=utf-8"
+            : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    );
+}
 
 export function EmployeesPage() {
     const queryClient = useQueryClient();
@@ -28,6 +47,7 @@ export function EmployeesPage() {
 
     const [columnVisibility, setColumnVisibility] =
         useState<ColumnVisibilityState>({});
+    const [isExportOpen, setIsExportOpen] = useState(false);
 
     const {
         sorting,
@@ -79,6 +99,27 @@ export function EmployeesPage() {
         { label: "غیرفعال", value: "inactive" },
         { label: "تعلیق", value: "suspended" },
     ];
+
+    const { data: exportFields, isLoading: exportFieldsLoading } = useQuery({
+        queryKey: ["employee-export-fields"],
+        queryFn: async () => {
+            const { data } = await fetchEmployeeExportFields();
+            return data.data;
+        },
+        enabled: isExportOpen,
+        staleTime: 5 * 60 * 1000,
+    });
+
+    const activeStatusLabel =
+        statusFilterOptions.find((o) => o.value === activeStatus)?.label;
+    const activeStatusNotLabel = statusFilterOptions.find(
+        (o) => o.value === activeStatusNot,
+    )?.label;
+    const exportFilterSummary = [
+        globalFilter ? `جستجو: ${globalFilter}` : null,
+        activeStatusLabel ? `وضعیت: ${activeStatusLabel}` : null,
+        activeStatusNotLabel ? `به‌جز وضعیت: ${activeStatusNotLabel}` : null,
+    ].filter((f): f is string => f !== null);
 
     const { data, isLoading, isError } = useQuery({
         queryKey: employeeKeys.list({
@@ -133,32 +174,73 @@ export function EmployeesPage() {
         }
     }, [table, ensurePageInRange, isLoading, meta]);
 
+    const handleExport = async ({
+        fields,
+        format,
+    }: {
+        fields: string[];
+        format: "xlsx" | "csv";
+    }) => {
+        const response = await exportEmployees({
+            fields,
+            format,
+            status: activeStatus,
+            status_not: activeStatusNot || undefined,
+        });
+
+        saveBlobResponse(
+            response,
+            `employees-${exportDateStamp()}.${format}`,
+            format === "csv"
+                ? "text/csv;charset=utf-8"
+                : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        );
+    };
+
     return (
-        <DataTablePage
-            table={table}
-            meta={meta}
-            isLoading={isLoading}
-            isError={isError}
-            title="لیست کارمندان"
-            totalLabel="کارمند"
-            icon={IconUsers}
-            header={
-                <ListPageHeader
-                    title="کارمندان"
-                    description="مدیریت اطلاعات کارمندان شرکت"
-                    action={
-                        <PermissionGuard permission={PERMISSIONS.EMPLOYEE_CREATE}>
-                            <Button
-                                nativeButton={false}
-                                render={<Link to="/employees/create" />}
-                            >
-                                <IconPlus className="size-4" />
-                                کارمند جدید
-                            </Button>
-                        </PermissionGuard>
-                    }
-                />
-            }
+        <>
+            <DataTablePage
+                table={table}
+                meta={meta}
+                isLoading={isLoading}
+                isError={isError}
+                title="لیست کارمندان"
+                totalLabel="کارمند"
+                icon={IconUsers}
+                header={
+                    <ListPageHeader
+                        title="کارمندان"
+                        description="مدیریت اطلاعات کارمندان شرکت"
+                        action={
+                            <div className="flex items-center gap-2">
+                                <PermissionGuard
+                                    permission={PERMISSIONS.EMPLOYEE_EXPORT}
+                                >
+                                    <Button
+                                        variant="outline"
+                                        onClick={() => setIsExportOpen(true)}
+                                    >
+                                        <IconDownload className="size-4" />
+                                        خروجی
+                                    </Button>
+                                </PermissionGuard>
+                                <PermissionGuard
+                                    permission={PERMISSIONS.EMPLOYEE_CREATE}
+                                >
+                                    <Button
+                                        nativeButton={false}
+                                        render={
+                                            <Link to="/employees/create" />
+                                        }
+                                    >
+                                        <IconPlus className="size-4" />
+                                        کارمند جدید
+                                    </Button>
+                                </PermissionGuard>
+                            </div>
+                        }
+                    />
+                }
             toolbar={
                 <DataTableToolbar
                     table={table}
@@ -198,6 +280,20 @@ export function EmployeesPage() {
                 })
             }
             colSpan={employeeColumns.length}
-        />
+            />
+
+            <ExportDialog
+                open={isExportOpen}
+                onOpenChange={setIsExportOpen}
+                title="خروجی کارمندان"
+                description="خروجی اکسل یا CSV از پروفایل کارمندان"
+                fields={exportFields ?? []}
+                fieldsLoading={exportFieldsLoading}
+                activeFilters={exportFilterSummary}
+                onExport={handleExport}
+                onTemplate={downloadEmployeeExportTemplate}
+                successMessage="خروجی کارمندان با موفقیت ایجاد شد."
+            />
+        </>
     );
 }

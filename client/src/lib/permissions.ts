@@ -14,6 +14,7 @@ export const PERMISSIONS = {
 
     // Employee
     EMPLOYEE_LIST: "employee.list",
+    EMPLOYEE_EXPORT: "employee.export",
     EMPLOYEE_VIEW: "employee.view",
     EMPLOYEE_CREATE: "employee.create",
     EMPLOYEE_UPDATE: "employee.update",

@@ -13,6 +13,42 @@ export function fetchEmployees(params: EmployeeListParams = {}) {
     return api.get<PaginatedResponse<Employee>>("/employees", { params });
 }
 
+export type EmployeeExportField = {
+    key: string;
+    label: string;
+    column: string;
+};
+
+export function fetchEmployeeExportFields() {
+    return api.get<{ data: EmployeeExportField[] }>(
+        "/employees/export/fields",
+    );
+}
+
+export function exportEmployees(params: {
+    fields?: string[];
+    format?: "xlsx" | "csv";
+    status?: string;
+    status_not?: string;
+}) {
+    return api.get("/employees/export", {
+        params: {
+            fields: (params.fields ?? []).join(","),
+            format: params.format ?? "xlsx",
+            status: params.status,
+            status_not: params.status_not,
+        },
+        responseType: "blob",
+    });
+}
+
+export function fetchEmployeeExportTemplate(format: "xlsx" | "csv" = "xlsx") {
+    return api.get("/employees/export-template", {
+        params: { format },
+        responseType: "blob",
+    });
+}
+
 export function fetchEmployee(id: number) {
     return api.get<{ data: Employee }>(`/employees/${id}`);
 }
