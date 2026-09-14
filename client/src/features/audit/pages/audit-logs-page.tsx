@@ -18,6 +18,7 @@ import { DataTablePage, DataTableToolbar, TableFilterBar } from "@/components/da
 import { ListPageHeader } from "@/components/layout";
 import { useTableUrlState } from "@/hooks/use-table-url-state";
 import { getApiError } from "@/lib/error-utils";
+import { saveBlobResponse, exportDateStamp } from "@/lib/download";
 import { toast } from "sonner";
 import { auditKeys } from "@/lib/query-keys";
 import { PAGINATION } from "@/lib/constants";
@@ -261,21 +262,11 @@ export function AuditLogsPage() {
                 date_to: activeDateTo || undefined,
             });
 
-            const blob =
-                response.data instanceof Blob
-                    ? response.data
-                    : new Blob([response.data], {
-                          type: "text/csv;charset=utf-8",
-                      });
-
-            const url = window.URL.createObjectURL(blob);
-            const link = document.createElement("a");
-            link.href = url;
-            link.download = `audit-logs-${new Date().toISOString().slice(0, 10)}.csv`;
-            document.body.appendChild(link);
-            link.click();
-            link.remove();
-            window.URL.revokeObjectURL(url);
+            saveBlobResponse(
+                response,
+                `audit-logs-${exportDateStamp()}.csv`,
+                "text/csv;charset=utf-8",
+            );
         } catch (err) {
             toast.error(getApiError(err) ?? "خطا در دریافت فایل خروجی");
         } finally {

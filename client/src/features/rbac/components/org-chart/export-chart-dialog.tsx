@@ -5,7 +5,6 @@ import { IconDownload, IconLoader2 } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { getApiError } from "@/lib/error-utils";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
     Select,
@@ -15,6 +14,8 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { ResponsiveDialog } from "@/components/ui/responsive-dialog";
+import { getApiError } from "@/lib/error-utils";
+import { saveBlobResponse, exportDateStamp } from "@/lib/download";
 import {
     exportRoleChart,
     fetchChartExportFields,
@@ -77,26 +78,11 @@ export function ExportChartDialog({
                 format: "csv",
             });
 
-            // مهم: response.data یک Blob است (به‌خاطر responseType: "blob")
-            // مستقیماً همان Blob را استفاده کنید، Blob جدید نسازید
-            let csvBlob: Blob;
-            if (response.data instanceof Blob) {
-                csvBlob = response.data;
-            } else {
-                // اگر به‌دلیلی data رشته بود، آن را به Blob تبدیل کنید
-                csvBlob = new Blob([response.data], {
-                    type: "text/csv;charset=utf-8",
-                });
-            }
-
-            const url = window.URL.createObjectURL(csvBlob);
-            const link = document.createElement("a");
-            link.href = url;
-            link.download = `org-chart-roles-${new Date().toISOString().slice(0, 10)}.csv`;
-            document.body.appendChild(link);
-            link.click();
-            link.remove();
-            window.URL.revokeObjectURL(url);
+            saveBlobResponse(
+                response,
+                `org-chart-roles-${exportDateStamp()}.csv`,
+                "text/csv;charset=utf-8",
+            );
 
             toast.success("خروجی با موفقیت ایجاد شد.");
             onOpenChange(false);
