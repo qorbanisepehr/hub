@@ -78,7 +78,7 @@ describe('role endpoint resource authorization', function () {
         $csv = $this->actingAs($user)
             ->get('/api/roles/chart/export')
             ->assertOk()
-            ->getContent();
+            ->streamedContent();
 
         expect($csv)->toContain('Visible-role')
             ->and($csv)->not->toContain('Hidden-role');

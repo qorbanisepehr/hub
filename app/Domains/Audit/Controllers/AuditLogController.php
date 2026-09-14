@@ -2,10 +2,13 @@
 
 namespace App\Domains\Audit\Controllers;
 
+use App\Domains\Audit\Exports\AuditLogExporter;
 use App\Domains\Audit\Models\AuditLog;
 use App\Domains\Audit\Resources\AuditLogDetailResource;
 use App\Domains\Audit\Resources\AuditLogResource;
 use App\Domains\Audit\Services\AuditQueryService;
+use App\Support\Exports\ExportService;
+use App\Support\Exports\Value\ExportRequest;
 use App\Support\ListQuery;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -25,14 +28,9 @@ class AuditLogController
         'request_id', 'trace_id', 'ip', 'filter',
     ];
 
-    private const EXPORT_COLUMNS = [
-        'id', 'event', 'category', 'actor_type', 'actor_id',
-        'subject_type', 'subject_id', 'description',
-        'ip_address', 'request_id', 'trace_id', 'created_at',
-    ];
-
     public function __construct(
         private AuditQueryService $queryService,
+        private ExportService $exports,
     ) {}
 
     public function index(Request $request): AnonymousResourceCollection
@@ -75,8 +73,9 @@ class AuditLogController
     }
 
     /**
-     * Stream the filtered audit log as a CSV or JSONL download (v6 §64–65).
-     * Chunked server-side so even full-table exports never blow memory.
+     * Stream the filtered audit log as a CSV or JSONL download.
+     * Chunked server-side so even full-table exports never blow memory;
+     * format bytes come from the shared export kernel (Support\Exports).
      */
     public function export(Request $request): StreamedResponse
     {
@@ -86,36 +85,19 @@ class AuditLogController
             'format' => ['nullable', 'string', Rule::in(['csv', 'jsonl'])],
         ]);
 
-        $format = $validated['format'] ?? 'csv';
-        $filters = $request->only(self::FILTERS);
+        $exportRequest = new ExportRequest(
+            format: $validated['format'] ?? 'csv',
+            context: $request->only(self::FILTERS),
+        );
 
-        return response()->streamDownload(function () use ($filters, $format): void {
-            $logs = $this->queryService->stream($filters);
+        $exporter = new AuditLogExporter($this->queryService);
+        $file = $this->exports->run($exporter, $exportRequest);
 
-            if ($format === 'jsonl') {
-                foreach ($logs as $log) {
-                    echo json_encode($log->attributesToArray(), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-                    echo PHP_EOL;
-                }
-
-                return;
-            }
-
-            $handle = fopen('php://output', 'w');
-            fputcsv($handle, self::EXPORT_COLUMNS, ',', '"', '\\');
-
-            foreach ($logs as $log) {
-                fputcsv($handle, array_map(
-                    fn (string $column): string => (string) $log->{$column},
-                    self::EXPORT_COLUMNS,
-                ), ',', '"', '\\');
-            }
-
-            fclose($handle);
-        }, 'audit-logs-'.now()->format('Ymd-His').".{$format}", [
-            'Content-Type' => $format === 'jsonl'
-                ? 'application/x-ndjson'
-                : 'text/csv; charset=UTF-8',
+        return response()->streamDownload(function () use ($file): void {
+            $stream = fopen('php://output', 'w');
+            $file->copyTo($stream);
+        }, $file->filename, [
+            'Content-Type' => $file->mimeType,
         ]);
     }
 

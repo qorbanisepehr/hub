@@ -3,17 +3,20 @@
 namespace App\Domains\Authorization\Controllers;
 
 use App\Contracts\Authorization;
-use App\Domains\Authorization\Exports\RoleChartCsvExporter;
+use App\Domains\Authorization\Exports\RoleChartExporter;
 use App\Domains\Authorization\Models\Role;
 use App\Domains\Authorization\Requests\StoreRoleRequest;
 use App\Domains\Authorization\Requests\UpdateRoleRequest;
 use App\Domains\Authorization\Resources\RoleResource;
 use App\Domains\Authorization\Services\RoleService;
 use App\Models\User;
+use App\Support\Exports\ExportService;
+use App\Support\Exports\Value\ExportRequest;
 use App\Support\ListQuery;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class RoleController
 {
@@ -32,6 +35,7 @@ class RoleController
     public function __construct(
         private Authorization $authorization,
         private RoleService $roleService,
+        private ExportService $exports,
     ) {}
 
     public function index(Request $request): AnonymousResourceCollection
@@ -238,7 +242,7 @@ class RoleController
         return $role;
     }
 
-    public function exportChart(Request $request)
+    public function exportChart(Request $request): StreamedResponse
     {
         $scope = $request->query('scope', 'all');
         $format = $request->query('format', 'csv');
@@ -262,21 +266,29 @@ class RoleController
         $this->authorization->scope($request->user(), 'role.view', $rolesQuery);
         $scopedRoles = $rolesQuery->get();
 
-        $csv = (new RoleChartCsvExporter)->export($rootId, $fields, $scopedRoles);
-        $filename = 'org-chart-roles-'.now()->format('Y-m-d-His').'.csv';
+        $exporter = new RoleChartExporter($scopedRoles, $rootId);
+        $file = $this->exports->run(
+            $exporter,
+            new ExportRequest(fields: array_values($fields), format: 'csv', options: RoleChartExporter::visioOptions()),
+        );
 
-        // مهم: حتماً از response() با محتوای خام استفاده کنید، نه response()->json()
-        return response($csv, 200, [
-            'Content-Type' => 'text/csv; charset=UTF-8',
-            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
+        return response()->streamDownload(function () use ($file): void {
+            $stream = fopen('php://output', 'w');
+            $file->copyTo($stream);
+        }, $file->filename, [
+            'Content-Type' => $file->mimeType,
             'Cache-Control' => 'no-store',
         ]);
     }
 
     public function exportFields(): JsonResponse
     {
+        $fields = collect((new RoleChartExporter(collect()))->columns())
+            ->map(fn ($column) => $column->toArray())
+            ->values();
+
         return response()->json([
-            'data' => (new RoleChartCsvExporter)->availableFields(),
+            'data' => $fields,
         ]);
     }
 }
