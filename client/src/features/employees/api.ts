@@ -25,18 +25,32 @@ export function fetchEmployeeExportFields() {
     );
 }
 
+export type EmployeeExportPresentation = {
+    headers: "key" | "label";
+    calendar: "gregorian" | "persian" | "both";
+    digits: "latin" | "persian";
+    detailSheets: boolean;
+};
+
 export function exportEmployees(params: {
     fields?: string[];
     format?: "xlsx" | "csv";
     status?: string;
     status_not?: string;
+    presentation?: EmployeeExportPresentation;
 }) {
+    const presentation = params.presentation;
+
     return api.get("/employees/export", {
         params: {
             fields: (params.fields ?? []).join(","),
             format: params.format ?? "xlsx",
             status: params.status,
             status_not: params.status_not,
+            headers: presentation?.headers,
+            calendar: presentation?.calendar,
+            digits: presentation?.digits,
+            details: presentation?.detailSheets ? 1 : undefined,
         },
         responseType: "blob",
     });

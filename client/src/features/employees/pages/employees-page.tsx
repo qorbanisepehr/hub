@@ -150,6 +150,7 @@ export function EmployeesPage() {
 
     const table = useTable({
         features: stockFeatures,
+        enableColumnPinning: true,
         data: tableData,
         columns: employeeColumns,
         state: {
@@ -177,15 +178,18 @@ export function EmployeesPage() {
     const handleExport = async ({
         fields,
         format,
+        presentation,
     }: {
         fields: string[];
         format: "xlsx" | "csv";
+        presentation: import("@/features/employees/api").EmployeeExportPresentation;
     }) => {
         const response = await exportEmployees({
             fields,
             format,
             status: activeStatus,
             status_not: activeStatusNot || undefined,
+            presentation,
         });
 
         saveBlobResponse(
@@ -290,6 +294,8 @@ export function EmployeesPage() {
                 fields={exportFields ?? []}
                 fieldsLoading={exportFieldsLoading}
                 activeFilters={exportFilterSummary}
+                showPresentation
+                showDetailSheets
                 onExport={handleExport}
                 onTemplate={downloadEmployeeExportTemplate}
                 successMessage="خروجی کارمندان با موفقیت ایجاد شد."

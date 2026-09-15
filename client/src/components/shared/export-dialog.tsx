@@ -16,6 +16,17 @@ import { getApiError } from "@/lib/error-utils";
 
 export type ExportFormat = "xlsx" | "csv";
 
+export type ExportPresentation = {
+    /** Header language: machine keys or Persian labels. */
+    headers: "key" | "label";
+    /** Date cell calendar: Gregorian, Jalali, or both. */
+    calendar: "gregorian" | "persian" | "both";
+    /** Digit glyphs for all formatted numbers (dates and numbers alike). */
+    digits: "latin" | "persian";
+    /** Repeater rows go to their own sheets (xlsx only). */
+    detailSheets: boolean;
+};
+
 export type ExportFieldOption = {
     key: string;
     label: string;
@@ -33,10 +44,23 @@ type ExportDialogProps = {
     formats?: { value: ExportFormat; label: string }[];
     /** Human-readable summary of the filters the export will honor. */
     activeFilters?: string[];
+    /**
+     * Show the calendar/digits presentation controls (columns with dates
+     * or numbers only — a pure-text export needs no presentation).
+     */
+    showPresentation?: boolean;
+    /**
+     * Show the detail-sheets toggle: repeater rows (dependents, education
+     * records, …) on their own sheet, addressed by personnel code / national
+     * ID, with a count column + hyperlink on the base sheet. xlsx only —
+     * other formats silently ignore it.
+     */
+    showDetailSheets?: boolean;
     /** Runs the export request; throw to surface the error toast. */
     onExport: (options: {
         fields: string[];
         format: ExportFormat;
+        presentation: ExportPresentation;
     }) => Promise<void>;
     /** Optional fill-and-import template download. */
     onTemplate?: (format: ExportFormat) => Promise<void>;
@@ -64,6 +88,8 @@ export function ExportDialog({
     fieldsLoading = false,
     formats = DEFAULT_FORMATS,
     activeFilters = NO_FILTERS,
+    showPresentation = false,
+    showDetailSheets = false,
     onExport,
     onTemplate,
     successMessage = "خروجی با موفقیت ایجاد شد.",
@@ -71,6 +97,12 @@ export function ExportDialog({
     const [format, setFormat] = useState<ExportFormat>(
         formats[0]?.value ?? "xlsx",
     );
+    const [presentation, setPresentation] = useState<ExportPresentation>({
+        headers: "label",
+        calendar: "persian",
+        digits: "latin",
+        detailSheets: false,
+    });
     const [selectedFields, setSelectedFields] = useState<string[]>([]);
     const [isExporting, setIsExporting] = useState(false);
     const [isTemplateDownloading, setIsTemplateDownloading] = useState(false);
@@ -93,7 +125,7 @@ export function ExportDialog({
     const handleExport = async () => {
         setIsExporting(true);
         try {
-            await onExport({ fields: selectedFields, format });
+            await onExport({ fields: selectedFields, format, presentation });
             toast.success(successMessage);
             onOpenChange(false);
         } catch (err) {
@@ -169,6 +201,119 @@ export function ExportDialog({
                         <p className="text-xs text-muted-foreground">
                             خروجی فقط شامل ردیف‌های مطابق این فیلترها است.
                         </p>
+                    </div>
+                )}
+
+                {showPresentation && (
+                    <div className="space-y-4">
+                        <div className="space-y-2">
+                            <Label>تقویم تاریخ‌ها</Label>
+                            <RadioGroup
+                                value={presentation.calendar}
+                                onValueChange={(value) =>
+                                    setPresentation((prev) => ({
+                                        ...prev,
+                                        calendar: value as ExportPresentation["calendar"],
+                                    }))
+                                }
+                                className="flex flex-wrap gap-4"
+                            >
+                                {(
+                                    [
+                                        { value: "persian", label: "شمسی" },
+                                        { value: "gregorian", label: "میلادی" },
+                                        { value: "both", label: "هر دو" },
+                                    ] as const
+                                ).map((option) => (
+                                    <div
+                                        key={option.value}
+                                        className="flex items-center gap-2"
+                                    >
+                                        <RadioGroupItem
+                                            value={option.value}
+                                            id={`export-calendar-${option.value}`}
+                                        />
+                                        <Label
+                                            htmlFor={`export-calendar-${option.value}`}
+                                            className="font-normal cursor-pointer"
+                                        >
+                                            {option.label}
+                                        </Label>
+                                    </div>
+                                ))}
+                            </RadioGroup>
+                        </div>
+
+                        {showDetailSheets && (
+                            <div className="space-y-2">
+                                <div className="flex items-center gap-2">
+                                    <Checkbox
+                                        id="export-detail-sheets"
+                                        checked={presentation.detailSheets}
+                                        onCheckedChange={(checked) =>
+                                            setPresentation((prev) => ({
+                                                ...prev,
+                                                detailSheets:
+                                                    checked === true,
+                                            }))
+                                        }
+                                    />
+                                    <Label
+                                        htmlFor="export-detail-sheets"
+                                        className="font-normal cursor-pointer"
+                                    >
+                                        ردیف‌های تکرارشونده در شیت جداگانه
+                                    </Label>
+                                </div>
+                                <p className="text-xs text-muted-foreground">
+                                    بستگان، سوابق تحصیلی، حساب‌های بانکی و
+                                    سوابق بیمه هر کارمند در شیتی جداگانه نوشته
+                                    می‌شوند؛ ستون تعداد در لیست اصلی به آن شیت
+                                    لینک می‌شود. فقط در خروجی اکسل اعمال می‌شود.
+                                </p>
+                            </div>
+                        )}
+
+                        <div className="space-y-2">
+                            <Label>اعداد</Label>
+                            <RadioGroup
+                                value={presentation.digits}
+                                onValueChange={(value) =>
+                                    setPresentation((prev) => ({
+                                        ...prev,
+                                        digits: value as ExportPresentation["digits"],
+                                    }))
+                                }
+                                className="flex flex-wrap gap-4"
+                            >
+                                {(
+                                    [
+                                        { value: "latin", label: "انگلیسی" },
+                                        { value: "persian", label: "فارسی" },
+                                    ] as const
+                                ).map((option) => (
+                                    <div
+                                        key={option.value}
+                                        className="flex items-center gap-2"
+                                    >
+                                        <RadioGroupItem
+                                            value={option.value}
+                                            id={`export-digits-${option.value}`}
+                                        />
+                                        <Label
+                                            htmlFor={`export-digits-${option.value}`}
+                                            className="font-normal cursor-pointer"
+                                        >
+                                            {option.label}
+                                        </Label>
+                                    </div>
+                                ))}
+                            </RadioGroup>
+                            <p className="text-xs text-muted-foreground">
+                                اعداد فارسی در اکسل به‌عنوان متن شناخته می‌شوند
+                                و مرتب‌سازی/فیلتر عددی از کار می‌افتد.
+                            </p>
+                        </div>
                     </div>
                 )}
 
