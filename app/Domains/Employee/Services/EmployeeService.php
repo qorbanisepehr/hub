@@ -18,6 +18,7 @@ use App\Domains\Employee\Sections\FinancialSection;
 use App\Domains\Employee\Sections\PersonalInfoSection;
 use App\Domains\Employee\Sections\SocialInsuranceSection;
 use App\Domains\Employee\Sections\SupplementaryInsuranceSection;
+use App\Domains\FormOptions\Services\FormOptionService;
 use App\Support\MobileNumber;
 use App\Support\Sections\Definitions\EducationSection;
 use App\Support\Sections\Definitions\SkillsSection;
@@ -85,14 +86,27 @@ class EmployeeService extends SectionService
         return 'documents';
     }
 
+    public function __construct(
+        private readonly FormOptionService $formOptions,
+    ) {
+        parent::__construct();
+    }
+
     /**
      * Build an employee exporter over the given (already authorization-
      * scoped by the caller) query. Central here so the export pipeline and
      * any future import share one column-catalog source.
+     *
+     * The exporter's labels are pre-loaded translation maps (validation
+     * attributes, then the employee exports map) — translation-first, so an
+     * English export is a translation task, not a code change.
      */
     public function exporter(Builder $query): EmployeeExporter
     {
-        return new EmployeeExporter($this, $query);
+        return new EmployeeExporter($this, $query, $this->formOptions, [
+            trans('validation.attributes'),
+            trans('employee.exports.fields'),
+        ]);
     }
 
     /**

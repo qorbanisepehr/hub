@@ -14,6 +14,7 @@ use App\Domains\Employee\Services\EmployeeService;
 use App\Support\Exports\ExportService;
 use App\Support\Exports\Value\ExportFile;
 use App\Support\Exports\Value\ExportRequest;
+use App\Support\Exports\Value\PresentationOptions;
 use App\Support\ListQuery;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -133,6 +134,7 @@ class EmployeeController
                 fields: EmployeeController::fieldsFromQuery($request),
                 format: $format,
                 options: EmployeeExporter::defaultOptions($format),
+                presentation: EmployeeController::presentationFromQuery($request),
             ),
         );
 
@@ -258,6 +260,25 @@ class EmployeeController
             'trim',
             explode(',', (string) $request->query('fields', '')),
         )));
+    }
+
+    /**
+     * Presentation query params → PresentationOptions. Whitelisted so a
+     * stray query value degrades to the default (machine) form instead of
+     * erroring.
+     */
+    private static function presentationFromQuery(Request $request): PresentationOptions
+    {
+        $headers = $request->query('headers');
+        $calendar = $request->query('calendar');
+        $digits = $request->query('digits');
+
+        return new PresentationOptions(
+            headers: in_array($headers, ['key', 'label'], true) ? $headers : 'key',
+            calendar: in_array($calendar, ['gregorian', 'persian', 'both'], true) ? $calendar : 'gregorian',
+            digits: $digits === 'persian' ? 'persian' : 'latin',
+            detailSheets: $request->boolean('details'),
+        );
     }
 
     /**
