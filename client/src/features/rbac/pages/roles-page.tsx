@@ -136,6 +136,7 @@ export function RolesPage() {
 
     const table = useTable({
         features: stockFeatures,
+        enableColumnPinning: true,
         data: tableData,
         columns,
         state: {

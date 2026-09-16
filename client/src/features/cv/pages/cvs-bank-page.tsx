@@ -101,6 +101,7 @@ export function CvsBankPage() {
 
     const table = useTable({
         features: stockFeatures,
+        enableColumnPinning: true,
         data: tableData,
         columns: cvBankColumns,
         state: {

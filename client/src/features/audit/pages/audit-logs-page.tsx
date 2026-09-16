@@ -224,6 +224,7 @@ export function AuditLogsPage() {
 
     const table = useTable({
         features: stockFeatures,
+        enableColumnPinning: true,
         data: tableData,
         columns,
         state: {

@@ -234,6 +234,7 @@ export function DocumentTable({
 
     const table = useTable({
         features: stockFeatures,
+        enableColumnPinning: true,
         data: documents,
         columns,
         onRowSelectionChange: handleSelectionChange,

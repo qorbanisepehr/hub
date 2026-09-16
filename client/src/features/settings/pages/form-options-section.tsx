@@ -251,6 +251,7 @@ export function FormOptionsSection() {
 
     const table = useTable({
         features: stockFeatures,
+        enableColumnPinning: true,
         data: rows,
         columns,
         state: { pagination },
