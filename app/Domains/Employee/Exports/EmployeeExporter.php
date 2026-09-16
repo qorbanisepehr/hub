@@ -72,6 +72,13 @@ final class EmployeeExporter implements ProvidesDetailSheets, ProvidesOptionLabe
         'additional_info.physical_condition' => 'physical_condition',
         'additional_info.disability_type' => 'disability_type',
         'social_insurance.insurance_status' => 'insurance_type',
+        'personal_info.military_status.status' => 'military_status',
+        'contact_info.address.province' => 'province',
+        'contact_info.address.city' => 'city',
+        'document_inquiries.inquiries.education.*.status' => 'inquiry_status',
+        'document_inquiries.inquiries.criminal_record.status' => 'inquiry_status',
+        'document_inquiries.inquiries.social_insurance.status' => 'inquiry_status',
+        'document_inquiries.inquiries.sana_verification.status' => 'inquiry_status',
         'education.student_university' => 'university',
         'dependents.dependents.*.gender' => 'gender',
         'dependents.dependents.*.relationship_type' => 'relationship_type',
@@ -179,6 +186,22 @@ final class EmployeeExporter implements ProvidesDetailSheets, ProvidesOptionLabe
         'histories.*.monthly_breakdown' => ['workshop_code', 'workshop_name', 'job_title', 'start_date', 'end_date'],
     ];
 
+    /**
+     * Map-shaped JSONB nodes joined onto a detail sheet BY ROW INDEX —
+     * unlike repeaters, their rows are keyed by the placement index of the
+     * source detail row (`inquiries.education.{index}` mirrors the index
+     * of the `education_records` array, per DocumentInquiriesSection).
+     *
+     * @var array<string, array{section: string, path: string, fields: list<string>}>
+     */
+    private const DETAIL_JOINS = [
+        'education_records' => [
+            'section' => 'document_inquiries',
+            'path' => 'inquiries.education',
+            'fields' => ['status', 'note'],
+        ],
+    ];
+
     /** @var list<ExportColumn>|null */
     private ?array $catalog = null;
 
@@ -256,24 +279,13 @@ final class EmployeeExporter implements ProvidesDetailSheets, ProvidesOptionLabe
                 $row = [];
 
                 foreach ($columns as $column) {
-                    [$sectionKey, $field] = explode('.', $column->key, 2);
-                    $value = $data[$sectionKey][$field] ?? null;
-
-                    // Real date columns arrive as Carbon; every format gets
-                    // the plain Y-m-d string (stable for Excel round-trip and
-                    // M2 import mapping).
-                    if ($value instanceof \DateTimeInterface) {
-                        $value = $value->format('Y-m-d');
-                    }
-
-                    $row[$column->key] = $value;
+                    $row[$column->key] = $this->cellValueFor($data, $column->key);
                 }
 
                 // Detail-sheet parent anchors travel on EVERY row so detail
                 // lines stay addressable even when the user deselected them.
                 foreach ($this->parentRowKeys() as $parentKey) {
-                    [$sectionKey, $field] = explode('.', $parentKey, 2);
-                    $row[$parentKey] ??= $data[$sectionKey][$field] ?? null;
+                    $row[$parentKey] ??= $this->cellValueFor($data, $parentKey);
                 }
 
                 // The detail writer reads the CURRENT entity while emitting
@@ -283,6 +295,35 @@ final class EmployeeExporter implements ProvidesDetailSheets, ProvidesOptionLabe
                 yield $row;
             }
         });
+    }
+
+    /**
+     * One cell from the gathered data: `section.leaf` reads the top-level
+     * key, deeper paths (`section.map.leaf`, possibly through repeater
+     * indexes) walk with readPath.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    private function cellValueFor(array $data, string $key): string|int|float|bool|null
+    {
+        [$sectionKey, $rest] = explode('.', $key, 2);
+        $payload = $data[$sectionKey] ?? null;
+
+        if (! is_array($payload)) {
+            return null;
+        }
+
+        $value = str_contains($rest, '.')
+            ? $this->readPath($payload, $rest)
+            : ($payload[$rest] ?? null);
+
+        // Real date columns arrive as Carbon; every format gets the plain
+        // Y-m-d string (stable for Excel round-trip and M2 import mapping).
+        if ($value instanceof \DateTimeInterface) {
+            $value = $value->format('Y-m-d');
+        }
+
+        return is_scalar($value) || $value === null ? $value : null;
     }
 
     /**
@@ -347,14 +388,28 @@ final class EmployeeExporter implements ProvidesDetailSheets, ProvidesOptionLabe
 
         $data = $this->sections->gatherAllData($entity);
 
+        // Pre-resolve the indexed join sources: `inquiries.education.{index}`
+        // mirrors the placement index of the `education_records` array, so
+        // each detail row merges its own inquiry node (status → Persian label
+        // via the presenter; note).
+        $joins = [];
+
+        foreach (self::DETAIL_JOINS as $sheetKey => $join) {
+            $payload = $data[$join['section']] ?? null;
+            $joins[$sheetKey] = is_array($payload)
+                ? ($this->readPath($payload, $join['path']) ?? [])
+                : [];
+        }
+
         $payload = [];
 
         foreach ($this->detailSheets() as $spec) {
             $rows = [];
             $jsonbRows = $this->jsonbRowsFor($spec->jsonbPath(), $data);
             $scalarKey = $this->scalarColumnKey($spec);
+            $joinNode = self::DETAIL_JOINS[$spec->key] ?? null;
 
-            foreach ($jsonbRows as $jsonbRow) {
+            foreach ($jsonbRows as $rowIndex => $jsonbRow) {
                 if ($scalarKey !== null) {
                     // Scalar-value list: each entry IS the value.
                     if (! is_scalar($jsonbRow) && $jsonbRow !== null) {
@@ -377,7 +432,17 @@ final class EmployeeExporter implements ProvidesDetailSheets, ProvidesOptionLabe
 
                 foreach ($spec->columns as $column) {
                     $leaf = $this->leafField($column->key);
-                    $value = $jsonbRow[$leaf] ?? null;
+
+                    // Joined columns (education inquiries) read from the
+                    // mirrored index node — the JSONB array's own index (the
+                    // section's `inquiries.education.{index}` mirrors the
+                    // placement index of the education records array).
+                    if ($joinNode !== null && str_starts_with($column->key, $joinNode['section'].'.')) {
+                        $indexNode = $joins[$spec->key][$rowIndex] ?? null;
+                        $value = is_array($indexNode) ? ($indexNode[$leaf] ?? null) : null;
+                    } else {
+                        $value = $jsonbRow[$leaf] ?? null;
+                    }
 
                     if ($value instanceof \DateTimeInterface) {
                         $value = $value->format('Y-m-d');
@@ -434,16 +499,21 @@ final class EmployeeExporter implements ProvidesDetailSheets, ProvidesOptionLabe
                     ? $rule
                     : implode('|', array_filter($rule, 'is_string'));
 
-                if ($rule === '' || str_contains($field, '.') || str_contains($rule, 'array')) {
+                if ($rule === '' || str_contains($rule, 'array') || str_contains($field, '.*')) {
                     continue;
                 }
 
+                // Dotted non-array rules (military_status.status,
+                // address.province, inquiries.criminal_record.status, …) are
+                // sub-map nodes: each leaf becomes its own base column so the
+                // catalog covers the full section shape. Repeater entries
+                // (`.*`) stay on their detail sheets.
                 $key = "{$sectionKey}.{$field}";
                 $type = $this->typeFor($rule);
-
+                $label = $this->labelFor($sectionKey, $field);
                 $columns[] = new ExportColumn(
                     key: $key,
-                    faLabel: $this->labelFor($sectionKey, $field),
+                    faLabel: $label,
                     column: $key,
                     type: $type,
                     presentation: $this->presentationFor($rule),
@@ -547,6 +617,22 @@ final class EmployeeExporter implements ProvidesDetailSheets, ProvidesOptionLabe
                 // one column, each row the bare value.
                 $rule = $rulesBySection[$sectionKey]["{$path}.*"] ?? '';
                 $dotted = "{$sectionKey}.{$path}.*";
+
+                $columns[] = new DetailColumn(
+                    key: $dotted,
+                    column: $this->detailLabelFor($dotted),
+                    type: $this->typeFor($rule),
+                    presentation: $this->presentationFor($rule),
+                );
+            }
+
+            // Indexed joins (e.g. education inquiries mirrored by row index):
+            // their columns trail the sheet's own, keyed by the full rule
+            // path the option-label resolver reads.
+            foreach (self::DETAIL_JOINS[$name]['fields'] ?? [] as $joinField) {
+                $join = self::DETAIL_JOINS[$name];
+                $dotted = "{$join['section']}.{$join['path']}.*.{$joinField}";
+                $rule = $rulesBySection[$join['section']]["{$join['path']}.*.{$joinField}"] ?? '';
 
                 $columns[] = new DetailColumn(
                     key: $dotted,
@@ -698,6 +784,27 @@ final class EmployeeExporter implements ProvidesDetailSheets, ProvidesOptionLabe
     }
 
     /**
+     * Dot-path read inside one section payload (`military_status.status`,
+     * `inquiries.criminal_record.status`).
+     *
+     * @param  array<string, mixed>  $payload
+     */
+    private function readPath(array $payload, string $path): mixed
+    {
+        $current = $payload;
+
+        foreach (explode('.', $path) as $segment) {
+            if (! is_array($current) || ! array_key_exists($segment, $current)) {
+                return null;
+            }
+
+            $current = $current[$segment];
+        }
+
+        return $current;
+    }
+
+    /**
      * Persian label for one field: the canonical validation.attributes map
      * first (the same source validation errors use), then the employee
      * export map, then section-local leaves, then the dotted key itself so
@@ -710,9 +817,14 @@ final class EmployeeExporter implements ProvidesDetailSheets, ProvidesOptionLabe
     private function labelFor(string $sectionKey, string $field): string
     {
         $dotted = "{$sectionKey}.{$field}";
+        // Sub-map fields ('military_status.status') resolve through their
+        // full dotted key first, then their leaf — like the validator does.
+        $leaf = str_contains($field, '.')
+            ? (string) substr($field, (int) strrpos($field, '.') + 1)
+            : $field;
 
-        return $this->labelFromMaps($dotted, $field)
-            ?? $this->sectionLocalLabel($sectionKey, $field)
+        return $this->labelFromMaps($dotted, $leaf)
+            ?? $this->sectionLocalLabel($sectionKey, $leaf)
             ?? $dotted;
     }
 

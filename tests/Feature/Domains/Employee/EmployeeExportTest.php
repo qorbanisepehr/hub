@@ -161,11 +161,14 @@ describe('employee export endpoints', function () {
         // JSONB-only fields are exported too...
         $this->assertContains('personal_info.birth_certificate_number', $keys);
 
-        // ...but repeaters and nested objects are deferred to M2.
+        // ...repeaters stay on their detail sheets, but sub-map leaves
+        // (military_status.*, address.*, fixed inquiry nodes) ARE base
+        // columns since the catalog covers the full section shape.
         $this->assertNotContains('dependents.dependents', $keys);
         $this->assertNotContains('dependents.dependents.first_name', $keys);
-        $this->assertNotContains('contact_info.address', $keys);
-        $this->assertNotContains('contact_info.address.postal_code', $keys);
+        $this->assertContains('contact_info.address.postal_code', $keys);
+        $this->assertContains('contact_info.address.city', $keys);
+        $this->assertContains('personal_info.military_status.status', $keys);
     });
 
     it('exports xlsx with typed values that read back', function () {
