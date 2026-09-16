@@ -61,6 +61,7 @@ final class ImportService
 
         // Phase 2: the data rows (the reader consumed the header already).
         $rows = [];
+        $rowIndexes = [];
         $rejected = [];
         $index = 0;
 
@@ -68,7 +69,9 @@ final class ImportService
             $mapped = $mapper->mapRow($cells);
 
             if ($mapped === []) {
-                continue; // Blank line — not an error, not a row.
+                $index++; // Blank line — not an error, not a row.
+
+                continue;
             }
 
             $outcome = $validator === null
@@ -77,6 +80,7 @@ final class ImportService
 
             if ($outcome['ok']) {
                 $rows[] = $outcome['row'];
+                $rowIndexes[] = $index;
             } else {
                 $rejected[] = new ImportRowError($index, $index + 2, $outcome['errors']);
             }
@@ -93,6 +97,7 @@ final class ImportService
             ],
             mapping: $mapping,
             rows: $rows,
+            rowIndexes: $rowIndexes,
             rejected: $rejected,
             total: $index,
         );
