@@ -83,7 +83,7 @@ export type PlaceOption = {
 
 /**
  * Validation for a stored place: the city option's OWN value
- * («{provinceValue}-{cityCode}», e.g. «100-1000007001112») whose
+ * («{provinceSlug}-{citySlug}», e.g. «east_azerbaijan-tabriz») whose
  * `parent_value` must be an active province value — mirroring the server-side
  * `FormOptionValue('city', 'province')` rule. Same as `isValidCityPlaceSlug`.
  */

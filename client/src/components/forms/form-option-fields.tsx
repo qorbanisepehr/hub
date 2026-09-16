@@ -426,9 +426,9 @@ export function FormOptionMultiComboboxField({
  *
  * - `mode: "city"` (default): the PlaceCascader — one searchable two-column
  *   control (province → city). The stored value is the combined place string
- *   «{provinceValue}-{cityCode}» which matches the city option's own value
- *   column (e.g. «123-1230001001576»). The province is re-derived on load by
- *   splitting on the first `-`.
+ *   «{provinceSlug}-{citySlug}» which matches the city option's own value
+ *   column (e.g. «east_azerbaijan-tabriz»). The province is re-derived on
+ *   load by splitting on the first `-`.
  * - `mode: "province"`: a single province select bound directly to `field`
  *   (stores the province value key).
  */

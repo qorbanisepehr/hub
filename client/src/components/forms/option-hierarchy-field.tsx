@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import type { AnyFieldApi } from "@tanstack/react-form";
-import { IconLoader2 } from "@tabler/icons-react";
+import { IconLoader2, IconX } from "@tabler/icons-react";
 
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
@@ -34,7 +34,7 @@ const HIERARCHY_SEPARATOR = "::";
  * How the CHILD field stores its value:
  *
  * - `"prefixed"` (places): the child option's own value is globally unique and
- *   already embeds its parent («{province}-{cityCode}»). The tree uses it
+ *   already embeds its parent («{province}-{city}»). The tree uses it
  *   as-is, one field can hold the whole thing (`combinedField`), and the
  *   parent is re-derived by splitting the stored value.
  * - `"plain"` (e.g. دین/مذهب): the child option stores its own bare value,
@@ -157,6 +157,7 @@ type OptionHierarchyFieldProps = {
         const parents = (parentOptions ?? []).map((option) => ({
             value: option.value,
             label: option.label,
+            keywords: option.en_name ? [option.en_name] : undefined,
             hasChildren: true,
         }));
         if (!deepSearch) return parents;
@@ -168,8 +169,13 @@ type OptionHierarchyFieldProps = {
                 ? {
                       value: `${bucketKey}${HIERARCHY_SEPARATOR}${option.value}`,
                       label: option.label,
+                      keywords: option.en_name ? [option.en_name] : undefined,
                   }
-                : { value: option.value, label: option.label };
+                : {
+                      value: option.value,
+                      label: option.label,
+                      keywords: option.en_name ? [option.en_name] : undefined,
+                  };
             const bucket = childrenOf.get(bucketKey);
             if (bucket) bucket.push(node);
             else childrenOf.set(bucketKey, [node]);
@@ -250,6 +256,18 @@ type OptionHierarchyFieldProps = {
         combinedField?.handleBlur();
     };
 
+    // Called by the trigger's trailing clear button. Bypasses
+    // `handleValueChange("")`: it rightly refuses a bare parent value in plain
+    // mode, but an intentional clear IS a bare-parent commit (both fields).
+    const handleClear = () => {
+        if (combined) {
+            combinedField!.handleChange("");
+        } else {
+            parent.handleChange("");
+            child.handleChange("");
+        }
+    };
+
     const errorSource: AnyFieldApi | undefined = !combined
         ? parent.state.meta.isTouched && !parent.state.meta.isValid
             ? parent
@@ -268,94 +286,113 @@ type OptionHierarchyFieldProps = {
     return (
         <Field data-invalid={isInvalid}>
             {label && <FieldLabel>{label}</FieldLabel>}
-            <Cascader
-                items={items}
-                // ALWAYS a string: reui treats "" as nothing selected, and
-                // passing `undefined` until the first commit would flip the
-                // cascader from uncontrolled to controlled mid-life, stranding
-                // its state (every later commit then looks like a no-op).
-                value={treeValue}
-                onValueChange={handleValueChange}
-                resolveValue={resolveValue}
-                searchScope={deepSearch ? "deep" : "level"}
-                getChildren={
-                    deepSearch
-                        ? undefined
-                        : hierarchyLazyChildren(childGroup, plain)
-                }
-                labels={cascaderLabels}
-                disabled={disabled}
-            >
-                <CascaderTrigger
-                    render={
-                        <Button
-                            variant="outline"
-                            aria-label={placeholder ?? label ?? ""}
-                            data-invalid={isInvalid || undefined}
-                            className={cn(
-                                "h-8 w-full justify-between font-normal",
-                                isInvalid &&
-                                    "border-destructive ring-3 ring-destructive/20",
-                                !treeValue && "text-muted-foreground",
-                            )}
-                        />
+            <div className="relative">
+                <Cascader
+                    items={items}
+                    // ALWAYS a string: reui treats "" as nothing selected, and
+                    // passing `undefined` until the first commit would flip the
+                    // cascader from uncontrolled to controlled mid-life, stranding
+                    // its state (every later commit then looks like a no-op).
+                    value={treeValue}
+                    onValueChange={handleValueChange}
+                    resolveValue={resolveValue}
+                    searchScope={deepSearch ? "deep" : "level"}
+                    getChildren={
+                        deepSearch
+                            ? undefined
+                            : hierarchyLazyChildren(childGroup, plain)
                     }
-                    onBlur={onBlur}
+                    labels={cascaderLabels}
+                    disabled={disabled}
                 >
-                    <CascaderValue
-                        placeholder={placeholder ?? `انتخاب ${parentLabel} و ${childLabel}`}
+                    <CascaderTrigger
+                        // The trailing clear button stands in for the chevron
+                        // while there is something to clear (reui's documented
+                        // pattern; a clear INSIDE the trigger would nest a
+                        // button in a button).
+                        showIcon={!treeValue}
+                        render={
+                            <Button
+                                variant="outline"
+                                aria-label={placeholder ?? label ?? ""}
+                                data-invalid={isInvalid || undefined}
+                                className={cn(
+                                    "h-8 w-full justify-between font-normal",
+                                    isInvalid &&
+                                        "border-destructive ring-3 ring-destructive/20",
+                                    !treeValue && "text-muted-foreground",
+                                    // Reserve the chevron's width while the
+                                    // clear button replaces it, so a long
+                                    // summary truncates before the button.
+                                    treeValue && "pe-7",
+                                )}
+                            />
+                        }
+                        onBlur={onBlur}
                     >
-                        {() => {
-                            if (!treeValue) {
-                                return (
-                                    <span className="text-muted-foreground truncate">
-                                        {placeholder ??
-                                            `انتخاب ${parentLabel} و ${childLabel}`}
-                                    </span>
-                                );
-                            }
-                            if (unstyled) {
-                                return (
-                                    <span className="flex items-center gap-2 text-muted-foreground truncate">
-                                        <IconLoader2 className="size-3.5 animate-spin" />
-                                        <span>در حال بارگذاری…</span>
-                                    </span>
-                                );
-                            }
-                            if (!childValue) {
+                        <CascaderValue placeholder={placeholder ?? `انتخاب ${parentLabel} و ${childLabel}`}>
+                            {() => {
+                                if (!treeValue) {
+                                    return (
+                                        <span className="text-muted-foreground truncate">
+                                            {placeholder ??
+                                                `انتخاب ${parentLabel} و ${childLabel}`}
+                                        </span>
+                                    );
+                                }
+                                if (unstyled) {
+                                    return (
+                                        <span className="flex items-center gap-2 text-muted-foreground truncate">
+                                            <IconLoader2 className="size-3.5 animate-spin" />
+                                            <span>در حال بارگذاری…</span>
+                                        </span>
+                                    );
+                                }
+                                if (!childValue) {
+                                    return (
+                                        <span className="truncate">
+                                            {parentLabelOf(parentOptions, parentValue)}
+                                        </span>
+                                    );
+                                }
                                 return (
                                     <span className="truncate">
-                                        {parentLabelOf(parentOptions, parentValue)}
+                                        <span className="text-muted-foreground">
+                                            {parentLabelOf(parentOptions, parentValue)}
+                                        </span>
+                                        <span className="mx-1">—</span>
+                                        <span>{resolvedChild?.label ?? childValue}</span>
                                     </span>
                                 );
-                            }
-                            return (
-                                <span className="truncate">
-                                    <span className="text-muted-foreground">
-                                        {parentLabelOf(parentOptions, parentValue)}
-                                    </span>
-                                    <span className="mx-1">—</span>
-                                    <span>{resolvedChild?.label ?? childValue}</span>
-                                </span>
-                            );
-                        }}
-                    </CascaderValue>
-                </CascaderTrigger>
+                            }}
+                        </CascaderValue>
+                    </CascaderTrigger>
 
-                <CascaderContent className="w-72">
-                    <CascaderPanel>
-                        <CascaderNav>
-                            <CascaderInput placeholder="جستجو…" />
-                        </CascaderNav>
-                        <CascaderBreadcrumb />
-                        <CascaderEmpty />
-                        <CascaderList>
-                            <CascaderItems />
-                        </CascaderList>
-                        <CascaderStatus />
-                    </CascaderPanel>
-                </CascaderContent>
-            </Cascader>
+                    <CascaderContent className="w-72">
+                        <CascaderPanel>
+                            <CascaderNav>
+                                <CascaderInput placeholder="جستجو…" />
+                            </CascaderNav>
+                            <CascaderBreadcrumb />
+                            <CascaderEmpty />
+                            <CascaderList>
+                                <CascaderItems />
+                            </CascaderList>
+                            <CascaderStatus />
+                        </CascaderPanel>
+                    </CascaderContent>
+                </Cascader>
+                {treeValue && !disabled ? (
+                    <button
+                        type="button"
+                        aria-label="پاک کردن"
+                        onClick={handleClear}
+                        className="absolute end-2 top-1/2 -translate-y-1/2 flex size-4 shrink-0 cursor-pointer items-center justify-center rounded-sm text-muted-foreground transition-colors outline-none select-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
+                    >
+                        <IconX className="size-4" aria-hidden="true" />
+                    </button>
+                ) : null}
+            </div>
             {isInvalid && <FieldError errors={errorSource?.state.meta.errors} />}
         </Field>
     );
@@ -378,6 +415,7 @@ function hierarchyLazyChildren(
                 ? `${parentValue}${HIERARCHY_SEPARATOR}${option.value}`
                 : option.value,
             label: option.label,
+            keywords: option.en_name ? [option.en_name] : undefined,
         }));
     };
 }

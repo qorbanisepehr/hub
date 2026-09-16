@@ -5,7 +5,7 @@ import { OptionHierarchyField } from "./option-hierarchy-field";
 /**
  * Province → city cascader: a thin facade over `OptionHierarchyField` with
  * the place groups, labels and the «prefixed» child value mode (a city's own
- * value is the combined «{province}-{cityCode}» string). See the generic's
+ * value is the combined «{province}-{city}» string). See the generic's
  * docblock for the two value models and the two bindings.
  */
 export function PlaceCascader({
