@@ -3,6 +3,7 @@
 namespace App\Domains\FormOptions\Services;
 
 use App\Domains\FormOptions\Models\FormOption;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
@@ -122,11 +123,11 @@ class FormOptionService
      *
      * When a parent value is given, only the options linked to it are returned
      * (used for cascading location selects). When a search term is given, only
-     * options whose label contains it are returned, capped by the limit. Both
-     * filtered variants are not cached so every parent/child change and search
-     * is always reflected.
+     * options whose label or value contains it are returned, capped by the
+     * limit. Both filtered variants are not cached so every parent/child
+     * change and search is always reflected.
      *
-     * @return array<int, array{value: string, label: string, parent_value: ?string, group_label: ?string}>
+     * @return array<int, array{value: string, label: string, parent_value: ?string, group_label: ?string, en_name: ?string}>
      */
     public function getOptions(string $group, ?string $parentValue = null, ?string $search = null, ?int $limit = null): array
     {
@@ -138,7 +139,7 @@ class FormOptionService
     }
 
     /**
-     * @return array<int, array{value: string, label: string, parent_value: ?string, group_label: ?string}>
+     * @return array<int, array{value: string, label: string, parent_value: ?string, group_label: ?string, en_name: ?string}>
      */
     private function queryOptions(string $group, ?string $parentValue = null, ?string $search = null, ?int $limit = null): array
     {
@@ -152,14 +153,19 @@ class FormOptionService
 
         if ($search !== null && $search !== '') {
             // User input is matched literally: LIKE wildcards in the term are
-            // escaped so «50%» finds «50% تخفیف», not half the table.
+            // escaped so «50%» finds «50% تخفیف», not half the table. English
+            // option values are lower-case slugs, so the match is folded on
+            // both sides to stay case-insensitive («Mashhad» finds «mashhad»).
             $needle = str_replace(
                 ['\\', '%', '_'],
                 ['\\\\', '\\%', '\\_'],
                 $search,
             );
 
-            $query->whereRaw("label like ? escape '\\'", ["%{$needle}%"]);
+            $query->where(function (Builder $query) use ($needle): void {
+                $query->whereRaw("lower(label) like lower(?) escape '\\'", ["%{$needle}%"])
+                    ->orWhereRaw("lower(value) like lower(?) escape '\\'", ["%{$needle}%"]);
+            });
         }
 
         if ($limit !== null) {
@@ -167,12 +173,13 @@ class FormOptionService
         }
 
         return $query->ordered()
-            ->get(['value', 'label', 'parent_value', 'group_label'])
+            ->get(['value', 'label', 'parent_value', 'group_label', 'meta'])
             ->map(fn (FormOption $option): array => [
                 'value' => $option->value,
                 'label' => $option->label,
                 'parent_value' => $option->parent_value,
                 'group_label' => $option->group_label,
+                'en_name' => $option->meta['en_name'] ?? null,
             ])
             ->all();
     }
@@ -195,7 +202,7 @@ class FormOptionService
      * deactivated after the record was written. Unknown values are omitted.
      *
      * @param  string[]  $values
-     * @return array<int, array{value: string, label: string, parent_value: ?string, group_label: ?string}>
+     * @return array<int, array{value: string, label: string, parent_value: ?string, group_label: ?string, en_name: ?string}>
      */
     public function resolveValues(string $group, array $values): array
     {
@@ -207,12 +214,13 @@ class FormOptionService
             ->ofGroup($group)
             ->whereIn('value', $values)
             ->ordered()
-            ->get(['value', 'label', 'parent_value', 'group_label'])
+            ->get(['value', 'label', 'parent_value', 'group_label', 'meta'])
             ->map(fn (FormOption $option): array => [
                 'value' => $option->value,
                 'label' => $option->label,
                 'parent_value' => $option->parent_value,
                 'group_label' => $option->group_label,
+                'en_name' => $option->meta['en_name'] ?? null,
             ])
             ->all();
     }

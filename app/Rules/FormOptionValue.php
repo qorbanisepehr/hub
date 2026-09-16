@@ -9,10 +9,11 @@ use Illuminate\Contracts\Validation\ValidationRule;
 /**
  * Ensures a value is an active option of the given form-options group.
  *
- * Form sections persist the stable value key (e.g. «tehran») so validation
- * matches the value column. When a `$parentGroup` is given, the value is
- * treated as a combined place string («{parentValue}-{childValue}»,
- * e.g. «100-1000001001101») and both parts must resolve.
+ * Form sections persist the stable value key (e.g. «east_azerbaijan»,
+ * «east_azerbaijan-tabriz») so validation matches the value column. When a
+ * `$parentGroup` is given, the value is treated as a combined place string
+ * («{parentValue}-{childValue}», e.g. «east_azerbaijan-tabriz») and both
+ * parts must resolve.
  *
  * Active-only semantics: this rule validates NEW input only — a submitted
  * value must currently exist and be active. It is never applied to stored

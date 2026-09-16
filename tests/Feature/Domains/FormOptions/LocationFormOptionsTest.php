@@ -27,13 +27,15 @@ describe('location hierarchy seeding', function () {
             ->and($childParents->diff($parentValues))->toBeEmpty();
     });
 
-    it('stores geo metadata on provinces and counties on cities', function () {
-        $province = FormOption::ofGroup('province')->where('value', '100')->first();
-        $city = FormOption::ofGroup('city')->where('value', '100-1000001001101')->first();
+    it('stores geo metadata and the English name', function () {
+        $province = FormOption::ofGroup('province')->where('value', 'fars')->first();
+        $city = FormOption::ofGroup('city')->where('value', 'east_azerbaijan-tabriz')->first();
 
         expect($province->meta)->toHaveKey('tel_prefix')
+            ->and($province->meta)->toHaveKey('en_name')
             ->and($province->meta)->toHaveKey('lat')
             ->and($province->meta)->toHaveKey('lon')
+            ->and($city->meta)->toHaveKey('en_name')
             ->and($city->meta)->toHaveKey('county_id');
     });
 
@@ -67,6 +69,23 @@ describe('location groups on the public endpoints', function () {
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.value', '123-1000001002577');
+    });
+
+    it('searches by the English value and exposes the English name', function () {
+        FormOption::create([
+            'group' => 'city',
+            'value' => 'east_azerbaijan-tabriz',
+            'label' => 'تبریز',
+            'parent_value' => 'east_azerbaijan',
+            'sort_order' => 0,
+            'meta' => ['en_name' => 'Tabriz'],
+        ]);
+
+        $this->getJson('/api/form-options/city?search=Tabriz')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.value', 'east_azerbaijan-tabriz')
+            ->assertJsonPath('data.0.en_name', 'Tabriz');
     });
 
     it('caps search results with the limit param', function () {
