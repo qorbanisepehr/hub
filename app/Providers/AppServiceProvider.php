@@ -22,6 +22,10 @@ use App\Support\Exports\Writer\JsonlWriter;
 use App\Support\Exports\Writer\TsvWriter;
 use App\Support\Exports\Writer\XlsxWriter;
 use App\Support\Exports\WriterRegistry;
+use App\Support\Imports\ImportService;
+use App\Support\Imports\Reader\CsvReader;
+use App\Support\Imports\Reader\XlsxReader;
+use App\Support\Imports\ReaderRegistry;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
@@ -52,5 +56,17 @@ class AppServiceProvider extends ServiceProvider
             return $registry;
         });
         $this->app->singleton(ExportService::class);
+
+        // Import kernel: readers are registered here (OCP — a new format is
+        // a registration, never an edit to ImportService). Mirrors the
+        // export kernel's registry.
+        $this->app->singleton(ReaderRegistry::class, function (): ReaderRegistry {
+            $registry = new ReaderRegistry;
+            $registry->register('csv', new CsvReader);
+            $registry->register('xlsx', new XlsxReader);
+
+            return $registry;
+        });
+        $this->app->singleton(ImportService::class);
     }
 }
