@@ -257,7 +257,7 @@ class CvService extends SectionService
      *
      * @return array<string, mixed>
      */
-    protected function gatherAllData(mixed $entity): array
+    public function gatherAllData(mixed $entity): array
     {
         $data = [];
 
