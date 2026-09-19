@@ -1,21 +1,18 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getRouteApi } from "@tanstack/react-router";
-import {
-    useTable,
-    stockFeatures,
-    type ColumnVisibilityState,
-} from "@tanstack/react-table";
 import { IconFileCv } from "@tabler/icons-react";
 
-import { DataTablePage, DataTableToolbar, TableFilterBar } from "@/components/data-table";
+import { DataTablePage } from "@/components/data-table";
 import { ListPageHeader } from "@/components/layout";
 import { fetchCvBank } from "@/features/cv/api";
 import { cvBankColumns } from "@/features/cv/columns";
 import { CV_STATUS_OPTIONS } from "@/features/cv/constants";
-import { useTableUrlState } from "@/hooks/use-table-url-state";
+import {
+    useDataTable,
+    useDataTableUrlState,
+} from "@/hooks/use-data-table-page";
 import { cvKeys } from "@/lib/query-keys";
-import { PAGINATION } from "@/lib/constants";
 
 const route = getRouteApi("/protected/cvs");
 
@@ -24,71 +21,46 @@ export function CvsBankPage() {
     const search = route.useSearch();
     const navigate = route.useNavigate();
 
-    const [columnVisibility, setColumnVisibility] =
-        useState<ColumnVisibilityState>({});
-
-    const {
-        sorting,
-        onSortingChange,
-        pagination,
-        onPaginationChange,
-        globalFilter,
-        onGlobalFilterChange,
-        columnFilters,
-        onColumnFiltersChange,
-        ensurePageInRange,
-    } = useTableUrlState({
+    const url = useDataTableUrlState({
         search: search as unknown as Record<string, unknown>,
-        navigate: navigate as never,
-        pagination: {
-            defaultPage: 1,
-            defaultPageSize: PAGINATION.DEFAULT_PAGE_SIZE,
+        navigate,
+        urlState: {
+            columnFilters: [
+                {
+                    columnId: "status",
+                    searchKey: "status",
+                    type: "string",
+                },
+                {
+                    columnId: "status_not",
+                    searchKey: "status_not",
+                    type: "string",
+                },
+            ],
         },
-        sorting: { sortKey: "sort", orderKey: "order" },
-        globalFilter: { enabled: true, key: "filter" },
-        columnFilters: [
-            {
-                columnId: "status",
-                searchKey: "status",
-                type: "string",
-            },
-            {
-                columnId: "status_not",
-                searchKey: "status_not",
-                type: "string",
-            },
-        ],
     });
 
-    const activeSort = sorting[0];
-    const activeStatus = (
-        columnFilters.find((f) => f.id === "status")?.value as
-            | string[]
-            | undefined
-    )?.[0];
-    const activeStatusNot = (
-        columnFilters.find((f) => f.id === "status_not")?.value as
-            | string[]
-            | undefined
-    )?.[0];
+    const activeStatus = url.activeValue("status");
+    const activeStatusNot = url.activeValue("status_not");
+    const { ensurePageInRange } = url;
 
     const { data, isLoading, isError } = useQuery({
         queryKey: cvKeys.bank({
-            page: pagination.pageIndex + 1,
-            per_page: pagination.pageSize,
-            sort: activeSort?.id,
-            order: activeSort?.desc ? "desc" : "asc",
-            filter: globalFilter,
+            page: url.pagination.pageIndex + 1,
+            per_page: url.pagination.pageSize,
+            sort: url.activeSort?.id,
+            order: url.activeSort?.desc ? "desc" : "asc",
+            filter: url.globalFilter,
             status: activeStatus,
             status_not: activeStatusNot,
         }),
         queryFn: async () => {
             const { data: response } = await fetchCvBank({
-                page: pagination.pageIndex + 1,
-                per_page: pagination.pageSize,
-                sort: activeSort?.id,
-                order: activeSort?.desc ? "desc" : "asc",
-                filter: globalFilter || undefined,
+                page: url.pagination.pageIndex + 1,
+                per_page: url.pagination.pageSize,
+                sort: url.activeSort?.id,
+                order: url.activeSort?.desc ? "desc" : "asc",
+                filter: url.globalFilter || undefined,
                 status: activeStatus,
                 status_not: activeStatusNot,
             });
@@ -99,24 +71,11 @@ export function CvsBankPage() {
     const tableData = data?.data ?? [];
     const meta = data?.meta;
 
-    const table = useTable({
-        features: stockFeatures,
-        enableColumnPinning: true,
-        data: tableData,
+    const table = useDataTable({
         columns: cvBankColumns,
-        state: {
-            sorting,
-            pagination,
-            columnVisibility,
-            columnFilters,
-        },
-        onSortingChange,
-        onPaginationChange,
-        onColumnVisibilityChange: setColumnVisibility,
-        onColumnFiltersChange,
-        manualPagination: true,
-        manualSorting: true,
-        pageCount: meta?.last_page ?? 1,
+        data: tableData,
+        meta,
+        url,
     });
 
     useEffect(() => {
@@ -140,29 +99,20 @@ export function CvsBankPage() {
                     description="همه رزومه‌های داوطلبان (قابل فیلتر بر اساس وضعیت)"
                 />
             }
-            toolbar={
-                <DataTableToolbar
-                    table={table}
-                    searchPlaceholder="جستجوی رزومه..."
-                    globalFilter={globalFilter}
-                    onGlobalFilterChange={onGlobalFilterChange}
-                    filterBar={
-                        <TableFilterBar
-                            fields={[
-                                {
-                                    id: "status",
-                                    label: "وضعیت",
-                                    type: "select",
-                                    options: CV_STATUS_OPTIONS,
-                                    negatable: true,
-                                },
-                            ]}
-                            columnFilters={columnFilters}
-                            onColumnFiltersChange={onColumnFiltersChange}
-                        />
-                    }
-                />
-            }
+            searchPlaceholder="جستجوی رزومه..."
+            globalFilter={url.globalFilter}
+            onGlobalFilterChange={url.onGlobalFilterChange}
+            columnFilters={url.columnFilters}
+            onColumnFiltersChange={url.onColumnFiltersChange}
+            filterFields={[
+                {
+                    id: "status",
+                    label: "وضعیت",
+                    type: "select",
+                    options: CV_STATUS_OPTIONS,
+                    negatable: true,
+                },
+            ]}
             emptyAction={null}
             onRetry={() =>
                 queryClient.invalidateQueries({ queryKey: cvKeys.all })

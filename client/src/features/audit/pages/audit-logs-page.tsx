@@ -1,27 +1,32 @@
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { getRouteApi } from "@tanstack/react-router";
-import {
-    useTable,
-    stockFeatures,
-    type ColumnDef,
-    type ColumnVisibilityState,
-    type Row,
-    type StockFeatures,
+import type {
+    ColumnDef,
+    Row,
+    StockFeatures,
 } from "@tanstack/react-table";
-import { IconClipboardList, IconRefresh, IconChevronRight, IconChevronDown, IconDownload } from "@tabler/icons-react";
+import {
+    IconClipboardList,
+    IconRefresh,
+    IconChevronRight,
+    IconChevronDown,
+    IconDownload,
+} from "@tabler/icons-react";
 
 import { useAuditLogs, useAuditEvents, useAuditLogDetail } from "@/features/audit/hooks";
 import { exportAuditLogs } from "@/features/audit/api";
 import { getAuditLogColumns } from "@/features/audit/audit-logs-columns";
-import { DataTablePage, DataTableToolbar, TableFilterBar } from "@/components/data-table";
+import { DataTablePage } from "@/components/data-table";
 import { ListPageHeader } from "@/components/layout";
-import { useTableUrlState } from "@/hooks/use-table-url-state";
+import {
+    useDataTable,
+    useDataTableUrlState,
+} from "@/hooks/use-data-table-page";
 import { getApiError } from "@/lib/error-utils";
 import { saveBlobResponse, exportDateStamp } from "@/lib/download";
 import { toast } from "sonner";
 import { auditKeys } from "@/lib/query-keys";
-import { PAGINATION } from "@/lib/constants";
 import {
     AUDIT_CATEGORY_LABELS,
     AUDIT_EVENT_LABELS,
@@ -102,85 +107,63 @@ export function AuditLogsPage() {
     const search = route.useSearch();
     const navigate = route.useNavigate();
 
-    const [columnVisibility, setColumnVisibility] =
-        useState<ColumnVisibilityState>({});
     const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
     const [isExporting, setIsExporting] = useState(false);
 
-    const {
-        sorting,
-        onSortingChange,
-        pagination,
-        onPaginationChange,
-        globalFilter,
-        onGlobalFilterChange,
-        columnFilters,
-        onColumnFiltersChange,
-        ensurePageInRange,
-    } = useTableUrlState({
+    const url = useDataTableUrlState({
         search: search as unknown as Record<string, unknown>,
-        navigate: navigate as never,
-        pagination: {
-            defaultPage: 1,
-            defaultPageSize: PAGINATION.DEFAULT_PAGE_SIZE,
+        navigate,
+        urlState: {
+            columnFilters: [
+                {
+                    columnId: "category",
+                    searchKey: "category",
+                    type: "string",
+                },
+                {
+                    columnId: "category_not",
+                    searchKey: "category_not",
+                    type: "string",
+                },
+                {
+                    columnId: "event",
+                    searchKey: "event",
+                    type: "string",
+                },
+                {
+                    columnId: "event_not",
+                    searchKey: "event_not",
+                    type: "string",
+                },
+                {
+                    columnId: "date_from",
+                    searchKey: "date_from",
+                    type: "string",
+                },
+                {
+                    columnId: "date_to",
+                    searchKey: "date_to",
+                    type: "string",
+                },
+            ],
         },
-        sorting: { sortKey: "sort", orderKey: "order" },
-        globalFilter: { enabled: true, key: "filter" },
-        columnFilters: [
-            {
-                columnId: "category",
-                searchKey: "category",
-                type: "string",
-            },
-            {
-                columnId: "category_not",
-                searchKey: "category_not",
-                type: "string",
-            },
-            {
-                columnId: "event",
-                searchKey: "event",
-                type: "string",
-            },
-            {
-                columnId: "event_not",
-                searchKey: "event_not",
-                type: "string",
-            },
-            {
-                columnId: "date_from",
-                searchKey: "date_from",
-                type: "string",
-            },
-            {
-                columnId: "date_to",
-                searchKey: "date_to",
-                type: "string",
-            },
-        ],
     });
 
-    const activeSort = sorting[0];
-    const filterValue = (id: string) =>
-        (
-            columnFilters.find((f) => f.id === id)?.value as
-                | string[]
-                | undefined
-        )?.[0];
-    const activeCategory = filterValue("category") as AuditCategory | undefined;
-    const activeCategoryNot = filterValue("category_not");
-    const activeEvent = filterValue("event");
-    const activeEventNot = filterValue("event_not");
-    const activeDateFrom = filterValue("date_from");
-    const activeDateTo = filterValue("date_to");
+    const activeCategory = url.activeValue("category") as AuditCategory | undefined;
+    const activeCategoryNot = url.activeValue("category_not");
+    const activeEvent = url.activeValue("event");
+    const activeEventNot = url.activeValue("event_not");
+    const activeDateFrom = url.activeValue("date_from");
+    const activeDateTo = url.activeValue("date_to");
+    const { ensurePageInRange } = url;
 
     const { data: availableEvents = [] } = useAuditEvents(activeCategory);
     const { data, isLoading, isError, isFetching } = useAuditLogs({
-        page: pagination.pageIndex + 1,
-        per_page: pagination.pageSize,
-        sort: activeSort?.id,
-        order: activeSort ? (activeSort.desc ? "desc" : "asc") : undefined,
-        filter: globalFilter || undefined,
+        page: url.pagination.pageIndex + 1,
+        per_page: url.pagination.pageSize,
+        sort: url.activeSort?.id,
+        order: url.activeSort ? (url.activeSort.desc ? "desc" : "asc") : undefined,
+        filter: url.globalFilter || undefined,
         category: activeCategory,
         category_not: activeCategoryNot || undefined,
         event: activeEvent,
@@ -222,24 +205,11 @@ export function AuditLogsPage() {
         ...baseColumns,
     ];
 
-    const table = useTable({
-        features: stockFeatures,
-        enableColumnPinning: true,
-        data: tableData,
+    const table = useDataTable({
         columns,
-        state: {
-            sorting,
-            pagination,
-            columnVisibility,
-            columnFilters,
-        },
-        onSortingChange,
-        onPaginationChange,
-        onColumnVisibilityChange: setColumnVisibility,
-        onColumnFiltersChange,
-        manualPagination: true,
-        manualSorting: true,
-        pageCount: meta?.last_page ?? 1,
+        data: tableData,
+        meta,
+        url,
     });
 
     useEffect(() => {
@@ -254,7 +224,7 @@ export function AuditLogsPage() {
         try {
             const response = await exportAuditLogs({
                 format: "csv",
-                filter: globalFilter || undefined,
+                filter: url.globalFilter || undefined,
                 category: activeCategory,
                 category_not: activeCategoryNot || undefined,
                 event: activeEvent,
@@ -293,58 +263,51 @@ export function AuditLogsPage() {
                     description="مشاهده تمام رویدادهای سیستم"
                 />
             }
-            toolbar={
-                <div className="flex items-center gap-2">
-                    <DataTableToolbar
-                        table={table}
-                        searchPlaceholder="جستجو در لاگ..."
-                        globalFilter={globalFilter}
-                        onGlobalFilterChange={onGlobalFilterChange}
-                        filterBar={
-                            <TableFilterBar
-                                fields={[
-                                    {
-                                        id: "category",
-                                        label: "دسته‌بندی",
-                                        type: "select",
-                                        options: Object.entries(
-                                            AUDIT_CATEGORY_LABELS,
-                                        ).map(([value, label]) => ({
-                                            label,
-                                            value,
-                                        })),
-                                        negatable: true,
-                                    },
-                                    {
-                                        id: "event",
-                                        label: "رویداد",
-                                        type: "select",
-                                        options: availableEvents.map(
-                                            (event) => ({
-                                                label:
-                                                    AUDIT_EVENT_LABELS[event] ??
-                                                    event,
-                                                value: event,
-                                            }),
-                                        ),
-                                        negatable: true,
-                                    },
-                                    {
-                                        id: "date_from",
-                                        label: "از تاریخ",
-                                        type: "date",
-                                    },
-                                    {
-                                        id: "date_to",
-                                        label: "تا تاریخ",
-                                        type: "date",
-                                    },
-                                ]}
-                                columnFilters={columnFilters}
-                                onColumnFiltersChange={onColumnFiltersChange}
-                            />
-                        }
-                    />
+            searchPlaceholder="جستجو در لاگ..."
+            globalFilter={url.globalFilter}
+            onGlobalFilterChange={url.onGlobalFilterChange}
+            columnFilters={url.columnFilters}
+            onColumnFiltersChange={url.onColumnFiltersChange}
+            filterFields={[
+                {
+                    id: "category",
+                    label: "دسته‌بندی",
+                    type: "select",
+                    options: Object.entries(
+                        AUDIT_CATEGORY_LABELS,
+                    ).map(([value, label]) => ({
+                        label,
+                        value,
+                    })),
+                    negatable: true,
+                },
+                {
+                    id: "event",
+                    label: "رویداد",
+                    type: "select",
+                    options: availableEvents.map(
+                        (event) => ({
+                            label:
+                                AUDIT_EVENT_LABELS[event] ??
+                                event,
+                            value: event,
+                        }),
+                    ),
+                    negatable: true,
+                },
+                {
+                    id: "date_from",
+                    label: "از تاریخ",
+                    type: "date",
+                },
+                {
+                    id: "date_to",
+                    label: "تا تاریخ",
+                    type: "date",
+                },
+            ]}
+            toolbarActions={
+                <>
                     <Button
                         variant="outline"
                         size="icon"
@@ -366,7 +329,7 @@ export function AuditLogsPage() {
                     >
                         <IconRefresh className={`size-4 ${isFetching ? "animate-spin" : ""}`} />
                     </Button>
-                </div>
+                </>
             }
             emptyMessage="هیچ رویدادی ثبت نشده است"
             onRetry={() =>

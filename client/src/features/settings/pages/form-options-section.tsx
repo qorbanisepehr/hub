@@ -1,16 +1,9 @@
 import { useState } from "react";
-import {
-    flexRender,
-    stockFeatures,
-    useTable,
-    type ColumnDef,
-    type Row,
-    type StockFeatures,
-} from "@tanstack/react-table";
+import type { ColumnDef, Row, StockFeatures } from "@tanstack/react-table";
 import { IconListDetails, IconPencil, IconPlus } from "@tabler/icons-react";
 
 import { ActiveBadge } from "@/components/shared/active-badge";
-import { DataTableToolbar } from "@/components/data-table/toolbar";
+import { DataTablePage } from "@/components/data-table";
 import { Button } from "@/components/ui/button";
 import {
     Card,
@@ -20,7 +13,6 @@ import {
     CardTitle,
 } from "@/components/ui/card";
 import { ConfirmDeleteButton } from "@/components/ui/confirm-delete-button";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import {
     Select,
@@ -30,24 +22,15 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table";
-import { DataTablePagination } from "@/components/data-table";
-import { EmptyState } from "@/components/layout";
-import { ErrorSection } from "@/components/layout";
+    useDataTable,
+    useDataTableUrlState,
+} from "@/hooks/use-data-table-page";
 import { usePermission } from "@/features/auth/components/permission-guard";
 import { groupDisplayName } from "@/features/form-options/groups";
-import { useTableUrlState } from "@/hooks/use-table-url-state";
 import { useAdminFormOptionGroups, useAdminFormOptions, useFormOptionsAdmin } from "@/features/form-options/hooks/use-form-options";
 import type { FormOption } from "@/features/form-options/types";
-import { PAGINATION } from "@/lib/constants";
-import { PERMISSIONS } from "@/lib/permissions";
 import { Route } from "@/routes/_protected/settings";
+import { PERMISSIONS } from "@/lib/permissions";
 import { OptionEditorDialog } from "./option-editor-dialog";
 import {
     emptyForm,
@@ -73,28 +56,21 @@ export function FormOptionsSection() {
     const [editing, setEditing] = useState<FormOption | null>(null);
     const [form, setForm] = useState<OptionFormState>(emptyForm(0));
 
-    const {
-        globalFilter,
-        onGlobalFilterChange,
-        pagination,
-        onPaginationChange,
-    } = useTableUrlState({
+    const url = useDataTableUrlState({
         search: search as unknown as Record<string, unknown>,
-        navigate: navigate as never,
-        pagination: {
-            defaultPage: 1,
-            defaultPageSize: PAGINATION.DEFAULT_PAGE_SIZE,
+        navigate,
+        urlState: {
+            globalFilter: { enabled: true, key: "filter" },
         },
-        globalFilter: { enabled: true, key: "filter" },
     });
 
     const { data: groups = [], isLoading: groupsLoading } =
         useAdminFormOptionGroups();
     const { data, isLoading, isError, refetch } = useAdminFormOptions(
         selectedGroup || undefined,
-        pagination.pageIndex + 1,
-        pagination.pageSize,
-        globalFilter || undefined,
+        url.pagination.pageIndex + 1,
+        url.pagination.pageSize,
+        url.globalFilter || undefined,
     );
 
     const rows = data?.data ?? [];
@@ -249,15 +225,11 @@ export function FormOptionsSection() {
             : []),
     ];
 
-    const table = useTable({
-        features: stockFeatures,
-        enableColumnPinning: true,
-        data: rows,
+    const table = useDataTable({
         columns,
-        state: { pagination },
-        onPaginationChange,
-        manualPagination: true,
-        pageCount: meta?.last_page ?? 1,
+        data: rows,
+        meta,
+        url,
     });
 
     return (
@@ -272,166 +244,83 @@ export function FormOptionsSection() {
                     فرم‌ها
                 </CardDescription>
             </CardHeader>
-            <CardContent>
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="w-full sm:w-auto">
-                        <DataTableToolbar
-                            table={table}
-                            searchPlaceholder="جستجوی عنوان یا مقدار…"
-                            globalFilter={globalFilter}
-                            onGlobalFilterChange={onGlobalFilterChange}
-                        />
-                    </div>
+            <CardContent className="p-0">
+                <div className="flex flex-wrap items-center justify-end gap-3 px-4 pt-4">
+                    <Select
+                        value={selectedGroup || null}
+                        onValueChange={(value: string | null) => {
+                            if (!value) return;
+                            navigate({
+                                search: (prev) => ({
+                                    ...prev,
+                                    tab: "form-options",
+                                    group: value,
+                                    page: undefined,
+                                }),
+                            });
+                        }}
+                        itemToStringLabel={(val) =>
+                            groupDisplayName(
+                                val as string,
+                                groups.find((g) => g.group === val)?.label ??
+                                    undefined,
+                            )
+                        }
+                    >
+                        <SelectTrigger className="w-full sm:w-64">
+                            <SelectValue
+                                placeholder={
+                                    groupsLoading
+                                        ? "در حال بارگذاری…"
+                                        : "انتخاب گروه"
+                                }
+                            />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {groups.map((group) => (
+                                <SelectItem
+                                    key={group.group}
+                                    value={group.group}
+                                >
+                                    {groupDisplayName(
+                                        group.group,
+                                        group.label ?? undefined,
+                                    )}
+                                    ({group.count.toLocaleString("fa-IR")})
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
 
-                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                        <Select
-                            value={selectedGroup || null}
-                            onValueChange={(value: string | null) => {
-                                if (!value) return;
-                                navigate({
-                                    search: (prev) => ({
-                                        ...prev,
-                                        tab: "form-options",
-                                        group: value,
-                                        page: undefined,
-                                    }),
-                                });
-                            }}
-                            itemToStringLabel={(val) =>
-                                groupDisplayName(
-                                    val as string,
-                                    groups.find((g) => g.group === val)?.label ??
-                                        undefined,
-                                )
+                    {canManage && (
+                        <Button
+                            type="button"
+                            onClick={openCreate}
+                            disabled={
+                                !selectedGroup || admin.create.isPending
                             }
                         >
-                            <SelectTrigger className="w-full sm:w-64">
-                                <SelectValue
-                                    placeholder={
-                                        groupsLoading
-                                            ? "در حال بارگذاری…"
-                                            : "انتخاب گروه"
-                                    }
-                                />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {groups.map((group) => (
-                                    <SelectItem
-                                        key={group.group}
-                                        value={group.group}
-                                    >
-                                        {groupDisplayName(
-                                            group.group,
-                                            group.label ?? undefined,
-                                        )}
-                                        ({group.count.toLocaleString("fa-IR")})
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-
-                        {canManage && (
-                            <Button
-                                type="button"
-                                onClick={openCreate}
-                                disabled={
-                                    !selectedGroup || admin.create.isPending
-                                }
-                            >
-                                <IconPlus className="size-4" />
-                                افزودن گزینه
-                            </Button>
-                        )}
-                    </div>
+                            <IconPlus className="size-4" />
+                            افزودن گزینه
+                        </Button>
+                    )}
                 </div>
 
-                {isLoading ? (
-                    <div className="mt-6 space-y-2">
-                        {Array.from({ length: 5 }).map((_, i) => (
-                            // oxlint-disable-next-line react/no-array-index-key -- static skeleton placeholders
-                            <Skeleton key={i} className="h-10 w-full" />
-                        ))}
-                    </div>
-                ) : isError ? (
-                    <div className="mt-6">
-                        <ErrorSection onRetry={() => refetch()} />
-                    </div>
-                ) : (
-                    <>
-                        <div className="mt-6 overflow-x-auto rounded-lg border">
-                            <Table>
-                                <TableHeader>
-                                    {table
-                                        .getHeaderGroups()
-                                        .map((headerGroup) => (
-                                            <TableRow key={headerGroup.id}>
-                                                {headerGroup.headers.map(
-                                                    (header) => (
-                                                        <TableHead
-                                                            key={header.id}
-                                                        >
-                                                            {header.isPlaceholder
-                                                                ? null
-                                                                : flexRender(
-                                                                      header
-                                                                          .column
-                                                                          .columnDef
-                                                                          .header,
-                                                                      header.getContext(),
-                                                                  )}
-                                                        </TableHead>
-                                                    ),
-                                                )}
-                                            </TableRow>
-                                        ))}
-                                </TableHeader>
-                                <TableBody>
-                                    {table.getRowModel().rows.length ? (
-                                        table
-                                            .getRowModel()
-                                            .rows.map((row) => (
-                                                <TableRow key={row.id}>
-                                                    {row
-                                                        .getVisibleCells()
-                                                        .map((cell) => (
-                                                            <TableCell
-                                                                key={cell.id}
-                                                            >
-                                                                {flexRender(
-                                                                    cell.column
-                                                                        .columnDef
-                                                                        .cell,
-                                                                    cell.getContext(),
-                                                                )}
-                                                            </TableCell>
-                                                        ))}
-                                                </TableRow>
-                                            ))
-                                    ) : (
-                                        <TableRow>
-                                            <TableCell
-                                                colSpan={columns.length}
-                                            >
-                                                <EmptyState
-                                                    icon={IconListDetails}
-                                                    message="هنوز گزینه‌ای در این گروه ثبت نشده است"
-                                                />
-                                            </TableCell>
-                                        </TableRow>
-                                    )}
-                                </TableBody>
-                            </Table>
-                        </div>
-                        {meta && meta.total > 0 && (
-                            <div className="mt-4 border-t pt-3">
-                                <DataTablePagination
-                                    table={table}
-                                    meta={meta}
-                                />
-                            </div>
-                        )}
-                    </>
-                )}
+                <DataTablePage
+                    table={table}
+                    meta={meta}
+                    isLoading={isLoading}
+                    isError={isError}
+                    title=""
+                    icon={IconListDetails}
+                    embedded
+                    searchPlaceholder="جستجوی عنوان یا مقدار…"
+                    globalFilter={url.globalFilter}
+                    onGlobalFilterChange={url.onGlobalFilterChange}
+                    onRetry={() => refetch()}
+                    colSpan={columns.length}
+                    emptyMessage="هنوز گزینه‌ای در این گروه ثبت نشده است"
+                />
             </CardContent>
 
             <OptionEditorDialog
