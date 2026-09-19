@@ -9,7 +9,7 @@ import {
     IconUserOff,
     IconUsers,
 } from "@tabler/icons-react";
-import { PageLayout } from "@/components/layout";
+import { PageLayout, PageHeader } from "@/components/layout";
 import { useRoleChart } from "@/features/rbac/hooks/use-roles";
 import { RoleOrgChart } from "@/features/rbac/components/org-chart";
 import { Button } from "@/components/ui/button";
@@ -29,15 +29,10 @@ export function RoleChartPage() {
 
     return (
         <PageLayout>
-            <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                    <h1 className="text-2xl font-bold tracking-tight">
-                        نقشه سازمانی نقش‌ها
-                    </h1>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                        ساختار سلسله‌مراتبی و روابط ماتریسی بین نقش‌ها
-                    </p>
-                </div>
+            <PageHeader
+                title="نقشه سازمانی نقش‌ها"
+                description="ساختار سلسله‌مراتبی و روابط ماتریسی بین نقش‌ها"
+            >
                 <div className="flex flex-wrap items-center gap-2">
                     <div className="flex items-center gap-1 rounded-lg border bg-background p-1 shadow-sm">
                         <Button

@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { getRouteApi } from "@tanstack/react-router";
 
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { PageLayout } from "@/components/layout";
+import { PageLayout, PageHeader } from "@/components/layout";
 import {
     PermissionGuard,
     usePermission,
@@ -67,14 +67,10 @@ export function SettingsPage() {
 
     return (
         <PageLayout>
-            <div>
-                <h1 className="text-2xl font-bold tracking-tight">
-                    تنظیمات
-                </h1>
-                <p className="text-sm text-muted-foreground mt-1">
-                    مدیریت برندینگ، مجوزها، گزینه‌های فرم و ورود اطلاعات سیستم
-                </p>
-            </div>
+            <PageHeader
+                title="تنظیمات"
+                description="مدیریت برندینگ، مجوزها، گزینه‌های فرم و ورود اطلاعات سیستم"
+            />
 
             <Tabs
                 value={activeTab}
