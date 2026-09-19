@@ -406,7 +406,7 @@ return [
         'personal_info.birth_place' => 'محل تولد',
         'personal_info.birth_certificate_number' => 'شماره شناسنامه',
         'personal_info.father_name' => 'نام پدر',
-        'personal_info.religion' => 'مذهب',
+        'personal_info.religion' => 'دین',
         'personal_info.marital_status' => 'وضعیت تأهل',
         'personal_info.first_name_en' => 'نام انگلیسی',
         'personal_info.last_name_en' => 'نام خانوادگی انگلیسی',
