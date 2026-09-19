@@ -2,6 +2,7 @@
 
 use App\Domains\Employee\Exports\EmployeeExporter;
 use App\Domains\Employee\Imports\EmployeeImportDefinition;
+use App\Domains\Employee\Imports\EmployeeValueNormalizer;
 use App\Domains\Employee\Models\Employee;
 use App\Domains\Employee\Services\EmployeeService;
 use App\Domains\FormOptions\Models\FormOption;
@@ -189,6 +190,72 @@ describe('employee import round-trip (M2 slice 1)', function () {
         // the stored form the section boolean rule accepts.
         $this->assertTrue($plan->rows[0]['additional_info.can_travel']);
         $this->assertSame('1234567890', $plan->rows[0]['personal_info.birth_certificate_number']);
+    });
+
+    it('converts jalali dates to the stored gregorian form', function () {
+        $exporter = app(EmployeeService::class)->exporter(Employee::query());
+        $definition = new EmployeeImportDefinition(app(EmployeeService::class));
+        $headers = employeeTemplateHeaders($exporter);
+
+        $rows = [array_fill_keys($headers, null)];
+        $rows[0]['employment.personnel_code'] = 3002;
+        $rows[0]['personal_info.id_number'] = importValidIdNumber();
+        // Jalali input in every separator form, Persian glyphs included,
+        // plus a day-first layout (2-digit first group → D/M/Y):
+        $rows[0]['personal_info.birth_date'] = '21/03/1370';
+        $rows[0]['employment.hire_date'] = '۱۴۰۲/۰۵/۰۱';
+
+        $plan = importService()->dryRun(
+            new ImportSource(writeEmployeeImportFile($headers, $rows), 'employees.xlsx', 'xlsx'),
+            employeeImportColumns($exporter),
+            requiredKeys: ['employment.personnel_code', 'personal_info.id_number'],
+            validator: $definition->validator(),
+            normalizer: $definition,
+        );
+
+        $this->assertTrue($plan->isValid(), json_encode($plan->toArray(), JSON_UNESCAPED_UNICODE));
+        // 1370/03/21 → 1991-06-11, 1402/05/01 → 2023-07-23 (verified via
+        // IntlDateFormatter round-trip against the export presenter).
+        $this->assertSame('1991-06-11', $plan->rows[0]['personal_info.birth_date']);
+        $this->assertSame('2023-07-23', $plan->rows[0]['employment.hire_date']);
+    });
+
+    it('canonicalizes gregorian input in both layouts', function () {
+        $n = app(EmployeeValueNormalizer::class);
+
+        // Year ≥ 1900 is Gregorian: canonicalized, never converted.
+        expect($n->normalizedValue('personal_info.birth_date', '1991-06-11'))->toBe('1991-06-11');
+        expect($n->normalizedValue('personal_info.birth_date', '2024/08/05'))->toBe('2024-08-05');
+        // 2-digit first group → day/month/year.
+        expect($n->normalizedValue('personal_info.birth_date', '05/06/1991'))->toBe('1991-06-05');
+        // One-digit month/day are legal in both layouts.
+        expect($n->normalizedValue('personal_info.birth_date', '۱/۲/۱۴۰۳'))->toBe('2024-04-20');
+        // Impossible Jalali dates fail strict parsing → raw string reaches
+        // the date rule, which rejects it.
+        expect($n->normalizedValue('personal_info.birth_date', '1403/13/01'))->toBeNull();
+        expect($n->normalizedValue('personal_info.birth_date', '30/12/1402'))->toBeNull();
+    });
+
+    it('passes already-gregorian dates through untouched', function () {
+        $exporter = app(EmployeeService::class)->exporter(Employee::query());
+        $definition = new EmployeeImportDefinition(app(EmployeeService::class));
+        $headers = employeeTemplateHeaders($exporter);
+
+        $rows = [array_fill_keys($headers, null)];
+        $rows[0]['employment.personnel_code'] = 3003;
+        $rows[0]['personal_info.id_number'] = importValidIdNumber();
+        $rows[0]['personal_info.birth_date'] = '1991-06-11';
+
+        $plan = importService()->dryRun(
+            new ImportSource(writeEmployeeImportFile($headers, $rows), 'employees.xlsx', 'xlsx'),
+            employeeImportColumns($exporter),
+            requiredKeys: ['employment.personnel_code', 'personal_info.id_number'],
+            validator: $definition->validator(),
+            normalizer: $definition,
+        );
+
+        $this->assertTrue($plan->isValid(), json_encode($plan->toArray(), JSON_UNESCAPED_UNICODE));
+        $this->assertSame('1991-06-11', $plan->rows[0]['personal_info.birth_date']);
     });
 
     it('opens the template with the two anchor columns', function () {

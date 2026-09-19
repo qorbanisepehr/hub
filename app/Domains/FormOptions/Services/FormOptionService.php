@@ -3,6 +3,7 @@
 namespace App\Domains\FormOptions\Services;
 
 use App\Domains\FormOptions\Models\FormOption;
+use App\Support\PersianText;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -212,7 +213,7 @@ class FormOptionService
         );
 
         foreach ($options as $option) {
-            if (mb_strtolower(trim($option['label'])) === mb_strtolower(trim($label))) {
+            if (PersianText::fold($option['label']) === PersianText::fold($label)) {
                 return $option['value'];
             }
         }
