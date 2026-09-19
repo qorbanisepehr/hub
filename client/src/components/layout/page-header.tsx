@@ -1,16 +1,24 @@
 import type { ReactNode } from "react";
 import { BackButton } from "@/components/layout";
+import {
+    PageHeaderActions,
+    type PageHeaderAction,
+} from "./page-header-actions";
 
 export function PageHeader({
     title,
     description,
     backTo,
     children,
+    actions,
 }: {
     title: string;
     description?: string;
     backTo?: string;
+    /** Complex/custom action nodes (e.g. dialogs) — desktop only, hidden on mobile. */
     children?: ReactNode;
+    /** Structured actions that condense into a "…" menu on mobile. */
+    actions?: PageHeaderAction[];
 }) {
     return (
         <div className="flex flex-wrap items-center justify-between gap-y-3">
@@ -27,9 +35,14 @@ export function PageHeader({
                     )}
                 </div>
             </div>
-            {children && (
-                <div className="flex flex-wrap items-center gap-2">{children}</div>
-            )}
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+                {actions ? <PageHeaderActions actions={actions} /> : null}
+                {children ? (
+                    <div className="hidden flex-wrap items-center gap-2 md:flex">
+                        {children}
+                    </div>
+                ) : null}
+            </div>
         </div>
     );
 }

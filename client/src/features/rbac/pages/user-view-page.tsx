@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useParams } from "@tanstack/react-router";
+import { useParams } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import {
     IconPencil,
@@ -8,7 +8,6 @@ import {
 } from "@tabler/icons-react";
 import { isAxiosError } from "axios";
 
-import { Button } from "@/components/ui/button";
 import {
     Card,
     CardContent,
@@ -24,7 +23,6 @@ import { RoleBadge } from "@/features/rbac/components/role-badge";
 import { UserRoleManager } from "@/features/rbac/components/user-role-manager";
 import { EffectivePermissionsView } from "@/features/rbac/components/effective-permissions-view";
 import { getUserDisplayName } from "@/lib/user-display";
-import { PermissionGuard } from "@/features/auth/components/permission-guard";
 import { PERMISSIONS } from "@/lib/permissions";
 import { ResponsiveDialog } from "@/components/ui/responsive-dialog";
 import { EmptyState, ViewSkeleton } from "@/components/layout";
@@ -89,34 +87,21 @@ export function UserViewPage() {
                 title={displayName}
                 description={user.email}
                 backTo="/users"
-            >
-                <div className="flex items-center gap-2">
-                    <PermissionGuard permission={[PERMISSIONS.USER_UPDATE]}>
-                        <Button
-                            variant="outline"
-                            nativeButton={false}
-                            render={
-                                <Link
-                                    to="/users/$userId/edit"
-                                    params={{ userId: String(user.id) }}
-                                />
-                            }
-                        >
-                            <IconPencil className="size-4" />
-                            ویرایش
-                        </Button>
-                    </PermissionGuard>
-                    <PermissionGuard permission={PERMISSIONS.USER_ASSIGN_ROLES}>
-                        <Button
-                            variant="outline"
-                            onClick={() => setRolesOpen(true)}
-                        >
-                            <IconMasksTheater className="size-4" />
-                            مدیریت نقش‌ها
-                        </Button>
-                    </PermissionGuard>
-                </div>
-            </PageHeader>
+                actions={[
+                    {
+                        label: "ویرایش",
+                        icon: <IconPencil className="size-4" />,
+                        href: `/users/${user.id}/edit`,
+                        permission: [PERMISSIONS.USER_UPDATE],
+                    },
+                    {
+                        label: "مدیریت نقش‌ها",
+                        icon: <IconMasksTheater className="size-4" />,
+                        onClick: () => setRolesOpen(true),
+                        permission: PERMISSIONS.USER_ASSIGN_ROLES,
+                    },
+                ]}
+            />
 
             <div className="grid gap-6 md:grid-cols-2">
                 <Card>

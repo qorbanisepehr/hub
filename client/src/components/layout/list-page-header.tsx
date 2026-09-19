@@ -1,19 +1,26 @@
 import type { ReactNode } from "react";
+import {
+    PageHeaderActions,
+    type PageHeaderAction,
+} from "./page-header-actions";
 
 /**
  * The single list-page header (D7): page title, description and the primary
  * action, laid out exactly like DataTablePage's header slot. Mobile-safe via
- * flex-wrap.
+ * flex-wrap / the "…" overflow menu.
  */
 export function ListPageHeader({
     title,
     description,
     action,
+    actions,
 }: {
     title: string;
     description?: string;
-    /** Primary action — usually the "create" button (already permission-gated by the caller). */
+    /** Primary action (legacy/custom) — usually the "create" button (already permission-gated by the caller). */
     action?: ReactNode;
+    /** Structured actions that condense into a "…" menu on mobile. */
+    actions?: PageHeaderAction[];
 }) {
     return (
         <>
@@ -25,8 +32,12 @@ export function ListPageHeader({
                     </p>
                 )}
             </div>
-            {action && (
-                <div className="flex flex-wrap items-center gap-2">{action}</div>
+            {actions ? (
+                <PageHeaderActions actions={actions} />
+            ) : (
+                action && (
+                    <div className="flex flex-wrap items-center gap-2">{action}</div>
+                )
             )}
         </>
     );

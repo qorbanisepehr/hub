@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import { deleteRole, fetchRoles, toggleRole } from "@/features/rbac/api";
 import { getRoleColumns } from "@/features/rbac/columns";
 import { getApiError } from "@/lib/error-utils";
-import { PermissionGuard } from "@/features/auth/components/permission-guard";
 import { PERMISSIONS } from "@/lib/permissions";
 import { DataTablePage } from "@/components/data-table";
 import { ListPageHeader } from "@/components/layout";
@@ -135,17 +134,14 @@ export function RolesPage() {
                 <ListPageHeader
                     title="نقش‌ها"
                     description="مدیریت نقش‌ها و سطوح دسترسی"
-                    action={
-                        <PermissionGuard permission={PERMISSIONS.ROLE_CREATE}>
-                            <Button
-                                nativeButton={false}
-                                render={<Link to="/roles/create" />}
-                            >
-                                <IconPlus className="size-4" />
-                                نقش جدید
-                            </Button>
-                        </PermissionGuard>
-                    }
+                    actions={[
+                        {
+                            label: "نقش جدید",
+                            icon: <IconPlus className="size-4" />,
+                            href: "/roles/create",
+                            permission: PERMISSIONS.ROLE_CREATE,
+                        },
+                    ]}
                 />
             }
             searchPlaceholder="جستجوی نقش..."

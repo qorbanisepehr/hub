@@ -18,7 +18,6 @@ import {
     useDataTable,
     useDataTableUrlState,
 } from "@/hooks/use-data-table-page";
-import { PermissionGuard } from "@/features/auth/components/permission-guard";
 import { PERMISSIONS } from "@/lib/permissions";
 import { employeeKeys } from "@/lib/query-keys";
 import { saveBlobResponse, exportDateStamp } from "@/lib/download";
@@ -174,34 +173,20 @@ export function EmployeesPage() {
                     <ListPageHeader
                         title="کارمندان"
                         description="مدیریت اطلاعات کارمندان شرکت"
-                        action={
-                            <div className="flex items-center gap-2">
-                                <PermissionGuard
-                                    permission={PERMISSIONS.EMPLOYEE_EXPORT}
-                                >
-                                    <Button
-                                        variant="outline"
-                                        onClick={() => setIsExportOpen(true)}
-                                    >
-                                        <IconDownload className="size-4" />
-                                        خروجی
-                                    </Button>
-                                </PermissionGuard>
-                                <PermissionGuard
-                                    permission={PERMISSIONS.EMPLOYEE_CREATE}
-                                >
-                                    <Button
-                                        nativeButton={false}
-                                        render={
-                                            <Link to="/employees/create" />
-                                        }
-                                    >
-                                        <IconPlus className="size-4" />
-                                        کارمند جدید
-                                    </Button>
-                                </PermissionGuard>
-                            </div>
-                        }
+                        actions={[
+                            {
+                                label: "خروجی",
+                                icon: <IconDownload className="size-4" />,
+                                onClick: () => setIsExportOpen(true),
+                                permission: PERMISSIONS.EMPLOYEE_EXPORT,
+                            },
+                            {
+                                label: "کارمند جدید",
+                                icon: <IconPlus className="size-4" />,
+                                href: "/employees/create",
+                                permission: PERMISSIONS.EMPLOYEE_CREATE,
+                            },
+                        ]}
                     />
                 }
                 searchPlaceholder="جستجوی کارمند..."

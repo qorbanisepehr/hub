@@ -12,7 +12,6 @@ import {
     useDataTable,
     useDataTableUrlState,
 } from "@/hooks/use-data-table-page";
-import { PermissionGuard } from "@/features/auth/components/permission-guard";
 import { PERMISSIONS } from "@/lib/permissions";
 import { roleKeys, userKeys } from "@/lib/query-keys";
 
@@ -131,17 +130,14 @@ export function UsersPage() {
                 <ListPageHeader
                     title="کاربران"
                     description="مدیریت نقش‌های کاربران"
-                    action={
-                        <PermissionGuard permission={PERMISSIONS.USER_CREATE}>
-                            <Button
-                                nativeButton={false}
-                                render={<Link to="/users/create" />}
-                            >
-                                <IconPlus className="size-4" />
-                                کاربر جدید
-                            </Button>
-                        </PermissionGuard>
-                    }
+                    actions={[
+                        {
+                            label: "کاربر جدید",
+                            icon: <IconPlus className="size-4" />,
+                            href: "/users/create",
+                            permission: PERMISSIONS.USER_CREATE,
+                        },
+                    ]}
                 />
             }
             searchPlaceholder="جستجوی کاربر..."
