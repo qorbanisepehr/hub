@@ -43,6 +43,7 @@ return [
             'permissions' => [
                 'employee.list' => 'List employees',
                 'employee.export' => 'Export employees to a file',
+                'employee.import' => 'Import employees from a file',
                 'employee.view' => 'View an employee profile',
                 'employee.create' => 'Create new employees',
                 'employee.update' => 'Update employee profiles',

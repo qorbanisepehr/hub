@@ -5,19 +5,24 @@ namespace App\Domains\Employee\Imports;
 use App\Domains\Employee\Exports\EmployeeExporter;
 use App\Domains\Employee\Models\Employee;
 use App\Domains\Employee\Services\EmployeeService;
+use App\Domains\FormOptions\Services\FormOptionService;
+use App\Support\Exports\Contract\TabularExporter;
+use App\Support\Imports\Contract\NormalizesValues;
+use App\Support\Imports\Contract\ProvidesExporter;
 use App\Support\Imports\Contract\RowsPersister;
 use App\Support\Imports\Contract\RowValidator;
+use App\Support\Imports\ImportDefinition;
 use App\Support\Imports\Value\ImportColumn;
 
 /**
  * The employee import's one wiring point: the accepted columns (derived
  * from the exporter's catalog — one source, never a parallel list), the
  * upsert anchors a row must fill (decision #1: either personnel code or
- * national ID), the row validator, and the persister. Future slices
- * (settings-tab UI, artisan command) resolve everything through this
- * definition, the way export flows resolve through `EmployeeExporter`.
+ * national ID), the row validator, and the persister. The settings-tab UI
+ * and future artisan command resolve everything through this definition,
+ * the way export flows resolve through `EmployeeExporter`.
  */
-final class EmployeeImportDefinition
+final class EmployeeImportDefinition implements ImportDefinition, NormalizesValues, ProvidesExporter
 {
     /**
      * Column keys a filled row may not leave entirely empty. Both anchors
@@ -45,6 +50,11 @@ final class EmployeeImportDefinition
     public function name(): string
     {
         return 'employees';
+    }
+
+    public function label(): string
+    {
+        return __('employee.import.entity_label');
     }
 
     /**
@@ -104,5 +114,33 @@ final class EmployeeImportDefinition
     public function persister(): RowsPersister
     {
         return new EmployeePersister($this->employees);
+    }
+
+    /**
+     * Human words → stored values before validation (option labels like
+     * «مرد» → `male`, boolean words «بله»/«خیر», Persian digit glyphs).
+     * Delegates to the exporter's own vocabulary — one source for both
+     * directions of presentation.
+     */
+    public function normalizedValue(string $columnKey, string $value): ?string
+    {
+        return $this->normalizer()->normalizedValue($columnKey, $value);
+    }
+
+    private function normalizer(): EmployeeValueNormalizer
+    {
+        return new EmployeeValueNormalizer(
+            $this->employees->exporter(Employee::query()),
+            app(FormOptionService::class),
+        );
+    }
+
+    /**
+     * The exporter behind the template download — the SAME catalog the
+     * import accepts (one source). Unscoped: templates need no rows.
+     */
+    public function importExporter(): TabularExporter
+    {
+        return $this->employees->exporter(Employee::query());
     }
 }

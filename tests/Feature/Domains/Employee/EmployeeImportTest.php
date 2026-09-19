@@ -1,8 +1,10 @@
 <?php
 
 use App\Domains\Employee\Exports\EmployeeExporter;
+use App\Domains\Employee\Imports\EmployeeImportDefinition;
 use App\Domains\Employee\Models\Employee;
 use App\Domains\Employee\Services\EmployeeService;
+use App\Domains\FormOptions\Models\FormOption;
 use App\Support\Exports\ExportService;
 use App\Support\Exports\Value\ExportColumn;
 use App\Support\Exports\Value\ExportColumnType;
@@ -15,6 +17,7 @@ use App\Support\Imports\Reader\XlsxReader;
 use App\Support\Imports\ReaderRegistry;
 use App\Support\Imports\Value\ImportColumn;
 use App\Support\Imports\Value\ImportSource;
+use Illuminate\Support\Facades\Cache;
 
 describe('employee import round-trip (M2 slice 1)', function () {
     beforeEach(function () {
@@ -149,7 +152,88 @@ describe('employee import round-trip (M2 slice 1)', function () {
         $this->assertSame(2, $plan->rejected[0]->rowNumber);
         $this->assertArrayHasKey('employment.hire_date', $plan->rejected[0]->errors);
     });
+
+    it('normalizes human words to stored values before validation', function () {
+        // The form-options dictionary backs the option rules — seed the
+        // groups the cells fill.
+        seedImportOption('gender', 'male', 'مرد');
+        seedImportOption('marital_status', 'married', 'متأهل');
+
+        $exporter = app(EmployeeService::class)->exporter(Employee::query());
+        $definition = new EmployeeImportDefinition(app(EmployeeService::class));
+        $headers = employeeTemplateHeaders($exporter);
+
+        $rows = [array_fill_keys($headers, null)];
+        $rows[0]['employment.personnel_code'] = 3001;
+        $rows[0]['personal_info.id_number'] = importValidIdNumber();
+        // Persian display words a human types into the template:
+        $rows[0]['personal_info.gender'] = 'مرد';
+        $rows[0]['personal_info.marital_status'] = 'متأهل';
+        $rows[0]['additional_info.can_travel'] = 'بله';
+        // Persian digit glyphs in a numeric-looking identifier:
+        $rows[0]['personal_info.birth_certificate_number'] = '۱۲۳۴۵۶۷۸۹۰';
+
+        $plan = importService()->dryRun(
+            new ImportSource(writeEmployeeImportFile($headers, $rows), 'employees.xlsx', 'xlsx'),
+            employeeImportColumns($exporter),
+            requiredKeys: ['employment.personnel_code', 'personal_info.id_number'],
+            validator: $definition->validator(),
+            requiredTemplateColumns: $definition->requiredTemplateColumns(),
+            normalizer: $definition,
+        );
+
+        $this->assertTrue($plan->isValid(), json_encode($plan->toArray(), JSON_UNESCAPED_UNICODE));
+        $this->assertSame('male', $plan->rows[0]['personal_info.gender']);
+        $this->assertSame('married', $plan->rows[0]['personal_info.marital_status']);
+        // Boolean-typed cells land as PHP bools (the csv "1" typing) —
+        // the stored form the section boolean rule accepts.
+        $this->assertTrue($plan->rows[0]['additional_info.can_travel']);
+        $this->assertSame('1234567890', $plan->rows[0]['personal_info.birth_certificate_number']);
+    });
+
+    it('opens the template with the two anchor columns', function () {
+        $exporter = app(EmployeeService::class)->exporter(Employee::query());
+        $keys = array_map(fn (ExportColumn $c) => $c->key, $exporter->columns());
+
+        $this->assertSame(
+            ['employment.personnel_code', 'personal_info.id_number'],
+            array_slice($keys, 0, 2),
+            'کد پرسنلی و کد ملی باید ستون‌های اول قالب باشند.',
+        );
+    });
 });
+
+/**
+ * One active form-option row for the value-backed rules. The options
+ * cache is process-wide, so stale group entries from earlier runs are
+ * flushed — `labelToValue` reads through it.
+ */
+function seedImportOption(string $group, string $value, string $label): void
+{
+    FormOption::query()->firstOrCreate(
+        ['group' => $group, 'value' => $value],
+        ['label' => $label, 'sort_order' => 0, 'is_active' => true],
+    );
+
+    Cache::forget("form_options:{$group}:options");
+}
+
+/** A checksum-valid national ID (the IdNumberRule's algorithm). */
+function importValidIdNumber(): string
+{
+    $code = str_pad((string) random_int(1_000_000_00, 999_999_999), 9, '0', STR_PAD_LEFT);
+
+    $sum = 0;
+
+    for ($i = 0; $i < 9; $i++) {
+        $sum += (int) $code[$i] * (10 - $i);
+    }
+
+    $remainder = $sum % 11;
+    $control = $remainder < 2 ? $remainder : 11 - $remainder;
+
+    return $code.$control;
+}
 
 /**
  * A spool path for import fixtures; content written when given.
@@ -208,19 +292,21 @@ function employeeTemplatePath(EmployeeExporter $exporter): string
 }
 
 /**
- * The template's header row (dotted keys) — read back through the reader
- * so the test asserts against what a user actually receives.
+ * The template's header keys (dotted keys) — the catalog order the
+ * download endpoint emits. Rows are keyed by these.
  *
  * @return list<string>
  */
 function employeeTemplateHeaders(EmployeeExporter $exporter): array
 {
-    return (new XlsxReader)->headers(employeeTemplatePath($exporter));
+    return array_map(fn (ExportColumn $c) => $c->key, $exporter->columns());
 }
 
 /**
- * Write rows through the export kernel onto the template's headers (Text
- * typing: values keep the form a user's spreadsheet would produce).
+ * Write rows through the export kernel onto the template's shape: the
+ * template pipeline (writeTemplate) with its `_meta` translation sheet —
+ * the same bytes a real filled template carries. Labels equal keys in the
+ * fixture, so the header row stays key-addressed.
  *
  * @param  list<string>  $headers
  * @param  list<array<string, string|int|float|bool|null>>  $rows
@@ -232,12 +318,19 @@ function writeEmployeeImportFile(array $headers, array $rows): string
         $headers,
     );
 
+    $meta = ['_schema_version' => '1'];
+
+    foreach ($headers as $key) {
+        $meta[$key] = $key;
+    }
+
     $path = importTempPath(null);
 
-    (new XlsxWriter)->write(
+    (new XlsxWriter)->writeTemplate(
         rows: $rows,
         columns: $columns,
         options: new ExportOptions,
+        metaPairs: $meta,
         stream: fopen($path, 'w'),
     );
 

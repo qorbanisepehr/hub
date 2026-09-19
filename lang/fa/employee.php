@@ -211,4 +211,7 @@ return [
     'validation' => [
         'personnel_code_unique' => 'این کد پرسنلی قبلاً برای کارمند دیگری استفاده شده است.',
     ],
+    'import' => [
+        'entity_label' => 'کارمندان',
+    ],
 ];

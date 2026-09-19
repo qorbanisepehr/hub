@@ -197,6 +197,30 @@ class FormOptionService
     }
 
     /**
+     * Human label → stored value key for one option group (e.g.
+     * «مرد» → `male`), case-insensitive on the label. Used by import
+     * flows that receive Persian display words instead of the stable
+     * value keys the form submits. Unknown labels return null so the
+     * caller can fall back to treating the input as a value already.
+     */
+    public function labelToValue(string $group, string $label): ?string
+    {
+        $options = Cache::remember(
+            $this->optionsCacheKey($group),
+            self::CACHE_TTL,
+            fn (): array => $this->queryOptions($group),
+        );
+
+        foreach ($options as $option) {
+            if (mb_strtolower(trim($option['label'])) === mb_strtolower(trim($label))) {
+                return $option['value'];
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Resolve stored values (active or not) back to their option rows so saved
      * records can still display the Persian label of an option that was
      * deactivated after the record was written. Unknown values are omitted.

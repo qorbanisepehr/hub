@@ -2,6 +2,7 @@
 
 namespace App\Support\Imports;
 
+use App\Support\Imports\Contract\NormalizesValues;
 use App\Support\Imports\Contract\ReadsTemplateMeta;
 use App\Support\Imports\Contract\RowValidator;
 use App\Support\Imports\Value\ImportColumn;
@@ -15,9 +16,9 @@ use RuntimeException;
  * The import kernel orchestrator — the mirror of `ExportService`: resolve
  * the reader for the file's format, stream rows through the mapper, hand
  * each mapped row to the domain's validator, and collect a plan the caller
- * can present (dry-run) or persist (later slice). No format logic lives
- * here (the registry owns formats), no domain rules do (the validator owns
- * them), and no persistence does (that is M2 slice 2's job).
+ * can present (dry-run) or persist. No format logic lives here (the
+ * registry owns formats), no domain rules do (the validator owns them),
+ * and no persistence does (the definition's persister does).
  */
 final class ImportService
 {
@@ -26,17 +27,19 @@ final class ImportService
     ) {}
 
     /**
-     * Dry-run: read the file, map it onto the accepted columns, validate
-     * every mapped row, and return the plan. One streaming pass, one row
-     * in memory at a time, nothing persisted.
+     * Dry-run: read the file, map it onto the accepted columns, normalize
+     * human words to stored values, validate every mapped row, and return
+     * the plan. One streaming pass, one row in memory at a time, nothing
+     * persisted.
      *
      * @param  list<ImportColumn>  $accepted  The definition's accepted columns (order = template order).
      * @param  list<string>  $requiredKeys  Column keys a filled row must provide.
+     * @param  list<string>  $requiredTemplateColumns  Column keys the FILE must carry (header-level check).
+     * @param  NormalizesValues|null  $normalizer  Optional human-word → stored-value vocabulary.
      */
-    public function dryRun(ImportSource $source, array $accepted, array $requiredKeys, ?RowValidator $validator = null): ImportPlan
+    public function dryRun(ImportSource $source, array $accepted, array $requiredKeys, ?RowValidator $validator = null, array $requiredTemplateColumns = [], ?NormalizesValues $normalizer = null): ImportPlan
     {
         $columns = $this->withRequired($accepted, $requiredKeys);
-        $mapper = new ImportMapper($columns);
 
         $templateMeta = $this->metaFor($source);
         $schemaVersion = $templateMeta === null ? null : (int) ($templateMeta['_schema_version'] ?? 0);
@@ -47,15 +50,33 @@ final class ImportService
             );
         }
 
+        // Header aliases: the template's data sheet is written in the human
+        // label language, and its _meta sheet carries key→label. Invert that
+        // map so a Persian header translates back onto its catalog key.
+        // Files without _meta (plain data files, CSV) are key-headed and
+        // need no aliases. A label that no longer matches any catalog key
+        // simply stays unknown — the report surfaces it. The normalizer
+        // rides the mapper so human-word cells («بله») convert to stored
+        // values BEFORE the cell typing, not after.
+        $mapper = new ImportMapper($columns, $this->aliasesFromMeta($templateMeta, $columns), $normalizer);
+
         // Phase 1: the header names — mapping is validated before any data
         // row is touched (fail fast on wrong templates).
         $reader = $this->readers->get($source->format);
         $mapping = $mapper->mapHeaders($reader->headers($source->path));
 
-        if ($mapping['missing_required'] !== []) {
+        // The definition's file-level guard: template columns (the upsert
+        // anchors) must at least be OFFERED by the file even though a row
+        // may fill either one. Matched headers are already canonical keys.
+        $missingTemplate = array_values(array_diff($requiredTemplateColumns, $mapping['matched']));
+
+        if ($mapping['missing_required'] !== [] || $missingTemplate !== []) {
             throw new RuntimeException(
                 'The file is missing required columns: '
-                .implode(', ', $mapping['missing_required']).'.',
+                .implode(', ', array_values(array_unique(array_merge(
+                    $mapping['missing_required'],
+                    $missingTemplate,
+                )))).'.',
             );
         }
 
@@ -119,6 +140,45 @@ final class ImportService
         }
 
         return $reader->readMeta($source->path);
+    }
+
+    /**
+     * label → key aliases from the file's `_meta` pairs (the meta sheet is
+     * the file's own translation table: key→label, so invert it). Only
+     * labels of KNOWN catalog keys become aliases, and a label identical
+     * to a real key never shadows that key.
+     *
+     * @param  array<string, string>|null  $templateMeta
+     * @param  list<ImportColumn>  $columns
+     * @return array<string, string>
+     */
+    private function aliasesFromMeta(?array $templateMeta, array $columns): array
+    {
+        if ($templateMeta === null) {
+            return [];
+        }
+
+        $knownLabels = [];
+
+        foreach ($columns as $column) {
+            $knownLabels[$column->faLabel] = $column->key;
+        }
+
+        $aliases = [];
+
+        foreach ($templateMeta as $key => $label) {
+            if ($key === '_schema_version' || ! isset($knownLabels[$label])) {
+                continue;
+            }
+
+            if ($key === $label) {
+                continue;
+            }
+
+            $aliases[$label] = $knownLabels[$label];
+        }
+
+        return $aliases;
     }
 
     /**

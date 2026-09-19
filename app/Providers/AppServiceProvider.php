@@ -10,6 +10,7 @@ use App\Domains\Cv\Repositories\CvRepository;
 use App\Domains\Cv\Repositories\CvRepositoryInterface;
 use App\Domains\Document\Repositories\DocumentRepository;
 use App\Domains\Document\Repositories\DocumentRepositoryInterface;
+use App\Domains\Employee\Imports\EmployeeImportDefinition;
 use App\Domains\Questionnaire\Repositories\QuestionnaireRepository;
 use App\Domains\Questionnaire\Repositories\QuestionnaireRepositoryInterface;
 use App\Domains\Settings\Repositories\FileSettingsRepository;
@@ -22,6 +23,7 @@ use App\Support\Exports\Writer\JsonlWriter;
 use App\Support\Exports\Writer\TsvWriter;
 use App\Support\Exports\Writer\XlsxWriter;
 use App\Support\Exports\WriterRegistry;
+use App\Support\Imports\ImportDefinitionRegistry;
 use App\Support\Imports\ImportService;
 use App\Support\Imports\Reader\CsvReader;
 use App\Support\Imports\Reader\XlsxReader;
@@ -68,5 +70,15 @@ class AppServiceProvider extends ServiceProvider
             return $registry;
         });
         $this->app->singleton(ImportService::class);
+
+        // Import definitions: entities are registered here (OCP — a new
+        // importable entity is a registration, never an edit to the
+        // controller or kernel).
+        $this->app->singleton(ImportDefinitionRegistry::class, function (): ImportDefinitionRegistry {
+            $registry = new ImportDefinitionRegistry;
+            $registry->register('employees', app(EmployeeImportDefinition::class));
+
+            return $registry;
+        });
     }
 }

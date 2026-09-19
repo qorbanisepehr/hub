@@ -197,4 +197,7 @@ return [
     'validation' => [
         'personnel_code_unique' => 'This personnel code is already assigned to another employee.',
     ],
+    'import' => [
+        'entity_label' => 'Employees',
+    ],
 ];

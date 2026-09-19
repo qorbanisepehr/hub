@@ -11,7 +11,9 @@ const SettingsPage = lazy(() =>
 );
 
 const settingsSearchSchema = z.object({
-    tab: z.enum(["branding", "permissions", "form-options"]).optional(),
+    tab: z
+        .enum(["branding", "permissions", "form-options", "imports"])
+        .optional(),
     /** Form-options admin list state (read on the form-options tab). */
     page: z.number().optional(),
     per_page: z.number().optional(),
@@ -30,6 +32,7 @@ export const Route = createRoute({
         PERMISSIONS.DOCUMENT_CATEGORY_MANAGE,
         PERMISSIONS.FORM_OPTIONS_VIEW,
         PERMISSIONS.FORM_OPTIONS_MANAGE,
+        PERMISSIONS.EMPLOYEE_IMPORT,
     ]),
     component: () => (
         <LazyRoute component={SettingsPage} fallback={<RouteLoadingFallback />} />

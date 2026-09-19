@@ -11,10 +11,11 @@ import { PERMISSIONS } from "@/lib/permissions";
 import { BrandingSettingsSection } from "@/features/settings/pages/branding-settings-page";
 import { PermissionsSection } from "@/features/rbac/pages/permissions-section";
 import { FormOptionsSection } from "@/features/settings/pages/form-options-section";
+import { ImportSection } from "@/features/imports/import-section";
 
 const route = getRouteApi("/protected/settings");
 
-export type SettingsTab = "branding" | "permissions" | "form-options";
+export type SettingsTab = "branding" | "permissions" | "form-options" | "imports";
 
 export function SettingsPage() {
     const search = route.useSearch();
@@ -32,19 +33,23 @@ export function SettingsPage() {
         PERMISSIONS.FORM_OPTIONS_VIEW,
         PERMISSIONS.FORM_OPTIONS_MANAGE,
     ]);
+    const canImports = usePermission([PERMISSIONS.EMPLOYEE_IMPORT]);
 
     const defaultTab: SettingsTab = canBranding
         ? "branding"
         : canPermissions
           ? "permissions"
-          : "form-options";
+          : canFormOptions
+            ? "form-options"
+            : "imports";
     const activeTab = search.tab ?? defaultTab;
 
     useEffect(() => {
         if (
             (activeTab === "branding" && !canBranding) ||
             (activeTab === "permissions" && !canPermissions) ||
-            (activeTab === "form-options" && !canFormOptions)
+            (activeTab === "form-options" && !canFormOptions) ||
+            (activeTab === "imports" && !canImports)
         ) {
             navigate({
                 search: (prev) => ({ ...prev, tab: defaultTab }),
@@ -55,6 +60,7 @@ export function SettingsPage() {
         canBranding,
         canPermissions,
         canFormOptions,
+        canImports,
         defaultTab,
         navigate,
     ]);
@@ -66,7 +72,7 @@ export function SettingsPage() {
                     تنظیمات
                 </h1>
                 <p className="text-sm text-muted-foreground mt-1">
-                    مدیریت برندینگ، مجوزها و گزینه‌های فرم سیستم
+                    مدیریت برندینگ، مجوزها، گزینه‌های فرم و ورود اطلاعات سیستم
                 </p>
             </div>
 
@@ -85,6 +91,9 @@ export function SettingsPage() {
                     )}
                     {canFormOptions && (
                         <TabsTrigger value="form-options">گزینه‌های فرم</TabsTrigger>
+                    )}
+                    {canImports && (
+                        <TabsTrigger value="imports">ورود اطلاعات</TabsTrigger>
                     )}
                 </TabsList>
 
@@ -123,6 +132,16 @@ export function SettingsPage() {
                             ]}
                         >
                             <FormOptionsSection />
+                        </PermissionGuard>
+                    </TabsContent>
+                )}
+
+                {canImports && (
+                    <TabsContent value="imports">
+                        <PermissionGuard
+                            permission={PERMISSIONS.EMPLOYEE_IMPORT}
+                        >
+                            <ImportSection />
                         </PermissionGuard>
                     </TabsContent>
                 )}

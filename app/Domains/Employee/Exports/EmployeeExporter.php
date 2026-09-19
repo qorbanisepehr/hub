@@ -61,7 +61,7 @@ final class EmployeeExporter implements ProvidesDetailSheets, ProvidesOptionLabe
      *
      * @var array<string, string>
      */
-    private const OPTION_GROUPS = [
+    public const OPTION_GROUPS = [
         'personal_info.gender' => 'gender',
         'personal_info.blood_group' => 'blood_group',
         'personal_info.birth_place' => 'city',
@@ -239,7 +239,20 @@ final class EmployeeExporter implements ProvidesDetailSheets, ProvidesOptionLabe
     }
 
     /**
-     * Full column catalog, in section-definition order.
+     * The upsert anchors lead the catalog: the import template opens with
+     * «کد پرسنلی» and «کد ملی» so a filled row is identifiable at a
+     * glance, and the join keys of the detail sheets stay first.
+     *
+     * @var list<string>
+     */
+    private const LEADING_COLUMN_KEYS = [
+        'employment.personnel_code',
+        'personal_info.id_number',
+    ];
+
+    /**
+     * Full column catalog — the two upsert anchors first, then section-
+     * definition order.
      *
      * @return list<ExportColumn>
      */
@@ -487,7 +500,7 @@ final class EmployeeExporter implements ProvidesDetailSheets, ProvidesOptionLabe
      */
     private function deriveColumns(): array
     {
-        $columns = [];
+        $derived = [];
 
         foreach ($this->sections->sections() as $sectionKey => $section) {
             foreach ($section->structuralRules() as $field => $rule) {
@@ -511,7 +524,7 @@ final class EmployeeExporter implements ProvidesDetailSheets, ProvidesOptionLabe
                 $key = "{$sectionKey}.{$field}";
                 $type = $this->typeFor($rule);
                 $label = $this->labelFor($sectionKey, $field);
-                $columns[] = new ExportColumn(
+                $derived[] = new ExportColumn(
                     key: $key,
                     faLabel: $label,
                     column: $key,
@@ -522,7 +535,22 @@ final class EmployeeExporter implements ProvidesDetailSheets, ProvidesOptionLabe
             }
         }
 
-        return $columns;
+        // The upsert anchors open the sheet; their section-order slots
+        // disappear so no key is duplicated.
+        $leading = [];
+
+        foreach (self::LEADING_COLUMN_KEYS as $leadingKey) {
+            foreach ($derived as $i => $column) {
+                if ($column->key === $leadingKey) {
+                    $leading[] = $column;
+                    unset($derived[$i]);
+
+                    break;
+                }
+            }
+        }
+
+        return [...$leading, ...array_values($derived)];
     }
 
     /**

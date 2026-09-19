@@ -110,7 +110,17 @@ final class ExportService
 
             $writer->writeWithDetailSheets($rows, $columns, $detailed->detailSheets(), $detailed, $request->options, $stream);
         } elseif ($metaPairs !== null && $writer instanceof TemplateWriter) {
-            $writer->writeTemplate($rows, $columns, $request->options, $metaPairs, $stream);
+            // Human headers on the data sheet: the workbook is for a person
+            // to fill, and the _meta sheet carries key→label so the import
+            // reader translates the labels back onto the catalog. Values
+            // stay import-safe (Gregorian dates, latin digits) — only the
+            // header row is localized.
+            $localized = array_map(
+                fn (ExportColumn $column) => $column->headerFor('label'),
+                $columns,
+            );
+
+            $writer->writeTemplate($rows, $localized, $request->options, $metaPairs, $stream);
         } else {
             $writer->write($rows, $columns, $request->options, $stream);
         }
