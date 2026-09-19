@@ -2,10 +2,10 @@
 
 namespace App\Domains\Employee\Sections;
 
+use App\Rules\EndDateAfterStartDate;
 use App\Rules\FormOptionValue;
 use App\Support\Sections\BaseSection;
-use Carbon\Carbon;
-use Illuminate\Contracts\Validation\Validator;
+use Illuminate\Validation\Rule;
 
 class SocialInsuranceSection extends BaseSection
 {
@@ -105,7 +105,39 @@ class SocialInsuranceSection extends BaseSection
             'job_titles.*.workshop_code' => 'nullable|string|max:50',
             'job_titles.*.workshop_name' => 'nullable|string|max:255',
 
-            'histories' => 'required_if:has_insurance_history,true|array',
+            'histories' => [
+                'nullable',
+                'array',
+                'required_if:has_insurance_history,true',
+                'prohibited_if:has_insurance_history,false',
+            ],
+            'histories.*' => Rule::forEach(function ($item, $attribute) {
+                return [
+                    'monthly_breakdown' => 'nullable|array',
+                    'monthly_breakdown.*.month' => 'nullable|string|max:30',
+                    'monthly_breakdown.*.days' => 'nullable|integer|min:0',
+                    'monthly_breakdown.*.wage' => 'nullable|string|max:30',
+
+                    'workshop_name' => 'required_if:has_insurance_history,true|string|max:255',
+                    'workshop_code' => 'nullable|string|max:50',
+                    'job_title' => 'nullable|string|max:255',
+
+                    'start_date' => [
+                        'required_if:has_insurance_history,true',
+                        'date',
+                        'before_or_equal:today',
+                    ],
+
+                    'end_date' => [
+                        'nullable',
+                        'date',
+                        'before_or_equal:today',
+                        new EndDateAfterStartDate,
+                    ],
+
+                    'description' => 'nullable|string|max:1000',
+                ];
+            }),
             'histories.*.monthly_breakdown' => 'nullable|array',
             'histories.*.monthly_breakdown.*.month' => 'nullable|string|max:30',
             'histories.*.monthly_breakdown.*.days' => 'nullable|integer|min:0',
@@ -173,59 +205,5 @@ class SocialInsuranceSection extends BaseSection
                 'max_files' => 1,
             ],
         ];
-    }
-
-    protected function afterValidation(
-        Validator $validator,
-        array $data,
-        string $mode
-    ): void {
-        $histories = $data['histories'] ?? [];
-
-        if (! is_array($histories)) {
-            return;
-        }
-
-        $today = Carbon::today();
-
-        foreach ($histories as $index => $history) {
-            if (! is_array($history)) {
-                continue;
-            }
-
-            $startDate = $history['start_date'] ?? null;
-            $endDate = $history['end_date'] ?? null;
-
-            if ($startDate && Carbon::parse($startDate)->isAfter($today)) {
-                $validator->errors()->add(
-                    "{$this->key()}.histories.{$index}.start_date",
-                    __('validation.before_or_equal', [
-                        'attribute' => __('employee.social_insurance.fields.start_date'),
-                        'date' => $today->toDateString(),
-                    ]),
-                );
-            }
-
-            if ($endDate && Carbon::parse($endDate)->isAfter($today)) {
-                $validator->errors()->add(
-                    "{$this->key()}.histories.{$index}.end_date",
-                    __('validation.before_or_equal', [
-                        'attribute' => __('employee.social_insurance.fields.end_date'),
-                        'date' => $today->toDateString(),
-                    ]),
-                );
-            }
-
-            if (
-                $startDate &&
-                $endDate &&
-                Carbon::parse($endDate)->isBefore(Carbon::parse($startDate))
-            ) {
-                $validator->errors()->add(
-                    "{$this->key()}.histories.{$index}.end_date",
-                    __('employee.social_insurance.validation.end_date_before_start_date'),
-                );
-            }
-        }
     }
 }

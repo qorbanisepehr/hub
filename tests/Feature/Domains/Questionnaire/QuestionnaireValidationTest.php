@@ -634,13 +634,13 @@ describe('Questionnaire validation', function () {
                 'languages' => [
                     [
                         'language' => str_repeat('L', 51),
-                        'reading' => 5,
-                        'writing' => 0,
+                        'reading' => 101,
+                        'writing' => 101,
                     ],
                 ],
                 'software_skills' => [
                     'specialized' => [
-                        ['name' => str_repeat('S', 101), 'level' => 5],
+                        ['name' => str_repeat('S', 101), 'level' => 100],
                     ],
                     'general' => [
                         ['name' => str_repeat('G', 101), 'level' => 0],
@@ -2094,10 +2094,10 @@ function validSkills(): array
         'languages' => [
             [
                 'language' => 'English',
-                'reading' => 4,
-                'writing' => 3,
-                'speaking' => 3,
-                'comprehension' => 4,
+                'reading' => 90,
+                'writing' => 50,
+                'speaking' => 100,
+                'comprehension' => 90,
             ],
         ],
         'software_skills' => [

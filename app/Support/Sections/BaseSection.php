@@ -136,14 +136,23 @@ abstract class BaseSection implements SectionDefinition
         $prefixed = [];
         foreach ($rules as $field => $rule) {
             $prefixedField = "{$prefix}.{$field}";
-            $prefixed[$prefixedField] = is_array($rule)
-                ? array_map(
+
+            if (is_array($rule)) {
+                $prefixed[$prefixedField] = array_map(
                     fn (mixed $item): mixed => is_string($item)
                         ? $this->prefixConditionalReferences($item, $prefix, $conditionalMethods)
                         : $item,
                     $rule,
-                )
-                : $this->prefixConditionalReferences($rule, $prefix, $conditionalMethods);
+                );
+            } elseif (is_string($rule)) {
+                $prefixed[$prefixedField] = $this->prefixConditionalReferences(
+                    $rule,
+                    $prefix,
+                    $conditionalMethods,
+                );
+            } else {
+                $prefixed[$prefixedField] = $rule;
+            }
         }
 
         return $prefixed;
