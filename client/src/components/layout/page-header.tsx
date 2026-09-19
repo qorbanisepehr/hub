@@ -15,7 +15,7 @@ export function PageHeader({
     title: string;
     description?: string;
     backTo?: string;
-    /** Complex/custom action nodes (e.g. dialogs) — desktop only, hidden on mobile. */
+    /** Complex/custom action nodes (e.g. dialogs) — always visible, mobile-safe. */
     children?: ReactNode;
     /** Structured actions that condense into a "…" menu on mobile. */
     actions?: PageHeaderAction[];
@@ -38,7 +38,7 @@ export function PageHeader({
             <div className="flex min-w-0 flex-wrap items-center gap-2">
                 {actions ? <PageHeaderActions actions={actions} /> : null}
                 {children ? (
-                    <div className="hidden flex-wrap items-center gap-2 md:flex">
+                    <div className="flex flex-wrap items-center gap-2">
                         {children}
                     </div>
                 ) : null}

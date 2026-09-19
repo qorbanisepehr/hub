@@ -15,7 +15,11 @@ export type PageHeaderAction = {
     icon?: ReactNode;
     label: string;
     onClick?: () => void;
+    /** TanStack Router `to` (route path template) — e.g. `/employees/$id/edit`. */
     href?: string;
+    params?: Record<string, string>;
+    /** Deep-link hash preserved when navigating (e.g. the active detail tab). Use `true` to keep the current hash. */
+    hash?: string | true;
     permission?: string | string[];
 };
 
@@ -86,7 +90,16 @@ export function PageHeaderActions({ actions }: PageHeaderActionsProps) {
 
 function DesktopAction({ action }: { action: PageHeaderAction }) {
     const buttonProps = action.href
-        ? { render: <Link to={action.href} />, nativeButton: false as const }
+        ? {
+              render: (
+                  <Link
+                      to={action.href}
+                      params={action.params}
+                      hash={action.hash}
+                  />
+              ),
+              nativeButton: false as const,
+          }
         : { onClick: action.onClick };
 
     return (
@@ -99,7 +112,15 @@ function DesktopAction({ action }: { action: PageHeaderAction }) {
 
 function MenuItem({ action }: { action: PageHeaderAction }) {
     const itemProps = action.href
-        ? { render: <Link to={action.href} /> }
+        ? {
+              render: (
+                  <Link
+                      to={action.href}
+                      params={action.params}
+                      hash={action.hash}
+                  />
+              ),
+          }
         : { onClick: action.onClick };
 
     return (
