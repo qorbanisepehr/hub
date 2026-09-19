@@ -4,19 +4,39 @@ import {
     IconChevronLeft,
     IconChevronRight,
     IconDownload,
+    IconFocus2,
     IconInfoCircle,
+    IconMaximize,
+    IconMinimize,
     IconX,
+    IconZoomIn,
+    IconZoomOut,
 } from "@tabler/icons-react";
 
 import { cn } from "@/lib/utils";
 import { toPersianDate } from "@/lib/date-format";
-import { getFileIcon } from "@/lib/file-utils";
-import { getFileColorClasses } from "@/lib/file-utils";
-import { getFileTypeLabel } from "@/lib/file-utils";
+import {
+    getFileColorClasses,
+    getFileIcon,
+    getFileTypeLabel,
+} from "@/lib/file-utils";
 import { renderPdfThumbnailUrl } from "@/lib/pdf-thumbnail-utils";
 import type { Document } from "@/features/documents/types";
-import { getDocOriginalName, getDocMimeType, getDocFileSizeFormatted, getDocServeUrl, getDocDownloadUrl } from "@/features/documents/types";
+import {
+    getDocDownloadUrl,
+    getDocFileSizeFormatted,
+    getDocMimeType,
+    getDocOriginalName,
+    getDocServeUrl,
+} from "@/features/documents/types";
 import { getFieldKeyLabel } from "@/features/questionnaire/constants";
+
+import {
+    Carousel,
+    CarouselContent,
+    CarouselItem,
+    type CarouselApi,
+} from "@/components/ui/carousel";
 
 type DocumentPreviewLightboxProps = {
     documents: Document[];
@@ -27,7 +47,6 @@ type DocumentPreviewLightboxProps = {
 };
 
 const AUTO_HIDE_DELAY = 3000;
-const SWIPE_THRESHOLD = 50;
 
 function PreviewContent({ doc }: { doc: Document }) {
     const [pdfImageUrl, setPdfImageUrl] = React.useState<string | null>(null);
@@ -59,7 +78,7 @@ function PreviewContent({ doc }: { doc: Document }) {
 
     if (getDocMimeType(doc).startsWith("image/")) {
         return (
-            <div className="relative flex items-center justify-center">
+            <div className="relative flex size-full items-center justify-center">
                 {!imageLoaded && (
                     <div className="flex flex-col items-center gap-3">
                         {getFileIcon(getDocMimeType(doc), "size-12 text-white/70")}
@@ -134,12 +153,15 @@ export function DocumentPreviewLightbox({
     const hideTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(
         null,
     );
-    const touchStartRef = React.useRef<{ x: number; y: number } | null>(null);
     const [showInfo, setShowInfo] = React.useState(false);
+    const [showThumbs, setShowThumbs] = React.useState(false);
+    const [zoomed, setZoomed] = React.useState(false);
+    const [fullscreen, setFullscreen] = React.useState(false);
+    const [selectedIndex, setSelectedIndex] = React.useState(currentIndex);
+    const [api, setApi] = React.useState<CarouselApi>(undefined);
 
-    const doc = documents[currentIndex];
-    const hasPrev = currentIndex > 0;
-    const hasNext = currentIndex < documents.length - 1;
+    const rootRef = React.useRef<HTMLDivElement>(null);
+    const syncingRef = React.useRef(false);
 
     // Reading direction decides which physical side is "previous": in RTL
     // (fa) the trail continues right-to-left, so the previous button sits at
@@ -150,12 +172,17 @@ export function DocumentPreviewLightbox({
             ?.getAttribute("dir")
             ?.toLowerCase() === "rtl";
 
+    const doc = documents[currentIndex];
+    const hasPrev = currentIndex > 0;
+    const hasNext = currentIndex < documents.length - 1;
+
     const resetHideTimer = React.useCallback(() => {
         setControlsVisible(true);
         if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
         hideTimerRef.current = setTimeout(() => {
             setControlsVisible(false);
             setShowInfo(false);
+            setShowThumbs(false);
         }, AUTO_HIDE_DELAY);
     }, []);
 
@@ -202,27 +229,58 @@ export function DocumentPreviewLightbox({
         };
     }, [open]);
 
-    function handleTouchStart(e: React.TouchEvent) {
-        touchStartRef.current = {
-            x: e.touches[0].clientX,
-            y: e.touches[0].clientY,
+    // Sync the embla carousel's internal position with the externally owned
+    // index whenever it changes (keyboard arrows, external triggers).
+    React.useEffect(() => {
+        if (!open || !api) return;
+        syncingRef.current = true;
+        api.scrollTo(currentIndex, true);
+        setSelectedIndex(currentIndex);
+        // Delay releasing the sync guard until the embla "select" event fires
+        // for this programmatic scroll, so the guard isn't cleared mid-anim.
+        const release = window.setTimeout(() => {
+            syncingRef.current = false;
+        }, 0);
+        return () => window.clearTimeout(release);
+    }, [open, api, currentIndex]);
+
+    // Mirror embla-driven navigation (swipe, dots, thumbs) back into the store
+    // via onNavigate, keeping the single source of truth at the store.
+    const handleSelect = React.useCallback(
+        (nextApi: CarouselApi) => {
+            const index = nextApi?.selectedScrollSnap() ?? 0;
+            setSelectedIndex(index);
+            setZoomed(false);
+            if (syncingRef.current) return;
+            onNavigate(index);
+        },
+        [onNavigate],
+    );
+
+    React.useEffect(() => {
+        if (!api) return;
+        api.on("select", handleSelect);
+        return () => {
+            api.off("select", handleSelect);
         };
-    }
+    }, [api, handleSelect]);
 
-    function handleTouchEnd(e: React.TouchEvent) {
-        if (!touchStartRef.current) return;
-        const dx = e.changedTouches[0].clientX - touchStartRef.current.x;
-        const dy = e.changedTouches[0].clientY - touchStartRef.current.y;
-        touchStartRef.current = null;
+    React.useEffect(() => {
+        function handleFullscreenChange() {
+            setFullscreen(
+                Boolean(document.fullscreenElement && rootRef.current?.contains(document.fullscreenElement)),
+            );
+        }
+        document.addEventListener("fullscreenchange", handleFullscreenChange);
+        return () =>
+            document.removeEventListener("fullscreenchange", handleFullscreenChange);
+    }, []);
 
-        if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > SWIPE_THRESHOLD) {
-            // Swipe direction follows reading order: in RTL, swiping toward
-            // the start edge (leftward, dx < 0) goes to the previous item.
-            const swipeForward = isRtl ? dx > 0 : dx < 0;
-            const swipeBack = isRtl ? dx < 0 : dx > 0;
-
-            if (swipeBack && hasPrev) onNavigate(currentIndex - 1);
-            if (swipeForward && hasNext) onNavigate(currentIndex + 1);
+    function toggleFullscreen() {
+        if (document.fullscreenElement) {
+            void document.exitFullscreen();
+        } else {
+            void rootRef.current?.requestFullscreen();
         }
     }
 
@@ -237,20 +295,24 @@ export function DocumentPreviewLightbox({
 
     if (!open || !doc) return null;
 
+    const goTo = (index: number) => api?.scrollTo(index);
+
     return createPortal(
         <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
+            ref={rootRef}
+            className={cn(
+                "fixed inset-0 z-50 flex flex-col bg-black/80 backdrop-blur-sm",
+                fullscreen && "rounded-none",
+            )}
             onMouseMove={resetHideTimer}
             onClick={(e) => {
                 if (e.target === e.currentTarget) onClose();
             }}
-            onTouchStart={handleTouchStart}
-            onTouchEnd={handleTouchEnd}
         >
             {/* Top bar */}
             <div
                 className={cn(
-                    "absolute inset-x-0 top-0 flex items-center justify-between bg-linear-to-b from-black/60 to-transparent px-4 py-3 transition-opacity duration-300",
+                    "absolute inset-x-0 top-0 z-20 flex items-center justify-between bg-linear-to-b from-black/60 to-transparent px-4 py-3 transition-opacity duration-300",
                     controlsVisible ? "opacity-100" : "opacity-0",
                 )}
             >
@@ -275,6 +337,47 @@ export function DocumentPreviewLightbox({
                     </button>
                     <button
                         type="button"
+                        onClick={() => setShowThumbs((prev) => !prev)}
+                        className={cn(
+                            "rounded-full p-2 text-white/80 hover:bg-white/10 hover:text-white",
+                            showThumbs && "bg-white/10 text-white",
+                        )}
+                        aria-label="Thumbnails"
+                    >
+                        <IconFocus2 className="size-5" />
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setZoomed((prev) => !prev)}
+                        className={cn(
+                            "rounded-full p-2 text-white/80 hover:bg-white/10 hover:text-white",
+                            zoomed && "bg-white/10 text-white",
+                        )}
+                        aria-label="Zoom"
+                    >
+                        {zoomed ? (
+                            <IconZoomOut className="size-5" />
+                        ) : (
+                            <IconZoomIn className="size-5" />
+                        )}
+                    </button>
+                    <button
+                        type="button"
+                        onClick={toggleFullscreen}
+                        className={cn(
+                            "rounded-full p-2 text-white/80 hover:bg-white/10 hover:text-white",
+                            fullscreen && "bg-white/10 text-white",
+                        )}
+                        aria-label="Fullscreen"
+                    >
+                        {fullscreen ? (
+                            <IconMinimize className="size-5" />
+                        ) : (
+                            <IconMaximize className="size-5" />
+                        )}
+                    </button>
+                    <button
+                        type="button"
                         onClick={handleDownload}
                         disabled={!doc.download_url && !doc.url}
                         className="rounded-full p-2 text-white/80 hover:bg-white/10 hover:text-white disabled:opacity-40"
@@ -296,7 +399,7 @@ export function DocumentPreviewLightbox({
             {/* Info panel */}
             <div
                 className={cn(
-                    "absolute top-14 end-4 w-64 rounded-lg border border-white/10 bg-black/70 p-3 text-sm text-white backdrop-blur-md transition-opacity duration-300",
+                    "absolute top-14 end-4 z-20 w-64 rounded-lg border border-white/10 bg-black/70 p-3 text-sm text-white backdrop-blur-md transition-opacity duration-300",
                     showInfo && controlsVisible
                         ? "opacity-100"
                         : "opacity-0 pointer-events-none",
@@ -333,50 +436,122 @@ export function DocumentPreviewLightbox({
                 </div>
             </div>
 
-            {/* Navigation arrows — logical edges only: `start-`/`end-` already
-                flip with direction (prev at the start edge users read from,
-                next at the end edge). Icons mirror via rtl:/ltr: variants —
-                no manual isRtl branching on position (that double-flips). */}
-            {hasPrev && (
-                <button
-                    type="button"
-                    onClick={() => onNavigate(currentIndex - 1)}
+            {/* Carousel stage — embla owns swipe/hotkeys; loop wraps first↔last. */}
+            <Carousel
+                className="flex min-h-0 flex-1 items-center justify-center"
+                opts={{
+                    align: "center",
+                    loop: true,
+                    direction: isRtl ? "rtl" : "ltr",
+                }}
+                setApi={setApi}
+            >
+                <CarouselContent className="h-full items-center px-12 py-16 sm:px-20">
+                    {documents.map((item) => (
+                        <CarouselItem key={item.id} className="flex justify-center">
+                            <div
+                                className={cn(
+                                    "transition-transform duration-300",
+                                    zoomed && "scale-150",
+                                )}
+                            >
+                                <PreviewContent doc={item} />
+                            </div>
+                        </CarouselItem>
+                    ))}
+                </CarouselContent>
+
+                {hasPrev && (
+                    <button
+                        type="button"
+                        onClick={() => onNavigate(currentIndex - 1)}
+                        className={cn(
+                            "absolute top-1/2 start-2 z-10 -translate-y-1/2 rounded-full bg-white/10 p-2 text-white backdrop-blur-sm transition-all duration-300 hover:bg-white/20 sm:start-4 sm:p-3",
+                            controlsVisible
+                                ? "opacity-100"
+                                : "opacity-0 pointer-events-none",
+                        )}
+                        aria-label="Previous"
+                    >
+                        <IconChevronLeft className="size-5 rtl:-scale-x-100 sm:size-6" />
+                    </button>
+                )}
+                {hasNext && (
+                    <button
+                        type="button"
+                        onClick={() => onNavigate(currentIndex + 1)}
+                        className={cn(
+                            "absolute top-1/2 end-2 z-10 -translate-y-1/2 rounded-full bg-white/10 p-2 text-white backdrop-blur-sm transition-all duration-300 hover:bg-white/20 sm:end-4 sm:p-3",
+                            controlsVisible
+                                ? "opacity-100"
+                                : "opacity-0 pointer-events-none",
+                        )}
+                        aria-label="Next"
+                    >
+                        <IconChevronRight className="size-5 rtl:-scale-x-100 sm:size-6" />
+                    </button>
+                )}
+            </Carousel>
+
+            {/* Dot indicators */}
+            {documents.length > 1 && (
+                <div
                     className={cn(
-                        "absolute top-1/2 start-2 -translate-y-1/2 rounded-full bg-white/10 p-2 text-white backdrop-blur-sm transition-all duration-300 hover:bg-white/20 sm:start-4 sm:p-3",
-                        controlsVisible
-                            ? "opacity-100"
-                            : "opacity-0 pointer-events-none",
+                        "absolute bottom-24 start-1/2 z-10 flex -translate-x-1/2 items-center gap-1.5 rtl:translate-x-1/2 transition-opacity duration-300",
+                        controlsVisible ? "opacity-100" : "opacity-0",
                     )}
-                    aria-label="Previous"
                 >
-                    <IconChevronLeft className="size-5 rtl:-scale-x-100 sm:size-6" />
-                </button>
-            )}
-            {hasNext && (
-                <button
-                    type="button"
-                    onClick={() => onNavigate(currentIndex + 1)}
-                    className={cn(
-                        "absolute top-1/2 end-2 -translate-y-1/2 rounded-full bg-white/10 p-2 text-white backdrop-blur-sm transition-all duration-300 hover:bg-white/20 sm:end-4 sm:p-3",
-                        controlsVisible
-                            ? "opacity-100"
-                            : "opacity-0 pointer-events-none",
-                    )}
-                    aria-label="Next"
-                >
-                    <IconChevronRight className="size-5 rtl:-scale-x-100 sm:size-6" />
-                </button>
+                    {documents.map((item, index) => (
+                        <button
+                            key={item.id}
+                            type="button"
+                            onClick={() => goTo(index)}
+                            aria-label={`Go to slide ${index + 1}`}
+                            className={cn(
+                                "size-2 rounded-full transition-all duration-300",
+                                index === selectedIndex
+                                    ? "w-4 bg-white"
+                                    : "bg-white/40 hover:bg-white/70",
+                            )}
+                        />
+                    ))}
+                </div>
             )}
 
-            {/* Center content */}
-            <div className="flex items-center justify-center px-12 py-16 sm:px-20">
-                <PreviewContent doc={doc} />
+            {/* Thumbnails strip — toggled while open */}
+            <div
+                className={cn(
+                    "absolute inset-x-0 bottom-0 z-10 flex justify-center gap-2 bg-linear-to-t from-black/70 to-transparent px-4 pt-10 pb-4 transition-opacity duration-300",
+                    showThumbs && controlsVisible
+                        ? "opacity-100"
+                        : "opacity-0 pointer-events-none",
+                )}
+            >
+                {documents.map((item, index) => {
+                    const isActive = index === selectedIndex;
+                    return (
+                        <button
+                            key={item.id}
+                            type="button"
+                            onClick={() => goTo(index)}
+                            aria-label={getDocOriginalName(item)}
+                            className={cn(
+                                "h-16 w-20 shrink-0 overflow-hidden rounded-md border-2 bg-white/10 transition-all duration-300",
+                                isActive
+                                    ? "border-brand opacity-100"
+                                    : "border-transparent opacity-50 hover:opacity-80",
+                            )}
+                        >
+                            <Thumbnail doc={item} />
+                        </button>
+                    );
+                })}
             </div>
 
             {/* Bottom counter */}
             <div
                 className={cn(
-                    "absolute bottom-4 start-1/2 translate-x-[-50%] rtl:translate-x-[50%] rounded-full bg-black/50 px-3 py-1 text-xs text-white/70 backdrop-blur-sm transition-opacity duration-300",
+                    "absolute bottom-4 start-1/2 z-10 translate-x-[-50%] rtl:translate-x-[50%] rounded-full bg-black/50 px-3 py-1 text-xs text-white/70 backdrop-blur-sm transition-opacity duration-300",
                     controlsVisible ? "opacity-100" : "opacity-0",
                 )}
             >
@@ -384,6 +559,31 @@ export function DocumentPreviewLightbox({
             </div>
         </div>,
         document.body,
+    );
+}
+
+function Thumbnail({ doc }: { doc: Document }) {
+    const mime = getDocMimeType(doc);
+    if (mime.startsWith("image/")) {
+        return (
+            <img
+                src={getDocServeUrl(doc, true)}
+                alt={getDocOriginalName(doc)}
+                className="size-full object-cover"
+                draggable={false}
+                loading="lazy"
+            />
+        );
+    }
+    return (
+        <div
+            className={cn(
+                "flex size-full items-center justify-center",
+                getFileColorClasses(mime),
+            )}
+        >
+            {getFileIcon(mime, "size-5")}
+        </div>
     );
 }
 
