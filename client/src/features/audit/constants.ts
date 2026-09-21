@@ -1,4 +1,12 @@
-import { Icon, IconDownload } from "@tabler/icons-react";
+import {
+    Icon,
+    IconDownload,
+    IconFingerprintScan,
+    IconFolders,
+    IconForms,
+    IconUserKey,
+    IconUsers,
+} from "@tabler/icons-react";
 import type { AuditCategory } from "./types";
 
 export const AUDIT_CATEGORY_LABELS: Record<AuditCategory, string> = {
@@ -10,23 +18,24 @@ export const AUDIT_CATEGORY_LABELS: Record<AuditCategory, string> = {
     workflow: "گردش کار",
 };
 
+// bg-info
 export const AUDIT_CATEGORY_VARIANTS: Record<
     AuditCategory,
-    "default" | "secondary" | "destructive" | "outline"
+    "primary" | "info" | "warning" | "destructive" | "success"
 > = {
-    auth: "default",
-    authorization: "secondary",
-    employee: "outline",
-    document: "destructive",
-    questionnaire: "default",
-    workflow: "secondary",
+    auth: "success",
+    authorization: "info",
+    employee: "info",
+    document: "info",
+    questionnaire: "info",
+    workflow: "info",
 };
 export const AUDIT_CATEGORY_ICONS: Record<AuditCategory, Icon> = {
-    auth: IconDownload,
-    authorization: IconDownload,
-    employee: IconDownload,
-    document: IconDownload,
-    questionnaire: IconDownload,
+    auth: IconUserKey,
+    authorization: IconFingerprintScan,
+    employee: IconUsers,
+    document: IconFolders,
+    questionnaire: IconForms,
     workflow: IconDownload,
 };
 

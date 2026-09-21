@@ -138,7 +138,7 @@ export function RoleChartPage() {
                         خروجی
                     </Button>
                 </div>
-            </div>
+            </PageHeader>
 
             <div className="relative min-h-150 flex-1">
                 <RoleOrgChart

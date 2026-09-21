@@ -54,7 +54,7 @@ function ProtectedLayout() {
             }
         >
             <AppSidebar variant="inset" side="right" collapsible="icon" />
-            <SidebarInset className="max-w-svw overflow-hidden">
+            <SidebarInset className="max-w-svw overflow-hidden md:peer-data-[variant=inset]:peer-data-[state=collapsed]:ms-0">
                 <SiteHeader />
                 <Outlet />
             </SidebarInset>

@@ -317,6 +317,20 @@ export function FormOptionsSection() {
                     searchPlaceholder="جستجوی عنوان یا مقدار…"
                     globalFilter={url.globalFilter}
                     onGlobalFilterChange={url.onGlobalFilterChange}
+                    filterFields={[
+                        {
+                            id: "is_active",
+                            label: "وضعیت",
+                            type: "select",
+                            options: [
+                                { label: "فعال", value: "1" },
+                                { label: "غیرفعال", value: "0" },
+                            ],
+                            negatable: true,
+                        },
+                    ]}
+                    columnFilters={url.columnFilters}
+                    onColumnFiltersChange={url.onColumnFiltersChange}
                     onRetry={() => refetch()}
                     colSpan={columns.length}
                     emptyMessage="هنوز گزینه‌ای در این گروه ثبت نشده است"

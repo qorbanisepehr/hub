@@ -32,6 +32,7 @@ import { DataTablePagination } from "./pagination";
 import { DataTableToolbar } from "./toolbar";
 import { TableFilterBar } from "./table-filter-bar";
 import type { ListFilterFieldDef } from "./filter-query-adapter";
+import type { DataTableToolbarAction } from "./toolbar-types";
 
 type Meta = {
     current_page: number;
@@ -63,6 +64,10 @@ interface DataTablePageProps<TData extends RowData> {
     filterFields?: ListFilterFieldDef[];
     /** Extra controls rendered inline after search/filters (e.g. export, refresh). */
     toolbarActions?: ReactNode;
+    /** Descriptor-based actions: one source per table, rendered as desktop
+     *  Buttons and mobile «بیشتر» menu items alike through the shared toolbar.
+     *  DRY subscription — pages never hand-build per-view wiring. */
+    actions?: DataTableToolbarAction[];
     emptyMessage?: string;
     emptyAction?: ReactNode;
     onRetry?: () => void;
@@ -91,6 +96,7 @@ export function DataTablePage<TData extends RowData>({
     onColumnFiltersChange,
     filterFields,
     toolbarActions,
+    actions,
     emptyMessage = "هیچ موردی یافت نشد",
     emptyAction,
     onRetry,
@@ -110,6 +116,8 @@ export function DataTablePage<TData extends RowData>({
                     onGlobalFilterChange={
                         onGlobalFilterChange as (value: string) => void
                     }
+                    toolbarActions={toolbarActions}
+                    actions={actions}
                     filterBar={
                         filterFields && columnFilters && onColumnFiltersChange ? (
                             <TableFilterBar
@@ -120,7 +128,6 @@ export function DataTablePage<TData extends RowData>({
                         ) : undefined
                     }
                 />
-                {toolbarActions}
             </div>
         ) : null);
     const tableBody = isLoading ? (

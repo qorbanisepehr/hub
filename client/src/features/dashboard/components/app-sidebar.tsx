@@ -25,12 +25,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 <SidebarMenu>
                     <SidebarMenuItem>
                         <SidebarMenuButton
-                            render={
-                                <Link
-                                    to="/"
-                                    className="flex justify-between items-center px-2 py-3 h-auto rounded-xl"
-                                />
-                            }
+                            className="flex justify-between items-center px-2 py-3 h-auto rounded group-data-[collapsible=icon]:p-0.5!"
+                            render={<Link to="/" />}
                         >
                             <div className="space-y-1 group-data-[collapsible=icon]:hidden transition-all">
                                 <LogoType className="w-16!" />
@@ -38,7 +34,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                                     {data?.sub_name ?? COMPANY_SUB_NAME}
                                 </span>
                             </div>
-                            <Logo className="size-9! group-data-[collapsible=icon]:size-6!" />
+                            <Logo className="size-9! group-data-[collapsible=icon]:size-8!" />
                         </SidebarMenuButton>
                     </SidebarMenuItem>
                 </SidebarMenu>

@@ -306,31 +306,25 @@ export function AuditLogsPage() {
                     type: "date",
                 },
             ]}
-            toolbarActions={
-                <>
-                    <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={handleExport}
-                        disabled={isExporting}
-                        title="خروجی CSV"
-                    >
-                        <IconDownload className={`size-4 ${isExporting ? "animate-pulse" : ""}`} />
-                    </Button>
-                    <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={() =>
-                            queryClient.invalidateQueries({
-                                queryKey: auditKeys.all,
-                            })
-                        }
-                        disabled={isFetching}
-                    >
-                        <IconRefresh className={`size-4 ${isFetching ? "animate-spin" : ""}`} />
-                    </Button>
-                </>
-            }
+            actions={[
+                {
+                    id: "export",
+                    label: "خروجی CSV",
+                    icon: IconDownload,
+                    onClick: handleExport,
+                    disabled: isExporting,
+                },
+                {
+                    id: "refresh",
+                    label: "تازهسازی",
+                    icon: IconRefresh,
+                    onClick: () =>
+                        queryClient.invalidateQueries({
+                            queryKey: auditKeys.all,
+                        }),
+                    disabled: isFetching,
+                },
+            ]}
             emptyMessage="هیچ رویدادی ثبت نشده است"
             onRetry={() =>
                 queryClient.invalidateQueries({
