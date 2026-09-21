@@ -30,4 +30,17 @@ final class ImportSource
 
         return new self($path, $file->getClientOriginalName(), $format);
     }
+
+    /**
+     * A local file — the artisan command's entry point (plan §5.1). The
+     * caller owns format resolution (extension, --format override); the
+     * kernel never guesses.
+     */
+    public static function fromPath(string $path, string $format): self
+    {
+        is_file($path) && is_readable($path)
+            || throw new \InvalidArgumentException("The file [{$path}] does not exist or is not readable.");
+
+        return new self($path, basename($path), $format);
+    }
 }
