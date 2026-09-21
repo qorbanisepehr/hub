@@ -1,8 +1,7 @@
-import { defineConfig } from "vite";
-import laravel from "laravel-vite-plugin";
-import { bunny } from "laravel-vite-plugin/fonts";
 import tailwindcss from "@tailwindcss/vite";
+import laravel from "laravel-vite-plugin";
 import path from "path";
+import { defineConfig } from "vite";
 
 export default defineConfig({
     plugins: [
@@ -15,7 +14,7 @@ export default defineConfig({
     build: {
         rolldownOptions: {
             output: {
-                advancedChunks: {
+                codeSplitting: {
                     groups: [
                         // Keep the biggest vendor libs in their own cacheable chunks so
                         // the shared app "forms" chunk stays under 500kB.
@@ -55,7 +54,7 @@ export default defineConfig({
     },
     resolve: {
         alias: {
-            "@": path.resolve(__dirname, "client/src"),
+            "@": path.resolve(import.meta.dirname, "client/src"),
         },
     },
     esbuild: {
