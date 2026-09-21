@@ -4,7 +4,7 @@ import {
     type StockFeatures,
     type Table,
 } from "@tanstack/react-table";
-import { IconMenu2, IconSearch, IconX } from "@tabler/icons-react";
+import { IconFilter, IconMenu2, IconSearch, IconX } from "@tabler/icons-react";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -60,9 +60,6 @@ export function DataTableToolbar<TData extends RowData>({
     actions,
 }: DataTableToolbarProps<TData>) {
     const isDesktop = useMediaQuery(DESKTOP_QUERY);
-    const isFiltered =
-        table.store.state.columnFilters.length > 0 ||
-        !!table.store.state.globalFilter;
 
     const committedValue = searchKey
         ? ((table.getColumn(searchKey)?.getFilterValue() as string) ?? "")

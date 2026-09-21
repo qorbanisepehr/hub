@@ -5,7 +5,6 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { IconDots } from "@tabler/icons-react";
 
 type MobileTableToolbarProps = {
     /** Search/filter controls (beside the search input; hidden on mobile -> inside the menu). */
