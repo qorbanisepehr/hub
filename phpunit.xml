@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
-         bootstrap="tests/bootstrap.php"
+         bootstrap="vendor/autoload.php"
          colors="true"
 >
     <testsuites>
@@ -18,34 +18,20 @@
         </include>
     </source>
     <php>
-        <!-- force="true" + <server>: <env> alone only fills $_ENV/getenv —
-             Laravel's Env (phpdotenv) reads $_SERVER FIRST, so shell-exported
-             variables (DB_CONNECTION=pgsql, DB_DATABASE=hub2, CACHE_STORE=file…)
-             would point the suite at the dev database and its file cache. -->
-        <env name="APP_ENV" value="testing" force="true"/>
-        <server name="APP_ENV" value="testing"/>
-        <env name="APP_MAINTENANCE_DRIVER" value="file" force="true"/>
-        <env name="BCRYPT_ROUNDS" value="4" force="true"/>
-        <env name="BROADCAST_CONNECTION" value="null" force="true"/>
-        <server name="BROADCAST_CONNECTION" value="null"/>
-        <env name="CACHE_STORE" value="array" force="true"/>
-        <server name="CACHE_STORE" value="array"/>
-        <env name="RBAC_CACHE_STORE" value="array" force="true"/>
-        <server name="RBAC_CACHE_STORE" value="array"/>
-        <env name="DB_CONNECTION" value="sqlite" force="true"/>
-        <server name="DB_CONNECTION" value="sqlite"/>
-        <env name="DB_DATABASE" value=":memory:" force="true"/>
-        <server name="DB_DATABASE" value=":memory:"/>
-        <env name="DB_URL" value="" force="true"/>
-        <server name="DB_URL" value=""/>
-        <env name="MAIL_MAILER" value="array" force="true"/>
-        <server name="MAIL_MAILER" value="array"/>
-        <env name="QUEUE_CONNECTION" value="sync" force="true"/>
-        <server name="QUEUE_CONNECTION" value="sync"/>
-        <env name="SESSION_DRIVER" value="array" force="true"/>
-        <server name="SESSION_DRIVER" value="array"/>
-        <env name="PULSE_ENABLED" value="false" force="true"/>
-        <env name="TELESCOPE_ENABLED" value="false" force="true"/>
-        <env name="NIGHTWATCH_ENABLED" value="false" force="true"/>
+        <env name="APP_ENV" value="testing"/>
+        <env name="APP_MAINTENANCE_DRIVER" value="file"/>
+        <env name="BCRYPT_ROUNDS" value="4"/>
+        <env name="BROADCAST_CONNECTION" value="null"/>
+        <env name="CACHE_STORE" value="array"/>
+        <env name="RBAC_CACHE_STORE" value="array"/>
+        <env name="DB_CONNECTION" value="sqlite"/>
+        <env name="DB_DATABASE" value=":memory:"/>
+        <env name="DB_URL" value=""/>
+        <env name="MAIL_MAILER" value="array"/>
+        <env name="QUEUE_CONNECTION" value="sync"/>
+        <env name="SESSION_DRIVER" value="array"/>
+        <env name="PULSE_ENABLED" value="false"/>
+        <env name="TELESCOPE_ENABLED" value="false"/>
+        <env name="NIGHTWATCH_ENABLED" value="false"/>
     </php>
 </phpunit>
