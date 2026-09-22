@@ -634,13 +634,13 @@ describe('Questionnaire validation', function () {
                 'languages' => [
                     [
                         'language' => str_repeat('L', 51),
-                        'reading' => 5,
-                        'writing' => 0,
+                        'reading' => 101,
+                        'writing' => 101,
                     ],
                 ],
                 'software_skills' => [
                     'specialized' => [
-                        ['name' => str_repeat('S', 101), 'level' => 5],
+                        ['name' => str_repeat('S', 101), 'level' => 100],
                     ],
                     'general' => [
                         ['name' => str_repeat('G', 101), 'level' => 0],
@@ -1833,6 +1833,8 @@ describe('section definitions', function () {
             ->and($requirements['national-card']['field_keys'])->toBe(['front', 'back'])
             ->and($requirements['national-card']['section_key'])->toBe('personal_info')
             ->and($requirements['birth-certificate']['required'])->toBeTrue()
+            ->and($requirements['birth-certificate']['max_files'])->toBe(1)
+            ->and($requirements['birth-certificate']['required_field_keys'])->toBe(['page-1', 'page-2', 'page-3', 'page-4'])
             ->and($requirements['birth-certificate']['field_keys'])->toBe(['page-1', 'page-2', 'page-3', 'page-4', 'page-extra'])
             ->and($requirements['personnel-photo']['required'])->toBeTrue()
             ->and($requirements['resume']['required'])->toBeTrue()
@@ -2092,10 +2094,10 @@ function validSkills(): array
         'languages' => [
             [
                 'language' => 'English',
-                'reading' => 4,
-                'writing' => 3,
-                'speaking' => 3,
-                'comprehension' => 4,
+                'reading' => 90,
+                'writing' => 50,
+                'speaking' => 100,
+                'comprehension' => 90,
             ],
         ],
         'software_skills' => [

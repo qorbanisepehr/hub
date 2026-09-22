@@ -461,7 +461,7 @@ describe('RBAC matrix managers & requirements', function () {
                 ->assertOk()
                 ->assertHeader('Content-Type', 'text/csv; charset=UTF-8');
 
-            expect($response->getContent())
+            expect($response->streamedContent())
                 ->toContain('Name,Manager')
                 ->toContain('CEO,')
                 ->toContain('CTO,CEO');

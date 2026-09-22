@@ -135,10 +135,10 @@ function validEmployeeSkills(): array
         'languages' => [
             [
                 'language' => 'English',
-                'reading' => 4,
-                'writing' => 3,
-                'speaking' => 3,
-                'comprehension' => 4,
+                'reading' => 90,
+                'writing' => 70,
+                'speaking' => 10,
+                'comprehension' => 30,
             ],
         ],
         'software_skills' => [
