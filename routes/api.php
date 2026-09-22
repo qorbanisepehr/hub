@@ -34,3 +34,4 @@ require base_path('app/Domains/FormOptions/routes/api.php');
 require base_path('app/Domains/Audit/routes/api.php');
 require base_path('app/Domains/Import/routes/api.php');
 require base_path('app/Domains/Notification/routes/api.php');
+require base_path('app/Domains/Reporting/routes/api.php');

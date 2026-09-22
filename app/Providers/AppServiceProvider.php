@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Contracts\Authorization;
 use App\Contracts\DocumentAuthorization;
+use App\Contracts\External\AttendanceGateway;
 use App\Domains\Authorization\Policies\DynamicPolicy;
 use App\Domains\Authorization\Services\AuthorizationService;
 use App\Domains\Cv\Repositories\CvRepository;
@@ -16,6 +17,8 @@ use App\Domains\Questionnaire\Repositories\QuestionnaireRepositoryInterface;
 use App\Domains\Settings\Repositories\FileSettingsRepository;
 use App\Domains\Settings\Repositories\SettingsRepositoryInterface;
 use App\Domains\Settings\Services\SettingsService;
+use App\Integrations\Rahkaran\FakeRahkaranAttendanceGateway;
+use App\Integrations\Rahkaran\RahkaranAttendanceMapper;
 use App\Services\DocumentAuthorizationService;
 use App\Support\Exports\DocumentExportService;
 use App\Support\Exports\DocumentRendererRegistry;
@@ -42,6 +45,21 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Gate::guessPolicyNamesUsing(fn () => DynamicPolicy::class);
+
+        // External integrations (V2 §65): the capability gateway is bound to
+        // the configured driver — a new source is a binding change, never an
+        // edit to Reporting.
+        $this->app->bind(AttendanceGateway::class, function ($app): AttendanceGateway {
+            if (config('integrations.rahkaran.driver') === 'fake') {
+                return new FakeRahkaranAttendanceGateway($app->make(RahkaranAttendanceMapper::class));
+            }
+
+            // Real drivers arrive with actual connection details (SQL Server,
+            // HTTP, ...); until then fake is the only configured option.
+            throw new \RuntimeException(
+                'No real Rahkaran driver is implemented yet; set RAHKARAN_DRIVER=fake.',
+            );
+        });
 
         $this->app->bind(QuestionnaireRepositoryInterface::class, QuestionnaireRepository::class);
         $this->app->bind(CvRepositoryInterface::class, CvRepository::class);
