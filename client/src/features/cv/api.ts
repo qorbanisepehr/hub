@@ -89,7 +89,11 @@ export function submitCv(uuid: string) {
 }
 
 export function fetchCvBank(
-    params?: PaginatedListParams & { filter?: string; status?: string },
+    params?: PaginatedListParams & {
+        filter?: string;
+        status?: string;
+        status_not?: string;
+    },
 ) {
     return api.get<PaginatedResponse<Cv>>("/cv/bank", { params });
 }

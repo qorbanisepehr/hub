@@ -14,6 +14,7 @@ import {
     scrollToFirstInvalidField,
     type ValidationSection,
 } from "@/lib/validation-helpers";
+import type { FormMetaWriter } from "@/types/form-types";
 
 type SubmitGuard = {
     /** Returns non-empty error messages to block the final submit. */
@@ -23,8 +24,8 @@ type SubmitGuard = {
 };
 
 type UseWizardSubmitOptions = {
-    /** TanStack form from `useSectionForm`; typed loosely to match the codebase's existing form plumbing. */
-    form: any;
+    /** TanStack form from `useSectionForm` (structural alias — concrete forms assign without casts). */
+    form: FormMetaWriter;
     isDirty: boolean;
     optionsReady: boolean;
     validateSubmit: (values: unknown) => SubmitValidationResult;

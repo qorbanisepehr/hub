@@ -29,7 +29,7 @@ export type EducationRecordFormData = z.infer<typeof educationRecordSchema>;
 
 export const educationFieldSchema = z
     .object({
-        education_records: z.array(educationRecordSchema).min(1, "حداقل یک سوابق تحصیلی الزامی است."),
+        education_records: z.array(educationRecordSchema).min(1, "حداقل یک سابقه تحصیلی الزامی است."),
         is_student: z.boolean().optional(),
         student_degree: text(50),
         student_field: text(100),

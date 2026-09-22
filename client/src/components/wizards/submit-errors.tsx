@@ -1,26 +1,9 @@
-import { IconAlertTriangle } from "@tabler/icons-react";
+import { ErrorBanner } from "@/components/layout/error-banner";
 
-type SubmitErrorsProps = {
-    errors: string[];
-};
-
-export function SubmitErrors({ errors }: SubmitErrorsProps) {
-    if (errors.length === 0) return null;
-
-    return (
-        <div className="flex items-start gap-3 rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
-            <IconAlertTriangle className="mt-0.5 size-4 shrink-0" />
-            <div className="flex-1">
-                {errors.length === 1 ? (
-                    <p>{errors[0]}</p>
-                ) : (
-                    <ul className="space-y-1 list-disc ms-4">
-                        {errors.map((err, i) => (
-                            <li key={i}>{err}</li>
-                        ))}
-                    </ul>
-                )}
-            </div>
-        </div>
-    );
+/**
+ * Back-compat alias: submit-error lists now render through the merged
+ * {@link ErrorBanner} (D4). Prefer importing ErrorBanner directly in new code.
+ */
+export function SubmitErrors({ errors }: { errors: string[] }) {
+    return <ErrorBanner errors={errors} />;
 }

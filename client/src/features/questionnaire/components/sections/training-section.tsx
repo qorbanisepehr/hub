@@ -171,7 +171,7 @@ export function TrainingSection({ form, uuid, onPersist, entity = "questionnaire
                         <FormRepeater
                             defaultMode="table"
                             field={field}
-                            label="??????? ? ????????"
+                            label="تحقیقات و پژوهش‌ها"
                             columns={researchColumns}
                             onPersist={onPersist}
                             getSummary={(item) => ({
@@ -179,7 +179,7 @@ export function TrainingSection({ form, uuid, onPersist, entity = "questionnaire
                             })}
                             renderHeader={(item, index) => (
                                 <span>
-                                    {String(item.title || `????? ${index + 1}`)}
+                                    {String(item.title || `پژوهش ${index + 1}`)}
                                 </span>
                             )}
                             renderItem={(index) => (

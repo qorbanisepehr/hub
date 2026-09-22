@@ -1,15 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
 import type { AnyFieldApi } from "@tanstack/react-form";
-import { IconLoader2 } from "@tabler/icons-react";
+import { useEffect, useMemo, useState } from "react";
 
-import { Field, FieldError, FieldLabel } from "@/components/ui/field";
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
+import { PlaceCascader } from "@/components/forms/place-cascader";
 import {
     Combobox,
     ComboboxChip,
@@ -25,9 +17,10 @@ import {
     ComboboxList,
     ComboboxTrigger,
 } from "@/components/ui/combobox";
+import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import {
-    useResolvedFormOptions,
     useFormOptionsByGroup,
+    useResolvedFormOptions,
 } from "@/features/form-options/hooks/use-form-options";
 import type { PublicFormOption } from "@/features/form-options/types";
 import {
@@ -83,7 +76,8 @@ function normalizeStoredValues(stored: unknown): string[] {
     if (typeof stored === "string") return stored ? [stored] : [];
     if (Array.isArray(stored)) {
         return stored.filter(
-            (value): value is string => typeof value === "string" && value !== "",
+            (value): value is string =>
+                typeof value === "string" && value !== "",
         );
     }
     return [];
@@ -120,7 +114,7 @@ function useMergedOptions(
         (option) => !options?.some((o) => o.value === option.value),
     );
 
-    return extras.length ? [...extras, ...options ?? []] : options;
+    return extras.length ? [...extras, ...(options ?? [])] : options;
 }
 
 export function FormOptionSelectField({
@@ -246,7 +240,11 @@ export function FormOptionComboboxField({
     const debouncedQuery = useDebouncedValue(query, searchDelay);
 
     const search = serverSearch ? debouncedQuery || undefined : undefined;
-    const { data, isLoading } = useFormOptionsByGroup(group, parentValue, search);
+    const { data, isLoading } = useFormOptionsByGroup(
+        group,
+        parentValue,
+        search,
+    );
 
     // Keystroke-driven server searches swap the query key per debounce tick;
     // disabling the input then would fight the user. Only the first fetch of
@@ -362,9 +360,7 @@ export function FormOptionMultiComboboxField({
         () => toSelectOptions(merged, filter) ?? [],
         [merged, filter],
     );
-    const selectedItems = items.filter((item) =>
-        selected.includes(item.value),
-    );
+    const selectedItems = items.filter((item) => selected.includes(item.value));
     const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid;
 
     return (
@@ -428,28 +424,30 @@ export function FormOptionMultiComboboxField({
  * Generic location field(s) for a form field that stores a plain-text
  * location value.
  *
- * - `mode: "city"` (default): a province selector (UI-only local state) plus
- *   a searchable city combobox. The stored value is the combined place string
- *   «{provinceValue}-{cityCode}» which matches the city option's own value
- *   column (e.g. «123-1230001001576»). The province is re-derived on load by
- *   splitting on the first `-`.
+ * - `mode: "city"` (default): the PlaceCascader — one searchable two-column
+ *   control (province → city). The stored value is the combined place string
+ *   «{provinceSlug}-{citySlug}» which matches the city option's own value
+ *   column (e.g. «east_azerbaijan-tabriz»). The province is re-derived on
+ *   load by splitting on the first `-`.
  * - `mode: "province"`: a single province select bound directly to `field`
  *   (stores the province value key).
  */
 export function PlaceFields({
     field,
     mode = "city",
+    label = "محل",
     provinceLabel = "استان",
     cityLabel = "شهر",
+    placeholder = "انتخاب استان و شهر",
     provincePlaceholder = "انتخاب استان",
-    cityPlaceholder = "انتخاب شهر",
 }: {
     field: AnyFieldApi;
     mode?: "city" | "province";
+    label?: string;
     provinceLabel?: string;
     cityLabel?: string;
+    placeholder?: string;
     provincePlaceholder?: string;
-    cityPlaceholder?: string;
 }) {
     if (mode === "province") {
         return (
@@ -462,183 +460,13 @@ export function PlaceFields({
         );
     }
 
-    const value = (field.state.value as string | undefined) ?? "";
-    const [province, setProvince] = useState(() => value.split("-")[0] ?? "");
-
-    useEffect(() => {
-        const derived = value.split("-")[0] ?? "";
-        if (derived && derived !== province) {
-            setProvince(derived);
-        }
-    }, [value, province]);
-
-    const { data: provinceOptions, isLoading: provinceLoading } =
-        useFormOptionsByGroup("province");
-    const mergedProvinceOptions = useMergedOptions(
-        "province",
-        provinceOptions,
-        province,
-    );
-
-    const handleProvinceChange = (next: string | null) => {
-        const nextProvince = next ?? "";
-        setProvince(nextProvince);
-        if (value.split("-")[0] !== nextProvince) {
-            field.handleChange("");
-        }
-    };
-
-    const provinceItems = toSelectOptions(mergedProvinceOptions);
-
     return (
-        <>
-            <Field>
-                <FieldLabel htmlFor={`${field.name}.province`}>
-                    {provinceLabel}
-                </FieldLabel>
-                <Select
-                    value={province || null}
-                    onValueChange={handleProvinceChange}
-                    disabled={provinceLoading}
-                    itemToStringLabel={(item) =>
-                        provinceItems?.find((option) => option.value === item)
-                            ?.label ??
-                        item ??
-                        ""
-                    }
-                >
-                    <SelectTrigger
-                        id={`${field.name}.province`}
-                        disabled={provinceLoading}
-                        className="gap-2"
-                    >
-                        {provinceLoading ? (
-                            <span className="flex items-center gap-2 truncate text-sm text-muted-foreground">
-                                <IconLoader2 className="size-4 shrink-0 animate-spin" />
-                                در حال بارگذاری…
-                            </span>
-                        ) : (
-                            <SelectValue placeholder={provincePlaceholder} />
-                        )}
-                    </SelectTrigger>
-                    <SelectContent>
-                        {provinceItems?.map((option) => (
-                            <SelectItem key={option.value} value={option.value}>
-                                {option.label}
-                            </SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
-            </Field>
-            <FormOptionComboboxField
-                field={field}
-                label={cityLabel}
-                group="city"
-                parentValue={province || undefined}
-                disabled={!province}
-                placeholder={
-                    province ? cityPlaceholder : "ابتدا استان را انتخاب کنید"
-                }
-                deriveDisplayValue={(stored) => {
-                    const combined = (stored as string | undefined) ?? "";
-                    return combined;
-                }}
-                formatValue={(city) => city ?? ""}
-            />
-        </>
-    );
-}
-
-/**
- * Province + city selectors bound to two separate form fields (used by the
- * address). Both store readable labels; the city list is filtered by the
- * selected province and cleared when the province changes.
- */
-export function ProvinceCityFields({
-    provinceField,
-    cityField,
-    provinceLabel = "استان",
-    cityLabel = "شهر",
-    provincePlaceholder = "انتخاب استان",
-    cityPlaceholder = "انتخاب شهر",
-}: {
-    provinceField: AnyFieldApi;
-    cityField: AnyFieldApi;
-    provinceLabel?: string;
-    cityLabel?: string;
-    provincePlaceholder?: string;
-    cityPlaceholder?: string;
-}) {
-    const province = (provinceField.state.value as string | undefined) ?? "";
-
-    const { data: provinceOptions, isLoading: provinceLoading } =
-        useFormOptionsByGroup("province");
-    const mergedProvinceOptions = useMergedOptions(
-        "province",
-        provinceOptions,
-        province,
-    );
-
-    const handleProvinceChange = (next: string | null) => {
-        const nextProvince = next ?? "";
-        if (nextProvince !== province) {
-            provinceField.handleChange(nextProvince);
-            cityField.handleChange("");
-        }
-    };
-
-    const provinceItems = toSelectOptions(mergedProvinceOptions);
-
-    return (
-        <>
-            <Field>
-                <FieldLabel htmlFor={provinceField.name}>
-                    {provinceLabel}
-                </FieldLabel>
-                <Select
-                    value={province || null}
-                    onValueChange={handleProvinceChange}
-                    disabled={provinceLoading}
-                    itemToStringLabel={(item) =>
-                        provinceItems?.find((option) => option.value === item)
-                            ?.label ??
-                        item ??
-                        ""
-                    }
-                >
-                    <SelectTrigger
-                        id={provinceField.name}
-                        disabled={provinceLoading}
-                        className="gap-2"
-                    >
-                        {provinceLoading ? (
-                            <span className="flex items-center gap-2 truncate text-sm text-muted-foreground">
-                                <IconLoader2 className="size-4 shrink-0 animate-spin" />
-                                در حال بارگذاری…
-                            </span>
-                        ) : (
-                            <SelectValue placeholder={provincePlaceholder} />
-                        )}
-                    </SelectTrigger>
-                    <SelectContent>
-                        {provinceItems?.map((option) => (
-                            <SelectItem key={option.value} value={option.value}>
-                                {option.label}
-                            </SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
-            </Field>
-            <FormOptionSelectField
-                field={cityField}
-                label={cityLabel}
-                group="city"
-                parentValue={province || undefined}
-                disabled={!province}
-                placeholder={
-                    province ? cityPlaceholder : "ابتدا استان را انتخاب کنید"
-                }
-            />
-        </>
+        <PlaceCascader
+            combinedField={field}
+            label={label}
+            provinceLabel={provinceLabel}
+            cityLabel={cityLabel}
+            placeholder={placeholder}
+        />
     );
 }

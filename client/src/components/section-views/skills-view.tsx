@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
 
-import { SectionRow } from "@/components/shared/section-row";
 import { SectionRepeaterTable } from "@/components/shared/section-repeater-table";
 import { SectionCard } from "./section-card";
 import { asRecord, dateValue } from "./shared";
@@ -74,6 +73,7 @@ export function SkillsView({
                         <div className="flex flex-wrap gap-2">
                             {specialSkills.map((skill, index) => (
                                 <span
+                                    // oxlint-disable-next-line react/no-array-index-key -- static badge list of strings; value is not unique
                                     key={index}
                                     className="rounded-md bg-muted px-2 py-1 text-sm"
                                 >

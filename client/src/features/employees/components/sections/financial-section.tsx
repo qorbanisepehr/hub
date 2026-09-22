@@ -1,5 +1,10 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { FormRepeater, FormTextField } from "@/components/forms";
+import {
+    FormRepeater,
+    FormTextField,
+    FormCardNumberField,
+    FormAccountNumberField,
+} from "@/components/forms";
 import type { TableColumn } from "@/components/forms";
 import type { EmployeeFormApi } from "@/features/employees/types";
 
@@ -21,7 +26,7 @@ const ACCOUNT_COLUMNS: TableColumn[] = [
  * documents live in the standalone documents step under the `financial`
  * categories.
  */
-export function FinancialSection({ form, uuid, onPersist }: SectionProps) {
+export function FinancialSection({ form, onPersist }: SectionProps) {
     return (
         <Card>
             <CardHeader>
@@ -60,10 +65,10 @@ export function FinancialSection({ form, uuid, onPersist }: SectionProps) {
                                         name={`financial.bank_accounts.${index}.account_number`}
                                     >
                                         {(f) => (
-                                            <FormTextField
+                                            <FormAccountNumberField
                                                 field={f}
                                                 label="شماره حساب"
-                                                dir="ltr"
+                                                placeholder="شماره حساب"
                                             />
                                         )}
                                     </form.Field>
@@ -72,10 +77,9 @@ export function FinancialSection({ form, uuid, onPersist }: SectionProps) {
                                         name={`financial.bank_accounts.${index}.card_number`}
                                     >
                                         {(f) => (
-                                            <FormTextField
+                                            <FormCardNumberField
                                                 field={f}
                                                 label="شماره کارت"
-                                                dir="ltr"
                                             />
                                         )}
                                     </form.Field>
@@ -84,10 +88,10 @@ export function FinancialSection({ form, uuid, onPersist }: SectionProps) {
                                         name={`financial.bank_accounts.${index}.shaba_number`}
                                     >
                                         {(f) => (
-                                            <FormTextField
+                                            <FormAccountNumberField
                                                 field={f}
                                                 label="شماره شبا"
-                                                dir="ltr"
+                                                placeholder="IR"
                                             />
                                         )}
                                     </form.Field>

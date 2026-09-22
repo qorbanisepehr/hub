@@ -1,9 +1,16 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import { IconDatabase } from "@tabler/icons-react";
 import { useRetentionPolicies } from "@/features/audit/hooks";
 import { AUDIT_CATEGORY_LABELS } from "@/features/audit/constants";
-import { PageLayout, PageHeader, ErrorSection, PageSkeleton } from "@/components/layout";
+import {
+    PageLayout,
+    PageHeader,
+    ErrorSection,
+    EmptyState,
+    PageSkeleton,
+} from "@/components/layout";
 
 export function AuditRetentionPage() {
     const { data: policies = [], isLoading, isError } = useRetentionPolicies();
@@ -75,8 +82,12 @@ export function AuditRetentionPage() {
 
                 {policies.length === 0 && (
                     <Card>
-                        <CardContent className="py-8 text-center text-muted-foreground">
-                            هیچ سیاست نگهداری تعریف نشده است
+                        <CardContent>
+                            <EmptyState
+                                icon={IconDatabase}
+                                message="هیچ سیاست نگهداری تعریف نشده است"
+                                variant="compact"
+                            />
                         </CardContent>
                     </Card>
                 )}

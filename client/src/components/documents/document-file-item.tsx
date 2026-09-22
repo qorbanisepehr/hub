@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { IconFile, IconReplace } from "@tabler/icons-react";
+import { useMemo } from "react";
+import { IconReplace } from "@tabler/icons-react";
 
 import { cn } from "@/lib/utils";
 import { ConfirmDeleteButton } from "@/components/ui/confirm-delete-button";
@@ -9,8 +9,8 @@ import { FileThumbnail } from "@/components/ui/file-thumbnail";
 import { getFileIcon } from "@/lib/file-utils";
 import { getFileColorClasses } from "@/lib/file-utils";
 import type { EntityDocument } from "@/hooks/use-entity-documents";
-import { DocumentPreviewLightbox } from "@/features/documents/components/document-preview-lightbox";
 import { toLightboxDocument } from "@/components/documents";
+import { openPreview } from "@/features/documents/preview-store";
 import { useDocumentDelete } from "@/hooks/use-document-delete";
 import { DocumentPreviewTrigger } from "@/components/documents/document-preview-trigger";
 
@@ -45,7 +45,6 @@ export function DocumentFileItem({
     onReplace,
     className,
 }: DocumentFileItemProps) {
-    const [previewOpen, setPreviewOpen] = useState(false);
     const previewDoc = useMemo(() => toLightboxDocument(doc), [doc]);
     const { deleteDocument, isDeleting } = useDocumentDelete({
         entity,
@@ -75,22 +74,14 @@ export function DocumentFileItem({
         </div>
     );
 
-    const preview = (
-        <DocumentPreviewLightbox
-            documents={[previewDoc]}
-            currentIndex={0}
-            open={previewOpen}
-            onClose={() => setPreviewOpen(false)}
-            onNavigate={() => {}}
-        />
-    );
+    const showPreview = () => openPreview([previewDoc], 0);
 
     if (layout === "compact") {
         return (
             <>
                 <div className={cn("flex flex-col items-start gap-0.5", className)}>
                     <DocumentPreviewTrigger
-                        onClick={() => setPreviewOpen(true)}
+                        onClick={showPreview}
                         ariaLabel={`پیش‌نمایش ${doc.structure_name}`}
                         className="flex items-center gap-1 px-1 py-0.5"
                     >
@@ -124,7 +115,6 @@ export function DocumentFileItem({
                         )}
                     </div>
                 </div>
-                {preview}
             </>
         );
     }
@@ -133,7 +123,7 @@ export function DocumentFileItem({
         <>
             <div className={cn("flex items-center gap-3", className)}>
                 <DocumentPreviewTrigger
-                    onClick={() => setPreviewOpen(true)}
+                    onClick={showPreview}
                     ariaLabel={`پیش‌نمایش ${doc.structure_name}`}
                     className="flex min-w-0 flex-1 items-center gap-3"
                 >
@@ -168,7 +158,6 @@ export function DocumentFileItem({
                     />
                 )}
             </div>
-            {preview}
         </>
     );
 }

@@ -13,6 +13,7 @@ const CvsBankPage = lazy(() =>
 
 const cvsSearchSchema = paginatedSearchSchema({
     status: z.string().optional(),
+    status_not: z.string().optional(),
 });
 
 export const Route = createRoute({

@@ -31,6 +31,7 @@ const FALLBACK_BRANDING: BrandingSettings = {
 };
 
 function getInitialBranding(): BrandingSettings {
+    // oxlint-disable-next-line no-underscore-dangle -- server-injected global declared outside ts (Blade/bootstrap)
     const injected = window.__BRANDING__;
 
     return injected

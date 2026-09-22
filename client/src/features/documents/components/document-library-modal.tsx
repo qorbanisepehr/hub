@@ -1,7 +1,6 @@
 import * as React from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-    IconFile,
     IconLoader2,
     IconLibrary,
     IconPlus,
@@ -10,6 +9,7 @@ import { toast } from "sonner";
 
 import { documentKeys } from "@/lib/query-keys";
 import { getApiError } from "@/lib/error-utils";
+import { EmptyState } from "@/components/layout";
 import { formatBytes } from "@/lib/file-utils";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -91,14 +91,16 @@ export function DocumentLibraryModal({
             {isLoading ? (
                 <div className="space-y-3 py-4">
                     {Array.from({ length: 3 }).map((_, i) => (
+                        // oxlint-disable-next-line react/no-array-index-key -- static skeleton placeholders
                         <Skeleton key={i} className="h-14 w-full rounded-lg" />
                     ))}
                 </div>
             ) : !documents?.length ? (
-                <div className="flex flex-col items-center justify-center py-10 text-muted-foreground">
-                    <IconLibrary className="size-10 mb-3 opacity-30" />
-                    <p className="text-sm">کتابخانه خالی است</p>
-                </div>
+                <EmptyState
+                    icon={IconLibrary}
+                    message="کتابخانه خالی است"
+                    variant="compact"
+                />
             ) : (
                 <div className="max-h-80 space-y-2 overflow-y-auto py-1">
                     {documents.map((doc) => {

@@ -1,17 +1,22 @@
-import type { ColumnDef, StockFeatures } from "@tanstack/react-table";
-import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { DataTableColumnHeader } from "@/components/data-table";
-import { AUDIT_CATEGORY_LABELS, AUDIT_CATEGORY_VARIANTS, AUDIT_EVENT_LABELS } from "./constants";
-import type { AuditLog } from "./types";
-import { Link } from "@tanstack/react-router";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toPersianDate } from "@/lib/date-format";
+import { Link } from "@tanstack/react-router";
+import type { ColumnDef, StockFeatures } from "@tanstack/react-table";
+import {
+    AUDIT_CATEGORY_ICONS,
+    AUDIT_CATEGORY_LABELS,
+    AUDIT_EVENT_LABELS,
+} from "./constants";
+import type { AuditLog } from "./types";
 
 function ActorCell({ actor }: { actor: AuditLog["actor"] }) {
-    if (actor.type === "system") return <span className="text-muted-foreground">سیستم</span>;
+    if (actor.type === "system")
+        return <span className="text-muted-foreground">سیستم</span>;
     if (!actor.id) return <span>—</span>;
 
-    const displayName = actor.display_name ?? actor.name ?? `کاربر #${actor.id}`;
+    const displayName =
+        actor.display_name ?? actor.name ?? `کاربر #${actor.id}`;
     const initials = displayName
         .split(" ")
         .map((n) => n[0])
@@ -28,7 +33,9 @@ function ActorCell({ actor }: { actor: AuditLog["actor"] }) {
                 <AvatarFallback className="text-xs">{initials}</AvatarFallback>
             </Avatar>
             <div className="flex flex-col min-w-0">
-                <span className="truncate font-medium text-sm">{displayName}</span>
+                <span className="truncate font-medium text-sm">
+                    {displayName}
+                </span>
                 {actor.role.name && (
                     <span className="text-xs text-muted-foreground truncate">
                         {actor.role.name}
@@ -48,8 +55,7 @@ export function getAuditLogColumns(): ColumnDef<StockFeatures, AuditLog>[] {
             ),
             cell: ({ row }) => {
                 const event = row.original.event;
-                const label =
-                    AUDIT_EVENT_LABELS[event] ?? event;
+                const label = AUDIT_EVENT_LABELS[event] ?? event;
                 return (
                     <Link
                         to="/audit/$logId"
@@ -68,10 +74,19 @@ export function getAuditLogColumns(): ColumnDef<StockFeatures, AuditLog>[] {
             ),
             cell: ({ row }) => {
                 const category = row.original.category;
+                const Icon = AUDIT_CATEGORY_ICONS[category];
                 return (
-                    <Badge variant={AUDIT_CATEGORY_VARIANTS[category]}>
+                    <div className="flex items-center gap-0.5 text-xs">
+                        {/* <span
+                            className={
+                                "size-2 rounded-full inline-flex bg-" +
+                                AUDIT_CATEGORY_VARIANTS[category]
+                            }
+                        ></span> */}
+
+                        <Icon className="size-4" />
                         {AUDIT_CATEGORY_LABELS[category] ?? category}
-                    </Badge>
+                    </div>
                 );
             },
         },

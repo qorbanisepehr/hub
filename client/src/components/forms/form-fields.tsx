@@ -1,12 +1,18 @@
-import type { AnyFieldApi } from "@tanstack/react-form";
-import { useStore } from "@tanstack/react-form";
 import { IconLoader2 } from "@tabler/icons-react";
+import type { AnyFieldApi } from "@tanstack/react-form";
 
+import {
+    NumberField,
+    NumberFieldDecrement,
+    NumberFieldGroup,
+    NumberFieldIncrement,
+    NumberFieldInput,
+} from "@/components/reui/number-field";
+import { Checkbox } from "@/components/ui/checkbox";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
     Select,
     SelectContent,
@@ -14,9 +20,8 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { Button } from "@/components/ui/button";
-import { IconPlus, IconTrash } from "@tabler/icons-react";
-import { DatePicker } from "@/components/ui/date-picker";
+import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
 
 // ── Text Input ──
 
@@ -98,6 +103,58 @@ export function FormNumberField({
     );
 }
 
+// ── Count Input (reui stepper) ──
+
+type FormCountFieldProps = {
+    field: AnyFieldApi;
+    label: string;
+    min?: number;
+    max?: number;
+    step?: number;
+};
+
+export function FormCountField({
+    field,
+    label,
+    min = 0,
+    max,
+    step = 1,
+}: FormCountFieldProps) {
+    const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid;
+
+    return (
+        <Field data-invalid={isInvalid}>
+            <FieldLabel htmlFor={field.name}>{label}</FieldLabel>
+            <NumberField
+                id={field.name}
+                name={field.name}
+                value={field.state.value ?? null}
+                onValueChange={(value) => field.handleChange(value)}
+                min={min}
+                max={max}
+                step={step}
+            >
+                <NumberFieldGroup
+                    aria-invalid={isInvalid || undefined}
+                    data-invalid={isInvalid || undefined}
+                    className={cn(
+                        isInvalid &&
+                            "border-destructive ring-3 ring-destructive/20",
+                    )}
+                >
+                    <NumberFieldDecrement />
+                    <NumberFieldInput
+                        onBlur={field.handleBlur}
+                        className="[&::-webkit-inner-spin-button]:appearance-none"
+                    />
+                    <NumberFieldIncrement />
+                </NumberFieldGroup>
+            </NumberField>
+            {isInvalid && <FieldError errors={field.state.meta.errors} />}
+        </Field>
+    );
+}
+
 // ── Date Picker ──
 
 type FormDatePickerProps = {
@@ -107,7 +164,12 @@ type FormDatePickerProps = {
     disabled?: boolean;
 };
 
-export function FormDatePicker({ field, label, placeholder, disabled }: FormDatePickerProps) {
+export function FormDatePicker({
+    field,
+    label,
+    placeholder,
+    disabled,
+}: FormDatePickerProps) {
     const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid;
     return (
         <Field data-invalid={isInvalid}>
@@ -149,7 +211,9 @@ export function FormColorField({ field, label, hint }: FormColorFieldProps) {
                     aria-label={label}
                     value={pickerValue}
                     onBlur={field.handleBlur}
-                    onChange={(e) => field.handleChange(e.target.value.toUpperCase())}
+                    onChange={(e) =>
+                        field.handleChange(e.target.value.toUpperCase())
+                    }
                     className="size-10 cursor-pointer rounded-md border p-1"
                 />
                 <Input
@@ -308,13 +372,21 @@ export function FormRadioGroup({
             ) : (
                 <RadioGroup
                     value={stringValue}
-                    onValueChange={(val) => field.handleChange(parseValue ? parseValue(val) : val)}
+                    onValueChange={(val) =>
+                        field.handleChange(parseValue ? parseValue(val) : val)
+                    }
                     disabled={disabled}
                     className="flex flex-row flex-wrap gap-4"
                 >
                     {options.map((opt) => (
-                        <div key={opt.value} className="flex items-center gap-2">
-                            <RadioGroupItem value={opt.value} id={`${field.name}-${opt.value}`} />
+                        <div
+                            key={opt.value}
+                            className="flex items-center gap-2"
+                        >
+                            <RadioGroupItem
+                                value={opt.value}
+                                id={`${field.name}-${opt.value}`}
+                            />
                             <label
                                 htmlFor={`${field.name}-${opt.value}`}
                                 className="text-sm font-normal cursor-pointer"
@@ -372,7 +444,10 @@ export function FormCheckboxGroup({
             ) : (
                 <div className="flex flex-row flex-wrap gap-4">
                     {options.map((opt) => (
-                        <div key={opt.value} className="flex items-center gap-2">
+                        <div
+                            key={opt.value}
+                            className="flex items-center gap-2"
+                        >
                             <Checkbox
                                 id={`${field.name}-${opt.value}`}
                                 checked={selected.includes(opt.value)}

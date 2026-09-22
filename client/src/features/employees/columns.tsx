@@ -4,6 +4,7 @@ import { IconEye, IconPencil } from "@tabler/icons-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DataTableColumnHeader } from "@/components/data-table";
+import { toPersianDate } from "@/lib/date-format";
 import {
     statusLabels,
     statusVariants,
@@ -75,7 +76,7 @@ export const employeeColumns: ColumnDef<StockFeatures, Employee>[] = [
         ),
         cell: ({ row }) => (
             <span className="text-sm text-muted-foreground">
-                {row.getValue("hire_date") ?? "—"}
+                {toPersianDate(row.getValue("hire_date") as string | null)}
             </span>
         ),
         meta: { displayName: "تاریخ استخدام" },

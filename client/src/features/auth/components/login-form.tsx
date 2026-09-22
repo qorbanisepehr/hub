@@ -86,7 +86,6 @@ export function LoginForm({
     };
 
     const {
-        otp,
         setOtp,
         isSending,
         isVerifying,

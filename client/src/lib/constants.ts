@@ -9,6 +9,7 @@ export const PAGINATION = {
     PAGE_SIZE_OPTIONS: [10, 15, 30, 50],
     SEARCH_PAGE_SIZE: 20,
     FETCH_ALL_SIZE: 100,
+    MAX_SELECT_OPTIONS: 50,
 } as const;
 
 export const DEBOUNCE = {

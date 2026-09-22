@@ -18,6 +18,7 @@ import { assignUserRole } from "@/features/rbac/api";
 import { RoleRequirementsView } from "@/features/rbac/components/role-requirements-view";
 import { UserSearchSelect } from "@/features/rbac/components/user-search-select";
 import { UserAvatar } from "@/components/shared/user-avatar";
+import { RepeaterEmptyState } from "@/components/shared/repeater-empty-state";
 import { MATRIX_MANAGER_TYPES } from "@/features/rbac/constants";
 import type {
     RoleChartEmployee,
@@ -30,7 +31,6 @@ import { roleKeys, userKeys } from "@/lib/query-keys";
 import { getUserDisplayName } from "@/lib/user-display";
 import { cn } from "@/lib/utils";
 import {
-    IconBriefcase,
     IconBuilding,
     IconDotsVertical,
     IconLoader2,
@@ -38,7 +38,6 @@ import {
     IconPencil,
     IconPlus,
     IconUserEdit,
-    IconUsers,
 } from "@tabler/icons-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
@@ -362,10 +361,10 @@ export function RoleDetailModal({
 
                             <div className="space-y-2">
                                 {hasNoMembers ? (
-                                    <p className="rounded-lg border border-dashed px-3 py-4 text-center text-xs text-muted-foreground">
-                                        هنوز عضوی به این نقش اختصاص داده نشده
-                                        است.
-                                    </p>
+                                    <RepeaterEmptyState
+                                        message="هنوز عضوی به این نقش اختصاص داده نشده است."
+                                        className="py-4 text-xs"
+                                    />
                                 ) : (
                                     role.users.map((user) => (
                                         <MemberCard key={user.id} user={user} />

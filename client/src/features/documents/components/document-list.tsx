@@ -7,25 +7,34 @@ import {
     IconTable,
     IconColumns,
     IconFolder,
-    IconFolderOpen,
 } from "@tabler/icons-react";
 import { toast } from "sonner";
 
-import { cn } from "@/lib/utils";
 import { getApiError } from "@/lib/error-utils";
 import { documentKeys } from "@/lib/query-keys";
+import { EmptyState, ErrorSection } from "@/components/layout";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { fetchDocuments, deleteDocument, fetchDocumentCategories } from "@/features/documents/api";
-import { getDocServeUrl, getDocDownloadUrl, collectDocs } from "@/features/documents/types";
+import { getDocDownloadUrl, collectDocs } from "@/features/documents/types";
 import type { Document, DocumentCategory } from "@/features/documents/types";
-import { DocumentPreviewLightbox } from "./document-preview-lightbox";
+import {
+    closePreview,
+    openPreview,
+} from "@/features/documents/preview-store";
 import { DocumentTable } from "./document-table";
 import { DocumentGroupedTable } from "./document-grouped-table";
 import { DocumentTreeView } from "./document-tree-view";
 import { ListAttachmentItem } from "./list-attachment-item";
 import { CardAttachmentItem } from "./card-attachment-item";
+import {
+    Tabs,
+    TabsList,
+    TabsTrigger,
+} from "@/components/ui/tabs";
+
+const ALL_CATEGORY_KEY = "__all__";
 
 type FilterOption = {
     key: string;
@@ -99,39 +108,33 @@ function NestedCategoryCards({
     return (
         <div className="space-y-3">
             {filterOptions.length > 1 && (
-                <div className="flex gap-1 overflow-x-auto" role="tablist">
-                    <button
-                        type="button"
-                        role="tab"
-                        aria-selected={selectedCategory === null}
-                        onClick={() => onCategoryChange(null)}
-                        className={cn(
-                            "shrink-0 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
-                            selectedCategory === null
-                                ? "bg-secondary text-secondary-foreground"
-                                : "text-muted-foreground hover:text-foreground",
-                        )}
-                    >
-                        همه ({totalCount})
-                    </button>
-                    {filterOptions.map((opt) => (
-                        <button
-                            key={opt.key}
-                            type="button"
-                            role="tab"
-                            aria-selected={selectedCategory === opt.key}
-                            onClick={() => onCategoryChange(opt.key)}
-                            className={cn(
-                                "shrink-0 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
-                                selectedCategory === opt.key
-                                    ? "bg-secondary text-secondary-foreground"
-                                    : "text-muted-foreground hover:text-foreground",
-                            )}
+                <Tabs
+                    value={selectedCategory ?? ALL_CATEGORY_KEY}
+                    onValueChange={(value) =>
+                        onCategoryChange(
+                            value === ALL_CATEGORY_KEY ? null : value,
+                        )
+                    }
+                    className="w-full"
+                >
+                    <TabsList className="flex w-full overflow-x-auto">
+                        <TabsTrigger
+                            value={ALL_CATEGORY_KEY}
+                            className="shrink-0"
                         >
-                            {opt.label} ({opt.count})
-                        </button>
-                    ))}
-                </div>
+                            همه ({totalCount})
+                        </TabsTrigger>
+                        {filterOptions.map((opt) => (
+                            <TabsTrigger
+                                key={opt.key}
+                                value={opt.key}
+                                className="shrink-0"
+                            >
+                                {opt.label} ({opt.count})
+                            </TabsTrigger>
+                        ))}
+                    </TabsList>
+                </Tabs>
             )}
             {filteredCategories.map((topCat) => {
                 const children = selectedCategory
@@ -234,9 +237,6 @@ export function DocumentList({
 }: DocumentListProps) {
     const queryClient = useQueryClient();
     const [viewMode, setViewMode] = React.useState<ViewMode>("grouped");
-    const [lightboxIndex, setLightboxIndex] = React.useState<number | null>(
-        null,
-    );
     const [confirmingDeleteId, setConfirmingDeleteId] = React.useState<
         number | null
     >(null);
@@ -247,7 +247,7 @@ export function DocumentList({
         string | null
     >(null);
 
-    const { data: documents, isLoading, error } = useQuery({
+    const { data: documents, isLoading, error, refetch } = useQuery({
         queryKey: documentKeys.list({ type: documentableType, entity_id: String(documentableId) }),
         queryFn: async () => {
             const { data } = await fetchDocuments(documentableType, String(documentableId));
@@ -278,7 +278,7 @@ export function DocumentList({
                 queryKey: documentKeys.trashed(documentableType, String(documentableId)),
             });
             setDeletingIds(new Set());
-            setLightboxIndex(null);
+            closePreview();
             onSelectionChange(selectedIds.filter((id) => id !== documentId));
             toast.success("مدرک حذف شد");
         },
@@ -291,7 +291,7 @@ export function DocumentList({
     function handlePreview(doc: Document) {
         if (!documents) return;
         const index = documents.findIndex((d) => d.id === doc.id);
-        if (index !== -1) setLightboxIndex(index);
+        if (index !== -1) openPreview(documents, index);
     }
 
     function handleStartDelete(documentId: number) {
@@ -312,6 +312,7 @@ export function DocumentList({
         return (
             <div className="space-y-3">
                 {Array.from({ length: 3 }).map((_, i) => (
+                    // oxlint-disable-next-line react/no-array-index-key -- static skeleton placeholders
                     <Skeleton key={i} className="h-14 w-full rounded-lg" />
                 ))}
             </div>
@@ -320,19 +321,21 @@ export function DocumentList({
 
     if (error) {
         return (
-            <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-                <IconFile className="size-10 mb-3 opacity-30" />
-                <p className="text-sm text-destructive">خطا در بارگذاری مدارک</p>
-            </div>
+            <ErrorSection
+                icon={IconFile}
+                description={getApiError(error) ?? "خطا در بارگذاری مدارک"}
+                onRetry={() => refetch()}
+            />
         );
     }
 
     if (!documents?.length) {
         return (
-            <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-                <IconFile className="size-10 mb-3 opacity-30" />
-                <p className="text-sm">هیچ مدرکی آپلود نشده است</p>
-            </div>
+            <EmptyState
+                icon={IconFile}
+                message="هیچ مدرکی آپلود نشده است"
+                variant="compact"
+            />
         );
     }
 
@@ -428,13 +431,6 @@ export function DocumentList({
                 />
             )}
 
-            <DocumentPreviewLightbox
-                documents={documents}
-                currentIndex={lightboxIndex ?? 0}
-                open={lightboxIndex !== null}
-                onClose={() => setLightboxIndex(null)}
-                onNavigate={setLightboxIndex}
-            />
         </div>
     );
 }

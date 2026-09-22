@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
 
-import { Card, CardContent } from "@/components/ui/card";
 import { SectionRow } from "@/components/shared/section-row";
 import { SectionCard } from "./section-card";
 import { asRecord, dateValue, stringValue } from "./shared";

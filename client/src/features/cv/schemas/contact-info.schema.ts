@@ -1,7 +1,12 @@
 import { z } from "zod";
 
-import { mobile, optionalEmail, optionalLandline, optionalMobileOrLandline } from "@/lib/field-rules";
-import { requiredText, text } from "@/lib/zod-primitives";
+import {
+    mobile,
+    optionalEmail,
+    optionalLandline,
+    optionalMobileOrLandline,
+} from "@/lib/field-rules";
+import { text } from "@/lib/zod-primitives";
 
 export const addressSchema = z.object({
     // The CV form collects a slim address (province/city/neighborhood/postal),

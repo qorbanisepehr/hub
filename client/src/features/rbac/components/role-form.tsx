@@ -20,14 +20,17 @@ interface RoleFormProps {
     inheritedPermissionIds?: number[];
 }
 
+const EMPTY_EXCLUDE_PARENT_IDS: number[] = [];
+const EMPTY_INHERITED_PERMISSION_IDS: number[] = [];
+
 export function RoleForm({
     defaultValues,
     onSubmit,
     isPending = false,
     error = null,
     submitLabel = "ذخیره",
-    excludeParentIds = [],
-    inheritedPermissionIds = [],
+    excludeParentIds = EMPTY_EXCLUDE_PARENT_IDS,
+    inheritedPermissionIds = EMPTY_INHERITED_PERMISSION_IDS,
 }: RoleFormProps) {
     const form = useForm({
         defaultValues: {

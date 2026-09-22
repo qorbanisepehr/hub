@@ -1,33 +1,32 @@
+import { useSelector } from "@tanstack/react-form";
 import { useEffect, useMemo } from "react";
-import { useStore } from "@tanstack/react-form";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { FileUploadField } from "@/components/documents";
 import {
-    FormTextField,
-    FormNumberField,
+    FormCountField,
     FormDatePicker,
-} from "@/components/forms";
-import {
-    PlaceFields,
     FormOptionRadioGroup,
     FormOptionSelectField,
+    FormTextField,
+    OptionHierarchyField,
+    PlaceFields,
 } from "@/components/forms";
-import { FileUploadField } from "@/components/documents";
-import { DOC_CATEGORY_SLUGS } from "@/features/questionnaire/constants";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useFormOptionsByGroup } from "@/features/form-options/hooks/use-form-options";
+import { DOC_CATEGORY_SLUGS } from "@/features/questionnaire/constants";
 import {
     buildPersonalInfoSchemas,
-    GENDER_MALE,
     GENDER_FEMALE,
+    GENDER_MALE,
     MARITAL_SINGLE,
     SPOUSE_EMPLOYED,
 } from "@/features/questionnaire/schemas/personal-info.schema";
-import { zodFieldValidators } from "@/lib/validation-helpers";
-import { useSyncFormDefaults } from "@/hooks";
 import type {
     Questionnaire,
     QuestionnaireFormApi,
 } from "@/features/questionnaire/types";
+import { useSyncFormDefaults } from "@/hooks";
+import { zodFieldValidators } from "@/lib/validation-helpers";
 import { MilitaryServiceFields } from "./military-service-fields";
 
 type SectionProps = {
@@ -42,21 +41,23 @@ type SectionProps = {
 
 export function PersonalInfoSection({
     form,
-    questionnaire,
     uuid,
     entity = "questionnaire",
     onDefaultsSynced,
 }: SectionProps) {
-    const maritalStatus = useStore(
+    const maritalStatus = useSelector(
         form.store,
         (s) => s.values.personal_info?.marital_status,
     );
-    const gender = useStore(form.store, (s) => s.values.personal_info?.gender);
+    const gender = useSelector(
+        form.store,
+        (s) => s.values.personal_info?.gender,
+    );
 
     const isSingle = maritalStatus === MARITAL_SINGLE;
     const isMale = gender === GENDER_MALE;
 
-    const spouseField = useStore(
+    const spouseField = useSelector(
         form.store,
         (s) => s.values.personal_info?.spouse_employment_status,
     );
@@ -64,14 +65,17 @@ export function PersonalInfoSection({
     const { data: genderOptions } = useFormOptionsByGroup("gender");
     const { data: bloodGroupOptions } = useFormOptionsByGroup("blood_group");
     const { data: maritalOptions } = useFormOptionsByGroup("marital_status");
-    const { data: spouseOptions } = useFormOptionsByGroup("spouse_employment_status");
+    const { data: spouseOptions } = useFormOptionsByGroup(
+        "spouse_employment_status",
+    );
     const { data: militaryOptions } = useFormOptionsByGroup("military_status");
     const { data: religionOptions } = useFormOptionsByGroup("religion");
-    const { data: religionSectOptions } = useFormOptionsByGroup("religion_sect");
+    const { data: religionSectOptions } =
+        useFormOptionsByGroup("religion_sect");
     const { data: provinceOptions } = useFormOptionsByGroup("province");
     const { data: cityOptions } = useFormOptionsByGroup("city");
 
-    const religion = useStore(
+    const religion = useSelector(
         form.store,
         (s) => s.values.personal_info?.religion,
     );
@@ -124,16 +128,23 @@ export function PersonalInfoSection({
 
     useEffect(() => {
         if (isSingle && spouseField) {
-            const current = form.state.values.personal_info?.spouse_employment_status;
+            const current =
+                form.state.values.personal_info?.spouse_employment_status;
             if (current !== "") {
-                form.setFieldValue("personal_info.spouse_employment_status", "", { dontUpdateMeta: true });
+                form.setFieldValue(
+                    "personal_info.spouse_employment_status",
+                    "",
+                    { dontUpdateMeta: true },
+                );
             }
         } else if (!isSingle && !spouseField) {
             const defaultSpouseValue =
-                spouseOptions?.find((option) => option.value === "housewife")?.value ??
+                spouseOptions?.find((option) => option.value === "housewife")
+                    ?.value ??
                 spouseOptions?.[0]?.value ??
                 "";
-            const current = form.state.values.personal_info?.spouse_employment_status;
+            const current =
+                form.state.values.personal_info?.spouse_employment_status;
             if (current !== defaultSpouseValue) {
                 form.setFieldValue(
                     "personal_info.spouse_employment_status",
@@ -149,7 +160,9 @@ export function PersonalInfoSection({
             gender === GENDER_FEMALE &&
             form.state.values.personal_info?.military_status
         ) {
-            form.setFieldValue("personal_info.military_status", undefined, { dontUpdateMeta: true });
+            form.setFieldValue("personal_info.military_status", undefined, {
+                dontUpdateMeta: true,
+            });
         } else if (
             gender === GENDER_MALE &&
             !form.state.values.personal_info?.military_status
@@ -162,8 +175,15 @@ export function PersonalInfoSection({
                 reason: "",
             };
             const current = form.state.values.personal_info?.military_status;
-            if (!current || JSON.stringify(current) !== JSON.stringify(defaultValue)) {
-                form.setFieldValue("personal_info.military_status", defaultValue, { dontUpdateMeta: true });
+            if (
+                !current ||
+                JSON.stringify(current) !== JSON.stringify(defaultValue)
+            ) {
+                form.setFieldValue(
+                    "personal_info.military_status",
+                    defaultValue,
+                    { dontUpdateMeta: true },
+                );
             }
         }
     }, [gender, form]);
@@ -178,9 +198,11 @@ export function PersonalInfoSection({
         if (!currentSect) return;
         const validSects = religionSectOptionsUi.map((option) => option.value);
         if (!validSects.includes(currentSect)) {
-            form.setFieldValue("personal_info.religion_sect", "", { dontUpdateMeta: true });
+            form.setFieldValue("personal_info.religion_sect", "", {
+                dontUpdateMeta: true,
+            });
         }
-    }, [religion, religionSectOptions, religionSectOptionsUi, form]);
+    }, [religionSectOptions, religionSectOptionsUi, form]);
 
     return (
         <Card>
@@ -193,7 +215,9 @@ export function PersonalInfoSection({
                         name="personal_info.id_number"
                         validators={
                             schemas
-                                ? zodFieldValidators(schemas.fieldSchemas.id_number)
+                                ? zodFieldValidators(
+                                      schemas.fieldSchemas.id_number,
+                                  )
                                 : undefined
                         }
                     >
@@ -209,7 +233,9 @@ export function PersonalInfoSection({
                         name="personal_info.gender"
                         validators={
                             schemas
-                                ? zodFieldValidators(schemas.fieldSchemas.gender)
+                                ? zodFieldValidators(
+                                      schemas.fieldSchemas.gender,
+                                  )
                                 : undefined
                         }
                     >
@@ -241,7 +267,9 @@ export function PersonalInfoSection({
                         name="first_name"
                         validators={
                             schemas
-                                ? zodFieldValidators(schemas.fieldSchemas.first_name)
+                                ? zodFieldValidators(
+                                      schemas.fieldSchemas.first_name,
+                                  )
                                 : undefined
                         }
                     >
@@ -251,7 +279,9 @@ export function PersonalInfoSection({
                         name="last_name"
                         validators={
                             schemas
-                                ? zodFieldValidators(schemas.fieldSchemas.last_name)
+                                ? zodFieldValidators(
+                                      schemas.fieldSchemas.last_name,
+                                  )
                                 : undefined
                         }
                     >
@@ -287,7 +317,9 @@ export function PersonalInfoSection({
                         name="personal_info.birth_date"
                         validators={
                             schemas
-                                ? zodFieldValidators(schemas.fieldSchemas.birth_date)
+                                ? zodFieldValidators(
+                                      schemas.fieldSchemas.birth_date,
+                                  )
                                 : undefined
                         }
                     >
@@ -299,7 +331,9 @@ export function PersonalInfoSection({
                         name="personal_info.birth_place"
                         validators={
                             schemas
-                                ? zodFieldValidators(schemas.fieldSchemas.birth_place)
+                                ? zodFieldValidators(
+                                      schemas.fieldSchemas.birth_place,
+                                  )
                                 : undefined
                         }
                     >
@@ -310,7 +344,8 @@ export function PersonalInfoSection({
                         validators={
                             schemas
                                 ? zodFieldValidators(
-                                      schemas.fieldSchemas.birth_certificate_number,
+                                      schemas.fieldSchemas
+                                          .birth_certificate_number,
                                   )
                                 : undefined
                         }
@@ -329,7 +364,9 @@ export function PersonalInfoSection({
                         name="personal_info.father_name"
                         validators={
                             schemas
-                                ? zodFieldValidators(schemas.fieldSchemas.father_name)
+                                ? zodFieldValidators(
+                                      schemas.fieldSchemas.father_name,
+                                  )
                                 : undefined
                         }
                     >
@@ -341,47 +378,48 @@ export function PersonalInfoSection({
                         name="personal_info.religion"
                         validators={
                             schemas
-                                ? zodFieldValidators(schemas.fieldSchemas.religion)
+                                ? zodFieldValidators(
+                                      schemas.fieldSchemas.religion,
+                                  )
                                 : undefined
                         }
                     >
-                        {(field) => (
-                            <FormOptionSelectField
-                                field={field}
-                                label="دین"
-                                group="religion"
-                            />
-                        )}
-                    </form.Field>
-                    <form.Field
-                        name="personal_info.religion_sect"
-                        validators={
-                            schemas
-                                ? zodFieldValidators(schemas.fieldSchemas.religion_sect)
-                                : undefined
-                        }
-                    >
-                        {(field) => (
-                            <FormOptionSelectField
-                                field={field}
-                                label="مذهب"
-                                group="religion_sect"
-                                filter={(option) =>
-                                    option.parent_value === religion
+                        {(religionField) => (
+                            <form.Field
+                                name="personal_info.religion_sect"
+                                validators={
+                                    schemas
+                                        ? zodFieldValidators(
+                                              schemas.fieldSchemas
+                                                  .religion_sect,
+                                          )
+                                        : undefined
                                 }
-                                placeholder={
-                                    religion
-                                        ? "انتخاب مذهب"
-                                        : "ابتدا دین را انتخاب کنید"
-                                }
-                            />
+                            >
+                                {(sectField) => (
+                                    <OptionHierarchyField
+                                        parentField={religionField}
+                                        childField={sectField}
+                                        parentGroup="religion"
+                                        childGroup="religion_sect"
+                                        parentLabel="دین"
+                                        childLabel="مذهب"
+                                        childValueMode="plain"
+                                        label="دین و مذهب"
+                                        placeholder="انتخاب دین و مذهب"
+                                        deepSearch
+                                    />
+                                )}
+                            </form.Field>
                         )}
                     </form.Field>
                     <form.Field
                         name="personal_info.blood_group"
                         validators={
                             schemas
-                                ? zodFieldValidators(schemas.fieldSchemas.blood_group)
+                                ? zodFieldValidators(
+                                      schemas.fieldSchemas.blood_group,
+                                  )
                                 : undefined
                         }
                     >
@@ -400,7 +438,9 @@ export function PersonalInfoSection({
                         name="personal_info.marital_status"
                         validators={
                             schemas
-                                ? zodFieldValidators(schemas.fieldSchemas.marital_status)
+                                ? zodFieldValidators(
+                                      schemas.fieldSchemas.marital_status,
+                                  )
                                 : undefined
                         }
                     >
@@ -414,7 +454,7 @@ export function PersonalInfoSection({
                     </form.Field>
                     <form.Field name="personal_info.dependents_count">
                         {(field) => (
-                            <FormNumberField
+                            <FormCountField
                                 field={field}
                                 label="تعداد افراد تحت تکفل"
                             />
@@ -422,7 +462,7 @@ export function PersonalInfoSection({
                     </form.Field>
                     <form.Field name="personal_info.children_count">
                         {(field) => (
-                            <FormNumberField
+                            <FormCountField
                                 field={field}
                                 label="تعداد فرزندان"
                             />
@@ -446,7 +486,9 @@ export function PersonalInfoSection({
                                 name="personal_info.spouse_job"
                                 validators={
                                     schemas
-                                        ? zodFieldValidators(schemas.fieldSchemas.spouse_job)
+                                        ? zodFieldValidators(
+                                              schemas.fieldSchemas.spouse_job,
+                                          )
                                         : undefined
                                 }
                             >

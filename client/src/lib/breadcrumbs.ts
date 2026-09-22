@@ -92,7 +92,7 @@ function navAnchor(pathname: string): FlatNavItem | null {
                     pathname === entry.url ||
                     pathname.startsWith(`${entry.url}/`),
             )
-            .sort((a, b) => b.url.length - a.url.length)[0] ?? null
+            .toSorted((a, b) => b.url.length - a.url.length)[0] ?? null
     );
 }
 

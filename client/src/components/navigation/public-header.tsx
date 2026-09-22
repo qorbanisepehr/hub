@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { Logo, LogoType } from "@/components/navigation";
 import { ThemeToggle } from "@/components/navigation";
 import { UserMenu } from "@/components/navigation";

@@ -61,7 +61,7 @@ export function QuestionnaireStartPage() {
             setOtpExpiresIn(initData.expires_in);
             toast.success(initData.message);
         },
-        onError: (err: any) => {
+        onError: (err) => {
             toast.error(getApiError(err));
         },
     });

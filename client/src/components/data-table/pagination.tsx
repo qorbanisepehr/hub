@@ -113,6 +113,7 @@ export function DataTablePagination<TData extends RowData>({
 
                     {pageNumbers.map((pageNumber, index) => (
                         <div
+                            // oxlint-disable-next-line react/no-array-index-key -- "..." placeholders can repeat, so index must stay part of the key
                             key={`${pageNumber}-${index}`}
                             className="flex items-center"
                         >

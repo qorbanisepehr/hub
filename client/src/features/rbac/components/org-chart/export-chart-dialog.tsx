@@ -14,6 +14,8 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { ResponsiveDialog } from "@/components/ui/responsive-dialog";
+import { getApiError } from "@/lib/error-utils";
+import { saveBlobResponse, exportDateStamp } from "@/lib/download";
 import {
     exportRoleChart,
     fetchChartExportFields,
@@ -25,8 +27,6 @@ type ExportChartDialogProps = {
     open: boolean;
     onOpenChange: (open: boolean) => void;
 };
-
-const DEFAULT_FIELDS = ["description", "is_active", "user_count"];
 
 export function ExportChartDialog({
     open,
@@ -51,9 +51,9 @@ export function ExportChartDialog({
 
     const rootOptions = useMemo(
         () =>
-            (roles ?? [])
-                .slice()
-                .sort((a, b) => a.display_name.localeCompare(b.display_name, "fa")),
+            (roles ?? []).toSorted(
+                (a, b) => a.display_name.localeCompare(b.display_name, "fa"),
+            ),
         [roles],
     );
 
@@ -78,31 +78,16 @@ export function ExportChartDialog({
                 format: "csv",
             });
 
-            // مهم: response.data یک Blob است (به‌خاطر responseType: "blob")
-            // مستقیماً همان Blob را استفاده کنید، Blob جدید نسازید
-            let csvBlob: Blob;
-            if (response.data instanceof Blob) {
-                csvBlob = response.data;
-            } else {
-                // اگر به‌دلیلی data رشته بود، آن را به Blob تبدیل کنید
-                csvBlob = new Blob([response.data], {
-                    type: "text/csv;charset=utf-8",
-                });
-            }
-
-            const url = window.URL.createObjectURL(csvBlob);
-            const link = document.createElement("a");
-            link.href = url;
-            link.download = `org-chart-roles-${new Date().toISOString().slice(0, 10)}.csv`;
-            document.body.appendChild(link);
-            link.click();
-            link.remove();
-            window.URL.revokeObjectURL(url);
+            saveBlobResponse(
+                response,
+                `org-chart-roles-${exportDateStamp()}.csv`,
+                "text/csv;charset=utf-8",
+            );
 
             toast.success("خروجی با موفقیت ایجاد شد.");
             onOpenChange(false);
-        } catch {
-            toast.error("خطا در ایجاد خروجی.");
+        } catch (err) {
+            toast.error(getApiError(err) ?? "خطا در ایجاد خروجی.");
         } finally {
             setIsExporting(false);
         }

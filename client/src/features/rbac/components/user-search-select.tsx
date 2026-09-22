@@ -19,12 +19,14 @@ type UserSearchSelectProps = {
     className?: string;
 };
 
+const EMPTY_EXCLUDE_IDS: number[] = [];
+
 export function UserSearchSelect({
     value,
     onChange,
     placeholder = "انتخاب کاربر",
     disabled = false,
-    excludeIds = [],
+    excludeIds = EMPTY_EXCLUDE_IDS,
     hasEmployee,
     className,
 }: UserSearchSelectProps) {
@@ -36,13 +38,13 @@ export function UserSearchSelect({
         useInfiniteQuery({
             queryKey: userKeys.select(debouncedSearch, hasEmployee),
             queryFn: async ({ pageParam = 1 }) => {
-                const { data } = await fetchUsers({
+                const { data: response } = await fetchUsers({
                     filter: debouncedSearch || undefined,
                     has_employee: hasEmployee,
                     per_page: PAGINATION.SEARCH_PAGE_SIZE,
                     page: pageParam,
                 });
-                return data;
+                return response;
             },
             getNextPageParam: (lastPage) =>
                 lastPage.meta.current_page < lastPage.meta.last_page

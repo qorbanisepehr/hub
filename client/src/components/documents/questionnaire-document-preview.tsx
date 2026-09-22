@@ -4,7 +4,7 @@ import * as React from "react";
 import { IconFile, IconX } from "@tabler/icons-react";
 
 import { cn } from "@/lib/utils";
-import { DocumentPreviewLightbox } from "@/features/documents/components/document-preview-lightbox";
+import { openPreview } from "@/features/documents/preview-store";
 import { FileThumbnail } from "@/components/ui/file-thumbnail";
 import { getFileIcon } from "@/lib/file-utils";
 import { getFileColorClasses } from "@/lib/file-utils";
@@ -90,17 +90,13 @@ export function QuestionnaireDocumentPreview({
     onDelete,
     isDeleting,
 }: QuestionnaireDocPreviewProps) {
-    const [lightboxOpen, setLightboxOpen] = React.useState(false);
-    const [currentIndex, setCurrentIndex] = React.useState(0);
-
     const lightboxDocs = React.useMemo(
         () => documents.map(toLightboxDocument),
         [documents],
     );
 
     function openLightbox(index: number) {
-        setCurrentIndex(index);
-        setLightboxOpen(true);
+        openPreview(lightboxDocs, index);
     }
 
     if (documents.length === 0) return null;
@@ -134,13 +130,6 @@ export function QuestionnaireDocumentPreview({
                         </DocumentPreviewTrigger>
                     ))}
                 </div>
-                <DocumentPreviewLightbox
-                    documents={lightboxDocs}
-                    currentIndex={currentIndex}
-                    open={lightboxOpen}
-                    onClose={() => setLightboxOpen(false)}
-                    onNavigate={(index) => setCurrentIndex(index)}
-                />
             </>
         );
     }
@@ -198,13 +187,6 @@ export function QuestionnaireDocumentPreview({
                         </div>
                     ))}
                 </div>
-                <DocumentPreviewLightbox
-                    documents={lightboxDocs}
-                    currentIndex={currentIndex}
-                    open={lightboxOpen}
-                    onClose={() => setLightboxOpen(false)}
-                    onNavigate={(index) => setCurrentIndex(index)}
-                />
             </>
         );
     }
@@ -222,13 +204,6 @@ export function QuestionnaireDocumentPreview({
                     />
                 ))}
             </div>
-            <DocumentPreviewLightbox
-                documents={lightboxDocs}
-                currentIndex={currentIndex}
-                open={lightboxOpen}
-                onClose={() => setLightboxOpen(false)}
-                onNavigate={(index) => setCurrentIndex(index)}
-            />
         </>
     );
 }
