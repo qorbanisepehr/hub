@@ -72,7 +72,7 @@ function AuditValue({ value }: { value: unknown }) {
 export function AuditDiffView({ old, new: newValues, className }: AuditDiffViewProps) {
     const keys = Array.from(
         new Set([...Object.keys(old ?? {}), ...Object.keys(newValues ?? {})]),
-    ).sort();
+    ).toSorted();
 
     if (keys.length === 0) {
         return (

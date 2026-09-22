@@ -40,7 +40,7 @@ return [
     ],
     'documents' => [
         'missing' => 'Uploading :document is required.',
-        'max_files_reached' => 'Maximum :count files allowed for this category.',
+        'max_files_reached' => 'Maximum :count items allowed for this category.',
         'total_max_files_reached' => 'Maximum :count files allowed.',
         'fields' => [
             'front' => 'Front',
@@ -49,7 +49,7 @@ return [
             'page_2' => 'Page 2',
             'page_3' => 'Page 3',
             'page_4' => 'Page 4',
-            'page_extra' => 'Extra page',
+            'page_extra' => 'Page 5',
         ],
     ],
 ];

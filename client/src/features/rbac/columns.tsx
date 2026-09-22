@@ -3,10 +3,11 @@ import {
     type StockFeatures,
 } from "@tanstack/react-table";
 import { Link } from "@tanstack/react-router";
-import { IconPencil, IconTrash } from "@tabler/icons-react";
+import { IconPencil } from "@tabler/icons-react";
 import { Badge } from "@/components/ui/badge";
 import { DataTableColumnHeader } from "@/components/data-table";
 import { RowActions } from "@/components/shared/row-actions";
+import { ActiveBadge } from "@/components/shared/active-badge";
 import { PERMISSIONS } from "@/lib/permissions";
 import type { Role } from "@/features/rbac/types";
 
@@ -71,14 +72,9 @@ export function getRoleColumns(
             header: ({ column }) => (
                 <DataTableColumnHeader column={column} title="وضعیت" />
             ),
-            cell: ({ row }) => {
-                const isActive = row.getValue("is_active") as boolean;
-                return (
-                    <Badge variant={isActive ? "default" : "secondary"}>
-                        {isActive ? "فعال" : "غیرفعال"}
-                    </Badge>
-                );
-            },
+            cell: ({ row }) => (
+                <ActiveBadge isActive={row.getValue("is_active") as boolean} />
+            ),
             meta: { displayName: "وضعیت" },
         },
         {

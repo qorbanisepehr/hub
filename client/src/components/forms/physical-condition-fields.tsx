@@ -1,26 +1,15 @@
 import { useEffect } from "react";
-import { useStore, type ReactFormExtendedApi } from "@tanstack/react-form";
+import { useStore } from "@tanstack/react-form";
 
 import { FormOptionSelectField } from "./form-option-fields";
 import { useFormOptionsByGroup } from "@/features/form-options/hooks/use-form-options";
 import { optionEnumOptional } from "@/features/form-options/schema";
 import { DISABLED_PHYSICAL_CONDITIONS } from "@/features/questionnaire/constants";
+import { getFormValuePath } from "@/lib/form-utils";
 import { zodFieldValidators } from "@/lib/validation-helpers";
+import type { SectionFormApi } from "@/types/form-types";
 
-export type PhysicalConditionFieldsForm = ReactFormExtendedApi<
-    any,
-    any,
-    any,
-    any,
-    any,
-    any,
-    any,
-    any,
-    any,
-    any,
-    any,
-    any
->;
+export type PhysicalConditionFieldsForm = SectionFormApi;
 
 type PhysicalConditionFieldsProps = {
     form: PhysicalConditionFieldsForm;
@@ -43,15 +32,9 @@ export function PhysicalConditionFields({
     conditionLabel = "وضعیت جسمانی",
     typeLabel = "نوع معلولیت",
 }: PhysicalConditionFieldsProps) {
-    const condition = useStore(form.store, (s) => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        let current: any = s.values;
-        for (const key of conditionField.split(".")) {
-            if (current == null) return undefined;
-            current = current[key];
-        }
-        return current as string | undefined;
-    });
+    const condition = useStore(form.store, (s) =>
+        getFormValuePath(s.values, conditionField) as string | undefined,
+    );
 
     const showDisability =
         condition !== undefined && DISABLED_PHYSICAL_CONDITIONS.has(condition);

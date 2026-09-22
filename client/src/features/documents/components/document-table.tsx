@@ -15,7 +15,7 @@ import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@
 import { ConfirmDeleteActions } from "./confirm-delete-actions";
 import { DocumentFileCell } from "./document-file-cell";
 import { toPersianDate } from "@/lib/date-format";
-import { buildParentPath, getExactCategoryName, getDocFileSizeFormatted, getDocServeUrl, getDocOriginalName } from "@/features/documents/types";
+import { buildParentPath, getExactCategoryName, getDocFileSizeFormatted, getDocOriginalName } from "@/features/documents/types";
 import type { Document, DocumentCategory } from "@/features/documents/types";
 
 type DocumentTableProps = {
@@ -222,6 +222,7 @@ export function DocumentTable({
             },
         ],
         [
+            categories,
             confirmingDeleteId,
             deletingIds,
             onDownload,
@@ -233,6 +234,7 @@ export function DocumentTable({
 
     const table = useTable({
         features: stockFeatures,
+        enableColumnPinning: true,
         data: documents,
         columns,
         onRowSelectionChange: handleSelectionChange,

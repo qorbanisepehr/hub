@@ -3,6 +3,7 @@ import { toast } from "sonner";
 
 import { api } from "@/lib/api";
 import { publicApi } from "@/lib/public-api";
+import { getApiError } from "@/lib/error-utils";
 import { documentKeys } from "@/lib/query-keys";
 import { isAuthedDocumentEntity } from "@/hooks/use-entity-documents";
 
@@ -25,18 +26,21 @@ export function useDocumentDelete({
 
     const deleteMutation = useMutation({
         mutationFn: (usageId: number) =>
-            docClient.delete(`/${entity}/${uuid}/documents/${usageId}`, {
-                ...(authed
+            docClient.delete(
+                `/${entity}/${uuid}/documents/${usageId}`,
+                authed
                     ? {}
-                    : { grant: { entity, uuid, purpose: "edit" } }),
-            }),
+                    : { grant: { entity, uuid, purpose: "edit" } },
+            ),
         onSuccess: () => {
             queryClient.invalidateQueries({
                 queryKey: documentKeys.entityDocuments(entity, uuid),
             });
             toast.success(successMessage);
         },
-        onError: () => toast.error(errorMessage),
+        onError: (err: unknown) => {
+            toast.error(getApiError(err) ?? errorMessage);
+        },
     });
 
     return {

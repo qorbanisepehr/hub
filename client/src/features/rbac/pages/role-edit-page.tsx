@@ -78,6 +78,7 @@ export function RoleEditPage() {
         <PageLayout>
             <PageHeader
                 title={`ویرایش نقش: ${role?.display_name}`}
+                description="ویرایش اطلاعات نقش و تخصیص مجوزها"
                 backTo="/roles"
             />
 

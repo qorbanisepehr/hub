@@ -7,7 +7,6 @@ import { FileThumbnail } from "@/components/ui/file-thumbnail";
 import { getFileIcon } from "@/lib/file-utils";
 import { getFileColorClasses } from "@/lib/file-utils";
 import { useDocumentPreview } from "@/hooks/use-document-preview";
-import { DocumentPreviewLightbox } from "@/features/documents/components/document-preview-lightbox";
 import type { QuestionnaireDocument } from "@/features/questionnaire/hooks/use-questionnaire-documents";
 
 type RepeaterAttachmentCellProps = {
@@ -70,14 +69,7 @@ export function RepeaterAttachmentCell({
     className,
     enablePreview = false,
 }: RepeaterAttachmentCellProps) {
-    const {
-        lightboxDocs,
-        lightboxIndex,
-        isPreviewOpen,
-        openPreview,
-        closePreview,
-        navigatePreview,
-    } = useDocumentPreview(enablePreview ? docs : []);
+    const { openPreview } = useDocumentPreview(enablePreview ? docs : []);
 
     if (docs.length === 0) {
         return (
@@ -96,15 +88,6 @@ export function RepeaterAttachmentCell({
                     <AttachmentThumbnail key={doc.usage_id} doc={doc} onOpen={() => onOpen?.(doc)} />
                 ))}
             </div>
-            {enablePreview && (
-                <DocumentPreviewLightbox
-                    documents={lightboxDocs}
-                    currentIndex={lightboxIndex ?? 0}
-                    open={isPreviewOpen}
-                    onClose={closePreview}
-                    onNavigate={navigatePreview}
-                />
-            )}
         </>
     );
 }

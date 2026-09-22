@@ -11,8 +11,6 @@ import {
 } from "@tabler/icons-react";
 
 import { cn } from "@/lib/utils";
-import { getFileIcon } from "@/lib/file-utils";
-import { getFileColorClasses } from "@/lib/file-utils";
 import { getFileTypeLabel } from "@/lib/file-utils";
 import { toPersianDate } from "@/lib/date-format";
 import { DocumentThumbnail } from "@/components/documents";
@@ -314,7 +312,7 @@ export function DocumentTreeView({
     const [expandAll, setExpandAll] = React.useState<boolean | null>(null);
 
     function handleToggleExpand() {
-        setExpandAll((prev) => (prev === true ? false : true));
+        setExpandAll((prev) => !prev);
     }
 
     return (

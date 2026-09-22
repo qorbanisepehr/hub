@@ -16,10 +16,38 @@ use Illuminate\Support\Str;
 
 class CvBankController extends Controller
 {
+    private const SORTABLE = [
+        'created_at',
+        'updated_at',
+        'version',
+        'first_name',
+        'last_name',
+        'full_name',
+        'mobile',
+        'email',
+        'status',
+    ];
+
+    private const SEARCHABLE = [
+        'first_name',
+        'last_name',
+        'email',
+        'mobile',
+    ];
+
     public function __construct(
         private Authorization $authorization,
         private CvService $cvService,
     ) {}
+
+    /**
+     * The UI sorts the combined name column under one id; the database sorts
+     * by the leading first name.
+     */
+    private function sortColumn(string $id): string
+    {
+        return $id === 'full_name' ? 'first_name' : $id;
+    }
 
     public function index(Request $request): AnonymousResourceCollection
     {
@@ -30,22 +58,20 @@ class CvBankController extends Controller
 
         $this->authorization->scope($request->user(), 'cv.view', $query);
 
-        if ($filter = ListQuery::filter($request)) {
-            $query->where(function ($q) use ($filter) {
-                $q->where('first_name', 'like', "%{$filter}%")
-                    ->orWhere('last_name', 'like', "%{$filter}%")
-                    ->orWhere('email', 'like', "%{$filter}%")
-                    ->orWhere('mobile', 'like', "%{$filter}%");
-            });
-        }
+        ListQuery::search($query, ListQuery::filter($request), self::SEARCHABLE);
 
         if ($request->filled('status')) {
             $query->where('status', $request->input('status'));
         }
 
-        $sortField = ListQuery::sort($request, ['created_at', 'updated_at', 'version', 'first_name', 'last_name'], 'created_at');
-        $sortDirection = ListQuery::order($request);
-        $query->orderBy($sortField, $sortDirection);
+        if ($request->filled('status_not')) {
+            $query->where('status', '!=', $request->input('status_not'));
+        }
+
+        $query->orderBy(
+            $this->sortColumn(ListQuery::sort($request, self::SORTABLE, 'created_at')),
+            ListQuery::order($request),
+        );
 
         $paginator = $query->paginate(ListQuery::perPage($request));
         CvResource::preloadLifecycleUsers($request, $paginator->items());

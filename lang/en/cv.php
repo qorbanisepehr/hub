@@ -38,7 +38,7 @@ return [
     'access_denied' => 'Unauthorized or expired access.',
     'documents' => [
         'missing' => 'Uploading :document is required.',
-        'max_files_reached' => 'Maximum :count files allowed for this category.',
+        'max_files_reached' => 'Maximum :count items allowed for this category.',
         'total_max_files_reached' => 'Maximum :count files allowed.',
     ],
 ];

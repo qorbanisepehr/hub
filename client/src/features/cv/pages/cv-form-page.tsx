@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
-import { IconHistory, IconLoader2 } from "@tabler/icons-react";
+import { IconHistory } from "@tabler/icons-react";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AccessGate } from "@/components/shared/access-gate";
-import { ErrorPage } from "@/components/layout";
+import { ErrorPage, FormSkeleton } from "@/components/layout";
 import { QrCode } from "@/components/shared/qr-code";
 import { ShareDialog } from "@/components/shared/share-dialog";
 import { getCv } from "@/features/cv/api";
@@ -128,11 +128,7 @@ function CvFormContent({
                     </div>
                 </div>
 
-                {isLoading && (
-                    <div className="flex justify-center py-12">
-                        <IconLoader2 className="size-8 animate-spin text-muted-foreground" />
-                    </div>
-                )}
+                {isLoading && <FormSkeleton />}
 
                 {isError && (
                     <ErrorPage

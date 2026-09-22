@@ -29,10 +29,9 @@ export function Timeline({
     return (
         <ol className={cn("relative", className)}>
             {items.map((item, index) => {
-                const isLast = index === items.length - 1;
-
                 return (
                     <li
+                        // oxlint-disable-next-line react/no-array-index-key -- generic timeline items have no stable id
                         key={index}
                         className="group/timeline-item relative flex flex-1 flex-col gap-0.5 not-last:pb-6 ms-10"
                         data-slot="timeline-item"

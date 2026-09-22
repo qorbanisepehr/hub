@@ -1,11 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, getRouteApi } from "@tanstack/react-router";
-import {
-    useTable,
-    stockFeatures,
-    type ColumnVisibilityState,
-} from "@tanstack/react-table";
 import { IconPlus, IconUserCog } from "@tabler/icons-react";
 import { toast } from "sonner";
 
@@ -13,12 +8,14 @@ import { Button } from "@/components/ui/button";
 import { deleteRole, fetchRoles, toggleRole } from "@/features/rbac/api";
 import { getRoleColumns } from "@/features/rbac/columns";
 import { getApiError } from "@/lib/error-utils";
-import { PermissionGuard } from "@/features/auth/components/permission-guard";
 import { PERMISSIONS } from "@/lib/permissions";
-import { DataTablePage, DataTableToolbar } from "@/components/data-table";
-import { useTableUrlState } from "@/hooks/use-table-url-state";
+import { DataTablePage } from "@/components/data-table";
+import { ListPageHeader } from "@/components/layout";
+import {
+    useDataTable,
+    useDataTableUrlState,
+} from "@/hooks/use-data-table-page";
 import { roleKeys } from "@/lib/query-keys";
-import { PAGINATION } from "@/lib/constants";
 
 const route = getRouteApi("/protected/roles");
 
@@ -27,69 +24,47 @@ export function RolesPage() {
     const search = route.useSearch();
     const navigate = route.useNavigate();
 
-    const [columnVisibility, setColumnVisibility] =
-        useState<ColumnVisibilityState>({});
-
-    const {
-        sorting,
-        onSortingChange,
-        pagination,
-        onPaginationChange,
-        globalFilter,
-        onGlobalFilterChange,
-        columnFilters,
-        onColumnFiltersChange,
-        ensurePageInRange,
-    } = useTableUrlState({
+    const url = useDataTableUrlState({
         search: search as unknown as Record<string, unknown>,
-        navigate: navigate as never,
-        pagination: {
-            defaultPage: 1,
-            defaultPageSize: PAGINATION.DEFAULT_PAGE_SIZE,
-        },
-        sorting: {
-            sortKey: "sort",
-            orderKey: "order",
-            defaultSort: "display_name",
-            defaultOrder: "asc",
-        },
-        globalFilter: { enabled: true, key: "filter" },
-        columnFilters: [
-            {
-                columnId: "is_active",
-                searchKey: "is_active",
-                type: "string",
-                serialize: (v) =>
-                    v === "true" ? true : v === "false" ? false : undefined,
-                deserialize: (v) =>
-                    typeof v === "boolean" ? (v ? "true" : "false") : v,
+        navigate,
+        urlState: {
+            sorting: {
+                defaultSort: "display_name",
+                defaultOrder: "asc",
             },
-        ],
+            columnFilters: [
+                {
+                    columnId: "is_active",
+                    searchKey: "is_active",
+                    type: "string",
+                    serialize: (v) =>
+                        v === "true" ? true : v === "false" ? false : undefined,
+                    deserialize: (v) =>
+                        typeof v === "boolean" ? (v ? "true" : "false") : v,
+                },
+            ],
+        },
     });
 
-    const activeSort = sorting[0];
-    const activeIsActive = (
-        columnFilters.find((f) => f.id === "is_active")?.value as
-            | string[]
-            | undefined
-    )?.[0];
+    const activeIsActive = url.activeValue("is_active");
+    const { ensurePageInRange } = url;
 
     const { data, isLoading, isError } = useQuery({
         queryKey: roleKeys.list({
-            page: pagination.pageIndex + 1,
-            per_page: pagination.pageSize,
-            sort: activeSort?.id,
-            order: activeSort?.desc ? "desc" : "asc",
-            filter: globalFilter,
+            page: url.pagination.pageIndex + 1,
+            per_page: url.pagination.pageSize,
+            sort: url.activeSort?.id,
+            order: url.activeSort?.desc ? "desc" : "asc",
+            filter: url.globalFilter,
             is_active: activeIsActive,
         }),
         queryFn: async () => {
-            const { data } = await fetchRoles({
-                page: pagination.pageIndex + 1,
-                per_page: pagination.pageSize,
-                sort: activeSort?.id,
-                order: activeSort?.desc ? "desc" : "asc",
-                filter: globalFilter || undefined,
+            const { data: response } = await fetchRoles({
+                page: url.pagination.pageIndex + 1,
+                per_page: url.pagination.pageSize,
+                sort: url.activeSort?.id,
+                order: url.activeSort?.desc ? "desc" : "asc",
+                filter: url.globalFilter || undefined,
                 is_active:
                     activeIsActive === "true"
                         ? true
@@ -97,7 +72,7 @@ export function RolesPage() {
                           ? false
                           : undefined,
             });
-            return data;
+            return response;
         },
     });
 
@@ -133,25 +108,12 @@ export function RolesPage() {
     const tableData = data?.data ?? [];
     const meta = data?.meta;
 
-    const table = useTable({
-        features: stockFeatures,
-        data: tableData,
+    const table = useDataTable({
         columns,
-        state: {
-            sorting,
-            pagination,
-            columnVisibility,
-            columnFilters,
-        },
-        onSortingChange,
-        onPaginationChange,
-        onColumnVisibilityChange: setColumnVisibility,
-        onColumnFiltersChange,
-        manualPagination: true,
-        manualSorting: true,
-        pageCount: meta?.last_page ?? 1,
+        data: tableData,
+        meta,
+        url,
     });
-    // getCoreRowModel: getCoreRowModel(),
 
     useEffect(() => {
         if (!isLoading && meta) {
@@ -169,44 +131,35 @@ export function RolesPage() {
             totalLabel="نقش"
             icon={IconUserCog}
             header={
-                <>
-                    <div>
-                        <h1 className="text-2xl font-bold tracking-tight">
-                            نقش‌ها
-                        </h1>
-                        <p className="text-sm text-muted-foreground mt-1">
-                            مدیریت نقش‌ها و سطوح دسترسی
-                        </p>
-                    </div>
-                    <PermissionGuard permission={PERMISSIONS.ROLE_CREATE}>
-                        <Button
-                            nativeButton={false}
-                            render={<Link to="/roles/create" />}
-                        >
-                            <IconPlus className="size-4" />
-                            نقش جدید
-                        </Button>
-                    </PermissionGuard>
-                </>
-            }
-            toolbar={
-                <DataTableToolbar
-                    table={table}
-                    searchPlaceholder="جستجوی نقش..."
-                    globalFilter={globalFilter}
-                    onGlobalFilterChange={onGlobalFilterChange}
-                    filters={[
+                <ListPageHeader
+                    title="نقش‌ها"
+                    description="مدیریت نقش‌ها و سطوح دسترسی"
+                    actions={[
                         {
-                            columnId: "is_active",
-                            title: "وضعیت",
-                            options: [
-                                { label: "فعال", value: "true" },
-                                { label: "غیرفعال", value: "false" },
-                            ],
+                            label: "نقش جدید",
+                            icon: <IconPlus className="size-4" />,
+                            href: "/roles/create",
+                            permission: PERMISSIONS.ROLE_CREATE,
                         },
                     ]}
                 />
             }
+            searchPlaceholder="جستجوی نقش..."
+            globalFilter={url.globalFilter}
+            onGlobalFilterChange={url.onGlobalFilterChange}
+            columnFilters={url.columnFilters}
+            onColumnFiltersChange={url.onColumnFiltersChange}
+            filterFields={[
+                {
+                    id: "is_active",
+                    label: "وضعیت",
+                    type: "select",
+                    options: [
+                        { label: "فعال", value: "true" },
+                        { label: "غیرفعال", value: "false" },
+                    ],
+                },
+            ]}
             emptyAction={
                 <Button
                     variant="link"

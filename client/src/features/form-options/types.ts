@@ -3,6 +3,7 @@ export type PublicFormOption = {
     label: string;
     parent_value: string | null;
     group_label: string | null;
+    en_name?: string | null;
 };
 
 export type FormOption = PublicFormOption & {

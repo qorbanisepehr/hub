@@ -1,13 +1,10 @@
 import { useEffect, useMemo } from "react";
-import { useStore } from "@tanstack/react-form";
+import { useSelector } from "@tanstack/react-form";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { FormTextField, FormDatePicker } from "@/components/forms";
-import {
-    PlaceFields,
-    FormOptionRadioGroup,
-} from "@/components/forms";
+import { PlaceFields, FormOptionRadioGroup } from "@/components/forms";
 import { FileUploadField } from "@/components/documents";
 import { useFormOptionsByGroup } from "@/features/form-options/hooks/use-form-options";
 import { buildPersonalInfoSchemas } from "@/features/cv/schemas/personal-info.schema";
@@ -29,8 +26,16 @@ type SectionProps = {
     onDefaultsSynced?: (values: unknown) => void;
 };
 
-export function PersonalInfoSection({ form, cv, uuid, onDefaultsSynced }: SectionProps) {
-    const gender = useStore(form.store, (s) => s.values.personal_info?.gender);
+export function PersonalInfoSection({
+    form,
+    cv,
+    uuid,
+    onDefaultsSynced,
+}: SectionProps) {
+    const gender = useSelector(
+        form.store,
+        (s) => s.values.personal_info?.gender,
+    );
 
     const isMale = gender === GENDER_MALE;
 
@@ -72,7 +77,9 @@ export function PersonalInfoSection({ form, cv, uuid, onDefaultsSynced }: Sectio
             gender === GENDER_FEMALE &&
             form.state.values.personal_info?.military_status
         ) {
-            form.setFieldValue("personal_info.military_status", undefined, { dontUpdateMeta: true });
+            form.setFieldValue("personal_info.military_status", undefined, {
+                dontUpdateMeta: true,
+            });
         } else if (
             gender === GENDER_MALE &&
             !form.state.values.personal_info?.military_status
@@ -85,8 +92,15 @@ export function PersonalInfoSection({ form, cv, uuid, onDefaultsSynced }: Sectio
                 reason: "",
             };
             const current = form.state.values.personal_info?.military_status;
-            if (!current || JSON.stringify(current) !== JSON.stringify(defaultValue)) {
-                form.setFieldValue("personal_info.military_status", defaultValue, { dontUpdateMeta: true });
+            if (
+                !current ||
+                JSON.stringify(current) !== JSON.stringify(defaultValue)
+            ) {
+                form.setFieldValue(
+                    "personal_info.military_status",
+                    defaultValue,
+                    { dontUpdateMeta: true },
+                );
             }
         }
     }, [gender, form]);
@@ -102,7 +116,11 @@ export function PersonalInfoSection({ form, cv, uuid, onDefaultsSynced }: Sectio
                 <CardContent className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         {Array.from({ length: 3 }).map((_, i) => (
-                            <div key={i} className="space-y-2">
+                            <div
+                                // oxlint-disable-next-line react/no-array-index-key -- static skeleton placeholders
+                                key={i}
+                                className="space-y-2"
+                            >
                                 <Skeleton className="h-4 w-20" />
                                 <Skeleton className="h-10 w-full" />
                             </div>
@@ -110,7 +128,11 @@ export function PersonalInfoSection({ form, cv, uuid, onDefaultsSynced }: Sectio
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {Array.from({ length: 2 }).map((_, i) => (
-                            <div key={i} className="space-y-2">
+                            <div
+                                // oxlint-disable-next-line react/no-array-index-key -- static skeleton placeholders
+                                key={i}
+                                className="space-y-2"
+                            >
                                 <Skeleton className="h-4 w-20" />
                                 <Skeleton className="h-10 w-full" />
                             </div>
@@ -118,7 +140,11 @@ export function PersonalInfoSection({ form, cv, uuid, onDefaultsSynced }: Sectio
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                         {Array.from({ length: 3 }).map((_, i) => (
-                            <div key={i} className="space-y-2">
+                            <div
+                                // oxlint-disable-next-line react/no-array-index-key -- static skeleton placeholders
+                                key={i}
+                                className="space-y-2"
+                            >
                                 <Skeleton className="h-4 w-20" />
                                 <Skeleton className="h-10 w-full" />
                             </div>

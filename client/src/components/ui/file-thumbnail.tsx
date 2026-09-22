@@ -1,8 +1,9 @@
-import { IconEye, IconLoader2 } from "@tabler/icons-react";
+import { IconEye, IconLoader2, IconPhotoCancel } from "@tabler/icons-react";
 import * as React from "react";
 
 import { getFileColorClasses, getFileIcon } from "@/lib/file-utils";
 import { cn } from "@/lib/utils";
+import { EmptyState } from "../layout";
 
 export type ThumbnailFile = {
     name: string;
@@ -88,7 +89,11 @@ export function FileThumbnail({
                             : undefined
                     }
                 >
-                    <SkeletonLoader />
+                    <EmptyState
+                        variant="compact"
+                        message="..."
+                        icon={IconPhotoCancel}
+                    />
                 </div>
             </div>
         );

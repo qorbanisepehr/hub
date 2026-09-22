@@ -56,10 +56,7 @@ export function buildPersonalInfoSchemas(options: PersonalInfoOptions) {
         "وضعیت خدمت الزامی است.",
     );
     const religion = optionEnum(options.religion, "دین الزامی است.");
-    const religionSect = optionEnumOptional(
-        options.religion_sect,
-        "مذهب الزامی است.",
-    );
+    const religionSect = optionEnum(options.religion_sect, "مذهب الزامی است.");
     const birthPlace = placeEnum(
         options.province,
         options.birth_place,

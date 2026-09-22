@@ -92,9 +92,13 @@ abstract class SectionService extends SectionRegistry
      * (Employee); Cv and Questionnaire override to preserve their own semantics
      * (Cv re-commits email/mobile, Qn reads JSONB only).
      *
+     * Public so export/import pipelines (e.g. EmployeeExporter) reuse the
+     * exact per-section payload the completion validator sees — the single
+     * source of the section data shape.
+     *
      * @return array<string, mixed>
      */
-    protected function gatherAllData(mixed $entity): array
+    public function gatherAllData(mixed $entity): array
     {
         $data = [];
 

@@ -1,5 +1,4 @@
 import { useCallback, useMemo } from "react";
-import { toast } from "sonner";
 import {
     IconLoader2,
     IconChecks,
@@ -23,7 +22,12 @@ import {
     StepperPanel,
     StepperContent,
 } from "@/components/reui/stepper";
-import { useWizardState, useWizardSubmit, SubmitErrors } from "@/components/wizards";
+import {
+    useWizardState,
+    useWizardSubmit,
+    SubmitErrors,
+    StepperNavResponsive,
+} from "@/components/wizards";
 import {
     saveQuestionnaireSection,
     submitQuestionnaire,
@@ -244,7 +248,12 @@ detailQueryKey: () => questionnaireKeys.detail(questionnaire.uuid),
             />
 
             <Stepper value={currentStep} onValueChange={goToStep}>
-                <StepperNav className="mb-4 gap-5">
+                <StepperNavResponsive
+                    steps={WIZARD_STEPS}
+                    value={currentStep}
+                    onValueChange={goToStep}
+                >
+                    <StepperNav className="mb-4 gap-5">
                     {WIZARD_STEPS.map((step, index) => (
                         <StepperItem
                             key={step.id}
@@ -265,6 +274,7 @@ detailQueryKey: () => questionnaireKeys.detail(questionnaire.uuid),
                         </StepperItem>
                     ))}
                 </StepperNav>
+                </StepperNavResponsive>
 
                 <StepperPanel>
                     <StepperContent index={0}>

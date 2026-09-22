@@ -1,0 +1,49 @@
+{
+    "$schema": "./node_modules/oxlint/configuration_schema.json",
+    "plugins": ["typescript", "react", "react-hooks", "unicorn", "oxc"],
+    "categories": {
+        "correctness": "error",
+        "perf": "warn",
+        "suspicious": "warn"
+    },
+    "rules": {
+        "no-explicit-any": "error",
+        "no-unused-vars": [
+            "error",
+            {
+                "argsIgnorePattern": "^_",
+                "varsIgnorePattern": "^_"
+            }
+        ],
+        "no-shadow": "error",
+        "no-array-sort": "error",
+        "no-array-reverse": "error",
+        "no-unneeded-ternary": "error",
+        "no-await-in-loop": "error",
+        "prefer-add-event-listener": "error",
+        "consistent-function-scoping": "error",
+        "react-in-jsx-scope": "off",
+        "refs": "off",
+        "set-state-in-effect": "off",
+        "no-unstable-nested-components": [
+            "warn",
+            {
+                "allowAsProps": true
+            }
+        ],
+        "exhaustive-deps": "warn"
+    },
+    "settings": {},
+    "env": {
+        "browser": true,
+        "builtin": true
+    },
+    "globals": {},
+    "ignorePatterns": [
+        "node_modules/",
+        "client/src/components/ui/**",
+        "client/src/components/reui/**",
+        "resources/**",
+        "public/**"
+    ]
+}

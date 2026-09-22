@@ -224,7 +224,7 @@ export const EMPLOYEE_DOC_REQUIREMENTS: DocumentRequirementSpec[] = [
         requiredFields: [
             { fieldKey: "page-1", label: "صفحه اول" },
             { fieldKey: "page-2", label: "صفحه دوم" },
-            { fieldKey: "page-3", label: "صفحه آخر" },
+            { fieldKey: "page-3", label: "صفحه سوم" },
             { fieldKey: "page-4", label: "صفحه چهارم" },
         ],
     },

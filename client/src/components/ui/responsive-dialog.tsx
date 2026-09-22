@@ -1,6 +1,6 @@
 import * as React from "react";
 
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import {
     Drawer,
     DrawerContent,
@@ -8,6 +8,7 @@ import {
     DrawerFooter,
     DrawerHeader,
     DrawerTitle,
+    DrawerTrigger,
 } from "@/components/ui/drawer";
 import { useMediaQuery } from "@/hooks/use-media-query";
 
@@ -18,6 +19,8 @@ type ResponsiveDialogProps = {
     description?: React.ReactNode;
     /** Header-level actions (menus, buttons) aligned with the title row. */
     actions?: React.ReactNode;
+    /** Optional controlled trigger element rendered for both dialog and drawer. */
+    trigger?: React.ReactElement;
     children: React.ReactNode;
     footer?: React.ReactNode;
 };
@@ -28,6 +31,7 @@ export function ResponsiveDialog({
     title,
     description,
     actions,
+    trigger,
     children,
     footer,
 }: ResponsiveDialogProps) {
@@ -36,6 +40,7 @@ export function ResponsiveDialog({
     if (isDesktop) {
         return (
             <Dialog open={open} onOpenChange={onOpenChange}>
+                {trigger && <DialogTrigger render={trigger} />}
                 <DialogContent
                     showCloseButton
                     className="flex max-h-[85dvh] flex-col gap-0 overflow-clip p-0 sm:max-w-lg"
@@ -75,6 +80,7 @@ export function ResponsiveDialog({
 
     return (
         <Drawer open={open} onOpenChange={onOpenChange}>
+            {trigger && <DrawerTrigger render={trigger} />}
             <DrawerContent className="flex max-h-[85dvh] flex-col">
                 <DrawerHeader className="flex items-start gap-2">
                     <div className="min-w-0 flex-1">

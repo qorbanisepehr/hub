@@ -160,6 +160,7 @@ export function DocumentTrashTable({
 
     const table = useTable({
         features: stockFeatures,
+        enableColumnPinning: true,
         data: documents,
         columns,
         // getCoreRowModel: getCoreRowModel(),

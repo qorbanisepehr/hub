@@ -61,6 +61,10 @@ function sectionValue(
     return (values[key] as Record<string, unknown> | undefined) ?? {};
 }
 
+function sectionLabel(key: string): string {
+    return EMPLOYEE_SECTIONS.find((section) => section.key === key)?.label ?? "";
+}
+
 export function EmployeeReviewSection({
     form,
     employee,
@@ -141,8 +145,7 @@ export function EmployeeReviewSection({
 
     const edit = (key: string) => () => onNavigateToSection(key);
 
-    const label = (key: string) =>
-        EMPLOYEE_SECTIONS.find((section) => section.key === key)?.label ?? "";
+
 
     return (
         <div className="space-y-4">
@@ -157,7 +160,7 @@ export function EmployeeReviewSection({
 
             <PersonalInfoView
                 data={toPersonalInfoPayload(values)}
-                title={label("personal_info")}
+                title={sectionLabel("personal_info")}
                 action={<SectionEditButton onClick={edit("personal_info")} />}
                 extra={
                     <QuestionnaireDocumentPreview
@@ -170,14 +173,14 @@ export function EmployeeReviewSection({
 
             <ContactInfoView
                 data={toContactInfoPayload(values)}
-                title={label("contact_info")}
+                title={sectionLabel("contact_info")}
                 action={<SectionEditButton onClick={edit("contact_info")} />}
             />
 
             <EmploymentInfoView
                 data={toEmploymentPayload(values)}
                 user={employee.user}
-                title={label("employment")}
+                title={sectionLabel("employment")}
                 action={<SectionEditButton onClick={edit("employment")} />}
                 extra={
                     <QuestionnaireDocumentPreview
@@ -190,7 +193,7 @@ export function EmployeeReviewSection({
 
             <EducationView
                 data={sectionValue(values, "education")}
-                title={label("education")}
+                title={sectionLabel("education")}
                 action={<SectionEditButton onClick={edit("education")} />}
                 missingFor={educationMissing}
                 docsFor={(index) =>
@@ -211,7 +214,7 @@ export function EmployeeReviewSection({
             <SocialInsuranceView
                 employee={employee}
                 data={toSocialInsurancePayload(values)}
-                title={label("social_insurance")}
+                title={sectionLabel("social_insurance")}
                 action={
                     <SectionEditButton onClick={edit("social_insurance")} />
                 }
@@ -227,7 +230,7 @@ export function EmployeeReviewSection({
             <ContractsView
                 employee={employee}
                 data={sectionValue(values, "contracts")}
-                title={label("contracts")}
+                title={sectionLabel("contracts")}
                 action={<SectionEditButton onClick={edit("contracts")} />}
                 extra={
                     <QuestionnaireDocumentPreview
@@ -241,7 +244,7 @@ export function EmployeeReviewSection({
             <FinancialView
                 employee={employee}
                 data={sectionValue(values, "financial")}
-                title={label("financial")}
+                title={sectionLabel("financial")}
                 action={<SectionEditButton onClick={edit("financial")} />}
                 extra={
                     <QuestionnaireDocumentPreview
@@ -255,7 +258,7 @@ export function EmployeeReviewSection({
             <SupplementaryInsuranceView
                 employee={employee}
                 data={sectionValue(values, "supplementary_insurance")}
-                title={label("supplementary_insurance")}
+                title={sectionLabel("supplementary_insurance")}
                 action={
                     <SectionEditButton
                         onClick={edit("supplementary_insurance")}
@@ -273,14 +276,14 @@ export function EmployeeReviewSection({
             <DependentsView
                 employee={employee}
                 data={toDependentsPayload(values)}
-                title={label("dependents")}
+                title={sectionLabel("dependents")}
                 action={<SectionEditButton onClick={edit("dependents")} />}
             />
 
             <DocumentInquiriesView
                 employee={employee}
                 data={sectionValue(values, "document_inquiries")}
-                title={label("document_inquiries")}
+                title={sectionLabel("document_inquiries")}
                 action={
                     <SectionEditButton onClick={edit("document_inquiries")} />
                 }
@@ -288,7 +291,7 @@ export function EmployeeReviewSection({
 
             <WorkExperienceView
 data={sectionValue(values, "work_experience")}
-            title={label("work_experience")}
+            title={sectionLabel("work_experience")}
             action={
                 <SectionEditButton onClick={edit("work_experience")} />
             }
@@ -309,7 +312,7 @@ data={sectionValue(values, "work_experience")}
 
             <SkillsView
                 data={sectionValue(values, "skills")}
-                title={label("skills")}
+                title={sectionLabel("skills")}
                 action={<SectionEditButton onClick={edit("skills")} />}
                 extra={
                     <QuestionnaireDocumentPreview
@@ -322,7 +325,7 @@ data={sectionValue(values, "work_experience")}
 
             <TrainingView
                 data={sectionValue(values, "training")}
-                title={label("training")}
+                title={sectionLabel("training")}
                 action={<SectionEditButton onClick={edit("training")} />}
                 extra={
                     <QuestionnaireDocumentPreview
@@ -335,7 +338,7 @@ data={sectionValue(values, "work_experience")}
 
             <AdditionalInfoView
                 data={sectionValue(values, "additional_info")}
-                title={label("additional_info")}
+                title={sectionLabel("additional_info")}
                 action={
                     <SectionEditButton onClick={edit("additional_info")} />
                 }

@@ -17,9 +17,11 @@ type FormValidationSummaryProps = {
     steps?: readonly ValidationStep[];
 };
 
+const EMPTY_DOC_MESSAGES: string[] = [];
+
 export function FormValidationSummary({
     groups,
-    docMessages = [],
+    docMessages = EMPTY_DOC_MESSAGES,
     onNavigateToStep,
     steps,
 }: FormValidationSummaryProps) {
@@ -67,6 +69,7 @@ export function FormValidationSummary({
                         </div>
                         <ul className="space-y-1 list-disc ms-5 text-sm text-destructive">
                             {group.items.map((item, i) => (
+                                // oxlint-disable-next-line react/no-array-index-key -- error list is fully rebuilt from validation state each render
                                 <li key={i} className="text-pretty">
                                     <span className="font-medium">
                                         {describeField(item.fieldName)}:
@@ -101,6 +104,7 @@ export function FormValidationSummary({
                         </div>
                         <ul className="space-y-1 list-disc ms-5 text-sm text-destructive">
                             {docMessages.map((message, i) => (
+                                // oxlint-disable-next-line react/no-array-index-key -- error list is fully rebuilt from validation state each render
                                 <li key={i}>{message}</li>
                             ))}
                         </ul>

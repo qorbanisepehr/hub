@@ -8,7 +8,11 @@ import {
     FormRepeater,
     FormTextField,
 } from "@/components/forms";
-import { FileUploadField, MissingDocsBadge, RowDocsPanel } from "@/components/documents";
+import {
+    FileUploadField,
+    MissingDocsBadge,
+    RowDocsPanel,
+} from "@/components/documents";
 import type { MissingRowDoc } from "@/features/documents/docs-feedback";
 import { dependentRowLabel } from "@/features/employees/dependents-docs";
 import { useDependentDocsFeedback } from "@/features/employees/hooks/use-dependent-docs-feedback";
@@ -52,13 +56,16 @@ function DependentRowFields({
     missing: MissingRowDoc[];
     docsLoading: boolean;
 }) {
-    const row = useSelector(
-        form.store,
-        (state) =>
-            ((state.values as Record<string, unknown>)
-                ?.dependents as Record<string, unknown> | undefined)
-                ?.dependents as DependentRow[] | undefined,
-    )?.[index] ?? {};
+    const row =
+        useSelector(
+            form.store,
+            (state) =>
+                (
+                    (state.values as Record<string, unknown>)?.dependents as
+                        | Record<string, unknown>
+                        | undefined
+                )?.dependents as DependentRow[] | undefined,
+        )?.[index] ?? {};
 
     const relationshipType =
         typeof row?.relationship_type === "string" ? row.relationship_type : "";
@@ -106,37 +113,21 @@ function DependentRowFields({
                     </form.Field>
                 )}
 
-                <form.Field
-                    name={`dependents.dependents.${index}.first_name`}
-                >
+                <form.Field name={`dependents.dependents.${index}.first_name`}>
+                    {(f) => <FormTextField field={f} label="نام" />}
+                </form.Field>
+
+                <form.Field name={`dependents.dependents.${index}.last_name`}>
+                    {(f) => <FormTextField field={f} label="نام خانوادگی" />}
+                </form.Field>
+
+                <form.Field name={`dependents.dependents.${index}.id_number`}>
                     {(f) => (
-                        <FormTextField field={f} label="نام" />
+                        <FormTextField field={f} label="کد ملی" dir="ltr" />
                     )}
                 </form.Field>
 
-                <form.Field
-                    name={`dependents.dependents.${index}.last_name`}
-                >
-                    {(f) => (
-                        <FormTextField field={f} label="نام خانوادگی" />
-                    )}
-                </form.Field>
-
-                <form.Field
-                    name={`dependents.dependents.${index}.id_number`}
-                >
-                    {(f) => (
-                        <FormTextField
-                            field={f}
-                            label="کد ملی"
-                            dir="ltr"
-                        />
-                    )}
-                </form.Field>
-
-                <form.Field
-                    name={`dependents.dependents.${index}.gender`}
-                >
+                <form.Field name={`dependents.dependents.${index}.gender`}>
                     {(f) => (
                         <FormOptionSelectField
                             field={f}
@@ -151,12 +142,8 @@ function DependentRowFields({
                     )}
                 </form.Field>
 
-                <form.Field
-                    name={`dependents.dependents.${index}.birth_date`}
-                >
-                    {(f) => (
-                        <FormDatePicker field={f} label="تاریخ تولد" />
-                    )}
+                <form.Field name={`dependents.dependents.${index}.birth_date`}>
+                    {(f) => <FormDatePicker field={f} label="تاریخ تولد" />}
                 </form.Field>
 
                 {relationshipType === "spouse" && (
@@ -164,17 +151,18 @@ function DependentRowFields({
                         name={`dependents.dependents.${index}.marriage_date`}
                     >
                         {(f) => (
-                            <FormDatePicker
-                                field={f}
-                                label="تاریخ ازدواج"
-                            />
+                            <FormDatePicker field={f} label="تاریخ ازدواج" />
                         )}
                     </form.Field>
                 )}
             </div>
 
             <RowDocsPanel
-                title="مدارک این وابسته"
+                title={
+                    `${row.first_name ?? ""} ${row.last_name ?? ""}`.trim()
+                        ? `مدارک ${`${row.first_name ?? ""} ${row.last_name ?? ""}`.trim()}`
+                        : "مدارک این وابسته"
+                }
                 isLoading={docsLoading}
                 missing={missing}
             >
@@ -183,7 +171,7 @@ function DependentRowFields({
                     entity="employees"
                     categorySlug="national-card"
                     label="کارت ملی"
-                    variant="card"
+                    variant="default"
                     multiple
                     fieldKey={`dependent-${index}`}
                     sectionKey="dependents"
@@ -193,7 +181,7 @@ function DependentRowFields({
                     entity="employees"
                     categorySlug="birth-certificate"
                     label="شناسنامه"
-                    variant="card"
+                    variant="default"
                     multiple
                     fieldKey={`dependent-${index}`}
                     sectionKey="dependents"
@@ -210,8 +198,11 @@ function DependentRowFields({
  * endpoint, never hardcoded here.
  */
 export function DependentsSection({ form, uuid, onPersist }: SectionProps) {
-    const { isLoading: docsLoading, relationshipOptions, getMissing } =
-        useDependentDocsFeedback(uuid, []);
+    const {
+        isLoading: docsLoading,
+        relationshipOptions,
+        getMissing,
+    } = useDependentDocsFeedback(uuid, []);
 
     return (
         <Card>
@@ -231,7 +222,11 @@ export function DependentsSection({ form, uuid, onPersist }: SectionProps) {
                                 { key: "first_name", label: "نام" },
                                 { key: "last_name", label: "نام خانوادگی" },
                                 { key: "id_number", label: "کد ملی" },
-                                { key: "birth_date", label: "تاریخ تولد", type: "date" },
+                                {
+                                    key: "birth_date",
+                                    label: "تاریخ تولد",
+                                    type: "date",
+                                },
                                 {
                                     key: "_docs_status",
                                     label: "وضعیت مدارک",

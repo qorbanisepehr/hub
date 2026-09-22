@@ -3,6 +3,7 @@
 namespace App\Domains\Employee\Controllers;
 
 use App\Contracts\Authorization;
+use App\Domains\Employee\Exports\EmployeeExporter;
 use App\Domains\Employee\Models\Employee;
 use App\Domains\Employee\Requests\SaveEmployeeSectionRequest;
 use App\Domains\Employee\Requests\StoreEmployeeRequest;
@@ -10,28 +11,50 @@ use App\Domains\Employee\Requests\SubmitEmployeeRequest;
 use App\Domains\Employee\Requests\UpdateEmployeeRequest;
 use App\Domains\Employee\Resources\EmployeeResource;
 use App\Domains\Employee\Services\EmployeeService;
+use App\Support\Exports\ExportService;
+use App\Support\Exports\Value\ExportFile;
+use App\Support\Exports\Value\ExportRequest;
+use App\Support\Exports\Value\PresentationOptions;
 use App\Support\ListQuery;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Symfony\Component\HttpFoundation\StreamedResponse as SymfonyStreamedResponse;
 
 class EmployeeController
 {
-    /** @var array<string, string> */
-    private array $sortable = [
-        'personnel_code' => 'personnel_code',
-        'first_name' => 'first_name',
-        'last_name' => 'last_name',
-        'gender' => 'gender',
-        'employment_status' => 'employment_status',
-        'hire_date' => 'hire_date',
-        'created_at' => 'created_at',
+    private const SORTABLE = [
+        'personnel_code',
+        'first_name',
+        'full_name',
+        'last_name',
+        'gender',
+        'employment_status',
+        'hire_date',
+        'created_at',
+    ];
+
+    private const SEARCHABLE = [
+        'personnel_code',
+        'first_name',
+        'last_name',
     ];
 
     public function __construct(
         private EmployeeService $employeeService,
         private Authorization $authorization,
+        private ExportService $exports,
     ) {}
+
+    /**
+     * The UI sorts the combined name column under one id; the database sorts
+     * by the leading first name.
+     */
+    private function sortColumn(string $id): string
+    {
+        return $id === 'full_name' ? 'first_name' : $id;
+    }
 
     public function index(Request $request): AnonymousResourceCollection
     {
@@ -39,25 +62,83 @@ class EmployeeController
 
         $this->authorization->scope($request->user(), 'employee.list', $query);
 
-        if ($filter = ListQuery::filter($request)) {
-            $query->where(function ($q) use ($filter) {
-                $q->where('personnel_code', 'like', "%{$filter}%")
-                    ->orWhere('first_name', 'like', "%{$filter}%")
-                    ->orWhere('last_name', 'like', "%{$filter}%");
-            });
-        }
+        ListQuery::search($query, ListQuery::filter($request), self::SEARCHABLE);
 
         if ($request->filled('status')) {
             $query->where('employment_status', $request->input('status'));
         }
 
-        $sortField = ListQuery::sort($request, default: 'personnel_code');
-        $sortDirection = ListQuery::order($request);
-        $query->orderBy($this->sortable[$sortField] ?? 'created_at', $sortDirection);
+        if ($request->filled('status_not')) {
+            $query->where('employment_status', '!=', $request->input('status_not'));
+        }
+
+        $query->orderBy(
+            $this->sortColumn(ListQuery::sort($request, self::SORTABLE, 'personnel_code')),
+            ListQuery::order($request),
+        );
 
         $employees = $query->paginate(ListQuery::perPage($request));
 
         return EmployeeResource::collection($employees);
+    }
+
+    /**
+     * Field catalog for the export dialog picker — same payload shape the
+     * role-chart fields endpoint publishes, so one client picker serves both.
+     */
+    public function exportFields(): JsonResponse
+    {
+        $fields = collect($this->employeeService->exporter($this->baseQuery())->columns())
+            ->map(fn ($column) => $column->toArray())
+            ->values();
+
+        return response()->json(['data' => $fields]);
+    }
+
+    /**
+     * Fill-and-import template: the exporter's default columns, no data
+     * rows, plus the `_meta` sheet when the format can host one.
+     */
+    public function exportTemplate(Request $request): SymfonyStreamedResponse
+    {
+        $format = $request->query('format', 'xlsx');
+
+        if (! in_array($format, ['xlsx', 'csv'], true)) {
+            return response()->json(['message' => __('authorization.format_not_supported')], 422);
+        }
+
+        $file = $this->exports->template(
+            $this->employeeService->exporter($this->baseQuery()),
+            new ExportRequest(format: $format, options: EmployeeExporter::defaultOptions($format)),
+        );
+
+        return $this->streamFile($file);
+    }
+
+    /**
+     * Streamed employee export. The query is scoped by the same rules as
+     * index() and honors the same status filter, so the export never shows
+     * more than the list the user is allowed to see.
+     */
+    public function export(Request $request): SymfonyStreamedResponse|JsonResponse
+    {
+        $format = $request->query('format', 'xlsx');
+
+        if (! in_array($format, ['xlsx', 'csv'], true)) {
+            return response()->json(['message' => __('authorization.format_not_supported')], 422);
+        }
+
+        $file = $this->exports->run(
+            $this->employeeService->exporter($this->scopedQuery($request)),
+            new ExportRequest(
+                fields: EmployeeController::fieldsFromQuery($request),
+                format: $format,
+                options: EmployeeExporter::defaultOptions($format),
+                presentation: EmployeeController::presentationFromQuery($request),
+            ),
+        );
+
+        return $this->streamFile($file);
     }
 
     public function store(StoreEmployeeRequest $request): EmployeeResource
@@ -123,6 +204,81 @@ class EmployeeController
         $this->employeeService->delete($employee);
 
         return response()->json(['message' => __('employee.deleted')]);
+    }
+
+    /**
+     * The export base query — nothing attached yet. Exporters get their own
+     * scope from the caller; see scopedQuery() and exporter().
+     */
+    private function baseQuery(): Builder
+    {
+        return Employee::query();
+    }
+
+    /**
+     * Query with the exact visibility of index(): the same authorization
+     * scope and the same employment-status filter, so an export never
+     * exceeds what the user may list.
+     */
+    private function scopedQuery(Request $request): Builder
+    {
+        $query = $this->baseQuery();
+
+        $this->authorization->scope($request->user(), 'employee.list', $query);
+
+        if ($request->filled('status')) {
+            $query->where('employment_status', $request->input('status'));
+        }
+
+        if ($request->filled('status_not')) {
+            $query->where('employment_status', '!=', $request->input('status_not'));
+        }
+
+        return $query;
+    }
+
+    /**
+     * Stream an ExportFile as a download response.
+     */
+    private function streamFile(ExportFile $file): SymfonyStreamedResponse
+    {
+        return response()->streamDownload(function () use ($file): void {
+            $stream = fopen('php://output', 'w');
+            $file->copyTo($stream);
+        }, $this->exports->dispositionFilename($file), [
+            'Content-Type' => $file->mimeType,
+            'Cache-Control' => 'no-store',
+        ]);
+    }
+
+    /**
+     * Comma-separated `fields` query param → list<string> for ExportRequest.
+     */
+    private static function fieldsFromQuery(Request $request): array
+    {
+        return array_values(array_filter(array_map(
+            'trim',
+            explode(',', (string) $request->query('fields', '')),
+        )));
+    }
+
+    /**
+     * Presentation query params → PresentationOptions. Whitelisted so a
+     * stray query value degrades to the default (machine) form instead of
+     * erroring.
+     */
+    private static function presentationFromQuery(Request $request): PresentationOptions
+    {
+        $headers = $request->query('headers');
+        $calendar = $request->query('calendar');
+        $digits = $request->query('digits');
+
+        return new PresentationOptions(
+            headers: in_array($headers, ['key', 'label'], true) ? $headers : 'key',
+            calendar: in_array($calendar, ['gregorian', 'persian', 'both'], true) ? $calendar : 'gregorian',
+            digits: $digits === 'persian' ? 'persian' : 'latin',
+            detailSheets: $request->boolean('details'),
+        );
     }
 
     /**

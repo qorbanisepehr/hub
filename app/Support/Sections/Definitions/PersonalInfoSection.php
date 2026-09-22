@@ -45,22 +45,25 @@ abstract class PersonalInfoSection extends BaseSection
         return [
             'national-card' => [
                 'required' => true,
+                // max_files is a PER-PLACEMENT cap (one file per field_key):
+                // one file for 'front' and one for 'back'.
                 'max_files' => 1,
                 'field_keys' => ['front', 'back'],
             ],
             'birth-certificate' => [
                 'required' => true,
+                // PER-PLACEMENT cap: one file per page slot. field_keys lists
+                // every known placement (the fifth page slot is uploadable
+                // but optional); required_field_keys: the four mandatory
+                // pages enforced at submit.
                 'max_files' => 1,
-                // field_keys: every known placement (the extra page slot is
-                // uploadable but optional); required_field_keys: the four
-                // mandatory pages enforced at submit.
                 'field_keys' => ['page-1', 'page-2', 'page-3', 'page-4', 'page-extra'],
                 'required_field_keys' => ['page-1', 'page-2', 'page-3', 'page-4'],
             ],
             'personnel-photo' => [
                 'required' => true,
                 'max_files' => 1,
-                'min_file_size' => 20 * 1024,        // 20KB
+                'min_file_size' => 10 * 1024,        // 10KB
                 'max_file_size' => 500 * 1024,       // 500KB
                 'mime_types' => ['image/jpeg', 'image/png', 'image/webp'],
                 'dimensions' => [

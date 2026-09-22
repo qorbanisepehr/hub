@@ -38,7 +38,7 @@ return [
     'access_denied' => 'دسترسی غیرمجاز یا منقضی‌شده است.',
     'documents' => [
         'missing' => 'بارگذاری «:document» الزامی است.',
-        'max_files_reached' => 'حداکثر :count فایل برای این دسته مجاز است.',
+        'max_files_reached' => 'حداکثر :count مورد برای این دسته مجاز است.',
         'total_max_files_reached' => 'حداکثر :count فایل مجاز است.',
     ],
 ];

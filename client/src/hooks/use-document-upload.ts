@@ -87,8 +87,16 @@ export function useDocumentUpload({
 
     const handleFiles = useCallback(
         async (fileList: File[]) => {
-            for (const file of fileList) {
-                const errors = await validateFile(file);
+            // Validate in parallel first, then fire uploads — the outcome is
+            // the same as validating one-by-one, but multi-file picks don't
+            // serialize image decoding.
+            const validated = await Promise.all(
+                fileList.map(async (file) => ({
+                    file,
+                    errors: await validateFile(file),
+                })),
+            );
+            for (const { file, errors } of validated) {
                 if (errors.length > 0) {
                     toast.error(errors[0]);
                     continue;

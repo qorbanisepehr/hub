@@ -2,6 +2,7 @@ import { Fragment, useState, type ReactNode } from "react";
 import { IconChevronDown, IconChevronRight } from "@tabler/icons-react";
 
 import { Button } from "@/components/ui/button";
+import { RepeaterEmptyState } from "./repeater-empty-state";
 
 function asRecord(value: unknown): Record<string, unknown> {
     return value && typeof value === "object"
@@ -36,6 +37,10 @@ type SectionRepeaterTableProps = {
     ) => ReactNode;
 };
 
+function cellValue(value: unknown): ReactNode {
+    return value === null || value === undefined || value === "" ? "-" : (value as ReactNode);
+}
+
 export function SectionRepeaterTable({
     items,
     columns,
@@ -46,10 +51,8 @@ export function SectionRepeaterTable({
 
     const list = Array.isArray(items) ? items.map(asRecord) : [];
     if (list.length === 0) {
-        return <p className="text-sm text-muted-foreground">{emptyLabel}</p>;
+        return <RepeaterEmptyState message={emptyLabel} />;
     }
-    const cellValue = (value: unknown): ReactNode =>
-        value === null || value === undefined || value === "" ? "-" : (value as ReactNode);
     const colCount = columns.length + (renderExpandedRow ? 1 : 0);
 
     return (
@@ -72,7 +75,10 @@ export function SectionRepeaterTable({
                 </thead>
                 <tbody>
                     {list.map((item, index) => (
-                        <Fragment key={index}>
+                        <Fragment
+                            // oxlint-disable-next-line react/no-array-index-key -- rows are positional; read-only display table
+                            key={index}
+                        >
                             <tr className="border-b last:border-b-0">
                                 {renderExpandedRow && (
                                     <td className="px-3 py-2">

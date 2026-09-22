@@ -13,6 +13,12 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::get('employees', [EmployeeController::class, 'index'])
         ->middleware('permission:employee.list');
+    Route::get('employees/export/fields', [EmployeeController::class, 'exportFields'])
+        ->middleware('permission:employee.export');
+    Route::get('employees/export-template', [EmployeeController::class, 'exportTemplate'])
+        ->middleware('permission:employee.export');
+    Route::get('employees/export', [EmployeeController::class, 'export'])
+        ->middleware('permission:employee.export');
     Route::get('employees/document-requirements', [EmployeeDocumentController::class, 'requirements'])
         ->middleware('permission:employee.list');
     Route::post('employees', [EmployeeController::class, 'store'])

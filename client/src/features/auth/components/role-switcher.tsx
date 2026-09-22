@@ -9,6 +9,7 @@ import {
     CardTitle,
     CardDescription,
 } from "@/components/ui/card";
+import { EmptyState } from "@/components/layout";
 import { useAuth } from "@/features/auth";
 import { authKeys } from "@/lib/query-keys";
 import { switchActiveRole } from "@/features/auth/api";
@@ -41,9 +42,11 @@ export function RoleSwitcher() {
                     </CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <p className="text-sm text-muted-foreground text-center py-4">
-                        هیچ نقشی تخصیص داده شده است
-                    </p>
+                    <EmptyState
+                        icon={IconMasksTheater}
+                        message="هیچ نقشی تخصیص داده شده است"
+                        variant="compact"
+                    />
                 </CardContent>
             </Card>
         );

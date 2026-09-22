@@ -1,9 +1,11 @@
 export { AccessGate } from './access-gate';
+export { ActiveBadge } from './active-badge';
 export { AvatarUpload } from './avatar-upload';
 export { BaseDropzone } from './base-dropzone';
+export { ExportDialog } from './export-dialog';
 export { ImageUpload } from './image-upload';
-export { InfoRow } from './info-row';
 export { QrCode } from './qr-code';
+export { RepeaterEmptyState } from './repeater-empty-state';
 export { RowActions } from './row-actions';
 export { SearchSelectModal } from './search-select-modal';
 export { SectionRepeaterTable } from './section-repeater-table';

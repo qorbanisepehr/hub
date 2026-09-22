@@ -3,32 +3,40 @@
 namespace App\Domains\Authorization\Controllers;
 
 use App\Contracts\Authorization;
-use App\Domains\Authorization\Exports\RoleChartCsvExporter;
+use App\Domains\Authorization\Exports\RoleChartExporter;
 use App\Domains\Authorization\Models\Role;
 use App\Domains\Authorization\Requests\StoreRoleRequest;
 use App\Domains\Authorization\Requests\UpdateRoleRequest;
 use App\Domains\Authorization\Resources\RoleResource;
 use App\Domains\Authorization\Services\RoleService;
 use App\Models\User;
+use App\Support\Exports\ExportService;
+use App\Support\Exports\Value\ExportRequest;
 use App\Support\ListQuery;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class RoleController
 {
+    private const SORTABLE = [
+        'name',
+        'display_name',
+        'is_active',
+        'created_at',
+    ];
+
+    private const SEARCHABLE = [
+        'name',
+        'display_name',
+    ];
+
     public function __construct(
         private Authorization $authorization,
         private RoleService $roleService,
+        private ExportService $exports,
     ) {}
-
-    /** @var array<string, string> */
-    private array $sortable = [
-        'name' => 'name',
-        'display_name' => 'display_name',
-        'is_active' => 'is_active',
-        'created_at' => 'created_at',
-    ];
 
     public function index(Request $request): AnonymousResourceCollection
     {
@@ -36,26 +44,43 @@ class RoleController
 
         $this->authorization->scope($request->user(), 'role.view', $query);
 
-        if ($filter = ListQuery::filter($request)) {
-            $query->where(function ($q) use ($filter) {
-                $q->where('name', 'like', "%{$filter}%")
-                    ->orWhere('display_name', 'like', "%{$filter}%");
-            });
-        }
+        ListQuery::search($query, ListQuery::filter($request), self::SEARCHABLE);
 
         if ($request->filled('is_active')) {
             $query->where('is_active', $request->boolean('is_active'));
         }
 
-        $sortField = ListQuery::sort($request, default: 'display_name');
-        $sortDirection = ListQuery::order($request, default: 'asc');
-        $query->orderBy($this->sortable[$sortField] ?? 'display_name', $sortDirection);
+        $query->orderBy(
+            ListQuery::sort($request, self::SORTABLE, 'display_name'),
+            ListQuery::order($request, default: 'asc'),
+        );
 
         $perPage = ListQuery::perPage($request);
 
         $roles = $query->paginate($perPage);
 
         return RoleResource::collection($roles);
+    }
+
+    /**
+     * Lightweight id + label list for filter dropdowns and search-selects —
+     * unpaginated (scoped to role.view), so option lists never silently
+     * truncate the way a per_page-clamped list endpoint does.
+     */
+    public function options(Request $request): JsonResponse
+    {
+        $query = Role::query()->orderBy('display_name');
+
+        $this->authorization->scope($request->user(), 'role.view', $query);
+
+        return response()->json([
+            'data' => $query->get(['id', 'display_name as label'])->map(
+                fn (Role $role): array => [
+                    'id' => $role->id,
+                    'label' => $role->label,
+                ],
+            ),
+        ]);
     }
 
     public function chart(Request $request): JsonResponse
@@ -217,7 +242,7 @@ class RoleController
         return $role;
     }
 
-    public function exportChart(Request $request)
+    public function exportChart(Request $request): StreamedResponse
     {
         $scope = $request->query('scope', 'all');
         $format = $request->query('format', 'csv');
@@ -241,21 +266,29 @@ class RoleController
         $this->authorization->scope($request->user(), 'role.view', $rolesQuery);
         $scopedRoles = $rolesQuery->get();
 
-        $csv = (new RoleChartCsvExporter)->export($rootId, $fields, $scopedRoles);
-        $filename = 'org-chart-roles-'.now()->format('Y-m-d-His').'.csv';
+        $exporter = new RoleChartExporter($scopedRoles, $rootId);
+        $file = $this->exports->run(
+            $exporter,
+            new ExportRequest(fields: array_values($fields), format: 'csv', options: RoleChartExporter::visioOptions()),
+        );
 
-        // مهم: حتماً از response() با محتوای خام استفاده کنید، نه response()->json()
-        return response($csv, 200, [
-            'Content-Type' => 'text/csv; charset=UTF-8',
-            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
+        return response()->streamDownload(function () use ($file): void {
+            $stream = fopen('php://output', 'w');
+            $file->copyTo($stream);
+        }, $file->filename, [
+            'Content-Type' => $file->mimeType,
             'Cache-Control' => 'no-store',
         ]);
     }
 
     public function exportFields(): JsonResponse
     {
+        $fields = collect((new RoleChartExporter(collect()))->columns())
+            ->map(fn ($column) => $column->toArray())
+            ->values();
+
         return response()->json([
-            'data' => (new RoleChartCsvExporter)->availableFields(),
+            'data' => $fields,
         ]);
     }
 }
