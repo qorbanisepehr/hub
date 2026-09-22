@@ -4,6 +4,7 @@ use App\Domains\Authorization\Middleware\CheckPermission;
 use App\Domains\Authorization\Middleware\CheckRole;
 use App\Http\Middleware\VerifyGrantAccess;
 use App\Http\Middleware\VerifyServeGrant;
+use App\Integrations\Rahkaran\Exceptions\RahkaranException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -50,5 +51,15 @@ return Application::configure(basePath: dirname(__DIR__))
             return response()->json([
                 'message' => __('messages.permission_denied'),
             ], 403);
+        });
+
+        // External-source failures never leak vendor details (V2 §37): the
+        // integration converts them to its exception, the handler to HTTP.
+        $exceptions->render(function (RahkaranException $e, Request $request) {
+            report($e);
+
+            return response()->json([
+                'message' => __('messages.external_system_unavailable'),
+            ], 503);
         });
     })->create();

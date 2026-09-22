@@ -154,6 +154,13 @@ return [
             ],
         ],
 
+        'report' => [
+            'name' => 'Reports',
+            'permissions' => [
+                'report.attendance.view' => 'View attendance report',
+            ],
+        ],
+
     ],
 
 ];
