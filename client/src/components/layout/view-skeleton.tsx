@@ -45,7 +45,11 @@ function SkeletonCard({ rows }: { rows: number }) {
             </div>
             <div className="p-6 pt-0 space-y-0 divide-y">
                 {Array.from({ length: rows }).map((_, i) => (
-                    <div key={i} className="flex items-baseline gap-2 py-2">
+                    <div
+                        // oxlint-disable-next-line react/no-array-index-key -- static skeleton placeholders
+                        key={i}
+                        className="flex items-baseline gap-2 py-2"
+                    >
                         <Skeleton className="h-4 w-24 shrink-0" />
                         <Skeleton className="h-4 w-32" />
                     </div>

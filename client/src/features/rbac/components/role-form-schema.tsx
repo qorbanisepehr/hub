@@ -1,3 +1,8 @@
+/* oxlint-disable no-explicit-any -- `ReactFormExtendedApi` has 12 required
+ * invariant generics and no defaults; this alias must keep `TFormData`
+ * concrete (unlike `SectionFormApi`) so the role form's sub-components get
+ * real field typing — the remaining 11 params have no honest non-`any`
+ * spelling. Same sanctioned escape hatch as `types/form-types.ts`. */
 import type { AnyFieldApi, ReactFormExtendedApi } from "@tanstack/react-form";
 import { z } from "zod";
 

@@ -11,8 +11,8 @@ import {
 import { BaseDropzone } from "@/components/shared/base-dropzone";
 import { Button } from "@/components/ui/button";
 import { FileThumbnail } from "@/components/ui/file-thumbnail";
-import { DocumentPreviewLightbox } from "@/features/documents/components/document-preview-lightbox";
 import { toLightboxDocument } from "@/components/documents";
+import { openPreview } from "@/features/documents/preview-store";
 import { cn } from "@/lib/utils";
 import type { FileUploadVariantProps } from "../file-upload-field";
 
@@ -34,8 +34,6 @@ export function AvatarVariant({
     className,
     required,
 }: FileUploadVariantProps & { containerClass: string }) {
-    const [previewOpen, setPreviewOpen] = React.useState(false);
-
     return (
         <div className={cn("flex flex-col items-center gap-2", className)}>
             {label && (
@@ -95,7 +93,12 @@ export function AvatarVariant({
                                         size="icon-sm"
                                         onClick={(e) => {
                                             e.stopPropagation();
-                                            setPreviewOpen(true);
+                                            if (currentDoc) {
+                                                openPreview(
+                                                    [toLightboxDocument(currentDoc)],
+                                                    0,
+                                                );
+                                            }
                                         }}
                                         className="p-1.5 text-primary-foreground"
                                         aria-label="پیش‌نمایش"
@@ -135,7 +138,11 @@ export function AvatarVariant({
                     <Button
                         variant="ghost"
                         size="icon-sm"
-                        onClick={() => setPreviewOpen(true)}
+                        onClick={() => {
+                            if (currentDoc) {
+                                openPreview([toLightboxDocument(currentDoc)], 0);
+                            }
+                        }}
                         className="p-1"
                         aria-label="پیش‌نمایش"
                     >
@@ -148,15 +155,6 @@ export function AvatarVariant({
                 <p className="max-w-45 text-center text-xs text-muted-foreground">
                     {description}
                 </p>
-            )}
-            {currentDoc && (
-                <DocumentPreviewLightbox
-                    documents={[toLightboxDocument(currentDoc)]}
-                    currentIndex={0}
-                    open={previewOpen}
-                    onClose={() => setPreviewOpen(false)}
-                    onNavigate={() => {}}
-                />
             )}
         </div>
     );

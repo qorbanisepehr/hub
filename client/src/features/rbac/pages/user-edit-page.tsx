@@ -1,13 +1,11 @@
-import { Link, useParams } from "@tanstack/react-router";
+import { useParams } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { isAxiosError } from "axios";
 import { toast } from "sonner";
 
-import { Button } from "@/components/ui/button";
 import { fetchUser, updateUser } from "@/features/rbac/api";
 import { getApiError } from "@/lib/error-utils";
 import { UserForm } from "@/features/rbac/components/user-form";
-import { PermissionGuard } from "@/features/auth/components/permission-guard";
 import { PageLayout } from "@/components/layout";
 import { ErrorPage } from "@/components/layout";
 import { PageHeader } from "@/components/layout";

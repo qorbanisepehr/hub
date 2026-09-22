@@ -3,7 +3,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldLabel } from "@/components/ui/field";
 import {
     FormTextField,
-    FormNumberField,
+    FormCountField,
     FormTextarea,
     FormRadioGroup,
     FormDatePicker,
@@ -401,7 +401,7 @@ export function EducationSection({ form, uuid, onPersist, entity = "questionnair
                                         </form.Field>
                                         <form.Field name="education.student_semester">
                                             {(f) => (
-                                                <FormNumberField
+                                                <FormCountField
                                                     field={f}
                                                     label="ترم فعلی"
                                                 />
@@ -411,7 +411,7 @@ export function EducationSection({ form, uuid, onPersist, entity = "questionnair
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                         <form.Field name="education.passed_units">
                                             {(f) => (
-                                                <FormNumberField
+                                                <FormCountField
                                                     field={f}
                                                     label="تعداد واحدهای گذرانده"
                                                 />
@@ -419,7 +419,7 @@ export function EducationSection({ form, uuid, onPersist, entity = "questionnair
                                         </form.Field>
                                         <form.Field name="education.remaining_units">
                                             {(f) => (
-                                                <FormNumberField
+                                                <FormCountField
                                                     field={f}
                                                     label="تعداد واحدهای باقی‌مانده"
                                                 />
@@ -495,7 +495,7 @@ export function EducationSection({ form, uuid, onPersist, entity = "questionnair
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <form.Field name="education.free_days_per_week">
                                             {(f) => (
-                                                <FormNumberField
+                                                <FormCountField
                                                     field={f}
                                                     label="روزهای آزاد در هفته"
                                                 />

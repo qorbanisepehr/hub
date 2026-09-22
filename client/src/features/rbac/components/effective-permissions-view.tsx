@@ -1,7 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { isAxiosError } from "axios";
+import { IconShieldOff, IconMasksTheater } from "@tabler/icons-react";
 import { Badge } from "@/components/ui/badge";
-import { ViewSkeleton } from "@/components/layout";
+import { EmptyState, ErrorSection, ViewSkeleton } from "@/components/layout";
 import { fetchUserAuthorization } from "@/features/rbac/api";
 import { userKeys } from "@/lib/query-keys";
 import type { AuthorizationResponse } from "@/features/auth/types";
@@ -35,6 +36,7 @@ export function EffectivePermissionsView({ userId }: EffectivePermissionsViewPro
         isLoading,
         isError,
         error,
+        refetch,
     } = useQuery({
         queryKey: userKeys.authorization(userId),
         queryFn: async () => {
@@ -54,26 +56,26 @@ export function EffectivePermissionsView({ userId }: EffectivePermissionsViewPro
                 : "خطا در دریافت مجوزهای مؤثر"
             : "خطا در دریافت مجوزهای مؤثر";
 
-        return (
-            <p className="text-sm text-destructive text-center py-6">
-                {message}
-            </p>
-        );
+        return <ErrorSection description={message} onRetry={() => refetch()} />;
     }
 
     if (!authorization) {
         return (
-            <p className="text-sm text-muted-foreground text-center py-6">
-                امکان دریافت مجوزهای مؤثر وجود ندارد
-            </p>
+            <EmptyState
+                icon={IconShieldOff}
+                message="امکان دریافت مجوزهای مؤثر وجود ندارد"
+                variant="compact"
+            />
         );
     }
 
     if (authorization.role === null) {
         return (
-            <p className="text-sm text-muted-foreground text-center py-6">
-                هیچ نقشی تخصیص داده نشده است
-            </p>
+            <EmptyState
+                icon={IconMasksTheater}
+                message="هیچ نقشی تخصیص داده نشده است"
+                variant="compact"
+            />
         );
     }
 
@@ -82,9 +84,11 @@ export function EffectivePermissionsView({ userId }: EffectivePermissionsViewPro
 
     if (!hasAny) {
         return (
-            <p className="text-sm text-muted-foreground text-center py-6">
-                هیچ دسترسی فعالی برای نقش {authorization.role.display_name} نیست
-            </p>
+            <EmptyState
+                icon={IconShieldOff}
+                message={`هیچ دسترسی فعالی برای نقش ${authorization.role.display_name} نیست`}
+                variant="compact"
+            />
         );
     }
 

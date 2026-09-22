@@ -80,11 +80,12 @@ export function useEntityDocuments(entity: string, uuid: string | undefined) {
                 .get<{
                     data: EntityDocument[];
                     capabilities?: DocumentCapabilities;
-                }>(`/${entity}/${uuid}/documents`, {
-                    ...(isAuthedDocumentEntity(entity)
+                }>(
+                    `/${entity}/${uuid}/documents`,
+                    isAuthedDocumentEntity(entity)
                         ? {}
-                        : { grant: { entity, uuid, purpose: "view" } }),
-                })
+                        : { grant: { entity, uuid, purpose: "view" } },
+                )
                 .then((r) => r.data);
         },
         enabled: !!uuid,

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useParams } from "@tanstack/react-router";
+import { useParams } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import {
     IconPencil,
@@ -8,7 +8,6 @@ import {
 } from "@tabler/icons-react";
 import { isAxiosError } from "axios";
 
-import { Button } from "@/components/ui/button";
 import {
     Card,
     CardContent,
@@ -24,11 +23,11 @@ import { RoleBadge } from "@/features/rbac/components/role-badge";
 import { UserRoleManager } from "@/features/rbac/components/user-role-manager";
 import { EffectivePermissionsView } from "@/features/rbac/components/effective-permissions-view";
 import { getUserDisplayName } from "@/lib/user-display";
-import { PermissionGuard } from "@/features/auth/components/permission-guard";
 import { PERMISSIONS } from "@/lib/permissions";
 import { ResponsiveDialog } from "@/components/ui/responsive-dialog";
-import { ViewSkeleton } from "@/components/layout";
-import { InfoRow } from "@/components/shared/info-row";
+import { EmptyState, ViewSkeleton } from "@/components/layout";
+import { ActiveBadge } from "@/components/shared/active-badge";
+import { SectionRow } from "@/components/shared/section-row";
 import { PageLayout } from "@/components/layout";
 import { ErrorPage } from "@/components/layout";
 import { PageHeader } from "@/components/layout";
@@ -88,34 +87,21 @@ export function UserViewPage() {
                 title={displayName}
                 description={user.email}
                 backTo="/users"
-            >
-                <div className="flex items-center gap-2">
-                    <PermissionGuard permission={[PERMISSIONS.USER_UPDATE]}>
-                        <Button
-                            variant="outline"
-                            nativeButton={false}
-                            render={
-                                <Link
-                                    to="/users/$userId/edit"
-                                    params={{ userId: String(user.id) }}
-                                />
-                            }
-                        >
-                            <IconPencil className="size-4" />
-                            ویرایش
-                        </Button>
-                    </PermissionGuard>
-                    <PermissionGuard permission={PERMISSIONS.USER_ASSIGN_ROLES}>
-                        <Button
-                            variant="outline"
-                            onClick={() => setRolesOpen(true)}
-                        >
-                            <IconMasksTheater className="size-4" />
-                            مدیریت نقش‌ها
-                        </Button>
-                    </PermissionGuard>
-                </div>
-            </PageHeader>
+                actions={[
+                    {
+                        label: "ویرایش",
+                        icon: <IconPencil className="size-4" />,
+                        href: `/users/${user.id}/edit`,
+                        permission: [PERMISSIONS.USER_UPDATE],
+                    },
+                    {
+                        label: "مدیریت نقش‌ها",
+                        icon: <IconMasksTheater className="size-4" />,
+                        onClick: () => setRolesOpen(true),
+                        permission: PERMISSIONS.USER_ASSIGN_ROLES,
+                    },
+                ]}
+            />
 
             <div className="grid gap-6 md:grid-cols-2">
                 <Card>
@@ -135,28 +121,26 @@ export function UserViewPage() {
                                             کارمند
                                         </Badge>
                                     )}
-                                    <Badge variant={user.is_active ? "default" : "secondary"}>
-                                        {user.is_active ? "فعال" : "غیرفعال"}
-                                    </Badge>
+                                    <ActiveBadge isActive={user.is_active} />
                                 </div>
                             </div>
                         </div>
                         <CardDescription>اطلاعات هویتی کاربر</CardDescription>
                     </CardHeader>
                     <CardContent className="divide-y">
-                        <InfoRow label="نام" value={displayName} />
+                        <SectionRow label="نام" value={displayName} />
                         {user.employee?.personnel_code && (
-                            <InfoRow
+                            <SectionRow
                                 label="کد پرسنلی"
                                 value={<span dir="ltr">{user.employee.personnel_code}</span>}
                             />
                         )}
-                        <InfoRow
+                        <SectionRow
                             label="ایمیل"
                             value={<span dir="ltr">{user.email}</span>}
                         />
-                        <InfoRow label="تلفن" value={user.phone ?? "—"} />
-                        <InfoRow label="نام کاربری" value={user.username ?? "—"} />
+                        <SectionRow label="تلفن" value={user.phone ?? "—"} />
+                        <SectionRow label="نام کاربری" value={user.username ?? "—"} />
                     </CardContent>
                 </Card>
 
@@ -181,9 +165,11 @@ export function UserViewPage() {
                                 ))}
                             </div>
                         ) : (
-                            <p className="text-sm text-muted-foreground text-center py-6">
-                                هیچ نقشی تخصیص داده نشده است
-                            </p>
+                            <EmptyState
+                                icon={IconMasksTheater}
+                                message="هیچ نقشی تخصیص داده نشده است"
+                                variant="compact"
+                            />
                         )}
                     </CardContent>
                 </Card>

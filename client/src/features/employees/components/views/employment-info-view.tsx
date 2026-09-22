@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SectionRow } from "@/components/shared/section-row";
+import { toPersianDate } from "@/lib/date-format";
 import { LinkedUserRolesView } from "./linked-user-roles-view";
 import {
     employmentLabels,
@@ -47,7 +48,12 @@ export function EmploymentInfoView({
                                 : "—"
                         }
                     />
-                    <SectionRow label="تاریخ استخدام" value={data.hire_date} />
+                    <SectionRow
+                        label="تاریخ استخدام"
+                        value={toPersianDate(
+                            data.hire_date as string | null | undefined,
+                        )}
+                    />
                     <SectionRow
                         label="وضعیت اشتغال"
                         value={

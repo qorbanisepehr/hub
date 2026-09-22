@@ -1,11 +1,15 @@
+import { useSelector } from "@tanstack/react-form";
 import { useEffect, useRef } from "react";
-import { useStore } from "@tanstack/react-form";
 import { z } from "zod";
 
-import { FormTextarea, FormRadioGroup } from "@/components/forms";
-import { YES_NO_OPTIONS, parseBoolean } from "@/features/questionnaire/constants";
-import { zodFieldValidators } from "@/lib/validation-helpers";
+import { FormRadioGroup, FormTextarea } from "@/components/forms";
+import {
+    YES_NO_OPTIONS,
+    parseBoolean,
+} from "@/features/questionnaire/constants";
 import type { QuestionnaireFormApi } from "@/features/questionnaire/types";
+import { getFormValuePath } from "@/lib/form-utils";
+import { zodFieldValidators } from "@/lib/validation-helpers";
 
 const requiredDescription = z.string().min(1, "این فیلد الزامی است.").max(500);
 
@@ -24,16 +28,10 @@ export function YesNoWithDescription({
     booleanLabel,
     descriptionLabel,
 }: YesNoWithDescriptionProps) {
-    const isYes = useStore(form.store, (s) => {
-        const val = s.values;
-        const keys = booleanField.split(".");
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        let current: any = val;
-        for (const key of keys) {
-            current = current?.[key];
-        }
-        return current === true;
-    });
+    const isYes = useSelector(
+        form.store,
+        (s) => getFormValuePath(s.values, booleanField) === true,
+    );
 
     const prevIsYesRef = useRef(isYes);
 
@@ -61,7 +59,9 @@ export function YesNoWithDescription({
                     name={descriptionField}
                     validators={zodFieldValidators(requiredDescription)}
                 >
-                    {(field) => <FormTextarea field={field} label={descriptionLabel} />}
+                    {(field) => (
+                        <FormTextarea field={field} label={descriptionLabel} />
+                    )}
                 </form.Field>
             )}
         </>

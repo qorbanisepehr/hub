@@ -10,7 +10,7 @@ import { renderPdfThumbnailUrl } from "@/lib/pdf-thumbnail-utils";
 import { FileThumbnail } from "@/components/ui/file-thumbnail";
 import { Button } from "@/components/ui/button";
 import { ConfirmDeleteButton } from "@/components/ui/confirm-delete-button";
-import { DocumentPreviewLightbox } from "@/features/documents/components/document-preview-lightbox";
+import { openPreview } from "@/features/documents/preview-store";
 import {
     Document,
     DocumentCategory,
@@ -153,40 +153,29 @@ function ThumbnailClickHandler({
     className?: string;
     children: React.ReactNode;
 }) {
-    const [lightboxOpen, setLightboxOpen] = React.useState(false);
-
     function handleClick() {
         if (onClick) {
             onClick();
         } else {
-            setLightboxOpen(true);
+            openPreview([doc], 0);
         }
     }
 
     return (
-        <>
-            <div
-                className={className}
-                onClick={handleClick}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        handleClick();
-                    }
-                }}
-            >
-                {children}
-            </div>
-            <DocumentPreviewLightbox
-                documents={[doc]}
-                currentIndex={0}
-                open={lightboxOpen}
-                onClose={() => setLightboxOpen(false)}
-                onNavigate={() => {}}
-            />
-        </>
+        <div
+            className={className}
+            onClick={handleClick}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    handleClick();
+                }
+            }}
+        >
+            {children}
+        </div>
     );
 }
 

@@ -14,10 +14,8 @@ import {
 import "@xyflow/react/dist/style.css";
 import {
     IconArrowsHorizontal,
-    IconArrowsMaximize,
     IconArrowsVertical,
     IconArrowBackUp,
-    IconFold,
     IconMasksTheater,
     IconMaximize,
     IconMinimize,
@@ -266,7 +264,9 @@ function RoleOrgChartInner({
                     onShowSubtree: onShowSubtreeRef.current,
                 },
             })),
-        [rawNodes],
+        // Ref `.current` values are intentionally read here: they always hold
+        // the latest stable callbacks without re-deriving nodes on re-renders.
+        [rawNodes, onToggleRef, onFocusRef, onShowAncestorsRef, onShowSubtreeRef],
     );
 
     const layoutedNodes = useMemo(
@@ -296,7 +296,10 @@ function RoleOrgChartInner({
             );
             return () => clearTimeout(timer);
         }
-    }, [nodes.length, viewMode, userFilter, statusFilter, fitView]);
+        // userFilter/statusFilter only matter as change triggers for refitting;
+        // the view depends solely on node count and view mode.
+        // oxlint-disable-next-line react/exhaustive-effect-dependencies -- trigger-only filters
+    }, [nodes.length, viewMode, fitView]);
 
     const onNodeClick: NodeMouseHandler = useCallback(
         (_event, node) => {

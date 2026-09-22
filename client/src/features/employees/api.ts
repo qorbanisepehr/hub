@@ -6,10 +6,61 @@ import type { Employee, EmployeeBaseFormData } from "./types";
 export type EmployeeListParams = PaginatedListParams & {
     filter?: string;
     status?: string;
+    status_not?: string;
 };
 
 export function fetchEmployees(params: EmployeeListParams = {}) {
     return api.get<PaginatedResponse<Employee>>("/employees", { params });
+}
+
+export type EmployeeExportField = {
+    key: string;
+    label: string;
+    column: string;
+};
+
+export function fetchEmployeeExportFields() {
+    return api.get<{ data: EmployeeExportField[] }>(
+        "/employees/export/fields",
+    );
+}
+
+export type EmployeeExportPresentation = {
+    headers: "key" | "label";
+    calendar: "gregorian" | "persian" | "both";
+    digits: "latin" | "persian";
+    detailSheets: boolean;
+};
+
+export function exportEmployees(params: {
+    fields?: string[];
+    format?: "xlsx" | "csv";
+    status?: string;
+    status_not?: string;
+    presentation?: EmployeeExportPresentation;
+}) {
+    const presentation = params.presentation;
+
+    return api.get("/employees/export", {
+        params: {
+            fields: (params.fields ?? []).join(","),
+            format: params.format ?? "xlsx",
+            status: params.status,
+            status_not: params.status_not,
+            headers: presentation?.headers,
+            calendar: presentation?.calendar,
+            digits: presentation?.digits,
+            details: presentation?.detailSheets ? 1 : undefined,
+        },
+        responseType: "blob",
+    });
+}
+
+export function fetchEmployeeExportTemplate(format: "xlsx" | "csv" = "xlsx") {
+    return api.get("/employees/export-template", {
+        params: { format },
+        responseType: "blob",
+    });
 }
 
 export function fetchEmployee(id: number) {

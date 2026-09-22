@@ -5,8 +5,8 @@ import { IconEye, IconLoader2, IconUpload } from "@tabler/icons-react";
 
 import { BaseDropzone } from "@/components/shared/base-dropzone";
 import { FileThumbnail } from "@/components/ui/file-thumbnail";
-import { DocumentPreviewLightbox } from "@/features/documents/components/document-preview-lightbox";
 import { toLightboxDocument } from "@/components/documents";
+import { openPreview } from "@/features/documents/preview-store";
 import { cn } from "@/lib/utils";
 import { getFileIcon, getFileColorClasses } from "@/lib/file-utils";
 import type { FileUploadVariantProps } from "../file-upload-field";
@@ -29,8 +29,6 @@ export function ThumbnailVariant({
     className,
     required,
 }: FileUploadVariantProps & { containerClass: string }) {
-    const [previewOpen, setPreviewOpen] = React.useState(false);
-
     return (
         <div className={cn("space-y-1.5", className)}>
             {label && (
@@ -99,7 +97,12 @@ export function ThumbnailVariant({
                                         type="button"
                                         onClick={(e) => {
                                             e.stopPropagation();
-                                            setPreviewOpen(true);
+                                            if (currentDoc) {
+                                                openPreview(
+                                                    [toLightboxDocument(currentDoc)],
+                                                    0,
+                                                );
+                                            }
                                         }}
                                         className="rounded-full p-1.5 text-white hover:bg-white/20"
                                         aria-label="پیش‌نمایش"
@@ -138,7 +141,11 @@ export function ThumbnailVariant({
                 >
                     <button
                         type="button"
-                        onClick={() => setPreviewOpen(true)}
+                        onClick={() => {
+                            if (currentDoc) {
+                                openPreview([toLightboxDocument(currentDoc)], 0);
+                            }
+                        }}
                         className="rounded-full p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
                         aria-label="پیش‌نمایش"
                     >
@@ -149,15 +156,6 @@ export function ThumbnailVariant({
             )}
             {description && (
                 <p className="text-xs text-muted-foreground">{description}</p>
-            )}
-            {currentDoc && (
-                <DocumentPreviewLightbox
-                    documents={[toLightboxDocument(currentDoc)]}
-                    currentIndex={0}
-                    open={previewOpen}
-                    onClose={() => setPreviewOpen(false)}
-                    onNavigate={() => {}}
-                />
             )}
         </div>
     );

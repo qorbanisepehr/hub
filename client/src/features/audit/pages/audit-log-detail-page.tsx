@@ -7,8 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ViewSkeleton } from "@/components/layout";
 import { ErrorPage } from "@/components/layout";
 import { PageLayout } from "@/components/layout";
-import { PageHeader } from "@/components/layout";
-import { BackButton } from "@/components/layout";
+    import { PageHeader } from "@/components/layout";
+
 import { AuditDiffView } from "@/features/audit/components/audit-diff-view";
 import {
     AUDIT_CATEGORY_LABELS,
@@ -52,9 +52,8 @@ export function AuditLogDetailPage() {
             <PageHeader
                 title="جزئیات رویداد"
                 description={`${eventLabel} — ${categoryLabel}`}
-            >
-                <BackButton to="/audit" />
-            </PageHeader>
+                backTo="/audit"
+            />
 
             <div className="grid gap-6">
                 <Card>

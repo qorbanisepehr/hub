@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
+import { IconUsers } from "@tabler/icons-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DocumentFileItem, MissingDocsBadge } from "@/components/documents";
+import { EmptyState } from "@/components/layout";
 import { SectionRow } from "@/components/shared/section-row";
 import { useDependentDocsFeedback } from "@/features/employees/hooks/use-dependent-docs-feedback";
 import { dependentRowLabel } from "@/features/employees/dependents-docs";
@@ -48,8 +50,7 @@ export function DependentsView({
         ? section.dependents
         : [];
 
-    const { isLoading: documentsLoading, getDocumentsBySlug } =
-        useEmployeeDocuments(employee.id);
+    const { getDocumentsBySlug } = useEmployeeDocuments(employee.id);
 
     // Shared feedback state — same query caches the section and submit
     // guard read, so no extra requests.
@@ -68,16 +69,22 @@ export function DependentsView({
 
             <CardContent className="space-y-6">
                 {dependents.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">
-                        وابسته‌ای ثبت نشده است.
-                    </p>
+                    <EmptyState
+                        icon={IconUsers}
+                        message="وابسته‌ای ثبت نشده است."
+                        variant="compact"
+                    />
                 ) : (
                     <div className="divide-y">
                         {dependents.map((dependent, index) => {
                             const missing = getMissing(index);
 
                             return (
-                                <div key={index} className="py-4 first:pt-0">
+                                <div
+                                    // oxlint-disable-next-line react/no-array-index-key -- rows are positional; index is also the doc field key
+                                    key={index}
+                                    className="py-4 first:pt-0"
+                                >
                                     <div className="mb-2 flex items-center justify-between">
                                         <p className="text-sm font-medium">
                                             {dependentRowLabel(

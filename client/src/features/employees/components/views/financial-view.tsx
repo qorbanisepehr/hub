@@ -5,6 +5,7 @@ import type { Employee } from "@/features/employees/types";
 import { useEmployeeDocuments } from "@/features/employees/hooks/use-employee-documents";
 import { DocumentFileItem } from "@/components/documents";
 import { DOC_CATEGORY_SLUGS } from "@/features/questionnaire/constants";
+import { formatCardNumber } from "@/lib/date-format";
 
 type BankAccountRow = {
     bank_name?: string;
@@ -55,7 +56,15 @@ export function FinancialView({
                 columns={[
                     { label: "بانک", render: (i) => i.bank_name },
                     { label: "شماره حساب", render: (i) => i.account_number },
-                    { label: "شماره کارت", render: (i) => i.card_number },
+                    {
+                        label: "شماره کارت",
+                        render: (i) =>
+                            formatCardNumber(
+                                typeof i.card_number === "string"
+                                    ? i.card_number
+                                    : null,
+                            ),
+                    },
                     { label: "شماره شبا", render: (i) => i.shaba_number },
                 ]}
             />

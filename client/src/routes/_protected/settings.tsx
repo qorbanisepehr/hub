@@ -10,12 +10,21 @@ const SettingsPage = lazy(() =>
     import("@/features/settings/pages/settings-page").then((m) => ({ default: m.SettingsPage }))
 );
 
+const settingsSearchSchema = z.object({
+    tab: z
+        .enum(["branding", "permissions", "form-options", "imports"])
+        .optional(),
+    /** Form-options admin list state (read on the form-options tab). */
+    page: z.number().optional(),
+    per_page: z.number().optional(),
+    filter: z.string().optional(),
+    group: z.string().optional(),
+});
+
 export const Route = createRoute({
     getParentRoute: () => ProtectedRoute,
     path: "/settings",
-    validateSearch: z.object({
-        tab: z.enum(["branding", "permissions", "form-options"]).optional(),
-    }),
+    validateSearch: settingsSearchSchema,
     beforeLoad: requirePermission([
         PERMISSIONS.BRANDING_VIEW,
         PERMISSIONS.BRANDING_MANAGE,
@@ -23,6 +32,7 @@ export const Route = createRoute({
         PERMISSIONS.DOCUMENT_CATEGORY_MANAGE,
         PERMISSIONS.FORM_OPTIONS_VIEW,
         PERMISSIONS.FORM_OPTIONS_MANAGE,
+        PERMISSIONS.EMPLOYEE_IMPORT,
     ]),
     component: () => (
         <LazyRoute component={SettingsPage} fallback={<RouteLoadingFallback />} />

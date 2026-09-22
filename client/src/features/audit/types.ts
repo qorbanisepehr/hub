@@ -77,14 +77,20 @@ export interface AuditStats {
 export interface AuditLogListParams {
     page?: number;
     per_page?: number;
+    /** Whitelisted sort column (`created_at` | `event` | `category`). */
     sort?: string;
+    /** Sort direction; omitted = the column's default direction. */
+    order?: "asc" | "desc";
     category?: AuditCategory | "";
+    category_not?: string;
     event?: string;
+    event_not?: string;
     actor_type?: AuditActorType | "";
     actor_id?: number;
     subject_type?: string;
     subject_id?: number | string;
     date_from?: string;
     date_to?: string;
-    search?: string;
+    /** Unified free-text search param. */
+    filter?: string;
 }

@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
+import { RepeaterEmptyState } from "@/components/shared";
 import {
     Select,
     SelectContent,
@@ -22,7 +23,6 @@ import type {
     AccessRuleInput,
     Permission,
     PermissionGroup,
-    RuleBuilderMeta,
 } from "@/features/rbac/types";
 import { EFFECT_LABELS } from "./types";
 import { RuleEditorDialog } from "./rule-editor-dialog";
@@ -174,9 +174,9 @@ export function RuleBuilder({ value, onChange }: RuleBuilderProps) {
                     </SelectTrigger>
                     <SelectContent>
                         {Object.entries(STATUS_FILTERS).map(
-                            ([value, label]) => (
-                                <SelectItem key={value} value={value}>
-                                    {label}
+                            ([statusValue, statusLabel]) => (
+                                <SelectItem key={statusValue} value={statusValue}>
+                                    {statusLabel}
                                 </SelectItem>
                             ),
                         )}
@@ -204,15 +204,9 @@ export function RuleBuilder({ value, onChange }: RuleBuilderProps) {
                     <Skeleton className="h-14 w-full rounded-lg" />
                 </div>
             ) : value.length === 0 ? (
-                <p className="rounded-lg border border-dashed px-3 py-6 text-center text-sm text-muted-foreground">
-                    قانون شرطی تعریف نشده است. با افزودن قانون، می‌توانید
-                    دسترسی‌های شرطی بر اساس ویژگی‌های کاربر یا منبع تعیین
-                    کنید.
-                </p>
+                <RepeaterEmptyState message="قانون شرطی تعریف نشده است. با افزودن قانون، می‌توانید دسترسی‌های شرطی بر اساس ویژگی‌های کاربر یا منبع تعیین کنید." />
             ) : visibleRules.length === 0 ? (
-                <p className="rounded-lg border border-dashed px-3 py-6 text-center text-sm text-muted-foreground">
-                    موردی یافت نشد
-                </p>
+                <RepeaterEmptyState message="موردی یافت نشد" />
             ) : (
                 <div className="max-h-96 space-y-2 overflow-y-auto overscroll-contain pe-1">
                     {visibleRules.map(({ rule, index }) => {

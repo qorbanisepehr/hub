@@ -18,7 +18,8 @@ import {
     CardHeader,
     CardTitle,
 } from "@/components/ui/card";
-import { InfoRow } from "@/components/shared/info-row";
+import { SectionRow } from "@/components/shared/section-row";
+import { ConfirmDeleteButton } from "@/components/ui/confirm-delete-button";
 import { updateEmployee } from "@/features/employees/api";
 import { UserSearchSelect } from "@/features/rbac/components/user-search-select";
 import { employeeKeys } from "@/lib/query-keys";
@@ -60,10 +61,6 @@ export function LinkedUserSection({ employee }: { employee: Employee }) {
         }
     };
 
-    const handleUnlink = () => {
-        updateMutation.mutate(null);
-    };
-
     return (
         <Card>
             <CardHeader>
@@ -80,20 +77,20 @@ export function LinkedUserSection({ employee }: { employee: Employee }) {
                     <>
                         <div className="grid gap-6 md:grid-cols-2">
                             <div className="divide-y">
-                                <InfoRow label="نام" value={user.name} />
-                                <InfoRow
+                                <SectionRow label="نام" value={user.name} />
+                                <SectionRow
                                     label="ایمیل"
                                     value={
                                         <span dir="ltr">{user.email}</span>
                                     }
                                 />
-                                <InfoRow
+                                <SectionRow
                                     label="تلفن"
                                     value={user.phone ?? "—"}
                                 />
                             </div>
                             <div className="divide-y">
-                                <InfoRow
+                                <SectionRow
                                     label="نام کاربری"
                                     value={
                                         <span dir="ltr">
@@ -101,7 +98,7 @@ export function LinkedUserSection({ employee }: { employee: Employee }) {
                                         </span>
                                     }
                                 />
-                                <InfoRow
+                                <SectionRow
                                     label="نقش فعال"
                                     value={
                                         user.active_role ? (
@@ -152,17 +149,14 @@ export function LinkedUserSection({ employee }: { employee: Employee }) {
                                 مدیریت نقش‌ها
                             </Button>
                             <div className="flex-1" />
-                            <Button
+                            <ConfirmDeleteButton
+                                onConfirm={() => updateMutation.mutate(null)}
+                                isPending={updateMutation.isPending}
+                                label="عدم اتصال"
+                                confirmLabel="قطع اتصال کاربر"
                                 variant="ghost"
                                 size="sm"
-                                onClick={handleUnlink}
-                                disabled={updateMutation.isPending}
-                            >
-                                {updateMutation.isPending && (
-                                    <IconLoader2 className="size-4 animate-spin" />
-                                )}
-                                عدم اتصال
-                            </Button>
+                            />
                         </div>
                     </>
                 ) : (

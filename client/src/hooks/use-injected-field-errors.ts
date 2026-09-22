@@ -1,5 +1,6 @@
 import { useCallback, useRef } from "react";
 
+import type { FormMetaWriter } from "@/types/form-types";
 import {
     fieldBelongsToSection,
     type FieldErrors,
@@ -15,9 +16,7 @@ import {
  * FieldError deduplication works). TanStack clears that key automatically once
  * the field becomes valid again on blur/change.
  */
-export function useInjectedFieldErrors(form: {
-    setFieldMeta: (field: any, updater: (prev: any) => any) => void;
-}) {
+export function useInjectedFieldErrors(form: FormMetaWriter) {
     const injectedFields = useRef<string[]>([]);
 
     const clear = useCallback(() => {
@@ -43,7 +42,10 @@ export function useInjectedFieldErrors(form: {
                         ...prev.errorMap,
                         onSubmit: messages.map((message) => ({ message })),
                     },
-                    errorSourceMap: { ...prev.errorSourceMap, onSubmit: "injected" },
+                    // Marked "field" (not "form") so the form-level validator
+                    // never claims ownership of injected errors, and TanStack
+                    // re-validation still clears them once the field is valid.
+                    errorSourceMap: { ...prev.errorSourceMap, onSubmit: "field" },
                 }));
                 injectedFields.current.push(name);
             }

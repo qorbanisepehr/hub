@@ -5,6 +5,7 @@ import { toast } from "sonner";
 
 import { getApiError } from "@/lib/error-utils";
 import { documentKeys } from "@/lib/query-keys";
+import { EmptyState } from "@/components/layout";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ResponsiveDialog } from "@/components/ui/responsive-dialog";
 import {
@@ -119,14 +120,16 @@ export function DocumentTrashModal({
             {isLoading ? (
                 <div className="space-y-3 py-4">
                     {Array.from({ length: 2 }).map((_, i) => (
+                        // oxlint-disable-next-line react/no-array-index-key -- static skeleton placeholders
                         <Skeleton key={i} className="h-12 w-full rounded-lg" />
                     ))}
                 </div>
             ) : !trashedDocuments?.length ? (
-                <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-                    <IconTrashOff className="size-10 mb-3 opacity-30" />
-                    <p className="text-sm">سطل زباله خالی است</p>
-                </div>
+                <EmptyState
+                    icon={IconTrashOff}
+                    message="سطل زباله خالی است"
+                    variant="compact"
+                />
             ) : (
                 <DocumentTrashTable
                     documents={trashedDocuments}

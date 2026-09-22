@@ -1,4 +1,8 @@
-import { createRoute, Outlet } from "@tanstack/react-router";
+import {
+    createRoute,
+    Outlet,
+    type ErrorComponentProps,
+} from "@tanstack/react-router";
 import { Route as RootRoute } from "@/routes/__root";
 import { AppSidebar } from "@/features/dashboard/components/app-sidebar";
 import { SiteHeader } from "@/features/dashboard/components/site-header";
@@ -20,8 +24,18 @@ export const Route = createRoute({
     component: ProtectedLayout,
 });
 
-function ProtectedError({ error }: { error: Error }) {
-    const message = error?.message ?? "خطای ناشناخته";
+/**
+ * Typed against the router's ErrorComponentProps (error is `unknown` there),
+ * then narrowed locally — a `{ error: Error }` prop type fails contravariance
+ * and is rejected by errorComponent's type.
+ */
+function ProtectedError({ error }: ErrorComponentProps) {
+    const message =
+        error instanceof Error
+            ? error.message
+            : typeof error === "string" && error.length > 0
+              ? error
+              : "خطای ناشناخته";
     return <ErrorPage title={message} homeTo="/dashboard" />;
 }
 
@@ -40,7 +54,7 @@ function ProtectedLayout() {
             }
         >
             <AppSidebar variant="inset" side="right" collapsible="icon" />
-            <SidebarInset>
+            <SidebarInset className="max-w-svw overflow-hidden md:peer-data-[variant=inset]:peer-data-[state=collapsed]:ms-0">
                 <SiteHeader />
                 <Outlet />
             </SidebarInset>

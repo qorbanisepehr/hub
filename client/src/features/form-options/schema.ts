@@ -82,10 +82,10 @@ export type PlaceOption = {
 };
 
 /**
- * Validation for a combined place string «{استان}-{شهر}» (e.g. «تهران-تهران»).
- * The province segment must be an active province label and the city segment an
- * active city label whose parent is that province, so stored values always
- * resolve without extra lookups.
+ * Validation for a stored place: the city option's OWN value
+ * («{provinceSlug}-{citySlug}», e.g. «east_azerbaijan-tabriz») whose
+ * `parent_value` must be an active province value — mirroring the server-side
+ * `FormOptionValue('city', 'province')` rule. Same as `isValidCityPlaceSlug`.
  */
 export function placeEnum(
     provinces: PlaceOption[],
@@ -103,14 +103,13 @@ export function placeEnum(
                 ctx.addIssue({ code: z.ZodIssueCode.custom, message });
                 return;
             }
-            const [provinceValue, cityValue] = value.split("-", 2);
+            const provinceValue = value.split("-", 2)[0] ?? "";
             if (
                 !provinceValue ||
-                !cityValue ||
                 !provinceValueSet.has(provinceValue) ||
                 !cities.some(
                     (option) =>
-                        option.value === cityValue &&
+                        option.value === value &&
                         option.parent_value === provinceValue,
                 )
             ) {

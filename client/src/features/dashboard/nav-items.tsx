@@ -2,12 +2,15 @@ import type { ReactNode } from "react";
 import {
     IconClipboardList,
     IconDashboard,
+    IconFileImport,
     IconFileCv,
     IconHierarchy2,
     IconIdBadge2,
     IconListDetails,
     IconMasksTheater,
+    IconPalette,
     IconSettings,
+    IconShield,
     IconUsers,
 } from "@tabler/icons-react";
 
@@ -63,11 +66,54 @@ export const NAV_ITEMS: NavItem[] = [
     },
     {
         title: "تنظیمات",
-        url: "/settings",
         icon: <IconSettings />,
         permission: [
             PERMISSIONS.DOCUMENT_CATEGORY_VIEW,
             PERMISSIONS.DOCUMENT_CATEGORY_MANAGE,
+            PERMISSIONS.BRANDING_VIEW,
+            PERMISSIONS.BRANDING_MANAGE,
+            PERMISSIONS.FORM_OPTIONS_VIEW,
+            PERMISSIONS.FORM_OPTIONS_MANAGE,
+            PERMISSIONS.EMPLOYEE_IMPORT,
+        ],
+        children: [
+            {
+                title: "برندینگ",
+                url: "/settings",
+                search: { tab: "branding" },
+                icon: <IconPalette />,
+                permission: [
+                    PERMISSIONS.BRANDING_VIEW,
+                    PERMISSIONS.BRANDING_MANAGE,
+                ],
+            },
+            {
+                title: "مجوزها",
+                url: "/settings",
+                search: { tab: "permissions" },
+                icon: <IconShield />,
+                permission: [
+                    PERMISSIONS.DOCUMENT_CATEGORY_VIEW,
+                PERMISSIONS.DOCUMENT_CATEGORY_MANAGE,
+                ],
+            },
+            {
+                title: "گزینه‌های فرم",
+                url: "/settings",
+                search: { tab: "form-options" },
+                icon: <IconListDetails />,
+                permission: [
+                    PERMISSIONS.FORM_OPTIONS_VIEW,
+                    PERMISSIONS.FORM_OPTIONS_MANAGE,
+                ],
+            },
+            {
+                title: "ورود اطلاعات",
+                url: "/settings",
+                search: { tab: "imports" },
+                icon: <IconFileImport />,
+                permission: PERMISSIONS.EMPLOYEE_IMPORT,
+            },
         ],
     },
     {

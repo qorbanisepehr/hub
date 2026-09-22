@@ -1,35 +1,41 @@
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { getRouteApi } from "@tanstack/react-router";
-import {
-    useTable,
-    stockFeatures,
-    type ColumnDef,
-    type ColumnVisibilityState,
-    type Row,
-    type StockFeatures,
+import type {
+    ColumnDef,
+    Row,
+    StockFeatures,
 } from "@tanstack/react-table";
-import { IconClipboardList, IconRefresh, IconChevronRight, IconChevronDown, IconDownload } from "@tabler/icons-react";
-import { toast } from "sonner";
+import {
+    IconClipboardList,
+    IconRefresh,
+    IconChevronRight,
+    IconChevronDown,
+    IconDownload,
+} from "@tabler/icons-react";
 
 import { useAuditLogs, useAuditEvents, useAuditLogDetail } from "@/features/audit/hooks";
 import { exportAuditLogs } from "@/features/audit/api";
 import { getAuditLogColumns } from "@/features/audit/audit-logs-columns";
-import { DataTablePage, DataTableToolbar } from "@/components/data-table";
-import { useTableUrlState } from "@/hooks/use-table-url-state";
-import { PERMISSIONS } from "@/lib/permissions";
+import { DataTablePage } from "@/components/data-table";
+import { ListPageHeader } from "@/components/layout";
+import {
+    useDataTable,
+    useDataTableUrlState,
+} from "@/hooks/use-data-table-page";
+import { getApiError } from "@/lib/error-utils";
+import { saveBlobResponse, exportDateStamp } from "@/lib/download";
+import { toast } from "sonner";
 import { auditKeys } from "@/lib/query-keys";
-import { PAGINATION } from "@/lib/constants";
 import {
     AUDIT_CATEGORY_LABELS,
     AUDIT_EVENT_LABELS,
 } from "@/features/audit/constants";
-import type { AuditCategory, AuditLog, AuditLogDetail } from "@/features/audit/types";
+import type { AuditCategory, AuditLog } from "@/features/audit/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AuditDiffView } from "@/features/audit/components/audit-diff-view";
-import { toPersianDate } from "@/lib/date-format";
 
 const route = getRouteApi("/protected/audit");
 
@@ -101,67 +107,69 @@ export function AuditLogsPage() {
     const search = route.useSearch();
     const navigate = route.useNavigate();
 
-    const [columnVisibility, setColumnVisibility] =
-        useState<ColumnVisibilityState>({});
     const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
     const [isExporting, setIsExporting] = useState(false);
 
-    const {
-        sorting,
-        onSortingChange,
-        pagination,
-        onPaginationChange,
-        globalFilter,
-        onGlobalFilterChange,
-        columnFilters,
-        onColumnFiltersChange,
-        ensurePageInRange,
-    } = useTableUrlState({
+    const url = useDataTableUrlState({
         search: search as unknown as Record<string, unknown>,
-        navigate: navigate as never,
-        pagination: {
-            defaultPage: 1,
-            defaultPageSize: PAGINATION.DEFAULT_PAGE_SIZE,
+        navigate,
+        urlState: {
+            columnFilters: [
+                {
+                    columnId: "category",
+                    searchKey: "category",
+                    type: "string",
+                },
+                {
+                    columnId: "category_not",
+                    searchKey: "category_not",
+                    type: "string",
+                },
+                {
+                    columnId: "event",
+                    searchKey: "event",
+                    type: "string",
+                },
+                {
+                    columnId: "event_not",
+                    searchKey: "event_not",
+                    type: "string",
+                },
+                {
+                    columnId: "date_from",
+                    searchKey: "date_from",
+                    type: "string",
+                },
+                {
+                    columnId: "date_to",
+                    searchKey: "date_to",
+                    type: "string",
+                },
+            ],
         },
-        sorting: { sortKey: "sort", orderKey: "order" },
-        globalFilter: { enabled: true, key: "filter" },
-        columnFilters: [
-            {
-                columnId: "category",
-                searchKey: "category",
-                type: "string",
-            },
-            {
-                columnId: "event",
-                searchKey: "event",
-                type: "string",
-            },
-        ],
     });
 
-    const activeSort = sorting[0];
-    const activeCategory = (
-        columnFilters.find((f) => f.id === "category")?.value as
-            | string[]
-            | undefined
-    )?.[0] as AuditCategory | undefined;
-    const activeEvent = (
-        columnFilters.find((f) => f.id === "event")?.value as
-            | string[]
-            | undefined
-    )?.[0] as string | undefined;
+    const activeCategory = url.activeValue("category") as AuditCategory | undefined;
+    const activeCategoryNot = url.activeValue("category_not");
+    const activeEvent = url.activeValue("event");
+    const activeEventNot = url.activeValue("event_not");
+    const activeDateFrom = url.activeValue("date_from");
+    const activeDateTo = url.activeValue("date_to");
+    const { ensurePageInRange } = url;
 
     const { data: availableEvents = [] } = useAuditEvents(activeCategory);
     const { data, isLoading, isError, isFetching } = useAuditLogs({
-        page: pagination.pageIndex + 1,
-        per_page: pagination.pageSize,
-        // Backend contract (v6): `sort=column` asc, `sort=-column` desc.
-        sort: activeSort
-            ? `${activeSort.desc ? "-" : ""}${activeSort.id}`
-            : undefined,
-        search: globalFilter || undefined,
+        page: url.pagination.pageIndex + 1,
+        per_page: url.pagination.pageSize,
+        sort: url.activeSort?.id,
+        order: url.activeSort ? (url.activeSort.desc ? "desc" : "asc") : undefined,
+        filter: url.globalFilter || undefined,
         category: activeCategory,
+        category_not: activeCategoryNot || undefined,
         event: activeEvent,
+        event_not: activeEventNot || undefined,
+        date_from: activeDateFrom || undefined,
+        date_to: activeDateTo || undefined,
     });
 
     const tableData = data?.data ?? [];
@@ -197,23 +205,11 @@ export function AuditLogsPage() {
         ...baseColumns,
     ];
 
-    const table = useTable({
-        features: stockFeatures,
-        data: tableData,
+    const table = useDataTable({
         columns,
-        state: {
-            sorting,
-            pagination,
-            columnVisibility,
-            columnFilters,
-        },
-        onSortingChange,
-        onPaginationChange,
-        onColumnVisibilityChange: setColumnVisibility,
-        onColumnFiltersChange,
-        manualPagination: true,
-        manualSorting: true,
-        pageCount: meta?.last_page ?? 1,
+        data: tableData,
+        meta,
+        url,
     });
 
     useEffect(() => {
@@ -228,28 +224,22 @@ export function AuditLogsPage() {
         try {
             const response = await exportAuditLogs({
                 format: "csv",
-                search: globalFilter || undefined,
+                filter: url.globalFilter || undefined,
                 category: activeCategory,
+                category_not: activeCategoryNot || undefined,
                 event: activeEvent,
+                event_not: activeEventNot || undefined,
+                date_from: activeDateFrom || undefined,
+                date_to: activeDateTo || undefined,
             });
 
-            const blob =
-                response.data instanceof Blob
-                    ? response.data
-                    : new Blob([response.data], {
-                          type: "text/csv;charset=utf-8",
-                      });
-
-            const url = window.URL.createObjectURL(blob);
-            const link = document.createElement("a");
-            link.href = url;
-            link.download = `audit-logs-${new Date().toISOString().slice(0, 10)}.csv`;
-            document.body.appendChild(link);
-            link.click();
-            link.remove();
-            window.URL.revokeObjectURL(url);
-        } catch {
-            toast.error("خطا در دریافت فایل خروجی");
+            saveBlobResponse(
+                response,
+                `audit-logs-${exportDateStamp()}.csv`,
+                "text/csv;charset=utf-8",
+            );
+        } catch (err) {
+            toast.error(getApiError(err) ?? "خطا در دریافت فایل خروجی");
         } finally {
             setIsExporting(false);
         }
@@ -268,66 +258,73 @@ export function AuditLogsPage() {
             getExpandedRowId={(log) => String(log.id)}
             renderExpandedRow={(log) => <ExpandedRowContent log={log} />}
             header={
-                <div>
-                    <h1 className="text-2xl font-bold tracking-tight">
-                        لاگ فعالیت
-                    </h1>
-                    <p className="text-sm text-muted-foreground mt-1">
-                        مشاهده تمام رویدادهای سیستم
-                    </p>
-                </div>
+                <ListPageHeader
+                    title="لاگ فعالیت"
+                    description="مشاهده تمام رویدادهای سیستم"
+                />
             }
-            toolbar={
-                <div className="flex items-center gap-2">
-                    <DataTableToolbar
-                        table={table}
-                        searchPlaceholder="جستجو در لاگ..."
-                        globalFilter={globalFilter}
-                        onGlobalFilterChange={onGlobalFilterChange}
-                        filters={[
-                            {
-                                columnId: "category",
-                                title: "دسته‌بندی",
-                                options: Object.entries(AUDIT_CATEGORY_LABELS).map(
-                                    ([value, label]) => ({
-                                        label,
-                                        value,
-                                    }),
-                                ),
-                            },
-                            {
-                                columnId: "event",
-                                title: "رویداد",
-                                options: availableEvents.map((event) => ({
-                                    label: AUDIT_EVENT_LABELS[event] ?? event,
-                                    value: event,
-                                })),
-                            },
-                        ]}
-                    />
-                    <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={handleExport}
-                        disabled={isExporting}
-                        title="خروجی CSV"
-                    >
-                        <IconDownload className={`size-4 ${isExporting ? "animate-pulse" : ""}`} />
-                    </Button>
-                    <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={() =>
-                            queryClient.invalidateQueries({
-                                queryKey: auditKeys.all,
-                            })
-                        }
-                        disabled={isFetching}
-                    >
-                        <IconRefresh className={`size-4 ${isFetching ? "animate-spin" : ""}`} />
-                    </Button>
-                </div>
-            }
+            searchPlaceholder="جستجو در لاگ..."
+            globalFilter={url.globalFilter}
+            onGlobalFilterChange={url.onGlobalFilterChange}
+            columnFilters={url.columnFilters}
+            onColumnFiltersChange={url.onColumnFiltersChange}
+            filterFields={[
+                {
+                    id: "category",
+                    label: "دسته‌بندی",
+                    type: "select",
+                    options: Object.entries(
+                        AUDIT_CATEGORY_LABELS,
+                    ).map(([value, label]) => ({
+                        label,
+                        value,
+                    })),
+                    negatable: true,
+                },
+                {
+                    id: "event",
+                    label: "رویداد",
+                    type: "select",
+                    options: availableEvents.map(
+                        (event) => ({
+                            label:
+                                AUDIT_EVENT_LABELS[event] ??
+                                event,
+                            value: event,
+                        }),
+                    ),
+                    negatable: true,
+                },
+                {
+                    id: "date_from",
+                    label: "از تاریخ",
+                    type: "date",
+                },
+                {
+                    id: "date_to",
+                    label: "تا تاریخ",
+                    type: "date",
+                },
+            ]}
+            actions={[
+                {
+                    id: "export",
+                    label: "خروجی CSV",
+                    icon: IconDownload,
+                    onClick: handleExport,
+                    disabled: isExporting,
+                },
+                {
+                    id: "refresh",
+                    label: "تازهسازی",
+                    icon: IconRefresh,
+                    onClick: () =>
+                        queryClient.invalidateQueries({
+                            queryKey: auditKeys.all,
+                        }),
+                    disabled: isFetching,
+                },
+            ]}
             emptyMessage="هیچ رویدادی ثبت نشده است"
             onRetry={() =>
                 queryClient.invalidateQueries({

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef } from "react";
 import { PAGINATION } from "@/lib/constants";
 import type {
     ColumnFiltersState,
@@ -116,8 +116,10 @@ export function useTableUrlState(
         return collected;
     }, [columnFiltersCfg, search]);
 
-    const [columnFilters, setColumnFilters] =
-        useState<ColumnFiltersState>(initialColumnFilters);
+    // Filters derive from the URL on EVERY render (like sorting/pagination
+    // above): back/forward and shared links stay authoritative, and local
+    // state can never drift from the address bar.
+    const columnFilters: ColumnFiltersState = initialColumnFilters;
 
     const sorting: SortingState = useMemo(() => {
         const rawSort = (search as SearchRecord)[sortKey];
@@ -141,11 +143,11 @@ export function useTableUrlState(
         return { pageIndex: Math.max(0, pageNum - 1), pageSize: pageSizeNum };
     }, [search, pageKey, pageSizeKey, defaultPage, defaultPageSize]);
 
-    const [globalFilter, setGlobalFilter] = useState<string | undefined>(() => {
+    const globalFilter: string | undefined = useMemo(() => {
         if (!globalFilterEnabled) return undefined;
         const raw = (search as SearchRecord)[globalFilterKey];
         return typeof raw === "string" ? raw : "";
-    });
+    }, [search, globalFilterEnabled, globalFilterKey]);
 
     const navigateRef = useRef(navigate);
     navigateRef.current = navigate;
@@ -246,7 +248,6 @@ export function useTableUrlState(
                 typeof updater === "function" ? updater(current) : updater;
             const keys = keysRef.current;
             const value = keys.trimGlobal ? next.trim() : next;
-            setGlobalFilter(value);
             navigateRef.current({
                 search: (prev) => ({
                     ...(prev as SearchRecord),
@@ -266,7 +267,6 @@ export function useTableUrlState(
             const current = columnFiltersRef.current;
             const next =
                 typeof updater === "function" ? updater(current) : updater;
-            setColumnFilters(next);
 
             const patch: Record<string, unknown> = {};
             const cfgs = columnFiltersCfgRef.current;

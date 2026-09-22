@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-    FormNumberField,
+    FormCountField,
     FormTextarea,
     FormOptionMultiComboboxField,
 } from "@/components/forms";
@@ -56,7 +56,7 @@ export function RoleRequirementsCard({ form }: RequirementsCardProps) {
                         )}
                     >
                         {(f) => (
-                            <FormNumberField
+                            <FormCountField
                                 field={f}
                                 label="حداقل سابقه کار مرتبط (سال)"
                                 min={0}
@@ -71,7 +71,7 @@ export function RoleRequirementsCard({ form }: RequirementsCardProps) {
                         )}
                     >
                         {(f) => (
-                            <FormNumberField
+                            <FormCountField
                                 field={f}
                                 label="حداقل سابقه کار غیرمرتبط (سال)"
                                 min={0}

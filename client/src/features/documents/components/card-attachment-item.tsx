@@ -4,7 +4,6 @@ import {
     IconTrash,
 } from "@tabler/icons-react";
 
-import { cn } from "@/lib/utils";
 import {
     Attachment,
     AttachmentAction,
@@ -16,7 +15,7 @@ import {
 } from "@/components/ui/attachment";
 import { DocumentThumbnail } from "@/components/documents";
 import { ConfirmDeleteActions } from "./confirm-delete-actions";
-import { buildParentPath, getExactCategoryName, getDocOriginalName, getDocMimeType, getDocServeUrl } from "@/features/documents/types";
+import { buildParentPath, getExactCategoryName, getDocOriginalName } from "@/features/documents/types";
 import type { Document, DocumentCategory } from "@/features/documents/types";
 
 export function CardAttachmentItem({

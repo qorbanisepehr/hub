@@ -67,6 +67,7 @@ export function EmployeeDocumentReplaceModal({
         },
         onError: (error: unknown) => {
             setServerError(getApiError(error) ?? "خطا در جایگزینی مدرک");
+            toast.error(getApiError(error) ?? "خطا در جایگزینی مدرک");
         },
     });
 

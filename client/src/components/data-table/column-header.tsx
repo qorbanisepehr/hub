@@ -10,6 +10,9 @@ import {
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuSeparator,
+    DropdownMenuSub,
+    DropdownMenuSubContent,
+    DropdownMenuSubTrigger,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -17,13 +20,19 @@ import {
     IconArrowsSort,
     IconArrowUp,
     IconEyeOff,
+    IconPin,
+    IconPinEnd,
+    IconPinFilled,
+    IconPinnedOff,
 } from "@tabler/icons-react";
 
-type DataTableColumnHeaderProps<TData extends RowData, TValue> =
-    React.HTMLAttributes<HTMLDivElement> & {
-        column: Column<StockFeatures, TData, TValue>;
-        title: string;
-    };
+type DataTableColumnHeaderProps<
+    TData extends RowData,
+    TValue,
+> = React.HTMLAttributes<HTMLDivElement> & {
+    column: Column<StockFeatures, TData, TValue>;
+    title: string;
+};
 
 export function DataTableColumnHeader<TData extends RowData, TValue>({
     column,
@@ -88,6 +97,51 @@ export function DataTableColumnHeader<TData extends RowData, TValue>({
                         )}
                         نزولی
                     </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuSub>
+                        <DropdownMenuSubTrigger className="ps-3">
+                            {column.getIsPinned() ? (
+                                <IconPinFilled className="size-3.5 text-muted-foreground/70" />
+                            ) : (
+                                <IconPin className="size-3.5 text-muted-foreground/70" />
+                            )}
+                            <span>سنجاق‌کردن ستون</span>
+                        </DropdownMenuSubTrigger>
+                        <DropdownMenuSubContent alignOffset={-2}>
+                            <DropdownMenuItem
+                                onClick={() => column.pin("start")}
+                            >
+                                <span className="relative flex size-4 items-center justify-center">
+                                    {column.getIsPinned() === "start" ? (
+                                        <IconPinEnd className="size-3.5 text-primary" />
+                                    ) : (
+                                        <span className="size-0.5 bg-muted-foreground/50" />
+                                    )}
+                                </span>
+                                سنجاق به راست (ابتدا)
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => column.pin("end")}>
+                                <span className="relative flex size-4 items-center justify-center">
+                                    {column.getIsPinned() === "end" ? (
+                                        <IconPinnedOff className="size-3.5 text-primary" />
+                                    ) : (
+                                        <span className="size-0.5 bg-muted-foreground/50" />
+                                    )}
+                                </span>
+                                سنجاق به چپ (انتها)
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => column.pin(false)}>
+                                <span className="relative flex size-4 items-center justify-center">
+                                    {column.getIsPinned() === false ? (
+                                        <IconPinnedOff className="size-3.5 text-primary" />
+                                    ) : (
+                                        <span className="size-0.5 bg-muted-foreground/50" />
+                                    )}
+                                </span>
+                                بدون سنجاق
+                            </DropdownMenuItem>
+                        </DropdownMenuSubContent>
+                    </DropdownMenuSub>
                     {column.getCanHide() && (
                         <>
                             <DropdownMenuSeparator />

@@ -16,6 +16,25 @@ export const LOGO_TYPE_PATH =
 const SVG_COLOR_RE =
     /^(?:#[0-9a-fA-F]{3,8}|rgba?\([^)]*\)|hsla?\([^)]*\)|[a-z]+)$/;
 
+const SCRIPT_ELEMENT_RE =
+    /<script\b[\s\S]*?<\/script\s*>|<script\b(?:"[^"]*"|'[^']*'|[^'"])*?(?:>|$)/gi;
+const EVENT_HANDLER_RE = /\s+on\w+\s*=(?:"[^"]*"|'[^']*'|[^\s>]+)/gi;
+const JAVASCRIPT_URL_RE =
+    /\s(?:href|xlink:href)\s*=\s*(["'])\s*javascript:[^"']*\1/gi;
+
+/**
+ * Remove executable content from an uploaded SVG before it is injected with
+ * dangerouslySetInnerHTML: <script> elements (React never runs them and logs
+ * a warning when inline HTML carries a script tag), inline event-handler
+ * attributes, and javascript: URLs.
+ */
+export function sanitizeSvgContent(svg: string): string {
+    return svg
+        .replace(SCRIPT_ELEMENT_RE, "")
+        .replace(EVENT_HANDLER_RE, "")
+        .replace(JAVASCRIPT_URL_RE, "");
+}
+
 const NON_COLOR_KEYWORDS = new Set([
     "none",
     "transparent",
@@ -79,7 +98,12 @@ export function useBrandImage(
         }
 
         if (injectedSvg) {
-            return { kind: "svg", content: recolorSvgContent(injectedSvg) };
+            return {
+                kind: "svg",
+                content: recolorSvgContent(
+                    sanitizeSvgContent(injectedSvg),
+                ),
+            };
         }
 
         return { kind: "img" };

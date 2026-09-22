@@ -27,6 +27,7 @@ export function PermissionsSection() {
                 {isLoading ? (
                     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                         {Array.from({ length: 6 }).map((_, i) => (
+                            // oxlint-disable-next-line react/no-array-index-key -- static skeleton placeholders
                             <Skeleton key={i} className="h-40 w-full rounded-lg" />
                         ))}
                     </div>

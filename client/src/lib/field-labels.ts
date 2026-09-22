@@ -120,7 +120,7 @@ const FIELD_LABELS: Record<string, string> = {
     reason_for_joining: "دلیل تمایل به همکاری",
     company_introduction_method: "نحوه آشنایی با شرکت",
     hobbies: "علاقه‌مندی‌ها",
-    references: "ارجاعات",
+    references: "معرف‌ها",
     full_name: "نام و نام خانوادگی",
     relationship: "رابطه",
     workplace_phone: "تلفن محل کار",

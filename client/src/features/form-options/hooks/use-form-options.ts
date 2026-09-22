@@ -64,7 +64,12 @@ export function useFormOptions() {
  * hitting their dedicated endpoint — the city group is far too large to embed
  * in the dictionary and location filtering/searching is server-side.
  */
-export function useFormOptionsByGroup(group: string, parentValue?: string, search?: string) {
+export function useFormOptionsByGroup(
+    group: string,
+    parentValue?: string,
+    search?: string,
+    enabled = true,
+) {
     const needsDedicatedFetch =
         parentValue !== undefined || search !== undefined || LOCATION_GROUPS.has(group);
 
@@ -73,7 +78,7 @@ export function useFormOptionsByGroup(group: string, parentValue?: string, searc
     const shared = useQuery({
         queryKey: formOptionKeys.all(),
         queryFn: fetchAllOptionsMap,
-        enabled: !needsDedicatedFetch,
+        enabled: !needsDedicatedFetch && enabled,
         staleTime: Infinity,
         select: (map: FormOptionsMap): PublicFormOption[] => map[group] ?? [],
     });
@@ -84,7 +89,7 @@ export function useFormOptionsByGroup(group: string, parentValue?: string, searc
             const { data } = await fetchFormOptionsByGroup(group, parentValue, search);
             return data.data;
         },
-        enabled: needsDedicatedFetch,
+        enabled: needsDedicatedFetch && enabled,
         staleTime: Infinity,
     });
 
@@ -147,11 +152,16 @@ export function useFormOptionsWithPlaces<T>(
  * explicitly requested). Returns the full paginated envelope so callers can
  * drive the data table's pagination controls from `meta`.
  */
-export function useAdminFormOptions(group?: string, page = 1, perPage = 20) {
+export function useAdminFormOptions(
+    group?: string,
+    page = 1,
+    perPage = 20,
+    filter?: string,
+) {
     return useQuery({
-        queryKey: formOptionKeys.admin(group, { page, per_page: perPage }),
+        queryKey: formOptionKeys.admin(group, { page, per_page: perPage, filter }),
         queryFn: async () => {
-            const { data } = await fetchAdminFormOptions(group, page, perPage);
+            const { data } = await fetchAdminFormOptions(group, page, perPage, filter);
             return data;
         },
     });

@@ -1,7 +1,6 @@
 import { useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import type { User } from "@/features/auth/types";
 import { authClient } from "@/features/auth/auth-client";
 import {
     fetchMe,

@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { useStore } from "@tanstack/react-form";
+import { useSelector } from "@tanstack/react-form";
 import { FormTextField, FormDatePicker } from "@/components/forms";
 import { FormOptionSelectField } from "@/components/forms";
 import { optionEnum } from "@/features/form-options/schema";
@@ -10,6 +10,7 @@ import {
 } from "@/features/questionnaire/constants";
 import { zodFieldValidators } from "@/lib/validation-helpers";
 import { requiredText, text } from "@/lib/zod-primitives";
+import { getFormValuePath } from "@/lib/form-utils";
 import type { QuestionnaireFormApi } from "@/features/questionnaire/types";
 
 type MilitaryServiceFieldsProps = {
@@ -30,15 +31,13 @@ export function MilitaryServiceFields({
 }: MilitaryServiceFieldsProps) {
     const { data: militaryOptions } = useFormOptionsByGroup("military_status");
 
-    const status = useStore(form.store, (s) => {
-        const keys = `${basePath}.status`.split(".");
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        let current: any = s.values;
-        for (const key of keys) {
-            current = current?.[key];
-        }
-        return current as string | undefined;
-    });
+    const status = useSelector(
+        form.store,
+        (s) =>
+            getFormValuePath(s.values, `${basePath}.status`) as
+                | string
+                | undefined,
+    );
 
     const requiresStartDate =
         status !== undefined && MILITARY_STATUS_REQUIRES_START_DATE.has(status);

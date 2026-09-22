@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useMemo, useState } from "react";
 import {
     IconChevronDown,
     IconPlus,
@@ -9,14 +9,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-    DialogDescription,
-    DialogTrigger,
-} from "@/components/ui/dialog";
+import { EmptyState } from "@/components/layout/empty-state";
+import { ResponsiveDialog } from "@/components/ui/responsive-dialog";
 import { useInfiniteScroll } from "@/hooks/use-infinite-scroll";
 
 type SearchSelectModalProps<T> = {
@@ -95,6 +89,7 @@ const SkeletonList = memo(function SkeletonList() {
         <div className="space-y-1 p-1">
             {Array.from({ length: 5 }).map((_, i) => (
                 <div
+                    // oxlint-disable-next-line react/no-array-index-key -- static skeleton placeholders
                     key={i}
                     className="flex items-center gap-3 rounded-lg px-2 py-2"
                 >
@@ -109,13 +104,8 @@ const SkeletonList = memo(function SkeletonList() {
     );
 });
 
-const EmptyState = memo(function EmptyState({ text }: { text: string }) {
-    return (
-        <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-            <IconSearch className="mb-2 size-8 opacity-40" />
-            <p className="text-sm">{text}</p>
-        </div>
-    );
+const ModalEmptyState = memo(function ModalEmptyState({ text }: { text: string }) {
+    return <EmptyState icon={IconSearch} message={text} variant="compact" />;
 });
 
 export function SearchSelectModal<T>({
@@ -191,68 +181,67 @@ export function SearchSelectModal<T>({
     );
 
     return (
-        <Dialog open={open} onOpenChange={handleOpenChange}>
-            <DialogTrigger
-                render={
-                    <button
-                        type="button"
-                        disabled={disabled}
-                        className={`flex h-8 w-full items-center justify-between gap-2 rounded-lg border border-input bg-transparent px-2.5 py-1 text-base transition-colors outline-none hover:bg-muted focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm ${className ?? ""}`}
-                    />
-                }
-            >
-                <span className={selectedItem ? "" : "text-muted-foreground"}>
-                    {selectedItem ? getItemLabel(selectedItem) : placeholder}
-                </span>
-                <div className="flex items-center gap-1">
-                    {selectedItem && !disabled && (
-                        <span
-                            role="button"
-                            tabIndex={-1}
-                            onClick={handleClear}
-                            className="rounded-sm p-0.5 text-muted-foreground hover:text-foreground"
-                        >
-                            ×
-                        </span>
-                    )}
-                    <IconChevronDown className="size-4 shrink-0 text-muted-foreground" />
-                </div>
-            </DialogTrigger>
-
-            <DialogContent className="sm:max-w-md gap-0 p-0 overflow-hidden">
-                <DialogHeader className="px-4 pt-4 pb-2">
-                    <DialogTitle>{modalTitle}</DialogTitle>
-                    {modalDescription && (
-                        <DialogDescription>{modalDescription}</DialogDescription>
-                    )}
-                </DialogHeader>
-
-                <div className="px-4 pb-2">
-                    <div className="relative">
-                        <IconSearch className="absolute start-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                        <Input
-                            placeholder={searchPlaceholder}
-                            value={searchQuery}
-                            onChange={(e) => onSearchChange(e.target.value)}
-                            className="h-9 ps-8"
-                            autoFocus
-                        />
-                        {isSearchPending && searchQuery && (
-                            <IconLoader2 className="absolute end-2.5 top-1/2 size-3.5 -translate-y-1/2 animate-spin text-muted-foreground" />
+        <ResponsiveDialog
+            open={open}
+            onOpenChange={handleOpenChange}
+            title={modalTitle}
+            description={modalDescription}
+            trigger={
+                <button
+                    type="button"
+                    disabled={disabled}
+                    className={`flex h-8 w-full items-center justify-between gap-2 rounded-lg border border-input bg-transparent px-2.5 py-1 text-base transition-colors outline-none hover:bg-muted focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm ${className ?? ""}`}
+                >
+                    <span
+                        className={selectedItem ? "" : "text-muted-foreground"}
+                    >
+                        {selectedItem ? getItemLabel(selectedItem) : placeholder}
+                    </span>
+                    <span className="flex items-center gap-1">
+                        {selectedItem && !disabled && (
+                            <span
+                                role="button"
+                                tabIndex={-1}
+                                onClick={handleClear}
+                                className="rounded-sm p-0.5 text-muted-foreground hover:text-foreground"
+                            >
+                                ×
+                            </span>
                         )}
-                    </div>
+                        <IconChevronDown className="size-4 shrink-0 text-muted-foreground" />
+                    </span>
+                </button>
+            }
+        >
+            <div className="space-y-2">
+                <div className="relative">
+                    <IconSearch className="absolute start-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                        placeholder={searchPlaceholder}
+                        value={searchQuery}
+                        onChange={(e) => onSearchChange(e.target.value)}
+                        className="h-9 ps-8"
+                        autoFocus
+                    />
+                    {isSearchPending && searchQuery && (
+                        <IconLoader2 className="absolute end-2.5 top-1/2 size-3.5 -translate-y-1/2 animate-spin text-muted-foreground" />
+                    )}
                 </div>
 
                 <div
                     ref={scrollRef}
-                    className="max-h-72 overflow-y-auto overscroll-contain px-2 pb-2"
+                    className="max-h-72 overflow-y-auto overscroll-contain px-1"
                 >
                     {isLoading ? (
                         <SkeletonList />
                     ) : items.length === 0 ? (
-                        <EmptyState text={searchQuery ? "نتیجه‌ای یافت نشد" : emptyText} />
+                        <ModalEmptyState
+                            text={
+                                searchQuery ? "نتیجه‌ای یافت نشد" : emptyText
+                            }
+                        />
                     ) : (
-                        <div className="space-y-0.5 p-1">
+                        <div className="space-y-0.5">
                             {items.map((item) => {
                                 const key = getItemKey(item);
                                 return (
@@ -260,7 +249,9 @@ export function SearchSelectModal<T>({
                                         key={key}
                                         item={item}
                                         isSelected={key === value}
-                                        disabled={getItemDisabled?.(item) ?? false}
+                                        disabled={
+                                            getItemDisabled?.(item) ?? false
+                                        }
                                         onSelect={handleItemSelect}
                                         getItemKey={getItemKey}
                                         getItemLabel={getItemLabel}
@@ -272,7 +263,9 @@ export function SearchSelectModal<T>({
                             {isFetchingNextPage && (
                                 <div className="flex items-center justify-center gap-2 py-2.5">
                                     <IconLoader2 className="size-3.5 animate-spin text-muted-foreground" />
-                                    <span className="text-xs text-muted-foreground">بارگذاری...</span>
+                                    <span className="text-xs text-muted-foreground">
+                                        بارگذاری...
+                                    </span>
                                 </div>
                             )}
 
@@ -286,23 +279,21 @@ export function SearchSelectModal<T>({
                 </div>
 
                 {onCreateNew && (
-                    <div className="border-t px-4 py-2.5">
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                                onCreateNew();
-                                setOpen(false);
-                                onSearchChange("");
-                            }}
-                            className="w-full justify-start gap-2"
-                        >
-                            <IconPlus className="size-4" />
-                            ایجاد مورد جدید
-                        </Button>
-                    </div>
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                            onCreateNew();
+                            setOpen(false);
+                            onSearchChange("");
+                        }}
+                        className="w-full justify-start gap-2"
+                    >
+                        <IconPlus className="size-4" />
+                        ایجاد مورد جدید
+                    </Button>
                 )}
-            </DialogContent>
-        </Dialog>
+            </div>
+        </ResponsiveDialog>
     );
 }

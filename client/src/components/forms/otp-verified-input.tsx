@@ -18,14 +18,18 @@ import {
     InputOTPGroup,
     InputOTPSlot,
 } from "@/components/ui/input-otp";
-import { useOtpVerification } from "@/hooks/use-otp-verification";
+import {
+    useOtpVerification,
+    type OtpSendPayload,
+    type OtpVerifyPayload,
+} from "@/hooks/use-otp-verification";
 
 export type OtpVerifiedInputProps = {
     label: string;
     sourceField: AnyFieldApi;
     isVerified: boolean;
-    sendOtp: (value: string) => Promise<any>;
-    verifyOtp: (otp: string) => Promise<any>;
+    sendOtp: (value: string) => Promise<{ data?: OtpSendPayload }>;
+    verifyOtp: (otp: string) => Promise<{ data: OtpVerifyPayload }>;
     onVerifiedChange?: () => void;
     placeholder?: string;
     dir?: "ltr" | "rtl";
@@ -61,6 +65,9 @@ export function OtpVerifiedInput({
             setIsEditing(false);
             setOtpSent(false);
         }
+        // Only reacts to verification transitions; re-running on every keystroke
+        // in sourceValue would fight the user while they edit the field.
+        // oxlint-disable-next-line react-hooks/exhaustive-deps -- transition-only effect
     }, [isVerified]);
 
     const {

@@ -3,13 +3,15 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
     IconCheck,
     IconLoader2,
+    IconMasksTheater,
     IconPlus,
-    IconTrash,
 } from "@tabler/icons-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/layout";
 import {
     fetchUserRoles,
     assignUserRole,
@@ -20,9 +22,8 @@ import { getApiError } from "@/lib/error-utils";
 import { RoleSearchSelect } from "@/features/rbac/components/role-search-select";
 import { PermissionGuard } from "@/features/auth/components/permission-guard";
 import { PERMISSIONS } from "@/lib/permissions";
-import { useRoles } from "@/features/rbac/hooks/use-roles";
 import { ConfirmDeleteButton } from "@/components/ui/confirm-delete-button";
-import { roleKeys, userKeys } from "@/lib/query-keys";
+import { userKeys } from "@/lib/query-keys";
 import type { Role } from "@/features/rbac/types";
 
 type UserRoleManagerProps = {
@@ -44,8 +45,6 @@ export function UserRoleManager({
             return data;
         },
     });
-
-    const { data: allRoles } = useRoles();
 
     const assignMutation = useMutation({
         mutationFn: ({ roleId, active }: { roleId: number; active: boolean }) =>
@@ -92,9 +91,6 @@ export function UserRoleManager({
     });
 
     const assignedRoleIds = new Set(userRoles?.roles?.map((r) => r.id) ?? []);
-    const availableRoles =
-        allRoles?.filter((r) => !assignedRoleIds.has(r.id) && r.is_active) ??
-        [];
 
     const handleAssign = () => {
         if (!selectedRoleId) return;
@@ -105,10 +101,8 @@ export function UserRoleManager({
         return (
             <div className="space-y-3">
                 {Array.from({ length: 3 }).map((_, i) => (
-                    <div
-                        key={i}
-                        className="h-14 animate-pulse rounded-lg bg-muted"
-                    />
+                    // oxlint-disable-next-line react/no-array-index-key -- static skeleton placeholders
+                    <Skeleton key={i} className="h-14 w-full rounded-lg" />
                 ))}
             </div>
         );
@@ -161,9 +155,7 @@ export function UserRoleManager({
                                                 removeMutation.mutate(role.id)
                                             }
                                             isPending={removeMutation.isPending}
-                                            label=""
-                                            confirmLabel=""
-                                            cancelLabel=""
+                                            iconOnly
                                             size="icon-sm"
                                             variant="ghost"
                                         />
@@ -173,9 +165,11 @@ export function UserRoleManager({
                         })}
                     </div>
                 ) : (
-                    <p className="text-sm text-muted-foreground text-center py-8">
-                        هیچ نقشی تخصیص داده نشده است
-                    </p>
+                    <EmptyState
+                        icon={IconMasksTheater}
+                        message="هیچ نقشی تخصیص داده نشده است"
+                        variant="compact"
+                    />
                 )}
 
                 {/* Add role section */}

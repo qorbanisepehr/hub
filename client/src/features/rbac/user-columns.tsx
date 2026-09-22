@@ -5,9 +5,9 @@ import {
 } from "@tanstack/react-table";
 import { Link } from "@tanstack/react-router";
 import { IconMasksTheater, IconPencil, IconUser } from "@tabler/icons-react";
-import { Badge } from "@/components/ui/badge";
 import { DataTableColumnHeader } from "@/components/data-table";
 import { RowActions } from "@/components/shared/row-actions";
+import { ActiveBadge } from "@/components/shared/active-badge";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { PERMISSIONS } from "@/lib/permissions";
 import { RoleBadge } from "@/features/rbac/components/role-badge";
@@ -65,14 +65,9 @@ export function getUserColumns(): ColumnDef<StockFeatures, UserListItem>[] {
             header: ({ column }) => (
                 <DataTableColumnHeader column={column} title="وضعیت" />
             ),
-            cell: ({ row }) => {
-                const isActive = row.getValue("is_active") as boolean;
-                return (
-                    <Badge variant={isActive ? "default" : "secondary"}>
-                        {isActive ? "فعال" : "غیرفعال"}
-                    </Badge>
-                );
-            },
+            cell: ({ row }) => (
+                <ActiveBadge isActive={row.getValue("is_active") as boolean} />
+            ),
             meta: { displayName: "وضعیت" },
         },
         {

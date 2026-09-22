@@ -226,9 +226,9 @@ export const FIELD_KEY_LABELS: Record<string, string> = {
     back: "پشت",
     "page-1": "صفحه اول",
     "page-2": "صفحه دوم",
-    "page-3": "صفحه آخر",
+    "page-3": "صفحه سوم",
     "page-4": "صفحه چهارم",
-    "page-extra": "صفحه اضافی",
+    "page-extra": "صفحه پنجم",
     photo: "تصویر پرسنلی",
 };
 
@@ -273,7 +273,7 @@ export const QUESTIONNAIRE_DOC_REQUIREMENTS: DocumentRequirementSpec[] = [
         requiredFields: [
             { fieldKey: "page-1", label: "صفحه اول" },
             { fieldKey: "page-2", label: "صفحه دوم" },
-            { fieldKey: "page-3", label: "صفحه آخر" },
+            { fieldKey: "page-3", label: "صفحه سوم" },
             { fieldKey: "page-4", label: "صفحه چهارم" },
         ],
     },

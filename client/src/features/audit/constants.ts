@@ -1,3 +1,12 @@
+import {
+    Icon,
+    IconDownload,
+    IconFingerprintScan,
+    IconFolders,
+    IconForms,
+    IconUserKey,
+    IconUsers,
+} from "@tabler/icons-react";
 import type { AuditCategory } from "./types";
 
 export const AUDIT_CATEGORY_LABELS: Record<AuditCategory, string> = {
@@ -9,13 +18,25 @@ export const AUDIT_CATEGORY_LABELS: Record<AuditCategory, string> = {
     workflow: "گردش کار",
 };
 
-export const AUDIT_CATEGORY_VARIANTS: Record<AuditCategory, "default" | "secondary" | "destructive" | "outline"> = {
-    auth: "default",
-    authorization: "secondary",
-    employee: "outline",
-    document: "destructive",
-    questionnaire: "default",
-    workflow: "secondary",
+// bg-info
+export const AUDIT_CATEGORY_VARIANTS: Record<
+    AuditCategory,
+    "primary" | "info" | "warning" | "destructive" | "success"
+> = {
+    auth: "success",
+    authorization: "info",
+    employee: "info",
+    document: "info",
+    questionnaire: "info",
+    workflow: "info",
+};
+export const AUDIT_CATEGORY_ICONS: Record<AuditCategory, Icon> = {
+    auth: IconUserKey,
+    authorization: IconFingerprintScan,
+    employee: IconUsers,
+    document: IconFolders,
+    questionnaire: IconForms,
+    workflow: IconDownload,
 };
 
 export const AUDIT_EVENT_LABELS: Record<string, string> = {

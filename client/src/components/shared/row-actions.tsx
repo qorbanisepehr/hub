@@ -2,15 +2,7 @@ import { type ReactNode, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { IconDotsVertical, IconLoader2, IconTrash } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-    DialogTrigger,
-} from "@/components/ui/dialog";
+import { ResponsiveDialog } from "@/components/ui/responsive-dialog";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -79,24 +71,25 @@ function ActionMenuItem({ action }: { action: ButtonAction }) {
 
 function DeleteDialogContent({
     label,
-    message,
     onConfirm,
     isPending,
     onOpenChange,
 }: {
     label: string;
-    message: string;
     onConfirm: () => void;
     isPending?: boolean;
     onOpenChange: (open: boolean) => void;
 }) {
     return (
         <>
-            <DialogHeader>
-                <DialogTitle>{label}</DialogTitle>
-                <DialogDescription>{message}</DialogDescription>
-            </DialogHeader>
-            <DialogFooter>
+            <div className="flex items-center justify-end gap-2 pt-2">
+                <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => onOpenChange(false)}
+                >
+                    انصراف
+                </Button>
                 <Button
                     variant="destructive"
                     disabled={isPending}
@@ -112,7 +105,7 @@ function DeleteDialogContent({
                     )}
                     {label}
                 </Button>
-            </DialogFooter>
+            </div>
         </>
     );
 }
@@ -121,11 +114,16 @@ function DesktopActions({ actions }: { actions: RowAction[] }) {
     return (
         <div className="hidden items-center gap-1 md:flex">
             {actions.map((action, i) => {
+                // oxlint-disable-next-line react/no-array-index-key -- static per-row action config; list never reorders
                 let el = <DesktopAction key={i} action={action} />;
 
                 if (action.permission) {
                     el = (
-                        <PermissionGuard key={i} permission={action.permission}>
+                        <PermissionGuard
+                            // oxlint-disable-next-line react/no-array-index-key -- static per-row action config; list never reorders
+                            key={i}
+                            permission={action.permission}
+                        >
                             {el}
                         </PermissionGuard>
                     );
@@ -174,11 +172,13 @@ function MobileActions({ actions }: { actions: RowAction[] }) {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" side="bottom">
                     {actions.map((action, i) => {
+                        // oxlint-disable-next-line react/no-array-index-key -- static per-row action config; list never reorders
                         let el = <MobileAction key={i} action={action} />;
 
                         if (action.permission) {
                             el = (
                                 <PermissionGuard
+                                    // oxlint-disable-next-line react/no-array-index-key -- static per-row action config; list never reorders
                                     key={i}
                                     permission={action.permission}
                                 >
@@ -240,20 +240,24 @@ function DeleteConfirmButton({
     const [open, setOpen] = useState(false);
 
     return (
-        <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger render={<Button variant="ghost" size="icon-sm" />}>
-                <IconTrash className="size-4" />
-            </DialogTrigger>
-            <DialogContent>
-                <DeleteDialogContent
-                    label={label}
-                    message={message}
-                    onConfirm={onConfirm}
-                    isPending={isPending}
-                    onOpenChange={setOpen}
-                />
-            </DialogContent>
-        </Dialog>
+        <ResponsiveDialog
+            open={open}
+            onOpenChange={setOpen}
+            title={label}
+            description={message}
+            trigger={
+                <Button variant="ghost" size="icon-sm">
+                    <IconTrash className="size-4" />
+                </Button>
+            }
+        >
+            <DeleteDialogContent
+                label={label}
+                onConfirm={onConfirm}
+                isPending={isPending}
+                onOpenChange={setOpen}
+            />
+        </ResponsiveDialog>
     );
 }
 
@@ -271,28 +275,25 @@ function DeleteConfirmMenuItem({
     const [open, setOpen] = useState(false);
 
     return (
-        <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger
-                render={
-                    <DropdownMenuItem
-                        variant="destructive"
-                        onSelect={(e) => e.preventDefault()}
-                    />
-                }
-            >
-                <IconTrash className="size-4" />
-                {label}
-            </DialogTrigger>
-            <DialogContent>
-                <DeleteDialogContent
-                    label={label}
-                    message={message}
-                    onConfirm={onConfirm}
-                    isPending={isPending}
-                    onOpenChange={setOpen}
-                />
-            </DialogContent>
-        </Dialog>
+        <ResponsiveDialog
+            open={open}
+            onOpenChange={setOpen}
+            title={label}
+            description={message}
+            trigger={
+                <DropdownMenuItem variant="destructive">
+                    <IconTrash className="size-4" />
+                    {label}
+                </DropdownMenuItem>
+            }
+        >
+            <DeleteDialogContent
+                label={label}
+                onConfirm={onConfirm}
+                isPending={isPending}
+                onOpenChange={setOpen}
+            />
+        </ResponsiveDialog>
     );
 }
 

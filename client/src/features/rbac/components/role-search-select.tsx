@@ -17,12 +17,14 @@ type RoleSearchSelectProps = {
     className?: string;
 };
 
+const EMPTY_EXCLUDE_IDS: number[] = [];
+
 export function RoleSearchSelect({
     value,
     onChange,
     placeholder = "انتخاب نقش",
     disabled = false,
-    excludeIds = [],
+    excludeIds = EMPTY_EXCLUDE_IDS,
     className,
 }: RoleSearchSelectProps) {
     const navigate = useNavigate();
@@ -33,12 +35,12 @@ export function RoleSearchSelect({
         useInfiniteQuery({
             queryKey: roleKeys.select(debouncedSearch),
             queryFn: async ({ pageParam = 1 }) => {
-                const { data } = await fetchRoles({
+                const { data: response } = await fetchRoles({
                     filter: debouncedSearch || undefined,
                     per_page: PAGINATION.SEARCH_PAGE_SIZE,
                     page: pageParam,
                 });
-                return data;
+                return response;
             },
             getNextPageParam: (lastPage) =>
                 lastPage.meta.current_page < lastPage.meta.last_page

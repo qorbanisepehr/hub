@@ -3,7 +3,7 @@ import { useSelector } from "@tanstack/react-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
     FormDatePicker,
-    FormNumberField,
+    FormCountField,
     FormOptionSelectField,
     FormRadioGroup,
     FormRepeater,
@@ -161,7 +161,7 @@ export function SocialInsuranceSection({ form, uuid }: SectionProps) {
                         )}
                     >
                         {(field) => (
-                            <FormNumberField
+                            <FormCountField
                                 field={field}
                                 label="تعداد روزهای بیمه"
                             />
@@ -319,7 +319,7 @@ export function SocialInsuranceSection({ form, uuid }: SectionProps) {
                                                                     name={`social_insurance.histories.${index}.monthly_breakdown.${monthIndex}.days`}
                                                                 >
                                                                     {(f) => (
-                                                                        <FormNumberField
+                                                                        <FormCountField
                                                                             field={
                                                                                 f
                                                                             }
