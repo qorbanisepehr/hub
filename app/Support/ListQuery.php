@@ -2,13 +2,15 @@
 
 namespace App\Support;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 
 /**
  * Standard clamps and typed reads for list endpoints: per-page ceiling, sort
- * whitelist/default fallback, sort direction, and free-text filter. Replaces
- * the inline min(max(...)) per_page clamps (caps drifted to 50/100 across ~9
- * endpoints) and the previously unclamped DocumentController paginate() calls.
+ * whitelist/default fallback, sort direction, free-text filter, and the
+ * escaped LIKE search over whitelisted columns. Replaces the inline
+ * min(max(...)) per_page clamps (caps drifted to 50/100 across ~9 endpoints)
+ * and the previously unclamped DocumentController paginate() calls.
  */
 final class ListQuery
 {
@@ -55,5 +57,41 @@ final class ListQuery
         $filter = $request->input('filter');
 
         return is_string($filter) && $filter !== '' ? $filter : null;
+    }
+
+    /**
+     * Escaped LIKE search over $columns: % and _ wildcards in the term are
+     * literal, so user input cannot broaden the match. A null term (absent or
+     * empty) leaves the query untouched.
+     *
+     * The escape is declared EXPLICITLY: Postgres and MySQL default LIKE's
+     * escape to backslash, but sqlite has NO default escape — an escaped term
+     * would match a literal backslash there and never find the row. Declaring
+     * `escape '\'` makes the behaviour identical on every driver (and keeps
+     * the test suite's sqlite honest against the production Postgres). Same
+     * pattern as FormOptionService's public option search.
+     *
+     * @param  array<int, string>  $columns
+     */
+    public static function search(Builder $query, ?string $term, array $columns): Builder
+    {
+        if ($term === null || $term === '' || $columns === []) {
+            return $query;
+        }
+
+        $needle = str_replace(
+            ['\\', '%', '_'],
+            ['\\\\', '\\%', '\\_'],
+            $term,
+        );
+
+        return $query->where(function (Builder $group) use ($columns, $needle): void {
+            foreach ($columns as $column) {
+                $group->orWhereRaw(
+                    "{$column} like ? escape '\\'",
+                    ["%{$needle}%"],
+                );
+            }
+        });
     }
 }

@@ -3,11 +3,29 @@
 namespace App\Domains\Authorization\Exports;
 
 use App\Domains\Authorization\Models\Role;
+use App\Support\Exports\Contract\TabularExporter;
+use App\Support\Exports\Value\ExportColumn;
+use App\Support\Exports\Value\ExportColumnType;
+use App\Support\Exports\Value\ExportOptions;
+use App\Support\Exports\Value\ExportRequest;
 use Illuminate\Support\Collection;
 
-class RoleChartCsvExporter
+/**
+ * Role chart export for the Visio Organization Chart Wizard.
+ *
+ * Migrated from RoleChartCsvExporter: the data assembly (subtree, unique
+ * names, field values) stayed here; the CSV bytes moved to the kernel's
+ * CsvWriter. The Visio quirks are byte/encoding concerns of the *target*
+ * and are applied by the controller via ExportOptions (no BOM, CRLF is the
+ * writer's default).
+ */
+final class RoleChartExporter implements TabularExporter
 {
-    public const FIELDS = [
+    /**
+     * User-selectable fields (the export-fields picker). Name/Manager are
+     * structural and always present; they are not part of this catalog.
+     */
+    private const FIELDS = [
         'system_name' => ['label' => 'نام سیستمی', 'column' => 'System Name'],
         'description' => ['label' => 'توضیحات', 'column' => 'Description'],
         'is_active' => ['label' => 'وضعیت', 'column' => 'Active'],
@@ -24,40 +42,67 @@ class RoleChartCsvExporter
         'matrix_managers' => ['label' => 'مدیران ماتریسی', 'column' => 'Matrix Managers'],
     ];
 
-    /** @return array<int, array{key: string, label: string, column: string}> */
-    public function availableFields(): array
+    public function __construct(
+        /** @var Collection<int, Role> Roles already scoped by the controller (authorization happens there). */
+        private readonly Collection $scopedRoles,
+        private readonly ?int $rootId = null,
+    ) {}
+
+    public static function visioOptions(): ExportOptions
     {
-        return collect(self::FIELDS)
-            ->map(fn (array $field, string $key) => [
-                'key' => $key,
-                'label' => $field['label'],
-                'column' => $field['column'],
-            ])
-            ->values()
-            ->all();
+        return new ExportOptions(bom: false, formulaGuard: false);
+    }
+
+    public function columns(): array
+    {
+        return array_map(
+            fn (string $key) => new ExportColumn(
+                key: $key,
+                faLabel: self::FIELDS[$key]['label'],
+                column: self::FIELDS[$key]['column'],
+                type: $key === 'user_count' || $key === 'children_count'
+                    ? ExportColumnType::Number
+                    : ExportColumnType::Text,
+            ),
+            array_keys(self::FIELDS),
+        );
+    }
+
+    public function columnsFor(ExportRequest $request): array
+    {
+        $structural = [
+            new ExportColumn('name', 'نام', 'Name'),
+            new ExportColumn('manager', 'مدیر', 'Manager'),
+        ];
+
+        // Visio contract: empty selection = structural columns only.
+        if ($request->fields === []) {
+            return $structural;
+        }
+
+        $catalog = $this->columns();
+        $byKey = collect($catalog)->keyBy(fn (ExportColumn $column) => $column->key);
+
+        return array_merge($structural, array_values(array_filter(
+            array_map(fn (string $key) => $byKey->get($key), $request->fields),
+        )));
     }
 
     /**
-     * خروجی CSV سازگار با Visio Organization Chart Wizard.
-     *
-     * @param  int|null  $rootId  ریشه زیرمجموعه؛ null یعنی کل چارت.
-     * @param  array<int, string>  $fields  کلید فیلدهای اضافی.
-     * @param  Collection<int, Role>|null  $scopedRoles  نقش‌های قبلاً Scope شده؛ null یعنی همه.
+     * @return iterable<array<string, string|int|float|bool|null>>
      */
-    public function export(?int $rootId, array $fields, ?Collection $scopedRoles = null): string
+    public function rows(ExportRequest $request): iterable
     {
-        $fields = array_values(array_intersect($fields, array_keys(self::FIELDS)));
+        $fields = array_values(array_intersect($request->fields, array_keys(self::FIELDS)));
 
-        $allRoles = ($scopedRoles ?? Role::query()->withCount('users')->with('users.employee')->get());
-
-        $rolesById = $allRoles->keyBy('id');
+        $rolesById = $this->scopedRoles->keyBy('id');
 
         $parentByRole = [];
-        foreach ($allRoles as $role) {
+        foreach ($this->scopedRoles as $role) {
             $parentByRole[$role->id] = $role->parent_id;
         }
 
-        $roles = $this->collectSubtree($allRoles, $rootId, $parentByRole);
+        $roles = $this->collectSubtree($this->scopedRoles, $this->rootId, $parentByRole);
         $names = $this->uniqueNames($roles);
 
         $childrenCounts = [];
@@ -68,23 +113,26 @@ class RoleChartCsvExporter
             }
         }
 
-        $header = array_merge(['Name', 'Manager'], $this->columnsFor($fields));
-        $rows = [$header];
-
         foreach ($roles as $role) {
             $parentId = $parentByRole[$role->id] ?? null;
             $parentName = ($parentId !== null && isset($names[$parentId]))
                 ? $names[$parentId]
                 : '';
 
-            $row = [$names[$role->id], $parentName];
+            $row = [
+                'name' => $names[$role->id],
+                'manager' => $parentName,
+            ];
             foreach ($fields as $field) {
-                $row[] = $this->fieldValue($role, $field, $rolesById, $childrenCounts);
+                $row[$field] = $this->fieldValue($role, $field, $rolesById, $childrenCounts);
             }
-            $rows[] = $row;
+            yield $row;
         }
+    }
 
-        return $this->toCsv($rows);
+    public function baseFilename(): string
+    {
+        return 'org-chart-roles';
     }
 
     /**
@@ -159,12 +207,6 @@ class RoleChartCsvExporter
         return $names;
     }
 
-    /** @return array<int, string> */
-    private function columnsFor(array $fields): array
-    {
-        return array_map(fn (string $field) => self::FIELDS[$field]['column'], $fields);
-    }
-
     /** @param  array<int, int>  $childrenCounts */
     private function fieldValue(Role $role, string $field, Collection $rolesById, array $childrenCounts): string
     {
@@ -205,40 +247,5 @@ class RoleChartCsvExporter
                 ->join(', '),
             default => '',
         };
-    }
-
-    /**
-     * ساخت خروجی CSV خام بدون BOM.
-     * هر ردیف یک خط جداگانه با \r\n واقعی.
-     *
-     * @param  array<int, array<int, string>>  $rows
-     */
-    private function toCsv(array $rows): string
-    {
-        $lines = [];
-
-        foreach ($rows as $row) {
-            $escaped = array_map(
-                fn ($field) => $this->escapeCsvField((string) $field),
-                $row,
-            );
-            $lines[] = implode(',', $escaped);
-        }
-
-        // هر ردیف یک خط جداگانه با \r\n واقعی (نه متنی)
-        return implode("\r\n", $lines)."\r\n";
-    }
-
-    /**
-     * Escape فیلد CSV فقط در صورت نیاز.
-     * فقط فیلدهای حاوی کاما، دابل‌کوت یا line-break quote می‌شوند.
-     */
-    private function escapeCsvField(string $field): string
-    {
-        if (preg_match('/[",\r\n]/', $field)) {
-            return '"'.str_replace('"', '""', $field).'"';
-        }
-
-        return $field;
     }
 }

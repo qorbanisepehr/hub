@@ -21,6 +21,8 @@ Route::middleware('auth:sanctum')->group(function () {
         ->middleware('permission:role.view');
     Route::get('roles', [RoleController::class, 'index'])
         ->middleware('permission:role.view');
+    Route::get('roles/options', [RoleController::class, 'options'])
+        ->middleware('permission:role.view');
     Route::post('roles', [RoleController::class, 'store'])
         ->middleware('permission:role.create');
     Route::get('roles/chart', [RoleController::class, 'chart'])
@@ -57,6 +59,8 @@ Route::middleware('auth:sanctum')->group(function () {
         ->middleware('permission:role.delete');
 
     Route::get('users', [UserController::class, 'index'])
+        ->middleware('permission:user.view');
+    Route::get('users/options', [UserController::class, 'options'])
         ->middleware('permission:user.view');
     Route::post('users', [UserController::class, 'store'])
         ->middleware('permission:user.create');
