@@ -2,12 +2,10 @@
 
 namespace App\Domains\Reporting\Requests;
 
-use App\Support\External\PersianDateTime;
-use App\Support\PersianText;
+use App\Domains\Reporting\Requests\Concerns\ParsesReportDates;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\ValidationException;
-use InvalidArgumentException;
 
 /**
  * HTTP boundary for GET /api/reports/attendance. Accepts both calendars for
@@ -17,6 +15,8 @@ use InvalidArgumentException;
  */
 class AttendanceReportRequest extends FormRequest
 {
+    use ParsesReportDates;
+
     /** Max window the API will serve; keeps external source load explicit. */
     public const MAX_RANGE_DAYS = 92;
 
@@ -79,16 +79,6 @@ class AttendanceReportRequest extends FormRequest
 
     private function parseDate(string $key): CarbonImmutable
     {
-        $raw = PersianText::foldDigits($this->string($key)->toString());
-
-        try {
-            $parsed = PersianDateTime::parse($raw);
-        } catch (InvalidArgumentException) {
-            $parsed = null;
-        }
-
-        return $parsed ?? throw ValidationException::withMessages([
-            $key => __('messages.validation.report_date_format'),
-        ]);
+        return $this->parseReportDate($key);
     }
 }

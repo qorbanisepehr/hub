@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Contracts\Authorization;
 use App\Contracts\DocumentAuthorization;
 use App\Contracts\External\AttendanceGateway;
+use App\Contracts\External\InboxGateway;
 use App\Domains\Authorization\Policies\DynamicPolicy;
 use App\Domains\Authorization\Services\AuthorizationService;
 use App\Domains\Cv\Repositories\CvRepository;
@@ -14,11 +15,19 @@ use App\Domains\Document\Repositories\DocumentRepositoryInterface;
 use App\Domains\Employee\Imports\EmployeeImportDefinition;
 use App\Domains\Questionnaire\Repositories\QuestionnaireRepository;
 use App\Domains\Questionnaire\Repositories\QuestionnaireRepositoryInterface;
+use App\Domains\Reporting\Reports\UnifiedInbox\Sources\GatewayInboxSource;
+use App\Domains\Reporting\Reports\UnifiedInbox\Sources\InboxSourceRegistry;
 use App\Domains\Settings\Repositories\FileSettingsRepository;
 use App\Domains\Settings\Repositories\SettingsRepositoryInterface;
 use App\Domains\Settings\Services\SettingsService;
+use App\Integrations\Automation\AutomationInboxMapper;
+use App\Integrations\Automation\FakeAutomationInboxGateway;
+use App\Integrations\Bizagi\BizagiInboxMapper;
+use App\Integrations\Bizagi\FakeBizagiInboxGateway;
 use App\Integrations\Rahkaran\FakeRahkaranAttendanceGateway;
+use App\Integrations\Rahkaran\FakeRahkaranInboxGateway;
 use App\Integrations\Rahkaran\RahkaranAttendanceMapper;
+use App\Integrations\Rahkaran\RahkaranInboxMapper;
 use App\Services\DocumentAuthorizationService;
 use App\Support\Exports\DocumentExportService;
 use App\Support\Exports\DocumentRendererRegistry;
@@ -59,6 +68,37 @@ class AppServiceProvider extends ServiceProvider
             throw new \RuntimeException(
                 'No real Rahkaran driver is implemented yet; set RAHKARAN_DRIVER=fake.',
             );
+        });
+
+        // Unified inbox sources (V2 §63): each integration contributes a
+        // named source by implementing InboxGateway; the report-level adapter
+        // wraps it with key/label. Adding a system = adapter + registration.
+        $this->app->bind(AutomationInboxMapper::class);
+        $this->app->bind(BizagiInboxMapper::class);
+        $this->app->bind(RahkaranInboxMapper::class);
+
+        $this->app->singleton(InboxSourceRegistry::class, function (): InboxSourceRegistry {
+            $registry = new InboxSourceRegistry;
+
+            $registry->register(new GatewayInboxSource(
+                'automation',
+                'اتوماسیون اداری',
+                new FakeAutomationInboxGateway($this->app->make(AutomationInboxMapper::class)),
+            ));
+
+            $registry->register(new GatewayInboxSource(
+                'rahkaran',
+                'راهکاران',
+                new FakeRahkaranInboxGateway($this->app->make(RahkaranInboxMapper::class)),
+            ));
+
+            $registry->register(new GatewayInboxSource(
+                'bizagi',
+                'بیزگی',
+                new FakeBizagiInboxGateway($this->app->make(BizagiInboxMapper::class)),
+            ));
+
+            return $registry;
         });
 
         $this->app->bind(QuestionnaireRepositoryInterface::class, QuestionnaireRepository::class);

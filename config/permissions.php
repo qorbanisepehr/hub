@@ -158,6 +158,7 @@ return [
             'name' => 'Reports',
             'permissions' => [
                 'report.attendance.view' => 'View attendance report',
+                'report.unified-inbox.view' => 'View unified inbox report',
             ],
         ],
 
