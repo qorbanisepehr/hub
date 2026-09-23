@@ -2,8 +2,8 @@ import { api } from "@/lib/api";
 import type {
     AttendanceReportParams,
     AttendanceReportResponse,
-    UnifiedInboxParams,
-    UnifiedInboxReportResponse,
+    UnifiedInboxListParams,
+    UnifiedInboxListResponse,
 } from "./types";
 
 export function fetchAttendanceReport(params: AttendanceReportParams) {
@@ -12,8 +12,8 @@ export function fetchAttendanceReport(params: AttendanceReportParams) {
     });
 }
 
-export function fetchUnifiedInbox(params: UnifiedInboxParams) {
-    return api.get<UnifiedInboxReportResponse>("/reports/unified-inbox", {
+export function fetchUnifiedInbox(params: UnifiedInboxListParams) {
+    return api.get<UnifiedInboxListResponse>("/reports/unified-inbox", {
         params,
     });
 }

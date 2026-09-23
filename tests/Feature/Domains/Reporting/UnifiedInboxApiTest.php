@@ -26,7 +26,7 @@ describe('GET /api/reports/unified-inbox', function () {
         $user = createUserWithPermissions(['report.unified-inbox.view']);
 
         $response = actingAs($user)
-            ->getJson('/api/reports/unified-inbox?from=2026-09-01&to=2026-09-21')
+            ->getJson('/api/reports/unified-inbox?date_from=2026-09-01&date_to=2026-09-21')
             ->assertOk();
 
         $response->assertJsonStructure([
@@ -45,7 +45,6 @@ describe('GET /api/reports/unified-inbox', function () {
                     'document_number',
                     'title',
                     'document_type',
-                    'received_at',
                     'cartable_action',
                     'status',
                     'external_reference',
@@ -54,7 +53,12 @@ describe('GET /api/reports/unified-inbox', function () {
             ],
             'report',
             'generated_at',
-            'pagination',
+            'meta' => [
+                'current_page',
+                'last_page',
+                'per_page',
+                'total',
+            ],
             'sources',
             'metadata',
             'warnings',
@@ -74,18 +78,32 @@ describe('GET /api/reports/unified-inbox', function () {
                 'rahkaran' => 'success',
                 'bizagi' => 'success',
             ])
-            ->and($response->json('warnings'))->toBe([]);
+            ->and($response->json('warnings'))->toBe([])
+            ->and($response->json('meta.per_page'))->toBe(50);
     });
 
-    it('sorts the merged page newest first', function () {
+    it('sorts the merged page newest first by default', function () {
         $user = createUserWithPermissions(['report.unified-inbox.view']);
 
         $received = actingAs($user)
-            ->getJson('/api/reports/unified-inbox?from=2026-09-01&to=2026-09-21')
+            ->getJson('/api/reports/unified-inbox?date_from=2026-09-01&date_to=2026-09-21')
             ->assertOk()
             ->json('data.*.received_at');
 
         $sorted = collect($received)->sortDesc()->values()->toArray();
+
+        expect($received)->toBe($sorted);
+    });
+
+    it('sorts ascending when order=asc is given', function () {
+        $user = createUserWithPermissions(['report.unified-inbox.view']);
+
+        $received = actingAs($user)
+            ->getJson('/api/reports/unified-inbox?order=asc')
+            ->assertOk()
+            ->json('data.*.received_at');
+
+        $sorted = collect($received)->sort()->values()->toArray();
 
         expect($received)->toBe($sorted);
     });
@@ -96,7 +114,7 @@ describe('GET /api/reports/unified-inbox', function () {
         $user = createUserWithPermissions(['report.unified-inbox.view']);
 
         $rows = actingAs($user)
-            ->getJson('/api/reports/unified-inbox?sources[]=automation')
+            ->getJson('/api/reports/unified-inbox?source=automation')
             ->assertOk()
             ->json('data');
 
@@ -117,11 +135,11 @@ describe('GET /api/reports/unified-inbox', function () {
             ->and($external->first()['sender']['external_name'])->not->toBeNull();
     });
 
-    it('narrows to a single source via the sources filter', function () {
+    it('narrows to a single source via the source filter', function () {
         $user = createUserWithPermissions(['report.unified-inbox.view']);
 
         $data = actingAs($user)
-            ->getJson('/api/reports/unified-inbox?sources[]=rahkaran')
+            ->getJson('/api/reports/unified-inbox?source=rahkaran')
             ->assertOk()
             ->json('data');
 
@@ -129,11 +147,51 @@ describe('GET /api/reports/unified-inbox', function () {
             ->and(collect($data)->every(fn ($row) => $row['source'] === 'rahkaran'))->toBeTrue();
     });
 
+    it('excludes a source via the source_not filter', function () {
+        $user = createUserWithPermissions(['report.unified-inbox.view']);
+
+        $data = actingAs($user)
+            ->getJson('/api/reports/unified-inbox?source_not=automation')
+            ->assertOk()
+            ->json('data');
+
+        expect($data)->not->toBeEmpty()
+            ->and(collect($data)->every(fn ($row) => $row['source'] !== 'automation'))->toBeTrue();
+    });
+
+    it('excludes a status via the status_not filter', function () {
+        $user = createUserWithPermissions(['report.unified-inbox.view']);
+
+        $data = actingAs($user)
+            ->getJson('/api/reports/unified-inbox?status_not=unseen')
+            ->assertOk()
+            ->json('data');
+
+        expect($data)->not->toBeEmpty()
+            ->and(collect($data)->every(fn ($row) => $row['status'] !== 'unseen'))->toBeTrue();
+    });
+
+    it('searches the global filter needle across titles', function () {
+        $user = createUserWithPermissions(['report.unified-inbox.view']);
+
+        $data = actingAs($user)
+            ->getJson('/api/reports/unified-inbox?filter='.urlencode('قرارداد'))
+            ->assertOk()
+            ->json('data');
+
+        expect($data)->not->toBeEmpty()
+            ->and(collect($data)->every(
+                fn ($row) => str_contains($row['title'], 'قرارداد')
+                    || str_contains((string) $row['document_number'], 'قرارداد')
+                    || str_contains((string) ($row['sender']['external_name'] ?? ''), 'قرارداد'),
+            ))->toBeTrue();
+    });
+
     it('filters by unified status', function () {
         $user = createUserWithPermissions(['report.unified-inbox.view']);
 
         $data = actingAs($user)
-            ->getJson('/api/reports/unified-inbox?statuses[]=unseen&from=2026-09-15&to=2026-09-21')
+            ->getJson('/api/reports/unified-inbox?status=unseen&date_from=2026-09-15&date_to=2026-09-21')
             ->assertOk()
             ->json('data');
 
@@ -145,14 +203,14 @@ describe('GET /api/reports/unified-inbox', function () {
         $user = createUserWithPermissions(['report.unified-inbox.view']);
 
         actingAs($user)
-            ->getJson('/api/reports/unified-inbox?from=2026-09-21&to=2026-09-01')
+            ->getJson('/api/reports/unified-inbox?date_from=2026-09-21&date_to=2026-09-01')
             ->assertStatus(422)
-            ->assertJsonValidationErrors(['to']);
+            ->assertJsonValidationErrors(['date_to']);
 
         actingAs($user)
-            ->getJson('/api/reports/unified-inbox?from=nonsense&to=2026-09-21')
+            ->getJson('/api/reports/unified-inbox?date_from=nonsense&date_to=2026-09-21')
             ->assertStatus(422)
-            ->assertJsonValidationErrors(['from']);
+            ->assertJsonValidationErrors(['date_from']);
     });
 
     it('accepts jalali window bounds', function () {
@@ -160,31 +218,53 @@ describe('GET /api/reports/unified-inbox', function () {
 
         // 1405/06/01 == 2026-08-23, 1405/06/30 == 2026-09-21.
         actingAs($user)
-            ->getJson('/api/reports/unified-inbox?from=1405/06/01&to=1405/06/30')
+            ->getJson('/api/reports/unified-inbox?date_from=1405/06/01&date_to=1405/06/30')
             ->assertOk()
             ->assertJsonPath('report', 'unified-inbox');
     });
 
-    it('validates the limit bound', function () {
-        $user = createUserWithPermissions(['report.unified-inbox.view']);
+    it('validates per_page and rejects sort on other columns', function () {
+        $user = createUserWithPermissions(['report.unified-inbox.reports']); // wrong permission on purpose
 
         actingAs($user)
-            ->getJson('/api/reports/unified-inbox?limit=500')
+            ->getJson('/api/reports/unified-inbox?per_page=500')
+            ->assertForbidden();
+
+        $authorized = createUserWithPermissions(['report.unified-inbox.view']);
+
+        actingAs($authorized)
+            ->getJson('/api/reports/unified-inbox?per_page=500')
             ->assertStatus(422)
-            ->assertJsonValidationErrors(['limit']);
+            ->assertJsonValidationErrors(['per_page']);
+
+        actingAs($authorized)
+            ->getJson('/api/reports/unified-inbox?sort=title')
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['sort']);
     });
 
-    it('paginates with a bounded page size', function () {
+    it('paginates with the standard meta envelope', function () {
         $user = createUserWithPermissions(['report.unified-inbox.view']);
 
         $json = actingAs($user)
-            ->getJson('/api/reports/unified-inbox?from=2026-09-01&to=2026-09-21&limit=5')
+            ->getJson('/api/reports/unified-inbox?per_page=5')
             ->assertOk()
             ->json();
 
-        expect($json['pagination']['per_page'])->toBe(5)
-            ->and($json['pagination']['page'])->toBe(1)
+        expect($json['meta']['per_page'])->toBe(5)
+            ->and($json['meta']['current_page'])->toBe(1)
             ->and(count($json['data']))->toBeLessThanOrEqual(5)
-            ->and($json['pagination']['has_more'])->toBeTrue();
+            ->and($json['meta']['total'])->toBeGreaterThan(5)
+            ->and($json['meta']['last_page'])->toBeGreaterThan(1);
+
+        // Page 2 keeps the descending order.
+        $page2 = actingAs($user)
+            ->getJson('/api/reports/unified-inbox?per_page=5&page=2')
+            ->assertOk()
+            ->json();
+
+        expect($page2['meta']['current_page'])->toBe(2)
+            ->and($page2['data'])->not->toBeEmpty()
+            ->and($page2['data'][0]['received_at'])->not->toBe($json['data'][0]['received_at']);
     });
 });

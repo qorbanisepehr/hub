@@ -32,12 +32,18 @@ class UnifiedInboxReportController
 
         $result = $this->report->run(new ReportRequest(
             query: new InboxQuery(
-                from: $request->inboxFrom(),
-                to: $request->inboxTo(),
-                limit: $request->inboxLimit(),
-                sources: $request->inboxSources(),
-                types: $request->inboxTypes(),
-                statuses: $request->inboxStatuses(),
+                from: $request->inboxDateFrom(),
+                to: $request->inboxDateTo(),
+                page: $request->inboxPage(),
+                perPage: $request->inboxPerPage(),
+                order: $request->inboxOrder(),
+                filter: $request->inboxFilter(),
+                source: $request->inboxSource(),
+                sourceNot: $request->inboxSourceNot(),
+                type: $request->inboxType(),
+                typeNot: $request->inboxTypeNot(),
+                status: $request->inboxStatus(),
+                statusNot: $request->inboxStatusNot(),
             ),
             actor: $actor,
         ));
