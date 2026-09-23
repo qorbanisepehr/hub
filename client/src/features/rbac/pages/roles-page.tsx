@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, getRouteApi } from "@tanstack/react-router";
-import { IconPlus, IconUserCog } from "@tabler/icons-react";
+import { IconPlus, IconRefresh, IconUserCog } from "@tabler/icons-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -49,7 +49,7 @@ export function RolesPage() {
     const activeIsActive = url.activeValue("is_active");
     const { ensurePageInRange } = url;
 
-    const { data, isLoading, isError } = useQuery({
+    const { data, isLoading, isError, isFetching } = useQuery({
         queryKey: roleKeys.list({
             page: url.pagination.pageIndex + 1,
             per_page: url.pagination.pageSize,
@@ -158,6 +158,18 @@ export function RolesPage() {
                         { label: "فعال", value: "true" },
                         { label: "غیرفعال", value: "false" },
                     ],
+                },
+            ]}
+            actions={[
+                {
+                    id: "refresh",
+                    label: "بازخوانی",
+                    icon: IconRefresh,
+                    onClick: () =>
+                        queryClient.invalidateQueries({
+                            queryKey: roleKeys.all,
+                        }),
+                    disabled: isFetching,
                 },
             ]}
             emptyAction={

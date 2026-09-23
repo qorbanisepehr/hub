@@ -14,55 +14,90 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { IconTableOptions } from "@tabler/icons-react";
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 type DataTableViewOptionsProps<TData extends RowData> = {
     table: Table<StockFeatures, TData>;
 };
 
-export function DataTableViewOptions<TData extends RowData>({
+/** Hideable accessor columns of the table — shared source for the desktop
+ *  view-options dropdown and the mobile «...» submenu. */
+function hideableColumns<TData extends RowData>(
+    table: Table<StockFeatures, TData>,
+) {
+    return table
+        .getAllColumns()
+        .filter(
+            (column) =>
+                typeof column.accessorFn !== "undefined" &&
+                column.getCanHide(),
+        );
+}
+
+/** Column show/hide rows as menu items. Shared source for the desktop
+ *  view-options dropdown and the mobile «...» submenu — one behavior,
+ *  two shells. `DropdownMenuCheckboxItem` so toggling never closes. */
+export function ColumnVisibilityMenuItems<TData extends RowData>({
     table,
 }: DataTableViewOptionsProps<TData>) {
     return (
+        <>
+            {hideableColumns(table).map((column) => (
+                <DropdownMenuCheckboxItem
+                    key={column.id}
+                    checked={column.getIsVisible()}
+                    onCheckedChange={(value: boolean) =>
+                        column.toggleVisibility(!!value)
+                    }
+                >
+                    {column.columnDef.meta?.displayName ?? column.id}
+                </DropdownMenuCheckboxItem>
+            ))}
+        </>
+    );
+}
+
+/** Desktop-only view-options dropdown. On mobile the same column list is
+ *  reached from the toolbar's «...» submenu instead. */
+export function DataTableViewOptions<TData extends RowData>(
+    props: DataTableViewOptionsProps<TData>,
+) {
+    if (hideableColumns(props.table).length === 0) return null;
+
+    return (
         <DropdownMenu>
-            <DropdownMenuTrigger
-                render={
-                    <Button
-                        variant="outline"
-                        size="icon"
-                        className="ms-auto hidden h-8 lg:flex"
-                    >
-                        <IconTableOptions className="size-4" />
-                    </Button>
-                }
-            />
-            <DropdownMenuContent align="end" className="w-38">
+            <Tooltip>
+                <TooltipTrigger
+                    render={
+                        <DropdownMenuTrigger
+                            render={
+                                <Button
+                                    variant="outline"
+                                    size="icon"
+                                    className="hidden lg:inline-flex"
+                                    aria-label="نمایش ستونها"
+                                >
+                                    <IconTableOptions className="size-4" />
+                                </Button>
+                            }
+                        />
+                    }
+                />
+                <TooltipContent side="bottom">
+                    نمایش ستونها
+                </TooltipContent>
+            </Tooltip>
+            <DropdownMenuContent align="end" className="w-48">
                 <DropdownMenuGroup>
                     <DropdownMenuLabel>
-                        نمایش/مخفی کردن ستون‌ها
+                        نمایش/مخفی کردن ستونها
                     </DropdownMenuLabel>
                     <DropdownMenuSeparator />
-                    {table
-                        .getAllColumns()
-                        .filter(
-                            (column) =>
-                                typeof column.accessorFn !== "undefined" &&
-                                column.getCanHide(),
-                        )
-                        .map((column) => {
-                            return (
-                                <DropdownMenuCheckboxItem
-                                    key={column.id}
-                                    className="capitalize"
-                                    checked={column.getIsVisible()}
-                                    onCheckedChange={(value: boolean) =>
-                                        column.toggleVisibility(!!value)
-                                    }
-                                >
-                                    {column.columnDef.meta?.displayName ??
-                                        column.id}
-                                </DropdownMenuCheckboxItem>
-                            );
-                        })}
+                    <ColumnVisibilityMenuItems {...props} />
                 </DropdownMenuGroup>
             </DropdownMenuContent>
         </DropdownMenu>

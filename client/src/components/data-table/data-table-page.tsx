@@ -62,11 +62,10 @@ interface DataTablePageProps<TData extends RowData> {
     columnFilters?: ColumnFiltersState;
     onColumnFiltersChange?: (updater: ColumnFiltersState | ((prev: ColumnFiltersState) => ColumnFiltersState)) => void;
     filterFields?: ListFilterFieldDef[];
-    /** Extra controls rendered inline after search/filters (e.g. export, refresh). */
-    toolbarActions?: ReactNode;
     /** Descriptor-based actions: one source per table, rendered as desktop
-     *  Buttons and mobile «بیشتر» menu items alike through the shared toolbar.
-     *  DRY subscription — pages never hand-build per-view wiring. */
+     *  Buttons and mobile «بیشتر» menu items alike through the shared toolbar,
+     *  with optional permission gating. DRY subscription — pages never
+     *  hand-build per-view wiring. */
     actions?: DataTableToolbarAction[];
     emptyMessage?: string;
     emptyAction?: ReactNode;
@@ -95,7 +94,6 @@ export function DataTablePage<TData extends RowData>({
     columnFilters,
     onColumnFiltersChange,
     filterFields,
-    toolbarActions,
     actions,
     emptyMessage = "هیچ موردی یافت نشد",
     emptyAction,
@@ -116,7 +114,6 @@ export function DataTablePage<TData extends RowData>({
                     onGlobalFilterChange={
                         onGlobalFilterChange as (value: string) => void
                     }
-                    toolbarActions={toolbarActions}
                     actions={actions}
                     filterBar={
                         filterFields && columnFilters && onColumnFiltersChange ? (
