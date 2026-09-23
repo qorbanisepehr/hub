@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getRouteApi } from "@tanstack/react-router";
-import { IconFileCv } from "@tabler/icons-react";
+import { IconFileCv, IconRefresh } from "@tabler/icons-react";
 
 import { DataTablePage } from "@/components/data-table";
 import { ListPageHeader } from "@/components/layout";
@@ -44,7 +44,7 @@ export function CvsBankPage() {
     const activeStatusNot = url.activeValue("status_not");
     const { ensurePageInRange } = url;
 
-    const { data, isLoading, isError } = useQuery({
+    const { data, isLoading, isError, isFetching } = useQuery({
         queryKey: cvKeys.bank({
             page: url.pagination.pageIndex + 1,
             per_page: url.pagination.pageSize,
@@ -111,6 +111,18 @@ export function CvsBankPage() {
                     type: "select",
                     options: CV_STATUS_OPTIONS,
                     negatable: true,
+                },
+            ]}
+            actions={[
+                {
+                    id: "refresh",
+                    label: "بازخوانی",
+                    icon: IconRefresh,
+                    onClick: () =>
+                        queryClient.invalidateQueries({
+                            queryKey: cvKeys.all,
+                        }),
+                    disabled: isFetching,
                 },
             ]}
             emptyAction={null}

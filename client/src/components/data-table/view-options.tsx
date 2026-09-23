@@ -14,6 +14,11 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { IconTableOptions } from "@tabler/icons-react";
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 type DataTableViewOptionsProps<TData extends RowData> = {
     table: Table<StockFeatures, TData>;
@@ -65,18 +70,27 @@ export function DataTableViewOptions<TData extends RowData>(
 
     return (
         <DropdownMenu>
-            <DropdownMenuTrigger
-                render={
-                    <Button
-                        variant="outline"
-                        size="icon"
-                        className="hidden lg:inline-flex"
-                        aria-label="نمایش ستونها"
-                    >
-                        <IconTableOptions className="size-4" />
-                    </Button>
-                }
-            />
+            <Tooltip>
+                <TooltipTrigger
+                    render={
+                        <DropdownMenuTrigger
+                            render={
+                                <Button
+                                    variant="outline"
+                                    size="icon"
+                                    className="hidden lg:inline-flex"
+                                    aria-label="نمایش ستونها"
+                                >
+                                    <IconTableOptions className="size-4" />
+                                </Button>
+                            }
+                        />
+                    }
+                />
+                <TooltipContent side="bottom">
+                    نمایش ستونها
+                </TooltipContent>
+            </Tooltip>
             <DropdownMenuContent align="end" className="w-48">
                 <DropdownMenuGroup>
                     <DropdownMenuLabel>
