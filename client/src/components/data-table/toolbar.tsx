@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+    Fragment,
+    useCallback,
+    useEffect,
+    useRef,
+    useState,
+} from "react";
 import {
     type RowData,
     type StockFeatures,
@@ -18,8 +24,8 @@ import {
     SheetContent,
     SheetHeader,
     SheetTitle,
-    SheetTrigger,
 } from "@/components/ui/sheet";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -50,17 +56,17 @@ const MIN_AUTO_SEARCH_CHARS = 2;
  * `useMediaQuery` split, no duplicated mobile/desktop trees). Mobile is split
  * by intent:
  *
- * - **Desktop (lg+):** inline row — search · filter bar · action buttons ·
- *   column view-options.
- * - **Mobile search** stretches full width; then two triggers:
- *   - «فیلترها» → bottom **sheet** (a real dialog, so the reui Filters
- *     popovers nest correctly) for the stateful filter surface.
- *   - «...» → commands (export/refresh/...) as menu items + a «نمایش ستونها»
- *     submenu — same idiom as `PageHeaderActions`, one tap, no dialog.
+ * - **Desktop (lg+):** inline row — search · filter bar · icon-only action
+ *   buttons (label on tooltip) · column view-options.
+ * - **Mobile:** the search input stretches full width and a single «...»
+ *   dropdown holds everything as labelled menu items: «فیلترها» (opens a
+ *   bottom sheet — a real dialog, so the reui Filters popovers nest
+ *   correctly), the commands (export/refresh/...), and a «نمایش ستونها»
+ *   submenu. Same idiom as `PageHeaderActions` — one tap per command.
  *
  * Actions are descriptors (`DataTableToolbarAction`) so a page declares them
- * ONCE and they render as inline buttons on desktop and menu items on mobile
- * — pages never wire mobile themselves.
+ * ONCE and they render as icon buttons on desktop and labelled items on
+ * mobile — pages never wire mobile themselves.
  */
 type DataTableToolbarProps<TData extends RowData> = {
     table: Table<StockFeatures, TData>;
@@ -199,8 +205,9 @@ export function DataTableToolbar<TData extends RowData>({
         .getAllColumns()
         .filter((c) => typeof c.accessorFn !== "undefined" && c.getCanHide())
         .length;
-    // The «فیلترها» sheet owns the stateful filter surface only (needs room
-    // + nested popovers). Commands and column toggles live in the «...» menu.
+    // «فیلترها» is a menu item on mobile; clicking it opens the bottom sheet
+    // (a real dialog, so the reui Filters popovers nest inside it).
+    const [filtersOpen, setFiltersOpen] = useState(false);
     const hasSheet = Boolean(filterBar);
 
     return (
@@ -216,62 +223,51 @@ export function DataTableToolbar<TData extends RowData>({
                 />
             ) : null}
 
-            {/* Desktop: everything inline. */}
+            {/* Desktop: everything inline; actions are icon-only + tooltip. */}
             <div className="hidden items-center gap-2 lg:flex lg:flex-1 lg:flex-wrap">
                 {filterBar}
                 {toolbarActions}
-                {actionList.map((action) => (
-                    <Button
-                        key={action.id}
-                        variant="outline"
-                        onClick={action.onClick}
-                        disabled={action.disabled}
-                        className={cn(
-                            "h-8",
-                            action.destructive && "text-destructive",
-                        )}
-                    >
-                        {action.icon && <action.icon className="size-4" />}
-                        {action.label}
-                    </Button>
-                ))}
+                {actionList.map((action) => {
+                    const button = (
+                        <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={action.onClick}
+                            disabled={action.disabled}
+                            aria-label={action.label}
+                            className={cn(
+                                action.destructive && "text-destructive",
+                            )}
+                        >
+                            {action.icon && (
+                                <action.icon className="size-4" />
+                            )}
+                        </Button>
+                    );
+                    return (
+                        <Fragment key={action.id}>
+                            {action.icon ? (
+                                <Tooltip>
+                                    <TooltipTrigger render={button} />
+                                    <TooltipContent side="bottom">
+                                        {action.label}
+                                    </TooltipContent>
+                                </Tooltip>
+                            ) : (
+                                button
+                            )}
+                        </Fragment>
+                    );
+                })}
             </div>
             <DataTableViewOptions table={table} />
 
-            {/* Mobile split by intent:
-                - «فیلترها» button → bottom sheet: the stateful filter bar
-                  (needs room, nests its own popovers — a dialog does, a menu
-                  doesn't).
-                - «...» menu → commands (export/refresh/...) as items plus a
-                  «نمایش ستونها» submenu; same idiom as PageHeaderActions —
-                  one tap, no dialog. */}
-            {hasSheet && (
-                <Sheet>
-                    <SheetTrigger
-                        render={
-                            <Button
-                                variant="outline"
-                                className="h-8 shrink-0 gap-1.5 px-2.5 lg:hidden"
-                            >
-                                <IconFilter className="size-4" />
-                                <span>فیلترها</span>
-                            </Button>
-                        }
-                    />
-                    <SheetContent
-                        side="bottom"
-                        className="max-h-[80dvh] gap-0 overflow-y-auto rounded-t-2xl p-0"
-                    >
-                        <SheetHeader className="border-b px-4 py-3">
-                            <SheetTitle>فیلترها</SheetTitle>
-                        </SheetHeader>
-                        <div className="flex flex-col gap-2 p-4">
-                            {filterBar}
-                        </div>
-                    </SheetContent>
-                </Sheet>
-            )}
-            {(actionList.length > 0 ||
+            {/* Mobile: everything collapses into one «...» menu with icon +
+                text items — «فیلترها» opens the bottom sheet, commands fire
+                directly, «نمایش ستونها» is a submenu. One tap per command,
+                same idiom as PageHeaderActions. */}
+            {(hasSheet ||
+                actionList.length > 0 ||
                 toolbarActions ||
                 hideableColumnCount > 0) && (
                 <DropdownMenu>
@@ -288,6 +284,12 @@ export function DataTableToolbar<TData extends RowData>({
                         }
                     />
                     <DropdownMenuContent align="end" className="w-48">
+                        {hasSheet && (
+                            <DropdownMenuItem onClick={() => setFiltersOpen(true)}>
+                                <IconFilter className="size-4" />
+                                فیلترها
+                            </DropdownMenuItem>
+                        )}
                         {actionList.map((action) => (
                             <DropdownMenuItem
                                 key={action.id}
@@ -331,6 +333,22 @@ export function DataTableToolbar<TData extends RowData>({
                         )}
                     </DropdownMenuContent>
                 </DropdownMenu>
+            )}
+
+            {hasSheet && (
+                <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
+                    <SheetContent
+                        side="bottom"
+                        className="max-h-[80dvh] gap-0 overflow-y-auto rounded-t-2xl p-0"
+                    >
+                        <SheetHeader className="border-b px-4 py-3">
+                            <SheetTitle>فیلترها</SheetTitle>
+                        </SheetHeader>
+                        <div className="flex flex-col gap-2 p-4">
+                            {filterBar}
+                        </div>
+                    </SheetContent>
+                </Sheet>
             )}
         </div>
     );
