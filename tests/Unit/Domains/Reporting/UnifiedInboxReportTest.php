@@ -3,6 +3,7 @@
 use App\Contracts\External\InboxGateway;
 use App\Domains\Reporting\ReportRequest;
 use App\Domains\Reporting\Reports\UnifiedInbox\InboxQuery;
+use App\Domains\Reporting\Reports\UnifiedInbox\SenderIdentityResolver;
 use App\Domains\Reporting\Reports\UnifiedInbox\Sources\GatewayInboxSource;
 use App\Domains\Reporting\Reports\UnifiedInbox\Sources\InboxSourceRegistry;
 use App\Domains\Reporting\Reports\UnifiedInbox\UnifiedInboxItem;
@@ -73,7 +74,7 @@ function gatewaySource(string $key, array $items, bool $throws = false): Gateway
 
 function runInboxReport(InboxSourceRegistry $registry, InboxQuery $query)
 {
-    $report = new UnifiedInboxReport($registry);
+    $report = new UnifiedInboxReport($registry, new SenderIdentityResolver);
 
     return $report->run(new ReportRequest(
         query: $query,
@@ -176,7 +177,7 @@ it('narrows sources through the registry when requested', function () {
 it('rejects a foreign query object', function () {
     $registry = makeRegistry([]);
 
-    $report = new UnifiedInboxReport($registry);
+    $report = new UnifiedInboxReport($registry, new SenderIdentityResolver);
 
     $report->run(new ReportRequest(
         query: new stdClass,

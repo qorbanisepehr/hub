@@ -121,6 +121,8 @@ export const reportingKeys = {
     all: ["reports"] as const,
     attendance: (params: Record<string, unknown>) =>
         [...reportingKeys.all, "attendance", params] as const,
+    unifiedInbox: (params: Record<string, unknown>) =>
+        [...reportingKeys.all, "unified-inbox", params] as const,
 };
 
 export const formOptionKeys = {

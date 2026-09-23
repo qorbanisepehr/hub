@@ -42,6 +42,8 @@ final class AutomationInboxMapper
         return new UnifiedInboxItem(
             source: 'automation',
             senderName: (string) $row['sender'],
+            // Username that may match an HR Hub user — resolved by the report.
+            senderUsername: (string) $row['sender_username'],
             documentNumber: $letterNo,
             title: (string) $row['subject'],
             documentType: (string) $row['kind'],

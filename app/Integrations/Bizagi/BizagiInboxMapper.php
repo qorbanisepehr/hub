@@ -41,6 +41,8 @@ final class BizagiInboxMapper
         return new UnifiedInboxItem(
             source: 'bizagi',
             senderName: (string) $row['process_name'],
+            // Username that may match an HR Hub user — resolved by the report.
+            senderUsername: (string) $row['sender_username'],
             documentNumber: $caseNumber,
             title: (string) $row['task_name'],
             documentType: (string) $row['process_display'],

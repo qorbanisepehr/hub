@@ -39,6 +39,7 @@ import { Route as AuditLogDetailRoute } from "@/routes/_protected/audit/$logId";
 import { Route as AuditRetentionRoute } from "@/routes/_protected/audit/retention";
 import { Route as NotificationsRoute } from "@/routes/_protected/notifications/index";
 import { Route as ReportsAttendanceRoute } from "@/routes/_protected/reports/attendance";
+import { Route as ReportsUnifiedInboxRoute } from "@/routes/_protected/reports/unified-inbox";
 
 const routeTree = RootRoute.addChildren([
     PublicRoute.addChildren([
@@ -79,6 +80,7 @@ const routeTree = RootRoute.addChildren([
         AuditRetentionRoute,
         NotificationsRoute,
         ReportsAttendanceRoute,
+        ReportsUnifiedInboxRoute,
     ]),
 ]);
 

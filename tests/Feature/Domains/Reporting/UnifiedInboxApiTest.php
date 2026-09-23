@@ -33,7 +33,15 @@ describe('GET /api/reports/unified-inbox', function () {
             'data' => [
                 '*' => [
                     'source',
-                    'sender_name',
+                    'sender' => [
+                        'matched',
+                        'display_name',
+                        'username',
+                        'avatar_url',
+                        'org_role',
+                        'user_id',
+                        'external_name',
+                    ],
                     'document_number',
                     'title',
                     'document_type',
@@ -80,6 +88,33 @@ describe('GET /api/reports/unified-inbox', function () {
         $sorted = collect($received)->sortDesc()->values()->toArray();
 
         expect($received)->toBe($sorted);
+    });
+
+    it('resolves senders matched by username into the matched shape', function () {
+        User::factory()->create(['username' => 'admin', 'name' => 'مدیر سیستم']);
+
+        $user = createUserWithPermissions(['report.unified-inbox.view']);
+
+        $rows = actingAs($user)
+            ->getJson('/api/reports/unified-inbox?sources[]=automation')
+            ->assertOk()
+            ->json('data');
+
+        $matched = collect($rows)->filter(fn ($row) => $row['sender']['matched']);
+
+        expect($matched)->not->toBeEmpty();
+
+        foreach ($matched as $row) {
+            expect($row['sender']['username'])->toBe('admin')
+                ->and($row['sender']['display_name'])->toBe('مدیر سیستم')
+                ->and($row['sender']['user_id'])->toBeInt();
+        }
+
+        // Unmatched senders keep the external name.
+        $external = collect($rows)->filter(fn ($row) => ! $row['sender']['matched']);
+
+        expect($external->isEmpty())->toBeFalse()
+            ->and($external->first()['sender']['external_name'])->not->toBeNull();
     });
 
     it('narrows to a single source via the sources filter', function () {
