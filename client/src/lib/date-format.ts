@@ -13,6 +13,20 @@ export function toPersianDate(value: string | Date | null | undefined): string {
     return persianDateFormatter.format(date);
 }
 
+const persianTimeFormatter = new Intl.DateTimeFormat("fa-IR", {
+    hour: "2-digit",
+    minute: "2-digit",
+});
+
+export function toPersianTime(value: string | Date | null | undefined): string {
+    if (!value) return "—";
+    const date = typeof value === "string" ? new Date(value) : value;
+    if (Number.isNaN(date.getTime())) {
+        return typeof value === "string" ? value : String(value);
+    }
+    return persianTimeFormatter.format(date);
+}
+
 /** Group a 16-digit card number as 4-4-4-4 for display; passes through others. */
 export function formatCardNumber(
     value: string | null | undefined,
