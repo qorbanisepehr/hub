@@ -48,6 +48,8 @@ final class RahkaranInboxMapper
         return new UnifiedInboxItem(
             source: 'rahkaran',
             senderName: (string) $row['sender'],
+            // Username that may match an HR Hub user — resolved by the report.
+            senderUsername: (string) $row['sender_username'],
             documentNumber: (string) $row['request_no'],
             title: (string) $row['subject'],
             documentType: (string) $row['request_kind'],

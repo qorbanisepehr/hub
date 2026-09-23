@@ -83,6 +83,7 @@ export const PERMISSIONS = {
 
     // Reporting
     REPORT_ATTENDANCE_VIEW: "report.attendance.view",
+    REPORT_UNIFIED_INBOX_VIEW: "report.unified-inbox.view",
 } as const;
 
 export type PermissionValue = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];

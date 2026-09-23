@@ -61,6 +61,7 @@ final class FakeRahkaranInboxGateway implements InboxGateway
                 'request_id' => sprintf('RH%02d%02d%d', (int) $day->format('m'), $dayOfMonth, $index + 1),
                 'request_no' => sprintf('%05d-%d', 40000 + $dayOfMonth * 2 + $index, (int) $day->format('y')),
                 'sender' => 'سیستم راهکاران',
+                'sender_username' => $index === 0 ? 'admin' : '',
                 'subject' => sprintf('درخواست %s مورخ %s', $slot['kind'], PersianDateTime::toJalaliDate($day)),
                 'request_kind' => $slot['kind'],
                 'flow_date' => PersianDateTime::toJalaliDate($day),

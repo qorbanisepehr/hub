@@ -32,5 +32,28 @@ final readonly class UnifiedInboxItem
         public string $externalReference,
         /** Deep link into the source system, when the source provides one. */
         public ?string $externalUrl = null,
+        /** Resolved sender identity (internal match or external name). */
+        public ?ExternalSender $sender = null,
+        /** External username that may match an HR Hub user; consumed by the report. */
+        public ?string $senderUsername = null,
     ) {}
+
+    /** Immutable copy carrying the resolved sender identity. */
+    public function withSender(ExternalSender $sender): self
+    {
+        return new self(
+            source: $this->source,
+            senderName: $this->senderName,
+            documentNumber: $this->documentNumber,
+            title: $this->title,
+            documentType: $this->documentType,
+            receivedAt: $this->receivedAt,
+            cartableAction: $this->cartableAction,
+            status: $this->status,
+            externalReference: $this->externalReference,
+            externalUrl: $this->externalUrl,
+            sender: $sender,
+            senderUsername: $this->senderUsername,
+        );
+    }
 }

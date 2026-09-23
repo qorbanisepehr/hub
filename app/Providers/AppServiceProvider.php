@@ -15,6 +15,7 @@ use App\Domains\Document\Repositories\DocumentRepositoryInterface;
 use App\Domains\Employee\Imports\EmployeeImportDefinition;
 use App\Domains\Questionnaire\Repositories\QuestionnaireRepository;
 use App\Domains\Questionnaire\Repositories\QuestionnaireRepositoryInterface;
+use App\Domains\Reporting\Reports\UnifiedInbox\SenderIdentityResolver;
 use App\Domains\Reporting\Reports\UnifiedInbox\Sources\GatewayInboxSource;
 use App\Domains\Reporting\Reports\UnifiedInbox\Sources\InboxSourceRegistry;
 use App\Domains\Settings\Repositories\FileSettingsRepository;
@@ -70,6 +71,9 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(AutomationInboxMapper::class);
         $this->app->bind(BizagiInboxMapper::class);
         $this->app->bind(RahkaranInboxMapper::class);
+
+        // Sender identity resolution: external username → HR Hub user.
+        $this->app->bind(SenderIdentityResolver::class);
 
         $this->app->singleton(InboxSourceRegistry::class, function (): InboxSourceRegistry {
             $registry = new InboxSourceRegistry;

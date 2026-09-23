@@ -47,7 +47,7 @@ class UnifiedInboxResource extends JsonResource
     {
         return [
             'source' => $item->source,
-            'sender_name' => $item->senderName,
+            'sender' => $this->sender($item),
             'document_number' => $item->documentNumber,
             'title' => $item->title,
             'document_type' => $item->documentType,
@@ -56,6 +56,35 @@ class UnifiedInboxResource extends JsonResource
             'status' => $item->status,
             'external_reference' => $item->externalReference,
             'external_url' => $item->externalUrl,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function sender(UnifiedInboxItem $item): array
+    {
+        $sender = $item->sender;
+
+        if ($sender === null) {
+            return [
+                'matched' => false,
+                'display_name' => $item->senderName,
+                'username' => null,
+                'avatar_url' => null,
+                'org_role' => null,
+                'user_id' => null,
+            ];
+        }
+
+        return [
+            'matched' => $sender->matched,
+            'display_name' => $sender->displayName,
+            'username' => $sender->username,
+            'avatar_url' => $sender->avatarUrl,
+            'org_role' => $sender->orgRole,
+            'user_id' => $sender->userId,
+            'external_name' => $sender->matched ? null : $sender->displayName,
         ];
     }
 }

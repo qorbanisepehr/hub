@@ -6,6 +6,7 @@ import {
     IconFileCv,
     IconHierarchy2,
     IconIdBadge2,
+    IconInbox,
     IconListDetails,
     IconMasksTheater,
     IconPalette,
@@ -128,6 +129,12 @@ export const NAV_ITEMS: NavItem[] = [
         url: "/reports/attendance",
         icon: <IconCalendarStats />,
         permission: PERMISSIONS.REPORT_ATTENDANCE_VIEW,
+    },
+    {
+        title: "کارتابل",
+        url: "/reports/unified-inbox",
+        icon: <IconInbox />,
+        permission: PERMISSIONS.REPORT_UNIFIED_INBOX_VIEW,
     },
 ];
 

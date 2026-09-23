@@ -21,6 +21,7 @@ final class UnifiedInboxReport implements Report
 {
     public function __construct(
         private readonly InboxSourceRegistry $sources,
+        private readonly SenderIdentityResolver $senderResolver,
     ) {}
 
     public function key(): string
@@ -62,7 +63,7 @@ final class UnifiedInboxReport implements Report
 
             foreach ($result->items as $item) {
                 if ($this->matchesFilters($item, $query)) {
-                    $merged[] = $item;
+                    $merged[] = $this->resolveSender($item);
                 }
             }
         }
@@ -70,6 +71,24 @@ final class UnifiedInboxReport implements Report
         usort($merged, fn (UnifiedInboxItem $a, UnifiedInboxItem $b): int => $b->receivedAt <=> $a->receivedAt);
 
         return $this->paginate($request, $query, $merged, $sourceStatus, $warnings);
+    }
+
+    /**
+     * Enriches the item with the resolved sender identity (username match);
+     * unmatched senders keep the external name (V2 §54: Reporting reaches
+     * internal data through a narrow capability, not raw repositories).
+     */
+    private function resolveSender(UnifiedInboxItem $item): UnifiedInboxItem
+    {
+        $user = $this->senderResolver->resolve($item->senderUsername);
+
+        if ($user === null) {
+            return $item->sender === null
+                ? $item->withSender(ExternalSender::external($item->senderName))
+                : $item;
+        }
+
+        return $item->withSender(ExternalSender::fromUser($user, $this->senderResolver->orgRole($user)));
     }
 
     private function fetchSource(InboxSource $source, InboxQuery $query): InboxSourceResult

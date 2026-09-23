@@ -60,12 +60,14 @@ final class FakeAutomationInboxGateway implements InboxGateway
 
         foreach ($hourSlots as $index => $minute) {
             $rows[] = [
-                'letter_no' => sprintf('LTR-%02d%02d-%d', (int) $day->format('m'), $dayOfMonth, $index + 1),
-                'sender' => [
+                'letter_no' => sprintf('LTR-%02d%02d-%d', (int) $day->format('m'), $dayOfMonth, $index + 1),                'sender' => [
                     'اداره کل منابع انسانی',
                     'اداره امور اداری',
                     'اداره آموزش',
                 ][$index],
+                // Every third letter carries a username that matches an HR
+                // Hub user in seeded environments; the rest stay external.
+                'sender_username' => $index === 0 ? 'admin' : '',
                 'subject' => sprintf('نامه شماره %d مورخ %s', $index + 1, PersianDateTime::toJalaliDate($day)),
                 'kind' => 'نامه',
                 'receive_date' => PersianDateTime::toJalaliDate($day),
