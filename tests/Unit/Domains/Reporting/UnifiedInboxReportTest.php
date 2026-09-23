@@ -15,13 +15,13 @@ use Carbon\CarbonImmutable;
  * In-memory source for report-level tests — fakes the gateway layer
  * entirely so sorting/merging behaviors are isolated.
  */
-function inboxItem(string $source, string $receivedAt, string $status = 'unseen'): UnifiedInboxItem
+function inboxItem(string $source, string $receivedAt, string $status = 'unseen', string $title = 'title'): UnifiedInboxItem
 {
     return new UnifiedInboxItem(
         source: $source,
         senderName: 'sender',
         documentNumber: uniqid(),
-        title: 'title',
+        title: $title,
         documentType: 'نامه',
         receivedAt: CarbonImmutable::parse($receivedAt, 'Asia/Tehran'),
         cartableAction: 'action_required',
@@ -128,7 +128,7 @@ it('serves a partial result when a source is unavailable', function () {
         ->and($result->warnings)->toBe([['source' => 'rahkaran', 'code' => 'unavailable']]);
 });
 
-it('paginates the merged result and reports hasMore', function () {
+it('paginates the merged result with the standard meta envelope', function () {
     $items = [];
 
     foreach (range(1, 7) as $i) {
@@ -137,14 +137,46 @@ it('paginates the merged result and reports hasMore', function () {
 
     $registry = makeRegistry([gatewaySource('automation', $items)]);
 
-    $result = runInboxReport($registry, new InboxQuery(limit: 5));
+    $result = runInboxReport($registry, new InboxQuery(page: 1, perPage: 5));
 
     expect($result->items)->toHaveCount(5)
-        ->and($result->total)->toBe(7)
-        ->and($result->hasMore)->toBeTrue()
+        ->and($result->meta['total'])->toBe(7)
+        ->and($result->meta['last_page'])->toBe(2)
+        ->and($result->meta['per_page'])->toBe(5)
+        ->and($result->meta['current_page'])->toBe(1)
         // Newest first: hours 07..03 kept, 02 and 01 dropped.
         ->and($result->items[0]->receivedAt->format('H'))->toBe('07')
         ->and($result->items[4]->receivedAt->format('H'))->toBe('03');
+});
+
+it('serves a later page of the merged result', function () {
+    $items = [];
+
+    foreach (range(1, 7) as $i) {
+        $items[] = inboxItem('automation', sprintf('2023-06-04 %02d:00', $i));
+    }
+
+    $registry = makeRegistry([gatewaySource('automation', $items)]);
+
+    $result = runInboxReport($registry, new InboxQuery(page: 2, perPage: 5));
+
+    expect($result->items)->toHaveCount(2)
+        ->and($result->meta['current_page'])->toBe(2)
+        // Descending: page 2 holds hours 02 and 01.
+        ->and($result->items[0]->receivedAt->format('H'))->toBe('02');
+});
+
+it('sorts ascending when requested', function () {
+    $items = [
+        inboxItem('automation', '2023-06-04 10:10'),
+        inboxItem('automation', '2023-06-04 09:30'),
+    ];
+
+    $registry = makeRegistry([gatewaySource('automation', $items)]);
+
+    $result = runInboxReport($registry, new InboxQuery(order: 'asc'));
+
+    expect($result->items[0]->receivedAt->format('H:i'))->toBe('09:30');
 });
 
 it('filters by unified status vocabulary', function () {
@@ -155,23 +187,37 @@ it('filters by unified status vocabulary', function () {
         ]),
     ]);
 
-    $result = runInboxReport($registry, new InboxQuery(statuses: ['unseen']));
+    $result = runInboxReport($registry, new InboxQuery(status: 'unseen'));
 
     expect($result->items)->toHaveCount(1)
         ->and($result->items[0]->status)->toBe('unseen');
 });
 
-it('narrows sources through the registry when requested', function () {
+it('searches the filter needle across titles', function () {
+    $registry = makeRegistry([
+        gatewaySource('automation', [
+            inboxItem('automation', '2023-06-04 10:10', title: 'قرارداد همکاری'),
+            inboxItem('automation', '2023-06-04 09:30', title: 'نامه اداری'),
+        ]),
+    ]);
+
+    $result = runInboxReport($registry, new InboxQuery(filter: 'قرارداد'));
+
+    expect($result->items)->toHaveCount(1)
+        ->and($result->items[0]->title)->toBe('قرارداد همکاری');
+});
+
+it('excludes a source through the negated filter', function () {
     $registry = makeRegistry([
         gatewaySource('automation', [inboxItem('automation', '2023-06-04 10:10')]),
         gatewaySource('rahkaran', [inboxItem('rahkaran', '2023-06-04 09:00')]),
     ]);
 
-    $result = runInboxReport($registry, new InboxQuery(sources: ['rahkaran']));
+    $result = runInboxReport($registry, new InboxQuery(sourceNot: 'automation'));
 
     expect($result->items)->toHaveCount(1)
         ->and($result->items[0]->source)->toBe('rahkaran')
-        ->and($result->sources)->toBe(['rahkaran' => 'success']);
+        ->and($result->sources)->toBe(['automation' => 'success', 'rahkaran' => 'success']);
 });
 
 it('rejects a foreign query object', function () {

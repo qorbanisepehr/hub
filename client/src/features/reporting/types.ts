@@ -1,3 +1,5 @@
+import type { PaginatedResponse } from "@/lib/types";
+
 /**
  * HTTP contracts for the reporting endpoints (mirror the API resources).
  * Backend accepts both calendars and tolerates Persian digits; the client
@@ -81,29 +83,39 @@ export interface UnifiedInboxItemDto {
     external_url: string | null;
 }
 
-export interface UnifiedInboxPaginationDto {
-    page: number;
-    per_page: number;
-    total: number;
-    has_more: boolean;
-}
-
-export interface UnifiedInboxReportResponse {
-    data: UnifiedInboxItemDto[];
+/**
+ * The standard list envelope (`PaginatedResponse`) plus the report-owned
+ * diagnostics the cartable header shows: per-source status, freshness,
+ * warnings.
+ */
+export type UnifiedInboxListResponse = PaginatedResponse<UnifiedInboxItemDto> & {
     report: string;
     generated_at: string;
-    pagination: UnifiedInboxPaginationDto;
     /** source key → "success" | "unavailable". */
     sources: Record<string, string>;
     metadata: Record<string, unknown>;
     warnings: ReportWarningDto[];
-}
-
-export type UnifiedInboxParams = {
-    from?: string;
-    to?: string;
-    sources?: string[];
-    types?: string[];
-    statuses?: string[];
-    limit?: number;
 };
+
+/**
+ * Standard list params — the same contract employees/audit speak. Single
+ * value + `_not` exclusion per column filter, audit-style date window.
+ */
+export interface UnifiedInboxListParams {
+    page?: number;
+    per_page?: number;
+    /** Whitelisted sort column (`received_at`). */
+    sort?: string;
+    order?: "asc" | "desc";
+    source?: string;
+    source_not?: string;
+    type?: string;
+    type_not?: string;
+    status?: UnifiedInboxStatus | string;
+    status_not?: string;
+    /** Gregorian `yyyy-MM-dd` (client always sends Gregorian). */
+    date_from?: string;
+    date_to?: string;
+    /** Global free-text search needle (title/number/sender). */
+    filter?: string;
+}

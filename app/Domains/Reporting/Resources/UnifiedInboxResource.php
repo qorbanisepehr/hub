@@ -28,12 +28,7 @@ class UnifiedInboxResource extends JsonResource
             ),
             'report' => $this->resource->report,
             'generated_at' => $this->resource->generatedAt->toIso8601String(),
-            'pagination' => [
-                'page' => $this->resource->page,
-                'per_page' => $this->resource->perPage,
-                'total' => $this->resource->total,
-                'has_more' => $this->resource->hasMore,
-            ],
+            'meta' => $this->resource->meta,
             'sources' => (object) $this->resource->sources,
             'metadata' => (object) $this->resource->metadata,
             'warnings' => $this->resource->warnings,
