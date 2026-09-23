@@ -80,6 +80,9 @@ export const PERMISSIONS = {
     // Form Options
     FORM_OPTIONS_VIEW: "form-options.view",
     FORM_OPTIONS_MANAGE: "form-options.manage",
+
+    // Reporting
+    REPORT_ATTENDANCE_VIEW: "report.attendance.view",
 } as const;
 
 export type PermissionValue = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];

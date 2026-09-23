@@ -12,6 +12,7 @@ import {
     IconSettings,
     IconShield,
     IconUsers,
+    IconCalendarStats,
 } from "@tabler/icons-react";
 
 import { PERMISSIONS } from "@/lib/permissions";
@@ -121,6 +122,12 @@ export const NAV_ITEMS: NavItem[] = [
         url: "/audit",
         icon: <IconClipboardList />,
         permission: PERMISSIONS.AUDIT_VIEW,
+    },
+    {
+        title: "حضور و غیاب",
+        url: "/reports/attendance",
+        icon: <IconCalendarStats />,
+        permission: PERMISSIONS.REPORT_ATTENDANCE_VIEW,
     },
 ];
 

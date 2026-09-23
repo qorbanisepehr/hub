@@ -112,6 +112,12 @@ export const auditKeys = {
         [...auditKeys.all, "retention-policy", id] as const,
 };
 
+export const reportingKeys = {
+    all: ["reports"] as const,
+    attendance: (params: Record<string, unknown>) =>
+        [...reportingKeys.all, "attendance", params] as const,
+};
+
 export const formOptionKeys = {
     all: () => ["form-options"] as const,
     byGroup: (group: string, parentValue?: string, search?: string) =>

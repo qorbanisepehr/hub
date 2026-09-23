@@ -35,6 +35,7 @@ import { Route as CvBankDetailRoute } from "@/routes/_protected/cvs/$id";
 import { Route as AuditRoute } from "@/routes/_protected/audit/index";
 import { Route as AuditLogDetailRoute } from "@/routes/_protected/audit/$logId";
 import { Route as AuditRetentionRoute } from "@/routes/_protected/audit/retention";
+import { Route as ReportsAttendanceRoute } from "@/routes/_protected/reports/attendance";
 
 const routeTree = RootRoute.addChildren([
     PublicRoute.addChildren([
@@ -71,6 +72,7 @@ const routeTree = RootRoute.addChildren([
         AuditRoute,
         AuditLogDetailRoute,
         AuditRetentionRoute,
+        ReportsAttendanceRoute,
     ]),
 ]);
 
