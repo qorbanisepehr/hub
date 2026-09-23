@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, getRouteApi } from "@tanstack/react-router";
-import { IconDownload, IconPlus, IconUsers } from "@tabler/icons-react";
+import { IconDownload, IconPlus, IconRefresh, IconUsers } from "@tabler/icons-react";
 
 import { Button } from "@/components/ui/button";
 import { ExportDialog } from "@/components/shared";
@@ -93,7 +93,7 @@ export function EmployeesPage() {
         activeStatusNotLabel ? `به‌جز وضعیت: ${activeStatusNotLabel}` : null,
     ].filter((f): f is string => f !== null);
 
-    const { data, isLoading, isError } = useQuery({
+    const { data, isLoading, isError, isFetching } = useQuery({
         queryKey: employeeKeys.list({
             page: url.pagination.pageIndex + 1,
             per_page: url.pagination.pageSize,
@@ -175,12 +175,6 @@ export function EmployeesPage() {
                         description="مدیریت اطلاعات کارمندان شرکت"
                         actions={[
                             {
-                                label: "خروجی",
-                                icon: <IconDownload className="size-4" />,
-                                onClick: () => setIsExportOpen(true),
-                                permission: PERMISSIONS.EMPLOYEE_EXPORT,
-                            },
-                            {
                                 label: "کارمند جدید",
                                 icon: <IconPlus className="size-4" />,
                                 href: "/employees/create",
@@ -201,6 +195,25 @@ export function EmployeesPage() {
                         type: "select",
                         options: statusFilterOptions,
                         negatable: true,
+                    },
+                ]}
+                actions={[
+                    {
+                        id: "export",
+                        label: "خروجی",
+                        icon: IconDownload,
+                        onClick: () => setIsExportOpen(true),
+                        permission: PERMISSIONS.EMPLOYEE_EXPORT,
+                    },
+                    {
+                        id: "refresh",
+                        label: "بازخوانی",
+                        icon: IconRefresh,
+                        onClick: () =>
+                            queryClient.invalidateQueries({
+                                queryKey: employeeKeys.all,
+                            }),
+                        disabled: isFetching,
                     },
                 ]}
                 emptyAction={

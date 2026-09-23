@@ -1,20 +1,34 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+    Fragment,
+    useCallback,
+    useEffect,
+    useRef,
+    useState,
+} from "react";
 import {
     type RowData,
     type StockFeatures,
     type Table,
 } from "@tanstack/react-table";
-import { IconFilter, IconMenu2, IconSearch, IconX } from "@tabler/icons-react";
-import { useMediaQuery } from "@/hooks/use-media-query";
+import {
+    IconDotsVertical,
+    IconFilter,
+    IconSearch,
+    IconTableOptions,
+    IconX,
+} from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { DataTableViewOptions } from "./view-options";
-import { DEBOUNCE } from "@/lib/constants";
-import type { DataTableToolbarAction } from "./toolbar-types";
+import {
+    Sheet,
+    SheetContent,
+    SheetHeader,
+    SheetTitle,
+} from "@/components/ui/sheet";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
     DropdownMenu,
     DropdownMenuContent,
-    DropdownMenuGroup,
     DropdownMenuItem,
     DropdownMenuPortal,
     DropdownMenuSeparator,
@@ -22,19 +36,38 @@ import {
     DropdownMenuSubContent,
     DropdownMenuSubTrigger,
     DropdownMenuTrigger,
-} from "../ui/dropdown-menu";
+} from "@/components/ui/dropdown-menu";
+import {
+    ColumnVisibilityMenuItems,
+    DataTableViewOptions,
+} from "./view-options";
+import { DEBOUNCE } from "@/lib/constants";
+import { cn } from "@/lib/utils";
+import { useAuthorization } from "@/features/auth";
+import type { DataTableToolbarAction } from "./toolbar-types";
 
 // Debounced auto-commit only kicks in once the query is long enough;
 // shorter inputs always wait for Enter so a single keystroke never
 // triggers a server round-trip.
 const MIN_AUTO_SEARCH_CHARS = 2;
 
-// A single source of truth controls both the desktop and mobile toolbar:
-// the page supplies actions/filters ONCE as descriptors and this component
-// renders them as inline Buttons on lg+ and as DropdownMenuItems inside the
-// mobile «بیشتر» menu on smaller screens. No per-page responsive wiring.
-const DESKTOP_QUERY = "(min-width: 1024px)";
-
+/**
+ * One source of truth for every list toolbar, responsive by CSS only (no
+ * `useMediaQuery` split, no duplicated mobile/desktop trees). Mobile is split
+ * by intent:
+ *
+ * - **Desktop (lg+):** inline row — search · filter bar · icon-only action
+ *   buttons (label on tooltip) · column view-options.
+ * - **Mobile:** the search input stretches full width and a single «...»
+ *   dropdown holds everything as labelled menu items: «فیلترها» (opens a
+ *   bottom sheet — a real dialog, so the reui Filters popovers nest
+ *   correctly), the commands (export/refresh/...), and a «نمایش ستونها»
+ *   submenu. Same idiom as `PageHeaderActions` — one tap per command.
+ *
+ * Actions are descriptors (`DataTableToolbarAction`) so a page declares them
+ * ONCE and they render as icon buttons on desktop and labelled items on
+ * mobile — pages never wire mobile themselves.
+ */
 type DataTableToolbarProps<TData extends RowData> = {
     table: Table<StockFeatures, TData>;
     searchPlaceholder?: string;
@@ -42,12 +75,59 @@ type DataTableToolbarProps<TData extends RowData> = {
     globalFilter?: string;
     onGlobalFilterChange?: (value: string) => void;
     filterBar?: React.ReactNode;
-    /** Extra controls rendered inline beside the search row. */
-    toolbarActions?: React.ReactNode;
-    /** Descriptor-based actions: one source, rendered as desktop Buttons and
-     *  mobile menu items alike. DRY per-table contract. */
+    /** Descriptor-based actions: one source, rendered as desktop icon buttons
+     *  (+ tooltip) and mobile «...» menu items alike, with optional backend
+     *  permission gating. DRY per-table contract. */
     actions?: DataTableToolbarAction[];
 };
+
+function SearchField({
+    placeholder,
+    value,
+    onValueChange,
+    onCommit,
+    onClear,
+    className,
+}: {
+    placeholder: string;
+    value: string;
+    onValueChange: (value: string) => void;
+    onCommit: () => void;
+    onClear: () => void;
+    className?: string;
+}) {
+    return (
+        <div className={className ? `relative ${className}` : "relative"}>
+            <span className="pointer-events-none absolute inset-y-0 start-2.5 flex items-center text-muted-foreground">
+                <IconSearch className="size-4" />
+            </span>
+            <Input
+                placeholder={placeholder}
+                value={value}
+                onChange={(e) => onValueChange(e.target.value)}
+                onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                        e.preventDefault();
+                        onCommit();
+                    }
+                }}
+                className="h-8 ps-8 pe-8"
+            />
+            {value ? (
+                <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-xs"
+                    onClick={onClear}
+                    aria-label="پاککردن جستجو"
+                    className="absolute inset-y-0 end-1 my-auto text-muted-foreground"
+                >
+                    <IconX className="size-3.5" />
+                </Button>
+            ) : null}
+        </div>
+    );
+}
 
 export function DataTableToolbar<TData extends RowData>({
     table,
@@ -56,11 +136,9 @@ export function DataTableToolbar<TData extends RowData>({
     globalFilter,
     onGlobalFilterChange,
     filterBar,
-    toolbarActions,
     actions,
 }: DataTableToolbarProps<TData>) {
-    const isDesktop = useMediaQuery(DESKTOP_QUERY);
-
+    const { canAny } = useAuthorization();
     const committedValue = searchKey
         ? ((table.getColumn(searchKey)?.getFilterValue() as string) ?? "")
         : (globalFilter ?? "");
@@ -120,209 +198,113 @@ export function DataTableToolbar<TData extends RowData>({
         commitWith("");
     };
 
-    // const isFiltered = table.store.state.columnFilters.length > 0;
-
-    return (
-        <div className="flex items-center justify-between w-full">
-            <div className="flex flex-1 flex-col-reverse items-start gap-y-2 sm:flex-row sm:items-center sm:space-x-2">
-                <div className="flex gap-x-2">
-                    {(searchKey || onGlobalFilterChange) && (
-                        <div className="relative flex items-center">
-                            <Input
-                                placeholder={searchPlaceholder}
-                                value={localValue}
-                                onChange={(e) =>
-                                    handleInputChange(e.target.value)
-                                }
-                                onKeyDown={(e) => {
-                                    if (e.key === "Enter") {
-                                        e.preventDefault();
-                                        commit();
-                                    }
-                                }}
-                                className="h-8 w-38 pe-8 lg:w-64"
-                            />
-                            {localValue && (
-                                <Button
-                                    variant="ghost"
-                                    size="icon-xs"
-                                    onClick={clear}
-                                    className="absolute inset-e-7 top-1/2 -translate-y-1/2"
-                                >
-                                    <IconX className="size-3.5" />
-                                </Button>
-                            )}
-                            <Button
-                                variant="ghost"
-                                size="icon-xs"
-                                onClick={commit}
-                                disabled={!localValue}
-                                className="absolute inset-e-1 top-1/2 -translate-y-1/2! active:-translate-y-1/2! active:mt-px! py-4 persist!"
-                            >
-                                <IconSearch className="size-3.5" />
-                            </Button>
-                        </div>
-                    )}
-                    {isDesktop && (
-                        <>
-                            {filterBar && (
-                                <div className="flex shrink-0 items-center gap-x-2">
-                                    {filterBar}
-                                </div>
-                            )}
-                            {actions?.map((action) => (
-                                <Button
-                                    key={action.id}
-                                    variant="outline"
-                                    onClick={action.onClick}
-                                    disabled={action.disabled}
-                                >
-                                    {action.icon && (
-                                        <action.icon className="size-4" />
-                                    )}
-                                    {action.label}
-                                </Button>
-                            ))}
-                        </>
-                    )}
-                </div>
-                <div className="flex flex-1 items-center justify-end gap-x-2">
-                    {isDesktop && toolbarActions && (
-                        <div className="flex shrink-0 items-center gap-x-2">
-                            {toolbarActions}
-                        </div>
-                    )}
-                    {isDesktop && <DataTableViewOptions table={table} />}
-                </div>
-            </div>
-            {actions && (
-                <div className="lg:hidden">
-                    <DropdownMenu>
-                        <DropdownMenuTrigger
-                            render={
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="h-8"
-                                >
-                                    <IconMenu2 className="size-4" />
-                                </Button>
-                            }
-                        />
-                        <DropdownMenuContent align="end" className="w-48">
-                            {filterBar && (
-                                <DropdownMenuGroup className="p-1.5">
-                                    {filterBar}
-                                </DropdownMenuGroup>
-                            )}
-                            <DropdownMenuSeparator />
-                            <DropdownMenuSub>
-                                <DropdownMenuSubTrigger>
-                                    اکشنها
-                                </DropdownMenuSubTrigger>
-                                <DropdownMenuPortal>
-                                    <DropdownMenuSubContent>
-                                        {actions.map((action) => (
-                                            <div key={action.id} />
-                                        ))}
-                                    </DropdownMenuSubContent>
-                                </DropdownMenuPortal>
-                            </DropdownMenuSub>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuGroup className="p-1.5">
-                                <DataTableViewOptions table={table} />
-                            </DropdownMenuGroup>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-                </div>
-            )}
-            {!actions && (
-                <div className="lg:hidden">
-                    <DropdownMenu>
-                        <DropdownMenuTrigger
-                            render={
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="h-8"
-                                >
-                                    <IconMenu2 className="size-4" />
-                                </Button>
-                            }
-                        />
-                        <DropdownMenuContent align="end" className="w-48">
-                            {filterBar && (
-                                <DropdownMenuGroup className="p-1.5">
-                                    {filterBar}
-                                </DropdownMenuGroup>
-                            )}
-                            <DropdownMenuSeparator />
-                            <DropdownMenuGroup className="p-1.5">
-                                {toolbarActions}
-                            </DropdownMenuGroup>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuGroup className="p-1.5">
-                                <DataTableViewOptions table={table} />
-                            </DropdownMenuGroup>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-                </div>
-            )}
-        </div>
+    const hasSearch = Boolean(searchKey || onGlobalFilterChange);
+    // Permission-gated actions render only for users who hold the permission
+    // (same any-of rule as PermissionGuard / PageHeaderActions).
+    const actionList = (actions ?? []).filter(
+        (action) =>
+            !action.permission ||
+            canAny(
+                Array.isArray(action.permission)
+                    ? action.permission
+                    : [action.permission],
+            ),
     );
-}
+    const hideableColumnCount = table
+        .getAllColumns()
+        .filter((c) => typeof c.accessorFn !== "undefined" && c.getCanHide())
+        .length;
+    // «فیلترها» is a menu item on mobile; clicking it opens the bottom sheet
+    // (a real dialog, so the reui Filters popovers nest inside it).
+    const [filtersOpen, setFiltersOpen] = useState(false);
+    const hasSheet = Boolean(filterBar);
 
-/**
- * Mobile «بیشتر» more-menu: on small screens every control except the inline
- * search input collapses into one dropdown. Search stays put above it; the
- * filter bar, page actions (export/refresh) and column view-options all live
- * inside the menu. Shared across every grid — no per-page mobile wiring.
- */
-export function MobileMoreMenu({
-    filterBar,
-    toolbarActions,
-    viewOptions,
-    actions,
-}: {
-    filterBar?: React.ReactNode;
-    toolbarActions?: React.ReactNode;
-    viewOptions?: React.ReactNode;
-    /** Descriptor-based actions: one source, rendered as desktop Buttons and
-     *  mobile menu items alike. DRY per-table contract. */
-    actions?: DataTableToolbarAction[];
-}) {
     return (
-        <DropdownMenu>
-            <DropdownMenuTrigger
-                render={
-                    <Button variant="outline" size="sm" className="h-8">
-                        <IconMenu2 className="size-4" />
-                    </Button>
-                }
-            />
-            <DropdownMenuContent align="end" className="w-56">
-                {filterBar && (
-                    <DropdownMenuSub>
-                        <DropdownMenuSubTrigger className="gap-x-2">
-                            <IconFilter className="size-4" />
-                            فیلترها
-                        </DropdownMenuSubTrigger>
-                        <DropdownMenuPortal>
-                            <DropdownMenuSubContent className="w-48">
-                                <DropdownMenuGroup className="p-1.5">
-                                    {filterBar}
-                                </DropdownMenuGroup>
-                            </DropdownMenuSubContent>
-                        </DropdownMenuPortal>
-                    </DropdownMenuSub>
-                )}
-                {(actions?.length ?? 0) > 0 && (
-                    <DropdownMenuGroup className="p-1.5">
-                        {actions!.map((action) => (
+        <div className="flex w-full items-center gap-2">
+            {hasSearch ? (
+                <SearchField
+                    placeholder={searchPlaceholder}
+                    value={localValue}
+                    onValueChange={handleInputChange}
+                    onCommit={commit}
+                    onClear={clear}
+                    className="w-full lg:w-64 lg:shrink-0"
+                />
+            ) : null}
+
+            {/* Desktop: everything inline; actions are icon-only + tooltip. */}
+            <div className="hidden items-center gap-2 lg:flex lg:flex-1 lg:flex-wrap">
+                {filterBar}
+                {actionList.map((action) => {
+                    const button = (
+                        <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={action.onClick}
+                            disabled={action.disabled}
+                            aria-label={action.label}
+                            className={cn(
+                                action.destructive && "text-destructive",
+                            )}
+                        >
+                            {action.icon && (
+                                <action.icon className="size-4" />
+                            )}
+                        </Button>
+                    );
+                    return (
+                        <Fragment key={action.id}>
+                            {action.icon ? (
+                                <Tooltip>
+                                    <TooltipTrigger render={button} />
+                                    <TooltipContent side="bottom">
+                                        {action.label}
+                                    </TooltipContent>
+                                </Tooltip>
+                            ) : (
+                                button
+                            )}
+                        </Fragment>
+                    );
+                })}
+            </div>
+            <DataTableViewOptions table={table} />
+
+            {/* Mobile: everything collapses into one «...» menu with icon +
+                text items — «فیلترها» opens the bottom sheet, commands fire
+                directly, «نمایش ستونها» is a submenu. One tap per command,
+                same idiom as PageHeaderActions. */}
+            {(hasSheet ||
+                actionList.length > 0 ||
+                hideableColumnCount > 0) && (
+                <DropdownMenu>
+                    <DropdownMenuTrigger
+                        render={
+                            <Button
+                                variant="outline"
+                                className="h-8 shrink-0 lg:hidden"
+                                size="icon-sm"
+                                aria-label="عملیات"
+                            >
+                                <IconDotsVertical className="size-4" />
+                            </Button>
+                        }
+                    />
+                    <DropdownMenuContent align="end" className="w-48">
+                        {hasSheet && (
+                            <DropdownMenuItem onClick={() => setFiltersOpen(true)}>
+                                <IconFilter className="size-4" />
+                                فیلترها
+                            </DropdownMenuItem>
+                        )}
+                        {actionList.map((action) => (
                             <DropdownMenuItem
                                 key={action.id}
                                 onClick={action.onClick}
                                 disabled={action.disabled}
+                                className={cn(
+                                    action.destructive && "text-destructive",
+                                )}
                             >
                                 {action.icon && (
                                     <action.icon className="size-4" />
@@ -330,26 +312,43 @@ export function MobileMoreMenu({
                                 {action.label}
                             </DropdownMenuItem>
                         ))}
-                    </DropdownMenuGroup>
-                )}
-                {toolbarActions && (
-                    <DropdownMenuSub>
-                        <DropdownMenuSubTrigger className="gap-x-2">
-                            <IconMenu2 className="size-4" />
-                            بیشتر
-                        </DropdownMenuSubTrigger>
-                        <DropdownMenuPortal>
-                            <DropdownMenuSubContent className="w-56">
-                                <DropdownMenuGroup className="p-1.5">
-                                    {toolbarActions}
-                                </DropdownMenuGroup>
-                            </DropdownMenuSubContent>
-                        </DropdownMenuPortal>
-                    </DropdownMenuSub>
-                )}
-                <DropdownMenuSeparator />
-                <div className="px-2 py-1.5">{viewOptions}</div>
-            </DropdownMenuContent>
-        </DropdownMenu>
+                        {hideableColumnCount > 0 && (
+                            <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuSub>
+                                    <DropdownMenuSubTrigger>
+                                        <IconTableOptions className="size-4" />
+                                        نمایش ستونها
+                                    </DropdownMenuSubTrigger>
+                                    <DropdownMenuPortal>
+                                        <DropdownMenuSubContent className="w-48">
+                                            <ColumnVisibilityMenuItems
+                                                table={table}
+                                            />
+                                        </DropdownMenuSubContent>
+                                    </DropdownMenuPortal>
+                                </DropdownMenuSub>
+                            </>
+                        )}
+                    </DropdownMenuContent>
+                </DropdownMenu>
+            )}
+
+            {hasSheet && (
+                <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
+                    <SheetContent
+                        side="bottom"
+                        className="max-h-[80dvh] gap-0 overflow-y-auto rounded-t-2xl p-0"
+                    >
+                        <SheetHeader className="border-b px-4 py-3">
+                            <SheetTitle>فیلترها</SheetTitle>
+                        </SheetHeader>
+                        <div className="flex flex-col gap-2 p-4">
+                            {filterBar}
+                        </div>
+                    </SheetContent>
+                </Sheet>
+            )}
+        </div>
     );
 }

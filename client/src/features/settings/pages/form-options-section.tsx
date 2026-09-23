@@ -1,6 +1,11 @@
 import { useState } from "react";
 import type { ColumnDef, Row, StockFeatures } from "@tanstack/react-table";
-import { IconListDetails, IconPencil, IconPlus } from "@tabler/icons-react";
+import {
+    IconListDetails,
+    IconPencil,
+    IconPlus,
+    IconRefresh,
+} from "@tabler/icons-react";
 
 import { ActiveBadge } from "@/components/shared/active-badge";
 import { DataTablePage } from "@/components/data-table";
@@ -66,12 +71,13 @@ export function FormOptionsSection() {
 
     const { data: groups = [], isLoading: groupsLoading } =
         useAdminFormOptionGroups();
-    const { data, isLoading, isError, refetch } = useAdminFormOptions(
-        selectedGroup || undefined,
-        url.pagination.pageIndex + 1,
-        url.pagination.pageSize,
-        url.globalFilter || undefined,
-    );
+    const { data, isLoading, isError, refetch, isFetching } =
+        useAdminFormOptions(
+            selectedGroup || undefined,
+            url.pagination.pageIndex + 1,
+            url.pagination.pageSize,
+            url.globalFilter || undefined,
+        );
 
     const rows = data?.data ?? [];
     const meta = data?.meta;
@@ -327,6 +333,15 @@ export function FormOptionsSection() {
                                 { label: "غیرفعال", value: "0" },
                             ],
                             negatable: true,
+                        },
+                    ]}
+                    actions={[
+                        {
+                            id: "refresh",
+                            label: "بازخوانی",
+                            icon: IconRefresh,
+                            onClick: () => refetch(),
+                            disabled: isFetching,
                         },
                     ]}
                     columnFilters={url.columnFilters}
