@@ -5,6 +5,7 @@ import {
     type Table,
 } from "@tanstack/react-table";
 import {
+    IconDotsVertical,
     IconFilter,
     IconSearch,
     IconTableOptions,
@@ -19,9 +20,22 @@ import {
     SheetTitle,
     SheetTrigger,
 } from "@/components/ui/sheet";
-import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
-import { ColumnVisibilityList, DataTableViewOptions } from "./view-options";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuGroup,
+    DropdownMenuItem,
+    DropdownMenuPortal,
+    DropdownMenuSeparator,
+    DropdownMenuSub,
+    DropdownMenuSubContent,
+    DropdownMenuSubTrigger,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+    ColumnVisibilityMenuItems,
+    DataTableViewOptions,
+} from "./view-options";
 import { DEBOUNCE } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import type { DataTableToolbarAction } from "./toolbar-types";
@@ -33,18 +47,20 @@ const MIN_AUTO_SEARCH_CHARS = 2;
 
 /**
  * One source of truth for every list toolbar, responsive by CSS only (no
- * `useMediaQuery` split, no duplicated mobile/desktop trees):
+ * `useMediaQuery` split, no duplicated mobile/desktop trees). Mobile is split
+ * by intent:
  *
  * - **Desktop (lg+):** inline row — search · filter bar · action buttons ·
  *   column view-options.
- * - **Mobile:** the search input stretches full width and a single «فیلترها»
- *   button opens a bottom **sheet** (a real dialog, so the reui Filters
- *   popovers nest correctly) holding the filter bar, the action buttons and
- *   the column-visibility list.
+ * - **Mobile search** stretches full width; then two triggers:
+ *   - «فیلترها» → bottom **sheet** (a real dialog, so the reui Filters
+ *     popovers nest correctly) for the stateful filter surface.
+ *   - «...» → commands (export/refresh/...) as menu items + a «نمایش ستونها»
+ *     submenu — same idiom as `PageHeaderActions`, one tap, no dialog.
  *
  * Actions are descriptors (`DataTableToolbarAction`) so a page declares them
- * ONCE and they render as inline buttons on desktop and full-width buttons in
- * the mobile sheet — pages never wire mobile themselves.
+ * ONCE and they render as inline buttons on desktop and menu items on mobile
+ * — pages never wire mobile themselves.
  */
 type DataTableToolbarProps<TData extends RowData> = {
     table: Table<StockFeatures, TData>;
@@ -56,7 +72,7 @@ type DataTableToolbarProps<TData extends RowData> = {
     /** Extra controls rendered inline beside the search row. */
     toolbarActions?: React.ReactNode;
     /** Descriptor-based actions: one source, rendered as desktop Buttons and
-     *  mobile sheet buttons alike. DRY per-table contract. */
+     *  mobile «...» menu items alike. DRY per-table contract. */
     actions?: DataTableToolbarAction[];
 };
 
@@ -179,15 +195,13 @@ export function DataTableToolbar<TData extends RowData>({
 
     const hasSearch = Boolean(searchKey || onGlobalFilterChange);
     const actionList = actions ?? [];
-    const [sheetOpen, setSheetOpen] = useState(false);
-    // Anything besides search that has to collapse into the mobile sheet.
-    const hasOverflow =
-        Boolean(filterBar) ||
-        actionList.length > 0 ||
-        Boolean(toolbarActions) ||
-        table
-            .getAllColumns()
-            .some((c) => typeof c.accessorFn !== "undefined" && c.getCanHide());
+    const hideableColumnCount = table
+        .getAllColumns()
+        .filter((c) => typeof c.accessorFn !== "undefined" && c.getCanHide())
+        .length;
+    // The «فیلترها» sheet owns the stateful filter surface only (needs room
+    // + nested popovers). Commands and column toggles live in the «...» menu.
+    const hasSheet = Boolean(filterBar);
 
     return (
         <div className="flex w-full items-center gap-2">
@@ -224,9 +238,15 @@ export function DataTableToolbar<TData extends RowData>({
             </div>
             <DataTableViewOptions table={table} />
 
-            {/* Mobile: one trigger + a bottom sheet (dialog) with everything. */}
-            {hasOverflow ? (
-                <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+            {/* Mobile split by intent:
+                - «فیلترها» button → bottom sheet: the stateful filter bar
+                  (needs room, nests its own popovers — a dialog does, a menu
+                  doesn't).
+                - «...» menu → commands (export/refresh/...) as items plus a
+                  «نمایش ستونها» submenu; same idiom as PageHeaderActions —
+                  one tap, no dialog. */}
+            {hasSheet && (
+                <Sheet>
                     <SheetTrigger
                         render={
                             <Button
@@ -243,67 +263,75 @@ export function DataTableToolbar<TData extends RowData>({
                         className="max-h-[80dvh] gap-0 overflow-y-auto rounded-t-2xl p-0"
                     >
                         <SheetHeader className="border-b px-4 py-3">
-                            <SheetTitle>فیلترها و عملیات</SheetTitle>
+                            <SheetTitle>فیلترها</SheetTitle>
                         </SheetHeader>
-                        <div className="flex flex-col gap-4 p-4">
-                            {filterBar && (
-                                <div className="flex flex-col gap-2">
-                                    <Label className="text-xs text-muted-foreground">
-                                        فیلترها
-                                    </Label>
-                                    {filterBar}
-                                </div>
-                            )}
-                            {toolbarActions && (
-                                <>
-                                    <Separator />
-                                    {toolbarActions}
-                                </>
-                            )}
-                            {actionList.length > 0 && (
-                                <div className="flex flex-col gap-2">
-                                    <Label className="text-xs text-muted-foreground">
-                                        عملیات
-                                    </Label>
-                                    {actionList.map((action) => (
-                                        <Button
-                                            key={action.id}
-                                            variant="outline"
-                                            onClick={() => {
-                                                // Close the sheet first so a
-                                                // dialog the action opens
-                                                // (e.g. export) never renders
-                                                // behind it.
-                                                setSheetOpen(false);
-                                                action.onClick();
-                                            }}
-                                            disabled={action.disabled}
-                                            className={
-                                                action.destructive
-                                                    ? "justify-start text-destructive"
-                                                    : "justify-start"
-                                            }
-                                        >
-                                            {action.icon && (
-                                                <action.icon className="size-4" />
-                                            )}
-                                            {action.label}
-                                        </Button>
-                                    ))}
-                                </div>
-                            )}
-                            <Separator />
-                            <div className="flex flex-col gap-2">
-                                <Label className="flex items-center gap-2 text-xs text-muted-foreground">
-                                    <IconTableOptions className="size-4" />
-                                    نمایش ستونها
-                                </Label>
-                                <ColumnVisibilityList table={table} />
-                            </div>
+                        <div className="flex flex-col gap-2 p-4">
+                            {filterBar}
                         </div>
                     </SheetContent>
                 </Sheet>
-            ) : null}
+            )}
+            {(actionList.length > 0 ||
+                toolbarActions ||
+                hideableColumnCount > 0) && (
+                <DropdownMenu>
+                    <DropdownMenuTrigger
+                        render={
+                            <Button
+                                variant="outline"
+                                className="h-8 shrink-0 lg:hidden"
+                                size="icon-sm"
+                                aria-label="عملیات"
+                            >
+                                <IconDotsVertical className="size-4" />
+                            </Button>
+                        }
+                    />
+                    <DropdownMenuContent align="end" className="w-48">
+                        {actionList.map((action) => (
+                            <DropdownMenuItem
+                                key={action.id}
+                                onClick={action.onClick}
+                                disabled={action.disabled}
+                                className={cn(
+                                    action.destructive && "text-destructive",
+                                )}
+                            >
+                                {action.icon && (
+                                    <action.icon className="size-4" />
+                                )}
+                                {action.label}
+                            </DropdownMenuItem>
+                        ))}
+                        {toolbarActions && (
+                            <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuGroup className="gap-1">
+                                    {toolbarActions}
+                                </DropdownMenuGroup>
+                            </>
+                        )}
+                        {hideableColumnCount > 0 && (
+                            <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuSub>
+                                    <DropdownMenuSubTrigger>
+                                        <IconTableOptions className="size-4" />
+                                        نمایش ستونها
+                                    </DropdownMenuSubTrigger>
+                                    <DropdownMenuPortal>
+                                        <DropdownMenuSubContent className="w-48">
+                                            <ColumnVisibilityMenuItems
+                                                table={table}
+                                            />
+                                        </DropdownMenuSubContent>
+                                    </DropdownMenuPortal>
+                                </DropdownMenuSub>
+                            </>
+                        )}
+                    </DropdownMenuContent>
+                </DropdownMenu>
+            )}
         </div>
     );
 }

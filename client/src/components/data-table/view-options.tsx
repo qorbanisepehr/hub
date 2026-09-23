@@ -4,7 +4,6 @@ import {
     type Table,
 } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
     DropdownMenu,
     DropdownMenuCheckboxItem,
@@ -21,7 +20,7 @@ type DataTableViewOptionsProps<TData extends RowData> = {
 };
 
 /** Hideable accessor columns of the table — shared source for the desktop
- *  dropdown and the mobile filter sheet. */
+ *  view-options dropdown and the mobile «...» submenu. */
 function hideableColumns<TData extends RowData>(
     table: Table<StockFeatures, TData>,
 ) {
@@ -34,45 +33,35 @@ function hideableColumns<TData extends RowData>(
         );
 }
 
-/** Column show/hide rows rendered flat (for the mobile bottom sheet).
- *  Same state source as the desktop dropdown — one behavior, two shells. */
-export function ColumnVisibilityList<TData extends RowData>({
+/** Column show/hide rows as menu items. Shared source for the desktop
+ *  view-options dropdown and the mobile «...» submenu — one behavior,
+ *  two shells. `DropdownMenuCheckboxItem` so toggling never closes. */
+export function ColumnVisibilityMenuItems<TData extends RowData>({
     table,
 }: DataTableViewOptionsProps<TData>) {
-    const columns = hideableColumns(table);
-    if (columns.length === 0) return null;
-
     return (
-        <div className="flex flex-col gap-1">
-            {columns.map((column) => (
-                <label
+        <>
+            {hideableColumns(table).map((column) => (
+                <DropdownMenuCheckboxItem
                     key={column.id}
-                    className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted"
+                    checked={column.getIsVisible()}
+                    onCheckedChange={(value: boolean) =>
+                        column.toggleVisibility(!!value)
+                    }
                 >
-                    <Checkbox
-                        checked={column.getIsVisible()}
-                        onCheckedChange={(value) =>
-                            column.toggleVisibility(value === true)
-                        }
-                    />
-                    <span className="min-w-0 truncate">
-                        {column.columnDef.meta?.displayName ?? column.id}
-                    </span>
-                </label>
+                    {column.columnDef.meta?.displayName ?? column.id}
+                </DropdownMenuCheckboxItem>
             ))}
-        </div>
+        </>
     );
 }
 
-/** Desktop-only dropdown over the column show/hide list. The mobile toolbar
- *  embeds `ColumnVisibilityList` inside its filter sheet instead. Uses
- *  DropdownMenuCheckboxItem (not plain Checkbox) so toggling never closes
- *  the menu. */
-export function DataTableViewOptions<TData extends RowData>({
-    table,
-}: DataTableViewOptionsProps<TData>) {
-    const columns = hideableColumns(table);
-    if (columns.length === 0) return null;
+/** Desktop-only view-options dropdown. On mobile the same column list is
+ *  reached from the toolbar's «...» submenu instead. */
+export function DataTableViewOptions<TData extends RowData>(
+    props: DataTableViewOptionsProps<TData>,
+) {
+    if (hideableColumns(props.table).length === 0) return null;
 
     return (
         <DropdownMenu>
@@ -94,17 +83,7 @@ export function DataTableViewOptions<TData extends RowData>({
                         نمایش/مخفی کردن ستونها
                     </DropdownMenuLabel>
                     <DropdownMenuSeparator />
-                    {columns.map((column) => (
-                        <DropdownMenuCheckboxItem
-                            key={column.id}
-                            checked={column.getIsVisible()}
-                            onCheckedChange={(value: boolean) =>
-                                column.toggleVisibility(!!value)
-                            }
-                        >
-                            {column.columnDef.meta?.displayName ?? column.id}
-                        </DropdownMenuCheckboxItem>
-                    ))}
+                    <ColumnVisibilityMenuItems {...props} />
                 </DropdownMenuGroup>
             </DropdownMenuContent>
         </DropdownMenu>
