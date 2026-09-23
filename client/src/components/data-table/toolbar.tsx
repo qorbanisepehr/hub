@@ -29,7 +29,6 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import {
     DropdownMenu,
     DropdownMenuContent,
-    DropdownMenuGroup,
     DropdownMenuItem,
     DropdownMenuPortal,
     DropdownMenuSeparator,
@@ -44,6 +43,7 @@ import {
 } from "./view-options";
 import { DEBOUNCE } from "@/lib/constants";
 import { cn } from "@/lib/utils";
+import { useAuthorization } from "@/features/auth";
 import type { DataTableToolbarAction } from "./toolbar-types";
 
 // Debounced auto-commit only kicks in once the query is long enough;
@@ -75,10 +75,9 @@ type DataTableToolbarProps<TData extends RowData> = {
     globalFilter?: string;
     onGlobalFilterChange?: (value: string) => void;
     filterBar?: React.ReactNode;
-    /** Extra controls rendered inline beside the search row. */
-    toolbarActions?: React.ReactNode;
-    /** Descriptor-based actions: one source, rendered as desktop Buttons and
-     *  mobile «...» menu items alike. DRY per-table contract. */
+    /** Descriptor-based actions: one source, rendered as desktop icon buttons
+     *  (+ tooltip) and mobile «...» menu items alike, with optional backend
+     *  permission gating. DRY per-table contract. */
     actions?: DataTableToolbarAction[];
 };
 
@@ -137,9 +136,9 @@ export function DataTableToolbar<TData extends RowData>({
     globalFilter,
     onGlobalFilterChange,
     filterBar,
-    toolbarActions,
     actions,
 }: DataTableToolbarProps<TData>) {
+    const { canAny } = useAuthorization();
     const committedValue = searchKey
         ? ((table.getColumn(searchKey)?.getFilterValue() as string) ?? "")
         : (globalFilter ?? "");
@@ -200,7 +199,17 @@ export function DataTableToolbar<TData extends RowData>({
     };
 
     const hasSearch = Boolean(searchKey || onGlobalFilterChange);
-    const actionList = actions ?? [];
+    // Permission-gated actions render only for users who hold the permission
+    // (same any-of rule as PermissionGuard / PageHeaderActions).
+    const actionList = (actions ?? []).filter(
+        (action) =>
+            !action.permission ||
+            canAny(
+                Array.isArray(action.permission)
+                    ? action.permission
+                    : [action.permission],
+            ),
+    );
     const hideableColumnCount = table
         .getAllColumns()
         .filter((c) => typeof c.accessorFn !== "undefined" && c.getCanHide())
@@ -226,7 +235,6 @@ export function DataTableToolbar<TData extends RowData>({
             {/* Desktop: everything inline; actions are icon-only + tooltip. */}
             <div className="hidden items-center gap-2 lg:flex lg:flex-1 lg:flex-wrap">
                 {filterBar}
-                {toolbarActions}
                 {actionList.map((action) => {
                     const button = (
                         <Button
@@ -268,7 +276,6 @@ export function DataTableToolbar<TData extends RowData>({
                 same idiom as PageHeaderActions. */}
             {(hasSheet ||
                 actionList.length > 0 ||
-                toolbarActions ||
                 hideableColumnCount > 0) && (
                 <DropdownMenu>
                     <DropdownMenuTrigger
@@ -305,14 +312,6 @@ export function DataTableToolbar<TData extends RowData>({
                                 {action.label}
                             </DropdownMenuItem>
                         ))}
-                        {toolbarActions && (
-                            <>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuGroup className="gap-1">
-                                    {toolbarActions}
-                                </DropdownMenuGroup>
-                            </>
-                        )}
                         {hideableColumnCount > 0 && (
                             <>
                                 <DropdownMenuSeparator />

@@ -18,7 +18,6 @@ import {
     useDataTable,
     useDataTableUrlState,
 } from "@/hooks/use-data-table-page";
-import { useAuthorization } from "@/features/auth";
 import { PERMISSIONS } from "@/lib/permissions";
 import { employeeKeys } from "@/lib/query-keys";
 import { saveBlobResponse, exportDateStamp } from "@/lib/download";
@@ -39,7 +38,6 @@ async function downloadEmployeeExportTemplate(format: "xlsx" | "csv") {
 
 export function EmployeesPage() {
     const queryClient = useQueryClient();
-    const { can } = useAuthorization();
     const search = route.useSearch();
     const navigate = route.useNavigate();
 
@@ -200,16 +198,13 @@ export function EmployeesPage() {
                     },
                 ]}
                 actions={[
-                    ...(can(PERMISSIONS.EMPLOYEE_EXPORT)
-                        ? [
-                              {
-                                  id: "export",
-                                  label: "خروجی",
-                                  icon: IconDownload,
-                                  onClick: () => setIsExportOpen(true),
-                              },
-                          ]
-                        : []),
+                    {
+                        id: "export",
+                        label: "خروجی",
+                        icon: IconDownload,
+                        onClick: () => setIsExportOpen(true),
+                        permission: PERMISSIONS.EMPLOYEE_EXPORT,
+                    },
                     {
                         id: "refresh",
                         label: "بازخوانی",
