@@ -48,6 +48,7 @@ class AttendanceReportController
             // identity to report on — an empty, successful report.
             return response()->json([
                 'data' => [],
+                'meta' => ['current_page' => 1, 'last_page' => 1, 'per_page' => 50, 'total' => 0],
                 'report' => 'attendance',
                 'generated_at' => now()->toIso8601String(),
                 'freshness' => 'live',
@@ -61,7 +62,10 @@ class AttendanceReportController
                 from: $from,
                 to: $to,
                 employeeIdentifier: $employee->personnel_code,
-                status: $request->attendanceStatus(),
+                page: $request->attendancePage(),
+                perPage: $request->attendancePerPage(),
+                order: $request->attendanceOrder(),
+                filter: $request->attendanceFilter(),
             ),
             actor: $actor,
         ));

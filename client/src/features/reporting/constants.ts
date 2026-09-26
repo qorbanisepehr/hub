@@ -4,7 +4,7 @@
 export const SOURCE_LABELS: Record<string, string> = {
     automation: "اتوماسیون اداری",
     rahkaran: "راهکاران",
-    bizagi: "بیزگی",
+    bizagi: "بیزاجی",
 };
 
 export const ALL_SOURCES = Object.keys(SOURCE_LABELS);

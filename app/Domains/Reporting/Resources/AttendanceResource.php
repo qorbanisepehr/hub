@@ -28,6 +28,7 @@ class AttendanceResource extends JsonResource
             'report' => $this->resource->report,
             'generated_at' => $this->resource->generatedAt->toIso8601String(),
             'freshness' => $this->resource->freshness,
+            'meta' => $this->resource->meta,
             'metadata' => (object) $this->resource->metadata,
             'warnings' => $this->resource->warnings,
         ];

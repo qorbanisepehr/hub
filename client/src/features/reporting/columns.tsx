@@ -2,13 +2,13 @@ import { type ColumnDef, type StockFeatures } from "@tanstack/react-table";
 import { Badge } from "@/components/ui/badge";
 import { DataTableColumnHeader } from "@/components/data-table";
 import { toPersianDate, toPersianTime } from "@/lib/date-format";
-import { UserAvatar } from "@/components/shared/user-avatar";
 import {
     CARTABLE_ACTION_LABELS,
     STATUS_CONFIG,
     sourceLabel,
     documentTypeLabel,
 } from "./constants";
+import { SenderCell } from "./sender-cell";
 import type { UnifiedInboxItemDto } from "./types";
 
 /**
@@ -28,34 +28,7 @@ export const unifiedInboxColumns: ColumnDef<StockFeatures, UnifiedInboxItemDto>[
     {
         id: "sender",
         header: () => <span className="text-sm font-medium">فرستنده</span>,
-        cell: ({ row }) => {
-            const { sender } = row.original;
-
-            return (
-                <div className="flex items-center gap-2 min-w-0">
-                    <UserAvatar
-                        name={sender.display_name}
-                        avatarUrl={sender.matched ? sender.avatar_url : null}
-                        size="sm"
-                    />
-                    <div className="grid min-w-0 leading-tight">
-                        <span className="truncate text-sm font-medium">
-                            {sender.matched ? sender.display_name : sender.external_name}
-                        </span>
-                        {sender.matched && sender.org_role ? (
-                            <span className="truncate text-xs text-muted-foreground">
-                                {sender.org_role}
-                            </span>
-                        ) : null}
-                        {!sender.matched ? (
-                            <span className="text-xs text-muted-foreground">
-                                کاربر خارجی
-                            </span>
-                        ) : null}
-                    </div>
-                </div>
-            );
-        },
+        cell: ({ row }) => <SenderCell item={row.original} />,
         meta: { displayName: "فرستنده" },
     },
     {
