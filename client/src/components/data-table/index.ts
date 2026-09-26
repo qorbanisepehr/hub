@@ -1,6 +1,6 @@
 export { DataTablePagination } from "./pagination";
 export { DataTableColumnHeader } from "./column-header";
-export { DataTableViewOptions } from "./view-options";
+export { DataTableViewOptions, ColumnVisibilityMenuItems } from "./view-options";
 export { DataTableToolbar } from "./toolbar";
 export { DataTablePage } from "./data-table-page";
 export { TableFilterBar } from "./table-filter-bar";
