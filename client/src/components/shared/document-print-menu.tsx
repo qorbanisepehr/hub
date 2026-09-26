@@ -16,7 +16,6 @@ import {
     IconFileTypeDocx,
     IconFileTypePdf,
     IconLoader2,
-    IconPrinter,
 } from "@tabler/icons-react";
 import { useState } from "react";
 import { toast } from "sonner";

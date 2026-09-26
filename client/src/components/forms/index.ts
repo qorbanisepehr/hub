@@ -15,6 +15,9 @@ export {
     FormAccountNumberField,
     FormAmountField,
     FormMobileNumberField,
+    FormPhoneField,
+    FormPostalCodeField,
+    FormIbanField,
     toAmountNumber,
 } from './form-number-fields';
 export type { FormOptionFilter } from './form-option-fields';
