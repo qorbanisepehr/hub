@@ -1,40 +1,23 @@
-import { useState } from "react";
+import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import {
-    IconCalendarOff,
-    IconCalendarStats,
-    IconRefresh,
-} from "@tabler/icons-react";
+import { getRouteApi } from "@tanstack/react-router";
+import { IconCalendarStats, IconRefresh } from "@tabler/icons-react";
 
-import { useAttendanceReport } from "@/features/reporting/hooks";
-import {
-    EmptyState,
-    ErrorSection,
-    PageHeader,
-    PageLayout,
-} from "@/components/layout";
+import { DataTablePage } from "@/components/data-table";
+import { ListPageHeader } from "@/components/layout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Link } from "@tanstack/react-router";
 import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle,
-} from "@/components/ui/card";
-import { DatePicker } from "@/components/ui/date-picker";
-import { Skeleton } from "@/components/ui/skeleton";
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table";
-import { toPersianDate, toPersianTime } from "@/lib/date-format";
+    useDataTable,
+    useDataTableUrlState,
+} from "@/hooks/use-data-table-page";
 import { reportingKeys } from "@/lib/query-keys";
-import type { AttendanceRecordDto } from "../types";
+import { attendanceColumns } from "../attendance-columns";
+import { useAttendanceReport } from "../hooks";
+import type { AttendanceListParams } from "../types";
+
+const route = getRouteApi("/protected/reports/attendance");
 
 const FRESHNESS_LABELS: Record<string, string> = {
     live: "زنده",
@@ -42,10 +25,6 @@ const FRESHNESS_LABELS: Record<string, string> = {
     snapshot: "اسنپ‌شات",
     synchronized: "همگام‌شده",
 };
-
-const SKELETON_ROWS = ["a", "b", "c", "d", "e"];
-
-const faNumber = new Intl.NumberFormat("fa-IR");
 
 /** Local-time `yyyy-MM-dd` (matches what DatePicker emits). */
 function localIso(date: Date): string {
@@ -56,60 +35,75 @@ function localIso(date: Date): string {
 }
 
 /** Default window: the last 7 days (the API caps the range at 92 days). */
-function defaultFrom(): string {
+export function defaultFrom(): string {
     const date = new Date();
     date.setDate(date.getDate() - 6);
     return localIso(date);
 }
 
-function formatWorkedMinutes(minutes: number | null): string {
-    if (minutes === null) return "—";
-    const hours = Math.floor(minutes / 60);
-    const rest = minutes % 60;
-    if (hours === 0) return `${faNumber.format(rest)} دقیقه`;
-    if (rest === 0) return `${faNumber.format(hours)} ساعت`;
-    return `${faNumber.format(hours)} ساعت و ${faNumber.format(rest)} دقیقه`;
-}
-
-function AttendanceRows({ records }: { records: AttendanceRecordDto[] }) {
+/** Freshness badge beside the title (live = success). */
+export function FreshnessBadge({ freshness }: { freshness: string }) {
     return (
-        <TableBody>
-            {records.map((record) => (
-                <TableRow key={record.date}>
-                    <TableCell className="font-medium">
-                        {toPersianDate(record.date)}
-                    </TableCell>
-                    <TableCell>{toPersianTime(record.entry_at)}</TableCell>
-                    <TableCell>{toPersianTime(record.exit_at)}</TableCell>
-                    <TableCell className="tabular-nums">
-                        {formatWorkedMinutes(record.worked_minutes)}
-                    </TableCell>
-                </TableRow>
-            ))}
-        </TableBody>
+        <Badge variant={freshness === "live" ? "success" : "secondary"}>
+            <IconCalendarStats className="size-3" />
+            {FRESHNESS_LABELS[freshness] ?? freshness}
+        </Badge>
     );
 }
 
 export function AttendanceReportPage() {
     const queryClient = useQueryClient();
+    const search = route.useSearch();
+    const navigate = route.useNavigate();
 
-    const [from, setFrom] = useState(defaultFrom);
-    const [to, setTo] = useState(() => localIso(new Date()));
+    const url = useDataTableUrlState({
+        search: search as unknown as Record<string, unknown>,
+        navigate,
+        urlState: {
+            columnFilters: [
+                { columnId: "date_from", searchKey: "date_from", type: "string" },
+                { columnId: "date_to", searchKey: "date_to", type: "string" },
+            ],
+        },
+    });
 
-    const { data, isLoading, isError, isFetching, refetch } =
-        useAttendanceReport({ from, to });
+    const { ensurePageInRange } = url;
 
-    // Keep the window valid after every pick so the query never fires an
-    // inverted range (the API would 422 on from > to).
-    const handleFromChange = (value: string) => {
-        setFrom(value);
-        if (value > to) setTo(value);
+    // The window is required (historical report): when the URL carries no
+    // window yet, default to the last 7 days. The FilterBar's Jalali
+    // date pickers write straight into the URL state.
+    const dateFrom = url.activeValue("date_from") ?? defaultFrom();
+    const dateTo = url.activeValue("date_to") ?? localIso(new Date());
+
+    const params: AttendanceListParams = {
+        date_from: dateFrom,
+        date_to: dateTo,
+        page: url.pagination.pageIndex + 1,
+        per_page: url.pagination.pageSize,
+        sort: url.activeSort?.id,
+        order: url.activeSort?.desc ? "desc" : "asc",
+        filter: url.globalFilter || undefined,
     };
 
-    const handleToChange = (value: string) => {
-        setTo(value);
-        if (value < from) setFrom(value);
-    };
+    const { data, isLoading, isError, isFetching } = useAttendanceReport(params);
+
+    const meta = data?.meta;
+
+    const table = useDataTable({
+        columns: attendanceColumns,
+        data: data?.data ?? [],
+        meta,
+        url,
+    });
+
+    // URL may hold a page beyond the last one (e.g. after the window
+    // narrows); the shared hook pulls it back into range post-load.
+    useEffect(() => {
+        if (!isLoading && meta) {
+            ensurePageInRange(table.getPageCount());
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [table, ensurePageInRange, isLoading, meta]);
 
     const refresh = () =>
         queryClient.invalidateQueries({ queryKey: reportingKeys.all });
@@ -120,135 +114,59 @@ export function AttendanceReportPage() {
         data !== undefined &&
         data.metadata.reason === "no_linked_employee";
 
-    const records = data?.data ?? [];
-    const isEmpty = !isLoading && !isError && !noLinkedEmployee && records.length === 0;
-
     return (
-        <PageLayout>
-            <PageHeader
-                title="حضور و غیاب"
-                description="گزارش ورود و خروج شما از سیستم منبع خارجی"
-            >
-                <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={refresh}
-                    disabled={isFetching}
-                >
-                    <IconRefresh className="size-4" />
-                    تازه‌سازی
-                </Button>
-            </PageHeader>
-
-            <Card>
-                <CardHeader>
-                    <CardTitle>بازه گزارش</CardTitle>
-                    <CardDescription>حداکثر بازه مجاز ۹۲ روز است</CardDescription>
-                </CardHeader>
-                <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <div className="space-y-2">
-                        <span className="text-sm text-muted-foreground">
-                            از تاریخ
-                        </span>
-                        <DatePicker
-                            value={from}
-                            onChange={handleFromChange}
-                            disabled={isLoading}
-                        />
-                    </div>
-                    <div className="space-y-2">
-                        <span className="text-sm text-muted-foreground">
-                            تا تاریخ
-                        </span>
-                        <DatePicker
-                            value={to}
-                            onChange={handleToChange}
-                            disabled={isLoading}
-                        />
-                    </div>
-                </CardContent>
-            </Card>
-
-            <Card>
-                <CardHeader>
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                        <div className="space-y-1">
-                            <CardTitle>سابقه حضور</CardTitle>
-                            {data && (
-                                <CardDescription>
-                                    آخرین به‌روزرسانی:{" "}
-                                    {toPersianDate(data.generated_at)}{" "}
-                                    {toPersianTime(data.generated_at)}
-                                </CardDescription>
-                            )}
-                        </div>
-                        {data && (
-                            <Badge
-                                variant={
-                                    data.freshness === "live"
-                                        ? "success"
-                                        : "secondary"
-                                }
-                            >
-                                <IconCalendarStats className="size-3" />
-                                {FRESHNESS_LABELS[data.freshness] ??
-                                    data.freshness}
-                            </Badge>
-                        )}
-                    </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    {data && data.warnings.length > 0 && (
-                        <div className="flex flex-wrap gap-2">
-                            {data.warnings.map((warning) => (
-                                <Badge
-                                    key={`${warning.source ?? "source"}-${warning.code ?? "warning"}`}
-                                    variant="warning"
-                                >
-                                    {warning.source
-                                        ? `منبع ${warning.source} در دسترس نیست`
-                                        : "هشدار منبع داده"}
-                                </Badge>
-                            ))}
-                        </div>
+        <DataTablePage
+            table={table}
+            meta={meta}
+            isLoading={isLoading}
+            isError={isError}
+            title="حضور و غیاب"
+            totalLabel="روز"
+            icon={IconCalendarStats}
+            header={
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                    <ListPageHeader
+                        title="حضور و غیاب"
+                        description="گزارش ورود و خروج شما از سیستم منبع خارجی"
+                    />
+                    {data && (
+                        <FreshnessBadge freshness={String(data.freshness)} />
                     )}
-
-                    {isLoading ? (
-                        <div className="space-y-3 py-2">
-                            {SKELETON_ROWS.map((row) => (
-                                <Skeleton key={row} className="h-9 w-full" />
-                            ))}
-                        </div>
-                    ) : isError ? (
-                        <ErrorSection
-                            description="دریافت داده از سیستم منبع خارجی با خطا مواجه شد."
-                            onRetry={() => refetch()}
-                        />
-                    ) : noLinkedEmployee ? (
-                        <EmptyState
-                            icon={IconCalendarOff}
-                            message="به حساب کاربری شما پروفایل کارمندی متصل نیست."
-                        />
-                    ) : isEmpty ? (
-                        <EmptyState
-                            icon={IconCalendarStats}
-                            message="برای این بازه سابقه‌ای ثبت نشده است."
-                        />
-                    ) : (
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>تاریخ</TableHead>
-                                    <TableHead>ورود</TableHead>
-                                    <TableHead>خروج</TableHead>
-                                    <TableHead>کارکرد</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <AttendanceRows records={records} />
-                        </Table>
-                    )}
-                </CardContent>
-            </Card>
-        </PageLayout>
+                </div>
+            }
+            searchPlaceholder="جستجو در تاریخ..."
+            globalFilter={url.globalFilter}
+            onGlobalFilterChange={url.onGlobalFilterChange}
+            columnFilters={url.columnFilters}
+            onColumnFiltersChange={url.onColumnFiltersChange}
+            filterFields={[
+                { id: "date_from", label: "از تاریخ", type: "date" },
+                { id: "date_to", label: "تا تاریخ", type: "date" },
+            ]}
+            actions={[
+                {
+                    id: "refresh",
+                    label: "تازه‌سازی",
+                    icon: IconRefresh,
+                    onClick: refresh,
+                    disabled: isFetching,
+                },
+            ]}
+            emptyMessage="برای این بازه سابقه‌ای ثبت نشده است"
+            emptyAction={
+                noLinkedEmployee ? (
+                    <Button
+                        variant="link"
+                        className="mt-2"
+                        nativeButton={false}
+                        render={<Link to="/profile" />}
+                    >
+                        به حساب شما پروفایل کارمندی متصل نیست
+                    </Button>
+                ) : undefined
+            }
+            onRetry={refresh}
+            colSpan={attendanceColumns.length}
+        />
     );
 }

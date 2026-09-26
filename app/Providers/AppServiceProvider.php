@@ -92,7 +92,7 @@ class AppServiceProvider extends ServiceProvider
 
             $registry->register(new GatewayInboxSource(
                 'bizagi',
-                'بیزگی',
+                'بیزاجی',
                 new FakeBizagiInboxGateway($this->app->make(BizagiInboxMapper::class)),
             ));
 

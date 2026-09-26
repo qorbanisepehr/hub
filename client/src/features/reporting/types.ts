@@ -27,26 +27,35 @@ export interface ReportWarningDto {
     [key: string]: unknown;
 }
 
-export interface AttendanceReportResponse {
-    data: AttendanceRecordDto[];
+/**
+ * The standard list envelope (`PaginatedResponse`) plus the report-owned
+ * diagnostics: freshness and the no-linked-employee reason.
+ */
+export type AttendanceListResponse = PaginatedResponse<AttendanceRecordDto> & {
     report: string;
     generated_at: string;
     freshness: AttendanceFreshness | string;
     metadata: Record<string, unknown>;
     warnings: ReportWarningDto[];
-}
+};
 
 /**
- * Type alias (not interface) so the object is directly assignable to the
- * `Record<string, unknown>` query-key parameter without casts.
+ * Standard list params (same contract employees/audit/cartable speak).
+ * The window is required and always Gregorian `yyyy-MM-dd` from the client.
  */
-export type AttendanceReportParams = {
-    /** Gregorian `yyyy-MM-dd`. */
-    from: string;
-    /** Gregorian `yyyy-MM-dd`. */
-    to: string;
-    status?: string;
-};
+export interface AttendanceListParams {
+    /** Gregorian `yyyy-MM-dd` (required). */
+    date_from: string;
+    /** Gregorian `yyyy-MM-dd` (required). */
+    date_to: string;
+    page?: number;
+    per_page?: number;
+    /** Whitelisted sort column (`date`). */
+    sort?: string;
+    order?: "asc" | "desc";
+    /** Global free-text search needle (identifier/date). */
+    filter?: string;
+}
 
 /* -------------------------------- Unified Inbox -------------------------------- */
 
