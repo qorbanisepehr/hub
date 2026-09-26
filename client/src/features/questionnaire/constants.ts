@@ -125,6 +125,23 @@ export const PREFERRED_WORKPLACE_OPTIONS = [
     { value: "other", label: "سایر" },
 ];
 
+export type QuestionnaireStatus = "draft" | "submitted" | "reviewed";
+
+export const QUESTIONNAIRE_STATUS_LABELS: Record<QuestionnaireStatus, string> = {
+    draft: "پیش‌نویس",
+    submitted: "در انتظار بررسی",
+    reviewed: "بررسی‌شده",
+};
+
+export const QUESTIONNAIRE_STATUS_BADGE_VARIANTS: Record<
+    QuestionnaireStatus,
+    "default" | "secondary" | "outline" | "success" | "warning" | "destructive"
+> = {
+    draft: "secondary",
+    submitted: "warning",
+    reviewed: "success",
+};
+
 export const WIZARD_STEPS = [
     {
         id: 0,

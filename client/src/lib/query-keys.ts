@@ -80,6 +80,11 @@ export const ruleBuilderKeys = {
 export const questionnaireKeys = {
     all: ["questionnaire"] as const,
     detail: (uuid: string) => [...questionnaireKeys.all, uuid] as const,
+    lists: () => [...questionnaireKeys.all, "list"] as const,
+    list: (params: Record<string, unknown>) =>
+        [...questionnaireKeys.lists(), params] as const,
+    managementDetail: (id: number | string) =>
+        [...questionnaireKeys.all, "management", id] as const,
 };
 
 export const cvKeys = {
