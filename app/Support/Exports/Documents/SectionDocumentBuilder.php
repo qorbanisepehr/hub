@@ -294,7 +294,11 @@ final class SectionDocumentBuilder
             }
         }
 
-        return $dotted;
+        // Rule #16: a document must never print a raw dotted-key slug (it also
+        // renders bidi-reversed inside RTL). Last-resort fallback humanizes
+        // the leaf — "bank_accounts" -> "bank accounts" — instead of leaking
+        // "financial.bank_accounts".
+        return str_replace('_', ' ', $leaf);
     }
 
     private function hasRule(string $rule, string $needle): bool

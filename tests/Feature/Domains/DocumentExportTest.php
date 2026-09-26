@@ -238,6 +238,99 @@ describe('document exports', function () {
 
             expect($meta)->not->toMatch('/20\d\d-\d\d-\d\d/');
         });
+
+        it('prints repeater table captions as translated labels, never dotted slugs', function () {
+            $employee = Employee::factory()->create([
+                'section_financial' => [
+                    'bank_accounts' => [
+                        [
+                            'bank_name' => 'ملی',
+                            'account_number' => '123456789',
+                            'card_number' => '6037991123456786',
+                            'shaba_number' => 'IR830610000000000000000000',
+                        ],
+                    ],
+                ],
+                'section_dependents' => [
+                    'dependents' => [
+                        [
+                            'relationship_type' => 'spouse',
+                            'first_name' => 'مرضیه',
+                            'last_name' => 'محمدی',
+                        ],
+                    ],
+                ],
+                'section_social_insurance' => [
+                    'histories' => [
+                        [
+                            'workshop_code' => '123456789012',
+                            'workshop_name' => 'کارخانه بافت',
+                            'job_title' => 'بافنده',
+                        ],
+                    ],
+                ],
+                'section_contracts' => [
+                    'contracts' => [
+                        [
+                            'start_date' => '2019-06-10',
+                            'end_date' => '2020-06-10',
+                        ],
+                    ],
+                ],
+                'section_supplementary_insurance' => [
+                    'insurance_dependents' => [
+                        [
+                            'relationship' => 'spouse',
+                            'first_name' => 'مرضیه',
+                            'last_name' => 'محمدی',
+                        ],
+                    ],
+                ],
+            ]);
+            $user = createUserWithPermissions(['employee.view']);
+
+            $source = new EmployeeProfileDocument(
+                app(EmployeeService::class),
+                app(FieldAccess::class),
+                app(FormOptionService::class),
+                $user,
+            );
+
+            $document = $source->document($employee);
+            $captions = [];
+            $headers = [];
+            $labels = [];
+
+            foreach ($document->sections as $section) {
+                foreach ($section->tables as $table) {
+                    $captions[] = $table->caption;
+                    array_push($headers, ...$table->headers);
+                }
+
+                foreach ($section->fields as $field) {
+                    $labels[] = $field->label;
+                }
+            }
+
+            // captionFor resolves through employee.exports.fields (a map of
+            // composite dotted keys), so trans() dot-walking cannot reach the
+            // caption keys — read the map the same way the builder does.
+            $fieldsMap = (array) trans('employee.exports.fields');
+
+            expect($captions)->toContain($fieldsMap['financial.bank_accounts'])
+                ->and($captions)->toContain($fieldsMap['dependents.dependents'])
+                ->and($captions)->toContain($fieldsMap['social_insurance.histories'])
+                ->and($captions)->toContain($fieldsMap['contracts.contracts'])
+                ->and($captions)->toContain($fieldsMap['supplementary_insurance.insurance_dependents']);
+
+            // No dotted-key slug may leak into any caption, header, or label
+            // (rule #16): a slug would also render bidi-reversed in RTL.
+            $slug = '/[a-z_]+\.[a-z_]/';
+
+            foreach (array_merge($captions, $headers, $labels) as $printable) {
+                expect($printable)->not->toMatch($slug);
+            }
+        });
     });
 
     describe('cv document', function () {
