@@ -38,6 +38,15 @@ return [
         'access_granted' => 'Access to the CV was granted successfully.',
         'access_denied' => 'Unauthorized or expired access.',
     ],
+    'document' => [
+        'title' => 'Questionnaire',
+        'status' => 'Status',
+        'statuses' => [
+            'draft' => 'Draft',
+            'submitted' => 'Submitted',
+            'reviewed' => 'Reviewed',
+        ],
+    ],
     'documents' => [
         'missing' => 'Uploading :document is required.',
         'max_files_reached' => 'Maximum :count items allowed for this category.',

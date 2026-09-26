@@ -17,7 +17,11 @@ use App\Domains\Settings\Repositories\FileSettingsRepository;
 use App\Domains\Settings\Repositories\SettingsRepositoryInterface;
 use App\Domains\Settings\Services\SettingsService;
 use App\Services\DocumentAuthorizationService;
+use App\Support\Exports\DocumentExportService;
+use App\Support\Exports\DocumentRendererRegistry;
 use App\Support\Exports\ExportService;
+use App\Support\Exports\Render\DocxRenderer;
+use App\Support\Exports\Render\PdfRenderer;
 use App\Support\Exports\Writer\CsvWriter;
 use App\Support\Exports\Writer\JsonlWriter;
 use App\Support\Exports\Writer\TsvWriter;
@@ -58,6 +62,19 @@ class AppServiceProvider extends ServiceProvider
             return $registry;
         });
         $this->app->singleton(ExportService::class);
+
+        // Document renderers (PDF/Word): the in-memory half of the export
+        // kernel, registered as a sibling of the tabular WriterRegistry so
+        // a new document format is one line here, never an edit to the
+        // services (same OCP as the writers).
+        $this->app->singleton(DocumentRendererRegistry::class, function (): DocumentRendererRegistry {
+            $registry = new DocumentRendererRegistry;
+            $registry->register('pdf', new PdfRenderer);
+            $registry->register('docx', new DocxRenderer);
+
+            return $registry;
+        });
+        $this->app->singleton(DocumentExportService::class);
 
         // Import kernel: readers are registered here (OCP — a new format is
         // a registration, never an edit to ImportService). Mirrors the

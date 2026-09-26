@@ -4,6 +4,7 @@ use App\Domains\Authorization\Middleware\CheckPermission;
 use App\Domains\Authorization\Middleware\CheckRole;
 use App\Http\Middleware\VerifyGrantAccess;
 use App\Http\Middleware\VerifyServeGrant;
+use App\Support\Exports\DocumentRowLimitExceeded;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -50,5 +51,15 @@ return Application::configure(basePath: dirname(__DIR__))
             return response()->json([
                 'message' => __('messages.permission_denied'),
             ], 403);
+        });
+
+        // PDF/Word renders in memory, so the kernel caps tabular documents
+        // by row count; over the cap the caller must narrow filters or
+        // switch to xlsx/csv (the queued path is pending the production
+        // queue-driver decision).
+        $exceptions->render(function (DocumentRowLimitExceeded $e, Request $request) {
+            return response()->json([
+                'message' => __('exports.row_limit_exceeded'),
+            ], 422);
         });
     })->create();

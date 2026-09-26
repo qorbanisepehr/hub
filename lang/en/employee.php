@@ -63,6 +63,9 @@ return [
         ],
     ],
     'exports' => [
+        'document' => [
+            'title' => 'Employee Profile',
+        ],
         'boolean' => [
             'true' => 'Yes',
             'false' => 'No',

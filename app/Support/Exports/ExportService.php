@@ -8,6 +8,10 @@ use App\Support\Exports\Contract\TabularExporter;
 use App\Support\Exports\Contract\TemplateMetaProvider;
 use App\Support\Exports\Contract\TemplateWriter;
 use App\Support\Exports\Contract\WritesDetailSheets;
+use App\Support\Exports\Value\Document\DocumentField;
+use App\Support\Exports\Value\Document\DocumentSection;
+use App\Support\Exports\Value\Document\DocumentSpec;
+use App\Support\Exports\Value\Document\DocumentTable;
 use App\Support\Exports\Value\ExportColumn;
 use App\Support\Exports\Value\ExportFile;
 use App\Support\Exports\Value\ExportRequest;
@@ -25,6 +29,7 @@ final class ExportService
 {
     public function __construct(
         private readonly WriterRegistry $writers,
+        private readonly DocumentRendererRegistry $documents,
     ) {}
 
     /**
@@ -33,7 +38,80 @@ final class ExportService
      */
     public function run(TabularExporter $exporter, ExportRequest $request, $stream = null): ExportFile
     {
+        if ($this->documents->has($request->format)) {
+            return $this->runAsDocument($exporter, $request, $stream);
+        }
+
         return $this->emit($exporter, $request, $exporter->rows($request), $stream, '', null);
+    }
+
+    /**
+     * The document half of the pipeline: the exporter's selected columns and
+     * rows (already presentation-shaped) become ONE table section of a
+     * DocumentSpec, then the format's renderer serializes it. Documents are
+     * in-memory by nature, so the whole row set is buffered here and guarded
+     * against the sync row limit (422 territory for the controllers).
+     */
+    public function runAsDocument(TabularExporter $exporter, ExportRequest $request, $stream = null): ExportFile
+    {
+        $renderer = $this->documents->get($request->format);
+
+        // Documents are for human readers BY DEFINITION: headers, Jalali
+        // dates and Persian digits are forced regardless of what the request
+        // asked, so a PDF never arrives in machine form. A Gregorian request
+        // upgrades to Persian (the product's print calendar); 'both' keeps
+        // its paired Gregorian + Jalali columns.
+        $presentation = new PresentationOptions(
+            headers: 'label',
+            calendar: $request->presentation->calendar === 'gregorian' ? 'persian' : $request->presentation->calendar,
+            digits: $request->presentation->digits === 'latin' ? 'persian' : $request->presentation->digits,
+        );
+
+        $columns = $this->withHeaderColumns($exporter->columnsFor($request), $presentation);
+        $rows = [];
+        $limit = (int) config('exports.sync_row_limit');
+        $source = $this->presentedRows($exporter, $request, $exporter->rows($request), $columns, $presentation);
+
+        foreach ($source as $row) {
+            $rows[] = $row;
+
+            if (count($rows) > $limit) {
+                throw DocumentRowLimitExceeded::forLimit($limit);
+            }
+        }
+
+        // 'both' calendars already emitted their Jalali sibling as its own
+        // column through withHeaderColumns/presentedRows, exactly like the
+        // streaming writers consume them.
+        $table = new DocumentTable(
+            caption: '',
+            headers: array_map(fn (ExportColumn $column): string => $column->column, $columns),
+            rows: array_map(
+                fn (array $row): array => array_values(array_map(
+                    static fn (ExportColumn $column): string => (string) ($row[$column->key] ?? ''),
+                    $columns,
+                )),
+                $rows,
+            ),
+        );
+
+        $spec = new DocumentSpec(
+            title: $exporter->baseFilename(),
+            sections: [new DocumentSection(heading: '', tables: [$table])],
+            meta: array_values(array_filter([
+                DocumentField::from((string) __('exports.generated_at'), now()->format('Y/m/d H:i')),
+                DocumentField::from((string) __('exports.row_count'), (string) count($rows)),
+            ])),
+        );
+
+        $stream ??= fopen('php://temp', 'r+');
+        $renderer->render($spec, $stream);
+
+        return new ExportFile(
+            filename: ExportFilename::make($exporter->baseFilename(), $renderer->extension()),
+            mimeType: $renderer->contentType(),
+            stream: $stream,
+        );
     }
 
     /**

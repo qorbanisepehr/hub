@@ -28,6 +28,15 @@ class FormOptionValue implements ValidationRule
         private readonly ?string $parentGroup = null,
     ) {}
 
+    /**
+     * The declared option group, readable by read-side pipelines (document
+     * builders) that resolve stored values to their localized labels.
+     */
+    public function group(): string
+    {
+        return $this->group;
+    }
+
     public function validate(string $attribute, mixed $value, Closure $fail): void
     {
         if (is_array($value)) {
