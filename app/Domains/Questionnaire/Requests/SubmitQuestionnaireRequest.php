@@ -66,7 +66,7 @@ class SubmitQuestionnaireRequest extends FormRequest
             'contact_info.phone' => ['required', 'string', 'max:15'],
             'contact_info.emergency_phone' => ['required', 'string', 'max:15'],
             'contact_info.address' => ['required', 'array'],
-            'contact_info.address.postal_code' => ['required', 'string', 'max:10'],
+            'contact_info.address.postal_code' => ['required', 'string', 'regex:/^\d{10}$/'],
             'contact_info.address.province' => ['required', 'string', 'max:50'],
             'contact_info.address.city' => ['required', 'string', 'max:50'],
             'contact_info.address.address' => ['required', 'string', 'max:500'],

@@ -2,7 +2,10 @@
 
 namespace App\Domains\Employee\Sections;
 
+use App\Rules\BankCardNumberRule;
+use App\Rules\IbanNumberRule;
 use App\Support\Sections\BaseSection;
+use App\Support\ValidationRules;
 
 /**
  * Employee-specific financial section (اطلاعات مالی). Fully JSONB-backed.
@@ -51,8 +54,16 @@ class FinancialSection extends BaseSection
             'bank_accounts' => 'nullable|array',
             'bank_accounts.*.bank_name' => 'required_with:bank_accounts|nullable|string|max:100',
             'bank_accounts.*.account_number' => 'required_with:bank_accounts|nullable|string|max:30',
-            'bank_accounts.*.card_number' => 'required_with:bank_accounts|nullable|string|max:30',
-            'bank_accounts.*.shaba_number' => 'required_with:bank_accounts|nullable|string|max:30',
+            'bank_accounts.*.card_number' => [
+                'required_with:bank_accounts',
+                ...ValidationRules::CARD_NUMBER,
+                new BankCardNumberRule,
+            ],
+            'bank_accounts.*.shaba_number' => [
+                'required_with:bank_accounts',
+                ...ValidationRules::IBAN_NUMBER,
+                new IbanNumberRule,
+            ],
         ];
     }
 

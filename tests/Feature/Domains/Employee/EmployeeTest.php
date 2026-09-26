@@ -844,14 +844,14 @@ describe('employee CRUD', function () {
                         [
                             'bank_name' => 'ملت',
                             'account_number' => '1234567890',
-                            'card_number' => '1111222233334444',
-                            'shaba_number' => 'IR123456789012345678901234',
+                            'card_number' => '6037991123456786',
+                            'shaba_number' => 'IR830610000000000000000000',
                         ],
                         [
                             'bank_name' => 'رفاه',
                             'account_number' => '9876543210',
-                            'card_number' => '4444333322221111',
-                            'shaba_number' => 'IR987654321098765432109876',
+                            'card_number' => '6104337840040008',
+                            'shaba_number' => 'IR446104337840040010003610',
                         ],
                     ],
                 ])
@@ -863,14 +863,14 @@ describe('employee CRUD', function () {
                     [
                         'bank_name' => 'ملت',
                         'account_number' => '1234567890',
-                        'card_number' => '1111222233334444',
-                        'shaba_number' => 'IR123456789012345678901234',
+                        'card_number' => '6037991123456786',
+                        'shaba_number' => 'IR830610000000000000000000',
                     ],
                     [
                         'bank_name' => 'رفاه',
                         'account_number' => '9876543210',
-                        'card_number' => '4444333322221111',
-                        'shaba_number' => 'IR987654321098765432109876',
+                        'card_number' => '6104337840040008',
+                        'shaba_number' => 'IR446104337840040010003610',
                     ],
                 ],
             ]);
