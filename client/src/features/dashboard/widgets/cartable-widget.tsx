@@ -1,12 +1,11 @@
-import { useState } from "react";
-import { Link } from "@tanstack/react-router";
+import { cn } from "@/lib/utils";
 import {
     IconArrowLeft,
     IconChevronLeft,
     IconChevronRight,
     IconInbox,
-    IconTableOptions,
 } from "@tabler/icons-react";
+import { Link } from "@tanstack/react-router";
 import {
     type ColumnDef,
     type ColumnVisibilityState,
@@ -16,11 +15,12 @@ import {
     stockFeatures,
     useTable,
 } from "@tanstack/react-table";
-import { cn } from "@/lib/utils";
+import { useState } from "react";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmptyState } from "@/components/layout";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
     Table,
     TableBody,
@@ -30,25 +30,13 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
-import { Skeleton } from "@/components/ui/skeleton";
-import { EmptyState } from "@/components/layout";
-import {
-    ColumnVisibilityMenuItems,
-} from "@/components/data-table";
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuGroup,
-    DropdownMenuLabel,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { useUnifiedInbox } from "@/features/reporting/hooks";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { usePermission } from "@/features/auth";
 import { unifiedInboxColumns } from "@/features/reporting/columns";
 import { SOURCE_LABELS } from "@/features/reporting/constants";
-import { PERMISSIONS } from "@/lib/permissions";
-import { usePermission } from "@/features/auth";
+import { useUnifiedInbox } from "@/features/reporting/hooks";
 import type { UnifiedInboxItemDto } from "@/features/reporting/types";
+import { PERMISSIONS } from "@/lib/permissions";
 
 /** Rows the dashboard card shows per page (the full page owns real options). */
 const WIDGET_PER_PAGE = 5;
@@ -66,13 +54,45 @@ type UnifiedInboxColumn = ColumnDef<StockFeatures, UnifiedInboxItemDto>;
 
 /**
  * Widget columns: the full cartable columns minus the ones the compact
- * card has no room for (document number, document type) — order preserved.
+ * card has no room for (document number, document type, source — the pill
+ * already carries the source context), with وضعیت in icon-only mode.
  */
-const HIDDEN_COLUMN_IDS = new Set(["document_number", "document_type"]);
+const HIDDEN_COLUMN_IDS = new Set([
+    "document_number",
+    "document_type",
+    "source",
+]);
 
-const WIDGET_COLUMNS: UnifiedInboxColumn[] = unifiedInboxColumns.filter(
-    (column) => !HIDDEN_COLUMN_IDS.has(column.id ?? ""),
-);
+/** Column identity key, from an explicit id or the accessor key. */
+function columnKey(column: UnifiedInboxColumn): string | undefined {
+    return ("id" in column ? column.id : undefined) ??
+        ("accessorKey" in column ? column.accessorKey : undefined);
+}
+
+/**
+ * Widget column list: the full cartable columns minus the ones hidden on
+ * the compact card, with وضعیت switched to icon-only mode. Copies instead
+ * of mutating the shared defs.
+ */
+function widgetColumns(): UnifiedInboxColumn[] {
+    const columns: UnifiedInboxColumn[] = [];
+    for (const column of unifiedInboxColumns) {
+        const key = columnKey(column);
+        if (key !== undefined && HIDDEN_COLUMN_IDS.has(key)) continue;
+
+        if ("accessorKey" in column && column.accessorKey === "status") {
+            columns.push({
+                ...column,
+                meta: { ...column.meta, statusDisplay: "icon" as const },
+            });
+            continue;
+        }
+        columns.push(column);
+    }
+    return columns;
+}
+
+const WIDGET_COLUMNS: UnifiedInboxColumn[] = widgetColumns();
 
 /** Skeleton matching the loaded table: 1 header row + N body rows. */
 function WidgetTableSkeleton({ rows, cols }: { rows: number; cols: number }) {
@@ -135,7 +155,6 @@ export function CartableWidget() {
 
     const items = data?.data ?? [];
     const lastPage = data?.meta.last_page ?? 1;
-
     const table = useTable({
         features: stockFeatures,
         data: items,
@@ -175,7 +194,7 @@ export function CartableWidget() {
             <CardContent className="p-0">
                 <div className="border-b px-4 pb-3 pt-1">
                     <Tabs value={source} onValueChange={handleSourceChange}>
-                        <TabsList>
+                        <TabsList variant="line">
                             {SOURCE_PILLS.map((pill) => (
                                 <TabsTrigger
                                     key={pill.value}
@@ -190,7 +209,10 @@ export function CartableWidget() {
                 </div>
 
                 {isLoading ? (
-                    <WidgetTableSkeleton rows={5} cols={WIDGET_COLUMNS.length} />
+                    <WidgetTableSkeleton
+                        rows={5}
+                        cols={WIDGET_COLUMNS.length}
+                    />
                 ) : isError ? (
                     <EmptyState
                         icon={IconInbox}
@@ -242,49 +264,33 @@ export function CartableWidget() {
                             <TableRow className="hover:bg-transparent">
                                 <TableCell colSpan={WIDGET_COLUMNS.length}>
                                     <div className="flex items-center justify-between gap-2">
-                                        <DropdownMenu>
-                                            <DropdownMenuTrigger
-                                                render={
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        className="size-7"
-                                                        aria-label="نمایش ستونها"
-                                                    >
-                                                        <IconTableOptions className="size-4" />
-                                                    </Button>
-                                                }
-                                            />
-                                            <DropdownMenuContent
-                                                align="start"
-                                                className="w-48"
-                                            >
-                                                <DropdownMenuGroup>
-                                                    <DropdownMenuLabel>
-                                                        نمایش/مخفی کردن ستونها
-                                                    </DropdownMenuLabel>
-                                                    <DropdownMenuSeparator />
-                                                    <ColumnVisibilityMenuItems
-                                                        table={table}
-                                                    />
-                                                </DropdownMenuGroup>
-                                            </DropdownMenuContent>
-                                        </DropdownMenu>
                                         <div className="flex items-center gap-2">
                                             <p className="text-xs text-muted-foreground">
-                                                صفحه {page.toLocaleString("fa-IR")} از{" "}
-                                                {Math.max(lastPage, 1).toLocaleString("fa-IR")}
+                                                صفحه{" "}
+                                                {page.toLocaleString("fa-IR")}{" "}
+                                                از{" "}
+                                                {Math.max(
+                                                    lastPage,
+                                                    1,
+                                                ).toLocaleString("fa-IR")}
                                             </p>
-                                            <div className="flex items-center gap-1">
+                                        </div>
+                                        <div className="flex items-center gap-1">
                                             <Button
                                                 variant="outline"
                                                 className="size-7 p-0"
                                                 onClick={() =>
-                                                    setPage((p) => Math.max(1, p - 1))
+                                                    setPage((p) =>
+                                                        Math.max(1, p - 1),
+                                                    )
                                                 }
-                                                disabled={page <= 1 || isLoading}
+                                                disabled={
+                                                    page <= 1 || isLoading
+                                                }
                                             >
-                                                <span className="sr-only">صفحه قبل</span>
+                                                <span className="sr-only">
+                                                    صفحه قبل
+                                                </span>
                                                 <IconChevronRight className="size-4 ltr:-scale-x-100" />
                                             </Button>
                                             <Button
@@ -292,15 +298,22 @@ export function CartableWidget() {
                                                 className="size-7 p-0"
                                                 onClick={() =>
                                                     setPage((p) =>
-                                                        Math.min(lastPage, p + 1),
+                                                        Math.min(
+                                                            lastPage,
+                                                            p + 1,
+                                                        ),
                                                     )
                                                 }
-                                                disabled={page >= lastPage || isLoading}
+                                                disabled={
+                                                    page >= lastPage ||
+                                                    isLoading
+                                                }
                                             >
-                                                <span className="sr-only">صفحه بعد</span>
+                                                <span className="sr-only">
+                                                    صفحه بعد
+                                                </span>
                                                 <IconChevronLeft className="size-4 ltr:-scale-x-100" />
                                             </Button>
-                                            </div>
                                         </div>
                                     </div>
                                 </TableCell>
