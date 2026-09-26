@@ -3,20 +3,75 @@ import { Badge } from "@/components/ui/badge";
 import { DataTableColumnHeader } from "@/components/data-table";
 import { toPersianDate, toPersianTime } from "@/lib/date-format";
 import {
+    Tooltip,
+    TooltipContent,
+    TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
     CARTABLE_ACTION_LABELS,
     STATUS_CONFIG,
-    sourceLabel,
     documentTypeLabel,
+    sourceLabel,
+    statusIcon,
+    statusLabel,
+    type StatusVariant,
 } from "./constants";
 import { SenderCell } from "./sender-cell";
 import type { UnifiedInboxItemDto } from "./types";
 
 /**
- * کارتابل columns per the نمونه کارتابل sample: سامانه / فرستنده (avatar +
- * name + org role) / شماره مدرک / عنوان / نوع مدرک / تاریخ دریافت (Jalali) /
- * کارتابل / وضعیت.
+ * کارتابل columns per the نمونه کارتابل sample: وضعیت / سامانه / فرستنده
+ * (avatar + name + org role) / شماره مدرک / عنوان / نوع مدرک / تاریخ دریافت
+ * (Jalali) / کارتابل.
+ *
+ * `statusDisplay` on the وضعیت column picks the rendering per surface:
+ * "icon" for compact surfaces (dashboard widget — icon + tooltip only),
+ * "badge" (icon + label, the default) for the full cartable page.
  */
-export const unifiedInboxColumns: ColumnDef<StockFeatures, UnifiedInboxItemDto>[] = [
+export const unifiedInboxColumns: ColumnDef<
+    StockFeatures,
+    UnifiedInboxItemDto
+>[] = [
+    {
+        accessorKey: "status",
+        // Not a whitelisted backend sort — header stays a plain title.
+        enableSorting: false,
+        header: () => <span className="text-sm font-medium">وضعیت</span>,
+        cell: ({ row, column }) => {
+            const status = row.original.status;
+            const variant: StatusVariant =
+                STATUS_CONFIG[status]?.variant ?? "secondary";
+            const Icon = statusIcon(status);
+
+            if (column.columnDef.meta?.statusDisplay === "icon") {
+                return (
+                    <Tooltip>
+                        <TooltipTrigger
+                            render={
+                                <span
+                                    className="inline-flex text-muted-foreground"
+                                    aria-label={statusLabel(status)}
+                                >
+                                    <Icon className="size-4" />
+                                </span>
+                            }
+                        />
+                        <TooltipContent side="top">
+                            {statusLabel(status)}
+                        </TooltipContent>
+                    </Tooltip>
+                );
+            }
+
+            return (
+                <Badge variant={variant}>
+                    <Icon className="size-3.5" />
+                    {statusLabel(status)}
+                </Badge>
+            );
+        },
+        meta: { displayName: "وضعیت", statusDisplay: "badge" },
+    },
     {
         accessorKey: "source",
         header: () => <span className="text-sm font-medium">سامانه</span>,
@@ -87,18 +142,5 @@ export const unifiedInboxColumns: ColumnDef<StockFeatures, UnifiedInboxItemDto>[
             </Badge>
         ),
         meta: { displayName: "کارتابل" },
-    },
-    {
-        accessorKey: "status",
-        header: () => <span className="text-sm font-medium">وضعیت</span>,
-        cell: ({ row }) => {
-            const config = STATUS_CONFIG[row.original.status] ?? {
-                label: row.original.status,
-                variant: "secondary" as const,
-            };
-
-            return <Badge variant={config.variant}>{config.label}</Badge>;
-        },
-        meta: { displayName: "وضعیت" },
     },
 ];

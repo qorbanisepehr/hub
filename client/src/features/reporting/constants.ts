@@ -1,5 +1,12 @@
 /** Labels/variants for the unified inbox (کارتابل) vocabulary. */
 
+import {
+    Icon,
+    IconMail,
+    IconMailCheck,
+    IconMailOpened,
+} from "@tabler/icons-react";
+
 /** Known source keys; unknown keys fall back to the raw key. */
 export const SOURCE_LABELS: Record<string, string> = {
     automation: "اتوماسیون اداری",
@@ -20,14 +27,26 @@ export const CARTABLE_ACTION_LABELS: Record<string, string> = {
     information: "جهت اطلاع",
 };
 
+export type StatusVariant = "secondary" | "default" | "success";
+
 export const STATUS_CONFIG: Record<
     string,
-    { label: string; variant: "secondary" | "warning" | "success" }
+    { label: string; variant: StatusVariant; icon: Icon }
 > = {
-    unseen: { label: "دیده نشده", variant: "warning" },
-    seen: { label: "دیده شده", variant: "secondary" },
-    done: { label: "انجام شده", variant: "success" },
+    unseen: { label: "دیده نشده", variant: "default", icon: IconMail },
+    seen: { label: "دیده شده", variant: "secondary", icon: IconMailOpened },
+    done: { label: "انجام شده", variant: "success", icon: IconMailCheck },
 };
+
+/** Label for a status key, falling back to the raw key when unknown. */
+export function statusLabel(key: string): string {
+    return STATUS_CONFIG[key]?.label ?? key;
+}
+
+/** Icon for a status key, falling back to the unseen icon when unknown. */
+export function statusIcon(key: string): Icon {
+    return STATUS_CONFIG[key]?.icon ?? IconMail;
+}
 
 /** Known unified document types; the list grows as real drivers arrive. */
 export const DOCUMENT_TYPE_LABELS: Record<string, string> = {
