@@ -31,11 +31,11 @@ export const AUDIT_CATEGORY_VARIANTS: Record<
     VariantProps<typeof badgeVariants>["variant"]
 > = {
     auth: "success",
-    authorization: "info",
-    employee: "info",
-    document: "info",
-    questionnaire: "info",
-    workflow: "info",
+    authorization: "secondary",
+    employee: "secondary",
+    document: "secondary",
+    questionnaire: "secondary",
+    workflow: "secondary",
 };
 export const AUDIT_CATEGORY_ICONS: Record<AuditCategory, Icon> = {
     auth: IconUserKey,
