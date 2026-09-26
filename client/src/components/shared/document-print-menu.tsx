@@ -1,11 +1,3 @@
-import { useState } from "react";
-import { toast } from "sonner";
-import {
-    IconDotsVertical,
-    IconFileText,
-    IconLoader2,
-    IconPrinter,
-} from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import {
     DropdownMenu,
@@ -13,12 +5,21 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+    EXPORT_MIME_TYPES,
+    exportDateStamp,
+    saveBlobResponse,
+} from "@/lib/download";
 import { getApiError } from "@/lib/error-utils";
 import {
-    saveBlobResponse,
-    exportDateStamp,
-    EXPORT_MIME_TYPES,
-} from "@/lib/download";
+    IconDownload,
+    IconFileTypeDocx,
+    IconFileTypePdf,
+    IconLoader2,
+    IconPrinter,
+} from "@tabler/icons-react";
+import { useState } from "react";
+import { toast } from "sonner";
 
 type DocumentPrintMenuProps = {
     /**
@@ -80,24 +81,22 @@ export function DocumentPrintMenu({
                 {pendingFormat ? (
                     <IconLoader2 className="size-4 animate-spin" />
                 ) : (
-                    <IconPrinter className="size-4" />
+                    <IconDownload className="size-4" />
                 )}
-                سند
-                <IconDotsVertical className="size-3" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" side="bottom">
                 <DropdownMenuItem
                     onClick={() => download("pdf")}
                     disabled={pendingFormat !== null}
                 >
-                    <IconFileText className="size-4" />
+                    <IconFileTypePdf className="size-4" />
                     دانلود PDF
                 </DropdownMenuItem>
                 <DropdownMenuItem
                     onClick={() => download("docx")}
                     disabled={pendingFormat !== null}
                 >
-                    <IconFileText className="size-4" />
+                    <IconFileTypeDocx className="size-4" />
                     دانلود Word
                 </DropdownMenuItem>
             </DropdownMenuContent>

@@ -43,7 +43,7 @@ final class DocumentRendererTest extends TestCase
                 ),
             ],
             meta: [new DocumentField('تاریخ صدور', '۱۴۰۴/۰۷/۰۴')],
-            subtitle: 'پروفایل کارکن',
+            subtitle: 'پروفایل کارمند',
         );
     }
 

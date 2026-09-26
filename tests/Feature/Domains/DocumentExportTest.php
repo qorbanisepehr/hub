@@ -177,6 +177,67 @@ describe('document exports', function () {
 
             expect($source->document($employee)->subtitle)->toBe('بازنما آزمون');
         });
+
+        it('prints nested maps as labeled human-form rows, never joined slugs', function () {
+            seedFormOptions(['military_status']);
+
+            $employee = Employee::factory()->create([
+                'section_personal' => [
+                    'military_status' => [
+                        'status' => 'completed',
+                        'organization' => 'ارتش',
+                        'from' => '2010-02-20',
+                        'to' => '2011-06-22',
+                    ],
+                ],
+                'section_contact_address' => [
+                    'address' => [
+                        'postal_code' => '1234567891',
+                        'address' => 'مجیدیه',
+                    ],
+                ],
+            ]);
+            $user = createUserWithPermissions(['employee.view']);
+
+            $source = new EmployeeProfileDocument(
+                app(EmployeeService::class),
+                app(FieldAccess::class),
+                app(FormOptionService::class),
+                $user,
+            );
+
+            $document = $source->document($employee);
+            $fields = [];
+
+            foreach ($document->sections as $section) {
+                foreach ($section->fields as $field) {
+                    $fields[$field->label] = $field->value;
+                }
+            }
+
+            $printed = implode('|', $fields);
+
+            // The nested map never prints as a joined raw line (the old bug:
+            // 'completed، ارتش، 2010-02-20...' under a parent/slug label).
+            expect(array_keys($fields))->not->toContain('contact_info.address')
+                ->and($printed)->not->toContain('completed،')
+                ->and($printed)->not->toContain('2010-02-20');
+
+            // Dotted leaves print individually: option label resolved, the
+            // string-stored dates shaped to Jalali with Persian digits, and
+            // raw codes taking the requested digit glyphs.
+            $values = array_values($fields);
+
+            expect($values)->toContain('پایان خدمت')
+                ->and($values)->toContain('۱۳۸۸/۱۲/۰۱')
+                ->and($values)->toContain('۱۳۹۰/۰۴/۰۱')
+                ->and($values)->toContain('۱۲۳۴۵۶۷۸۹۱');
+
+            // Meta stamps are Jalali too — no Gregorian year leaks through.
+            $meta = implode('|', array_column($document->meta, 'value'));
+
+            expect($meta)->not->toMatch('/20\d\d-\d\d-\d\d/');
+        });
     });
 
     describe('cv document', function () {
@@ -305,6 +366,21 @@ describe('document exports', function () {
                 ->streamedContent();
 
             expect($docx)->toStartWith('PK');
+
+            // The printed document carries the human title (not the 'employees'
+            // slug) and Persian-digit row count.
+            $path = tempnam(sys_get_temp_dir(), 'list-docx-');
+            file_put_contents($path, $docx);
+            register_shutdown_function(fn () => @unlink($path));
+
+            $zip = new ZipArchive;
+            expect($zip->open($path))->toBeTrue();
+            $xml = $zip->getFromName('word/document.xml');
+            $zip->close();
+
+            expect($xml)->toContain(__('exports.documents.titles.employees'))
+                ->and($xml)->toContain('۲')
+                ->and($xml)->not->toContain('>employees<');
         });
 
         it('caps tabular PDF rows and answers 422 above the limit', function () {

@@ -10,6 +10,7 @@ use App\Support\Exports\Contract\DocumentSource;
 use App\Support\Exports\Documents\SectionDocumentBuilder;
 use App\Support\Exports\Value\Document\DocumentField;
 use App\Support\Exports\Value\Document\DocumentSpec;
+use App\Support\Exports\ValuePresenter;
 use Illuminate\Contracts\Auth\Authenticatable;
 
 /**
@@ -72,7 +73,7 @@ final class EmployeeProfileDocument implements DocumentSource
                     $entity->personnel_code === null ? null : (string) $entity->personnel_code,
                 )
                 : null,
-            DocumentField::from((string) __('exports.generated_at'), now()->format('Y/m/d H:i')),
+            DocumentField::from((string) __('exports.generated_at'), ValuePresenter::generatedAtStamp()),
         ]));
 
         return new DocumentSpec(

@@ -95,11 +95,16 @@ final class SectionDocumentBuilder
             $value = Arr::get($sectionData, $field);
 
             if (is_array($value)) {
-                $entries = array_values(array_filter($value, static fn (mixed $entry): bool => $entry !== null));
-
-                if ($entries !== [] && ! array_is_list($entries)) {
+                // A nested map (military_status, address) must NOT be printed
+                // as a joined line: that leaks stored slugs/codes with a
+                // slug label. Its dotted leaves are printed individually by
+                // their own rules below. (array_values() would make any map
+                // look like a list, so the check must happen first.)
+                if (! array_is_list($value)) {
                     continue;
                 }
+
+                $entries = array_values(array_filter($value, static fn (mixed $entry): bool => $entry !== null));
 
                 if ($entries !== [] && ! is_array($entries[0])) {
                     // Scalar-value list (e.g. preferred_workplace.*): one line

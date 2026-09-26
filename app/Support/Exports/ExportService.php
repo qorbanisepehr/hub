@@ -3,6 +3,7 @@
 namespace App\Support\Exports;
 
 use App\Support\Exports\Contract\ProvidesDetailSheets;
+use App\Support\Exports\Contract\ProvidesDocumentTitle;
 use App\Support\Exports\Contract\ProvidesOptionLabels;
 use App\Support\Exports\Contract\TabularExporter;
 use App\Support\Exports\Contract\TemplateMetaProvider;
@@ -96,11 +97,13 @@ final class ExportService
         );
 
         $spec = new DocumentSpec(
-            title: $exporter->baseFilename(),
+            title: $exporter instanceof ProvidesDocumentTitle
+                ? $exporter->documentTitle()
+                : $exporter->baseFilename(),
             sections: [new DocumentSection(heading: '', tables: [$table])],
             meta: array_values(array_filter([
-                DocumentField::from((string) __('exports.generated_at'), now()->format('Y/m/d H:i')),
-                DocumentField::from((string) __('exports.row_count'), (string) count($rows)),
+                DocumentField::from((string) __('exports.generated_at'), ValuePresenter::generatedAtStamp()),
+                DocumentField::from((string) __('exports.row_count'), ValuePresenter::persianDigits((string) count($rows))),
             ])),
         );
 

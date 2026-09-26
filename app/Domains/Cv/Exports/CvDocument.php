@@ -9,6 +9,7 @@ use App\Support\Exports\Contract\DocumentSource;
 use App\Support\Exports\Documents\SectionDocumentBuilder;
 use App\Support\Exports\Value\Document\DocumentField;
 use App\Support\Exports\Value\Document\DocumentSpec;
+use App\Support\Exports\ValuePresenter;
 
 /**
  * The printable CV document (PDF/Word): every registered section of one
@@ -39,7 +40,7 @@ final class CvDocument implements DocumentSource
             sections: $builder->build($entity),
             meta: array_values(array_filter([
                 DocumentField::from((string) __('cv.document.status'), $this->statusLabel($entity)),
-                DocumentField::from((string) __('exports.generated_at'), now()->format('Y/m/d H:i')),
+                DocumentField::from((string) __('exports.generated_at'), ValuePresenter::generatedAtStamp()),
             ])),
             subtitle: trim("{$entity->first_name} {$entity->last_name}"),
         );

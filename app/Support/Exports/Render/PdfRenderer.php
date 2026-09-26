@@ -28,8 +28,12 @@ final class PdfRenderer implements DocumentRenderer
         $mpdf = new Mpdf($this->config());
         $mpdf->SetDirectionality('rtl');
         $mpdf->mirrorMargins = false;
-        // 3-part footer string: mPDF splits on '|' into left|center|right.
-        $mpdf->SetFooter('{DOCNAME}||{_PAGENUM}/{TOTALPAGES}');
+        // mPDF 8 substitutes only {PAGENO}/{nb}/{nbpg} (NOT TCPDF's
+        // _PAGENUM/_TOTALPAGES, which would print as literal garbage).
+        $mpdf->SetHTMLFooter(
+            '<div style="direction:rtl; text-align:center; font-size:8.5pt; color:#667788;">'
+            .e($spec->title).' — صفحه {PAGENO} از {nb}</div>'
+        );
         $mpdf->SetTitle($spec->title);
         $mpdf->WriteHTML($html);
 
