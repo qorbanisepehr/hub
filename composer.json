@@ -13,7 +13,9 @@
         "laravel/framework": "^13.31",
         "laravel/sanctum": "^4.0",
         "laravel/tinker": "^3.0",
-        "openspout/openspout": "^5.11"
+        "mpdf/mpdf": "^8.3",
+        "openspout/openspout": "^5.11",
+        "phpoffice/phpword": "^1.4"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",

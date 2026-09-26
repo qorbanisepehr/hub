@@ -55,6 +55,10 @@ Route::middleware('auth:sanctum')->group(function () {
         ->middleware('permission:questionnaire.view');
     Route::get('questionnaires/{questionnaire}', [QuestionnaireManagementController::class, 'show'])
         ->middleware('permission:questionnaire.view');
+    // Printable questionnaire document (PDF/Word); the public candidate flow
+    // uses the `questionnaire/...` (singular) prefix, so no path collision.
+    Route::get('questionnaires/{questionnaire}/document', [QuestionnaireManagementController::class, 'document'])
+        ->middleware('permission:questionnaire.view');
     Route::post('questionnaire/{uuid}/review', [QuestionnaireController::class, 'review'])
         ->middleware('permission:questionnaire.review');
     Route::post('questionnaire/{uuid}/reject', [QuestionnaireController::class, 'reject'])

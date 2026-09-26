@@ -36,6 +36,16 @@ return [
     'already_linked' => 'برای این رزومه قبلاً پرسشنامه ایجاد شده است.',
     'access_granted' => 'دسترسی به رزومه با موفقیت صادر شد.',
     'access_denied' => 'دسترسی غیرمجاز یا منقضی‌شده است.',
+    'document' => [
+        'title' => 'رزومه',
+        'status' => 'وضعیت',
+        'statuses' => [
+            'draft' => 'پیش‌نویس',
+            'submitted' => 'ثبت‌شده',
+            'approved' => 'تأییدشده',
+            'rejected' => 'ردشده',
+        ],
+    ],
     'documents' => [
         'missing' => 'بارگذاری «:document» الزامی است.',
         'max_files_reached' => 'حداکثر :count مورد برای این دسته مجاز است.',

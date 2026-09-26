@@ -63,6 +63,9 @@ return [
         ],
     ],
     'exports' => [
+        'document' => [
+            'title' => 'پروفایل کارمند',
+        ],
         'boolean' => [
             'true' => 'بله',
             'false' => 'خیر',

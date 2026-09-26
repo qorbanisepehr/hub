@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/select";
 import { ResponsiveDialog } from "@/components/ui/responsive-dialog";
 import { getApiError } from "@/lib/error-utils";
-import { saveBlobResponse, exportDateStamp } from "@/lib/download";
+import { saveBlobResponse, exportDateStamp, EXPORT_MIME_TYPES } from "@/lib/download";
 import {
     exportRoleChart,
     fetchChartExportFields,
@@ -36,6 +36,7 @@ export function ExportChartDialog({
     const [dialogKey, setDialogKey] = useState(0);
     const [scope, setScope] = useState<"all" | "subtree">("all");
     const [rootId, setRootId] = useState<number | null>(null);
+    const [format, setFormat] = useState<"csv" | "xlsx">("csv");
     const [selectedFields, setSelectedFields] = useState<string[]>([]);
     const [isExporting, setIsExporting] = useState(false);
 
@@ -75,13 +76,13 @@ export function ExportChartDialog({
                 root_id:
                     scope === "subtree" ? (rootId ?? undefined) : undefined,
                 fields: selectedFields,
-                format: "csv",
+                format,
             });
 
             saveBlobResponse(
                 response,
-                `org-chart-roles-${exportDateStamp()}.csv`,
-                "text/csv;charset=utf-8",
+                `org-chart-roles-${exportDateStamp()}.${format}`,
+                EXPORT_MIME_TYPES[format],
             );
 
             toast.success("خروجی با موفقیت ایجاد شد.");
@@ -120,6 +121,43 @@ export function ExportChartDialog({
             }
         >
             <div className="space-y-6">
+                <div className="space-y-2">
+                    <Label>قالب فایل</Label>
+                    <RadioGroup
+                        value={format}
+                        onValueChange={(value) =>
+                            setFormat(value as "csv" | "xlsx")
+                        }
+                        className="flex flex-wrap gap-4"
+                    >
+                        <div className="flex items-center gap-2">
+                            <RadioGroupItem value="csv" id="chart-format-csv" />
+                            <Label
+                                htmlFor="chart-format-csv"
+                                className="font-normal cursor-pointer"
+                            >
+                                CSV (واردسازی Visio)
+                            </Label>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <RadioGroupItem
+                                value="xlsx"
+                                id="chart-format-xlsx"
+                            />
+                            <Label
+                                htmlFor="chart-format-xlsx"
+                                className="font-normal cursor-pointer"
+                            >
+                                اکسل (xlsx)
+                            </Label>
+                        </div>
+                    </RadioGroup>
+                    <p className="text-xs text-muted-foreground">
+                        CSV با جداکننده و رمزگذاری مخصوص واردسازی Visio ساخته
+                        میشود؛ xlsx برای بازکردن در اکسل.
+                    </p>
+                </div>
+
                 <div className="space-y-2">
                     <Label>محدوده خروجی</Label>
                     <RadioGroup

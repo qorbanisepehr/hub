@@ -73,16 +73,18 @@ class AuditLogController
     }
 
     /**
-     * Stream the filtered audit log as a CSV or JSONL download.
+     * Stream the filtered audit log as a CSV, JSONL, PDF or Word download.
      * Chunked server-side so even full-table exports never blow memory;
      * format bytes come from the shared export kernel (Support\Exports).
+     * PDF/Word route through the kernel's document bridge and are capped at
+     * config('exports.sync_row_limit') rows (422 above it).
      */
     public function export(Request $request): StreamedResponse
     {
         $this->validateDateFilters($request);
 
         $validated = $request->validate([
-            'format' => ['nullable', 'string', Rule::in(['csv', 'jsonl'])],
+            'format' => ['nullable', 'string', Rule::in(['csv', 'jsonl', 'pdf', 'docx'])],
         ]);
 
         $exportRequest = new ExportRequest(

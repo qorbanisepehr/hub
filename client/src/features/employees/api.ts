@@ -34,7 +34,7 @@ export type EmployeeExportPresentation = {
 
 export function exportEmployees(params: {
     fields?: string[];
-    format?: "xlsx" | "csv";
+    format?: "xlsx" | "csv" | "pdf" | "docx";
     status?: string;
     status_not?: string;
     presentation?: EmployeeExportPresentation;
@@ -65,6 +65,17 @@ export function fetchEmployeeExportTemplate(format: "xlsx" | "csv" = "xlsx") {
 
 export function fetchEmployee(id: number) {
     return api.get<{ data: Employee }>(`/employees/${id}`);
+}
+
+/**
+ * The printable employee-profile document (PDF/Word) for one employee.
+ * Served by GET /employees/{id}/document, gated like the detail view.
+ */
+export function fetchEmployeeDocument(id: number, format: "pdf" | "docx" = "pdf") {
+    return api.get(`/employees/${id}/document`, {
+        params: { format },
+        responseType: "blob",
+    });
 }
 
 export function createEmployee(data: EmployeeBaseFormData) {

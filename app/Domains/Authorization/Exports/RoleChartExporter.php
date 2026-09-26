@@ -3,6 +3,7 @@
 namespace App\Domains\Authorization\Exports;
 
 use App\Domains\Authorization\Models\Role;
+use App\Support\Exports\Contract\ProvidesDocumentTitle;
 use App\Support\Exports\Contract\TabularExporter;
 use App\Support\Exports\Value\ExportColumn;
 use App\Support\Exports\Value\ExportColumnType;
@@ -19,7 +20,7 @@ use Illuminate\Support\Collection;
  * and are applied by the controller via ExportOptions (no BOM, CRLF is the
  * writer's default).
  */
-final class RoleChartExporter implements TabularExporter
+final class RoleChartExporter implements ProvidesDocumentTitle, TabularExporter
 {
     /**
      * User-selectable fields (the export-fields picker). Name/Manager are
@@ -133,6 +134,11 @@ final class RoleChartExporter implements TabularExporter
     public function baseFilename(): string
     {
         return 'org-chart-roles';
+    }
+
+    public function documentTitle(): string
+    {
+        return (string) __('exports.documents.titles.org-chart-roles');
     }
 
     /**
