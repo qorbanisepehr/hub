@@ -102,6 +102,20 @@ export function getCvBankDetail(id: number | string) {
     return api.get<{ data: Cv }>(`/cv/bank/${id}`);
 }
 
+/**
+ * The printable CV document (PDF/Word) for one bank record. The endpoint
+ * accepts the uuid or the numeric id, gated like the bank detail view.
+ */
+export function fetchCvDocument(
+    cv: number | string,
+    format: "pdf" | "docx" = "pdf",
+) {
+    return api.get(`/cv/bank/${cv}/document`, {
+        params: { format },
+        responseType: "blob",
+    });
+}
+
 export function approveCv(uuid: string) {
     return api.post<SaveCvResponse>(`/cv/${uuid}/approve`);
 }
