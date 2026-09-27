@@ -46,7 +46,7 @@ describe('questionnaire management authorization', function () {
             ->assertStatus(403);
     });
 
-    it('lists submitted questionnaires with the questionnaire.view permission', function () {
+    it('lists questionnaires of every status with the questionnaire.view permission', function () {
         $user = createUserWithPermissions(['questionnaire.view']);
         createQuestionnaire('submitted');
         createQuestionnaire('draft');
@@ -54,8 +54,7 @@ describe('questionnaire management authorization', function () {
         $this->actingAs($user)
             ->getJson('/api/questionnaires')
             ->assertOk()
-            ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.status', 'submitted');
+            ->assertJsonCount(2, 'data');
     });
 
     it('shows a questionnaire with the questionnaire.view permission', function () {

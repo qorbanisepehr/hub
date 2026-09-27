@@ -66,12 +66,34 @@ class CvBankController extends Controller
 
         ListQuery::search($query, ListQuery::filter($request), self::SEARCHABLE);
 
+        ListQuery::validateDateFilters($request);
+
         if ($request->filled('status')) {
             $query->where('status', $request->input('status'));
         }
 
         if ($request->filled('status_not')) {
             $query->where('status', '!=', $request->input('status_not'));
+        }
+
+        foreach (['mobile_verified' => 'mobile_verified_at', 'email_verified' => 'email_verified_at'] as $param => $column) {
+            if (! $request->has($param)) {
+                continue;
+            }
+
+            if (filter_var($request->input($param), FILTER_VALIDATE_BOOLEAN)) {
+                $query->whereNotNull($column);
+            } else {
+                $query->whereNull($column);
+            }
+        }
+
+        if ($request->filled('date_from')) {
+            $query->where('created_at', '>=', $request->input('date_from'));
+        }
+
+        if ($request->filled('date_to')) {
+            $query->where('created_at', '<=', $request->input('date_to'));
         }
 
         $query->orderBy(
