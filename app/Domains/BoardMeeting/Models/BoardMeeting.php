@@ -2,12 +2,13 @@
 
 namespace App\Domains\BoardMeeting\Models;
 
+use App\Contracts\Documentable;
 use App\Domains\Tagging\Concerns\Taggable;
+use App\Support\DocumentableTrait;
 use Database\Factories\BoardMeeting\BoardMeetingFactory;
 use Illuminate\Database\Eloquent\Attributes\UseFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 /**
  * The board meeting aggregate (A6): one meeting per Jalali date (`pdate`
@@ -17,11 +18,12 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
  * Tags ride the general Tagging service (K3).
  */
 #[UseFactory(BoardMeetingFactory::class)]
-final class BoardMeeting extends Model
+final class BoardMeeting extends Model implements Documentable
 {
+    use DocumentableTrait;
+
     /** @use HasFactory<BoardMeetingFactory> */
     use HasFactory;
-
     use Taggable;
 
     protected $fillable = [
@@ -50,14 +52,18 @@ final class BoardMeeting extends Model
         ];
     }
 
-    /** @return BelongsToMany<Letter, $this> */
-    public function letters(): BelongsToMany
+    /**
+     * Approval PDFs and meeting documents live in the hub Document system
+     * (decision K4); the imported `documents` JSONB filenames are the
+     * source-side archive listing (binaries on the TCK server).
+     */
+    public function getDocumentConfigKey(): ?string
     {
-        return $this->belongsToMany(
-            Letter::class,
-            'bm_board_meeting_letter',
-            'board_meeting_id',
-            'bm_letter_id',
-        );
+        return 'board-meeting';
+    }
+
+    public function getDocumentOwnerLabel(): ?string
+    {
+        return $this->pdate;
     }
 }

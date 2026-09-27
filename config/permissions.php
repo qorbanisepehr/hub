@@ -171,6 +171,16 @@ return [
             ],
         ],
 
+        'board-meeting.documents' => [
+            'name' => 'Board Meeting Documents',
+            'permissions' => [
+                'board-meeting.documents.view' => "View a meeting's documents",
+                'board-meeting.documents.upload' => 'Upload meeting documents',
+                'board-meeting.documents.download' => 'Download meeting documents',
+                'board-meeting.documents.delete' => 'Delete meeting documents',
+            ],
+        ],
+
         'tag' => [
             'name' => 'Tags',
             'permissions' => [
