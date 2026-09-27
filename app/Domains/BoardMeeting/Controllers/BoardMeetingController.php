@@ -5,6 +5,7 @@ namespace App\Domains\BoardMeeting\Controllers;
 use App\Domains\BoardMeeting\Models\BoardMeeting;
 use App\Domains\BoardMeeting\Requests\BoardMeetingListRequest;
 use App\Domains\BoardMeeting\Resources\BoardMeetingResource;
+use App\Domains\Tagging\Services\TagService;
 use App\Support\ListQuery;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -36,6 +37,9 @@ class BoardMeetingController
         }
 
         ListQuery::search($query, $request->listFilter(), self::SEARCHABLE);
+
+        // AND-filter by tag slugs (A16, K3): meetings carrying every slug.
+        app(TagService::class)->applyFilter($query, $request->listTagSlugs());
 
         $query->orderBy(
             ListQuery::sort($request, self::SORTABLE, 'pdate'),

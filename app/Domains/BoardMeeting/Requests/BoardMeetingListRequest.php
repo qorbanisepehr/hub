@@ -34,6 +34,8 @@ class BoardMeetingListRequest extends FormRequest
             'sort' => ['nullable', 'string', 'in:pdate,number'],
             'order' => ['nullable', 'string', 'in:asc,desc'],
             'filter' => ['nullable', 'string', 'max:100'],
+            'tags' => ['nullable', 'array'],
+            'tags.*' => ['string', 'max:100'],
             'date_from' => ['nullable', 'string'],
             'date_to' => ['nullable', 'string'],
         ];
@@ -64,6 +66,22 @@ class BoardMeetingListRequest extends FormRequest
         $filter = $this->string('filter')->toString();
 
         return $filter === '' ? null : $filter;
+    }
+
+    /**
+     * Tag slugs to AND-filter on (A16): only meetings carrying every slug.
+     *
+     * @return list<string>
+     */
+    public function listTagSlugs(): array
+    {
+        return array_values(array_filter(
+            array_map(
+                fn ($slug) => is_string($slug) ? trim($slug) : '',
+                (array) $this->input('tags', []),
+            ),
+            fn (string $slug) => $slug !== '',
+        ));
     }
 
     public function listDateFrom(): ?CarbonImmutable
