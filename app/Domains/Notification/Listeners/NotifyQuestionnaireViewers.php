@@ -2,10 +2,13 @@
 
 namespace App\Domains\Notification\Listeners;
 
+use App\Domains\Notification\Mail\QuestionnaireSubmittedMail;
 use App\Domains\Notification\Notifications\QuestionnaireSubmittedNotification;
 use App\Domains\Notification\Services\QuestionnaireSubmittedRecipientResolver;
 use App\Domains\Questionnaire\Events\QuestionnaireSubmitted;
+use App\Models\User;
 use Illuminate\Contracts\Events\ShouldHandleEventsAfterCommit;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification;
 
 /**
@@ -35,5 +38,17 @@ final class NotifyQuestionnaireViewers implements ShouldHandleEventsAfterCommit
             $recipients,
             new QuestionnaireSubmittedNotification($event->questionnaireId()),
         );
+
+        // External mail channel is queued separately (architecture 32/66/129):
+        // one Mailable per recipient so a delivery failure stays isolated and
+        // never blocks the synchronous in-app (database + broadcast) source of
+        // truth. Recipients without an email address are skipped silently.
+        $recipients->each(function (User $user) use ($event): void {
+            if (! filled($user->email)) {
+                return;
+            }
+
+            Mail::to($user)->queue(new QuestionnaireSubmittedMail($event->questionnaireId()));
+        });
     }
 }
