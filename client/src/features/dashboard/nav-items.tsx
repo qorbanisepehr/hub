@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import {
     IconClipboardList,
+    IconClipboardText,
     IconDashboard,
     IconFileImport,
     IconFileCv,
@@ -65,6 +66,12 @@ export const NAV_ITEMS: NavItem[] = [
         url: "/cvs",
         icon: <IconFileCv />,
         permission: PERMISSIONS.CV_VIEW,
+    },
+    {
+        title: "پرسشنامه‌ها",
+        url: "/questionnaires",
+        icon: <IconClipboardText />,
+        permission: PERMISSIONS.QUESTIONNAIRE_VIEW,
     },
     {
         title: "تنظیمات",

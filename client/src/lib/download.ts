@@ -39,3 +39,16 @@ export function saveBlobResponse(
 export function exportDateStamp(): string {
     return new Date().toISOString().slice(0, 10);
 }
+
+/**
+ * Fallback MIME types per export format, for every table/document dialog.
+ * The server's own Content-Type wins; this only labels the Blob when the
+ * browser hands us raw bytes.
+ */
+export const EXPORT_MIME_TYPES: Record<string, string> = {
+    xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    csv: "text/csv;charset=utf-8",
+    jsonl: "application/x-ndjson",
+    pdf: "application/pdf",
+    docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+};

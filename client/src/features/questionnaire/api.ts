@@ -130,3 +130,18 @@ export function getQuestionnaireDetail(id: number) {
         `/questionnaires/${id}`
     );
 }
+
+/**
+ * The printable questionnaire document (PDF/Word) for one submitted
+ * record; the endpoint resolves the uuid or the numeric id and is gated
+ * like the management detail view.
+ */
+export function fetchQuestionnaireDocument(
+    questionnaire: number | string,
+    format: "pdf" | "docx" = "pdf",
+) {
+    return api.get(`/questionnaires/${questionnaire}/document`, {
+        params: { format },
+        responseType: "blob",
+    });
+}

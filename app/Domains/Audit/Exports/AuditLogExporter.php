@@ -4,6 +4,7 @@ namespace App\Domains\Audit\Exports;
 
 use App\Domains\Audit\Models\AuditLog;
 use App\Domains\Audit\Services\AuditQueryService;
+use App\Support\Exports\Contract\ProvidesDocumentTitle;
 use App\Support\Exports\Contract\TabularExporter;
 use App\Support\Exports\Value\ExportColumn;
 use App\Support\Exports\Value\ExportColumnType;
@@ -14,7 +15,7 @@ use App\Support\Exports\Value\ExportRequest;
  * vocabulary the index endpoint uses); this class owns only the column
  * catalog and row shaping. Extracted from AuditLogController::export..
  */
-final class AuditLogExporter implements TabularExporter
+final class AuditLogExporter implements ProvidesDocumentTitle, TabularExporter
 {
     /**
      * CSV columns (subset, fixed order). JSONL ignores this list and carries
@@ -87,5 +88,10 @@ final class AuditLogExporter implements TabularExporter
     public function baseFilename(): string
     {
         return 'audit-logs';
+    }
+
+    public function documentTitle(): string
+    {
+        return (string) __('exports.documents.titles.audit-logs');
     }
 }

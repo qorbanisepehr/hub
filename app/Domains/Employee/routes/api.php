@@ -19,6 +19,10 @@ Route::middleware('auth:sanctum')->group(function () {
         ->middleware('permission:employee.export');
     Route::get('employees/export', [EmployeeController::class, 'export'])
         ->middleware('permission:employee.export');
+    // The printable profile document (PDF/Word). Named `document` (singular):
+    // `documents` (plural) is the uploaded-files collection — distinct paths.
+    Route::get('employees/{employee}/document', [EmployeeController::class, 'document'])
+        ->middleware('permission:employee.view');
     Route::get('employees/document-requirements', [EmployeeDocumentController::class, 'requirements'])
         ->middleware('permission:employee.list');
     Route::post('employees', [EmployeeController::class, 'store'])

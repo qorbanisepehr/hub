@@ -14,7 +14,7 @@ export function fetchAuditLogs(params: AuditLogListParams = {}) {
 
 export function exportAuditLogs(
     params: Omit<AuditLogListParams, "page" | "per_page"> & {
-        format?: "csv" | "jsonl";
+        format?: "csv" | "jsonl" | "pdf" | "docx";
     },
 ) {
     return api.get("/audit-logs/export", {

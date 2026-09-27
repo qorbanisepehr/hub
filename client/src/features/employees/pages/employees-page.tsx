@@ -4,7 +4,7 @@ import { Link, getRouteApi } from "@tanstack/react-router";
 import { IconDownload, IconPlus, IconRefresh, IconUsers } from "@tabler/icons-react";
 
 import { Button } from "@/components/ui/button";
-import { ExportDialog } from "@/components/shared";
+import { ExportDialog, type ExportFormat } from "@/components/shared";
 import {
     exportEmployees,
     fetchEmployeeExportFields,
@@ -20,11 +20,21 @@ import {
 } from "@/hooks/use-data-table-page";
 import { PERMISSIONS } from "@/lib/permissions";
 import { employeeKeys } from "@/lib/query-keys";
-import { saveBlobResponse, exportDateStamp } from "@/lib/download";
+import {
+    saveBlobResponse,
+    exportDateStamp,
+    EXPORT_MIME_TYPES,
+} from "@/lib/download";
 
 const route = getRouteApi("/protected/employees");
 
-async function downloadEmployeeExportTemplate(format: "xlsx" | "csv") {
+async function downloadEmployeeExportTemplate(format: ExportFormat) {
+    // The template endpoint only serves the tabular formats; the dialog
+    // disables this button while a document format is selected.
+    if (format !== "xlsx" && format !== "csv") {
+        return;
+    }
+
     const response = await fetchEmployeeExportTemplate(format);
 
     saveBlobResponse(
@@ -139,7 +149,7 @@ export function EmployeesPage() {
         presentation,
     }: {
         fields: string[];
-        format: "xlsx" | "csv";
+        format: ExportFormat;
         presentation: import("@/features/employees/api").EmployeeExportPresentation;
     }) => {
         const response = await exportEmployees({
@@ -153,9 +163,7 @@ export function EmployeesPage() {
         saveBlobResponse(
             response,
             `employees-${exportDateStamp()}.${format}`,
-            format === "csv"
-                ? "text/csv;charset=utf-8"
-                : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            EXPORT_MIME_TYPES[format],
         );
     };
 
@@ -238,9 +246,15 @@ export function EmployeesPage() {
                 open={isExportOpen}
                 onOpenChange={setIsExportOpen}
                 title="خروجی کارمندان"
-                description="خروجی اکسل یا CSV از پروفایل کارمندان"
+                description="خروجی اکسل، CSV یا سند چاپی (PDF/Word) از پروفایل کارمندان"
                 fields={exportFields ?? []}
                 fieldsLoading={exportFieldsLoading}
+                formats={[
+                    { value: "xlsx", label: "اکسل (xlsx)" },
+                    { value: "csv", label: "CSV (سازگار با Excel)" },
+                    { value: "pdf", label: "سند PDF" },
+                    { value: "docx", label: "سند Word" },
+                ]}
                 activeFilters={exportFilterSummary}
                 showPresentation
                 showDetailSheets

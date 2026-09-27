@@ -3,7 +3,9 @@
 namespace App\Domains\Employee\Controllers;
 
 use App\Contracts\Authorization;
+use App\Domains\Authorization\Services\FieldAccess;
 use App\Domains\Employee\Exports\EmployeeExporter;
+use App\Domains\Employee\Exports\EmployeeProfileDocument;
 use App\Domains\Employee\Models\Employee;
 use App\Domains\Employee\Requests\SaveEmployeeSectionRequest;
 use App\Domains\Employee\Requests\StoreEmployeeRequest;
@@ -11,8 +13,11 @@ use App\Domains\Employee\Requests\SubmitEmployeeRequest;
 use App\Domains\Employee\Requests\UpdateEmployeeRequest;
 use App\Domains\Employee\Resources\EmployeeResource;
 use App\Domains\Employee\Services\EmployeeService;
+use App\Domains\FormOptions\Services\FormOptionService;
+use App\Support\Exports\DocumentExportService;
 use App\Support\Exports\ExportService;
 use App\Support\Exports\Value\ExportFile;
+use App\Support\Exports\Value\ExportOptions;
 use App\Support\Exports\Value\ExportRequest;
 use App\Support\Exports\Value\PresentationOptions;
 use App\Support\ListQuery;
@@ -45,6 +50,9 @@ class EmployeeController
         private EmployeeService $employeeService,
         private Authorization $authorization,
         private ExportService $exports,
+        private DocumentExportService $documents,
+        private FieldAccess $fieldAccess,
+        private FormOptionService $formOptions,
     ) {}
 
     /**
@@ -124,7 +132,7 @@ class EmployeeController
     {
         $format = $request->query('format', 'xlsx');
 
-        if (! in_array($format, ['xlsx', 'csv'], true)) {
+        if (! in_array($format, ['xlsx', 'csv', 'pdf', 'docx'], true)) {
             return response()->json(['message' => __('authorization.format_not_supported')], 422);
         }
 
@@ -133,10 +141,42 @@ class EmployeeController
             new ExportRequest(
                 fields: EmployeeController::fieldsFromQuery($request),
                 format: $format,
-                options: EmployeeExporter::defaultOptions($format),
+                options: in_array($format, ['pdf', 'docx'], true)
+                    ? new ExportOptions
+                    : EmployeeExporter::defaultOptions($format),
                 presentation: EmployeeController::presentationFromQuery($request),
             ),
         );
+
+        return $this->streamFile($file);
+    }
+
+    /**
+     * The printable employee-profile document (one record as PDF/Word). Gated
+     * by employee.view — the same permission as show() — and honors the same
+     * deny-based field access, so the printout never contains what the API
+     * strips. The document source resolves the actor's visible sections.
+     */
+    public function document(Request $request, Employee $employee): SymfonyStreamedResponse|JsonResponse
+    {
+        $this->authorization->authorize($request->user(), 'employee.view', $employee);
+
+        $format = $request->query('format', 'pdf');
+
+        if (! in_array($format, ['pdf', 'docx'], true)) {
+            return response()->json(['message' => __('authorization.format_not_supported')], 422);
+        }
+
+        $employee->load(['user']);
+
+        $source = new EmployeeProfileDocument(
+            $this->employeeService,
+            $this->fieldAccess,
+            $this->formOptions,
+            $request->user(),
+        );
+
+        $file = $this->documents->run($source, $employee, $format);
 
         return $this->streamFile($file);
     }

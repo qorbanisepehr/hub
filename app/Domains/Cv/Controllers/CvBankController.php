@@ -3,16 +3,20 @@
 namespace App\Domains\Cv\Controllers;
 
 use App\Contracts\Authorization;
+use App\Domains\Cv\Exports\CvDocument;
 use App\Domains\Cv\Models\Cv;
 use App\Domains\Cv\Resources\CvResource;
 use App\Domains\Cv\Services\CvService;
+use App\Domains\FormOptions\Services\FormOptionService;
 use App\Domains\Questionnaire\Resources\QuestionnaireResource;
+use App\Support\Exports\DocumentExportService;
 use App\Support\ListQuery;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Str;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class CvBankController extends Controller
 {
@@ -38,6 +42,8 @@ class CvBankController extends Controller
     public function __construct(
         private Authorization $authorization,
         private CvService $cvService,
+        private DocumentExportService $documents,
+        private FormOptionService $formOptions,
     ) {}
 
     /**
@@ -110,5 +116,39 @@ class CvBankController extends Controller
             'data' => new QuestionnaireResource($questionnaire),
             'message' => __('cv.questionnaire_created'),
         ], 201);
+    }
+
+    /**
+     * The printable CV document (PDF/Word) for one bank record. Gated by the
+     * same cv.view permission as show(); accepts the uuid or the numeric id
+     * exactly like show() (implicit binding would only resolve the id).
+     */
+    public function document(Request $request, string $cv): StreamedResponse|JsonResponse
+    {
+        $model = Str::isUuid($cv)
+            ? Cv::where('uuid', $cv)->firstOrFail()
+            : Cv::where('id', $cv)->firstOrFail();
+
+        $this->authorization->authorize($request->user(), 'cv.view', $model);
+
+        $format = $request->query('format', 'pdf');
+
+        if (! in_array($format, ['pdf', 'docx'], true)) {
+            return response()->json(['message' => __('authorization.format_not_supported')], 422);
+        }
+
+        $file = $this->documents->run(
+            new CvDocument($this->cvService, $this->formOptions),
+            $model,
+            $format,
+        );
+
+        return response()->streamDownload(function () use ($file): void {
+            $stream = fopen('php://output', 'w');
+            $file->copyTo($stream);
+        }, $this->documents->dispositionFilename($file), [
+            'Content-Type' => $file->mimeType,
+            'Cache-Control' => 'no-store',
+        ]);
     }
 }

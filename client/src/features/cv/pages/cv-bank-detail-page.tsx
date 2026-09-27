@@ -25,6 +25,7 @@ import { PageHeader } from "@/components/layout";
 import { PageLayout } from "@/components/layout";
 import { ViewSkeleton } from "@/components/layout";
 import { ShareDialog } from "@/components/shared/share-dialog";
+import { DocumentPrintMenu } from "@/components/shared/document-print-menu";
 import { CvResumeView } from "@/features/cv/components/cv-resume-view";
 import {
     CvFeedbackMenu,
@@ -33,6 +34,7 @@ import {
 import {
     approveCv,
     createQuestionnaireFromCv,
+    fetchCvDocument,
     getCvBankDetail,
     rejectCv,
 } from "@/features/cv/api";
@@ -156,6 +158,15 @@ export function CvBankDetailPage() {
             >
                 <div className="flex flex-wrap items-center gap-2">
                     <CvFeedbackMenu cv={cv} />
+
+                    {/* Gated like this page (cv.view): the printable CV is the
+                        same data the bank detail already renders. */}
+                    <DocumentPrintMenu
+                        filenamePrefix={`cv-${cv.uuid}`}
+                        fetchDocument={(format) =>
+                            fetchCvDocument(cv.uuid, format)
+                        }
+                    />
 
                     {cv.resume_document?.download_url && (
                         <Button

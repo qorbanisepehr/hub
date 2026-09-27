@@ -11,6 +11,7 @@ use App\Domains\Authorization\Resources\RoleResource;
 use App\Domains\Authorization\Services\RoleService;
 use App\Models\User;
 use App\Support\Exports\ExportService;
+use App\Support\Exports\Value\ExportOptions;
 use App\Support\Exports\Value\ExportRequest;
 use App\Support\ListQuery;
 use Illuminate\Http\JsonResponse;
@@ -242,14 +243,17 @@ class RoleController
         return $role;
     }
 
-    public function exportChart(Request $request): StreamedResponse
+    public function exportChart(Request $request): StreamedResponse|JsonResponse
     {
         $scope = $request->query('scope', 'all');
         $format = $request->query('format', 'csv');
         $rootId = $request->filled('root_id') ? (int) $request->query('root_id') : null;
         $fields = array_filter(array_map('trim', explode(',', (string) $request->query('fields', ''))));
 
-        if ($format !== 'csv') {
+        // The chart is an edge/adjacency dataset: csv feeds Visio's import,
+        // xlsx the spreadsheet readers. PDF/Word stay out — a tree printed as
+        // a table is the deferred org-chart-PDF item on the TODO.
+        if (! in_array($format, ['csv', 'xlsx'], true)) {
             return response()->json(['message' => __('authorization.format_not_supported')], 422);
         }
 
@@ -269,7 +273,13 @@ class RoleController
         $exporter = new RoleChartExporter($scopedRoles, $rootId);
         $file = $this->exports->run(
             $exporter,
-            new ExportRequest(fields: array_values($fields), format: 'csv', options: RoleChartExporter::visioOptions()),
+            new ExportRequest(
+                fields: array_values($fields),
+                format: $format,
+                options: $format === 'csv'
+                    ? RoleChartExporter::visioOptions()
+                    : new ExportOptions(formulaGuard: true),
+            ),
         );
 
         return response()->streamDownload(function () use ($file): void {

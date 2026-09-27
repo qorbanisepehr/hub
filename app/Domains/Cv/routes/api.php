@@ -57,6 +57,10 @@ Route::get('cv/documents/{uuid}/serve', [CvDocumentController::class, 'serve'])
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('cv/bank', [CvBankController::class, 'index'])->middleware('permission:cv.view');
     Route::get('cv/bank/{cv}', [CvBankController::class, 'show'])->middleware('permission:cv.view');
+    // Printable CV document (PDF/Word); the uploaded-documents collection is
+    // `cv/documents/...` on the public side, so no path collision here.
+    Route::get('cv/bank/{cv}/document', [CvBankController::class, 'document'])
+        ->middleware('permission:cv.view');
     Route::post('cv/{uuid}/approve', [CvController::class, 'approve'])
         ->whereUuid('uuid')
         ->middleware('permission:cv.approve');

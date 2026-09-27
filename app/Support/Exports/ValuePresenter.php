@@ -75,6 +75,39 @@ final class ValuePresenter
         return $row;
     }
 
+    /**
+     * Latin digits → Persian digits for human-form meta lines (counts,
+     * codes) that never pass through present().
+     */
+    public static function persianDigits(string $value): string
+    {
+        return str_replace(
+            ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'],
+            self::PERSIAN_DIGITS,
+            $value,
+        );
+    }
+
+    /**
+     * The document-side "generated at" stamp: Jalali date + Persian digits,
+     * shared by every DocumentSpec meta line so all PDFs/Word files agree.
+     */
+    public static function generatedAtStamp(): string
+    {
+        $formatted = IntlDateFormatter::create(
+            'fa_IR@calendar=persian',
+            IntlDateFormatter::NONE,
+            IntlDateFormatter::NONE,
+            'Asia/Tehran',
+            IntlDateFormatter::TRADITIONAL,
+            'yyyy/MM/dd HH:mm',
+        )->format(new \DateTimeImmutable('now'));
+
+        return $formatted === false
+            ? now()->format('Y/m/d H:i')
+            : self::persianDigits((string) $formatted);
+    }
+
     private function presentValue(string|int|float|bool $value, ExportColumn $column, PresentationOptions $options): string|int|float|bool
     {
         return match ($column->presentation) {
@@ -124,12 +157,29 @@ final class ValuePresenter
      */
     private function presentRaw(string|int|float|bool $value, ExportColumn $column, PresentationOptions $options): string|int|float|bool
     {
-        if (! is_string($value) || $value === '' || $this->optionLabels === null) {
+        if (! is_string($value) || $value === '') {
             return $value;
         }
 
-        return $this->optionLabels->optionLabel($column->key, $value)
-            ?? $this->withDigits($value, $options->digits);
+        $label = $this->optionLabels?->optionLabel($column->key, $value);
+
+        if ($label !== null) {
+            return $label;
+        }
+
+        // Some stored dates are plain Y-m-d strings inside sections whose
+        // rules type them as string (military service from/to, certificate
+        // expiry): they arrive here as Text columns. Human calendar modes
+        // still owe the reader a Jalali date, so a date-SHAPED raw cell is
+        // converted too; machine and 'both' modes keep the import-safe form.
+        if ($options->calendar === 'persian' && preg_match(self::DATE_SHAPE, $value) === 1) {
+            return $this->toJalali($value, $options->digits);
+        }
+
+        // Persian digits are a human-form request: shaping raw text cells is
+        // safe here. The latin direction folds stored Persian digits too
+        // (pre-existing shaping contract of the digits option).
+        return $this->withDigits($value, $options->digits);
     }
 
     /**

@@ -36,6 +36,16 @@ return [
     'already_linked' => 'A questionnaire already exists for this CV.',
     'access_granted' => 'Access to the CV was granted successfully.',
     'access_denied' => 'Unauthorized or expired access.',
+    'document' => [
+        'title' => 'CV',
+        'status' => 'Status',
+        'statuses' => [
+            'draft' => 'Draft',
+            'submitted' => 'Submitted',
+            'approved' => 'Approved',
+            'rejected' => 'Rejected',
+        ],
+    ],
     'documents' => [
         'missing' => 'Uploading :document is required.',
         'max_files_reached' => 'Maximum :count items allowed for this category.',

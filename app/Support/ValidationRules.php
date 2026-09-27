@@ -40,8 +40,18 @@ final class ValidationRules
     /** Digits-only string, e.g. a birth certificate number. */
     public const DIGITS_ONLY = 'string|max:20|regex:/^\d+$/';
 
-    /** Postal code. */
-    public const POSTAL_CODE = 'string|max:10';
+    /**
+     * Iranian postal code: 10-digit input. Digits-only is enforced once a
+     * non-empty value is present (array-form rule so the empty-string draft
+     * values submitted by optional rows stay valid).
+     */
+    public const POSTAL_CODE = ['nullable', 'string', 'regex:/^\d{10}$/'];
+
+    /** Iranian bank card: 16 digits starting with 6 (Luhn added via BankCardNumberRule). */
+    public const CARD_NUMBER = ['nullable', 'string', 'max:30', 'regex:/^6\d{15}$/'];
+
+    /** Iranian IBAN: IR + 24 digits (mod-97 added via IbanNumberRule). */
+    public const IBAN_NUMBER = ['nullable', 'string', 'max:30', 'regex:/^IR\d{24}$/'];
 
     /** Generic short text. */
     public const TEXT = 'string';

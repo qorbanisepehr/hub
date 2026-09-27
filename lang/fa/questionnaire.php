@@ -38,6 +38,15 @@ return [
         'access_granted' => 'دسترسی به رزومه با موفقیت صادر شد.',
         'access_denied' => 'دسترسی غیرمجاز یا منقضی‌شده است.',
     ],
+    'document' => [
+        'title' => 'پرسشنامه',
+        'status' => 'وضعیت',
+        'statuses' => [
+            'draft' => 'پیش‌نویس',
+            'submitted' => 'ثبت‌شده',
+            'reviewed' => 'بازبینی‌شده',
+        ],
+    ],
     'documents' => [
         'missing' => 'بارگذاری «:document» الزامی است.',
         'max_files_reached' => 'حداکثر :count مورد برای این دسته مجاز است.',

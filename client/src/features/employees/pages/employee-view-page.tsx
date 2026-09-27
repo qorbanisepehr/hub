@@ -7,7 +7,12 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { ConfirmDeleteButton } from "@/components/ui/confirm-delete-button";
-import { fetchEmployee, deleteEmployee } from "@/features/employees/api";
+import { DocumentPrintMenu } from "@/components/shared/document-print-menu";
+import {
+    fetchEmployee,
+    fetchEmployeeDocument,
+    deleteEmployee,
+} from "@/features/employees/api";
 import { getApiError } from "@/lib/error-utils";
 import { EmployeeProfileView } from "@/features/employees/components/employee-profile-view";
 import { profileViewStore } from "@/features/employees/profile-view-store";
@@ -88,6 +93,15 @@ export function EmployeeViewPage() {
                 backTo="/employees"
             >
                 <div className="flex items-center gap-2">
+                    {/* Gated like this page itself (employee.view): whoever can
+                        read the profile server-side can print it. Field-access
+                        denies are applied inside the document. */}
+                    <DocumentPrintMenu
+                        filenamePrefix={`employee-profile-${employee.id}`}
+                        fetchDocument={(format) =>
+                            fetchEmployeeDocument(employee.id, format)
+                        }
+                    />
                     {employee.capabilities.edit && (
                         <Button
                             variant="outline"

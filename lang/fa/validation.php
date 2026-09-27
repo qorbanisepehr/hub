@@ -237,6 +237,7 @@ return [
         ],
         'contact_info.address.postal_code' => [
             'required' => 'کد پستی الزامی است.',
+            'regex' => 'کد پستی باید دقیقاً ۱۰ رقم باشد.',
         ],
         'contact_info.address.province' => [
             'required' => 'استان الزامی است.',
