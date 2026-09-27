@@ -5,6 +5,7 @@ namespace App\Domains\BoardMeeting\Services;
 use App\Contracts\External\FarzinGateway;
 use App\Domains\BoardMeeting\Jobs\LoadFarzinToStagingJob;
 use App\Domains\BoardMeeting\Models\IntegrationStaging;
+use App\Domains\Ingest\Services\RecordProjector;
 use App\Integrations\Farzin\FakeFarzinSource;
 use App\Integrations\Farzin\FarzinGatewayAdapter;
 use App\Integrations\Farzin\SqlsrvFarzinSource;
@@ -12,21 +13,25 @@ use Carbon\CarbonImmutable;
 use RuntimeException;
 
 /**
- * Facade over the two pipeline stages (K1 flow): load → project. Owns the
- * driver selection from config and the structured result shape.
+ * Facade over the pipeline stages (K1 flow): load → records → meetings.
+ * Owns driver selection from config and the structured result shape.
+ * The records stage is generic Ingest machinery; only the final
+ * projection is BoardMeeting-specific.
  */
 readonly class BoardMeetingSyncService
 {
     public function __construct(
         private MeetingProjection $projection,
+        private RecordProjector $records,
     ) {}
 
     /**
      * Run a full cycle: fetch from the configured driver into staging,
-     * then project staging into letters + meetings.
+     * normalize staging into generic records, then project records into
+     * meetings.
      *
      * @param  bool  $incremental  true = only rows edited since the last sync.
-     * @return array{staging: array{landed: int, changed: int, unchanged: int}, letters: array{new: int, updated: int}, meetings: array{new: int, updated: int, unchanged: int}}
+     * @return array{staging: array{landed: int, changed: int, unchanged: int}, records: array{records: int, failed: int}, meetings: array{new: int, updated: int, unchanged: int}}
      */
     public function run(bool $incremental = true): array
     {
@@ -36,12 +41,14 @@ readonly class BoardMeetingSyncService
             $incremental ? $this->lastEditMarker() : null,
         ))->handle($gateway);
 
-        $projection = $this->projection->project();
+        $recordOutcome = $this->records->project(LoadFarzinToStagingJob::SOURCE);
+
+        $meetingOutcome = $this->projection->project();
 
         return [
             'staging' => $staging,
-            'letters' => $projection['letters'],
-            'meetings' => $projection['meetings'],
+            'records' => $recordOutcome,
+            'meetings' => $meetingOutcome,
         ];
     }
 
@@ -59,8 +66,8 @@ readonly class BoardMeetingSyncService
     }
 
     /**
-     * Incremental marker: the newest source edit already staged. The
-     * first run (empty staging) starts from a safety lookback window.
+     * Incremental marker: the newest fetch already staged. The first run
+     * (empty staging) starts from a safety lookback window.
      */
     private function lastEditMarker(): ?string
     {
@@ -69,7 +76,7 @@ readonly class BoardMeetingSyncService
             ->max('fetched_at');
 
         if ($latest !== null) {
-            return CarbonImmutable::instance($latest)
+            return CarbonImmutable::parse($latest)
                 ->subMinute()
                 ->format('Y-m-d H:i:s');
         }

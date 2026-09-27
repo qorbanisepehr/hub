@@ -3,9 +3,9 @@
 use App\Domains\BoardMeeting\Jobs\LoadFarzinToStagingJob;
 use App\Domains\BoardMeeting\Models\BoardMeeting;
 use App\Domains\BoardMeeting\Models\IntegrationStaging;
-use App\Domains\BoardMeeting\Models\Letter;
 use App\Domains\BoardMeeting\Services\BoardMeetingSyncService;
 use App\Domains\BoardMeeting\Services\MeetingNumberService;
+use App\Domains\Ingest\Models\IntegrationRecord;
 use App\Integrations\Farzin\FakeFarzinSource;
 use App\Integrations\Farzin\FarzinGatewayAdapter;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -31,26 +31,27 @@ it('lands raw rows in staging idempotently', function () {
         ->and(IntegrationStaging::where('source', 'farzin')->where('status', 'raw')->count())->toBe(3);
 });
 
-it('projects letters with cleaned text and extracted meeting date', function () {
+it('normalizes staged rows into generic records', function () {
     app(BoardMeetingSyncService::class)->run(false);
 
-    $meetingLetter = Letter::query()->where('source_id', 101)->first();
-    $plainLetter = Letter::query()->where('source_id', 102)->first();
+    $letter = IntegrationRecord::query()
+        ->forEntity('letter')->where('external_id', '101')->first();
+    $session = IntegrationRecord::query()
+        ->forEntity('session')->where('external_id', '201')->first();
 
     // CDATA unwrapped, Arabic folded, inner HTML kept (TCK parity),
-    // Persian digits preserved in the subject.
-    expect($meetingLetter->subject)->toBe('<p>دعوت به جلسه هیئت مدیره مورخ ۱۴۰۴/۰۶/۱۵</p>')
-        ->and($meetingLetter->r_name)->toBe('یوسف احمدی')
-        ->and($meetingLetter->has_meeting)->toBeTrue()
-        ->and($meetingLetter->meeting_pdate)->toBe('1404-06-15')
-        ->and($meetingLetter->pdate)->toBe('1404/06/15')
-        ->and($meetingLetter->original)->toBeArray()
-        // Non-meeting letter untouched by meeting extraction.
-        ->and($plainLetter->has_meeting)->toBeFalse()
-        ->and($plainLetter->meeting_pdate)->toBeNull();
+    // Persian digits preserved; meeting fragment extracted into data.
+    expect($letter->title)->toBe('<p>دعوت به جلسه هیئت مدیره مورخ ۱۴۰۴/۰۶/۱۵</p>')
+        ->and($letter->data['r_name'])->toBe('یوسف احمدی')
+        ->and($letter->data['has_meeting'])->toBeTrue()
+        ->and($letter->data['meeting_pdate'])->toBe('1404-06-15')
+        ->and($letter->pdate)->toBe('1404-06-15')
+        ->and($letter->original)->toBeArray()
+        ->and($session->pdate)->toBe('1404-06-15')
+        ->and($session->data['sharh'])->toContain('جلسه هیئت مدیره ساعت ۱۰');
 });
 
-it('derives one meeting per jalali date with minutes and hash', function () {
+it('projects meetings from generic records', function () {
     app(BoardMeetingSyncService::class)->run(false);
 
     $meeting = BoardMeeting::query()->where('pdate', '1404-06-15')->first();
@@ -69,21 +70,21 @@ it('skips unchanged meetings on re-projection', function () {
     $service->run(false);
     $result = $service->run(false);
 
-    expect($result['meetings'])->toBe(['new' => 0, 'updated' => 0, 'unchanged' => 1]);
+    expect($result['meetings'])->toBe(['new' => 0, 'updated' => 0, 'unchanged' => 1])
+        ->and($result['staging'])->toBe(['landed' => 3, 'changed' => 0, 'unchanged' => 3])
+        // All staging rows are already processed, so the records stage
+        // has nothing pending — zero failures.
+        ->and($result['records'])->toBe(['records' => 0, 'failed' => 0]);
 });
 
 it('keeps minute body after normalizer collapse (TCK parity)', function () {
-    $service = app(BoardMeetingSyncService::class);
-
-    $service->run(false);
+    app(BoardMeetingSyncService::class)->run(false);
 
     $meeting = BoardMeeting::query()->where('pdate', '1404-06-15')->first();
     $minute = $meeting->minutes_from_letters[0];
 
-    // TCK parity: the normalizer collapsed newlines to spaces, so the
-    // greeting regex (which spans the whole text) only matches when the
-    // spaced «می رساند» form appears — here the CDATA-joined form keeps
-    // the wrapper; body content and numbering remain verifiable.
+    // TCK parity: the normalizer collapsed newlines to spaces and kept
+    // the CDATA inner markup; body content and numbering remain.
     expect($minute)->toContain('تصویب')
         ->and($minute)->toContain('دستور جلسه:');
 });
@@ -101,20 +102,19 @@ it('extracts meeting numbers from document filenames (TCK parity)', function () 
         ->and($service->fromFilenames(null))->toBe('');
 });
 
-it('marks unparseable rows failed and still projects the rest', function () {
-    $bad = FakeFarzinSource::SAMPLE_LETTERS[0];
-    $bad['EntityCode'] = 999;
-    $bad['date'] = 'not-a-date-but-fine'; // date is nullable, must not fail
-    $bad['subject'] = '<![CDATA[بدون تاریخ جلسه]]>';
+it('skips unmappable rows at the boundary and stages the rest', function () {
+    // A row without its primary key cannot be staged — the adapter skips
+    // it instead of killing the whole batch.
+    $broken = FakeFarzinSource::SAMPLE_LETTERS[0];
+    unset($broken['EntityCode']);
 
-    $gateway = new FarzinGatewayAdapter(
-        new FakeFarzinSource([$bad], []),
-    );
+    $good = FakeFarzinSource::SAMPLE_LETTERS[0];
+    $good['EntityCode'] = 999;
 
-    (new LoadFarzinToStagingJob)->handle($gateway);
-    app(BoardMeetingSyncService::class)->run(false);
+    $gateway = new FarzinGatewayAdapter(new FakeFarzinSource([$broken, $good], []));
 
-    // The well-formed letter from beforeEach source still projected.
-    expect(Letter::query()->where('source_id', 999)->exists())->toBeTrue()
-        ->and(IntegrationStaging::where('status', 'failed')->count())->toBe(0);
+    $outcome = (new LoadFarzinToStagingJob)->handle($gateway);
+
+    expect($outcome)->toBe(['landed' => 1, 'changed' => 1, 'unchanged' => 0])
+        ->and(IntegrationStaging::where('external_id', '999')->exists())->toBeTrue();
 });
