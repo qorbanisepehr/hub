@@ -125,6 +125,16 @@ export const reportingKeys = {
         [...reportingKeys.all, "unified-inbox", params] as const,
 };
 
+export const boardMeetingKeys = {
+    all: ["board-meetings"] as const,
+    lists: () => [...boardMeetingKeys.all, "list"] as const,
+    list: (params: Record<string, unknown>) =>
+        [...boardMeetingKeys.lists(), params] as const,
+    details: () => [...boardMeetingKeys.all, "detail"] as const,
+    detail: (id: number | string) =>
+        [...boardMeetingKeys.details(), id] as const,
+};
+
 export const formOptionKeys = {
     all: () => ["form-options"] as const,
     byGroup: (group: string, parentValue?: string, search?: string) =>

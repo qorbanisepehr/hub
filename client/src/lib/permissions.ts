@@ -84,6 +84,11 @@ export const PERMISSIONS = {
     // Reporting
     REPORT_ATTENDANCE_VIEW: "report.attendance.view",
     REPORT_UNIFIED_INBOX_VIEW: "report.unified-inbox.view",
+
+    // Board Meetings
+    BOARD_MEETING_VIEW: "board-meeting.view",
+    BOARD_MEETING_UPDATE: "board-meeting.update",
+    BOARD_MEETING_SYNC: "board-meeting.sync",
 } as const;
 
 export type PermissionValue = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
