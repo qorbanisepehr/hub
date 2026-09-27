@@ -13,6 +13,7 @@ use App\Domains\Cv\Repositories\CvRepositoryInterface;
 use App\Domains\Document\Repositories\DocumentRepository;
 use App\Domains\Document\Repositories\DocumentRepositoryInterface;
 use App\Domains\Employee\Imports\EmployeeImportDefinition;
+use App\Domains\Ingest\IngestRegistry;
 use App\Domains\Questionnaire\Repositories\QuestionnaireRepository;
 use App\Domains\Questionnaire\Repositories\QuestionnaireRepositoryInterface;
 use App\Domains\Reporting\Reports\UnifiedInbox\SenderIdentityResolver;
@@ -25,6 +26,8 @@ use App\Integrations\Automation\AutomationInboxMapper;
 use App\Integrations\Automation\FakeAutomationInboxGateway;
 use App\Integrations\Bizagi\BizagiInboxMapper;
 use App\Integrations\Bizagi\FakeBizagiInboxGateway;
+use App\Integrations\Farzin\FarzinLetterNormalizer;
+use App\Integrations\Farzin\FarzinSessionNormalizer;
 use App\Integrations\Rahkaran\FakeRahkaranAttendanceGateway;
 use App\Integrations\Rahkaran\FakeRahkaranInboxGateway;
 use App\Integrations\Rahkaran\RahkaranAttendanceMapper;
@@ -78,6 +81,25 @@ class AppServiceProvider extends ServiceProvider
 
         // Sender identity resolution: external username → HR Hub user.
         $this->app->bind(SenderIdentityResolver::class);
+
+        // Ingest normalizers (sync pipeline, generic records layer): one
+        // per entity type; adding a synced entity = class + registration.
+        $this->app->singleton(IngestRegistry::class, function (): IngestRegistry {
+            $registry = new IngestRegistry;
+
+            $registry->register(
+                'farzin',
+                'Entity_A4letter',
+                $this->app->make(FarzinLetterNormalizer::class),
+            );
+            $registry->register(
+                'farzin',
+                'Entity_heyatModire',
+                $this->app->make(FarzinSessionNormalizer::class),
+            );
+
+            return $registry;
+        });
 
         $this->app->singleton(InboxSourceRegistry::class, function (): InboxSourceRegistry {
             $registry = new InboxSourceRegistry;

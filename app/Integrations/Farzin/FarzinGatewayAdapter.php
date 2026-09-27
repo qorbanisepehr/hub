@@ -5,6 +5,7 @@ namespace App\Integrations\Farzin;
 use App\Contracts\External\FarzinGateway;
 use App\Domains\BoardMeeting\Value\FarzinLetterRow;
 use App\Domains\BoardMeeting\Value\FarzinSessionRow;
+use Throwable;
 
 /**
  * The port implementation bound when FARZIN_DRIVER is configured. Pure
@@ -19,17 +20,40 @@ final class FarzinGatewayAdapter implements FarzinGateway
 
     public function letters(?string $afterLastEdit = null): array
     {
-        return array_map(
-            fn (array $row) => FarzinLetterRow::fromSourceRow($row),
+        return $this->mapRows(
             $this->source->letters($afterLastEdit),
+            FarzinLetterRow::fromSourceRow(...),
         );
     }
 
     public function sessions(?string $afterLastEdit = null): array
     {
-        return array_map(
-            fn (array $row) => FarzinSessionRow::fromSourceRow($row),
+        return $this->mapRows(
             $this->source->sessions($afterLastEdit),
+            FarzinSessionRow::fromSourceRow(...),
         );
+    }
+
+    /**
+     * Map raw rows to boundary DTOs, skipping unmappable rows: a row
+     * without its primary key cannot be staged anyway and must not kill
+     * the whole batch (same stance as the fake Rahkaran gateway).
+     *
+     * @param  list<array<string, mixed>>  $rows
+     * @return list<FarzinLetterRow|FarzinSessionRow>
+     */
+    private function mapRows(array $rows, callable $mapper): array
+    {
+        $mapped = [];
+
+        foreach ($rows as $row) {
+            try {
+                $mapped[] = $mapper($row);
+            } catch (Throwable) {
+                continue;
+            }
+        }
+
+        return $mapped;
     }
 }

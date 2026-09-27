@@ -17,7 +17,7 @@ class BoardMeetingSyncCommand extends Command
         $result = $sync->run(! $this->option('full'));
 
         $this->info('Staging: '.json_encode($result['staging'], JSON_UNESCAPED_UNICODE));
-        $this->info('Letters: '.json_encode($result['letters'], JSON_UNESCAPED_UNICODE));
+        $this->info('Records: '.json_encode($result['records'], JSON_UNESCAPED_UNICODE));
         $this->info('Meetings: '.json_encode($result['meetings'], JSON_UNESCAPED_UNICODE));
 
         return self::SUCCESS;
