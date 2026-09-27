@@ -1,0 +1,120 @@
+<?php
+
+namespace App\Domains\BoardMeeting\Controllers;
+
+use App\Contracts\DocumentAuthorization;
+use App\Domains\BoardMeeting\Models\BoardMeeting;
+use App\Domains\BoardMeeting\Requests\StoreBoardMeetingDocumentRequest;
+use App\Domains\Document\Auth\DocumentAuthorizationContext;
+use App\Domains\Document\Enums\DocumentAction;
+use App\Domains\Document\Models\Document;
+use App\Domains\Document\Models\DocumentCategory;
+use App\Domains\Document\Models\DocumentUsage;
+use App\Domains\Document\Services\DocumentCapabilities;
+use App\Domains\Document\Services\DocumentService;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Routing\Controller;
+use Symfony\Component\HttpFoundation\StreamedResponse;
+
+/**
+ * Board-meeting documents (K4 = hub Document system, CvDocumentController
+ * pattern): scoped endpoints under a resolved meeting, gated by the
+ * `board-meeting.documents.*` permission namespace. Meetings have no
+ * sections/placements — documents attach flat to the meeting.
+ */
+class BoardMeetingDocumentController extends Controller
+{
+    public function __construct(
+        private readonly DocumentService $documentService,
+        private readonly DocumentAuthorization $documentAuthorization,
+        private readonly DocumentCapabilities $documentCapabilities,
+    ) {}
+
+    public function index(Request $request, BoardMeeting $meeting): JsonResponse
+    {
+        $documents = $this->documentService->getForEntity($meeting);
+
+        return response()->json([
+            'data' => $documents
+                ->flatMap(fn (Document $document) => $document->usages->map(
+                    fn (DocumentUsage $usage) => $this->documentService->documentPayload($document, $usage, 'board-meeting.documents.serve'),
+                ))
+                ->values(),
+            'capabilities' => $this->documentCapabilities->forEntity($request->user(), $meeting),
+        ]);
+    }
+
+    public function store(StoreBoardMeetingDocumentRequest $request, BoardMeeting $meeting): JsonResponse
+    {
+        $category = DocumentCategory::findOrFail($request->integer('document_category_id'));
+
+        $this->authorizeRequest(
+            $request,
+            DocumentAction::Upload,
+            DocumentAuthorizationContext::forOwner($meeting, category: $category),
+        );
+
+        $metadata = [];
+        if ($notes = $request->input('notes')) {
+            $metadata['notes'] = $notes;
+        }
+
+        $document = $this->documentService->upload(
+            $meeting,
+            $request->file('file'),
+            $category,
+            metadata: $metadata !== [] ? $metadata : null,
+        );
+
+        $usage = $this->documentService->newestUsageFor($meeting, $document->id);
+
+        return response()->json([
+            'data' => $this->documentService->documentPayload($document, $usage, 'board-meeting.documents.serve'),
+            'message' => __('document.document_uploaded'),
+        ], 201);
+    }
+
+    public function destroy(Request $request, BoardMeeting $meeting, DocumentUsage $usage): JsonResponse
+    {
+        $this->authorizeRequest(
+            $request,
+            DocumentAction::Delete,
+            DocumentAuthorizationContext::forUsage($usage),
+        );
+
+        $deleted = $this->documentService->deleteUsage($usage->id, $meeting);
+
+        if (! $deleted) {
+            abort(404);
+        }
+
+        return response()->json(['message' => __('document.file_deleted')]);
+    }
+
+    public function serve(Request $request, string $uuid): StreamedResponse
+    {
+        $document = Document::query()
+            ->where('uuid', $uuid)
+            ->whereHas('usages', fn ($query) => $query->where('entity_type', BoardMeeting::class))
+            ->firstOrFail();
+
+        return $this->documentService->serve($document, $request);
+    }
+
+    private function authorizeRequest(
+        Request $request,
+        DocumentAction $action,
+        DocumentAuthorizationContext $context,
+    ): void {
+        $actor = $request->user();
+
+        if ($actor === null) {
+            abort(401);
+        }
+
+        if (! $this->documentAuthorization->authorize($actor, $action, $context)) {
+            abort(403, __('messages.permission_denied'));
+        }
+    }
+}

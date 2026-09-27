@@ -130,6 +130,7 @@ class DocumentAuthorizationService implements DocumentAuthorization
         $prefix = match ($owner?->getDocumentRouteType()) {
             'cv' => 'cv.documents',
             'questionnaire' => 'questionnaire.documents',
+            'board-meeting' => 'board-meeting.documents',
             default => 'employee.documents',
         };
 

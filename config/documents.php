@@ -29,6 +29,12 @@ return [
         'allowed_mime_types' => ['pdf', 'jpg', 'jpeg', 'png', 'webp'],
     ],
 
+    'board-meeting' => [
+        'max_file_size' => env('BOARD_MEETING_DOC_MAX_SIZE', 20 * 1024 * 1024),
+        'max_files' => env('BOARD_MEETING_DOC_MAX_FILES', 50),
+        'allowed_mime_types' => ['pdf', 'jpg', 'jpeg', 'png', 'webp'],
+    ],
+
     /**
      * Documentable entity type → SectionRegistry class. Lets the document
      * domain resolve placement labels through the owning domain's sections
