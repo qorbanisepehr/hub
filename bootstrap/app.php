@@ -4,6 +4,7 @@ use App\Domains\Authorization\Middleware\CheckPermission;
 use App\Domains\Authorization\Middleware\CheckRole;
 use App\Http\Middleware\VerifyGrantAccess;
 use App\Http\Middleware\VerifyServeGrant;
+use App\Integrations\Farzin\FarzinUnavailableException;
 use App\Integrations\Rahkaran\Exceptions\RahkaranException;
 use App\Support\Exports\DocumentRowLimitExceeded;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -72,5 +73,15 @@ return Application::configure(basePath: dirname(__DIR__))
             return response()->json([
                 'message' => __('exports.row_limit_exceeded'),
             ], 422);
+        });
+
+        // Farzin sync failures stay opaque (V2 §37): the integration
+        // converts connection errors to its exception, the handler to 503.
+        $exceptions->render(function (FarzinUnavailableException $e, Request $request) {
+            report($e);
+
+            return response()->json([
+                'message' => __('messages.external_system_unavailable'),
+            ], 503);
         });
     })->create();
