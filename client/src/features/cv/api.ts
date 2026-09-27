@@ -93,6 +93,10 @@ export function fetchCvBank(
         filter?: string;
         status?: string;
         status_not?: string;
+        mobile_verified?: boolean;
+        email_verified?: boolean;
+        date_from?: string;
+        date_to?: string;
     },
 ) {
     return api.get<PaginatedResponse<Cv>>("/cv/bank", { params });

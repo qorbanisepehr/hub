@@ -7,6 +7,10 @@ export type EmployeeListParams = PaginatedListParams & {
     filter?: string;
     status?: string;
     status_not?: string;
+    employment_type?: string;
+    gender?: string;
+    hire_date_from?: string;
+    hire_date_to?: string;
 };
 
 export function fetchEmployees(params: EmployeeListParams = {}) {
