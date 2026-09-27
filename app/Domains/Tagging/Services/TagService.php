@@ -68,13 +68,18 @@ readonly class TagService
      */
     public function filterQuery(Model $model, array $slugs): Builder
     {
+        return $this->applyFilter($model->newQuery(), $slugs);
+    }
+
+    /**
+     * AND-filter applied onto an existing query (e.g. a list endpoint's
+     * already-sorted query) — same semantics as {@see filterQuery}.
+     *
+     * @param  list<string>  $slugs
+     */
+    public function applyFilter(Builder $query, array $slugs): Builder
+    {
         $slugs = $this->normalize($slugs);
-
-        $query = $model->newQuery();
-
-        if ($slugs === []) {
-            return $query;
-        }
 
         foreach ($slugs as $slug) {
             $query->whereHas('tags', fn ($q) => $q->where('slug', $slug));

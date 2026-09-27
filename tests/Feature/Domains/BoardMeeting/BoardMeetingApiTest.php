@@ -1,6 +1,7 @@
 <?php
 
 use App\Domains\BoardMeeting\Models\BoardMeeting;
+use App\Domains\Tagging\Services\TagService;
 use App\Models\User;
 
 use function Pest\Laravel\actingAs;
@@ -62,6 +63,41 @@ describe('GET /api/board-meetings', function () {
 
         expect($response->json('meta.total'))->toBe(1)
             ->and($response->json('data.0.number'))->toBe('5678/ص/1404');
+    });
+
+    it('AND-filters meetings by tag slugs', function () {
+        $service = app(TagService::class);
+
+        $both = BoardMeeting::factory()->create(['pdate' => '1404-05-01']);
+        $service->syncTags($both, ['پروژه سونگون', 'قرارداد']);
+
+        $one = BoardMeeting::factory()->create(['pdate' => '1404-06-15']);
+        $service->syncTags($one, ['پروژه سونگون']);
+
+        $none = BoardMeeting::factory()->create(['pdate' => '1404-07-10']);
+
+        $user = createUserWithPermissions(['board-meeting.view']);
+
+        // AND semantics: only the meeting carrying EVERY slug survives.
+        $response = actingAs($user)
+            ->getJson('/api/board-meetings?tags[]=پروژه سونگون&tags[]=قرارداد')
+            ->assertOk();
+
+        expect($response->json('meta.total'))->toBe(1)
+            ->and($response->json('data.0.pdate'))->toBe($both->pdate);
+
+        // A single slug keeps every carrier.
+        $single = actingAs($user)
+            ->getJson('/api/board-meetings?tags[]=پروژه سونگون')
+            ->assertOk();
+
+        expect($single->json('meta.total'))->toBe(2);
+
+        // No tags param returns everything untouched.
+        $all = actingAs($user)->getJson('/api/board-meetings')->assertOk();
+
+        expect($all->json('meta.total'))->toBe(3)
+            ->and($none->pdate)->toBe('1404-07-10');
     });
 });
 
