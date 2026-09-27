@@ -142,6 +142,14 @@ export const QUESTIONNAIRE_STATUS_BADGE_VARIANTS: Record<
     reviewed: "success",
 };
 
+/** Select options for the management list's status filter. */
+export const QUESTIONNAIRE_STATUS_OPTIONS = (
+    Object.entries(QUESTIONNAIRE_STATUS_LABELS) as [
+        QuestionnaireStatus,
+        string,
+    ][]
+).map(([value, label]) => ({ value, label }));
+
 export const WIZARD_STEPS = [
     {
         id: 0,

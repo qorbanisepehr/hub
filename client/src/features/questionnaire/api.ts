@@ -120,7 +120,19 @@ export function submitQuestionnaire(uuid: string) {
 }
 
 export function fetchQuestionnaires(
-    params?: PaginatedListParams & { filter?: string; status?: string },
+    params?: PaginatedListParams & {
+        filter?: string;
+        status?: string;
+        status_not?: string;
+        gender?: string;
+        marital_status?: string;
+        employment_type?: string;
+        currently_employed?: boolean;
+        mobile_verified?: boolean;
+        email_verified?: boolean;
+        date_from?: string;
+        date_to?: string;
+    },
 ) {
     return api.get<PaginatedResponse<Questionnaire>>("/questionnaires", { params });
 }

@@ -14,6 +14,10 @@ const EmployeesPage = lazy(() =>
 const employeesSearchSchema = paginatedSearchSchema({
     status: z.string().optional(),
     status_not: z.string().optional(),
+    employment_type: z.string().optional(),
+    gender: z.string().optional(),
+    hire_date_from: z.string().optional(),
+    hire_date_to: z.string().optional(),
 });
 
 export const Route = createRoute({

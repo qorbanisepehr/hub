@@ -5,14 +5,20 @@ import {
 import { Link } from "@tanstack/react-router";
 import { IconEye } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { DataTableColumnHeader } from "@/components/data-table";
 import type { Questionnaire } from "@/features/questionnaire/types";
+import {
+    QUESTIONNAIRE_STATUS_BADGE_VARIANTS,
+    QUESTIONNAIRE_STATUS_LABELS,
+    type QuestionnaireStatus,
+} from "@/features/questionnaire/constants";
 import { toPersianDate } from "@/lib/date-format";
 
 /**
- * Management list columns for submitted questionnaires. The endpoint only
- * surfaces submitted records, so a status column would be static noise; the
- * detail page carries the status badge instead.
+ * Management list columns for questionnaires of every status. The endpoint
+ * serves every status, so the status badge column (server-sortable) carries
+ * the review workflow state at a glance.
  */
 export const questionnaireBankColumns: ColumnDef<StockFeatures, Questionnaire>[] = [
     {
@@ -34,6 +40,21 @@ export const questionnaireBankColumns: ColumnDef<StockFeatures, Questionnaire>[]
         // The management index sorts only by real columns (first/last name
         // individually, not the combined id), so don't advertise a sort here.
         enableSorting: false,
+    },
+    {
+        accessorKey: "status",
+        header: ({ column }) => (
+            <DataTableColumnHeader column={column} title="وضعیت" />
+        ),
+        cell: ({ row }) => {
+            const status = row.getValue("status") as QuestionnaireStatus;
+            return (
+                <Badge variant={QUESTIONNAIRE_STATUS_BADGE_VARIANTS[status]}>
+                    {QUESTIONNAIRE_STATUS_LABELS[status] ?? status}
+                </Badge>
+            );
+        },
+        meta: { displayName: "وضعیت" },
     },
     {
         accessorKey: "mobile",

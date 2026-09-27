@@ -23,6 +23,7 @@ class QuestionnaireManagementController extends Controller
         'updated_at',
         'first_name',
         'last_name',
+        'status',
     ];
 
     private const SEARCHABLE = [
@@ -41,13 +42,62 @@ class QuestionnaireManagementController extends Controller
 
     public function index(Request $request): AnonymousResourceCollection
     {
-        // The management list only surfaces submitted questionnaires; a
-        // per-status filter would fight this base constraint.
-        $query = Questionnaire::query()->where('status', 'submitted');
+        // Every status surfaces in the management list; the status filter
+        // (and its negated counterpart) narrows the scope on demand.
+        $query = Questionnaire::query();
 
         $this->authorization->scope($request->user(), 'questionnaire.view', $query);
 
         ListQuery::search($query, ListQuery::filter($request), self::SEARCHABLE);
+
+        ListQuery::validateDateFilters($request);
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->input('status'));
+        }
+
+        if ($request->filled('status_not')) {
+            $query->where('status', '!=', $request->input('status_not'));
+        }
+
+        if ($request->filled('gender')) {
+            $query->where('gender', $request->input('gender'));
+        }
+
+        if ($request->filled('marital_status')) {
+            $query->where('marital_status', $request->input('marital_status'));
+        }
+
+        if ($request->filled('employment_type')) {
+            $query->where('employment_type', $request->input('employment_type'));
+        }
+
+        if ($request->has('currently_employed')) {
+            $query->where(
+                'currently_employed',
+                filter_var($request->input('currently_employed'), FILTER_VALIDATE_BOOLEAN),
+            );
+        }
+
+        foreach (['mobile_verified' => 'mobile_verified_at', 'email_verified' => 'email_verified_at'] as $param => $column) {
+            if (! $request->has($param)) {
+                continue;
+            }
+
+            if (filter_var($request->input($param), FILTER_VALIDATE_BOOLEAN)) {
+                $query->whereNotNull($column);
+            } else {
+                $query->whereNull($column);
+            }
+        }
+
+        if ($request->filled('date_from')) {
+            $query->where('created_at', '>=', $request->input('date_from'));
+        }
+
+        if ($request->filled('date_to')) {
+            $query->where('created_at', '<=', $request->input('date_to'));
+        }
 
         $query->orderBy(
             ListQuery::sort($request, self::SORTABLE, 'created_at'),

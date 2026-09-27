@@ -7,7 +7,7 @@ import { DataTablePage } from "@/components/data-table";
 import { ListPageHeader } from "@/components/layout";
 import { fetchCvBank } from "@/features/cv/api";
 import { cvBankColumns } from "@/features/cv/columns";
-import { CV_STATUS_OPTIONS } from "@/features/cv/constants";
+import { CV_STATUS_OPTIONS, YES_NO_OPTIONS } from "@/features/cv/constants";
 import {
     useDataTable,
     useDataTableUrlState,
@@ -36,12 +36,44 @@ export function CvsBankPage() {
                     searchKey: "status_not",
                     type: "string",
                 },
+                {
+                    columnId: "mobile_verified",
+                    searchKey: "mobile_verified",
+                    type: "string",
+                    serialize: (v) =>
+                        v === "true" ? true : v === "false" ? false : undefined,
+                    deserialize: (v) =>
+                        typeof v === "boolean" ? (v ? "true" : "false") : v,
+                },
+                {
+                    columnId: "email_verified",
+                    searchKey: "email_verified",
+                    type: "string",
+                    serialize: (v) =>
+                        v === "true" ? true : v === "false" ? false : undefined,
+                    deserialize: (v) =>
+                        typeof v === "boolean" ? (v ? "true" : "false") : v,
+                },
+                {
+                    columnId: "date_from",
+                    searchKey: "date_from",
+                    type: "string",
+                },
+                {
+                    columnId: "date_to",
+                    searchKey: "date_to",
+                    type: "string",
+                },
             ],
         },
     });
 
     const activeStatus = url.activeValue("status");
     const activeStatusNot = url.activeValue("status_not");
+    const activeMobileVerified = url.activeValue("mobile_verified");
+    const activeEmailVerified = url.activeValue("email_verified");
+    const activeDateFrom = url.activeValue("date_from");
+    const activeDateTo = url.activeValue("date_to");
     const { ensurePageInRange } = url;
 
     const { data, isLoading, isError, isFetching } = useQuery({
@@ -53,6 +85,10 @@ export function CvsBankPage() {
             filter: url.globalFilter,
             status: activeStatus,
             status_not: activeStatusNot,
+            mobile_verified: activeMobileVerified,
+            email_verified: activeEmailVerified,
+            date_from: activeDateFrom,
+            date_to: activeDateTo,
         }),
         queryFn: async () => {
             const { data: response } = await fetchCvBank({
@@ -61,8 +97,22 @@ export function CvsBankPage() {
                 sort: url.activeSort?.id,
                 order: url.activeSort?.desc ? "desc" : "asc",
                 filter: url.globalFilter || undefined,
-                status: activeStatus,
-                status_not: activeStatusNot,
+                status: activeStatus || undefined,
+                status_not: activeStatusNot || undefined,
+                mobile_verified:
+                    activeMobileVerified === "true"
+                        ? true
+                        : activeMobileVerified === "false"
+                          ? false
+                          : undefined,
+                email_verified:
+                    activeEmailVerified === "true"
+                        ? true
+                        : activeEmailVerified === "false"
+                          ? false
+                          : undefined,
+                date_from: activeDateFrom || undefined,
+                date_to: activeDateTo || undefined,
             });
             return response;
         },
@@ -96,7 +146,7 @@ export function CvsBankPage() {
             header={
                 <ListPageHeader
                     title="بانک رزومه"
-                    description="همه رزومه‌های داوطلبان (قابل فیلتر بر اساس وضعیت)"
+                    description="همه رزومه‌های داوطلبان (قابل فیلتر بر اساس وضعیت، تأیید موبایل/ایمیل و تاریخ)"
                 />
             }
             searchPlaceholder="جستجوی رزومه..."
@@ -111,6 +161,28 @@ export function CvsBankPage() {
                     type: "select",
                     options: CV_STATUS_OPTIONS,
                     negatable: true,
+                },
+                {
+                    id: "mobile_verified",
+                    label: "تأیید موبایل",
+                    type: "select",
+                    options: YES_NO_OPTIONS,
+                },
+                {
+                    id: "email_verified",
+                    label: "تأیید ایمیل",
+                    type: "select",
+                    options: YES_NO_OPTIONS,
+                },
+                {
+                    id: "date_from",
+                    label: "از تاریخ",
+                    type: "date",
+                },
+                {
+                    id: "date_to",
+                    label: "تا تاریخ",
+                    type: "date",
                 },
             ]}
             actions={[

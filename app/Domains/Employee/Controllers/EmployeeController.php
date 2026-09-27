@@ -72,12 +72,30 @@ class EmployeeController
 
         ListQuery::search($query, ListQuery::filter($request), self::SEARCHABLE);
 
+        ListQuery::validateDateFilters($request, ['hire_date_from', 'hire_date_to']);
+
         if ($request->filled('status')) {
             $query->where('employment_status', $request->input('status'));
         }
 
         if ($request->filled('status_not')) {
             $query->where('employment_status', '!=', $request->input('status_not'));
+        }
+
+        if ($request->filled('employment_type')) {
+            $query->where('employment_type', $request->input('employment_type'));
+        }
+
+        if ($request->filled('gender')) {
+            $query->where('gender', $request->input('gender'));
+        }
+
+        if ($request->filled('hire_date_from')) {
+            $query->where('hire_date', '>=', $request->input('hire_date_from'));
+        }
+
+        if ($request->filled('hire_date_to')) {
+            $query->where('hire_date', '<=', $request->input('hire_date_to'));
         }
 
         $query->orderBy(

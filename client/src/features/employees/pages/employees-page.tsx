@@ -12,6 +12,8 @@ import {
     fetchEmployees,
 } from "@/features/employees/api";
 import { employeeColumns } from "@/features/employees/columns";
+import { employmentLabels } from "@/features/employees/constants";
+import { useFormOptionsByGroup } from "@/features/form-options/hooks/use-form-options";
 import { DataTablePage } from "@/components/data-table";
 import { ListPageHeader } from "@/components/layout";
 import {
@@ -68,12 +70,36 @@ export function EmployeesPage() {
                     searchKey: "status_not",
                     type: "string",
                 },
+                {
+                    columnId: "employment_type",
+                    searchKey: "employment_type",
+                    type: "string",
+                },
+                {
+                    columnId: "gender",
+                    searchKey: "gender",
+                    type: "string",
+                },
+                {
+                    columnId: "hire_date_from",
+                    searchKey: "hire_date_from",
+                    type: "string",
+                },
+                {
+                    columnId: "hire_date_to",
+                    searchKey: "hire_date_to",
+                    type: "string",
+                },
             ],
         },
     });
 
     const activeStatus = url.activeValue("employment_status");
     const activeStatusNot = url.activeValue("employment_status_not");
+    const activeEmploymentType = url.activeValue("employment_type");
+    const activeGender = url.activeValue("gender");
+    const activeHireDateFrom = url.activeValue("hire_date_from");
+    const activeHireDateTo = url.activeValue("hire_date_to");
     const { ensurePageInRange } = url;
 
     const statusFilterOptions = [
@@ -81,6 +107,16 @@ export function EmployeesPage() {
         { label: "غیرفعال", value: "inactive" },
         { label: "تعلیق", value: "suspended" },
     ];
+
+    const employmentTypeFilterOptions = Object.entries(employmentLabels).map(
+        ([value, label]) => ({ value, label }),
+    );
+
+    const { data: genderOptions } = useFormOptionsByGroup("gender");
+    const genderFilterOptions = (genderOptions ?? []).map((option) => ({
+        value: option.value,
+        label: option.label,
+    }));
 
     const { data: exportFields, isLoading: exportFieldsLoading } = useQuery({
         queryKey: ["employee-export-fields"],
@@ -112,6 +148,10 @@ export function EmployeesPage() {
             filter: url.globalFilter,
             status: activeStatus,
             status_not: activeStatusNot,
+            employment_type: activeEmploymentType,
+            gender: activeGender,
+            hire_date_from: activeHireDateFrom,
+            hire_date_to: activeHireDateTo,
         }),
         queryFn: async () => {
             const { data: response } = await fetchEmployees({
@@ -120,8 +160,12 @@ export function EmployeesPage() {
                 sort: url.activeSort?.id,
                 order: url.activeSort?.desc ? "desc" : "asc",
                 filter: url.globalFilter || undefined,
-                status: activeStatus,
-                status_not: activeStatusNot,
+                status: activeStatus || undefined,
+                status_not: activeStatusNot || undefined,
+                employment_type: activeEmploymentType || undefined,
+                gender: activeGender || undefined,
+                hire_date_from: activeHireDateFrom || undefined,
+                hire_date_to: activeHireDateTo || undefined,
             });
             return response;
         },
@@ -203,6 +247,28 @@ export function EmployeesPage() {
                         type: "select",
                         options: statusFilterOptions,
                         negatable: true,
+                    },
+                    {
+                        id: "employment_type",
+                        label: "نوع استخدام",
+                        type: "select",
+                        options: employmentTypeFilterOptions,
+                    },
+                    {
+                        id: "gender",
+                        label: "جنسیت",
+                        type: "select",
+                        options: genderFilterOptions,
+                    },
+                    {
+                        id: "hire_date_from",
+                        label: "از تاریخ استخدام",
+                        type: "date",
+                    },
+                    {
+                        id: "hire_date_to",
+                        label: "تا تاریخ استخدام",
+                        type: "date",
                     },
                 ]}
                 actions={[
