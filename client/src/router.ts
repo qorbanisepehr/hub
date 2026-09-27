@@ -37,6 +37,7 @@ import { Route as QuestionnaireBankDetailRoute } from "@/routes/_protected/quest
 import { Route as AuditRoute } from "@/routes/_protected/audit/index";
 import { Route as AuditLogDetailRoute } from "@/routes/_protected/audit/$logId";
 import { Route as AuditRetentionRoute } from "@/routes/_protected/audit/retention";
+import { Route as NotificationsRoute } from "@/routes/_protected/notifications/index";
 
 const routeTree = RootRoute.addChildren([
     PublicRoute.addChildren([
@@ -75,6 +76,7 @@ const routeTree = RootRoute.addChildren([
         AuditRoute,
         AuditLogDetailRoute,
         AuditRetentionRoute,
+        NotificationsRoute,
     ]),
 ]);
 
