@@ -114,23 +114,6 @@ return [
             // 'trust_server_certificate' => env('DB_TRUST_SERVER_CERTIFICATE', 'false'),
         ],
 
-        // Read-only TCK source archive (decision K6): a Postgres dump with
-        // the letters/board_meetings/tags tables, consumed only by the
-        // one-time `ingest:import-from-source` command. Credentials in .env.
-        'tck_source' => [
-            'driver' => 'pgsql',
-            'host' => env('TCK_DB_HOST', '127.0.0.1'),
-            'port' => env('TCK_DB_PORT', '5434'),
-            'database' => env('TCK_DB_DATABASE', 'tck'),
-            'username' => env('TCK_DB_USERNAME', 'postgres'),
-            'password' => env('TCK_DB_PASSWORD', ''),
-            'charset' => 'utf8',
-            'prefix' => '',
-            'prefix_indexes' => true,
-            'search_path' => 'public',
-            'sslmode' => 'prefer',
-        ],
-
     ],
 
     /*
