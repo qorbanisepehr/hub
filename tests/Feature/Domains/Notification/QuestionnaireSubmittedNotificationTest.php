@@ -58,7 +58,7 @@ describe('questionnaire.submitted notification pipeline', function () {
             $viewer,
             QuestionnaireSubmittedNotification::class,
             function (QuestionnaireSubmittedNotification $notification, array $channels) use ($questionnaire, $viewer): bool {
-                expect($channels)->toBe(['database']);
+                expect($channels)->toBe(['database', 'broadcast']);
                 expect($notification->toDatabase($viewer))->toBe([
                     'questionnaire_id' => (string) $questionnaire->id,
                     'resource' => [
