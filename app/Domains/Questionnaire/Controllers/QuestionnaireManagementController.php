@@ -10,10 +10,12 @@ use App\Domains\Questionnaire\Resources\QuestionnaireResource;
 use App\Domains\Questionnaire\Services\QuestionnaireService;
 use App\Support\Exports\DocumentExportService;
 use App\Support\ListQuery;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Routing\Controller;
+use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class QuestionnaireManagementController extends Controller
@@ -111,9 +113,7 @@ class QuestionnaireManagementController extends Controller
 
     public function show(Request $request, string $questionnaire): JsonResponse
     {
-        $model = Questionnaire::where('uuid', $questionnaire)
-            ->orWhere('id', $questionnaire)
-            ->firstOrFail();
+        $model = $this->resolveQuestionnaire($questionnaire);
 
         $this->authorization->authorize($request->user(), 'questionnaire.view', $model);
 
@@ -128,9 +128,7 @@ class QuestionnaireManagementController extends Controller
      */
     public function document(Request $request, string $questionnaire): StreamedResponse|JsonResponse
     {
-        $model = Questionnaire::where('uuid', $questionnaire)
-            ->orWhere('id', $questionnaire)
-            ->firstOrFail();
+        $model = $this->resolveQuestionnaire($questionnaire);
 
         $this->authorization->authorize($request->user(), 'questionnaire.view', $model);
 
@@ -153,5 +151,24 @@ class QuestionnaireManagementController extends Controller
             'Content-Type' => $file->mimeType,
             'Cache-Control' => 'no-store',
         ]);
+    }
+
+    /**
+     * Resolve a questionnaire by its stable uuid or its numeric id. The two
+     * lookups never share an OR branch: on PostgreSQL a uuid column
+     * comparison with a plain integer aborts the whole query (22P02), so
+     * the shape of the reference decides which column is queried.
+     */
+    private function resolveQuestionnaire(string $questionnaire): Questionnaire
+    {
+        if (Str::isUuid($questionnaire)) {
+            return Questionnaire::where('uuid', $questionnaire)->firstOrFail();
+        }
+
+        if (! ctype_digit($questionnaire)) {
+            throw new ModelNotFoundException;
+        }
+
+        return Questionnaire::where('id', (int) $questionnaire)->firstOrFail();
     }
 }

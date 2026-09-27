@@ -67,6 +67,29 @@ describe('questionnaire management authorization', function () {
             ->assertJsonPath('data.status', 'submitted');
     });
 
+    it('resolves the management detail by uuid or numeric id', function () {
+        $user = createUserWithPermissions(['questionnaire.view']);
+        $questionnaire = createQuestionnaire('submitted');
+
+        $this->actingAs($user)
+            ->getJson("/api/questionnaires/{$questionnaire->uuid}")
+            ->assertOk()
+            ->assertJsonPath('data.id', $questionnaire->id);
+
+        $this->actingAs($user)
+            ->getJson("/api/questionnaires/{$questionnaire->id}")
+            ->assertOk()
+            ->assertJsonPath('data.id', $questionnaire->id);
+    });
+
+    it('returns 404 for a malformed questionnaire reference', function () {
+        $user = createUserWithPermissions(['questionnaire.view']);
+
+        $this->actingAs($user)
+            ->getJson('/api/questionnaires/not-a-real-reference')
+            ->assertStatus(404);
+    });
+
     it('denies review without the questionnaire.review permission', function () {
         $user = createUserWithPermissions(['questionnaire.view']);
         $questionnaire = createQuestionnaire('submitted');

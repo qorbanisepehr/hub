@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import {
     DropdownMenu,
     DropdownMenuContent,
+    DropdownMenuGroup,
     DropdownMenuItem,
     DropdownMenuLabel,
     DropdownMenuSeparator,
@@ -87,22 +88,24 @@ export function NotificationsBell() {
                 sideOffset={8}
                 className="w-80 p-0 sm:w-96"
             >
-                <DropdownMenuLabel className="flex items-center justify-between px-3 py-2.5">
-                    <span className="text-sm font-medium text-foreground">
-                        اعلان‌ها
-                    </span>
-                    {count > 0 && (
-                        <button
-                            type="button"
-                            onClick={() => markAll.mutate()}
-                            disabled={markAll.isPending}
-                            className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-primary transition-colors hover:bg-accent disabled:opacity-50"
-                        >
-                            <IconChecklist className="size-3.5" />
-                            خواندن همه
-                        </button>
-                    )}
-                </DropdownMenuLabel>
+                <DropdownMenuGroup>
+                    <DropdownMenuLabel className="flex items-center justify-between px-3 py-2.5">
+                        <span className="text-sm font-medium text-foreground">
+                            اعلان‌ها
+                        </span>
+                        {count > 0 && (
+                            <button
+                                type="button"
+                                onClick={() => markAll.mutate()}
+                                disabled={markAll.isPending}
+                                className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-primary transition-colors hover:bg-accent disabled:opacity-50"
+                            >
+                                <IconChecklist className="size-3.5" />
+                                خواندن همه
+                            </button>
+                        )}
+                    </DropdownMenuLabel>
+                </DropdownMenuGroup>
                 <DropdownMenuSeparator className="mx-0" />
 
                 <div className="max-h-96 overflow-y-auto">
