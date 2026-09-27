@@ -162,6 +162,23 @@ return [
             ],
         ],
 
+        'board-meeting' => [
+            'name' => 'Board Meetings',
+            'permissions' => [
+                'board-meeting.view' => 'View board meetings',
+                'board-meeting.update' => 'Update board meetings',
+                'board-meeting.sync' => 'Run board meeting synchronization',
+            ],
+        ],
+
+        'tag' => [
+            'name' => 'Tags',
+            'permissions' => [
+                'tag.view' => 'View tags',
+                'tag.manage' => 'Create, update, and delete tags',
+            ],
+        ],
+
     ],
 
 ];
