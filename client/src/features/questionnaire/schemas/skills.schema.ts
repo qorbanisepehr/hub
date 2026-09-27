@@ -4,10 +4,10 @@ import { numberField, requiredText, text } from "@/lib/zod-primitives";
 
 export const languageSkillSchema = z.object({
     language: requiredText("نام زبان الزامی است.", 50),
-    reading: numberField(1, "سطح خواندن الزامی است.", 4),
-    writing: numberField(1, "سطح نوشتن الزامی است.", 4),
-    speaking: numberField(1, "سطح صحبت کردن الزامی است.", 4),
-    comprehension: numberField(1, "سطح درک مطلب الزامی است.", 4),
+    reading: numberField(0, "سطح خواندن الزامی است.", 100),
+    writing: numberField(0, "سطح نوشتن الزامی است.", 100),
+    speaking: numberField(0, "سطح صحبت کردن الزامی است.", 100),
+    comprehension: numberField(0, "سطح درک مطلب الزامی است.", 100),
 });
 
 export type LanguageSkillFormData = z.infer<typeof languageSkillSchema>;
