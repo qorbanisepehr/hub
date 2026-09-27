@@ -3,7 +3,7 @@
 namespace App\Domains\Tagging\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\MorphToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * A general-purpose tag (K3 = shared tagging service). Polymorphic via the
@@ -16,13 +16,13 @@ class Tag extends Model
     protected $fillable = ['name', 'slug'];
 
     /**
-     * Domains declare their own `tags(): MorphToMany` using
-     * `morphedByMany(..., 'taggable')`; these reverse relations are kept
-     * here only for pivot integrity helpers and tests.
+     * Attachments across every taggable type. A plain pivot-model relation
+     * (not a MorphToMany, which would constrain taggable_type to Tag) so
+     * `withCount('taggables')` reports true usage counts.
      */
-    public function taggables(): MorphToMany
+    public function taggables(): HasMany
     {
-        return $this->morphToMany(Tag::class, 'taggable');
+        return $this->hasMany(TaggablePivot::class);
     }
 
     public function scopeSlugs($query, array $slugs)
