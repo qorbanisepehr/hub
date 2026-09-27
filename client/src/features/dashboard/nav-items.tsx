@@ -15,6 +15,7 @@ import {
     IconShield,
     IconUsers,
     IconCalendarStats,
+    IconGavel,
 } from "@tabler/icons-react";
 
 import { PERMISSIONS } from "@/lib/permissions";
@@ -142,6 +143,12 @@ export const NAV_ITEMS: NavItem[] = [
         url: "/reports/unified-inbox",
         icon: <IconInbox />,
         permission: PERMISSIONS.REPORT_UNIFIED_INBOX_VIEW,
+    },
+    {
+        title: "جلسات هیئت مدیره",
+        url: "/board-meetings",
+        icon: <IconGavel />,
+        permission: PERMISSIONS.BOARD_MEETING_VIEW,
     },
 ];
 

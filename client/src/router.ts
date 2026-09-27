@@ -40,6 +40,8 @@ import { Route as AuditRetentionRoute } from "@/routes/_protected/audit/retentio
 import { Route as NotificationsRoute } from "@/routes/_protected/notifications/index";
 import { Route as ReportsAttendanceRoute } from "@/routes/_protected/reports/attendance";
 import { Route as ReportsUnifiedInboxRoute } from "@/routes/_protected/reports/unified-inbox";
+import { Route as BoardMeetingsRoute } from "@/routes/_protected/board-meetings/index";
+import { Route as BoardMeetingDetailRoute } from "@/routes/_protected/board-meetings/$meetingId";
 
 const routeTree = RootRoute.addChildren([
     PublicRoute.addChildren([
@@ -81,6 +83,8 @@ const routeTree = RootRoute.addChildren([
         NotificationsRoute,
         ReportsAttendanceRoute,
         ReportsUnifiedInboxRoute,
+        BoardMeetingsRoute,
+        BoardMeetingDetailRoute,
     ]),
 ]);
 
