@@ -16,6 +16,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
     useMarkAllNotificationsRead,
     useMarkNotificationRead,
+    useNotificationChannel,
     useNotifications,
     useUnreadCount,
 } from "@/features/notifications/hooks";
@@ -32,11 +33,15 @@ const SKELETON_ROWS = [0, 1, 2] as const;
  * Header bell: backend-authoritative unread badge + a dropdown of the most
  * recent notifications. Opening the panel reconciles list and count with the
  * API (architecture §54, §56); marking items read is idempotent by
- * notification id (§55). Realtime (Reverb) replaces the poll later (Phase 3).
+ * notification id (§55). Realtime (Reverb) invalidates the queries on
+ * `notification.created` when configured; otherwise the 60s poll covers it
+ * (§29/§30).
  */
 export function NotificationsBell() {
     const navigate = useNavigate();
     const [open, setOpen] = useState(false);
+
+    useNotificationChannel();
 
     const unreadCount = useUnreadCount();
     const count = unreadCount.data ?? 0;
