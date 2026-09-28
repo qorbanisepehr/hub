@@ -11,7 +11,8 @@ export function fetchBoardMeetings(params: BoardMeetingListParams) {
 }
 
 export function fetchBoardMeeting(id: number | string) {
-    return api.get<BoardMeetingDetailResponse>(`/board-meetings/${id}`);
+    // Standard envelope: the meeting object rides `data`.
+    return api.get<{ data: BoardMeetingDetailResponse }>(`/board-meetings/${id}`);
 }
 
 /**
