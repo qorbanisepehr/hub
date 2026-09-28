@@ -17,13 +17,6 @@ import { ConfirmDeleteButton } from "@/components/ui/confirm-delete-button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { EmptyState } from "@/components/layout";
@@ -33,9 +26,6 @@ import {
     useUploadMeetingDocument,
 } from "../hooks";
 import type { MeetingDocumentDto } from "../types";
-import { fetchDocumentCategories } from "@/features/documents/api";
-import { documentKeys } from "@/lib/query-keys";
-import { useQuery } from "@tanstack/react-query";
 import { getApiError } from "@/lib/error-utils";
 import { formatBytes } from "@/lib/file-utils";
 
@@ -172,7 +162,7 @@ function MeetingDocumentRow({
     );
 }
 
-/** Upload dialog: category + file (+ optional notes). Flat placement. */
+/** Upload dialog: file + optional notes (category is fixed server-side). */
 function MeetingUploadDialog({
     meetingId,
     open,
@@ -185,24 +175,13 @@ function MeetingUploadDialog({
     isPending: boolean;
 }) {
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const [categoryId, setCategoryId] = useState("");
     const [file, setFile] = useState<File | null>(null);
     const [notes, setNotes] = useState("");
     const [error, setError] = useState<string | null>(null);
 
     const upload = useUploadMeetingDocument(meetingId);
 
-    const { data: categories } = useQuery({
-        queryKey: documentKeys.categories(),
-        queryFn: async () => {
-            const { data } = await fetchDocumentCategories();
-            return data.data;
-        },
-        enabled: open,
-    });
-
     function reset() {
-        setCategoryId("");
         setFile(null);
         setNotes("");
         setError(null);
@@ -212,13 +191,12 @@ function MeetingUploadDialog({
     }
 
     function handleSubmit() {
-        if (!file || categoryId === "") {
-            setError("فایل و دسته‌بندی مدرک الزامی است");
+        if (!file) {
+            setError("انتخاب فایل الزامی است");
             return;
         }
 
         const formData = new FormData();
-        formData.append("document_category_id", categoryId);
         formData.append("file", file);
         if (notes.trim() !== "") {
             formData.append("notes", notes.trim());
@@ -246,30 +224,6 @@ function MeetingUploadDialog({
                 </DialogHeader>
 
                 <div className="grid gap-4 py-2">
-                    <div className="grid gap-2">
-                        <Label>دسته‌بندی مدرک</Label>
-                        <Select
-                            value={categoryId || null}
-                            onValueChange={(value: string | null) =>
-                                setCategoryId(value ?? "")
-                            }
-                        >
-                            <SelectTrigger className="w-full">
-                                <SelectValue placeholder="انتخاب دسته‌بندی…" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {(categories ?? []).map((category) => (
-                                    <SelectItem
-                                        key={category.id}
-                                        value={String(category.id)}
-                                    >
-                                        {category.name}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
-
                     <div className="grid gap-2">
                         <Label>فایل</Label>
                         <Input
@@ -310,7 +264,7 @@ function MeetingUploadDialog({
                     <Button
                         type="button"
                         onClick={handleSubmit}
-                        disabled={isPending || !file || categoryId === ""}
+                        disabled={isPending || !file}
                     >
                         <IconFileUpload className="size-4" />
                         بارگذاری
