@@ -47,7 +47,12 @@ class AuthController
 
         $channel = $this->authService->channelFor($request->identifier);
 
-        $status = $this->otpService->sendWithCooldown($user, $channel, OtpContext::Login);
+        $status = $this->otpService->sendWithCooldown(
+            $user,
+            $channel,
+            OtpContext::Login,
+            $channel === 'email' ? $user->email : null,
+        );
 
         $response = $this->respondToSend($user, $channel, OtpContext::Login, $status);
 

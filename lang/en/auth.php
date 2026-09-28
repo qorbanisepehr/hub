@@ -11,4 +11,10 @@ return [
     'locked' => 'Account locked due to too many failed attempts. Try again in :seconds seconds.',
     'inactive' => 'Your account is inactive. Please contact the administrator.',
     'password_changed' => 'Password changed successfully.',
+
+    'email_otp_subject' => 'Your login verification code',
+    'email_otp_greeting' => 'Hello,',
+    'email_otp_body' => 'Your verification code to sign in:',
+    'email_otp_expiry' => 'This code is valid for :minutes minutes.',
+    'email_otp_salutation' => 'Best regards,',
 ];

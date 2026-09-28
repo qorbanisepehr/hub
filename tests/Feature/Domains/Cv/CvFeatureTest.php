@@ -11,10 +11,12 @@ use App\Enums\GrantPurpose;
 use App\Enums\OtpContext;
 use App\Models\PendingVerification;
 use App\Services\OtpService;
+use App\Support\Mail\OtpMail;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 
 /**
@@ -450,6 +452,34 @@ describe('CV OTP endpoints (existing record)', function () {
         ]);
 
         $this->assertNotNull(Cv::where('uuid', $uuid)->value('email_verified_at'));
+    });
+
+    it('queues the OtpMail to the staged email on send-email-otp', function () {
+        $uuid = createCvDraft();
+
+        Mail::fake();
+
+        $this->postJson("/api/cv/{$uuid}/send-email-otp", [
+            'email' => 'new@example.com',
+        ])->assertOk()
+            ->assertJsonPath('code_sent', true);
+
+        Mail::assertQueued(
+            OtpMail::class,
+            fn (OtpMail $mail): bool => $mail->hasTo('new@example.com'),
+        );
+    });
+
+    it('does not queue mail when send-email-otp has no staged email', function () {
+        $uuid = createCvDraft();
+
+        Mail::fake();
+
+        $this->postJson("/api/cv/{$uuid}/send-email-otp")
+            ->assertOk()
+            ->assertJsonPath('code_sent', true);
+
+        Mail::assertNothingQueued();
     });
 });
 
