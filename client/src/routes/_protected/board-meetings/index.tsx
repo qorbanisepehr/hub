@@ -14,6 +14,7 @@ const BoardMeetingsPage = lazy(() =>
 );
 
 const boardMeetingsSearchSchema = paginatedSearchSchema({
+    tags: z.array(z.string()).optional(),
     date_from: z.string().optional(),
     date_to: z.string().optional(),
 });

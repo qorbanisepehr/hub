@@ -1,1 +1,7 @@
-export { useBoardMeetings, useBoardMeeting } from "./use-board-meetings";
+export {
+    useBoardMeetings,
+    useBoardMeeting,
+    useMeetingDocuments,
+    useUploadMeetingDocument,
+    useDeleteMeetingDocument,
+} from "./use-board-meetings";

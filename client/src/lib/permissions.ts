@@ -89,6 +89,16 @@ export const PERMISSIONS = {
     BOARD_MEETING_VIEW: "board-meeting.view",
     BOARD_MEETING_UPDATE: "board-meeting.update",
     BOARD_MEETING_SYNC: "board-meeting.sync",
+
+    // Board Meeting Documents
+    BOARD_MEETING_DOCUMENTS_VIEW: "board-meeting.documents.view",
+    BOARD_MEETING_DOCUMENTS_UPLOAD: "board-meeting.documents.upload",
+    BOARD_MEETING_DOCUMENTS_DOWNLOAD: "board-meeting.documents.download",
+    BOARD_MEETING_DOCUMENTS_DELETE: "board-meeting.documents.delete",
+
+    // Tags
+    TAG_VIEW: "tag.view",
+    TAG_MANAGE: "tag.manage",
 } as const;
 
 export type PermissionValue = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];

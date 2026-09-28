@@ -133,6 +133,16 @@ export const boardMeetingKeys = {
     details: () => [...boardMeetingKeys.all, "detail"] as const,
     detail: (id: number | string) =>
         [...boardMeetingKeys.details(), id] as const,
+    documents: (meetingId: number | string) =>
+        ["board-meeting-documents", meetingId] as const,
+};
+
+export const tagKeys = {
+    all: ["tags"] as const,
+    lists: () => [...tagKeys.all, "list"] as const,
+    list: (params: Record<string, unknown>) =>
+        [...tagKeys.lists(), params] as const,
+    options: () => [...tagKeys.all, "options"] as const,
 };
 
 export const formOptionKeys = {
