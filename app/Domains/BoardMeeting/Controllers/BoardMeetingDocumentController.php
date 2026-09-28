@@ -47,7 +47,9 @@ class BoardMeetingDocumentController extends Controller
 
     public function store(StoreBoardMeetingDocumentRequest $request, BoardMeeting $meeting): JsonResponse
     {
-        $category = DocumentCategory::findOrFail($request->integer('document_category_id'));
+        // Category is fixed for meetings (idea basket, 2026-09-28): the
+        // request resolves the approvals category; the UI needs no picker.
+        $category = DocumentCategory::findOrFail($request->resolvedCategoryId());
 
         $this->authorizeRequest(
             $request,
