@@ -15,11 +15,13 @@ uses(RefreshDatabase::class);
 
 function meetingDocumentCategory(string $slug = 'approval-letter'): DocumentCategory
 {
-    return DocumentCategory::create([
-        'name' => 'نامه مصوبه',
-        'slug' => $slug,
-        'type' => DocumentCategory::TYPE_PERSONNEL,
-    ]);
+    // The meeting upload endpoint no longer takes a category from the
+    // client (fixed category, resolved server-side); tests seed the
+    // fixed one only when they want to assert against a known row.
+    return DocumentCategory::query()->firstOrCreate(
+        ['slug' => 'board-meeting-approvals'],
+        ['name' => 'مصوبات جلسات هیئت مدیره', 'type' => DocumentCategory::TYPE_PERSONNEL, 'sort_order' => 90],
+    );
 }
 
 describe('GET /api/board-meetings/{meeting}/documents', function () {
@@ -52,8 +54,8 @@ describe('GET /api/board-meetings/{meeting}/documents', function () {
 
         $document = $response->json('data.0');
 
-        expect($document['structure_name'])->toBe('1404-05-01 — نامه مصوبه')
-            ->and($document['category']['slug'])->toBe('approval-letter')
+        expect($document['structure_name'])->toBe('1404-05-01 — مصوبات جلسات هیئت مدیره')
+            ->and($document['category']['slug'])->toBe('board-meeting-approvals')
             ->and($document['url'])->toContain('/board-meetings/documents/')
             ->and($response->json('capabilities.view'))->toBeTrue()
             ->and($response->json('capabilities.download'))->toBeTrue()
@@ -78,7 +80,7 @@ describe('POST /api/board-meetings/{meeting}/documents', function () {
 
         $data = $response->json('data');
 
-        expect($data['structure_name'])->toBe('1404-05-01 — نامه مصوبه')
+        expect($data['structure_name'])->toBe('1404-05-01 — مصوبات جلسات هیئت مدیره')
             ->and($data['notes'])->toBe('صورتجلسه امضاشده')
             ->and($data['deleted_at'])->toBeNull();
 
@@ -88,14 +90,34 @@ describe('POST /api/board-meetings/{meeting}/documents', function () {
         Storage::disk('local')->assertExists($path);
     });
 
-    it('validates the file and category', function () {
+    it('validates the file (category is fixed and not client-chosen)', function () {
         $meeting = BoardMeeting::factory()->create();
         $user = createUserWithPermissions(['board-meeting.documents.upload']);
 
         actingAs($user)
             ->postJson("/api/board-meetings/{$meeting->id}/documents", [])
             ->assertUnprocessable()
-            ->assertJsonValidationErrors(['document_category_id', 'file']);
+            ->assertJsonValidationErrors(['file']);
+    });
+
+    it('ignores a legacy client-supplied category and uses the fixed one', function () {
+        Storage::fake('local');
+        $meeting = BoardMeeting::factory()->create();
+        $user = createUserWithPermissions(['board-meeting.documents.upload']);
+        $foreign = DocumentCategory::create([
+            'name' => 'دستهٔ بیگانه',
+            'slug' => 'foreign-slug',
+            'type' => DocumentCategory::TYPE_PERSONNEL,
+        ]);
+
+        $response = actingAs($user)
+            ->postJson("/api/board-meetings/{$meeting->id}/documents", [
+                'document_category_id' => $foreign->id,
+                'file' => UploadedFile::fake()->createWithContent('a.pdf', 'x'),
+            ])
+            ->assertCreated();
+
+        expect($response->json('data.category.slug'))->toBe('board-meeting-approvals');
     });
 
     it('rejects files over the board-meeting size limit', function () {
