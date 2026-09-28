@@ -5,7 +5,6 @@ namespace App\Domains\BoardMeeting\Services;
 use App\Domains\BoardMeeting\Models\BoardMeeting;
 use App\Domains\Ingest\Models\IntegrationRecord;
 use App\Support\External\PersianDateTime;
-use Illuminate\Support\Facades\Storage;
 
 /**
  * Stage 2b of the confirmed ETL pipeline: generic records → meeting
@@ -26,6 +25,7 @@ readonly class MeetingProjection
 {
     public function __construct(
         private MeetingNumberService $numbers,
+        private ArchiveListing $archive,
     ) {}
 
     /**
@@ -67,7 +67,6 @@ readonly class MeetingProjection
 
             $sessionMinutes = $sessions[$pdate]['minutes'] ?? [];
             $meta = $sessions[$pdate]['meta'] ?? [];
-            $documents = $this->documentsFor($pdate);
 
             $values = [
                 'date' => PersianDateTime::parse($pdate)?->toDateString(),
@@ -77,8 +76,7 @@ readonly class MeetingProjection
                 'minutes_from_letters' => $minutesFromLetters,
                 'minutes_hash' => $hash,
                 'minutes_from_heyat_modire' => $sessionMinutes,
-                'documents' => $documents,
-                'number' => $this->numbers->fromFilenames($documents),
+                'number' => $this->numbers->fromFilenames($this->archive->forDate($pdate)),
                 'meta' => $meta,
                 'synced_at' => now(),
             ];
@@ -165,24 +163,5 @@ readonly class MeetingProjection
         }
 
         return $minutes;
-    }
-
-    /**
-     * Document filenames matching this meeting's Jalali date. The real
-     * archive lives on the storage disk (Phase 4 wires it to the Document
-     * system); until then filenames come from the configured path.
-     *
-     * @return list<string>
-     */
-    private function documentsFor(string $pdate): array
-    {
-        $disk = Storage::disk(
-            (string) config('board-meeting.archive_disk', 'local'),
-        );
-
-        return array_values(array_filter(
-            $disk->allFiles((string) config('board-meeting.archive_path', 'archive/approvals')),
-            fn (string $file) => str_contains($file, $pdate),
-        ));
     }
 }

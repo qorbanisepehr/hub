@@ -24,6 +24,7 @@ final class BoardMeeting extends Model implements Documentable
 
     /** @use HasFactory<BoardMeetingFactory> */
     use HasFactory;
+
     use Taggable;
 
     protected $fillable = [
@@ -35,7 +36,6 @@ final class BoardMeeting extends Model implements Documentable
         'minutes_from_letters',
         'minutes_hash',
         'minutes_from_heyat_modire',
-        'documents',
         'meta',
         'synced_at',
     ];
@@ -46,7 +46,6 @@ final class BoardMeeting extends Model implements Documentable
             'date' => 'date',
             'minutes_from_letters' => 'array',
             'minutes_from_heyat_modire' => 'array',
-            'documents' => 'array',
             'meta' => 'array',
             'synced_at' => 'datetime',
         ];
@@ -54,8 +53,8 @@ final class BoardMeeting extends Model implements Documentable
 
     /**
      * Approval PDFs and meeting documents live in the hub Document system
-     * (decision K4); the imported `documents` JSONB filenames are the
-     * source-side archive listing (binaries on the TCK server).
+     * (decision K4); the source-side archive listing is derived at read
+     * time from the archive disk — see ArchiveListing.
      */
     public function getDocumentConfigKey(): ?string
     {

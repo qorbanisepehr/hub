@@ -26,7 +26,6 @@ class BoardMeetingFactory extends Factory
             'minutes_from_letters' => ['متن صورتجلسه نمونه'],
             'minutes_hash' => hash('sha256', 'متن صورتجلسه نمونه'),
             'minutes_from_heyat_modire' => null,
-            'documents' => [],
             'meta' => [],
             'synced_at' => now(),
         ];

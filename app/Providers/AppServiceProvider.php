@@ -8,6 +8,7 @@ use App\Contracts\External\AttendanceGateway;
 use App\Contracts\External\InboxGateway;
 use App\Domains\Authorization\Policies\DynamicPolicy;
 use App\Domains\Authorization\Services\AuthorizationService;
+use App\Domains\BoardMeeting\Services\ArchiveListing;
 use App\Domains\Cv\Repositories\CvRepository;
 use App\Domains\Cv\Repositories\CvRepositoryInterface;
 use App\Domains\Document\Repositories\DocumentRepository;
@@ -83,6 +84,11 @@ class AppServiceProvider extends ServiceProvider
 
         // Sender identity resolution: external username → HR Hub user.
         $this->app->bind(SenderIdentityResolver::class);
+
+        // The meeting archive listing scans the archive disk; a singleton
+        // makes the per-request memo actually span the request (the list
+        // resource resolves it per item).
+        $this->app->singleton(ArchiveListing::class);
 
         // Ingest normalizers (sync pipeline, generic records layer): one
         // per entity type; adding a synced entity = class + registration.
