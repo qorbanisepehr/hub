@@ -129,7 +129,7 @@ class QuestionnaireController extends Controller
 
         $pendingEmail = $data['email'] ?? null;
 
-        $status = $this->otpService->sendWithCooldown($questionnaire, 'email', OtpContext::VerifyEmail);
+        $status = $this->otpService->sendWithCooldown($questionnaire, 'email', OtpContext::VerifyEmail, $pendingEmail);
 
         if ($pendingEmail !== null && $status === OtpSendStatus::Sent) {
             $this->otpService->storePendingValue($questionnaire, 'email', OtpContext::VerifyEmail, $pendingEmail);

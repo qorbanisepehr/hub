@@ -7,18 +7,29 @@ use App\Enums\GrantPurpose;
 use App\Enums\OtpContext;
 use App\Enums\OtpSendStatus;
 use App\Enums\OtpVerifyStatus;
+use App\Support\Mail\OtpMail;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 
 class OtpService
 {
-    public function send(OtpVerifiable $entity, string $channel, OtpContext $context): string
+    /**
+     * Issue a code for the given channel and context, storing only its hash.
+     *
+     * When the channel is `email` and a recipient is given, the plaintext code
+     * is delivered by queueing an `OtpMail` to that recipient. This method is
+     * the single place where the plaintext code exists, so delivery happens
+     * here and nowhere else. Mobile channels have no delivery yet.
+     */
+    public function send(OtpVerifiable $entity, string $channel, OtpContext $context, ?string $recipient = null): string
     {
         $code = $this->generateCode();
-        $expiresAt = now()->addSeconds($this->ttl());
+        $ttl = $this->ttl($channel);
+        $expiresAt = now()->addSeconds($ttl);
 
         Cache::put(
             $this->cacheKey($entity, $channel, $context),
@@ -31,6 +42,10 @@ class OtpService
 
         if (app()->isLocal() || app()->environment('testing')) {
             Log::info("OTP ({$channel}) for {$entity->getOtpIdentifier()}: {$code}");
+        }
+
+        if ($channel === 'email' && $recipient !== null) {
+            Mail::to($recipient)->queue(new OtpMail($code, $ttl));
         }
 
         return $code;
@@ -78,8 +93,11 @@ class OtpService
 
     /**
      * Send an OTP unless one is still valid or the entity is locked out.
+     *
+     * When the email channel is used, `$recipient` (if given) is where the
+     * code is delivered. No mail is sent on `AlreadySent` or `Locked`.
      */
-    public function sendWithCooldown(OtpVerifiable $entity, string $channel, OtpContext $context): OtpSendStatus
+    public function sendWithCooldown(OtpVerifiable $entity, string $channel, OtpContext $context, ?string $recipient = null): OtpSendStatus
     {
         if ($this->isLocked($entity, $channel, $context)) {
             return OtpSendStatus::Locked;
@@ -89,7 +107,7 @@ class OtpService
             return OtpSendStatus::AlreadySent;
         }
 
-        $this->send($entity, $channel, $context);
+        $this->send($entity, $channel, $context, $recipient);
 
         return OtpSendStatus::Sent;
     }
@@ -103,7 +121,7 @@ class OtpService
         Cache::put(
             $this->pendingValueKey($entity, $channel, $context),
             $value,
-            now()->addSeconds($this->ttl()),
+            now()->addSeconds($this->ttl($channel)),
         );
     }
 
@@ -218,9 +236,6 @@ class OtpService
 
     private function generateCode(): string
     {
-        // for demo and don't need commit this
-        return '123456';
-
         $length = config('otp.code_length', 6);
         $min = 10 ** ($length - 1);
         $max = (10 ** $length) - 1;
@@ -228,9 +243,11 @@ class OtpService
         return (string) random_int($min, $max);
     }
 
-    private function ttl(): int
+    private function ttl(string $channel): int
     {
-        return (int) config('otp.ttl', 120);
+        return (int) ($channel === 'email'
+            ? config('otp.ttl_email', 300)
+            : config('otp.ttl', 120));
     }
 
     private function grantTtl(GrantPurpose $purpose): int

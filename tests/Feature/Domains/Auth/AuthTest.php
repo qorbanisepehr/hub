@@ -5,9 +5,11 @@ use App\Domains\Authorization\Models\PermissionGroup;
 use App\Domains\Authorization\Models\Role;
 use App\Domains\Employee\Models\Employee;
 use App\Models\User;
+use App\Support\Mail\OtpMail;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
@@ -36,6 +38,8 @@ describe('auth endpoints', function () {
         it('sends OTP via email', function () {
             $user = User::factory()->create();
 
+            Mail::fake();
+
             $response = $this->postJson('/api/auth/login', [
                 'identifier' => $user->email,
             ]);
@@ -44,6 +48,23 @@ describe('auth endpoints', function () {
                 ->assertJsonStructure(['message', 'destination']);
 
             expect(Cache::has("otp:login:user:{$user->id}:email"))->toBeTrue();
+
+            Mail::assertQueued(
+                OtpMail::class,
+                fn (OtpMail $mail): bool => $mail->hasTo($user->email),
+            );
+        });
+
+        it('does not queue mail for SMS login', function () {
+            $user = User::factory()->create();
+
+            Mail::fake();
+
+            $this->postJson('/api/auth/login', [
+                'identifier' => $user->phone,
+            ])->assertStatus(200);
+
+            Mail::assertNothingQueued();
         });
 
         it('sends OTP via SMS for phone identifier', function () {
