@@ -6,6 +6,7 @@ import { toPersianDate } from "@/lib/date-format";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState, ErrorPage, PageHeader, PageLayout } from "@/components/layout";
+import { MeetingArchiveCard } from "../components/meeting-archive-card";
 import { MeetingDocumentsCard } from "../components/meeting-documents-card";
 import { MeetingTagsCard } from "../components/meeting-tags-card";
 
@@ -96,6 +97,8 @@ export function BoardMeetingDetailPage() {
                 </Card>
 
                 <MeetingDocumentsCard meetingId={String(meetingId)} />
+
+                <MeetingArchiveCard filenames={meeting.documents ?? []} />
 
                 <MeetingTagsCard
                     meetingId={String(meetingId)}
