@@ -10,6 +10,7 @@ use App\Integrations\Farzin\FakeFarzinSource;
 use App\Integrations\Farzin\FarzinGatewayAdapter;
 use App\Integrations\Farzin\FarzinUnavailableException;
 use App\Integrations\Farzin\FarzinVocabulary;
+use App\Integrations\Farzin\SqlsrvFarzinSource;
 use Carbon\CarbonImmutable;
 use RuntimeException;
 use Throwable;
