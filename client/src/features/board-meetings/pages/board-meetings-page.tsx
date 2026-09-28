@@ -10,6 +10,7 @@ import {
     useDataTableUrlState,
 } from "@/hooks/use-data-table-page";
 import { boardMeetingKeys } from "@/lib/query-keys";
+import { useTagOptions } from "@/features/tags/hooks";
 import { boardMeetingColumns } from "../columns";
 import { useBoardMeetings } from "../hooks";
 import type { BoardMeetingListParams } from "../types";
@@ -33,11 +34,18 @@ export function BoardMeetingsPage() {
             columnFilters: [
                 { columnId: "date_from", searchKey: "date_from", type: "string" },
                 { columnId: "date_to", searchKey: "date_to", type: "string" },
+                { columnId: "tags", searchKey: "tags", type: "array" },
             ],
         },
     });
 
     const { ensurePageInRange } = url;
+
+    // AND-filter slugs (A16): every selected tag must be on the meeting.
+    const tagSlugsFilter = url.columnFilters.find((f) => f.id === "tags");
+    const tagsFilterValues = Array.isArray(tagSlugsFilter?.value)
+        ? (tagSlugsFilter.value as string[])
+        : [];
 
     const params: BoardMeetingListParams = {
         page: url.pagination.pageIndex + 1,
@@ -45,6 +53,7 @@ export function BoardMeetingsPage() {
         sort: url.activeSort?.id,
         order: url.activeSort?.desc ? "desc" : "asc",
         filter: url.globalFilter || undefined,
+        tags: tagsFilterValues.length > 0 ? tagsFilterValues : undefined,
         date_from: url.activeValue("date_from") || undefined,
         date_to: url.activeValue("date_to") || undefined,
     };
@@ -66,6 +75,8 @@ export function BoardMeetingsPage() {
             ensurePageInRange(table.getPageCount());
         }
     }, [table, ensurePageInRange, isLoading, meta]);
+
+    const { data: tagOptions } = useTagOptions(undefined);
 
     const refresh = () =>
         queryClient.invalidateQueries({ queryKey: boardMeetingKeys.all });
@@ -93,6 +104,15 @@ export function BoardMeetingsPage() {
             columnFilters={url.columnFilters}
             onColumnFiltersChange={url.onColumnFiltersChange}
             filterFields={[
+                {
+                    id: "tags",
+                    label: "برچسب‌ها",
+                    type: "multiselect",
+                    options: (tagOptions ?? []).map((tag) => ({
+                        value: tag.slug,
+                        label: tag.name,
+                    })),
+                },
                 {
                     id: "date_from",
                     label: "از تاریخ",

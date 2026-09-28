@@ -3,17 +3,16 @@ import { IconCalendarStats } from "@tabler/icons-react";
 
 import { useBoardMeeting } from "../hooks";
 import { toPersianDate } from "@/lib/date-format";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { EmptyState } from "@/components/layout";
-import { ErrorPage, PageHeader } from "@/components/layout";
-import { PageLayout } from "@/components/layout";
+import { EmptyState, ErrorPage, PageHeader, PageLayout } from "@/components/layout";
+import { MeetingDocumentsCard } from "../components/meeting-documents-card";
+import { MeetingTagsCard } from "../components/meeting-tags-card";
 
 /**
- * Board meeting detail (Phase 3): meta block + the two minutes channels
+ * Board meeting detail (Phase 4): meta block + the two minutes channels
  * (derived from letters, and the source's own board form when present) +
- * tags. Phase 4 adds documents and print through the Document system.
+ * the tag editor (K3) and the documents card on the hub Document system (K4).
  */
 export function BoardMeetingDetailPage() {
     const { meetingId } = useParams({ from: "/protected/board-meetings/$meetingId" });
@@ -49,7 +48,11 @@ export function BoardMeetingDetailPage() {
         <PageLayout>
             <PageHeader
                 title={`جلسه ${toPersianDate(meeting.date ?? meeting.pdate)}`}
-                description={meeting.number ?? undefined}
+                description={
+                    (meeting.number ?? "").trim() !== ""
+                        ? meeting.number ?? undefined
+                        : undefined
+                }
                 backTo="/board-meetings"
             />
 
@@ -60,7 +63,7 @@ export function BoardMeetingDetailPage() {
                     </CardHeader>
                     <CardContent className="grid gap-4 sm:grid-cols-2">
                         <div>
-                            <p className="text-sm text-muted-foreground">
+                            <p className="text-muted-foreground text-sm">
                                 تاریخ جلسه
                             </p>
                             <p className="font-medium">
@@ -68,39 +71,36 @@ export function BoardMeetingDetailPage() {
                             </p>
                         </div>
                         <div>
-                            <p className="text-sm text-muted-foreground">
+                            <p className="text-muted-foreground text-sm">
                                 شماره جلسه
                             </p>
                             <p className="font-medium" dir="rtl">
-                                {meeting.number ?? "—"}
+                                {(meeting.number ?? "").trim() !== ""
+                                    ? meeting.number
+                                    : "—"}
                             </p>
                         </div>
                         <div>
-                            <p className="text-sm text-muted-foreground">
+                            <p className="text-muted-foreground text-sm">
                                 برچسب‌ها
                             </p>
-                            <div className="flex flex-wrap gap-1 pt-1">
-                                {meeting.tags.length > 0 ? (
-                                    meeting.tags.map((tag) => (
-                                        <Badge key={tag.slug} variant="outline">
-                                            {tag.name}
-                                        </Badge>
-                                    ))
-                                ) : (
-                                    <span className="text-sm">—</span>
-                                )}
-                            </div>
-                        </div>
-                        <div>
-                            <p className="text-sm text-muted-foreground">مدارک</p>
                             <p className="font-medium">
-                                {meeting.documents.length > 0
-                                    ? meeting.documents.length.toLocaleString("fa-IR")
+                                {meeting.tags.length > 0
+                                    ? meeting.tags
+                                          .map((tag) => tag.name)
+                                          .join("، ")
                                     : "—"}
                             </p>
                         </div>
                     </CardContent>
                 </Card>
+
+                <MeetingDocumentsCard meetingId={String(meetingId)} />
+
+                <MeetingTagsCard
+                    meetingId={String(meetingId)}
+                    tags={meeting.tags}
+                />
 
                 <Card>
                     <CardHeader>

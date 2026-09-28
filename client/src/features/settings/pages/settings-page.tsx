@@ -12,10 +12,16 @@ import { BrandingSettingsSection } from "@/features/settings/pages/branding-sett
 import { PermissionsSection } from "@/features/rbac/pages/permissions-section";
 import { FormOptionsSection } from "@/features/settings/pages/form-options-section";
 import { ImportSection } from "@/features/imports/import-section";
+import { TagsSection } from "@/features/tags/pages/tags-section";
 
 const route = getRouteApi("/protected/settings");
 
-export type SettingsTab = "branding" | "permissions" | "form-options" | "imports";
+export type SettingsTab =
+    | "branding"
+    | "permissions"
+    | "form-options"
+    | "imports"
+    | "tags";
 
 export function SettingsPage() {
     const search = route.useSearch();
@@ -34,6 +40,7 @@ export function SettingsPage() {
         PERMISSIONS.FORM_OPTIONS_MANAGE,
     ]);
     const canImports = usePermission([PERMISSIONS.EMPLOYEE_IMPORT]);
+    const canTags = usePermission([PERMISSIONS.TAG_VIEW, PERMISSIONS.TAG_MANAGE]);
 
     const defaultTab: SettingsTab = canBranding
         ? "branding"
@@ -41,7 +48,9 @@ export function SettingsPage() {
           ? "permissions"
           : canFormOptions
             ? "form-options"
-            : "imports";
+            : canTags
+              ? "tags"
+              : "imports";
     const activeTab = search.tab ?? defaultTab;
 
     useEffect(() => {
@@ -49,7 +58,8 @@ export function SettingsPage() {
             (activeTab === "branding" && !canBranding) ||
             (activeTab === "permissions" && !canPermissions) ||
             (activeTab === "form-options" && !canFormOptions) ||
-            (activeTab === "imports" && !canImports)
+            (activeTab === "imports" && !canImports) ||
+            (activeTab === "tags" && !canTags)
         ) {
             navigate({
                 search: (prev) => ({ ...prev, tab: defaultTab }),
@@ -61,6 +71,7 @@ export function SettingsPage() {
         canPermissions,
         canFormOptions,
         canImports,
+        canTags,
         defaultTab,
         navigate,
     ]);
@@ -90,6 +101,9 @@ export function SettingsPage() {
                     )}
                     {canImports && (
                         <TabsTrigger value="imports">ورود اطلاعات</TabsTrigger>
+                    )}
+                    {canTags && (
+                        <TabsTrigger value="tags">برچسب‌ها</TabsTrigger>
                     )}
                 </TabsList>
 
@@ -138,6 +152,19 @@ export function SettingsPage() {
                             permission={PERMISSIONS.EMPLOYEE_IMPORT}
                         >
                             <ImportSection />
+                        </PermissionGuard>
+                    </TabsContent>
+                )}
+
+                {canTags && (
+                    <TabsContent value="tags">
+                        <PermissionGuard
+                            permission={[
+                                PERMISSIONS.TAG_VIEW,
+                                PERMISSIONS.TAG_MANAGE,
+                            ]}
+                        >
+                            <TagsSection />
                         </PermissionGuard>
                     </TabsContent>
                 )}

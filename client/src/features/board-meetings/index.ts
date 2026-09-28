@@ -4,4 +4,7 @@ export { boardMeetingColumns } from "./columns";
 export {
     useBoardMeetings,
     useBoardMeeting,
+    useMeetingDocuments,
+    useUploadMeetingDocument,
+    useDeleteMeetingDocument,
 } from "./hooks/use-board-meetings";
