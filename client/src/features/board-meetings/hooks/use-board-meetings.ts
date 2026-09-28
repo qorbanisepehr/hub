@@ -31,7 +31,9 @@ export function useBoardMeeting(id: number | string) {
         queryKey: boardMeetingKeys.detail(id),
         queryFn: async () => {
             const { data } = await fetchBoardMeeting(id);
-            return data;
+            // The detail endpoint speaks the standard envelope; the hook
+            // unwraps it — consumers get the meeting object itself.
+            return data.data;
         },
     });
 }

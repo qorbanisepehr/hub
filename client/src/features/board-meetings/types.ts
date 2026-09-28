@@ -49,7 +49,7 @@ export interface BoardMeetingListParams {
     date_to?: string;
 }
 
-/** The detail endpoint returns the item fields directly (no envelope). */
+/** The detail endpoint returns the meeting inside the standard `data` envelope. */
 export type BoardMeetingDetailResponse = BoardMeetingDto & {
     minutes_from_letters: string[] | null;
     minutes_from_heyat_modire: string[] | null;
