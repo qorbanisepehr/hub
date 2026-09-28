@@ -67,4 +67,17 @@ final class NotificationController
             ],
         ]);
     }
+
+    public function deleteRead(Request $request): JsonResponse
+    {
+        // DB-level delete scoped to the user (architecture §17, §118–§119);
+        // never loads read notifications into PHP.
+        $deleted = $request->user()->notifications()->whereNotNull('read_at')->delete();
+
+        return response()->json([
+            'data' => [
+                'deleted' => $deleted,
+            ],
+        ]);
+    }
 }

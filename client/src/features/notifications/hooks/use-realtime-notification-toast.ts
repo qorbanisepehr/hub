@@ -2,6 +2,7 @@ import { useCallback } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 
+import { notificationHref } from "@/features/notifications/notification-href";
 import type { AppNotification } from "@/features/notifications/types";
 
 /**
@@ -9,26 +10,6 @@ import type { AppNotification } from "@/features/notifications/types";
  * (architecture §25 — the notification center always exists).
  */
 const NOTIFICATION_CENTER_PATH = "/notifications";
-
-/** Resource reference carried by the broadcast payload (architecture §25). */
-type NotificationResource = { type?: string; id?: string | number };
-
-/**
- * Deep link for a notification's resource. Only real destinations are
- * mapped; unknown types fall back to the notification center instead of
- * guessing a route (architecture §53).
- */
-export function notificationHref(notification: AppNotification): string {
-    const resource = notification.data.resource as
-        | NotificationResource
-        | undefined;
-
-    if (resource?.type === "questionnaire" && resource.id != null) {
-        return `/questionnaires/${resource.id}`;
-    }
-
-    return NOTIFICATION_CENTER_PATH;
-}
 
 /** True when the browser supports OS notifications with granted access. */
 function canShowOsNotification(): boolean {
@@ -60,7 +41,9 @@ export function useRealtimeNotificationToast() {
 
     return useCallback(
         (notification: AppNotification): void => {
-            const href = notificationHref(notification);
+            // Real destinations navigate directly; the rest falls back to the
+            // notification center (architecture §53).
+            const href = notificationHref(notification) ?? NOTIFICATION_CENTER_PATH;
 
             const showInAppToast = (): void => {
                 toast(notification.title, {

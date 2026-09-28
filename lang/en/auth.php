@@ -17,4 +17,8 @@ return [
     'email_otp_body' => 'Your verification code to sign in:',
     'email_otp_expiry' => 'This code is valid for :minutes minutes.',
     'email_otp_salutation' => 'Best regards,',
+
+    'sms_otp_body' => 'Your login verification code: :code',
+    'channel_unavailable_email' => 'Your account has no registered email address. Please choose the SMS channel.',
+    'channel_unavailable_mobile' => 'Your account has no registered mobile number. Please choose the email channel.',
 ];

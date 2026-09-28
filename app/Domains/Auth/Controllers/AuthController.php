@@ -45,19 +45,30 @@ class AuthController
             return $inactive;
         }
 
-        $channel = $this->authService->channelFor($request->identifier);
+        $channel = $request->validated('channel') ?? $this->authService->channelFor($request->identifier);
+
+        $recipient = $channel === 'email' ? $user->email : $user->phone;
+
+        if (blank($recipient)) {
+            return response()->json([
+                'message' => $channel === 'email'
+                    ? __('auth.channel_unavailable_email')
+                    : __('auth.channel_unavailable_mobile'),
+            ], 422);
+        }
 
         $status = $this->otpService->sendWithCooldown(
             $user,
             $channel,
             OtpContext::Login,
-            $channel === 'email' ? $user->email : null,
+            $recipient,
         );
 
         $response = $this->respondToSend($user, $channel, OtpContext::Login, $status);
 
         $data = $response->getData(true);
-        $data['destination'] = $this->authService->destination($request->identifier, $user);
+        $data['destination'] = $this->authService->destination($channel, $user);
+        $data['channel'] = $channel;
 
         return response()->json($data, $response->getStatusCode());
     }
@@ -76,7 +87,7 @@ class AuthController
             return $inactive;
         }
 
-        $channel = $this->authService->channelFor($request->identifier);
+        $channel = $request->validated('channel') ?? $this->authService->channelFor($request->identifier);
         $status = $this->otpService->attemptVerification($user, $channel, OtpContext::Login, $request->code);
 
         if ($response = $this->respondToVerification($user, $channel, OtpContext::Login, $status)) {

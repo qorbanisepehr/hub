@@ -15,6 +15,7 @@ import {
     CardTitle,
 } from "@/components/ui/card";
 import { FieldError, FieldGroup } from "@/components/ui/field";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Skeleton } from "@/components/ui/skeleton";
 import { IconLoader2 } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
@@ -22,7 +23,7 @@ import { useAuth } from "@/features/auth";
 import { IdentifierField } from "@/features/auth/components/identifier-field";
 import { CodeField } from "@/features/auth/components/code-field";
 import { PasswordField } from "@/features/auth/components/password-field";
-import type { LoginMode } from "@/features/auth/types";
+import type { LoginChannel, LoginMode } from "@/features/auth/types";
 import { getApiError } from "@/lib/error-utils";
 import { COMPANY_NAME } from "@/lib/brand";
 import { useBranding } from "@/features/settings/hooks/use-branding";
@@ -41,6 +42,7 @@ export function LoginForm({
     const navigate = useNavigate();
     const { data: branding } = useBranding();
     const [mode, setMode] = React.useState<LoginMode>("otp");
+    const [otpChannel, setOtpChannel] = React.useState<LoginChannel>("email");
     const [otpSent, setOtpSent] = React.useState(false);
     const [signedIn, setSignedIn] = React.useState(false);
     const [otpDestination, setOtpDestination] = React.useState<string | null>(
@@ -75,7 +77,10 @@ export function LoginForm({
     const handleRequestOtp = async () => {
         const { identifier } = form.state.values;
 
-        const result = await loginOtp.mutateAsync(identifier);
+        const result = await loginOtp.mutateAsync({
+            identifier,
+            channel: otpChannel,
+        });
 
         if (result.data.destination) {
             setOtpDestination(result.data.destination);
@@ -100,6 +105,7 @@ export function LoginForm({
             verifyOtp.mutateAsync({
                 identifier: form.state.values.identifier,
                 code,
+                channel: otpChannel,
             }),
         onVerified: () => {
             setSignedIn(true);
@@ -224,6 +230,51 @@ export function LoginForm({
                                     </>
                                 ) : (
                                     <>
+                                        {mode === "otp" && (
+                                            <fieldset
+                                                disabled={isSending}
+                                                className="flex flex-col gap-2"
+                                            >
+                                                <legend className="text-sm font-medium text-foreground">
+                                                    نحوه دریافت کد تایید
+                                                </legend>
+                                                <RadioGroup
+                                                    value={otpChannel}
+                                                    onValueChange={(val) =>
+                                                        setOtpChannel(
+                                                            val as LoginChannel,
+                                                        )
+                                                    }
+                                                    className="flex flex-row flex-wrap gap-4"
+                                                >
+                                                    <div className="flex items-center gap-2">
+                                                        <RadioGroupItem
+                                                            value="email"
+                                                            id="channel-email"
+                                                        />
+                                                        <label
+                                                            htmlFor="channel-email"
+                                                            className="text-sm"
+                                                        >
+                                                            ایمیل
+                                                        </label>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <RadioGroupItem
+                                                            value="mobile"
+                                                            id="channel-mobile"
+                                                        />
+                                                        <label
+                                                            htmlFor="channel-mobile"
+                                                            className="text-sm"
+                                                        >
+                                                            پیامک (موبایل)
+                                                        </label>
+                                                    </div>
+                                                </RadioGroup>
+                                            </fieldset>
+                                        )}
+
                                         {mode === "otp" && (
                                             <Button
                                                 type="submit"

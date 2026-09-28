@@ -32,6 +32,8 @@ use App\Support\Imports\ImportService;
 use App\Support\Imports\Reader\CsvReader;
 use App\Support\Imports\Reader\XlsxReader;
 use App\Support\Imports\ReaderRegistry;
+use App\Support\Sms\Contracts\SmsSender;
+use App\Support\Sms\Senders\LogSmsSender;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
@@ -46,6 +48,16 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(DocumentRepositoryInterface::class, DocumentRepository::class);
         $this->app->bind(DocumentAuthorization::class, DocumentAuthorizationService::class);
         $this->app->singleton(Authorization::class, AuthorizationService::class);
+
+        // SMS delivery: resolves the driver configured in config/sms.php. The
+        // log driver is the default until a real gateway is bought; swapping
+        // drivers never touches the callers (OtpService, and later Notification).
+        $this->app->bind(SmsSender::class, function (): SmsSender {
+            $driver = config('sms.default', 'log');
+            $class = config("sms.drivers.{$driver}", LogSmsSender::class);
+
+            return new $class;
+        });
 
         $this->app->singleton(SettingsRepositoryInterface::class, FileSettingsRepository::class);
         $this->app->singleton(SettingsService::class);

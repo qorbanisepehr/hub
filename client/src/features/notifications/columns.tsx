@@ -6,11 +6,14 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { toPersianDate } from "@/lib/date-format";
 import { cn } from "@/lib/utils";
+import { notificationHref } from "./notification-href";
 import type { AppNotification } from "./types";
 
 type NotificationColumnsOptions = {
     onMarkRead: (id: string) => void;
     isMarkingRead: (id: string) => boolean;
+    /** Open a notification with a real destination (navigate + mark read). */
+    onOpenNotification?: (notification: AppNotification) => void;
 };
 
 /**
@@ -22,6 +25,7 @@ type NotificationColumnsOptions = {
 export function getNotificationColumns({
     onMarkRead,
     isMarkingRead,
+    onOpenNotification,
 }: NotificationColumnsOptions): ColumnDef<StockFeatures, AppNotification>[] {
     return [
         {
@@ -49,16 +53,36 @@ export function getNotificationColumns({
             ),
             cell: ({ row }) => {
                 const { title, body, read_at } = row.original;
+                const href = notificationHref(row.original);
+                // Only notifications with a real destination become links,
+                // and only when the page wires an open handler.
+                const isLink = href !== null && onOpenNotification !== undefined;
+
                 return (
                     <div className="min-w-0">
-                        <p
-                            className={cn(
-                                "text-sm leading-snug",
-                                read_at === null && "font-semibold",
-                            )}
-                        >
-                            {title}
-                        </p>
+                        {isLink ? (
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    onOpenNotification?.(row.original)
+                                }
+                                className={cn(
+                                    "cursor-pointer text-start text-sm leading-snug hover:underline hover:underline-offset-4",
+                                    read_at === null && "font-semibold",
+                                )}
+                            >
+                                {title}
+                            </button>
+                        ) : (
+                            <p
+                                className={cn(
+                                    "text-sm leading-snug",
+                                    read_at === null && "font-semibold",
+                                )}
+                            >
+                                {title}
+                            </p>
+                        )}
                         {body ? (
                             <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
                                 {body}

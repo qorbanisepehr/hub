@@ -28,3 +28,8 @@ export function markNotificationRead(id: string) {
 export function markAllNotificationsRead() {
     return api.post<{ data: { updated: number } }>("/notifications/read-all");
 }
+
+/** Delete every read notification of the current user (DB-level delete). */
+export function deleteReadNotifications() {
+    return api.post<{ data: { deleted: number } }>("/notifications/delete-read");
+}

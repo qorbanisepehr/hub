@@ -1,17 +1,28 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { getRouteApi } from "@tanstack/react-router";
-import { IconBell, IconChecklist, IconRefresh } from "@tabler/icons-react";
+import {
+    IconBell,
+    IconChecklist,
+    IconLoader2,
+    IconRefresh,
+    IconTrash,
+} from "@tabler/icons-react";
 
 import { DataTablePage } from "@/components/data-table";
 import { ListPageHeader } from "@/components/layout";
+import { Button } from "@/components/ui/button";
+import { ResponsiveDialog } from "@/components/ui/responsive-dialog";
 import { getNotificationColumns } from "@/features/notifications/columns";
 import { NOTIFICATION_STATUS_OPTIONS } from "@/features/notifications/constants";
 import {
+    useDeleteReadNotifications,
     useMarkAllNotificationsRead,
     useMarkNotificationRead,
     useNotifications,
 } from "@/features/notifications/hooks";
+import { notificationHref } from "@/features/notifications/notification-href";
+import type { AppNotification } from "@/features/notifications/types";
 import { useDataTable, useDataTableUrlState } from "@/hooks/use-data-table-page";
 import { notificationKeys } from "@/lib/query-keys";
 
@@ -49,6 +60,21 @@ export function NotificationsPage() {
 
     const markRead = useMarkNotificationRead();
     const markAll = useMarkAllNotificationsRead();
+    const deleteRead = useDeleteReadNotifications();
+    const [deleteReadOpen, setDeleteReadOpen] = useState(false);
+
+    /** Navigate to a notification's real destination and mark it read. */
+    const openNotification = (notification: AppNotification) => {
+        const href = notificationHref(notification);
+
+        if (href) {
+            navigate({ to: href });
+        }
+
+        if (notification.read_at === null) {
+            markRead.mutate(notification.id);
+        }
+    };
 
     const tableData = data?.data ?? [];
     const meta = data?.meta;
@@ -56,6 +82,7 @@ export function NotificationsPage() {
     const columns = getNotificationColumns({
         onMarkRead: (id) => markRead.mutate(id),
         isMarkingRead: (id) => markRead.isPending && markRead.variables === id,
+        onOpenNotification: openNotification,
     });
 
     const table = useDataTable({
@@ -72,7 +99,8 @@ export function NotificationsPage() {
     }, [table, ensurePageInRange, isLoading, meta]);
 
     return (
-        <DataTablePage
+        <>
+            <DataTablePage
             table={table}
             meta={meta}
             isLoading={isLoading}
@@ -105,6 +133,14 @@ export function NotificationsPage() {
                     disabled: markAll.isPending || !(meta && meta.total > 0),
                 },
                 {
+                    id: "delete-read",
+                    label: "حذف خوانده‌شده‌ها",
+                    icon: IconTrash,
+                    destructive: true,
+                    onClick: () => setDeleteReadOpen(true),
+                    disabled: deleteRead.isPending || !(meta && meta.total > 0),
+                },
+                {
                     id: "refresh",
                     label: "بازخوانی",
                     icon: IconRefresh,
@@ -123,5 +159,44 @@ export function NotificationsPage() {
             }
             colSpan={columns.length}
         />
-    );
+
+        <ResponsiveDialog
+            open={deleteReadOpen}
+            onOpenChange={setDeleteReadOpen}
+            title="حذف اعلان‌های خوانده‌شده"
+            description="این عمل قابل بازگشت نیست."
+            footer={
+                <>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setDeleteReadOpen(false)}
+                    >
+                        انصراف
+                    </Button>
+                    <Button
+                        variant="destructive"
+                        disabled={deleteRead.isPending}
+                        onClick={() => {
+                            deleteRead.mutate();
+                            setDeleteReadOpen(false);
+                        }}
+                    >
+                        {deleteRead.isPending ? (
+                            <IconLoader2 className="size-4 animate-spin" />
+                        ) : (
+                            <IconTrash className="size-4" />
+                        )}
+                        حذف خوانده‌شده‌ها
+                    </Button>
+                </>
+            }
+        >
+            <p className="text-sm leading-relaxed text-muted-foreground">
+                همه اعلان‌های خوانده‌شده برای همیشه حذف می‌شوند؛ اعلان‌های
+                خوانده‌نشده باقی می‌مانند.
+            </p>
+        </ResponsiveDialog>
+    </>
+);
 }
