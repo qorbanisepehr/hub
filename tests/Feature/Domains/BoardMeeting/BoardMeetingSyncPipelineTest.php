@@ -1,15 +1,16 @@
 <?php
 
-use App\Domains\BoardMeeting\Jobs\LoadFarzinToStagingJob;
 use App\Domains\BoardMeeting\Models\BoardMeeting;
-use App\Domains\BoardMeeting\Models\IntegrationStaging;
 use App\Domains\BoardMeeting\Services\BoardMeetingSyncService;
 use App\Domains\BoardMeeting\Services\MeetingNumberService;
 use App\Domains\BoardMeeting\Services\MeetingProjection;
+use App\Domains\Ingest\Contracts\Normalizer;
+use App\Domains\Ingest\IngestRegistry;
+use App\Domains\Ingest\Jobs\SyncIngestRecordsJob;
 use App\Domains\Ingest\Models\IntegrationRecord;
-use App\Domains\Ingest\Services\RecordProjector;
 use App\Integrations\Farzin\FakeFarzinSource;
 use App\Integrations\Farzin\FarzinGatewayAdapter;
+use App\Integrations\Farzin\FarzinVocabulary;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
@@ -21,19 +22,18 @@ beforeEach(function () {
     config()->set('board-meeting.archive_path', 'archive/approvals-test-'.uniqid());
 });
 
-it('lands raw rows in staging idempotently', function () {
-    $gateway = new FarzinGatewayAdapter(new FakeFarzinSource);
+it('syncs source rows into generic records in one step', function () {
+    $service = app(BoardMeetingSyncService::class);
 
-    $first = (new LoadFarzinToStagingJob)->handle($gateway);
-    $second = (new LoadFarzinToStagingJob)->handle($gateway);
+    $first = $service->run(false);
+    $second = $service->run(false);
 
-    expect($first)->toBe(['landed' => 3, 'changed' => 3, 'unchanged' => 0])
-        ->and($second)->toBe(['landed' => 3, 'changed' => 0, 'unchanged' => 3])
-        ->and(IntegrationStaging::count())->toBe(3)
-        ->and(IntegrationStaging::where('source', 'farzin')->where('status', 'raw')->count())->toBe(3);
+    expect($first['records'])->toBe(['synced' => 3, 'failed' => 0])
+        ->and($second['records'])->toBe(['synced' => 3, 'failed' => 0])
+        ->and(IntegrationRecord::count())->toBe(3);
 });
 
-it('normalizes staged rows into generic records', function () {
+it('normalizes rows with the source vocabulary intact in original', function () {
     app(BoardMeetingSyncService::class)->run(false);
 
     $letter = IntegrationRecord::query()
@@ -49,6 +49,8 @@ it('normalizes staged rows into generic records', function () {
         ->and($letter->data['meeting_pdate'])->toBe('1404-06-15')
         ->and($letter->pdate)->toBe('1404-06-15')
         ->and($letter->original)->toBeArray()
+        ->and($letter->source_table)->toBe('Entity_A4letter')
+        ->and($letter->status)->toBe('processed')
         ->and($session->pdate)->toBe('1404-06-15')
         ->and($session->data['sharh'])->toContain('جلسه هیئت مدیره ساعت ۱۰');
 });
@@ -66,36 +68,13 @@ it('projects meetings from generic records', function () {
         ->and($meeting->meta['heyat_modire_count'])->toBe(1);
 });
 
-it('groups letters by the meeting date from the subject, not the letter date', function () {
-    // Regression (dev-data review 2026-09-27): a letter SENT on 1404-06-10
-    // inviting to a meeting HELD on 1404-06-15 must produce the meeting
-    // keyed by the invitation's meeting_pdate (TCK Meeting pseudo-model
-    // groups by meeting_pdate) — never the letter's own pdate.
-    $letter = FakeFarzinSource::SAMPLE_LETTERS[0];
-    $letter['EntityCode'] = 301;
-    $letter['EntityNumber'] = 453;
-    $letter['date'] = '2025-09-01'; // Jalali 1404-06-10 ≠ meeting date.
-
-    $gateway = new FarzinGatewayAdapter(new FakeFarzinSource([$letter], []));
-    (new LoadFarzinToStagingJob)->handle($gateway);
-    app(RecordProjector::class)->project(LoadFarzinToStagingJob::SOURCE);
-    app(MeetingProjection::class)->project();
-
-    expect(BoardMeeting::query()->where('pdate', '1404-06-15')->exists())->toBeTrue()
-        ->and(BoardMeeting::query()->where('pdate', '1404-06-10')->exists())->toBeFalse();
-});
-
 it('skips unchanged meetings on re-projection', function () {
     $service = app(BoardMeetingSyncService::class);
 
     $service->run(false);
     $result = $service->run(false);
 
-    expect($result['meetings'])->toBe(['new' => 0, 'updated' => 0, 'unchanged' => 1])
-        ->and($result['staging'])->toBe(['landed' => 3, 'changed' => 0, 'unchanged' => 3])
-        // All staging rows are already processed, so the records stage
-        // has nothing pending — zero failures.
-        ->and($result['records'])->toBe(['records' => 0, 'failed' => 0]);
+    expect($result['meetings'])->toBe(['new' => 0, 'updated' => 0, 'unchanged' => 1]);
 });
 
 it('keeps minute body after normalizer collapse (TCK parity)', function () {
@@ -123,8 +102,28 @@ it('extracts meeting numbers from document filenames (TCK parity)', function () 
         ->and($service->fromFilenames(null))->toBe('');
 });
 
-it('skips unmappable rows at the boundary and stages the rest', function () {
-    // A row without its primary key cannot be staged — the adapter skips
+it('groups letters by the meeting date from the subject, not the letter date', function () {
+    // Regression (dev-data review 2026-09-27): a letter SENT on 1404-06-10
+    // inviting to a meeting HELD on 1404-06-15 must produce the meeting
+    // keyed by the invitation's meeting_pdate (TCK Meeting pseudo-model
+    // groups by meeting_pdate) — never the letter's own pdate.
+    $letter = FakeFarzinSource::SAMPLE_LETTERS[0];
+    $letter['EntityCode'] = 301;
+    $letter['EntityNumber'] = 453;
+    $letter['date'] = '2025-09-01'; // Jalali 1404-06-10 ≠ meeting date.
+
+    $gateway = new FarzinGatewayAdapter(new FakeFarzinSource([$letter], []));
+    $rows = FarzinVocabulary::landInstructions($gateway, null);
+
+    app(SyncIngestRecordsJob::class)->handle('farzin', $rows);
+    app(MeetingProjection::class)->project();
+
+    expect(BoardMeeting::query()->where('pdate', '1404-06-15')->exists())->toBeTrue()
+        ->and(BoardMeeting::query()->where('pdate', '1404-06-10')->exists())->toBeFalse();
+});
+
+it('skips unmappable rows at the boundary and syncs the rest', function () {
+    // A row without its primary key cannot be synced — the adapter skips
     // it instead of killing the whole batch.
     $broken = FakeFarzinSource::SAMPLE_LETTERS[0];
     unset($broken['EntityCode']);
@@ -133,9 +132,39 @@ it('skips unmappable rows at the boundary and stages the rest', function () {
     $good['EntityCode'] = 999;
 
     $gateway = new FarzinGatewayAdapter(new FakeFarzinSource([$broken, $good], []));
+    $rows = FarzinVocabulary::landInstructions($gateway, null);
 
-    $outcome = (new LoadFarzinToStagingJob)->handle($gateway);
+    $outcome = app(SyncIngestRecordsJob::class)->handle('farzin', $rows);
 
-    expect($outcome)->toBe(['landed' => 1, 'changed' => 1, 'unchanged' => 0])
-        ->and(IntegrationStaging::where('external_id', '999')->exists())->toBeTrue();
+    expect($outcome)->toBe(['synced' => 1, 'failed' => 0])
+        ->and(IntegrationRecord::where('external_id', '999')->exists())->toBeTrue();
+});
+
+it('reports a row as failed when its normalizer throws', function () {
+    $registry = app(IngestRegistry::class);
+    // A normalizer that rejects everything — stands in for a source
+    // glitch or a newly-appeared unmapped field.
+    $registry->register('test', 'broken', new class implements Normalizer
+    {
+        public function entityType(): string
+        {
+            return 'broken-entity';
+        }
+
+        public function normalize(array $payload): array
+        {
+            throw new RuntimeException('nope');
+        }
+    });
+
+    $outcome = app(SyncIngestRecordsJob::class)->handle('test', [
+        [
+            'source_table' => 'broken',
+            'external_id' => '1',
+            'payload' => ['x' => 1],
+        ],
+    ]);
+
+    expect($outcome)->toBe(['synced' => 0, 'failed' => 1])
+        ->and(IntegrationRecord::where('entity_type', 'broken-entity')->exists())->toBeFalse();
 });
