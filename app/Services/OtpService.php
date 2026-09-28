@@ -8,6 +8,7 @@ use App\Enums\OtpContext;
 use App\Enums\OtpSendStatus;
 use App\Enums\OtpVerifyStatus;
 use App\Support\Mail\OtpMail;
+use App\Support\Sms\Contracts\SmsSender;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
@@ -21,9 +22,10 @@ class OtpService
      * Issue a code for the given channel and context, storing only its hash.
      *
      * When the channel is `email` and a recipient is given, the plaintext code
-     * is delivered by queueing an `OtpMail` to that recipient. This method is
-     * the single place where the plaintext code exists, so delivery happens
-     * here and nowhere else. Mobile channels have no delivery yet.
+     * is delivered by queueing an `OtpMail` to that recipient. When the
+     * channel is `mobile` and a recipient is given, it is delivered through
+     * the configured SMS sender. This method is the single place where the
+     * plaintext code exists, so delivery happens here and nowhere else.
      */
     public function send(OtpVerifiable $entity, string $channel, OtpContext $context, ?string $recipient = null): string
     {
@@ -46,6 +48,10 @@ class OtpService
 
         if ($channel === 'email' && $recipient !== null) {
             Mail::to($recipient)->queue(new OtpMail($code, $ttl));
+        }
+
+        if ($channel === 'mobile' && $recipient !== null) {
+            app(SmsSender::class)->send($recipient, __('auth.sms_otp_body', ['code' => $code]));
         }
 
         return $code;
@@ -95,7 +101,9 @@ class OtpService
      * Send an OTP unless one is still valid or the entity is locked out.
      *
      * When the email channel is used, `$recipient` (if given) is where the
-     * code is delivered. No mail is sent on `AlreadySent` or `Locked`.
+     * code is delivered via a queued OtpMail; when the mobile channel is used
+     * it goes through the configured SMS sender. No delivery happens on
+     * `AlreadySent` or `Locked`.
      */
     public function sendWithCooldown(OtpVerifiable $entity, string $channel, OtpContext $context, ?string $recipient = null): OtpSendStatus
     {

@@ -6,6 +6,7 @@ use App\Enums\OtpContext;
 use App\Models\User;
 use App\Services\OtpService;
 use App\Support\Mail\OtpMail;
+use App\Support\Sms\Contracts\SmsSender;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
@@ -42,11 +43,64 @@ class OtpServiceTest extends TestCase
     public function test_mobile_send_does_not_queue_mail(): void
     {
         $user = User::factory()->create();
+        $sender = new class implements SmsSender
+        {
+            public array $sent = [];
+
+            public function send(string $phone, string $message): void
+            {
+                $this->sent[] = ['phone' => $phone, 'message' => $message];
+            }
+        };
+        app()->instance(SmsSender::class, $sender);
         Mail::fake();
 
         $this->service->send($user, 'mobile', OtpContext::Login);
 
         Mail::assertNothingQueued();
+        $this->assertSame([], $sender->sent);
+    }
+
+    public function test_mobile_send_delivers_sms_when_recipient_is_given(): void
+    {
+        $user = User::factory()->create();
+        $sender = new class implements SmsSender
+        {
+            public array $sent = [];
+
+            public function send(string $phone, string $message): void
+            {
+                $this->sent[] = ['phone' => $phone, 'message' => $message];
+            }
+        };
+        app()->instance(SmsSender::class, $sender);
+        Mail::fake();
+
+        $code = $this->service->send($user, 'mobile', OtpContext::Login, '+989121112233');
+
+        Mail::assertNothingQueued();
+        $this->assertCount(1, $sender->sent);
+        $this->assertSame('+989121112233', $sender->sent[0]['phone']);
+        $this->assertStringContainsString($code, $sender->sent[0]['message']);
+    }
+
+    public function test_mobile_send_without_recipient_does_not_deliver_sms(): void
+    {
+        $user = User::factory()->create();
+        $sender = new class implements SmsSender
+        {
+            public array $sent = [];
+
+            public function send(string $phone, string $message): void
+            {
+                $this->sent[] = ['phone' => $phone, 'message' => $message];
+            }
+        };
+        app()->instance(SmsSender::class, $sender);
+
+        $this->service->send($user, 'mobile', OtpContext::Login);
+
+        $this->assertSame([], $sender->sent);
     }
 
     public function test_email_send_without_recipient_does_not_queue_mail(): void

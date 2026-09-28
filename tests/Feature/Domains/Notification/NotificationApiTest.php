@@ -208,6 +208,47 @@ describe('notification API', function () {
             $this->assertNull($foreign->fresh()->read_at);
         });
     });
+
+    describe('POST /api/notifications/delete-read', function () {
+        it('requires authentication', function () {
+            $this->postJson('/api/notifications/delete-read')->assertStatus(401);
+        });
+
+        it('deletes only the authenticated user\'s read notifications and returns the count', function () {
+            createNotifications($this->user, [
+                ['read_at' => now()->subHour()],
+                ['read_at' => now()->subDay()],
+                ['read_at' => null],
+                ['read_at' => null],
+            ]);
+
+            $other = createUserWithPermissions();
+            [$foreign] = createNotifications($other, [['read_at' => now()->subHour()]]);
+
+            actingAs($this->user)
+                ->postJson('/api/notifications/delete-read')
+                ->assertOk()
+                ->assertJsonPath('data.deleted', 2);
+
+            // Unread notifications stay put; the other user's read one is untouched.
+            $this->assertSame(2, $this->user->notifications()->count());
+            $this->assertSame(0, $this->user->notifications()->whereNotNull('read_at')->count());
+            $this->assertNotNull($foreign->fresh()->read_at);
+        });
+
+        it('deletes nothing when there are no read notifications', function () {
+            createNotifications($this->user, [
+                ['read_at' => null],
+            ]);
+
+            actingAs($this->user)
+                ->postJson('/api/notifications/delete-read')
+                ->assertOk()
+                ->assertJsonPath('data.deleted', 0);
+
+            $this->assertSame(1, $this->user->notifications()->count());
+        });
+    });
 });
 
 describe('notification resource', function () {
