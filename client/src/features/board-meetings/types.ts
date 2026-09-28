@@ -2,8 +2,8 @@ import type { PaginatedResponse } from "@/lib/types";
 
 /**
  * HTTP contracts for the board meetings endpoints (mirror the API
- * resources). The client always sends Gregorian `yyyy-MM-dd` windows;
- * `pdate` (Jalali, `yyyy-MM-dd` digits) is the canonical meeting key.
+ * resources). The client sends and receives Gregorian `yyyy-MM-dd`
+ * dates (the canonical meeting key); Jalali rendering stays client-side.
  */
 
 export interface BoardMeetingTagDto {
@@ -11,15 +11,25 @@ export interface BoardMeetingTagDto {
     name: string;
 }
 
+export interface BoardMeetingAgendaItemDto {
+    position: number;
+    title: string;
+}
+
+export interface BoardMeetingAttendeeDto {
+    name: string;
+    role: string;
+    is_present: boolean;
+}
+
 export interface BoardMeetingDto {
     id: number;
-    /** Jalali `yyyy-MM-dd` (latin digits) — the canonical meeting key. */
-    pdate: string;
-    /** Gregorian `yyyy-MM-dd` equivalent. */
+    /** Gregorian `yyyy-MM-dd` — the canonical meeting date. */
     date: string | null;
-    /** «NNNN/ص/YYYY» form extracted from document filenames; null when none. */
+    title: string | null;
+    status: "scheduled" | "held" | "archived";
+    /** «NNNN/ص/YYYY» registry number; null when the archive has none. */
     number: string | null;
-    agenda: string | null;
     documents: string[];
     meta: Record<string, unknown>;
     synced_at: string | null;
@@ -37,10 +47,10 @@ export type BoardMeetingListResponse = PaginatedResponse<BoardMeetingDto>;
 export interface BoardMeetingListParams {
     page?: number;
     per_page?: number;
-    /** Whitelisted sort columns: `pdate` | `number`. */
+    /** Whitelisted sort columns: `date` | `number`. */
     sort?: string;
     order?: "asc" | "desc";
-    /** Global free-text search needle (pdate/number). */
+    /** Global free-text search needle (number/title). */
     filter?: string;
     /** AND-filter: meetings carrying every listed slug. */
     tags?: string[];
@@ -51,9 +61,19 @@ export interface BoardMeetingListParams {
 
 /** The detail endpoint returns the meeting inside the standard `data` envelope. */
 export type BoardMeetingDetailResponse = BoardMeetingDto & {
-    minutes_from_letters: string[] | null;
-    minutes_from_heyat_modire: string[] | null;
+    minutes_text: string | null;
+    agenda: BoardMeetingAgendaItemDto[];
+    attendees: BoardMeetingAttendeeDto[];
+    summary: Record<string, unknown> | null;
 };
+
+/** PUT payload — the UI-owned fields (importer-owned ones are server-only). */
+export interface UpdateBoardMeetingPayload {
+    title?: string | null;
+    status?: BoardMeetingDto["status"];
+    number?: string | null;
+    minutes_text?: string | null;
+}
 
 /**
  * A document usage on a meeting (shape of the shared documentPayload from

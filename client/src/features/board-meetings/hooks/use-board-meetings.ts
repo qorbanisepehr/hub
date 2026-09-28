@@ -6,9 +6,10 @@ import {
     fetchBoardMeeting,
     fetchBoardMeetings,
     fetchMeetingDocuments,
+    updateBoardMeeting,
     uploadMeetingDocument,
 } from "../api";
-import type { BoardMeetingListParams } from "../types";
+import type { BoardMeetingListParams, UpdateBoardMeetingPayload } from "../types";
 
 /**
  * Server-paginated board meeting list. The params object is the URL-driven
@@ -48,6 +49,24 @@ export function useMeetingDocuments(meetingId: number | string) {
         queryFn: async () => {
             const { data } = await fetchMeetingDocuments(meetingId);
             return data;
+        },
+    });
+}
+
+/** Update UI-owned meeting fields; refreshes detail + lists. */
+export function useUpdateBoardMeeting(meetingId: number | string) {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (payload: UpdateBoardMeetingPayload) =>
+            updateBoardMeeting(meetingId, payload),
+        onSuccess: () => {
+            void queryClient.invalidateQueries({
+                queryKey: boardMeetingKeys.detail(meetingId),
+            });
+            void queryClient.invalidateQueries({
+                queryKey: boardMeetingKeys.lists(),
+            });
         },
     });
 }

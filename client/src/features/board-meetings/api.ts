@@ -4,6 +4,7 @@ import type {
     BoardMeetingListParams,
     BoardMeetingListResponse,
     MeetingDocumentsResponse,
+    UpdateBoardMeetingPayload,
 } from "./types";
 
 export function fetchBoardMeetings(params: BoardMeetingListParams) {
@@ -13,6 +14,14 @@ export function fetchBoardMeetings(params: BoardMeetingListParams) {
 export function fetchBoardMeeting(id: number | string) {
     // Standard envelope: the meeting object rides `data`.
     return api.get<{ data: BoardMeetingDetailResponse }>(`/board-meetings/${id}`);
+}
+
+/** Update the UI-owned fields (title/status/number/minutes). */
+export function updateBoardMeeting(id: number | string, payload: UpdateBoardMeetingPayload) {
+    return api.put<{ data: BoardMeetingDetailResponse }>(
+        `/board-meetings/${id}`,
+        payload,
+    );
 }
 
 /**

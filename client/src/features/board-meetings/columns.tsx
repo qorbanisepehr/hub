@@ -17,11 +17,10 @@ function numberOrDash(number: string | null | undefined): string {
 }
 
 /**
- * Board meeting columns (Phase 3/4): شماره جلسه / تاریخ جلسه (Jalali,
- * sortable) / مدارک / عملیات. The date and the row actions open the detail
- * page — same Link-in-cell + RowActions pattern as the users list.
- * `pdate` is the canonical key, `number` arrives pre-formatted from the
- * source document filenames (empty string when the archive has none).
+ * Board meeting columns (fresh shape): شماره جلسه / تاریخ جلسه (Jalali
+ * rendering of the canonical Gregorian date, sortable) / مدارک / عملیات.
+ * The date and the row actions open the detail page — same Link-in-cell
+ * + RowActions pattern as the users list.
  */
 export const boardMeetingColumns: ColumnDef<StockFeatures, BoardMeetingDto>[] = [
     {
@@ -37,7 +36,7 @@ export const boardMeetingColumns: ColumnDef<StockFeatures, BoardMeetingDto>[] = 
         meta: { displayName: "شماره جلسه" },
     },
     {
-        accessorKey: "pdate",
+        accessorKey: "date",
         header: ({ column }) => (
             <DataTableColumnHeader column={column} title="تاریخ جلسه" />
         ),
@@ -46,9 +45,9 @@ export const boardMeetingColumns: ColumnDef<StockFeatures, BoardMeetingDto>[] = 
                 to="/board-meetings/$meetingId"
                 params={{ meetingId: String(row.original.id) }}
                 className="text-sm text-muted-foreground transition-colors hover:text-primary"
-                title={row.original.pdate}
+                title={row.original.date ?? undefined}
             >
-                {toPersianDate(row.original.date ?? row.original.pdate)}
+                {toPersianDate(row.original.date)}
             </Link>
         ),
         meta: { displayName: "تاریخ جلسه" },
