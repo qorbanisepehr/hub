@@ -96,7 +96,7 @@ describe('PUT+DELETE /api/tags/{tag}', function () {
 describe('POST /api/tags/attach', function () {
     it('syncs a meeting tag set through the service', function () {
         $meeting = BoardMeeting::factory()->create();
-        $user = createUserWithPermissions(['tag.manage']);
+        $user = createUserWithPermissions(['tag.manage', 'board-meeting.update']);
 
         $response = actingAs($user)
             ->postJson('/api/tags/attach', [
@@ -118,6 +118,21 @@ describe('POST /api/tags/attach', function () {
             ->assertOk();
 
         expect($meeting->refresh()->tags()->pluck('slug')->all())->toBe(['خرید']);
+    });
+
+    it('forbids a tag manager without the meeting update permission (P5)', function () {
+        $meeting = BoardMeeting::factory()->create();
+        $user = createUserWithPermissions(['tag.manage']);
+
+        actingAs($user)
+            ->postJson('/api/tags/attach', [
+                'taggable_type' => 'board-meeting',
+                'taggable_id' => $meeting->id,
+                'slugs' => ['خرید'],
+            ])
+            ->assertForbidden();
+
+        expect($meeting->tags()->count())->toBe(0);
     });
 
     it('rejects unknown taggable types', function () {

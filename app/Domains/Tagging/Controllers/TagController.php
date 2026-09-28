@@ -2,11 +2,12 @@
 
 namespace App\Domains\Tagging\Controllers;
 
+use App\Contracts\Authorization;
 use App\Domains\Tagging\Models\Tag;
 use App\Domains\Tagging\Requests\TagRequest;
 use App\Domains\Tagging\Resources\TagResource;
 use App\Domains\Tagging\Services\TagService;
-use App\Support\DocumentRouteType;
+use App\Domains\Tagging\TaggableType;
 use App\Support\ListQuery;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
@@ -73,8 +74,12 @@ class TagController
         return response()->json(['message' => __('messages.deleted_successfully')]);
     }
 
-    /** Attach/detach a tag on a meeting (sync semantics via TagService). */
-    public function attach(Request $request): JsonResponse
+    /**
+     * Attach/detach tags on an entity (sync semantics via TagService).
+     * Gated twice: `tag.manage` (route middleware) plus the taggable's own
+     * update permission — retagging is a write on the tagged entity (P5).
+     */
+    public function attach(Authorization $authorization, Request $request): JsonResponse
     {
         $validated = $request->validate([
             'taggable_type' => ['required', 'string', 'in:board-meeting'],
@@ -85,6 +90,16 @@ class TagController
 
         $model = $this->resolveTaggable($validated['taggable_type'], (int) $validated['taggable_id']);
 
+        if (($permission = TaggableType::updatePermissionFor($validated['taggable_type'])) !== null) {
+            $actor = $request->user();
+
+            if ($actor === null) {
+                abort(401);
+            }
+
+            $authorization->authorize($actor, $permission, $model);
+        }
+
         app(TagService::class)->syncTags($model, $validated['slugs']);
 
         return response()->json([
@@ -94,7 +109,7 @@ class TagController
 
     private function resolveTaggable(string $routeType, int $id): Model
     {
-        $class = DocumentRouteType::classFor($routeType)
+        $class = TaggableType::classFor($routeType)
             ?? throw new \InvalidArgumentException("Unknown taggable type [$routeType].");
 
         return $class::query()->findOrFail($id);
