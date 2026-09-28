@@ -1,14 +1,27 @@
 import { type ColumnDef, type StockFeatures } from "@tanstack/react-table";
+import { Link } from "@tanstack/react-router";
+import { IconEye } from "@tabler/icons-react";
 import { DataTableColumnHeader } from "@/components/data-table";
+import { RowActions } from "@/components/shared/row-actions";
 import { Badge } from "@/components/ui/badge";
 import { toPersianDate } from "@/lib/date-format";
 import type { BoardMeetingDto } from "./types";
 
+/** «—» for the source's empty meeting numbers (73/214 in the archive). */
+function numberOrDash(number: string | null | undefined): string {
+    if (number === null || number === undefined || number.trim() === "") {
+        return "—";
+    }
+
+    return number;
+}
+
 /**
- * Board meeting columns (Phase 3): شماره جلسه / تاریخ جلسه (Jalali,
- * sortable) / مدارک. Titles are the client-facing vocabulary; `pdate` is
- * the canonical key, `number` arrives pre-formatted from the source
- * document filenames.
+ * Board meeting columns (Phase 3/4): شماره جلسه / تاریخ جلسه (Jalali,
+ * sortable) / مدارک / عملیات. The date and the row actions open the detail
+ * page — same Link-in-cell + RowActions pattern as the users list.
+ * `pdate` is the canonical key, `number` arrives pre-formatted from the
+ * source document filenames (empty string when the archive has none).
  */
 export const boardMeetingColumns: ColumnDef<StockFeatures, BoardMeetingDto>[] = [
     {
@@ -18,7 +31,7 @@ export const boardMeetingColumns: ColumnDef<StockFeatures, BoardMeetingDto>[] = 
         ),
         cell: ({ row }) => (
             <span dir="rtl" className="text-sm font-medium">
-                {row.original.number ?? "—"}
+                {numberOrDash(row.original.number)}
             </span>
         ),
         meta: { displayName: "شماره جلسه" },
@@ -29,12 +42,14 @@ export const boardMeetingColumns: ColumnDef<StockFeatures, BoardMeetingDto>[] = 
             <DataTableColumnHeader column={column} title="تاریخ جلسه" />
         ),
         cell: ({ row }) => (
-            <span
-                className="text-sm text-muted-foreground"
+            <Link
+                to="/board-meetings/$meetingId"
+                params={{ meetingId: String(row.original.id) }}
+                className="text-sm text-muted-foreground transition-colors hover:text-primary"
                 title={row.original.pdate}
             >
                 {toPersianDate(row.original.date ?? row.original.pdate)}
-            </span>
+            </Link>
         ),
         meta: { displayName: "تاریخ جلسه" },
     },
@@ -54,5 +69,22 @@ export const boardMeetingColumns: ColumnDef<StockFeatures, BoardMeetingDto>[] = 
             );
         },
         meta: { displayName: "مدارک" },
+    },
+    {
+        id: "actions",
+        header: "عملیات",
+        cell: ({ row }) => (
+            <RowActions
+                actions={[
+                    {
+                        icon: <IconEye className="size-4" />,
+                        label: "مشاهده",
+                        href: `/board-meetings/${row.original.id}`,
+                    },
+                ]}
+            />
+        ),
+        enableSorting: false,
+        enableHiding: false,
     },
 ];
