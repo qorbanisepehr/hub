@@ -5,7 +5,9 @@ use App\Domains\BoardMeeting\Models\BoardMeeting;
 use App\Domains\BoardMeeting\Models\IntegrationStaging;
 use App\Domains\BoardMeeting\Services\BoardMeetingSyncService;
 use App\Domains\BoardMeeting\Services\MeetingNumberService;
+use App\Domains\BoardMeeting\Services\MeetingProjection;
 use App\Domains\Ingest\Models\IntegrationRecord;
+use App\Domains\Ingest\Services\RecordProjector;
 use App\Integrations\Farzin\FakeFarzinSource;
 use App\Integrations\Farzin\FarzinGatewayAdapter;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -62,6 +64,25 @@ it('projects meetings from generic records', function () {
         ->and($meeting->minutes_hash)->toBe(hash('sha256', implode("\n", $meeting->minutes_from_letters)))
         ->and($meeting->minutes_from_heyat_modire)->toBe(['جلسه هیئت مدیره ساعت ۱۰ در محل شرکت تشکیل شد'])
         ->and($meeting->meta['heyat_modire_count'])->toBe(1);
+});
+
+it('groups letters by the meeting date from the subject, not the letter date', function () {
+    // Regression (dev-data review 2026-09-27): a letter SENT on 1404-06-10
+    // inviting to a meeting HELD on 1404-06-15 must produce the meeting
+    // keyed by the invitation's meeting_pdate (TCK Meeting pseudo-model
+    // groups by meeting_pdate) — never the letter's own pdate.
+    $letter = FakeFarzinSource::SAMPLE_LETTERS[0];
+    $letter['EntityCode'] = 301;
+    $letter['EntityNumber'] = 453;
+    $letter['date'] = '2025-09-01'; // Jalali 1404-06-10 ≠ meeting date.
+
+    $gateway = new FarzinGatewayAdapter(new FakeFarzinSource([$letter], []));
+    (new LoadFarzinToStagingJob)->handle($gateway);
+    app(RecordProjector::class)->project(LoadFarzinToStagingJob::SOURCE);
+    app(MeetingProjection::class)->project();
+
+    expect(BoardMeeting::query()->where('pdate', '1404-06-15')->exists())->toBeTrue()
+        ->and(BoardMeeting::query()->where('pdate', '1404-06-10')->exists())->toBeFalse();
 });
 
 it('skips unchanged meetings on re-projection', function () {

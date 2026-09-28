@@ -16,9 +16,11 @@ use Illuminate\Support\Facades\Storage;
  * a change here, not a schema change).
  *
  * TCK parity throughout: meetings derive from invitation letters grouped
- * by Jalali date; minutes build from letter texts (greeting-strip +
- * dedup) merged with session-form descriptions; the meeting number comes
- * from document filenames; unchanged meetings skip via hash.
+ * by the MEETING date extracted from the subject («مورخ …», TCK Meeting
+ * pseudo-model groups by meeting_pdate — never the letter's own date);
+ * minutes build from letter texts (greeting-strip + dedup) merged with
+ * session-form descriptions; the meeting number comes from document
+ * filenames; unchanged meetings skip via hash.
  */
 readonly class MeetingProjection
 {
@@ -40,11 +42,14 @@ readonly class MeetingProjection
         $letters = IntegrationRecord::query()
             ->forEntity('letter')
             ->where('data->has_meeting', true)
+            ->whereNotNull('data->meeting_pdate')
+            ->where('data->meeting_pdate', '!=', '')
             ->whereNotNull('data->entity_number')
             ->where('data->entity_number', '!=', '')
-            ->orderBy('pdate')
+            ->orderBy('id')
             ->get()
-            ->groupBy('pdate');
+            ->groupBy(fn (IntegrationRecord $record) => $record->data['meeting_pdate'])
+            ->sortKeys();
 
         $sessions = $this->sessionsByPdate();
 
