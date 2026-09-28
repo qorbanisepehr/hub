@@ -13,6 +13,10 @@ Route::middleware('auth:sanctum')->group(function () {
         ->name('board-meetings.show')
         ->middleware('permission:board-meeting.view');
 
+    Route::put('board-meetings/{meeting}', [BoardMeetingController::class, 'update'])
+        ->name('board-meetings.update')
+        ->middleware('permission:board-meeting.update');
+
     // Documents (K4): scoped to a resolved meeting, flat placements.
     Route::get('board-meetings/{meeting}/documents', [BoardMeetingDocumentController::class, 'index'])
         ->name('board-meetings.documents.index')

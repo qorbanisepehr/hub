@@ -10,32 +10,30 @@ use App\Integrations\Farzin\FakeFarzinSource;
 use App\Integrations\Farzin\FarzinGatewayAdapter;
 use App\Integrations\Farzin\FarzinUnavailableException;
 use App\Integrations\Farzin\FarzinVocabulary;
-use App\Integrations\Farzin\SqlsrvFarzinSource;
 use Carbon\CarbonImmutable;
 use RuntimeException;
 use Throwable;
 
 /**
- * Facade over the one-step sync (K1 flow): fetch → generic records →
- * meetings. Owns driver selection from config and the structured result
- * shape. Since the staging merge (2026-09-28), landing and normalizing
- * are a single ingest pass; only the final projection is
- * BoardMeeting-specific.
+ * Facade over the Farzin sync (K1 flow): fetch → generic records →
+ * import into the editable meeting aggregate. Owns driver selection
+ * from config and the structured result shape. The domain aggregate is
+ * written only through the importer — one writer among others.
  */
 readonly class BoardMeetingSyncService
 {
     public function __construct(
-        private MeetingProjection $projection,
+        private FarzinMeetingImporter $importer,
         private IngestRegistry $registry,
     ) {}
 
     /**
      * Run a full cycle: fetch from the configured driver, normalize the
-     * rows straight into generic records (one step — no staging table),
-     * then project records into meetings.
+     * rows straight into generic records (one step), then import them
+     * into meeting aggregates.
      *
      * @param  bool  $incremental  true = only rows edited since the last sync.
-     * @return array{records: array{synced: int, failed: int}, meetings: array{new: int, updated: int, unchanged: int}}
+     * @return array{records: array{synced: int, failed: int}, meetings: array{imported: int, updated: int}}
      */
     public function run(bool $incremental = true): array
     {
@@ -46,7 +44,7 @@ readonly class BoardMeetingSyncService
         $recordOutcome = (new SyncIngestRecordsJob($this->registry))
             ->handle(FarzinVocabulary::SOURCE, $rows);
 
-        $meetingOutcome = $this->projection->project();
+        $meetingOutcome = $this->importer->import();
 
         return [
             'records' => $recordOutcome,

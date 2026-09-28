@@ -2,8 +2,8 @@
 
 use App\Domains\BoardMeeting\Models\BoardMeeting;
 use App\Domains\BoardMeeting\Services\BoardMeetingSyncService;
+use App\Domains\BoardMeeting\Services\FarzinMeetingImporter;
 use App\Domains\BoardMeeting\Services\MeetingNumberService;
-use App\Domains\BoardMeeting\Services\MeetingProjection;
 use App\Domains\Ingest\Contracts\Normalizer;
 use App\Domains\Ingest\IngestRegistry;
 use App\Domains\Ingest\Jobs\SyncIngestRecordsJob;
@@ -33,60 +33,58 @@ it('syncs source rows into generic records in one step', function () {
         ->and(IntegrationRecord::count())->toBe(3);
 });
 
-it('normalizes rows with the source vocabulary intact in original', function () {
+it('imports the aggregate with minutes, attendees, and status', function () {
     app(BoardMeetingSyncService::class)->run(false);
 
-    $letter = IntegrationRecord::query()
-        ->forEntity('letter')->where('external_id', '101')->first();
-    $session = IntegrationRecord::query()
-        ->forEntity('session')->where('external_id', '201')->first();
-
-    // CDATA unwrapped, Arabic folded, inner HTML kept (TCK parity),
-    // Persian digits preserved; meeting fragment extracted into data.
-    expect($letter->title)->toBe('<p>دعوت به جلسه هیئت مدیره مورخ ۱۴۰۴/۰۶/۱۵</p>')
-        ->and($letter->data['r_name'])->toBe('یوسف احمدی')
-        ->and($letter->data['has_meeting'])->toBeTrue()
-        ->and($letter->data['meeting_pdate'])->toBe('1404-06-15')
-        ->and($letter->pdate)->toBe('1404-06-15')
-        ->and($letter->original)->toBeArray()
-        ->and($letter->source_table)->toBe('Entity_A4letter')
-        ->and($letter->status)->toBe('processed')
-        ->and($session->pdate)->toBe('1404-06-15')
-        ->and($session->data['sharh'])->toContain('جلسه هیئت مدیره ساعت ۱۰');
-});
-
-it('projects meetings from generic records', function () {
-    app(BoardMeetingSyncService::class)->run(false);
-
-    $meeting = BoardMeeting::query()->where('pdate', '1404-06-15')->first();
+    $meeting = BoardMeeting::query()->whereDate('date', '2025-09-06')->first();
 
     expect($meeting)->not->toBeNull()
-        ->and($meeting->minutes_from_letters)->toBeArray()
-        ->and(count($meeting->minutes_from_letters))->toBe(1)
-        ->and($meeting->minutes_hash)->toBe(hash('sha256', implode("\n", $meeting->minutes_from_letters)))
-        ->and($meeting->minutes_from_heyat_modire)->toBe(['جلسه هیئت مدیره ساعت ۱۰ در محل شرکت تشکیل شد'])
+        ->and($meeting->status)->toBe(BoardMeeting::STATUS_HELD)
+        ->and($meeting->minutes_text)->toContain('تصویب')
+        ->and($meeting->minutes_text)->toContain('دستور جلسه:')
         ->and($meeting->meta['heyat_modire_count'])->toBe(1);
 });
 
-it('skips unchanged meetings on re-projection', function () {
+it('is idempotent: re-import refreshes without duplicating', function () {
     $service = app(BoardMeetingSyncService::class);
 
-    $service->run(false);
-    $result = $service->run(false);
+    $first = $service->run(false);
+    $second = $service->run(false);
 
-    expect($result['meetings'])->toBe(['new' => 0, 'updated' => 0, 'unchanged' => 1]);
+    expect($first['meetings'])->toBe(['imported' => 1, 'updated' => 0])
+        ->and($second['meetings'])->toBe(['imported' => 0, 'updated' => 1])
+        ->and(BoardMeeting::count())->toBe(1);
 });
 
-it('keeps minute body after normalizer collapse (TCK parity)', function () {
+it('keeps UI-owned fields on re-import', function () {
     app(BoardMeetingSyncService::class)->run(false);
 
-    $meeting = BoardMeeting::query()->where('pdate', '1404-06-15')->first();
-    $minute = $meeting->minutes_from_letters[0];
+    $meeting = BoardMeeting::query()->first();
+    $meeting->update(['title' => 'دستکاری شده توسط کاربر', 'status' => BoardMeeting::STATUS_ARCHIVED]);
 
-    // TCK parity: the normalizer collapsed newlines to spaces and kept
-    // the CDATA inner markup; body content and numbering remain.
-    expect($minute)->toContain('تصویب')
-        ->and($minute)->toContain('دستور جلسه:');
+    app(FarzinMeetingImporter::class)->import();
+
+    expect($meeting->refresh()->title)->toBe('دستکاری شده توسط کاربر')
+        ->and($meeting->status)->toBe(BoardMeeting::STATUS_ARCHIVED);
+});
+
+it('groups letters by the meeting date from the subject, not the letter date', function () {
+    // Regression (dev-data review 2026-09-27): a letter SENT on 1404-06-10
+    // inviting to a meeting HELD on 1404-06-15 must produce the meeting
+    // keyed by the invitation's meeting date — never the letter's own.
+    $letter = FakeFarzinSource::SAMPLE_LETTERS[0];
+    $letter['EntityCode'] = 301;
+    $letter['EntityNumber'] = 453;
+    $letter['date'] = '2025-09-01'; // Jalali 1404-06-10 ≠ meeting date.
+
+    $gateway = new FarzinGatewayAdapter(new FakeFarzinSource([$letter], []));
+    $rows = FarzinVocabulary::landInstructions($gateway, null);
+
+    app(SyncIngestRecordsJob::class)->handle('farzin', $rows);
+    app(FarzinMeetingImporter::class)->import();
+
+    expect(BoardMeeting::query()->whereDate('date', '2025-09-06')->exists())->toBeTrue()
+        ->and(BoardMeeting::query()->whereDate('date', '2025-09-01')->exists())->toBeFalse();
 });
 
 it('extracts meeting numbers from document filenames (TCK parity)', function () {
@@ -100,26 +98,6 @@ it('extracts meeting numbers from document filenames (TCK parity)', function () 
         ]))->toBe('1111/ص/1404-3/2222/ص/1404')
         ->and($service->fromFilenames(['no-match.pdf']))->toBe('')
         ->and($service->fromFilenames(null))->toBe('');
-});
-
-it('groups letters by the meeting date from the subject, not the letter date', function () {
-    // Regression (dev-data review 2026-09-27): a letter SENT on 1404-06-10
-    // inviting to a meeting HELD on 1404-06-15 must produce the meeting
-    // keyed by the invitation's meeting_pdate (TCK Meeting pseudo-model
-    // groups by meeting_pdate) — never the letter's own pdate.
-    $letter = FakeFarzinSource::SAMPLE_LETTERS[0];
-    $letter['EntityCode'] = 301;
-    $letter['EntityNumber'] = 453;
-    $letter['date'] = '2025-09-01'; // Jalali 1404-06-10 ≠ meeting date.
-
-    $gateway = new FarzinGatewayAdapter(new FakeFarzinSource([$letter], []));
-    $rows = FarzinVocabulary::landInstructions($gateway, null);
-
-    app(SyncIngestRecordsJob::class)->handle('farzin', $rows);
-    app(MeetingProjection::class)->project();
-
-    expect(BoardMeeting::query()->where('pdate', '1404-06-15')->exists())->toBeTrue()
-        ->and(BoardMeeting::query()->where('pdate', '1404-06-10')->exists())->toBeFalse();
 });
 
 it('skips unmappable rows at the boundary and syncs the rest', function () {

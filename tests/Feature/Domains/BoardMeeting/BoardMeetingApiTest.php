@@ -15,9 +15,9 @@ describe('GET /api/board-meetings', function () {
             ->assertForbidden();
     });
 
-    it('returns meetings in the standard envelope, newest Jalali date first', function () {
-        BoardMeeting::factory()->create(['pdate' => '1404-05-01', 'number' => '1234/ص/1404']);
-        BoardMeeting::factory()->create(['pdate' => '1404-06-15']);
+    it('returns meetings in the standard envelope, newest date first', function () {
+        BoardMeeting::factory()->create(['date' => '2025-07-23', 'number' => '1234/ص/1404']);
+        BoardMeeting::factory()->create(['date' => '2025-09-06']);
         $user = createUserWithPermissions(['board-meeting.view']);
 
         $response = actingAs($user)
@@ -26,35 +26,48 @@ describe('GET /api/board-meetings', function () {
 
         $response->assertJsonStructure([
             'data' => [
-                '*' => ['id', 'pdate', 'date', 'number', 'agenda', 'documents', 'meta', 'tags'],
+                '*' => ['id', 'date', 'title', 'status', 'number', 'documents', 'meta', 'tags'],
             ],
             'meta' => ['current_page', 'last_page', 'per_page', 'total'],
         ]);
 
-        $pdates = collect($response->json('data'))->pluck('pdate')->all();
-        expect($pdates)->toBe(['1404-06-15', '1404-05-01'])
+        $dates = collect($response->json('data'))->pluck('date')->all();
+        expect($dates)->toBe(['2025-09-06', '2025-07-23'])
             ->and($response->json('meta.total'))->toBe(2);
     });
 
     it('serves the date window and pagination', function () {
-        BoardMeeting::factory()->create(['pdate' => '1404-05-01', 'date' => '2025-07-23']);
-        BoardMeeting::factory()->create(['pdate' => '1404-06-15', 'date' => '2025-09-06']);
-        BoardMeeting::factory()->create(['pdate' => '1404-07-10', 'date' => '2025-10-02']);
+        BoardMeeting::factory()->create(['date' => '2025-07-23']);
+        BoardMeeting::factory()->create(['date' => '2025-09-06']);
+        BoardMeeting::factory()->create(['date' => '2025-10-02']);
         $user = createUserWithPermissions(['board-meeting.view']);
 
         $response = actingAs($user)
             ->getJson('/api/board-meetings?per_page=1&page=2&date_from=2025-07-23&date_to=2025-09-30&order=asc')
             ->assertOk();
 
-        // 1404-05-01 and 1404-06-15 are inside the Gregorian window; page
-        // 2 of the ascending order is 1404-06-15.
+        // The window holds the first two dates; page 2 of the ascending
+        // order is 2025-09-06.
         expect($response->json('meta.total'))->toBe(2)
-            ->and($response->json('data.0.pdate'))->toBe('1404-06-15');
+            ->and($response->json('data.0.date'))->toBe('2025-09-06');
     });
 
-    it('searches the global filter over pdate and number', function () {
-        BoardMeeting::factory()->create(['pdate' => '1404-05-01', 'number' => null]);
-        BoardMeeting::factory()->create(['pdate' => '1404-06-15', 'number' => '5678/ص/1404']);
+    it('filters by status', function () {
+        BoardMeeting::factory()->create(['date' => '2025-07-23', 'status' => BoardMeeting::STATUS_ARCHIVED]);
+        BoardMeeting::factory()->create(['date' => '2025-09-06', 'status' => BoardMeeting::STATUS_HELD]);
+        $user = createUserWithPermissions(['board-meeting.view']);
+
+        $response = actingAs($user)
+            ->getJson('/api/board-meetings?status=archived')
+            ->assertOk();
+
+        expect($response->json('meta.total'))->toBe(1)
+            ->and($response->json('data.0.status'))->toBe('archived');
+    });
+
+    it('searches the global filter over number and title', function () {
+        BoardMeeting::factory()->create(['date' => '2025-07-23', 'number' => null]);
+        BoardMeeting::factory()->create(['date' => '2025-09-06', 'number' => '5678/ص/1404']);
         $user = createUserWithPermissions(['board-meeting.view']);
 
         $response = actingAs($user)
@@ -68,13 +81,11 @@ describe('GET /api/board-meetings', function () {
     it('AND-filters meetings by tag slugs', function () {
         $service = app(TagService::class);
 
-        $both = BoardMeeting::factory()->create(['pdate' => '1404-05-01']);
+        $both = BoardMeeting::factory()->create(['date' => '2025-07-23']);
         $service->syncTags($both, ['پروژه سونگون', 'قرارداد']);
 
-        $one = BoardMeeting::factory()->create(['pdate' => '1404-06-15']);
+        $one = BoardMeeting::factory()->create(['date' => '2025-09-06']);
         $service->syncTags($one, ['پروژه سونگون']);
-
-        $none = BoardMeeting::factory()->create(['pdate' => '1404-07-10']);
 
         $user = createUserWithPermissions(['board-meeting.view']);
 
@@ -84,7 +95,7 @@ describe('GET /api/board-meetings', function () {
             ->assertOk();
 
         expect($response->json('meta.total'))->toBe(1)
-            ->and($response->json('data.0.pdate'))->toBe($both->pdate);
+            ->and($response->json('data.0.id'))->toBe($both->id);
 
         // A single slug keeps every carrier.
         $single = actingAs($user)
@@ -92,20 +103,16 @@ describe('GET /api/board-meetings', function () {
             ->assertOk();
 
         expect($single->json('meta.total'))->toBe(2);
-
-        // No tags param returns everything untouched.
-        $all = actingAs($user)->getJson('/api/board-meetings')->assertOk();
-
-        expect($all->json('meta.total'))->toBe(3)
-            ->and($none->pdate)->toBe('1404-07-10');
     });
 });
 
 describe('GET /api/board-meetings/{meeting}', function () {
-    it('shows a meeting with minutes payloads', function () {
+    it('shows the meeting with agenda, attendees, and letters context', function () {
         $meeting = BoardMeeting::factory()->create([
-            'pdate' => '1404-06-15',
-            'minutes_from_letters' => ['بند اول صورتجلسه'],
+            'date' => '2025-09-06',
+            'minutes_text' => 'بند اول صورتجلسه',
+            'agenda' => [['position' => 1, 'title' => 'تصویب صورت‌های مالی']],
+            'attendees' => [['name' => 'عضو نمونه', 'role' => 'member', 'is_present' => true]],
         ]);
         $user = createUserWithPermissions(['board-meeting.view']);
 
@@ -113,7 +120,10 @@ describe('GET /api/board-meetings/{meeting}', function () {
             ->getJson("/api/board-meetings/{$meeting->id}")
             ->assertOk();
 
-        expect($response->json('data.pdate'))->toBe('1404-06-15');
+        expect($response->json('data.date'))->toBe('2025-09-06')
+            ->and($response->json('data.minutes_text'))->toBe('بند اول صورتجلسه')
+            ->and($response->json('data.agenda'))->toHaveCount(1)
+            ->and($response->json('data.attendees.0.name'))->toBe('عضو نمونه');
     });
 
     it('forbids a user without the capability', function () {
@@ -122,6 +132,49 @@ describe('GET /api/board-meetings/{meeting}', function () {
 
         actingAs($user)
             ->getJson("/api/board-meetings/{$meeting->id}")
+            ->assertForbidden();
+    });
+});
+
+describe('PUT /api/board-meetings/{meeting}', function () {
+    it('updates UI-owned fields with board-meeting.update', function () {
+        $meeting = BoardMeeting::factory()->create();
+        $user = createUserWithPermissions(['board-meeting.update']);
+
+        $response = actingAs($user)
+            ->putJson("/api/board-meetings/{$meeting->id}", [
+                'title' => 'جلسه فوق‌العاده',
+                'status' => 'scheduled',
+                'minutes_text' => 'متن ویرایش‌شده',
+                'number' => '9999/ص/1404',
+            ])
+            ->assertOk();
+
+        expect($response->json('data.title'))->toBe('جلسه فوق‌العاده')
+            ->and($response->json('data.status'))->toBe('scheduled')
+            ->and($response->json('data.number'))->toBe('9999/ص/1404')
+            ->and($meeting->refresh()->minutes_text)->toBe('متن ویرایش‌شده');
+    });
+
+    it('rejects importer-owned fields and invalid statuses', function () {
+        $meeting = BoardMeeting::factory()->create();
+        $user = createUserWithPermissions(['board-meeting.update']);
+
+        actingAs($user)
+            ->putJson("/api/board-meetings/{$meeting->id}", [
+                'status' => 'cancelled', // not in the whitelist
+                'date' => '2020-01-01', // importer-owned, never accepted
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['status']);
+    });
+
+    it('forbids a user without board-meeting.update', function () {
+        $meeting = BoardMeeting::factory()->create();
+        $user = createUserWithPermissions(['board-meeting.view']);
+
+        actingAs($user)
+            ->putJson("/api/board-meetings/{$meeting->id}", ['title' => 'x'])
             ->assertForbidden();
     });
 });

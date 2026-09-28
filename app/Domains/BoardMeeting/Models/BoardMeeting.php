@@ -11,11 +11,16 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * The board meeting aggregate (A6): one meeting per Jalali date (`pdate`
- * natural key — source parity). Minutes arrive from two channels — derived
- * from letters and, when present, the source's own board form — hashed so
- * the projection can skip unchanged meetings (idempotency, TCK parity).
- * Tags ride the general Tagging service (K3).
+ * The board meeting aggregate (fresh design, doc 060): TCK-parity
+ * editable — the UI can update it (TCK had an update endpoint), the
+ * Farzin importer creates/refreshes it (TCK created via sync only),
+ * future AI agents consume it. Identity is `id`; `date` is the
+ * Gregorian canonical meeting date (Jalali rendering is client-side,
+ * hub convention). `number` is the registry number as plain text
+ * (user decision B). Structured-but-unqueried sub-structure rides
+ * JSONB per hub ADR-003: `agenda`, `attendees`, `summary` (AI seam —
+ * per-field status like TCK's meta.summary), `meta`. Documents ride
+ * the hub Document system (K4), tags the general Tagging service (K3).
  */
 #[UseFactory(BoardMeetingFactory::class)]
 final class BoardMeeting extends Model implements Documentable
@@ -27,15 +32,28 @@ final class BoardMeeting extends Model implements Documentable
 
     use Taggable;
 
+    public const STATUS_SCHEDULED = 'scheduled';
+
+    public const STATUS_HELD = 'held';
+
+    public const STATUS_ARCHIVED = 'archived';
+
+    /** @var list<string> */
+    public const STATUSES = [
+        self::STATUS_SCHEDULED,
+        self::STATUS_HELD,
+        self::STATUS_ARCHIVED,
+    ];
+
     protected $fillable = [
         'date',
-        'pdate',
+        'title',
+        'status',
         'number',
+        'minutes_text',
         'agenda',
-        'minutes',
-        'minutes_from_letters',
-        'minutes_hash',
-        'minutes_from_heyat_modire',
+        'attendees',
+        'summary',
         'meta',
         'synced_at',
     ];
@@ -44,17 +62,18 @@ final class BoardMeeting extends Model implements Documentable
     {
         return [
             'date' => 'date',
-            'minutes_from_letters' => 'array',
-            'minutes_from_heyat_modire' => 'array',
+            'agenda' => 'array',
+            'attendees' => 'array',
+            'summary' => 'array',
             'meta' => 'array',
             'synced_at' => 'datetime',
         ];
     }
 
     /**
-     * Approval PDFs and meeting documents live in the hub Document system
-     * (decision K4); the source-side archive listing is derived at read
-     * time from the archive disk — see ArchiveListing.
+     * Meeting documents live in the hub Document system (decision K4);
+     * the source-side archive listing is derived at read time from the
+     * archive disk — see ArchiveListing.
      */
     public function getDocumentConfigKey(): ?string
     {
@@ -63,6 +82,6 @@ final class BoardMeeting extends Model implements Documentable
 
     public function getDocumentOwnerLabel(): ?string
     {
-        return $this->pdate;
+        return $this->date?->toDateString();
     }
 }
