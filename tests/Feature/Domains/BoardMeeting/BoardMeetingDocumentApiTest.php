@@ -36,7 +36,7 @@ describe('GET /api/board-meetings/{meeting}/documents', function () {
 
     it('lists documents with capabilities for the viewer', function () {
         Storage::fake('local');
-        $meeting = BoardMeeting::factory()->create(['pdate' => '1404-05-01']);
+        $meeting = BoardMeeting::factory()->create(['date' => '2025-07-23']);
         $uploader = createUserWithPermissions(['board-meeting.documents.upload']);
         $user = createUserWithPermissions(['board-meeting.documents.view', 'board-meeting.documents.download']);
         $category = meetingDocumentCategory();
@@ -54,7 +54,7 @@ describe('GET /api/board-meetings/{meeting}/documents', function () {
 
         $document = $response->json('data.0');
 
-        expect($document['structure_name'])->toBe('1404-05-01 — مصوبات جلسات هیئت مدیره')
+        expect($document['structure_name'])->toBe('2025-07-23 — مصوبات جلسات هیئت مدیره')
             ->and($document['category']['slug'])->toBe('board-meeting-approvals')
             ->and($document['url'])->toContain('/board-meetings/documents/')
             ->and($response->json('capabilities.view'))->toBeTrue()
@@ -66,7 +66,7 @@ describe('GET /api/board-meetings/{meeting}/documents', function () {
 describe('POST /api/board-meetings/{meeting}/documents', function () {
     it('uploads a document with the upload permission', function () {
         Storage::fake('local');
-        $meeting = BoardMeeting::factory()->create(['pdate' => '1404-05-01']);
+        $meeting = BoardMeeting::factory()->create(['date' => '2025-07-23']);
         $user = createUserWithPermissions(['board-meeting.documents.upload']);
         $category = meetingDocumentCategory();
 
@@ -80,7 +80,7 @@ describe('POST /api/board-meetings/{meeting}/documents', function () {
 
         $data = $response->json('data');
 
-        expect($data['structure_name'])->toBe('1404-05-01 — مصوبات جلسات هیئت مدیره')
+        expect($data['structure_name'])->toBe('2025-07-23 — مصوبات جلسات هیئت مدیره')
             ->and($data['notes'])->toBe('صورتجلسه امضاشده')
             ->and($data['deleted_at'])->toBeNull();
 

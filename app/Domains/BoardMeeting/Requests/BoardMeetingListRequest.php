@@ -31,9 +31,10 @@ class BoardMeetingListRequest extends FormRequest
         return [
             'page' => ['nullable', 'integer', 'min:1'],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:200'],
-            'sort' => ['nullable', 'string', 'in:pdate,number'],
+            'sort' => ['nullable', 'string', 'in:date,number'],
             'order' => ['nullable', 'string', 'in:asc,desc'],
             'filter' => ['nullable', 'string', 'max:100'],
+            'status' => ['nullable', 'string', 'in:scheduled,held,archived'],
             'tags' => ['nullable', 'array'],
             'tags.*' => ['string', 'max:100'],
             'date_from' => ['nullable', 'string'],
@@ -53,7 +54,15 @@ class BoardMeetingListRequest extends FormRequest
 
     public function listSort(): string
     {
-        return $this->string('sort')->toString() === 'number' ? 'number' : 'pdate';
+        return $this->string('sort')->toString() === 'number' ? 'number' : 'date';
+    }
+
+    /** Status filter (scheduled/held/archived), null when absent. */
+    public function listStatus(): ?string
+    {
+        $status = $this->string('status')->toString();
+
+        return $status === '' ? null : $status;
     }
 
     public function listOrder(): string
