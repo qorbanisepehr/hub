@@ -7,6 +7,10 @@ import {
     IconUserKey,
     IconUsers,
 } from "@tabler/icons-react";
+import {
+    badgeVariants,
+    type VariantProps,
+} from "@/components/ui/badge";
 import type { AuditCategory } from "./types";
 
 export const AUDIT_CATEGORY_LABELS: Record<AuditCategory, string> = {
@@ -18,10 +22,13 @@ export const AUDIT_CATEGORY_LABELS: Record<AuditCategory, string> = {
     workflow: "گردش کار",
 };
 
-// bg-info
+/**
+ * Badge variant per audit category, typed from the component itself so a
+ * variant rename or removal breaks the build here instead of silently drifting.
+ */
 export const AUDIT_CATEGORY_VARIANTS: Record<
     AuditCategory,
-    "primary" | "info" | "warning" | "destructive" | "success"
+    VariantProps<typeof badgeVariants>["variant"]
 > = {
     auth: "success",
     authorization: "info",

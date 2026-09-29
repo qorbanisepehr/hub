@@ -32,7 +32,11 @@ export type ListFilterFieldDef = {
     id: string;
     label: string;
     type?: "select" | "multiselect" | "boolean" | "text" | "date";
-    options?: { value: string; label: string }[];
+    /**
+     * Declared `readonly` so feature constants can be plain `as const` arrays
+     * without a cast; the field only ever reads them.
+     */
+    options?: readonly { value: string; label: string }[];
     /**
      * Offers the «مخالف» (is_not) operator; its column filter and URL param
      * follow the «{id}_not» / «{searchKey}_not» convention and the backend

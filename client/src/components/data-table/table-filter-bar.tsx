@@ -61,7 +61,9 @@ export function TableFilterBar({
                         field.type === "date"
                             ? undefined
                             : (field.type ?? "select"),
-                    options: field.options,
+                    // reui types FilterField.options as a mutable array, while
+                    // our field defs accept `as const` constants — copy here.
+                    options: field.options ? [...field.options] : undefined,
                     ...(field.type === "date"
                         ? ({
                               editor: FilterDateEditor,

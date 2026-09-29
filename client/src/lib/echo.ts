@@ -2,6 +2,16 @@ import Echo from "laravel-echo";
 import Pusher from "pusher-js";
 
 /**
+ * Echo's Pusher connector reads the runtime off `window`, which has no
+ * declaration for it. Declared here, next to the only assignment.
+ */
+declare global {
+    interface Window {
+        Pusher: typeof Pusher;
+    }
+}
+
+/**
  * Realtime client (architecture §30). The API stays the source of truth; the
  * channel only nudges the query cache so the bell reconciles immediately
  * instead of waiting for the next poll (§29).
