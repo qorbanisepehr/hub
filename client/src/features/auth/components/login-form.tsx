@@ -1,12 +1,13 @@
 "use client";
 
-import * as React from "react";
 import { useForm } from "@tanstack/react-form";
-import { useStore } from "@tanstack/react-store";
 import { useNavigate } from "@tanstack/react-router";
+import { useStore } from "@tanstack/react-store";
+import * as React from "react";
 import { z } from "zod";
 
 import { Button } from "@/components/ui/button";
+import { ButtonGroup } from "@/components/ui/button-group";
 import {
     Card,
     CardContent,
@@ -15,19 +16,22 @@ import {
     CardTitle,
 } from "@/components/ui/card";
 import { FieldError, FieldGroup } from "@/components/ui/field";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Skeleton } from "@/components/ui/skeleton";
-import { IconLoader2 } from "@tabler/icons-react";
-import { cn } from "@/lib/utils";
 import { useAuth } from "@/features/auth";
-import { IdentifierField } from "@/features/auth/components/identifier-field";
 import { CodeField } from "@/features/auth/components/code-field";
+import { IdentifierField } from "@/features/auth/components/identifier-field";
 import { PasswordField } from "@/features/auth/components/password-field";
 import type { LoginChannel, LoginMode } from "@/features/auth/types";
-import { getApiError } from "@/lib/error-utils";
-import { COMPANY_NAME } from "@/lib/brand";
 import { useBranding } from "@/features/settings/hooks/use-branding";
 import { useOtpVerification } from "@/hooks/use-otp-verification";
+import { COMPANY_NAME } from "@/lib/brand";
+import { getApiError } from "@/lib/error-utils";
+import { cn } from "@/lib/utils";
+import {
+    IconLoader2,
+    IconMail,
+    IconPhone,
+} from "@tabler/icons-react";
 
 const identifierSchema = z.string().min(1, "این فیلد الزامی است");
 const codeSchema = z.string().length(6, "لطفا کد تایید را وارد کنید");
@@ -231,60 +235,62 @@ export function LoginForm({
                                 ) : (
                                     <>
                                         {mode === "otp" && (
-                                            <fieldset
-                                                disabled={isSending}
-                                                className="flex flex-col gap-2"
-                                            >
-                                                <legend className="text-sm font-medium text-foreground">
-                                                    نحوه دریافت کد تایید
-                                                </legend>
-                                                <RadioGroup
-                                                    value={otpChannel}
-                                                    onValueChange={(val) =>
-                                                        setOtpChannel(
-                                                            val as LoginChannel,
-                                                        )
-                                                    }
-                                                    className="flex flex-row flex-wrap gap-4"
+                                            <div className="flex items-center gap-1">
+                                                <Button
+                                                    type="submit"
+                                                    disabled={isSending}
+                                                    className="flex-1"
                                                 >
-                                                    <div className="flex items-center gap-2">
-                                                        <RadioGroupItem
-                                                            value="email"
-                                                            id="channel-email"
-                                                        />
-                                                        <label
-                                                            htmlFor="channel-email"
-                                                            className="text-sm"
-                                                        >
-                                                            ایمیل
-                                                        </label>
-                                                    </div>
-                                                    <div className="flex items-center gap-2">
-                                                        <RadioGroupItem
-                                                            value="mobile"
-                                                            id="channel-mobile"
-                                                        />
-                                                        <label
-                                                            htmlFor="channel-mobile"
-                                                            className="text-sm"
-                                                        >
-                                                            پیامک (موبایل)
-                                                        </label>
-                                                    </div>
-                                                </RadioGroup>
-                                            </fieldset>
-                                        )}
+                                                    {isSending
+                                                        ? "در حال ارسال..."
+                                                        : "ارسال کد یکبار مصرف"}
+                                                </Button>
 
-                                        {mode === "otp" && (
-                                            <Button
-                                                type="submit"
-                                                disabled={isSending}
-                                                className="w-full"
-                                            >
-                                                {isSending
-                                                    ? "در حال ارسال..."
-                                                    : "ارسال کد یکبار مصرف"}
-                                            </Button>
+                                                <ButtonGroup className="shrink-0 bg-secondary rounded border">
+                                                    <Button
+                                                        size="icon-sm"
+                                                        variant="ghost"
+                                                        onClick={() =>
+                                                            otpChannel !==
+                                                                "email" &&
+                                                            setOtpChannel(
+                                                                "email",
+                                                            )
+                                                        }
+                                                    >
+                                                        {otpChannel ===
+                                                        "email" ? (
+                                                            <div className="relative">
+                                                                <IconMail className="size-4 text-primary" />
+                                                                <span className="h-0.75 w-full inline-block rounded-full absolute -bottom-1.5 right-0 bg-primary" />
+                                                            </div>
+                                                        ) : (
+                                                            <IconMail className="size-4 text-primary/50" />
+                                                        )}
+                                                    </Button>
+                                                    <Button
+                                                        size="icon-sm"
+                                                        variant="ghost"
+                                                        onClick={() =>
+                                                            otpChannel !==
+                                                                "mobile" &&
+                                                            setOtpChannel(
+                                                                "mobile",
+                                                            )
+                                                        }
+                                                    >
+                                                        {otpChannel ===
+                                                        "mobile" ? (
+                                                            <div className="relative">
+                                                                <IconPhone className="size-4 text-primary" />
+                                                                <span className="h-0.75 w-full inline-block rounded-full absolute -bottom-1.5 right-0 bg-primary" />
+                                                            </div>
+                                                        ) : (
+                                                            <IconPhone className="size-4 text-primary/50" />
+                                                        )}
+                                                    </Button>
+                                                </ButtonGroup>
+                                            </div>
                                         )}
 
                                         {mode === "password" && (

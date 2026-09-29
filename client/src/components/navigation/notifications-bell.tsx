@@ -21,6 +21,8 @@ import {
     useNotifications,
     useUnreadCount,
 } from "@/features/notifications/hooks";
+import { notificationHref } from "@/features/notifications/notification-href";
+import type { AppNotification } from "@/features/notifications/types";
 import { toPersianDate } from "@/lib/date-format";
 import { cn } from "@/lib/utils";
 
@@ -58,6 +60,22 @@ export function NotificationsBell() {
     }, [open, recent, unreadCount]);
 
     const notifications = recent.data?.data ?? [];
+
+    /**
+     * Open a notification like the notification center does: navigate to its
+     * real destination when one exists, otherwise fall back to the center,
+     * and mark it read when still unread (architecture §53, §55).
+     */
+    const openNotification = (notification: AppNotification) => {
+        const href = notificationHref(notification) ?? "/notifications";
+
+        setOpen(false);
+        void navigate({ to: href });
+
+        if (notification.read_at === null) {
+            markRead.mutate(notification.id);
+        }
+    };
 
     return (
         <DropdownMenu open={open} onOpenChange={setOpen}>
@@ -126,7 +144,7 @@ export function NotificationsBell() {
                                     key={notification.id}
                                     className="items-start gap-2 px-3 py-2"
                                     onClick={() =>
-                                        markRead.mutate(notification.id)
+                                        openNotification(notification)
                                     }
                                 >
                                     <span
