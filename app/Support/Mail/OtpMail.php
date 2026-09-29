@@ -30,7 +30,16 @@ final class OtpMail extends Mailable implements ShouldQueue
     public function __construct(
         private readonly string $code,
         private readonly int $expiresIn,
+        private readonly ?OtpDeliveryContext $delivery = null,
     ) {}
+
+    /**
+     * Request context shown in the mail, or null when the flow has none.
+     */
+    public function deliveryContext(): ?OtpDeliveryContext
+    {
+        return $this->delivery;
+    }
 
     public function envelope(): Envelope
     {
@@ -46,6 +55,7 @@ final class OtpMail extends Mailable implements ShouldQueue
             with: [
                 'code' => $this->code,
                 'expiresIn' => $this->expiresIn,
+                'delivery' => $this->delivery,
             ],
         );
     }

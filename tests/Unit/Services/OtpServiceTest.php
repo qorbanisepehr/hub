@@ -5,6 +5,7 @@ namespace Tests\Unit\Services;
 use App\Enums\OtpContext;
 use App\Models\User;
 use App\Services\OtpService;
+use App\Support\Mail\OtpDeliveryContext;
 use App\Support\Mail\OtpMail;
 use App\Support\Sms\Contracts\SmsSender;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -38,6 +39,46 @@ class OtpServiceTest extends TestCase
         );
 
         $this->assertSame(6, strlen($code));
+    }
+
+    public function test_email_send_forwards_delivery_context_to_the_mail(): void
+    {
+        $user = User::factory()->create();
+        Mail::fake();
+
+        $issuedAt = now();
+
+        $this->service->send(
+            $user,
+            'email',
+            OtpContext::Login,
+            'jane@example.com',
+            new OtpDeliveryContext('192.168.1.42', $issuedAt),
+        );
+
+        Mail::assertQueued(
+            OtpMail::class,
+            function (OtpMail $mail) use ($issuedAt): bool {
+                $delivery = $mail->deliveryContext();
+
+                return $delivery !== null
+                    && $delivery->ipAddress === '192.168.1.42'
+                    && $delivery->issuedAt?->timestamp === $issuedAt->timestamp;
+            },
+        );
+    }
+
+    public function test_email_send_without_delivery_context_queues_mail_without_one(): void
+    {
+        $user = User::factory()->create();
+        Mail::fake();
+
+        $this->service->send($user, 'email', OtpContext::Login, 'jane@example.com');
+
+        Mail::assertQueued(
+            OtpMail::class,
+            fn (OtpMail $mail): bool => $mail->deliveryContext() === null,
+        );
     }
 
     public function test_mobile_send_does_not_queue_mail(): void

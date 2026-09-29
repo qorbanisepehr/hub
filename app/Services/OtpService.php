@@ -7,6 +7,7 @@ use App\Enums\GrantPurpose;
 use App\Enums\OtpContext;
 use App\Enums\OtpSendStatus;
 use App\Enums\OtpVerifyStatus;
+use App\Support\Mail\OtpDeliveryContext;
 use App\Support\Mail\OtpMail;
 use App\Support\Sms\Contracts\SmsSender;
 use Illuminate\Support\Facades\Cache;
@@ -26,9 +27,17 @@ class OtpService
      * channel is `mobile` and a recipient is given, it is delivered through
      * the configured SMS sender. This method is the single place where the
      * plaintext code exists, so delivery happens here and nowhere else.
+     *
+     * `$delivery` is optional presentation context about the request the code
+     * was issued for; it only affects the rendered mail and is ignored by SMS.
      */
-    public function send(OtpVerifiable $entity, string $channel, OtpContext $context, ?string $recipient = null): string
-    {
+    public function send(
+        OtpVerifiable $entity,
+        string $channel,
+        OtpContext $context,
+        ?string $recipient = null,
+        ?OtpDeliveryContext $delivery = null,
+    ): string {
         $code = $this->generateCode();
         $ttl = $this->ttl($channel);
         $expiresAt = now()->addSeconds($ttl);
@@ -47,7 +56,7 @@ class OtpService
         }
 
         if ($channel === 'email' && $recipient !== null) {
-            Mail::to($recipient)->queue(new OtpMail($code, $ttl));
+            Mail::to($recipient)->queue(new OtpMail($code, $ttl, $delivery));
         }
 
         if ($channel === 'mobile' && $recipient !== null) {
@@ -105,8 +114,13 @@ class OtpService
      * it goes through the configured SMS sender. No delivery happens on
      * `AlreadySent` or `Locked`.
      */
-    public function sendWithCooldown(OtpVerifiable $entity, string $channel, OtpContext $context, ?string $recipient = null): OtpSendStatus
-    {
+    public function sendWithCooldown(
+        OtpVerifiable $entity,
+        string $channel,
+        OtpContext $context,
+        ?string $recipient = null,
+        ?OtpDeliveryContext $delivery = null,
+    ): OtpSendStatus {
         if ($this->isLocked($entity, $channel, $context)) {
             return OtpSendStatus::Locked;
         }
@@ -115,7 +129,7 @@ class OtpService
             return OtpSendStatus::AlreadySent;
         }
 
-        $this->send($entity, $channel, $context, $recipient);
+        $this->send($entity, $channel, $context, $recipient, $delivery);
 
         return OtpSendStatus::Sent;
     }

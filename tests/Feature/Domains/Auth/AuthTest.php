@@ -56,6 +56,27 @@ describe('auth endpoints', function () {
             );
         });
 
+        it('carries the request context into the OTP mail', function () {
+            $user = User::factory()->create();
+
+            Mail::fake();
+
+            $this->postJson('/api/auth/login', [
+                'identifier' => $user->email,
+            ])->assertStatus(200);
+
+            Mail::assertQueued(
+                OtpMail::class,
+                function (OtpMail $mail): bool {
+                    $delivery = $mail->deliveryContext();
+
+                    return $delivery !== null
+                        && $delivery->ipAddress === '127.0.0.1'
+                        && $delivery->issuedAt !== null;
+                },
+            );
+        });
+
         it('does not queue mail for SMS login', function () {
             $user = User::factory()->create();
 

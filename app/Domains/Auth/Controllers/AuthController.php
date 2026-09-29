@@ -15,6 +15,7 @@ use App\Enums\OtpContext;
 use App\Http\Responses\OtpResponder;
 use App\Models\User;
 use App\Services\OtpService;
+use App\Support\Mail\OtpDeliveryContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -62,6 +63,7 @@ class AuthController
             $channel,
             OtpContext::Login,
             $recipient,
+            new OtpDeliveryContext(ipAddress: $request->ip(), issuedAt: now()),
         );
 
         $response = $this->respondToSend($user, $channel, OtpContext::Login, $status);
