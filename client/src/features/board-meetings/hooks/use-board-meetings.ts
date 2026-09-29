@@ -1,11 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 
 import { boardMeetingKeys } from "@/lib/query-keys";
+import { getApiError } from "@/lib/error-utils";
 import {
     deleteMeetingDocument,
     fetchBoardMeeting,
     fetchBoardMeetings,
     fetchMeetingDocuments,
+    syncBoardMeetings,
     updateBoardMeeting,
     uploadMeetingDocument,
 } from "../api";
@@ -40,8 +43,9 @@ export function useBoardMeeting(id: number | string) {
 }
 
 /**
- * Meeting documents + capabilities (K4). Upload/delete mutations refresh
- * both the documents query and the meeting detail (its `documents` meta).
+ * Meeting documents + capabilities. Upload/delete mutations refresh both
+ * the documents query and the meeting detail (its `approval_count` and
+ * the `document_id` on each approval).
  */
 export function useMeetingDocuments(meetingId: number | string) {
     return useQuery({
@@ -66,6 +70,39 @@ export function useUpdateBoardMeeting(meetingId: number | string) {
             });
             void queryClient.invalidateQueries({
                 queryKey: boardMeetingKeys.lists(),
+            });
+        },
+    });
+}
+
+/**
+ * Run the registry sync. Lived behind the toolbar gear rather than a
+ * top-level button: it reaches out to the source and rewrites the
+ * registry columns, so it is not part of the everyday read rhythm even
+ * though it is idempotent and never destructive.
+ */
+export function useSyncBoardMeetings() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: async () => {
+            const { data } = await syncBoardMeetings();
+            return data;
+        },
+        onSuccess: (result) => {
+            const { created, refreshed, locked } = result.meetings;
+
+            toast.success("همگام‌سازی انجام شد", {
+                description: `${created.toLocaleString("fa-IR")} جلسهٔ جدید، ${refreshed.toLocaleString("fa-IR")} به‌روزرسانی، ${locked.toLocaleString("fa-IR")} مورد قفل‌شده دست‌نخورده`,
+            });
+
+            void queryClient.invalidateQueries({
+                queryKey: boardMeetingKeys.all,
+            });
+        },
+        onError: (error) => {
+            toast.error("همگام‌سازی ناموفق بود", {
+                description: getApiError(error) ?? "خطای ناشناخته",
             });
         },
     });

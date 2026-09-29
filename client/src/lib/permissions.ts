@@ -89,6 +89,7 @@ export const PERMISSIONS = {
     BOARD_MEETING_VIEW: "board-meeting.view",
     BOARD_MEETING_UPDATE: "board-meeting.update",
     BOARD_MEETING_SYNC: "board-meeting.sync",
+    BOARD_MEETING_EXPORT: "board-meeting.export",
 
     // Board Meeting Documents
     BOARD_MEETING_DOCUMENTS_VIEW: "board-meeting.documents.view",

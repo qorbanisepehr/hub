@@ -3,30 +3,16 @@ import {
     type StockFeatures,
     type Table,
 } from "@tanstack/react-table";
-import { Button } from "@/components/ui/button";
-import {
-    DropdownMenu,
-    DropdownMenuCheckboxItem,
-    DropdownMenuContent,
-    DropdownMenuGroup,
-    DropdownMenuLabel,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { IconTableOptions } from "@tabler/icons-react";
-import {
-    Tooltip,
-    TooltipContent,
-    TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { DropdownMenuCheckboxItem } from "@/components/ui/dropdown-menu";
 
-type DataTableViewOptionsProps<TData extends RowData> = {
+type ColumnVisibilityProps<TData extends RowData> = {
     table: Table<StockFeatures, TData>;
 };
 
 /** Hideable accessor columns of the table — shared source for the desktop
- *  view-options dropdown and the mobile «...» submenu. */
-function hideableColumns<TData extends RowData>(
+ *  and mobile column-visibility menus, and for deciding whether the
+ *  toolbar has any settings content to show at all. */
+export function hideableColumns<TData extends RowData>(
     table: Table<StockFeatures, TData>,
 ) {
     return table
@@ -38,12 +24,15 @@ function hideableColumns<TData extends RowData>(
         );
 }
 
-/** Column show/hide rows as menu items. Shared source for the desktop
- *  view-options dropdown and the mobile «...» submenu — one behavior,
- *  two shells. `DropdownMenuCheckboxItem` so toggling never closes. */
+/**
+ * Column show/hide rows as menu items, embedded wherever the shell needs
+ * them — the desktop «⚙ تنظیمات جدول» dropdown and the mobile «تنظیمات»
+ * submenu. One content, two shells, so both always list the same columns.
+ * `DropdownMenuCheckboxItem` so toggling never closes the menu.
+ */
 export function ColumnVisibilityMenuItems<TData extends RowData>({
     table,
-}: DataTableViewOptionsProps<TData>) {
+}: ColumnVisibilityProps<TData>) {
     return (
         <>
             {hideableColumns(table).map((column) => (
@@ -58,48 +47,5 @@ export function ColumnVisibilityMenuItems<TData extends RowData>({
                 </DropdownMenuCheckboxItem>
             ))}
         </>
-    );
-}
-
-/** Desktop-only view-options dropdown. On mobile the same column list is
- *  reached from the toolbar's «...» submenu instead. */
-export function DataTableViewOptions<TData extends RowData>(
-    props: DataTableViewOptionsProps<TData>,
-) {
-    if (hideableColumns(props.table).length === 0) return null;
-
-    return (
-        <DropdownMenu>
-            <Tooltip>
-                <TooltipTrigger
-                    render={
-                        <DropdownMenuTrigger
-                            render={
-                                <Button
-                                    variant="outline"
-                                    size="icon"
-                                    className="hidden lg:inline-flex"
-                                    aria-label="نمایش ستونها"
-                                >
-                                    <IconTableOptions className="size-4" />
-                                </Button>
-                            }
-                        />
-                    }
-                />
-                <TooltipContent side="bottom">
-                    نمایش ستونها
-                </TooltipContent>
-            </Tooltip>
-            <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuGroup>
-                    <DropdownMenuLabel>
-                        نمایش/مخفی کردن ستونها
-                    </DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    <ColumnVisibilityMenuItems {...props} />
-                </DropdownMenuGroup>
-            </DropdownMenuContent>
-        </DropdownMenu>
     );
 }

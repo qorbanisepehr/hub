@@ -14,7 +14,7 @@ import {
     IconDotsVertical,
     IconFilter,
     IconSearch,
-    IconTableOptions,
+    IconSettings,
     IconX,
 } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
@@ -31,20 +31,20 @@ import {
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuPortal,
-    DropdownMenuSeparator,
     DropdownMenuSub,
     DropdownMenuSubContent,
     DropdownMenuSubTrigger,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-    ColumnVisibilityMenuItems,
-    DataTableViewOptions,
-} from "./view-options";
+    DataTableSettingsItems,
+    DataTableSettingsMenu,
+    useHasTableSettings,
+} from "./settings-menu";
 import { DEBOUNCE } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { useAuthorization } from "@/features/auth";
-import type { DataTableToolbarAction } from "./toolbar-types";
+import { allowedActions, type DataTableToolbarAction } from "./toolbar-types";
 
 // Debounced auto-commit only kicks in once the query is long enough;
 // shorter inputs always wait for Enter so a single keystroke never
@@ -57,11 +57,11 @@ const MIN_AUTO_SEARCH_CHARS = 2;
  * by intent:
  *
  * - **Desktop (lg+):** inline row — search · filter bar · icon-only action
- *   buttons (label on tooltip) · column view-options.
+ *   buttons (label on tooltip) · the «⚙ تنظیمات جدول» gear.
  * - **Mobile:** the search input stretches full width and a single «...»
  *   dropdown holds everything as labelled menu items: «فیلترها» (opens a
  *   bottom sheet — a real dialog, so the reui Filters popovers nest
- *   correctly), the commands (export/refresh/...), and a «نمایش ستونها»
+ *   correctly), the commands (export/refresh/...), and a «تنظیمات»
  *   submenu. Same idiom as `PageHeaderActions` — one tap per command.
  *
  * Actions are descriptors (`DataTableToolbarAction`) so a page declares them
@@ -79,6 +79,10 @@ type DataTableToolbarProps<TData extends RowData> = {
      *  (+ tooltip) and mobile «...» menu items alike, with optional backend
      *  permission gating. DRY per-table contract. */
     actions?: DataTableToolbarAction[];
+    /** Rarely-run structural commands (sync, purge). They sit behind the
+     *  gear instead of taking a top-level button, next to the column layout
+     *  they change. Same descriptor shape, same permission gating. */
+    settings?: DataTableToolbarAction[];
 };
 
 function SearchField({
@@ -137,8 +141,9 @@ export function DataTableToolbar<TData extends RowData>({
     onGlobalFilterChange,
     filterBar,
     actions,
+    settings,
 }: DataTableToolbarProps<TData>) {
-    const { canAny } = useAuthorization();
+    const { can } = useAuthorization();
     const committedValue = searchKey
         ? ((table.getColumn(searchKey)?.getFilterValue() as string) ?? "")
         : (globalFilter ?? "");
@@ -201,19 +206,8 @@ export function DataTableToolbar<TData extends RowData>({
     const hasSearch = Boolean(searchKey || onGlobalFilterChange);
     // Permission-gated actions render only for users who hold the permission
     // (same any-of rule as PermissionGuard / PageHeaderActions).
-    const actionList = (actions ?? []).filter(
-        (action) =>
-            !action.permission ||
-            canAny(
-                Array.isArray(action.permission)
-                    ? action.permission
-                    : [action.permission],
-            ),
-    );
-    const hideableColumnCount = table
-        .getAllColumns()
-        .filter((c) => typeof c.accessorFn !== "undefined" && c.getCanHide())
-        .length;
+    const actionList = allowedActions(actions, can);
+    const hasSettings = useHasTableSettings(table, settings);
     // «فیلترها» is a menu item on mobile; clicking it opens the bottom sheet
     // (a real dialog, so the reui Filters popovers nest inside it).
     const [filtersOpen, setFiltersOpen] = useState(false);
@@ -268,15 +262,13 @@ export function DataTableToolbar<TData extends RowData>({
                     );
                 })}
             </div>
-            <DataTableViewOptions table={table} />
+            <DataTableSettingsMenu table={table} settings={settings} />
 
             {/* Mobile: everything collapses into one «...» menu with icon +
                 text items — «فیلترها» opens the bottom sheet, commands fire
-                directly, «نمایش ستونها» is a submenu. One tap per command,
-                same idiom as PageHeaderActions. */}
-            {(hasSheet ||
-                actionList.length > 0 ||
-                hideableColumnCount > 0) && (
+                directly, «تنظیمات» is a submenu. One tap per command, same
+                content as the desktop gear, same idiom as PageHeaderActions. */}
+            {(hasSheet || actionList.length > 0 || hasSettings) && (
                 <DropdownMenu>
                     <DropdownMenuTrigger
                         render={
@@ -312,23 +304,21 @@ export function DataTableToolbar<TData extends RowData>({
                                 {action.label}
                             </DropdownMenuItem>
                         ))}
-                        {hideableColumnCount > 0 && (
-                            <>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuSub>
-                                    <DropdownMenuSubTrigger>
-                                        <IconTableOptions className="size-4" />
-                                        نمایش ستونها
-                                    </DropdownMenuSubTrigger>
-                                    <DropdownMenuPortal>
-                                        <DropdownMenuSubContent className="w-48">
-                                            <ColumnVisibilityMenuItems
-                                                table={table}
-                                            />
-                                        </DropdownMenuSubContent>
-                                    </DropdownMenuPortal>
-                                </DropdownMenuSub>
-                            </>
+                        {hasSettings && (
+                            <DropdownMenuSub>
+                                <DropdownMenuSubTrigger>
+                                    <IconSettings className="size-4" />
+                                    تنظیمات
+                                </DropdownMenuSubTrigger>
+                                <DropdownMenuPortal>
+                                    <DropdownMenuSubContent className="w-56">
+                                        <DataTableSettingsItems
+                                            table={table}
+                                            settings={settings}
+                                        />
+                                    </DropdownMenuSubContent>
+                                </DropdownMenuPortal>
+                            </DropdownMenuSub>
                         )}
                     </DropdownMenuContent>
                 </DropdownMenu>

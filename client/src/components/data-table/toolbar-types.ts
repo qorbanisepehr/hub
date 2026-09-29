@@ -19,3 +19,20 @@ export type DataTableToolbarAction = {
     /** Backend capability name(s), e.g. `employee.export`. */
     permission?: string | string[];
 };
+
+/**
+ * Drop the actions the current user may not run (same any-of rule as
+ * `PermissionGuard` / `PageHeaderActions`). Shared by the toolbar's own
+ * buttons and the settings menu so both shells gate identically.
+ */
+export function allowedActions(
+    actions: DataTableToolbarAction[] | undefined,
+    can: (permission: string) => boolean,
+): DataTableToolbarAction[] {
+    return (actions ?? []).filter((action) => {
+        if (!action.permission) return true;
+        return Array.isArray(action.permission)
+            ? action.permission.some(can)
+            : can(action.permission);
+    });
+}
