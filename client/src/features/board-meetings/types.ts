@@ -2,13 +2,24 @@ import type { PaginatedResponse } from "@/lib/types";
 
 /**
  * HTTP contracts for the board meetings endpoints (mirror the API
- * resources). The client sends and receives Gregorian `yyyy-MM-dd`
- * dates (the canonical meeting key); Jalali rendering stays client-side.
+ * resources). A meeting is identified by its registry key — the Jalali
+ * date plus a sequence — so `held_on_jalali` is the stable identity and
+ * `held_on` is the Gregorian canonical date every other hub domain uses.
+ * Jalali *rendering* stays client-side off `held_on`, same as everywhere
+ * else in the app.
  */
 
 export interface BoardMeetingTagDto {
     slug: string;
     name: string;
+}
+
+export interface BoardMeetingApprovalDto {
+    /** Registry number as the archive files it, e.g. `1001/ص/1404`. */
+    number: string;
+    title: string | null;
+    /** Set once the approval PDF is in the hub Document system (F3). */
+    document_id: number | null;
 }
 
 export interface BoardMeetingAgendaItemDto {
@@ -25,15 +36,23 @@ export interface BoardMeetingAttendeeDto {
 export interface BoardMeetingDto {
     id: number;
     /** Gregorian `yyyy-MM-dd` — the canonical meeting date. */
-    date: string | null;
+    held_on: string | null;
+    /** Registry key, `yyyy-MM-dd` in the Jalali calendar. */
+    held_on_jalali: string | null;
+    /** Presentational form of the key, e.g. `1404/06/15 — جلسه 2`. */
+    registry_label: string;
+    sequence: number;
     title: string | null;
-    status: "scheduled" | "held" | "archived";
-    /** «NNNN/ص/YYYY» registry number; null when the archive has none. */
-    number: string | null;
-    documents: string[];
-    meta: Record<string, unknown>;
-    synced_at: string | null;
+    approval_count: number;
+    approvals: BoardMeetingApprovalDto[];
+    attendee_count: number;
     tags: BoardMeetingTagDto[];
+    /** Which source seeded the registry columns, e.g. `farzin`. */
+    origin: string;
+    imported_at: string | null;
+    source_locked_at: string | null;
+    /** A person has edited this row; a later sync will not overwrite it. */
+    source_locked: boolean;
 }
 
 export type BoardMeetingListResponse = PaginatedResponse<BoardMeetingDto>;
@@ -41,38 +60,53 @@ export type BoardMeetingListResponse = PaginatedResponse<BoardMeetingDto>;
 /**
  * Standard list params — the same contract employees/audit/cartable
  * speak. Single-value filters with the `{id}_not` convention and the
- * optional `date_from`/`date_to` window. `tags` is an AND-filter (A16):
- * only meetings carrying every slug.
+ * optional `date_from`/`date_to` window. `tags` is an AND-filter:
+ * only meetings carrying every slug. Free text matches the registry key
+ * and the human title.
  */
 export interface BoardMeetingListParams {
     page?: number;
     per_page?: number;
-    /** Whitelisted sort columns: `date` | `number`. */
+    /** Whitelisted sort columns: `held_on` | `sequence` | `imported_at`. */
     sort?: string;
     order?: "asc" | "desc";
-    /** Global free-text search needle (number/title). */
+    /** Global free-text search needle (registry key / title). */
     filter?: string;
     /** AND-filter: meetings carrying every listed slug. */
     tags?: string[];
     /** Gregorian `yyyy-MM-dd` window (optional). */
     date_from?: string;
     date_to?: string;
+    /** Jalali year, `yyyy` (optional). */
+    jalali_year?: string;
 }
 
 /** The detail endpoint returns the meeting inside the standard `data` envelope. */
 export type BoardMeetingDetailResponse = BoardMeetingDto & {
-    minutes_text: string | null;
+    minutes: string | null;
     agenda: BoardMeetingAgendaItemDto[];
     attendees: BoardMeetingAttendeeDto[];
+    /** Which source records produced this meeting (letters, attendance form). */
+    provenance: Record<string, unknown>;
+    /** Reserved for the AI summary (increment 2) — null until then. */
     summary: Record<string, unknown> | null;
 };
 
-/** PUT payload — the UI-owned fields (importer-owned ones are server-only). */
+/**
+ * PUT payload — the human-owned fields only. The registry columns are
+ * refreshed by a sync and `summary` belongs to the AI job, so neither is
+ * accepted here. Tags go through the shared taggables endpoint.
+ */
 export interface UpdateBoardMeetingPayload {
     title?: string | null;
-    status?: BoardMeetingDto["status"];
-    number?: string | null;
-    minutes_text?: string | null;
+    minutes?: string | null;
+    attendees?: BoardMeetingAttendeeDto[] | null;
+}
+
+/** What one registry sync actually moved. */
+export interface BoardMeetingSyncResult {
+    records: { synced: number; failed: number };
+    meetings: { created: number; refreshed: number; locked: number };
 }
 
 /**

@@ -67,6 +67,10 @@ interface DataTablePageProps<TData extends RowData> {
      *  with optional permission gating. DRY subscription — pages never
      *  hand-build per-view wiring. */
     actions?: DataTableToolbarAction[];
+    /** Rarely-run structural commands (sync, purge). Rendered behind the
+     *  shared «⚙ تنظیمات جدول» gear — desktop dropdown, mobile submenu —
+     *  next to the column layout they change, not as top-level buttons. */
+    settings?: DataTableToolbarAction[];
     emptyMessage?: string;
     emptyAction?: ReactNode;
     onRetry?: () => void;
@@ -95,6 +99,7 @@ export function DataTablePage<TData extends RowData>({
     onColumnFiltersChange,
     filterFields,
     actions,
+    settings,
     emptyMessage = "هیچ موردی یافت نشد",
     emptyAction,
     onRetry,
@@ -105,7 +110,7 @@ export function DataTablePage<TData extends RowData>({
 }: DataTablePageProps<TData>) {
     const composedToolbar =
         toolbar ??
-        (searchPlaceholder || filterFields ? (
+        (searchPlaceholder || filterFields || settings ? (
             <div className="flex flex-wrap items-center gap-2">
                 <DataTableToolbar
                     table={table}
@@ -115,6 +120,7 @@ export function DataTablePage<TData extends RowData>({
                         onGlobalFilterChange as (value: string) => void
                     }
                     actions={actions}
+                    settings={settings}
                     filterBar={
                         filterFields && columnFilters && onColumnFiltersChange ? (
                             <TableFilterBar

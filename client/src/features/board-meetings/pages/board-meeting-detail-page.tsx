@@ -1,5 +1,5 @@
 import { useParams } from "@tanstack/react-router";
-import { IconCalendarStats } from "@tabler/icons-react";
+import { IconCalendarStats, IconFileText } from "@tabler/icons-react";
 
 import { useBoardMeeting } from "../hooks";
 import { toPersianDate } from "@/lib/date-format";
@@ -7,21 +7,61 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState, ErrorPage, PageHeader, PageLayout } from "@/components/layout";
-import { MeetingArchiveCard } from "../components/meeting-archive-card";
 import { MeetingDocumentsCard } from "../components/meeting-documents-card";
 import { MeetingTagsCard } from "../components/meeting-tags-card";
-
-const STATUS_LABELS: Record<string, string> = {
-    scheduled: "برگزار نشده",
-    held: "برگزار شده",
-    archived: "بایگانی",
-};
+import type { BoardMeetingApprovalDto } from "../types";
 
 /**
- * Board meeting detail (fresh shape, doc 060): meta block with status,
- * the single minutes narrative, structured agenda + attendees (JSONB
- * sub-structure), the tag editor (K3), documents card (K4) and the
- * read-only source archive listing.
+ * The registry numbers this meeting passed, in registry order. The PDFs
+ * themselves live in the hub Document system (the card below), so this is
+ * the registry's own record: number, title, and whether its document has
+ * been imported yet.
+ */
+function MeetingApprovals({
+    approvals,
+}: {
+    approvals: BoardMeetingApprovalDto[];
+}) {
+    if (approvals.length === 0) {
+        return <span className="text-sm text-muted-foreground">—</span>;
+    }
+
+    return (
+        <ul className="divide-y rounded-md border">
+            {approvals.map((approval) => (
+                <li
+                    key={approval.number}
+                    className="flex flex-wrap items-center gap-2 px-3 py-2"
+                >
+                    <span dir="ltr" className="text-sm font-medium">
+                        {approval.number}
+                    </span>
+                    {approval.title && (
+                        <span className="text-muted-foreground text-xs">
+                            {approval.title}
+                        </span>
+                    )}
+                    {approval.document_id !== null && (
+                        <Badge variant="outline" className="ms-auto">
+                            <IconFileText className="size-3" />
+                            سند
+                        </Badge>
+                    )}
+                </li>
+            ))}
+        </ul>
+    );
+}
+
+/**
+ * Board meeting detail: the meeting's own metadata, the approvals it
+ * passed, the structured agenda + attendees, the tag editor, the
+ * Document-system card, and the minutes.
+ *
+ * Read-only by design — the registry columns belong to the source and the
+ * CRUD surface arrives in a later increment. A meeting a person has
+ * already edited is marked as such, because that is what stops the next
+ * sync from touching it.
  */
 export function BoardMeetingDetailPage() {
     const { meetingId } = useParams({ from: "/protected/board-meetings/$meetingId" });
@@ -56,12 +96,8 @@ export function BoardMeetingDetailPage() {
     return (
         <PageLayout>
             <PageHeader
-                title={`جلسه ${toPersianDate(meeting.date)}`}
-                description={
-                    (meeting.number ?? "").trim() !== ""
-                        ? meeting.number ?? undefined
-                        : undefined
-                }
+                title={`جلسه ${toPersianDate(meeting.held_on)}`}
+                description={meeting.title ?? meeting.registry_label}
                 backTo="/board-meetings"
             />
 
@@ -75,28 +111,36 @@ export function BoardMeetingDetailPage() {
                             <p className="text-muted-foreground text-sm">
                                 تاریخ جلسه
                             </p>
-                            <p className="font-medium">
-                                {toPersianDate(meeting.date)}
+                            <p
+                                className="font-medium"
+                                title={meeting.held_on ?? undefined}
+                            >
+                                {toPersianDate(meeting.held_on)}
                             </p>
                         </div>
                         <div>
                             <p className="text-muted-foreground text-sm">
-                                وضعیت
+                                شمارهٔ جلسه
                             </p>
-                            <p className="font-medium">
-                                <Badge variant="outline">
-                                    {STATUS_LABELS[meeting.status] ?? meeting.status}
-                                </Badge>
+                            <p className="font-medium" dir="ltr">
+                                {meeting.registry_label}
                             </p>
                         </div>
                         <div>
                             <p className="text-muted-foreground text-sm">
-                                شماره جلسه
+                                منبع
                             </p>
-                            <p className="font-medium" dir="rtl">
-                                {(meeting.number ?? "").trim() !== ""
-                                    ? meeting.number
-                                    : "—"}
+                            <p className="flex flex-wrap items-center gap-2 font-medium">
+                                <span dir="ltr">{meeting.origin}</span>
+                                {meeting.source_locked ? (
+                                    <Badge variant="outline">
+                                        ویرایش‌شده توسط کاربر
+                                    </Badge>
+                                ) : (
+                                    <Badge variant="secondary">
+                                        همگام با منبع
+                                    </Badge>
+                                )}
                             </p>
                         </div>
                         <div>
@@ -111,6 +155,14 @@ export function BoardMeetingDetailPage() {
                                     : "—"}
                             </p>
                         </div>
+                        <div className="sm:col-span-2">
+                            <p className="text-muted-foreground text-sm">
+                                مصوبات
+                            </p>
+                            <div className="mt-1">
+                                <MeetingApprovals approvals={meeting.approvals} />
+                            </div>
+                        </div>
                     </CardContent>
                 </Card>
 
@@ -121,9 +173,8 @@ export function BoardMeetingDetailPage() {
                         </CardHeader>
                         <CardContent>
                             <ol className="list-decimal space-y-2 ps-5">
-                                {agenda.map((item, index) => (
-                                    // oxlint-disable-next-line react/no-array-index-key -- static agenda entries have no stable identity
-                                    <li key={index} className="text-sm leading-7">
+                                {agenda.map((item) => (
+                                    <li key={item.position} className="text-sm leading-7">
                                         {item.title}
                                     </li>
                                 ))}
@@ -139,7 +190,7 @@ export function BoardMeetingDetailPage() {
                         </CardHeader>
                         <CardContent className="flex flex-wrap gap-2">
                             {attendees.map((attendee, index) => (
-                                // oxlint-disable-next-line react/no-array-index-key -- static attendee entries have no stable identity
+                                // oxlint-disable-next-line react/no-array-index-key -- attendance entries have no stable identity
                                 <Badge key={index} variant="outline">
                                     {attendee.name}
                                 </Badge>
@@ -149,8 +200,6 @@ export function BoardMeetingDetailPage() {
                 )}
 
                 <MeetingDocumentsCard meetingId={String(meetingId)} />
-
-                <MeetingArchiveCard filenames={meeting.documents ?? []} />
 
                 <MeetingTagsCard
                     meetingId={String(meetingId)}
@@ -162,9 +211,9 @@ export function BoardMeetingDetailPage() {
                         <CardTitle className="text-lg">صورتجلسه</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        {meeting.minutes_text ? (
+                        {meeting.minutes ? (
                             <p className="text-sm leading-7 whitespace-pre-line">
-                                {meeting.minutes_text}
+                                {meeting.minutes}
                             </p>
                         ) : (
                             <EmptyState

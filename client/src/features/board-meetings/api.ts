@@ -1,8 +1,10 @@
 import { api, FORM_DATA_HEADERS } from "@/lib/api";
+import type { ExportPresentation } from "@/components/shared";
 import type {
     BoardMeetingDetailResponse,
     BoardMeetingListParams,
     BoardMeetingListResponse,
+    BoardMeetingSyncResult,
     MeetingDocumentsResponse,
     UpdateBoardMeetingPayload,
 } from "./types";
@@ -11,17 +13,72 @@ export function fetchBoardMeetings(params: BoardMeetingListParams) {
     return api.get<BoardMeetingListResponse>("/board-meetings", { params });
 }
 
+export type BoardMeetingExportField = {
+    key: string;
+    label: string;
+    column: string;
+};
+
+export function fetchBoardMeetingExportFields() {
+    return api.get<{ data: BoardMeetingExportField[] }>(
+        "/board-meetings/export/fields",
+    );
+}
+
+/**
+ * Streamed registry export. Honors the same filters as the list page —
+ * the date window and the AND tag filter — so the file never exceeds the
+ * list the user may see. `details` opts the xlsx writer into the three
+ * repeater sheets (approvals / attendees / agenda).
+ */
+export function exportBoardMeetings(params: {
+    fields?: string[];
+    format?: "xlsx" | "csv" | "pdf" | "docx";
+    tags?: string[];
+    date_from?: string;
+    date_to?: string;
+    filter?: string;
+    presentation?: ExportPresentation;
+}) {
+    const presentation = params.presentation;
+
+    return api.get("/board-meetings/export", {
+        params: {
+            fields: (params.fields ?? []).join(","),
+            format: params.format ?? "xlsx",
+            tags: params.tags,
+            date_from: params.date_from,
+            date_to: params.date_to,
+            filter: params.filter,
+            headers: presentation?.headers,
+            calendar: presentation?.calendar,
+            digits: presentation?.digits,
+            details: presentation?.detailSheets ? 1 : undefined,
+        },
+        responseType: "blob",
+    });
+}
+
 export function fetchBoardMeeting(id: number | string) {
     // Standard envelope: the meeting object rides `data`.
     return api.get<{ data: BoardMeetingDetailResponse }>(`/board-meetings/${id}`);
 }
 
-/** Update the UI-owned fields (title/status/number/minutes). */
+/** Update the human-owned fields (title/minutes/attendees). */
 export function updateBoardMeeting(id: number | string, payload: UpdateBoardMeetingPayload) {
     return api.put<{ data: BoardMeetingDetailResponse }>(
         `/board-meetings/${id}`,
         payload,
     );
+}
+
+/**
+ * Pull the registry from whichever source is bound and project it into
+ * the meetings table. Idempotent, never destructive, and it will not
+ * overwrite a meeting a person has already edited.
+ */
+export function syncBoardMeetings() {
+    return api.post<BoardMeetingSyncResult>("/board-meetings/sync");
 }
 
 /**

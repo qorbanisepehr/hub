@@ -1,31 +1,51 @@
-import { useEffect } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getRouteApi } from "@tanstack/react-router";
-import { IconCalendarStats, IconRefresh } from "@tabler/icons-react";
+import {
+    IconCalendarStats,
+    IconDownload,
+    IconRefresh,
+    IconRotate,
+} from "@tabler/icons-react";
 
 import { DataTablePage } from "@/components/data-table";
 import { ListPageHeader } from "@/components/layout";
+import {
+    ExportDialog,
+    type ExportFormat,
+    type ExportPresentation,
+} from "@/components/shared";
 import {
     useDataTable,
     useDataTableUrlState,
 } from "@/hooks/use-data-table-page";
 import { boardMeetingKeys } from "@/lib/query-keys";
+import { PERMISSIONS } from "@/lib/permissions";
+import { EXPORT_MIME_TYPES, exportDateStamp, saveBlobResponse } from "@/lib/download";
 import { useTagOptions } from "@/features/tags/hooks";
+import { exportBoardMeetings, fetchBoardMeetingExportFields } from "../api";
 import { boardMeetingColumns } from "../columns";
-import { useBoardMeetings } from "../hooks";
+import { useBoardMeetings, useSyncBoardMeetings } from "../hooks";
 import type { BoardMeetingListParams } from "../types";
 
 const route = getRouteApi("/protected/board-meetings");
 
 /**
- * Board meetings list (Phase 3): the shared DataTablePage with URL-driven
- * state; the optional date window rides the audit-style date_from/date_to
- * filters (Gregorian from the client, Jalali dates shown).
+ * Board meetings list: the shared DataTablePage with URL-driven state.
+ * The date window rides the audit-style `date_from`/`date_to` filters
+ * (Gregorian from the client, Jalali dates shown).
+ *
+ * The registry sync sits behind the toolbar's settings gear, not next to
+ * «تازه‌سازی»: it reaches out to the source and rewrites registry
+ * columns, so it does not belong in the everyday read rhythm. Export is a
+ * first-class action — it honors the same filters the list shows.
  */
 export function BoardMeetingsPage() {
     const queryClient = useQueryClient();
     const search = route.useSearch();
     const navigate = route.useNavigate();
+
+    const [isExportOpen, setIsExportOpen] = useState(false);
 
     const url = useDataTableUrlState({
         search: search as unknown as Record<string, unknown>,
@@ -78,61 +98,153 @@ export function BoardMeetingsPage() {
 
     const { data: tagOptions } = useTagOptions(undefined);
 
+    const { data: exportFields, isLoading: exportFieldsLoading } = useQuery({
+        queryKey: ["board-meeting-export-fields"],
+        queryFn: async () => {
+            const { data: fields } = await fetchBoardMeetingExportFields();
+            return fields.data;
+        },
+        enabled: isExportOpen,
+        staleTime: 5 * 60 * 1000,
+    });
+
     const refresh = () =>
         queryClient.invalidateQueries({ queryKey: boardMeetingKeys.all });
 
+    const sync = useSyncBoardMeetings();
+
+    const activeDateFrom = url.activeValue("date_from");
+    const activeDateTo = url.activeValue("date_to");
+    const activeTagNames = tagOptions
+        ?.filter((tag) => tagsFilterValues.includes(tag.slug))
+        .map((tag) => tag.name);
+
+    const exportFilterSummary = [
+        url.globalFilter ? `جستجو: ${url.globalFilter}` : null,
+        activeDateFrom ? `از تاریخ: ${activeDateFrom}` : null,
+        activeDateTo ? `تا تاریخ: ${activeDateTo}` : null,
+        activeTagNames && activeTagNames.length > 0
+            ? `برچسب‌ها: ${activeTagNames.join("، ")}`
+            : null,
+    ].filter((item): item is string => item !== null);
+
+    const handleExport = async ({
+        fields,
+        format,
+        presentation,
+    }: {
+        fields: string[];
+        format: ExportFormat;
+        presentation: ExportPresentation;
+    }) => {
+        const response = await exportBoardMeetings({
+            fields,
+            format,
+            tags: tagsFilterValues.length > 0 ? tagsFilterValues : undefined,
+            date_from: activeDateFrom || undefined,
+            date_to: activeDateTo || undefined,
+            filter: url.globalFilter || undefined,
+            presentation,
+        });
+
+        saveBlobResponse(
+            response,
+            `board-meetings-${exportDateStamp()}.${format}`,
+            EXPORT_MIME_TYPES[format],
+        );
+    };
+
     return (
-        <DataTablePage
-            table={table}
-            meta={meta}
-            isLoading={isLoading}
-            isError={isError}
-            colSpan={boardMeetingColumns.length}
-            onRetry={refresh}
-            title="جلسات هیئت مدیره"
-            totalLabel="جلسه"
-            icon={IconCalendarStats}
-            header={
-                <ListPageHeader
-                    title="جلسات هیئت مدیره"
-                    description="آرشیو جلسات، صورتجلسه‌ها و مصوبات هیئت مدیره"
-                />
-            }
-            searchPlaceholder="جستجوی شماره یا تاریخ جلسه..."
-            globalFilter={url.globalFilter}
-            onGlobalFilterChange={url.onGlobalFilterChange}
-            columnFilters={url.columnFilters}
-            onColumnFiltersChange={url.onColumnFiltersChange}
-            filterFields={[
-                {
-                    id: "tags",
-                    label: "برچسب‌ها",
-                    type: "multiselect",
-                    options: (tagOptions ?? []).map((tag) => ({
-                        value: tag.slug,
-                        label: tag.name,
-                    })),
-                },
-                {
-                    id: "date_from",
-                    label: "از تاریخ",
-                    type: "date",
-                },
-                {
-                    id: "date_to",
-                    label: "تا تاریخ",
-                    type: "date",
-                },
-            ]}
-            actions={[
-                {
-                    id: "refresh",
-                    label: "تازه‌سازی",
-                    icon: IconRefresh,
-                    onClick: refresh,
-                    disabled: isFetching,
-                },
-            ]}
-        />
+        <>
+            <DataTablePage
+                table={table}
+                meta={meta}
+                isLoading={isLoading}
+                isError={isError}
+                colSpan={boardMeetingColumns.length}
+                onRetry={refresh}
+                title="جلسات هیئت مدیره"
+                totalLabel="جلسه"
+                icon={IconCalendarStats}
+                header={
+                    <ListPageHeader
+                        title="جلسات هیئت مدیره"
+                        description="آرشیو جلسات، صورتجلسه‌ها و مصوبات هیئت مدیره"
+                    />
+                }
+                searchPlaceholder="جستجوی تاریخ یا عنوان جلسه..."
+                globalFilter={url.globalFilter}
+                onGlobalFilterChange={url.onGlobalFilterChange}
+                columnFilters={url.columnFilters}
+                onColumnFiltersChange={url.onColumnFiltersChange}
+                filterFields={[
+                    {
+                        id: "tags",
+                        label: "برچسب‌ها",
+                        type: "multiselect",
+                        options: (tagOptions ?? []).map((tag) => ({
+                            value: tag.slug,
+                            label: tag.name,
+                        })),
+                    },
+                    {
+                        id: "date_from",
+                        label: "از تاریخ",
+                        type: "date",
+                    },
+                    {
+                        id: "date_to",
+                        label: "تا تاریخ",
+                        type: "date",
+                    },
+                ]}
+                actions={[
+                    {
+                        id: "export",
+                        label: "خروجی",
+                        icon: IconDownload,
+                        onClick: () => setIsExportOpen(true),
+                        permission: PERMISSIONS.BOARD_MEETING_EXPORT,
+                    },
+                    {
+                        id: "refresh",
+                        label: "تازه‌سازی",
+                        icon: IconRefresh,
+                        onClick: refresh,
+                        disabled: isFetching,
+                    },
+                ]}
+                settings={[
+                    {
+                        id: "sync",
+                        label: "همگام‌سازی با منبع",
+                        icon: IconRotate,
+                        onClick: () => sync.mutate(),
+                        disabled: sync.isPending,
+                        permission: PERMISSIONS.BOARD_MEETING_SYNC,
+                    },
+                ]}
+            />
+
+            <ExportDialog
+                open={isExportOpen}
+                onOpenChange={setIsExportOpen}
+                title="خروجی جلسات هیئت مدیره"
+                description="خروجی اکسل، CSV یا سند چاپی (PDF/Word) از آرشیو جلسات"
+                fields={exportFields ?? []}
+                fieldsLoading={exportFieldsLoading}
+                formats={[
+                    { value: "xlsx", label: "اکسل (xlsx)" },
+                    { value: "csv", label: "CSV (سازگار با Excel)" },
+                    { value: "pdf", label: "سند PDF" },
+                    { value: "docx", label: "سند Word" },
+                ]}
+                activeFilters={exportFilterSummary}
+                showPresentation
+                showDetailSheets
+                onExport={handleExport}
+                successMessage="خروجی جلسات هیئت مدیره با موفقیت ایجاد شد."
+            />
+        </>
     );
 }

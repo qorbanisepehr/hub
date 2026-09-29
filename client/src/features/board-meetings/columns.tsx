@@ -7,36 +7,28 @@ import { Badge } from "@/components/ui/badge";
 import { toPersianDate } from "@/lib/date-format";
 import type { BoardMeetingDto } from "./types";
 
-/** «—» for the source's empty meeting numbers (73/214 in the archive). */
-function numberOrDash(number: string | null | undefined): string {
-    if (number === null || number === undefined || number.trim() === "") {
-        return "—";
-    }
-
-    return number;
+/**
+ * «—» for an empty count, the same way the rest of the app renders a zero.
+ */
+function countOrDash(count: number): string {
+    return count > 0 ? count.toLocaleString("fa-IR") : "—";
 }
 
 /**
- * Board meeting columns (fresh shape): شماره جلسه / تاریخ جلسه (Jalali
- * rendering of the canonical Gregorian date, sortable) / مدارک / عملیات.
- * The date and the row actions open the detail page — same Link-in-cell
- * + RowActions pattern as the users list.
+ * Board meeting columns: تاریخ جلسه (Jalali rendering of the canonical
+ * Gregorian date — sortable and the default sort) / شمارهٔ جلسه (the
+ * registry key, so an extraordinary second session in a day is
+ * distinguishable) / مصوبات / حاضران / عملیات.
+ *
+ * Only `held_on` is sortable: the backend whitelists `held_on`,
+ * `sequence` and `imported_at`, and a column whose id is not on that list
+ * would silently fall back to the default sort. Everything derived —
+ * the registry label, the two counts — is pinned to `enableSorting:
+ * false` for that reason.
  */
 export const boardMeetingColumns: ColumnDef<StockFeatures, BoardMeetingDto>[] = [
     {
-        accessorKey: "number",
-        header: ({ column }) => (
-            <DataTableColumnHeader column={column} title="شماره جلسه" />
-        ),
-        cell: ({ row }) => (
-            <span dir="rtl" className="text-sm font-medium">
-                {numberOrDash(row.original.number)}
-            </span>
-        ),
-        meta: { displayName: "شماره جلسه" },
-    },
-    {
-        accessorKey: "date",
+        accessorKey: "held_on",
         header: ({ column }) => (
             <DataTableColumnHeader column={column} title="تاریخ جلسه" />
         ),
@@ -45,29 +37,51 @@ export const boardMeetingColumns: ColumnDef<StockFeatures, BoardMeetingDto>[] = 
                 to="/board-meetings/$meetingId"
                 params={{ meetingId: String(row.original.id) }}
                 className="text-sm text-muted-foreground transition-colors hover:text-primary"
-                title={row.original.date ?? undefined}
+                title={row.original.held_on ?? undefined}
             >
-                {toPersianDate(row.original.date)}
+                {toPersianDate(row.original.held_on)}
             </Link>
         ),
         meta: { displayName: "تاریخ جلسه" },
     },
     {
-        id: "documents",
+        accessorKey: "registry_label",
         enableSorting: false,
-        header: () => <span className="text-sm font-medium">مدارک</span>,
+        header: () => <span className="text-sm font-medium">شمارهٔ جلسه</span>,
+        cell: ({ row }) => (
+            <span dir="ltr" className="text-sm font-medium">
+                {row.original.registry_label}
+            </span>
+        ),
+        meta: { displayName: "شمارهٔ جلسه" },
+    },
+    {
+        accessorKey: "approval_count",
+        enableSorting: false,
+        header: () => <span className="text-sm font-medium">مصوبات</span>,
         cell: ({ row }) => {
-            const count = row.original.documents.length;
+            const count = row.original.approval_count;
 
             return count > 0 ? (
                 <Badge variant="outline">
-                    {count.toLocaleString("fa-IR")} مدرک
+                    {count.toLocaleString("fa-IR")} مورد
                 </Badge>
             ) : (
                 <span className="text-sm text-muted-foreground">—</span>
             );
         },
-        meta: { displayName: "مدارک" },
+        meta: { displayName: "مصوبات" },
+    },
+    {
+        accessorKey: "attendee_count",
+        enableSorting: false,
+        header: () => <span className="text-sm font-medium">حاضران</span>,
+        cell: ({ row }) => (
+            <span className="text-sm text-muted-foreground">
+                {countOrDash(row.original.attendee_count)}
+            </span>
+        ),
+        meta: { displayName: "حاضران" },
     },
     {
         id: "actions",
