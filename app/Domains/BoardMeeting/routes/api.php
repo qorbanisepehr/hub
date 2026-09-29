@@ -9,6 +9,22 @@ Route::middleware('auth:sanctum')->group(function () {
         ->name('board-meetings.index')
         ->middleware('permission:board-meeting.view');
 
+    // The source behind the sync is the integration's business, so the
+    // route is declared before `{meeting}` and needs no source knowledge.
+    Route::post('board-meetings/sync', [BoardMeetingController::class, 'sync'])
+        ->name('board-meetings.sync')
+        ->middleware('permission:board-meeting.sync');
+
+    // Export: also declared before `{meeting}` (a literal path must never
+    // be captured by the parameter).
+    Route::get('board-meetings/export/fields', [BoardMeetingController::class, 'exportFields'])
+        ->name('board-meetings.export-fields')
+        ->middleware('permission:board-meeting.export');
+
+    Route::get('board-meetings/export', [BoardMeetingController::class, 'export'])
+        ->name('board-meetings.export')
+        ->middleware('permission:board-meeting.export');
+
     Route::get('board-meetings/{meeting}', [BoardMeetingController::class, 'show'])
         ->name('board-meetings.show')
         ->middleware('permission:board-meeting.view');

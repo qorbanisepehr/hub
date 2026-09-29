@@ -3,12 +3,13 @@
 namespace App\Providers;
 
 use App\Contracts\Authorization;
+use App\Contracts\BoardMeeting\RegistrySync;
 use App\Contracts\DocumentAuthorization;
 use App\Contracts\External\AttendanceGateway;
+use App\Contracts\External\FarzinGateway;
 use App\Contracts\External\InboxGateway;
 use App\Domains\Authorization\Policies\DynamicPolicy;
 use App\Domains\Authorization\Services\AuthorizationService;
-use App\Domains\BoardMeeting\Services\ArchiveListing;
 use App\Domains\Cv\Repositories\CvRepository;
 use App\Domains\Cv\Repositories\CvRepositoryInterface;
 use App\Domains\Document\Repositories\DocumentRepository;
@@ -27,8 +28,11 @@ use App\Integrations\Automation\AutomationInboxMapper;
 use App\Integrations\Automation\FakeAutomationInboxGateway;
 use App\Integrations\Bizagi\BizagiInboxMapper;
 use App\Integrations\Bizagi\FakeBizagiInboxGateway;
+use App\Integrations\Farzin\BoardMeeting\FarzinRegistryImport;
+use App\Integrations\Farzin\FakeFarzinSource;
 use App\Integrations\Farzin\FarzinLetterNormalizer;
 use App\Integrations\Farzin\FarzinSessionNormalizer;
+use App\Integrations\Farzin\SqlsrvFarzinSource;
 use App\Integrations\Rahkaran\FakeRahkaranAttendanceGateway;
 use App\Integrations\Rahkaran\FakeRahkaranInboxGateway;
 use App\Integrations\Rahkaran\RahkaranAttendanceMapper;
@@ -51,6 +55,7 @@ use App\Support\Imports\Reader\XlsxReader;
 use App\Support\Imports\ReaderRegistry;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
+use RuntimeException;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -68,7 +73,7 @@ class AppServiceProvider extends ServiceProvider
 
             // Real drivers arrive with actual connection details (SQL Server,
             // HTTP, ...); until then fake is the only configured option.
-            throw new \RuntimeException(
+            throw new RuntimeException(
                 'No real Rahkaran driver is implemented yet; set RAHKARAN_DRIVER=fake.',
             );
         });
@@ -83,10 +88,22 @@ class AppServiceProvider extends ServiceProvider
         // Sender identity resolution: external username → HR Hub user.
         $this->app->bind(SenderIdentityResolver::class);
 
-        // The meeting archive listing scans the archive disk; a singleton
-        // makes the per-request memo actually span the request (the list
-        // resource resolves it per item).
-        $this->app->singleton(ArchiveListing::class);
+        // The Farzin source behind the board-meeting registry sync: a
+        // driver change is config, never an edit to the domain.
+        $this->app->bind(FarzinGateway::class, function (): FarzinGateway {
+            return match ((string) config('integrations.farzin.driver')) {
+                'fake' => new FakeFarzinSource,
+                'sqlsrv' => new SqlsrvFarzinSource,
+                default => throw new RuntimeException(
+                    'Unknown FARZIN_DRIVER; supported: fake, sqlsrv.',
+                ),
+            };
+        });
+
+        // The registry sync capability: the domain publishes the port,
+        // the integration that owns a source binds it. Adding a second
+        // source is a change here, not in App\Domains\BoardMeeting.
+        $this->app->bind(RegistrySync::class, FarzinRegistryImport::class);
 
         // Ingest normalizers (sync pipeline, generic records layer): one
         // per entity type; adding a synced entity = class + registration.

@@ -14,12 +14,11 @@ use App\Domains\Employee\Requests\UpdateEmployeeRequest;
 use App\Domains\Employee\Resources\EmployeeResource;
 use App\Domains\Employee\Services\EmployeeService;
 use App\Domains\FormOptions\Services\FormOptionService;
+use App\Support\Exports\Concerns\StreamsTabularExports;
 use App\Support\Exports\DocumentExportService;
 use App\Support\Exports\ExportService;
-use App\Support\Exports\Value\ExportFile;
 use App\Support\Exports\Value\ExportOptions;
 use App\Support\Exports\Value\ExportRequest;
-use App\Support\Exports\Value\PresentationOptions;
 use App\Support\ListQuery;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -29,6 +28,8 @@ use Symfony\Component\HttpFoundation\StreamedResponse as SymfonyStreamedResponse
 
 class EmployeeController
 {
+    use StreamsTabularExports;
+
     private const SORTABLE = [
         'personnel_code',
         'first_name',
@@ -120,7 +121,7 @@ class EmployeeController
             new ExportRequest(format: $format, options: EmployeeExporter::defaultOptions($format)),
         );
 
-        return $this->streamFile($file);
+        return $this->streamExport($this->exports, $file);
     }
 
     /**
@@ -139,16 +140,16 @@ class EmployeeController
         $file = $this->exports->run(
             $this->employeeService->exporter($this->scopedQuery($request)),
             new ExportRequest(
-                fields: EmployeeController::fieldsFromQuery($request),
+                fields: self::exportFieldsQuery($request),
                 format: $format,
                 options: in_array($format, ['pdf', 'docx'], true)
                     ? new ExportOptions
                     : EmployeeExporter::defaultOptions($format),
-                presentation: EmployeeController::presentationFromQuery($request),
+                presentation: self::exportPresentationQuery($request),
             ),
         );
 
-        return $this->streamFile($file);
+        return $this->streamExport($this->exports, $file);
     }
 
     /**
@@ -178,7 +179,7 @@ class EmployeeController
 
         $file = $this->documents->run($source, $employee, $format);
 
-        return $this->streamFile($file);
+        return $this->streamExport($this->exports, $file);
     }
 
     public function store(StoreEmployeeRequest $request): EmployeeResource
@@ -275,50 +276,6 @@ class EmployeeController
         }
 
         return $query;
-    }
-
-    /**
-     * Stream an ExportFile as a download response.
-     */
-    private function streamFile(ExportFile $file): SymfonyStreamedResponse
-    {
-        return response()->streamDownload(function () use ($file): void {
-            $stream = fopen('php://output', 'w');
-            $file->copyTo($stream);
-        }, $this->exports->dispositionFilename($file), [
-            'Content-Type' => $file->mimeType,
-            'Cache-Control' => 'no-store',
-        ]);
-    }
-
-    /**
-     * Comma-separated `fields` query param → list<string> for ExportRequest.
-     */
-    private static function fieldsFromQuery(Request $request): array
-    {
-        return array_values(array_filter(array_map(
-            'trim',
-            explode(',', (string) $request->query('fields', '')),
-        )));
-    }
-
-    /**
-     * Presentation query params → PresentationOptions. Whitelisted so a
-     * stray query value degrades to the default (machine) form instead of
-     * erroring.
-     */
-    private static function presentationFromQuery(Request $request): PresentationOptions
-    {
-        $headers = $request->query('headers');
-        $calendar = $request->query('calendar');
-        $digits = $request->query('digits');
-
-        return new PresentationOptions(
-            headers: in_array($headers, ['key', 'label'], true) ? $headers : 'key',
-            calendar: in_array($calendar, ['gregorian', 'persian', 'both'], true) ? $calendar : 'gregorian',
-            digits: $digits === 'persian' ? 'persian' : 'latin',
-            detailSheets: $request->boolean('details'),
-        );
     }
 
     /**

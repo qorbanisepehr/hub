@@ -122,6 +122,10 @@ return [
         'questionnaire.rejected' => ['category' => 'questionnaire', 'sensitivity' => 'medium'],
         'questionnaire.reviewed' => ['category' => 'questionnaire', 'sensitivity' => 'medium'],
         'questionnaire.submitted' => ['category' => 'questionnaire', 'sensitivity' => 'medium'],
+
+        // Board meetings
+        'boardmeeting.updated' => ['category' => 'boardmeeting', 'sensitivity' => 'high'],
+        'boardmeeting.synced' => ['category' => 'boardmeeting', 'sensitivity' => 'low'],
     ],
 
 ];

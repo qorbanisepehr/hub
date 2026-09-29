@@ -5,6 +5,7 @@ use App\Domains\Document\Models\Document;
 use App\Domains\Document\Models\DocumentCategory;
 use App\Domains\Document\Services\DocumentService;
 use App\Domains\Employee\Models\Employee;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -36,7 +37,7 @@ describe('GET /api/board-meetings/{meeting}/documents', function () {
 
     it('lists documents with capabilities for the viewer', function () {
         Storage::fake('local');
-        $meeting = BoardMeeting::factory()->create(['date' => '2025-07-23']);
+        $meeting = BoardMeeting::factory()->heldOn(CarbonImmutable::parse('2025-07-23'))->create();
         $uploader = createUserWithPermissions(['board-meeting.documents.upload']);
         $user = createUserWithPermissions(['board-meeting.documents.view', 'board-meeting.documents.download']);
         $category = meetingDocumentCategory();
@@ -66,7 +67,7 @@ describe('GET /api/board-meetings/{meeting}/documents', function () {
 describe('POST /api/board-meetings/{meeting}/documents', function () {
     it('uploads a document with the upload permission', function () {
         Storage::fake('local');
-        $meeting = BoardMeeting::factory()->create(['date' => '2025-07-23']);
+        $meeting = BoardMeeting::factory()->heldOn(CarbonImmutable::parse('2025-07-23'))->create();
         $user = createUserWithPermissions(['board-meeting.documents.upload']);
         $category = meetingDocumentCategory();
 

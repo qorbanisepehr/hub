@@ -2,12 +2,9 @@
 
 namespace App\Integrations\Farzin;
 
-use App\Domains\BoardMeeting\Value\FarzinLetterRow;
 use App\Domains\Ingest\Contracts\Normalizer;
-use App\Support\External\PersianDateTime;
 use App\Support\PersianText;
 use App\Support\Text\PersianTextNormalizer;
-use Carbon\CarbonImmutable;
 
 /**
  * Farzin A4 letter → generic record (`entity_type = "letter"`). All Farzin
@@ -29,26 +26,27 @@ final class FarzinLetterNormalizer implements Normalizer
         return 'letter';
     }
 
+    /**
+     * @param  array<string, mixed>  $payload  A raw `Entity_A4letter` row.
+     * @return array{title: ?string, date: ?string, pdate: ?string, data: array<string, mixed>}
+     */
     public function normalize(array $payload): array
     {
-        $row = FarzinLetterRow::fromSourceRow($payload);
-
-        $title = $this->normalizer->clean($row->subject);
+        $title = $this->normalizer->clean(FarzinSourceRow::text($payload, 'subject'));
         $meetingPdate = $this->extractMeetingPdate($title);
-        $pdate = $this->jalaliDate($row->date);
 
         return [
             'title' => $title,
-            'date' => $this->gregorianDate($row->date),
-            'pdate' => $pdate,
+            'date' => FarzinSourceRow::gregorianDate($payload, 'date'),
+            'pdate' => FarzinSourceRow::jalaliDate($payload, 'date'),
             'data' => [
-                'text' => $this->normalizer->clean($row->text),
-                'entity_number' => $row->entityNumber,
-                'export_entity_number' => $row->exportEntityNumber,
-                'r_title' => $this->normalizer->clean($row->rTitle),
-                'r_name' => $this->normalizer->clean($row->rName),
-                'company_name' => $this->normalizer->clean($row->companyName),
-                'creator_role_id' => $row->creatorRoleId,
+                'text' => $this->normalizer->clean(FarzinSourceRow::text($payload, 'text')),
+                'entity_number' => FarzinSourceRow::integer($payload, 'EntityNumber'),
+                'export_entity_number' => FarzinSourceRow::integer($payload, 'ExportEntityNumber'),
+                'r_title' => $this->normalizer->clean(FarzinSourceRow::text($payload, 'r_title')),
+                'r_name' => $this->normalizer->clean(FarzinSourceRow::text($payload, 'r_name')),
+                'company_name' => $this->normalizer->clean(FarzinSourceRow::text($payload, 'company_name')),
+                'creator_role_id' => FarzinSourceRow::integer($payload, 'CreatorRoleID'),
                 'has_meeting' => $meetingPdate !== null,
                 'meeting_pdate' => $meetingPdate,
             ],
@@ -61,39 +59,8 @@ final class FarzinLetterNormalizer implements Normalizer
             return null;
         }
 
-        $date = PersianText::foldDigits($m[1]);
-        [$y, $m2, $d] = explode('/', $date);
+        [$year, $month, $day] = explode('/', PersianText::foldDigits($m[1]));
 
-        return $y.'-'.str_pad($m2, 2, '0', STR_PAD_LEFT).'-'.str_pad($d, 2, '0', STR_PAD_LEFT);
-    }
-
-    private function gregorianDate(?string $value): ?string
-    {
-        if ($value === null || trim($value) === '') {
-            return null;
-        }
-
-        $timestamp = is_numeric($value) ? (int) $value : strtotime($value);
-
-        return $timestamp === false ? null : date('Y-m-d', $timestamp);
-    }
-
-    private function jalaliDate(?string $value): ?string
-    {
-        if ($value === null || trim($value) === '') {
-            return null;
-        }
-
-        $timestamp = is_numeric($value) ? (int) $value : strtotime($value);
-
-        if ($timestamp === false) {
-            return null;
-        }
-
-        $jalali = PersianDateTime::toJalaliDate(
-            CarbonImmutable::createFromTimestamp($timestamp, PersianDateTime::TIMEZONE),
-        );
-
-        return str_replace('/', '-', $jalali);
+        return sprintf('%s-%02d-%02d', $year, (int) $month, (int) $day);
     }
 }

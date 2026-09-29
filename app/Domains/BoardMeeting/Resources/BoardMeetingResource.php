@@ -3,17 +3,17 @@
 namespace App\Domains\BoardMeeting\Resources;
 
 use App\Domains\BoardMeeting\Models\BoardMeeting;
-use App\Domains\BoardMeeting\Services\ArchiveListing;
-use App\Support\External\PersianDateTime;
-use Carbon\CarbonImmutable;
+use App\Domains\BoardMeeting\Value\AgendaItem;
+use App\Domains\BoardMeeting\Value\Approval;
+use App\Domains\BoardMeeting\Value\Attendee;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
- * One meeting item (fresh shape, doc 060): `date` is the canonical key
- * (Gregorian; Jalali rendering is client-side). The archive listing is
- * derived at read time from the archive disk; the client contract key
- * stays `documents` until the binaries live in the Document system.
+ * One meeting item. Serialization only: the jalali registry key is
+ * already a column, the typed lists already came out of their casts, and
+ * documents are read through the hub Document system — so a listing of
+ * twenty meetings costs no disk scan and no calendar conversion.
  *
  * @property BoardMeeting $resource
  */
@@ -27,32 +27,40 @@ class BoardMeetingResource extends JsonResource
         $detail = $request->routeIs('board-meetings.show')
             || $request->boolean('with_detail');
 
-        $archive = app(ArchiveListing::class);
-
         $payload = [
             'id' => $this->resource->id,
-            'date' => $this->resource->date?->toDateString(),
+            'held_on' => $this->resource->held_on?->toDateString(),
+            'held_on_jalali' => $this->resource->held_on_jalali,
+            'registry_label' => $this->resource->registryLabel(),
+            'sequence' => $this->resource->sequence,
             'title' => $this->resource->title,
-            'status' => $this->resource->status,
-            'number' => $this->resource->number,
-            'documents' => $archive->forDate(
-                // The archive filenames carry the Jalali meeting date.
-                $this->resource->date !== null
-                    ? str_replace('/', '-', PersianDateTime::toJalaliDate(CarbonImmutable::parse($this->resource->date)))
-                    : '',
+            'approval_count' => count($this->resource->approvals),
+            'approvals' => array_map(
+                fn (Approval $approval) => $approval->toArray(),
+                $this->resource->approvals,
             ),
-            'meta' => (object) ($this->resource->meta ?? []),
-            'synced_at' => $this->resource->synced_at?->toIso8601String(),
+            'attendee_count' => count($this->resource->attendees),
             'tags' => $this->resource->tags->map(fn ($tag) => [
                 'slug' => $tag->slug,
                 'name' => $tag->name,
             ])->all(),
+            'origin' => $this->resource->origin,
+            'imported_at' => $this->resource->imported_at?->toIso8601String(),
+            'source_locked_at' => $this->resource->source_locked_at?->toIso8601String(),
+            'source_locked' => $this->resource->isSourceLocked(),
         ];
 
         if ($detail) {
-            $payload['minutes_text'] = $this->resource->minutes_text;
-            $payload['agenda'] = $this->resource->agenda ?? [];
-            $payload['attendees'] = $this->resource->attendees ?? [];
+            $payload['minutes'] = $this->resource->minutes;
+            $payload['agenda'] = array_map(
+                fn (AgendaItem $item) => $item->toArray(),
+                $this->resource->agenda,
+            );
+            $payload['attendees'] = array_map(
+                fn (Attendee $attendee) => $attendee->toArray(),
+                $this->resource->attendees,
+            );
+            $payload['provenance'] = (object) ($this->resource->provenance ?? []);
             $payload['summary'] = $this->resource->summary;
         }
 

@@ -15,6 +15,7 @@
 $otherDomains = [
     'App\Domains\Auth',
     'App\Domains\Authorization',
+    'App\Domains\BoardMeeting',
     'App\Domains\Cv',
     'App\Domains\Document',
     'App\Domains\Employee',

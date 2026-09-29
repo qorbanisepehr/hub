@@ -2,16 +2,13 @@
 
 namespace App\Integrations\Farzin;
 
-use App\Domains\BoardMeeting\Value\FarzinSessionRow;
 use App\Domains\Ingest\Contracts\Normalizer;
-use App\Support\External\PersianDateTime;
 use App\Support\Text\PersianTextNormalizer;
-use Carbon\CarbonImmutable;
 
 /**
  * Farzin board-session form → generic record (`entity_type = "session"`).
- * The session's own date (`dateSession`) is the record date; description
- * and attendance ride `data`.
+ * The form's own date (`dateSession`) is both the record date and the
+ * meeting's date; description and attendance ride `data`.
  */
 final class FarzinSessionNormalizer implements Normalizer
 {
@@ -24,54 +21,24 @@ final class FarzinSessionNormalizer implements Normalizer
         return 'session';
     }
 
+    /**
+     * @param  array<string, mixed>  $payload  A raw `Entity_heyatModire` row.
+     * @return array{title: ?string, date: ?string, pdate: ?string, data: array<string, mixed>}
+     */
     public function normalize(array $payload): array
     {
-        $row = FarzinSessionRow::fromSourceRow($payload);
-
-        $pdate = $this->jalaliDate($row->dateSession);
-
         return [
-            'title' => $this->normalizer->clean($row->dastor),
-            'date' => $this->gregorianDate($row->dateSession),
-            'pdate' => $pdate,
+            'title' => $this->normalizer->clean(FarzinSourceRow::text($payload, 'dastor')),
+            'date' => FarzinSourceRow::gregorianDate($payload, 'dateSession'),
+            'pdate' => FarzinSourceRow::jalaliDate($payload, 'dateSession'),
             'data' => [
-                'sharh' => $this->normalizer->clean($row->sharh),
-                'time_start' => $row->timeStart,
-                'time_end' => $row->timeEnd,
-                'location' => $this->normalizer->clean($row->location),
-                'hazerin' => $this->normalizer->clean($row->hazerin),
-                'dabir_name' => $this->normalizer->clean($row->dabirName),
+                'sharh' => $this->normalizer->clean(FarzinSourceRow::text($payload, 'sharh')),
+                'time_start' => FarzinSourceRow::text($payload, 'timeStart'),
+                'time_end' => FarzinSourceRow::text($payload, 'timeEnd'),
+                'location' => $this->normalizer->clean(FarzinSourceRow::text($payload, 'location')),
+                'hazerin' => $this->normalizer->clean(FarzinSourceRow::text($payload, 'hazerin')),
+                'dabir_name' => $this->normalizer->clean(FarzinSourceRow::text($payload, 'dabirName')),
             ],
         ];
-    }
-
-    private function gregorianDate(?string $value): ?string
-    {
-        if ($value === null || trim($value) === '') {
-            return null;
-        }
-
-        $timestamp = is_numeric($value) ? (int) $value : strtotime($value);
-
-        return $timestamp === false ? null : date('Y-m-d', $timestamp);
-    }
-
-    private function jalaliDate(?string $value): ?string
-    {
-        if ($value === null || trim($value) === '') {
-            return null;
-        }
-
-        $timestamp = is_numeric($value) ? (int) $value : strtotime($value);
-
-        if ($timestamp === false) {
-            return null;
-        }
-
-        $jalali = PersianDateTime::toJalaliDate(
-            CarbonImmutable::createFromTimestamp($timestamp, PersianDateTime::TIMEZONE),
-        );
-
-        return str_replace('/', '-', $jalali);
     }
 }
