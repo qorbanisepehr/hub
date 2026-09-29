@@ -1,5 +1,6 @@
 <?php
 
+use App\Domains\Auth\Events\LoginFailed;
 use App\Domains\Authorization\Models\Permission;
 use App\Domains\Authorization\Models\PermissionGroup;
 use App\Domains\Authorization\Models\Role;
@@ -9,6 +10,7 @@ use App\Support\Mail\OtpMail;
 use App\Support\Sms\Contracts\SmsSender;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\RateLimiter;
@@ -35,6 +37,71 @@ function seedLoginOtp(User $user, string $code = '123456', bool $expired = false
 }
 
 describe('auth endpoints', function () {
+    describe('failed sign-in reporting', function () {
+        it('reports a wrong password against the resolved account with request context', function () {
+            Event::fake([LoginFailed::class]);
+
+            $user = User::factory()->create();
+
+            $this->postJson('/api/auth/login-with-password', [
+                'identifier' => $user->email,
+                'password' => 'wrong-password',
+            ])->assertStatus(401);
+
+            Event::assertDispatched(
+                LoginFailed::class,
+                fn (LoginFailed $event): bool => $event->userId() === $user->id
+                    && $event->reason() === 'invalid_password',
+            );
+        });
+
+        it('reports a wrong verification code against the resolved account', function () {
+            Event::fake([LoginFailed::class]);
+
+            $user = User::factory()->create();
+            seedLoginOtp($user, '123456');
+
+            $this->postJson('/api/auth/verify-otp', [
+                'identifier' => $user->email,
+                'code' => '000000',
+            ])->assertStatus(422);
+
+            Event::assertDispatched(
+                LoginFailed::class,
+                fn (LoginFailed $event): bool => $event->userId() === $user->id
+                    && $event->reason() === 'invalid_code',
+            );
+        });
+
+        it('reports an unknown identifier without an account', function () {
+            Event::fake([LoginFailed::class]);
+
+            $this->postJson('/api/auth/login-with-password', [
+                'identifier' => 'nobody@example.com',
+                'password' => 'whatever',
+            ])->assertStatus(401);
+
+            Event::assertDispatched(
+                LoginFailed::class,
+                fn (LoginFailed $event): bool => $event->userId() === null
+                    && $event->reason() === 'user_not_found',
+            );
+        });
+
+        it('does not report a successful sign-in', function () {
+            Event::fake([LoginFailed::class]);
+
+            $user = User::factory()->create(['password' => Hash::make('correct-password')]);
+
+            $this->postJson('/api/auth/login-with-password', [
+                'identifier' => $user->email,
+                'password' => 'correct-password',
+            ])->assertStatus(200);
+
+            Event::assertNotDispatched(LoginFailed::class);
+        });
+    });
+
     describe('login (request OTP)', function () {
         it('sends OTP via email', function () {
             $user = User::factory()->create();

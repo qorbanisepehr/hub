@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Domains\Auth\Events\LoginFailed;
+use App\Domains\Notification\Listeners\NotifyAccountOwnerOfFailedLogin;
 use App\Domains\Notification\Listeners\NotifyQuestionnaireViewers;
 use App\Domains\Questionnaire\Events\QuestionnaireSubmitted;
 use Illuminate\Support\Facades\Event;
@@ -19,5 +21,6 @@ final class NotificationServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Event::listen(QuestionnaireSubmitted::class, NotifyQuestionnaireViewers::class);
+        Event::listen(LoginFailed::class, NotifyAccountOwnerOfFailedLogin::class);
     }
 }

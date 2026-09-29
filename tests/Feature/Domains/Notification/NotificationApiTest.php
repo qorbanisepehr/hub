@@ -22,7 +22,7 @@ function createNotifications($user, array $specs): array
     foreach ($specs as $spec) {
         $records[] = $user->notifications()->create([
             'id' => $spec['id'] ?? (string) Str::uuid(),
-            'type' => $spec['type'] ?? 'App\Domains\Notification\Notifications\QuestionnaireSubmittedNotification',
+            'type' => $spec['type'] ?? 'App\Domains\Questionnaire\Notifications\QuestionnaireSubmittedNotification',
             'data' => $spec['data'] ?? ['questionnaire_id' => (string) Str::uuid()],
             'read_at' => $spec['read_at'] ?? null,
             'created_at' => $spec['created_at'] ?? now(),
@@ -99,7 +99,7 @@ describe('notification API', function () {
 
         it('exposes the canonical dot type and data payload', function () {
             createNotifications($this->user, [
-                ['type' => 'App\Domains\Notification\Notifications\QuestionnaireSubmittedNotification'],
+                ['type' => 'App\Domains\Questionnaire\Notifications\QuestionnaireSubmittedNotification'],
             ]);
 
             actingAs($this->user)

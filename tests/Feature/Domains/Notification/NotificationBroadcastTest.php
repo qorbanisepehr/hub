@@ -1,7 +1,7 @@
 <?php
 
-use App\Domains\Notification\Notifications\QuestionnaireSubmittedNotification;
 use App\Domains\Questionnaire\Models\Questionnaire;
+use App\Domains\Questionnaire\Notifications\QuestionnaireSubmittedNotification;
 use Illuminate\Broadcasting\BroadcastEvent;
 use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Notifications\Events\BroadcastNotificationCreated;

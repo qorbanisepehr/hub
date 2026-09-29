@@ -3,9 +3,9 @@
 namespace App\Domains\Notification\Listeners;
 
 use App\Domains\Notification\Mail\QuestionnaireSubmittedMail;
-use App\Domains\Notification\Notifications\QuestionnaireSubmittedNotification;
 use App\Domains\Notification\Services\QuestionnaireSubmittedRecipientResolver;
 use App\Domains\Questionnaire\Events\QuestionnaireSubmitted;
+use App\Domains\Questionnaire\Notifications\QuestionnaireSubmittedNotification;
 use App\Models\User;
 use Illuminate\Contracts\Events\ShouldHandleEventsAfterCommit;
 use Illuminate\Support\Facades\Mail;

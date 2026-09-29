@@ -12,6 +12,7 @@ use App\Domains\Auth\Requests\VerifyOtpRequest;
 use App\Domains\Auth\Resources\UserResource;
 use App\Domains\Auth\Services\AuthService;
 use App\Enums\OtpContext;
+use App\Enums\OtpVerifyStatus;
 use App\Http\Responses\OtpResponder;
 use App\Models\User;
 use App\Services\OtpService;
@@ -92,6 +93,19 @@ class AuthController
         $channel = $request->validated('channel') ?? $this->authService->channelFor($request->identifier);
         $status = $this->otpService->attemptVerification($user, $channel, OtpContext::Login, $request->code);
 
+        // A wrong code is a failed attempt on a known account, so it is
+        // reported like a wrong password. Locked/expired are deliberately not
+        // reported: they repeat on every poll of an already-blocked attempt.
+        if ($status === OtpVerifyStatus::Invalid) {
+            event(new LoginFailed(
+                $request->identifier,
+                'invalid_code',
+                $user->id,
+                $request->ip(),
+                $request->userAgent(),
+            ));
+        }
+
         if ($response = $this->respondToVerification($user, $channel, OtpContext::Login, $status)) {
             return $response;
         }
@@ -126,7 +140,13 @@ class AuthController
         if (! Hash::check($request->password, $user->password)) {
             $this->authService->hitFailedAttempt($user);
 
-            event(new LoginFailed($request->identifier, 'invalid_password'));
+            event(new LoginFailed(
+                $request->identifier,
+                'invalid_password',
+                $user->id,
+                $request->ip(),
+                $request->userAgent(),
+            ));
 
             return response()->json([
                 'message' => __('auth.failed'),
