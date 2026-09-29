@@ -2,16 +2,19 @@
 
 namespace App\Domains\BoardMeeting\Requests;
 
-use App\Domains\Reporting\Requests\Concerns\ParsesReportDates;
+use App\Support\Concerns\ParsesReportDates;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\ValidationException;
 
 /**
- * HTTP boundary for GET /api/board-meetings. Standard list contract:
- * pagination, `sort`/`order` (whitelisted), global `filter`, and the
- * optional `date_from`/`date_to` window (both calendars accepted — the
- * archive is addressed by Jalali dates, the client sends Gregorian).
+ * The board-meeting-specific half of GET /api/board-meetings. The
+ * standard list contract (pagination, `sort`/`order` whitelist, global
+ * `filter`) is `ListQuery`'s job in the controller and is deliberately
+ * not re-declared here.
+ *
+ * What this request owns is the registry's own vocabulary: a Jalali
+ * year, the date window, and the AND tag filter.
  */
 class BoardMeetingListRequest extends FormRequest
 {
@@ -29,56 +32,28 @@ class BoardMeetingListRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'page' => ['nullable', 'integer', 'min:1'],
-            'per_page' => ['nullable', 'integer', 'min:1', 'max:200'],
-            'sort' => ['nullable', 'string', 'in:date,number'],
-            'order' => ['nullable', 'string', 'in:asc,desc'],
-            'filter' => ['nullable', 'string', 'max:100'],
-            'status' => ['nullable', 'string', 'in:scheduled,held,archived'],
             'tags' => ['nullable', 'array'],
             'tags.*' => ['string', 'max:100'],
+            'jalali_year' => ['nullable', 'integer', 'between:1300,1500'],
             'date_from' => ['nullable', 'string'],
             'date_to' => ['nullable', 'string'],
         ];
     }
 
-    public function listPage(): int
+    /**
+     * The Jalali year the registry key falls in — the range a secretary
+     * actually asks for («همهٔ جلسات ۱۴۰۳»), in the calendar the
+     * registry is filed in.
+     */
+    public function listJalaliYear(): ?int
     {
-        return $this->integer('page', 1);
-    }
+        $year = $this->integer('jalali_year');
 
-    public function listPerPage(): int
-    {
-        return $this->integer('per_page', 20);
-    }
-
-    public function listSort(): string
-    {
-        return $this->string('sort')->toString() === 'number' ? 'number' : 'date';
-    }
-
-    /** Status filter (scheduled/held/archived), null when absent. */
-    public function listStatus(): ?string
-    {
-        $status = $this->string('status')->toString();
-
-        return $status === '' ? null : $status;
-    }
-
-    public function listOrder(): string
-    {
-        return $this->string('order')->toString() === 'asc' ? 'asc' : 'desc';
-    }
-
-    public function listFilter(): ?string
-    {
-        $filter = $this->string('filter')->toString();
-
-        return $filter === '' ? null : $filter;
+        return $year > 0 ? $year : null;
     }
 
     /**
-     * Tag slugs to AND-filter on (A16): only meetings carrying every slug.
+     * Tag slugs to AND-filter on: only meetings carrying every slug.
      *
      * @return list<string>
      */
@@ -95,9 +70,9 @@ class BoardMeetingListRequest extends FormRequest
 
     public function listDateFrom(): ?CarbonImmutable
     {
-        $raw = $this->string('date_from')->toString();
-
-        return $raw === '' ? null : $this->parseReportDate('date_from');
+        return $this->string('date_from')->toString() === ''
+            ? null
+            : $this->parseReportDate('date_from');
     }
 
     /**
@@ -105,9 +80,7 @@ class BoardMeetingListRequest extends FormRequest
      */
     public function listDateTo(): ?CarbonImmutable
     {
-        $raw = $this->string('date_to')->toString();
-
-        if ($raw === '') {
+        if ($this->string('date_to')->toString() === '') {
             return null;
         }
 

@@ -2,7 +2,7 @@
 
 namespace App\Domains\Reporting\Requests;
 
-use App\Domains\Reporting\Requests\Concerns\ParsesReportDates;
+use App\Support\Concerns\ParsesReportDates;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\ValidationException;

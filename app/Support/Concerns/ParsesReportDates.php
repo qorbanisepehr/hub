@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Domains\Reporting\Requests\Concerns;
+namespace App\Support\Concerns;
 
 use App\Support\External\PersianDateTime;
 use App\Support\PersianText;
@@ -9,9 +9,14 @@ use Illuminate\Validation\ValidationException;
 use InvalidArgumentException;
 
 /**
- * Shared parsing for report date filters: both calendars accepted (Jalali
- * or Gregorian, Persian digits tolerated). Lives on the FormRequests — the
- * typed query the reports receive is already parsed (V2 §16).
+ * Shared parsing for list/report date filters: both calendars accepted
+ * (Jalali or Gregorian, Persian digits tolerated). Lives on the
+ * FormRequests — the typed query the caller receives is already parsed.
+ *
+ * It lives in `App\Support` rather than in the Reporting domain because
+ * it carries no business ownership: any list endpoint with a date window
+ * needs it, and keeping it inside Reporting made every other consumer
+ * depend on that domain for one method.
  */
 trait ParsesReportDates
 {

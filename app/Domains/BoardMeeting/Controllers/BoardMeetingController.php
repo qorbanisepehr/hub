@@ -2,98 +2,186 @@
 
 namespace App\Domains\BoardMeeting\Controllers;
 
+use App\Contracts\BoardMeeting\RegistrySync;
+use App\Domains\BoardMeeting\Events\BoardMeetingUpdated;
+use App\Domains\BoardMeeting\Exports\BoardMeetingExporter;
 use App\Domains\BoardMeeting\Models\BoardMeeting;
 use App\Domains\BoardMeeting\Requests\BoardMeetingListRequest;
 use App\Domains\BoardMeeting\Requests\UpdateBoardMeetingRequest;
 use App\Domains\BoardMeeting\Resources\BoardMeetingResource;
-use App\Domains\Ingest\Models\IntegrationRecord;
+use App\Domains\BoardMeeting\Value\Attendee;
 use App\Domains\Tagging\Services\TagService;
+use App\Support\Audit\AttributeDiff;
+use App\Support\Exports\Concerns\StreamsTabularExports;
+use App\Support\Exports\ExportService;
+use App\Support\Exports\Value\ExportColumn;
+use App\Support\Exports\Value\ExportOptions;
+use App\Support\Exports\Value\ExportRequest;
 use App\Support\ListQuery;
-use Illuminate\Http\Request;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
- * Board meeting list/detail/update (fresh shape, doc 060). TCK-parity
- * editability: the importer owns creation, the UI owns updating
- * (title/status/minutes/number) — TCK had an update endpoint too. The
- * detail response embeds the letters context (read-only, from the
- * generic Ingest layer) exactly like TCK's show.
+ * Board meeting list/detail/update/export. The registry is a read-and-
+ * curate surface: the bound source owns the registry columns and a person
+ * owns the rest, so this controller reads the former and writes the
+ * latter. When a person writes, the audit trail records the exact leaf
+ * changes (ADR-008) — the trace that row passed to a human.
  */
 class BoardMeetingController
 {
-    /** Sort whitelist + global-search columns. */
-    private const SORTABLE = ['date', 'number'];
+    use StreamsTabularExports;
 
-    private const SEARCHABLE = ['number', 'title'];
+    /** Sort whitelist. */
+    private const SORTABLE = ['held_on', 'sequence', 'imported_at'];
+
+    /** Global-search columns: the registry key and the human title. */
+    private const SEARCHABLE = ['held_on_jalali', 'title'];
+
+    public function __construct(
+        private readonly ExportService $exports,
+    ) {}
 
     public function index(BoardMeetingListRequest $request): AnonymousResourceCollection
+    {
+        $query = $this->scopedQuery($request);
+
+        $query->orderBy(
+            ListQuery::sort($request, self::SORTABLE, 'held_on'),
+            ListQuery::order($request),
+        );
+
+        return BoardMeetingResource::collection(
+            $query->paginate(ListQuery::perPage($request, 20, 200)),
+        );
+    }
+
+    /**
+     * The selector catalog for the client export dialog.
+     */
+    public function exportFields(): JsonResponse
+    {
+        $fields = collect((new BoardMeetingExporter(BoardMeeting::query()))->columns())
+            ->map(fn (ExportColumn $column) => $column->toArray())
+            ->values();
+
+        return response()->json(['data' => $fields]);
+    }
+
+    /**
+     * Streamed registry export. The query is scoped by the same rules and
+     * filters as index(), so an export never shows more than the list the
+     * user is allowed to see. For PDF/Word the exporter's own title and
+     * the kernel's sync row limit apply.
+     */
+    public function export(BoardMeetingListRequest $request): StreamedResponse|JsonResponse
+    {
+        $format = $request->query('format', 'xlsx');
+
+        if (! in_array($format, ['xlsx', 'csv', 'pdf', 'docx'], true)) {
+            return response()->json(['message' => __('authorization.format_not_supported')], 422);
+        }
+
+        $file = $this->exports->run(
+            new BoardMeetingExporter($this->scopedQuery($request)),
+            new ExportRequest(
+                fields: self::exportFieldsQuery($request),
+                format: $format,
+                options: in_array($format, ['pdf', 'docx'], true)
+                    ? new ExportOptions
+                    : BoardMeetingExporter::defaultOptions($format),
+                presentation: self::exportPresentationQuery($request),
+            ),
+        );
+
+        return $this->streamExport($this->exports, $file);
+    }
+
+    public function show(BoardMeeting $meeting): BoardMeetingResource
+    {
+        return new BoardMeetingResource($meeting->load('tags'));
+    }
+
+    /**
+     * Save a person's edit and — only when something actually changed —
+     * record the leaf-key diff as `board-meeting.updated`. The diff is the
+     * audit hand-over: the row that just froze against the source.
+     */
+    public function update(UpdateBoardMeetingRequest $request, BoardMeeting $meeting): BoardMeetingResource
+    {
+        $old = $this->snapshot($meeting);
+
+        $meeting->update($request->validated());
+
+        $new = $this->snapshot($meeting);
+        $changes = AttributeDiff::diff($old, $new);
+
+        if ($changes['old'] !== [] || $changes['new'] !== []) {
+            event(new BoardMeetingUpdated(
+                $meeting,
+                $changes['old'],
+                $changes['new'],
+            ));
+        }
+
+        return new BoardMeetingResource($meeting->load('tags'));
+    }
+
+    /**
+     * Run the registry sync. Which source is behind the capability is
+     * the integration's business, so this endpoint stays a one-liner
+     * and works unchanged when a second source is bound.
+     */
+    public function sync(RegistrySync $sync): JsonResponse
+    {
+        return response()->json($sync->run());
+    }
+
+    /**
+     * The query with the exact visibility of index(): the same date
+     * window, Jalali year, AND-tag filter, and global search — so the
+     * list and the export can never disagree about what is visible.
+     */
+    private function scopedQuery(BoardMeetingListRequest $request): Builder
     {
         $query = BoardMeeting::query()->with('tags');
 
         if (($from = $request->listDateFrom()) !== null) {
-            $query->whereDate('date', '>=', $from->toDateString());
+            $query->whereDate('held_on', '>=', $from->toDateString());
         }
 
         if (($to = $request->listDateTo()) !== null) {
-            $query->whereDate('date', '<=', $to->toDateString());
+            $query->whereDate('held_on', '<=', $to->toDateString());
         }
 
-        if (($status = $request->listStatus()) !== null) {
-            $query->where('status', $status);
+        if (($year = $request->listJalaliYear()) !== null) {
+            $query->where('held_on_jalali', 'like', $year.'-%');
         }
 
-        ListQuery::search($query, $request->listFilter(), self::SEARCHABLE);
+        ListQuery::search($query, ListQuery::filter($request), self::SEARCHABLE);
 
-        // AND-filter by tag slugs (A16, K3): meetings carrying every slug.
         app(TagService::class)->applyFilter($query, $request->listTagSlugs());
 
-        $query->orderBy(
-            ListQuery::sort($request, self::SORTABLE, 'date'),
-            $request->listOrder(),
-        );
-
-        $meetings = $query->paginate(ListQuery::perPage($request, 20, 200));
-
-        return BoardMeetingResource::collection($meetings);
-    }
-
-    public function show(Request $request, BoardMeeting $meeting): BoardMeetingResource
-    {
-        $meeting->load('tags');
-
-        return (new BoardMeetingResource($meeting))
-            ->additional(['letters' => $this->lettersFor($meeting)]);
-    }
-
-    public function update(UpdateBoardMeetingRequest $request, BoardMeeting $meeting): BoardMeetingResource
-    {
-        $meeting->update($request->validated());
-
-        $meeting->load('tags');
-
-        return new BoardMeetingResource($meeting);
+        return $query;
     }
 
     /**
-     * The meeting's invitation letters as read-only context (TCK show
-     * parity): from the generic Ingest layer, never a domain table.
+     * The human-owned columns as a comparable array. Attendees are read
+     * through their cast so the diff compares concept values, not JSON.
      *
-     * @return list<array{id: int, title: ?string, date: ?string, text: ?string}>
+     * @return array{title: ?string, minutes: ?string, attendees: list<array{name: string, role: string, is_present: bool}>}
      */
-    private function lettersFor(BoardMeeting $meeting): array
+    private function snapshot(BoardMeeting $meeting): array
     {
-        return IntegrationRecord::query()
-            ->forEntity('letter')
-            ->where('data->has_meeting', true)
-            ->whereDate('date', $meeting->date)
-            ->orderBy('id')
-            ->get()
-            ->map(fn (IntegrationRecord $record) => [
-                'id' => $record->id,
-                'title' => $record->title,
-                'date' => $record->date?->toDateString(),
-                'text' => $record->data['text'] ?? null,
-            ])
-            ->all();
+        return [
+            'title' => $meeting->title,
+            'minutes' => $meeting->minutes,
+            'attendees' => array_map(
+                fn (Attendee $attendee) => $attendee->toArray(),
+                $meeting->attendees,
+            ),
+        ];
     }
 }

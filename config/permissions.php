@@ -168,6 +168,7 @@ return [
                 'board-meeting.view' => 'View board meetings',
                 'board-meeting.update' => 'Update board meetings',
                 'board-meeting.sync' => 'Run board meeting synchronization',
+                'board-meeting.export' => 'Export board meetings to a file',
             ],
         ],
 

@@ -6,11 +6,10 @@ use App\Contracts\External\FarzinGateway;
 
 /**
  * Farzin source vocabulary in one place: the source name, the external
- * table names, and the mapping from boundary DTOs to the generic
- * land-instructions the Ingest sync job consumes. The vocabulary dies
- * here and in the normalizers — nothing downstream knows Farzin field
- * or table names (same stance as the old staging job, now merged into
- * the single-step ingest sync).
+ * table names, and the mapping from raw gateway rows to the generic land
+ * instructions the Ingest sync job consumes. The vocabulary dies here and
+ * in the normalizers — nothing downstream knows Farzin field or table
+ * names.
  *
  * @phpstan-type LandInstruction array{source_table: string, external_id: string, payload: array<string, mixed>}
  */
@@ -24,29 +23,41 @@ final class FarzinVocabulary
 
     /**
      * Every row the gateway currently exposes, as generic land
-     * instructions. Unmappable rows are skipped at the DTO boundary —
-     * a row without its primary key cannot be synced anyway and must
-     * not kill the whole batch (the gateway adapter guarantees this).
+     * instructions.
      *
      * @return list<LandInstruction>
      */
     public static function landInstructions(FarzinGateway $gateway, ?string $afterLastEdit): array
     {
+        return [
+            ...self::instructionsFor(self::TABLE_LETTERS, $gateway->letters($afterLastEdit)),
+            ...self::instructionsFor(self::TABLE_SESSIONS, $gateway->sessions($afterLastEdit)),
+        ];
+    }
+
+    /**
+     * A row without its `EntityCode` is skipped at this boundary: it has
+     * no identity, so it cannot be synced at all and must not kill the
+     * batch. It re-appears unchanged on the next run.
+     *
+     * @param  list<array<string, mixed>>  $rows
+     * @return list<LandInstruction>
+     */
+    private static function instructionsFor(string $table, array $rows): array
+    {
         $instructions = [];
 
-        foreach ($gateway->letters($afterLastEdit) as $row) {
-            $instructions[] = [
-                'source_table' => self::TABLE_LETTERS,
-                'external_id' => (string) $row->entityCode,
-                'payload' => $row->raw,
-            ];
-        }
+        foreach ($rows as $row) {
+            $code = $row['EntityCode'] ?? null;
 
-        foreach ($gateway->sessions($afterLastEdit) as $row) {
+            if ($code === null || $code === '') {
+                continue;
+            }
+
             $instructions[] = [
-                'source_table' => self::TABLE_SESSIONS,
-                'external_id' => (string) $row->entityCode,
-                'payload' => $row->raw,
+                'source_table' => $table,
+                'external_id' => (string) $code,
+                'payload' => $row,
             ];
         }
 

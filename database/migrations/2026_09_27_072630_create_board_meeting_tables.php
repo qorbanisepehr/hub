@@ -7,39 +7,48 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     /**
-     * The fresh BoardMeeting domain (decision 2026-09-28, design doc
-     * 060): an EDITABLE aggregate — the source importer (Farzin) is one
-     * writer among others (UI CRUD, future AI), never the owner of the
-     * shape. Concepts, not sources, define the table. ONE table, hub
-     * ADR-003 style: real columns for what is queried, JSONB for the
-     * structured-but-unqueried sub-structure (agenda, attendees,
-     * summary, meta) — no extra tables without profit.
+     * The board meeting registry (ADR-011). One table, hub ADR-003 style:
+     * real columns for what is queried, JSONB for the structured-but-unqueried
+     * sub-structure that the value objects in `App\Domains\BoardMeeting\Value`
+     * describe as a contract.
      *
-     * - No `pdate`: dates are Gregorian-canonical hub-wide; the Jalali
-     *   rendering is client-side. The importer's grouping key is data,
-     *   not a column.
-     * - No `documents` JSONB: derivable data lives where it belongs
-     *   (archive disk → hub Document system, K4).
-     * - `number` is the meeting's registry number as plain text
-     *   (user decision B — the مصوبه entity is deliberately deferred).
-     * - `summary` is the AI seam: empty today, consumed by agents once
-     *   the BYOK decision table closes.
+     * Identity is the registry key, not the meeting: `held_on_jalali` (the
+     * date the registry is filed under) plus `sequence` (which meeting of that
+     * day). A meeting is not a date — the same day can hold an extraordinary
+     * session — so `date UNIQUE` was the wrong constraint.
+     *
+     * Ownership is columnar and explicit: `origin`/`provenance`/`imported_at`
+     * plus the registry columns are source-owned, `title`/`minutes`/`attendees`
+     * are human-owned, and `source_locked_at` is set by the model on the first
+     * human edit so a later re-import can never revert it.
+     *
+     * `held_on` is the Gregorian canonical date (hub-wide convention);
+     * `held_on_jalali` is the registry key in `yyyy-MM-dd` and is NOT a second
+     * source of truth for the same value — it is the identity under which the
+     * archive files the meeting.
      */
     public function up(): void
     {
         Schema::create('board_meetings', function (Blueprint $table) {
             $table->id();
-            $table->date('date')->unique();
+            $table->date('held_on');
+            $table->char('held_on_jalali', 10);
+            $table->unsignedSmallInteger('sequence')->default(1);
             $table->string('title')->nullable();
-            $table->string('status')->default('held')->index();
-            $table->string('number')->nullable();
-            $table->text('minutes_text')->nullable();
+            $table->text('minutes')->nullable();
+            $table->jsonb('approvals')->nullable();
             $table->jsonb('agenda')->nullable();
             $table->jsonb('attendees')->nullable();
             $table->jsonb('summary')->nullable();
-            $table->jsonb('meta')->nullable();
-            $table->timestamp('synced_at')->nullable();
+            $table->string('origin', 32);
+            $table->jsonb('provenance')->nullable();
+            $table->timestamp('imported_at')->nullable();
+            $table->timestamp('source_locked_at')->nullable();
             $table->timestamps();
+
+            $table->unique(['held_on_jalali', 'sequence']);
+            $table->index('held_on');
+            $table->index(['origin', 'imported_at']);
         });
     }
 

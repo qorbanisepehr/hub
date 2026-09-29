@@ -2,13 +2,15 @@
 
 namespace App\Integrations\Farzin;
 
+use App\Contracts\External\FarzinGateway;
+
 /**
  * Deterministic Farzin source (same role as the fake gateways of the
  * other integrations): exercises the real staging/projection pipeline
  * without SQL Server. Rows carry the external vocabulary verbatim,
  * including the CDATA-wrapped text the real source uses.
  */
-final class FakeFarzinSource implements FarzinGatewayContract
+final class FakeFarzinSource implements FarzinGateway
 {
     /** @var list<array<string, mixed>> */
     private array $letters;
@@ -25,7 +27,7 @@ final class FakeFarzinSource implements FarzinGatewayContract
         $this->sessions = $sessions;
     }
 
-    public function letters(?string $afterLastEdit): array
+    public function letters(?string $afterLastEdit = null): array
     {
         return array_values(array_filter(
             $this->letters,
@@ -34,7 +36,7 @@ final class FakeFarzinSource implements FarzinGatewayContract
         ));
     }
 
-    public function sessions(?string $afterLastEdit): array
+    public function sessions(?string $afterLastEdit = null): array
     {
         return array_values(array_filter(
             $this->sessions,
@@ -52,7 +54,7 @@ final class FakeFarzinSource implements FarzinGatewayContract
         [
             'EntityCode' => 101,
             'subject' => '<![CDATA[<p>دعوت به جلسه هیئت مدیره مورخ ۱۴۰۴/۰۶/۱۵</p>]]>',
-            'text' => '<![CDATA[<p>با سلام\nاحتراماً به استحضار می‌رساند دستور جلسه:\n1- تصویب صورت‌های مالی\nبا تشکر</p>]]>',
+            'text' => "<![CDATA[<p>با سلام\nاحتراماً به استحضار می‌رساند دستور جلسه:\n1- تصویب صورت‌های مالی\nبا تشکر</p>]]>",
             'date' => '2025-09-06',
             'EntityNumber' => 451,
             'ExportEntityNumber' => 451,
