@@ -1,5 +1,6 @@
 export {
     useAiAgents,
+    useAiModels,
     useAiProviders,
     useCreateAiModel,
     useCreateAiProvider,

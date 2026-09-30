@@ -1,80 +1,113 @@
+import { useState } from "react";
 import { useParams } from "@tanstack/react-router";
-import { IconCalendarStats, IconFileText } from "@tabler/icons-react";
+import { getRouteApi } from "@tanstack/react-router";
+import {
+    IconFileDescription,
+    IconFileText,
+    IconPencil,
+    IconRobot,
+    IconUsers,
+} from "@tabler/icons-react";
 
-import { useBoardMeeting } from "../hooks";
-import { toPersianDate } from "@/lib/date-format";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+    Card,
+    CardContent,
+    CardHeader,
+    CardTitle,
+} from "@/components/ui/card";
+import {
+    Collapsible,
+    CollapsibleContent,
+    CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { Skeleton } from "@/components/ui/skeleton";
-import { EmptyState, ErrorPage, PageHeader, PageLayout } from "@/components/layout";
-import { MeetingDocumentsCard } from "../components/meeting-documents-card";
-import { MeetingTagsCard } from "../components/meeting-tags-card";
-import type { BoardMeetingApprovalDto } from "../types";
+import { Spinner } from "@/components/ui/spinner";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ErrorPage, PageHeader, PageLayout } from "@/components/layout";
+import { toPersianDate } from "@/lib/date-format";
+import { PERMISSIONS } from "@/lib/permissions";
+import { MeetingDocumentsTab } from "../components/meeting-documents-tab";
+import { MeetingEditDialog } from "../components/meeting-edit-dialog";
+import { MeetingMinutesPreview } from "../components/meeting-minutes-preview";
+import { MeetingStats } from "../components/meeting-stats";
+import { MeetingSummarySection } from "../components/meeting-summary-section";
+import { MeetingTagChips } from "../components/meeting-tag-chips";
+import { hasContent } from "../summary-read";
+import {
+    useAcceptMeetingSummary,
+    useBoardMeeting,
+    useGenerateMeetingSummary,
+} from "../hooks";
+import type {
+    BoardMeetingDetailResponse,
+    MeetingSummaryFieldName,
+} from "../types";
+
+const route = getRouteApi("/protected/board-meetings/$meetingId");
 
 /**
- * The registry numbers this meeting passed, in registry order. The PDFs
- * themselves live in the hub Document system (the card below), so this is
- * the registry's own record: number, title, and whether its document has
- * been imported yet.
+ * The tab names, mirrored by the route's zod enum. Kept as a closed set here
+ * too so the page can narrow `?tab=` to a value it knows how to render — the
+ * route drops an unknown value, and a tab list that grew a name the enum forgot
+ * would render an empty panel rather than fall back.
  */
-function MeetingApprovals({
-    approvals,
-}: {
-    approvals: BoardMeetingApprovalDto[];
-}) {
-    if (approvals.length === 0) {
-        return <span className="text-sm text-muted-foreground">—</span>;
-    }
+const TABS = ["preview", "analysis", "agenda", "attendees", "documents"] as const;
 
-    return (
-        <ul className="divide-y rounded-md border">
-            {approvals.map((approval) => (
-                <li
-                    key={approval.number}
-                    className="flex flex-wrap items-center gap-2 px-3 py-2"
-                >
-                    <span dir="ltr" className="text-sm font-medium">
-                        {approval.number}
-                    </span>
-                    {approval.title && (
-                        <span className="text-muted-foreground text-xs">
-                            {approval.title}
-                        </span>
-                    )}
-                    {approval.document_id !== null && (
-                        <Badge variant="outline" className="ms-auto">
-                            <IconFileText className="size-3" />
-                            سند
-                        </Badge>
-                    )}
-                </li>
-            ))}
-        </ul>
-    );
+type Tab = (typeof TABS)[number];
+
+function isTab(value: unknown): value is Tab {
+    return TABS.includes(value as Tab);
 }
 
 /**
- * Board meeting detail: the meeting's own metadata, the approvals it
- * passed, the structured agenda + attendees, the tag editor, the
- * Document-system card, and the minutes.
+ * Board meeting detail.
  *
- * Read-only by design — the registry columns belong to the source and the
- * CRUD surface arrives in a later increment. A meeting a person has
- * already edited is marked as such, because that is what stops the next
- * sync from touching it.
+ * Reading order, top to bottom: who this meeting is, what is in it, then the
+ * content. The identity bar and the stat row answer the first two without a
+ * click, and only the content lives behind tabs — because tabs are for choosing
+ * between *kinds* of content, and a reader who has to open each one to find out
+ * whether it holds anything is doing the work the stat row should have done.
+ *
+ * Content-driven tabs, with the analysis tab as the deliberate exception: it is
+ * the only one whose empty state is an invitation rather than an absence,
+ * because asking is how its content arrives.
+ *
+ * Approvals and documents are one tab, not two. Every approval either has a
+ * document in the hub or is waiting for one, and splitting the registry numbers
+ * from their scans made a reader hold two lists to answer "is this approval on
+ * file?".
+ *
+ * Tags have no tab. A tag is a facet of the meeting rather than a section of
+ * it — it answers "what is this about", which is the same question the title
+ * answers — so the tags sit in the header as links into the filtered list, and
+ * editing them happens in the edit dialog. A section of the page devoted to
+ * one facet made a reader hunt for a control.
+ *
+ * The active tab rides the URL rather than component state, so a tab is
+ * linkable, survives a refresh, and is what the back button steps through.
  */
 export function BoardMeetingDetailPage() {
-    const { meetingId } = useParams({ from: "/protected/board-meetings/$meetingId" });
+    const { meetingId } = useParams({
+        from: "/protected/board-meetings/$meetingId",
+    });
+    const search = route.useSearch();
+    const navigate = route.useNavigate();
+
+    const [isEditing, setIsEditing] = useState(false);
 
     const { data: meeting, isLoading, isError } = useBoardMeeting(meetingId);
+
+    const generate = useGenerateMeetingSummary(meetingId);
+    const accept = useAcceptMeetingSummary(meetingId);
 
     if (isLoading) {
         return (
             <PageLayout>
-                <div className="space-y-4">
+                <div className="flex flex-col gap-4">
                     <Skeleton className="h-10 w-64" />
+                    <Skeleton className="h-16 w-full" />
                     <Skeleton className="h-40 w-full" />
-                    <Skeleton className="h-60 w-full" />
                 </div>
             </PageLayout>
         );
@@ -90,8 +123,15 @@ export function BoardMeetingDetailPage() {
         );
     }
 
-    const agenda = meeting.agenda ?? [];
-    const attendees = meeting.attendees ?? [];
+    const activeTab: Tab = isTab(search.tab) ? search.tab : "preview";
+
+    function selectTab(tab: string) {
+        if (!isTab(tab) || tab === activeTab) {
+            return;
+        }
+
+        void navigate({ search: (prev) => ({ ...prev, tab }) });
+    }
 
     return (
         <PageLayout>
@@ -99,131 +139,273 @@ export function BoardMeetingDetailPage() {
                 title={`جلسه ${toPersianDate(meeting.held_on)}`}
                 description={meeting.title ?? meeting.registry_label}
                 backTo="/board-meetings"
+                actions={[
+                    {
+                        icon: <IconPencil />,
+                        label: "ویرایش",
+                        onClick: () => setIsEditing(true),
+                        // The dialog itself also checks this, but the button
+                        // must not offer an action the page will refuse.
+                        permission: PERMISSIONS.BOARD_MEETING_UPDATE,
+                    },
+                ]}
             />
 
-            <div className="grid gap-6">
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="text-lg">اطلاعات جلسه</CardTitle>
-                    </CardHeader>
-                    <CardContent className="grid gap-4 sm:grid-cols-2">
-                        <div>
-                            <p className="text-muted-foreground text-sm">
-                                تاریخ جلسه
-                            </p>
-                            <p
-                                className="font-medium"
-                                title={meeting.held_on ?? undefined}
-                            >
-                                {toPersianDate(meeting.held_on)}
-                            </p>
-                        </div>
-                        <div>
-                            <p className="text-muted-foreground text-sm">
-                                شمارهٔ جلسه
-                            </p>
-                            <p className="font-medium" dir="ltr">
-                                {meeting.registry_label}
-                            </p>
-                        </div>
-                        <div>
-                            <p className="text-muted-foreground text-sm">
-                                منبع
-                            </p>
-                            <p className="flex flex-wrap items-center gap-2 font-medium">
-                                <span dir="ltr">{meeting.origin}</span>
-                                {meeting.source_locked ? (
-                                    <Badge variant="outline">
-                                        ویرایش‌شده توسط کاربر
-                                    </Badge>
-                                ) : (
-                                    <Badge variant="secondary">
-                                        همگام با منبع
-                                    </Badge>
-                                )}
-                            </p>
-                        </div>
-                        <div>
-                            <p className="text-muted-foreground text-sm">
-                                برچسب‌ها
-                            </p>
-                            <p className="font-medium">
-                                {meeting.tags.length > 0
-                                    ? meeting.tags
-                                          .map((tag) => tag.name)
-                                          .join("، ")
-                                    : "—"}
-                            </p>
-                        </div>
-                        <div className="sm:col-span-2">
-                            <p className="text-muted-foreground text-sm">
-                                مصوبات
-                            </p>
-                            <div className="mt-1">
-                                <MeetingApprovals approvals={meeting.approvals} />
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
+            <MeetingIdentity meeting={meeting} />
 
-                {agenda.length > 0 && (
+            <MeetingStats meeting={meeting} isLoading={false} />
+
+            <Tabs
+                value={activeTab}
+                onValueChange={selectTab}
+                className="gap-4"
+            >
+                <TabsList
+                    variant="line"
+                    className="w-full justify-start overflow-x-auto"
+                >
+                    <TabsTrigger value="preview">
+                        <IconFileText />
+                        نمای کلی
+                    </TabsTrigger>
+                    <TabsTrigger value="analysis">
+                        <IconRobot />
+                        تحلیل هوشمند
+                        {meeting.summary?.status === "pending" && (
+                            <Spinner className="size-3" />
+                        )}
+                    </TabsTrigger>
+                    {meeting.approvals.length > 0 && (
+                        <TabsTrigger value="documents">
+                            <IconFileText />
+                            اسناد و مصوبات (
+                            {meeting.approvals.length.toLocaleString("fa-IR")})
+                        </TabsTrigger>
+                    )}
+                    {meeting.agenda.length > 0 && (
+                        <TabsTrigger value="agenda">
+                            <IconFileDescription />
+                            دستور جلسه (
+                            {meeting.agenda.length.toLocaleString("fa-IR")})
+                        </TabsTrigger>
+                    )}
+                    {meeting.attendees.length > 0 && (
+                        <TabsTrigger value="attendees">
+                            <IconUsers />
+                            حاضرین (
+                            {meeting.attendee_count.toLocaleString("fa-IR")})
+                        </TabsTrigger>
+                    )}
+                </TabsList>
+
+                {/*
+                    The overview carries a short read of the minutes rather than
+                    all of them, and the full text lives in the documents tab
+                    below as its own card — so the minutes are on the page
+                    without being the page.
+                */}
+                <TabsContent value="preview">
                     <Card>
                         <CardHeader>
-                            <CardTitle className="text-lg">دستور جلسه</CardTitle>
+                            <CardTitle className="text-lg">
+                                خلاصهٔ صورتجلسه
+                            </CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <ol className="list-decimal space-y-2 ps-5">
-                                {agenda.map((item) => (
-                                    <li key={item.position} className="text-sm leading-7">
-                                        {item.title}
-                                    </li>
-                                ))}
-                            </ol>
-                        </CardContent>
-                    </Card>
-                )}
-
-                {attendees.length > 0 && (
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="text-lg">حاضرین</CardTitle>
-                        </CardHeader>
-                        <CardContent className="flex flex-wrap gap-2">
-                            {attendees.map((attendee, index) => (
-                                // oxlint-disable-next-line react/no-array-index-key -- attendance entries have no stable identity
-                                <Badge key={index} variant="outline">
-                                    {attendee.name}
-                                </Badge>
-                            ))}
-                        </CardContent>
-                    </Card>
-                )}
-
-                <MeetingDocumentsCard meetingId={String(meetingId)} />
-
-                <MeetingTagsCard
-                    meetingId={String(meetingId)}
-                    tags={meeting.tags}
-                />
-
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="text-lg">صورتجلسه</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        {meeting.minutes ? (
-                            <p className="text-sm leading-7 whitespace-pre-line">
-                                {meeting.minutes}
-                            </p>
-                        ) : (
-                            <EmptyState
-                                icon={IconCalendarStats}
-                                message="صورتجلسه‌ای برای این جلسه ثبت نشده است"
+                            <MeetingMinutesPreview
+                                minutes={meeting.minutes}
                             />
-                        )}
-                    </CardContent>
-                </Card>
-            </div>
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+
+                <TabsContent value="analysis">
+                    <Card>
+                        <CardContent className="pt-6">
+                            <MeetingSummarySection
+                                summary={meeting.summary}
+                                tags={meeting.tags.map((tag) => tag.slug)}
+                                isGenerating={generate.isPending}
+                                isAccepting={accept.isPending}
+                                onGenerate={(payload) =>
+                                    generate.mutate(payload)
+                                }
+                                onAccept={(
+                                    fields: MeetingSummaryFieldName[],
+                                    tags: string[],
+                                ) =>
+                                    accept.mutate({
+                                        accepted_fields: fields,
+                                        tag_slugs: tags,
+                                    })
+                                }
+                            />
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+
+                {meeting.approvals.length > 0 && (
+                    <TabsContent value="documents">
+                        <MeetingDocumentsTab
+                            meetingId={String(meetingId)}
+                            approvals={meeting.approvals}
+                        />
+                    </TabsContent>
+                )}
+
+                {meeting.agenda.length > 0 && (
+                    <TabsContent value="agenda">
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="text-lg">
+                                    دستور جلسه
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <ol className="flex list-decimal flex-col gap-2 ps-5">
+                                    {meeting.agenda.map((item) => (
+                                        <li
+                                            // Position alone is not an
+                                            // identity: the archive files
+                                            // sub-items under their parent's
+                                            // number, so a real meeting can
+                                            // have three items and two
+                                            // positions. Position plus text is
+                                            // stable across a re-order, which
+                                            // an index is not.
+                                            key={`${item.position}-${item.title}`}
+                                            className="text-sm leading-7"
+                                        >
+                                            {item.title}
+                                        </li>
+                                    ))}
+                                </ol>
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
+                )}
+
+                {meeting.attendees.length > 0 && (
+                    <TabsContent value="attendees">
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="text-lg">
+                                    حاضرین
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="flex flex-wrap gap-2">
+                                {meeting.attendees.map((attendee, index) => (
+                                    // oxlint-disable-next-line react/no-array-index-key -- attendance entries have no stable identity
+                                    <Badge key={index} variant="outline">
+                                        {attendee.name}
+                                    </Badge>
+                                ))}
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
+                )}
+            </Tabs>
+
+            <MeetingProvenance meeting={meeting} />
+
+            <MeetingEditDialog
+                open={isEditing}
+                onOpenChange={setIsEditing}
+                meetingId={String(meetingId)}
+                title={meeting.title}
+                minutes={meeting.minutes}
+                tags={meeting.tags}
+            />
         </PageLayout>
+    );
+}
+
+/** Import provenance, collapsed: which source produced this row, and when. */
+function MeetingProvenance({
+    meeting,
+}: {
+    meeting: BoardMeetingDetailResponse;
+}) {
+    const provenance = meeting.provenance ?? {};
+    const hasProvenance = Object.keys(provenance).length > 0;
+
+    return (
+        <Collapsible>
+            <CollapsibleTrigger className="text-muted-foreground text-sm">
+                منبع و جزئیات ایمپورت
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+                <div className="text-muted-foreground mt-2 grid gap-2 text-sm sm:grid-cols-3">
+                    <div>
+                        <p>منبع</p>
+                        <p className="text-foreground" dir="ltr">
+                            {meeting.origin}
+                        </p>
+                    </div>
+                    <div>
+                        <p>زمان ایمپورت</p>
+                        <p className="text-foreground">
+                            {meeting.imported_at ?? "—"}
+                        </p>
+                    </div>
+                    <div>
+                        <p>منبعِ داده</p>
+                        <p className="text-foreground text-xs break-all">
+                            {hasProvenance
+                                ? JSON.stringify(provenance)
+                                : "—"}
+                        </p>
+                    </div>
+                </div>
+            </CollapsibleContent>
+        </Collapsible>
+    );
+}
+
+/**
+ * The meeting's identity, above everything and outside the tabs.
+ *
+ * Everything here answers "which meeting is this" rather than "what is in it",
+ * which is why it stays put while the tabs change — the one thing a person must
+ * never lose track of is which record they are reading. The source chips are
+ * here rather than inside a tab because they answer "will the next sync touch
+ * this row", which is a property of the record rather than of its contents.
+ *
+ * The tags are here, and they are links. They are the meeting's own facets, so
+ * they belong beside its identity rather than in a section of their own, and
+ * each one answers "which other meetings are about this?" in a click.
+ */
+function MeetingIdentity({ meeting }: { meeting: BoardMeetingDetailResponse }) {
+    return (
+        <div className="bg-muted/50 flex flex-wrap items-center gap-2 rounded-lg px-4 py-3 text-sm">
+            <span className="font-medium">
+                جلسه {toPersianDate(meeting.held_on)}
+            </span>
+            <span className="text-muted-foreground" dir="ltr">
+                {meeting.registry_label}
+            </span>
+            <span className="text-muted-foreground" dir="ltr">
+                {meeting.origin}
+            </span>
+
+            {meeting.source_locked ? (
+                <Badge variant="outline">ویرایش‌شده توسط کاربر</Badge>
+            ) : (
+                <Badge variant="secondary">همگام با منبع</Badge>
+            )}
+
+            {meeting.summary?.status === "pending" && (
+                <Badge variant="secondary">در حال تولید خلاصه</Badge>
+            )}
+
+            {hasContent(meeting.summary) && (
+                <Badge variant="success">خلاصه دارد</Badge>
+            )}
+
+            <div className="flex w-full flex-wrap items-center gap-2 sm:ms-2">
+                <span className="text-muted-foreground text-xs">برچسب‌ها:</span>
+                <MeetingTagChips tags={meeting.tags} />
+            </div>
+        </div>
     );
 }

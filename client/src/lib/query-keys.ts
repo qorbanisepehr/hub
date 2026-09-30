@@ -135,6 +135,9 @@ export const boardMeetingKeys = {
         [...boardMeetingKeys.details(), id] as const,
     documents: (meetingId: number | string) =>
         ["board-meeting-documents", meetingId] as const,
+    /** The bulk picker: meetings still waiting for a first summary. */
+    summaryCandidates: (params: Record<string, unknown>) =>
+        ["board-meeting-summary-candidates", params] as const,
 };
 
 export const tagKeys = {
@@ -183,4 +186,6 @@ export const aiKeys = {
     agents: () => [...aiKeys.all, "agents"] as const,
     agentList: (params: Record<string, unknown>) =>
         [...aiKeys.agents(), params] as const,
+    /** The flat, cross-provider list a per-run model picker reads. */
+    models: () => [...aiKeys.all, "models"] as const,
 };

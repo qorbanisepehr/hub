@@ -9,6 +9,7 @@ import {
     deleteAiModel,
     deleteAiProvider,
     fetchAiAgents,
+    fetchAiModels,
     fetchAiProviders,
     makeAiProviderDefault,
     testAiProviderConnection,
@@ -47,6 +48,27 @@ export function useAiAgents(params: AiAgentListParams) {
             const { data } = await fetchAiAgents(params);
             return data;
         },
+    });
+}
+
+/**
+ * The pickable models, for a per-run picker outside Settings.
+ *
+ * Long-lived on purpose: the registry changes when an administrator changes
+ * it, not from one render to the next, and a dropdown that refetches on every
+ * keystroke is a dropdown that flickers. `enabled` is the caller's business —
+ * the endpoint is behind `ai.provider.view`, so a user without it must not
+ * ask, and the picker is hidden for them instead.
+ */
+export function useAiModels(enabled = true) {
+    return useQuery({
+        queryKey: aiKeys.models(),
+        queryFn: async () => {
+            const { data } = await fetchAiModels({ per_page: 200 });
+            return data;
+        },
+        enabled,
+        staleTime: 5 * 60 * 1000,
     });
 }
 

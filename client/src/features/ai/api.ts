@@ -6,6 +6,7 @@ import type {
     AiAgentListResponse,
     AiConnectionTestResult,
     AiModelDto,
+    AiModelListResponse,
     AiModelPayload,
     AiProviderDto,
     AiProviderListParams,
@@ -26,6 +27,18 @@ export function fetchAiProviders(params: AiProviderListParams) {
 
 export function fetchAiAgents(params: AiAgentListParams) {
     return api.get<AiAgentListResponse>("/ai/agents", { params });
+}
+
+/**
+ * The flat model list, for a per-run picker outside Settings.
+ *
+ * Separate from the provider list on purpose: a picker needs one row per
+ * model with its provider's name attached, and reading it off the provider
+ * payload would drag `base_url`, `has_api_key` and `headers` to the browser to
+ * render a dropdown of labels.
+ */
+export function fetchAiModels(params?: { per_page?: number }) {
+    return api.get<AiModelListResponse>("/ai/models", { params });
 }
 
 export function createAiProvider(payload: CreateAiProviderPayload) {

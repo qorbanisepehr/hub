@@ -5,6 +5,7 @@ import {
     IconCalendarStats,
     IconDownload,
     IconRefresh,
+    IconRobot,
     IconRotate,
 } from "@tabler/icons-react";
 
@@ -25,6 +26,7 @@ import { EXPORT_MIME_TYPES, exportDateStamp, saveBlobResponse } from "@/lib/down
 import { useTagOptions } from "@/features/tags/hooks";
 import { exportBoardMeetings, fetchBoardMeetingExportFields } from "../api";
 import { boardMeetingColumns } from "../columns";
+import { BulkSummaryDialog } from "../components/bulk-summary-dialog";
 import { useBoardMeetings, useSyncBoardMeetings } from "../hooks";
 import type { BoardMeetingListParams } from "../types";
 
@@ -46,6 +48,7 @@ export function BoardMeetingsPage() {
     const navigate = route.useNavigate();
 
     const [isExportOpen, setIsExportOpen] = useState(false);
+    const [isBulkOpen, setIsBulkOpen] = useState(false);
 
     const url = useDataTableUrlState({
         search: search as unknown as Record<string, unknown>,
@@ -223,7 +226,23 @@ export function BoardMeetingsPage() {
                         disabled: sync.isPending,
                         permission: PERMISSIONS.BOARD_MEETING_SYNC,
                     },
+                    {
+                        // Next to the sync rather than beside «تازه‌سازی»: it is
+                        // the same shape of command — it acts on the registry,
+                        // not on the rows on screen, and it is slow.
+                        id: "summary-bulk",
+                        label: "تولید خلاصه برای جلسات تولیدنشده",
+                        icon: IconRobot,
+                        onClick: () => setIsBulkOpen(true),
+                        permission: PERMISSIONS.BOARD_MEETING_SYNC,
+                    },
                 ]}
+            />
+
+            <BulkSummaryDialog
+                open={isBulkOpen}
+                onOpenChange={setIsBulkOpen}
+                params={params}
             />
 
             <ExportDialog

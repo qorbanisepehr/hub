@@ -68,6 +68,14 @@ export const AI_CAPABILITIES: ReadonlyArray<{
 export interface AiModelDto {
     id: number;
     provider_id: number;
+    /**
+     * The provider's own name, present only where the relation is loaded — the
+     * flat per-run list. A dropdown cannot let somebody choose between two
+     * gateways that both offer the same model, so this is what makes the list
+     * usable; it is absent from the nested Settings payload, which already has
+     * the provider it hangs off.
+     */
+    provider_name?: string | null;
     /** The name the provider itself knows the model by, not this row's id. */
     model_name: string;
     label: string | null;
@@ -76,6 +84,8 @@ export interface AiModelDto {
     capabilities: AiCapability[];
     is_active: boolean;
 }
+
+export type AiModelListResponse = PaginatedResponse<AiModelDto>;
 
 export interface AiProviderDto {
     id: number;

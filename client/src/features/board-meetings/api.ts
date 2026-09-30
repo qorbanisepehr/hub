@@ -1,11 +1,17 @@
 import { api, FORM_DATA_HEADERS } from "@/lib/api";
 import type { ExportPresentation } from "@/components/shared";
 import type {
+    AcceptSummaryPayload,
     BoardMeetingDetailResponse,
     BoardMeetingListParams,
     BoardMeetingListResponse,
     BoardMeetingSyncResult,
+    GenerateSummaryPayload,
     MeetingDocumentsResponse,
+    MeetingSummaryFieldName,
+    SummaryBulkResponse,
+    SummaryCandidateListResponse,
+    SummaryWriteMode,
     UpdateBoardMeetingPayload,
 } from "./types";
 
@@ -79,6 +85,53 @@ export function updateBoardMeeting(id: number | string, payload: UpdateBoardMeet
  */
 export function syncBoardMeetings() {
     return api.post<BoardMeetingSyncResult>("/board-meetings/sync");
+}
+
+/** Ask for a run. Queued, not performed — the response is the meeting either way. */
+export function generateMeetingSummary(
+    id: number | string,
+    payload: GenerateSummaryPayload,
+) {
+    return api.post<{ data: BoardMeetingDetailResponse }>(
+        `/board-meetings/${id}/summary`,
+        payload,
+    );
+}
+
+/**
+ * Record a decision about the pending proposal.
+ *
+ * A 409 here means somebody else got there first, or the run was applied
+ * rather than proposed — so the caller re-reads the meeting instead of
+ * retrying, and says so to the user rather than swallowing it.
+ */
+export function acceptMeetingSummary(
+    id: number | string,
+    payload: AcceptSummaryPayload,
+) {
+    return api.post<{ data: BoardMeetingDetailResponse }>(
+        `/board-meetings/${id}/summary/accept`,
+        payload,
+    );
+}
+
+/** The meetings a bulk run could still generate for, under the list's filters. */
+export function fetchSummaryCandidates(
+    params: BoardMeetingListParams,
+) {
+    return api.get<SummaryCandidateListResponse>(
+        "/board-meetings/summary/candidates",
+        { params },
+    );
+}
+
+export function bulkGenerateMeetingSummary(payload: {
+    meeting_ids: number[];
+    fields?: MeetingSummaryFieldName[];
+    mode?: SummaryWriteMode;
+    model_id?: number | null;
+}) {
+    return api.post<SummaryBulkResponse>("/board-meetings/summary/bulk", payload);
 }
 
 /**

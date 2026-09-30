@@ -51,6 +51,18 @@ interface AiProviderDialogProps {
 
 const NAME_PATTERN = /^[a-z0-9][a-z0-9_-]*$/;
 
+/**
+ * Driver value → label, for the select's closed state.
+ *
+ * Base UI's `Select.Value` renders the selected item's *value* unless the root
+ * is given `items`, and the popup that would register the labels is not mounted
+ * until the menu opens — so the trigger showed `openai-compatible` instead of
+ * «سازگار با OpenAI».
+ */
+const DRIVER_LABELS: Record<string, string> = Object.fromEntries(
+    AI_DRIVERS.map((entry) => [entry.value, entry.label]),
+);
+
 export function AiProviderDialog({
     open,
     onOpenChange,
@@ -171,6 +183,7 @@ export function AiProviderDialog({
                         <Label htmlFor="ai-provider-driver">نوع درگاه</Label>
                         <Select
                             value={driver}
+                            items={DRIVER_LABELS}
                             onValueChange={(value) => setDriver(value as AiDriver)}
                         >
                             <SelectTrigger id="ai-provider-driver" dir="ltr">

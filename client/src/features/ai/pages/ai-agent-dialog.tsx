@@ -84,6 +84,32 @@ export function AiAgentDialog({
         );
     }, [providers, providerId]);
 
+
+    // Value-to-label maps for the two selects. Base UI's `Select.Value`
+    // renders the selected item's *value* unless the root is given `items`,
+    // and the popup that would register those labels is not mounted until the
+    // menu opens — so a closed trigger showed `__inherit__` or a bare id
+    // where the label belonged.
+    const providerLabels = useMemo(
+        () => ({
+            [INHERIT]: "ارائه‌دهنده پیش‌فرض (بدون اتصال)",
+            ...Object.fromEntries(
+                activeProviders.map((p) => [String(p.id), p.name]),
+            ),
+        }),
+        [activeProviders],
+    );
+
+    const modelLabels = useMemo(
+        () => ({
+            [INHERIT]: "مدل پیش‌فرض ارائه‌دهنده",
+            ...Object.fromEntries(
+                availableModels.map((m) => [String(m.id), m.display_label]),
+            ),
+        }),
+        [availableModels],
+    );
+
     const handleSave = () => {
         update.mutate(
             {
@@ -118,6 +144,7 @@ export function AiAgentDialog({
                         <Label htmlFor="ai-agent-provider">ارائه‌دهنده</Label>
                         <Select
                             value={providerId}
+                            items={providerLabels}
                             onValueChange={(value) => {
                                 setProviderId(value ?? INHERIT);
                                 // Switching provider invalidates the model: the
@@ -155,6 +182,7 @@ export function AiAgentDialog({
                         <Label htmlFor="ai-agent-model">مدل</Label>
                         <Select
                             value={modelId}
+                            items={modelLabels}
                             onValueChange={(value) =>
                                 // Base UI can report null on a cleared
                                 // selection; there is no cleared state here,

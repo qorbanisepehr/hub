@@ -5,7 +5,7 @@ import { Route as ProtectedRoute } from "@/routes/_protected";
 import { LazyRoute, RouteLoadingFallback } from "@/components/layout/lazy-route";
 import { requirePermission } from "@/features/auth/guards";
 import { PERMISSIONS } from "@/lib/permissions";
-import { paginatedSearchSchema } from "@/lib/zod-primitives";
+import { csvArray, paginatedSearchSchema } from "@/lib/zod-primitives";
 
 const BoardMeetingsPage = lazy(() =>
     import("@/features/board-meetings/pages/board-meetings-page").then((m) => ({
@@ -14,7 +14,10 @@ const BoardMeetingsPage = lazy(() =>
 );
 
 const boardMeetingsSearchSchema = paginatedSearchSchema({
-    tags: z.array(z.string()).optional(),
+    // Comma-tolerant so `?tags=budget` is a valid link. The detail page's tag
+    // chips navigate straight here, and a URL only a router can parse is not a
+    // link anybody can share.
+    tags: csvArray(),
     date_from: z.string().optional(),
     date_to: z.string().optional(),
 });
