@@ -174,3 +174,13 @@ export const notificationKeys = {
         [...notificationKeys.lists(), params] as const,
     unreadCount: () => [...notificationKeys.all, "unread-count"] as const,
 };
+
+export const aiKeys = {
+    all: ["ai"] as const,
+    providers: () => [...aiKeys.all, "providers"] as const,
+    providerList: (params: Record<string, unknown>) =>
+        [...aiKeys.providers(), params] as const,
+    agents: () => [...aiKeys.all, "agents"] as const,
+    agentList: (params: Record<string, unknown>) =>
+        [...aiKeys.agents(), params] as const,
+};

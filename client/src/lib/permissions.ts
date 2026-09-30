@@ -100,6 +100,10 @@ export const PERMISSIONS = {
     // Tags
     TAG_VIEW: "tag.view",
     TAG_MANAGE: "tag.manage",
+
+    // AI
+    AI_PROVIDER_VIEW: "ai.provider.view",
+    AI_PROVIDER_MANAGE: "ai.provider.manage",
 } as const;
 
 export type PermissionValue = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];

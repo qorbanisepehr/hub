@@ -13,6 +13,7 @@ import { PermissionsSection } from "@/features/rbac/pages/permissions-section";
 import { FormOptionsSection } from "@/features/settings/pages/form-options-section";
 import { ImportSection } from "@/features/imports/import-section";
 import { TagsSection } from "@/features/tags/pages/tags-section";
+import { AiSettingsSection } from "@/features/ai";
 
 const route = getRouteApi("/protected/settings");
 
@@ -21,7 +22,8 @@ export type SettingsTab =
     | "permissions"
     | "form-options"
     | "imports"
-    | "tags";
+    | "tags"
+    | "ai";
 
 export function SettingsPage() {
     const search = route.useSearch();
@@ -41,7 +43,14 @@ export function SettingsPage() {
     ]);
     const canImports = usePermission([PERMISSIONS.EMPLOYEE_IMPORT]);
     const canTags = usePermission([PERMISSIONS.TAG_VIEW, PERMISSIONS.TAG_MANAGE]);
+    const canAi = usePermission([
+        PERMISSIONS.AI_PROVIDER_VIEW,
+        PERMISSIONS.AI_PROVIDER_MANAGE,
+    ]);
 
+    // AI is last in the fallback chain on purpose: it is the one tab whose
+    // absence must never block the others, since an unconfigured AI registry
+    // is a supported state (D24) and the tab still renders read-only.
     const defaultTab: SettingsTab = canBranding
         ? "branding"
         : canPermissions
@@ -50,7 +59,9 @@ export function SettingsPage() {
             ? "form-options"
             : canTags
               ? "tags"
-              : "imports";
+              : canAi
+                ? "ai"
+                : "imports";
     const activeTab = search.tab ?? defaultTab;
 
     useEffect(() => {
@@ -59,7 +70,8 @@ export function SettingsPage() {
             (activeTab === "permissions" && !canPermissions) ||
             (activeTab === "form-options" && !canFormOptions) ||
             (activeTab === "imports" && !canImports) ||
-            (activeTab === "tags" && !canTags)
+            (activeTab === "tags" && !canTags) ||
+            (activeTab === "ai" && !canAi)
         ) {
             navigate({
                 search: (prev) => ({ ...prev, tab: defaultTab }),
@@ -72,6 +84,7 @@ export function SettingsPage() {
         canFormOptions,
         canImports,
         canTags,
+        canAi,
         defaultTab,
         navigate,
     ]);
@@ -105,6 +118,7 @@ export function SettingsPage() {
                     {canTags && (
                         <TabsTrigger value="tags">برچسب‌ها</TabsTrigger>
                     )}
+                    {canAi && <TabsTrigger value="ai">هوش مصنوعی</TabsTrigger>}
                 </TabsList>
 
                 {canBranding && (
@@ -165,6 +179,19 @@ export function SettingsPage() {
                             ]}
                         >
                             <TagsSection />
+                        </PermissionGuard>
+                    </TabsContent>
+                )}
+
+                {canAi && (
+                    <TabsContent value="ai">
+                        <PermissionGuard
+                            permission={[
+                                PERMISSIONS.AI_PROVIDER_VIEW,
+                                PERMISSIONS.AI_PROVIDER_MANAGE,
+                            ]}
+                        >
+                            <AiSettingsSection />
                         </PermissionGuard>
                     </TabsContent>
                 )}
