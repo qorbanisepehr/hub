@@ -83,7 +83,7 @@ final class AiProvider extends Model
      */
     public function models(): HasMany
     {
-        return $this->hasMany(AiModel::class);
+        return $this->hasMany(AiModel::class, 'provider_id');
     }
 
     /**
@@ -91,7 +91,7 @@ final class AiProvider extends Model
      */
     public function agents(): HasMany
     {
-        return $this->hasMany(AiAgent::class);
+        return $this->hasMany(AiAgent::class, 'provider_id');
     }
 
     /** Whether a credential is stored. Never reveals the key. */

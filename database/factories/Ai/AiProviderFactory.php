@@ -17,7 +17,10 @@ class AiProviderFactory extends Factory
     {
         return [
             'name' => fake()->unique()->words(2, true),
-            'driver' => AiDriver::Fake,
+            // Ollama is the zero-credential driver, so it is the default row
+            // rather than a hosted one: a provider built from this factory
+            // needs no key and no `base_url` to be a usable configuration.
+            'driver' => AiDriver::Ollama,
             'base_url' => null,
             'api_key' => null,
             'headers' => null,

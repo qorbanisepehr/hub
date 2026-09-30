@@ -56,7 +56,7 @@ final class AiModel extends Model
      */
     public function agents(): HasMany
     {
-        return $this->hasMany(AiAgent::class);
+        return $this->hasMany(AiAgent::class, 'model_id');
     }
 
     public function displayLabel(): string
