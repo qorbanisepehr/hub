@@ -7,6 +7,9 @@ use App\Domains\Ai\Models\AiModel;
 use App\Domains\Ai\Models\AiProvider;
 use App\Domains\Ai\Services\AiAgentRunner;
 use App\Domains\Ai\Services\AiConnectionTester;
+use App\Domains\BoardMeeting\Ai\MeetingSummaryAgent;
+use App\Domains\BoardMeeting\Models\BoardMeeting;
+use App\Domains\BoardMeeting\Services\BoardMeetingSummarizer;
 use Illuminate\Support\Facades\Http;
 use Tests\Fixtures\Ai\EchoAgent;
 use Tests\Fixtures\Ai\StructuredEchoAgent;
@@ -140,5 +143,53 @@ describe('live ollama', function () {
 
         expect(fn () => app(AiConnectionTester::class)->test($provider, 'no-such-model-anywhere'))
             ->toThrow(AiProviderUnreachable::class);
+    });
+
+    it('summarises a real meeting through the real agent', function () {
+        // The one test that would catch a schema a real model refuses: the
+        // faked suite proves we *ask* for five fields, not that anything can
+        // answer them. A small model on five fields of Persian minutes is
+        // also the slowest case, so it gets its own generous timeout.
+        $provider = AiProvider::factory()->default()->create(['name' => 'local', 'driver' => AiDriver::Ollama]);
+
+        AiAgent::factory()->create([
+            'key' => MeetingSummaryAgent::REGISTRY_KEY,
+            'agent_class' => MeetingSummaryAgent::class,
+            'settings' => ['timeout' => 180],
+        ]);
+
+        $meeting = BoardMeeting::factory()->create([
+            'title' => 'جلسهٔ شورای معاونین',
+            'minutes' => <<<'MINUTES'
+                جلسه با حضور اعضا تشکیل شد. بودجهٔ پیشنهادی بررسی و تصویب شد.
+                پیشنهاد تخصیص بودجهٔ آموزش به تعویق افتاد تا جلسهٔ بعد.
+                مصوبهٔ شمارهٔ ۴۱ در مورد سهمیهٔ پژوهشی تصویب شد.
+                MINUTES,
+        ]);
+
+        $run = app(AiAgentRunner::class)->run(
+            key: MeetingSummaryAgent::REGISTRY_KEY,
+            prompt: app(BoardMeetingSummarizer::class)->promptFor($meeting),
+            modelOverride: $this->liveModel,
+            settings: ['fields' => ['executive_summary', 'key_decisions']],
+        );
+
+        // What this test exists to prove is the *shape* of the exchange: two
+        // keys asked for, two keys back, and `topics` absent because it was
+        // never in the schema. That part is deterministic.
+        //
+        // What is not asserted is the content being non-empty. A small local
+        // model given a three-line Persian minute and a strict "leave it
+        // empty rather than invent" instruction legitimately answers with an
+        // empty string now and then, and asserting otherwise made this test
+        // fail roughly one run in three — a live suite that is red for a
+        // reason no code change can fix is worse than one that checks what it
+        // can actually guarantee. Quality of a generated summary is not
+        // something a test can gate on anyway.
+        expect($run->structured)->toHaveKeys(['executive_summary', 'key_decisions'])
+            ->and($run->structured)->not->toHaveKey('topics')
+            ->and($run->structured['executive_summary'])->toBeString()
+            ->and($run->structured['key_decisions'])->toBeArray()
+            ->and($provider->name)->toBe('local');
     });
 });

@@ -25,3 +25,14 @@ arch('board meeting domain never names a source')
 arch('the Farzin source port never borrows types from a business domain')
     ->expect('App\Contracts\External\FarzinGateway')
     ->not->toUse('App\Domains');
+
+/*
+ * `App\Contracts\Ai` is the one thing a business domain's agent and the Ai
+ * domain's runner both speak, so it has to stay ownerless. The moment it
+ * imports a business domain it becomes a back door for the dependency
+ * AiBoundaryTest forbids, and the whole point of D28 was that the runner can
+ * run an agent whose owner it does not know.
+ */
+arch('the ai contracts never depend on a domain that implements them')
+    ->expect('App\Contracts\Ai')
+    ->not->toUse('App\Domains');

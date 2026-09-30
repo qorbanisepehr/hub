@@ -3,6 +3,12 @@
 use App\Domains\Ai\Models\AiAgent;
 use App\Domains\Ai\Models\AiModel;
 use App\Domains\Ai\Models\AiProvider;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Str;
+use Laravel\Ai\Attributes\Model;
+use Laravel\Ai\Attributes\Provider;
+use Laravel\Ai\Attributes\UseCheapestModel;
+use Laravel\Ai\Attributes\UseSmartestModel;
 use Tests\TestCase;
 
 uses(TestCase::class);
@@ -50,6 +56,53 @@ test('the ai domain ships no agent class of its own', function () {
     // A registry without agents is a supported state (D24), so this is an
     // emptiness assertion, not a "one agent exists" assertion.
     expect(glob(app_path('Domains/Ai/Agents')))->toBe([]);
+});
+
+test('no domain agent pins a model or a provider', function () {
+    /*
+     * D28 says the model comes from the registry row and nothing else, so
+     * that swapping models is a click in Settings rather than a deploy. That
+     * is easy to honour in review and easy to break by accident: pinning one
+     * model "just for this agent" is the most likely way a domain quietly
+     * opts out of the registry, and it looks reasonable at the time.
+     *
+     * These four attributes are the only ways the SDK lets a class do it.
+     * Pest's `arch()->not->toUse()` catches a class named in code but does
+     * not look inside attributes — verified by adding one and watching the
+     * suite stay green — so this reads them off the classes instead.
+     */
+    $pinning = [
+        Model::class,
+        Provider::class,
+        UseCheapestModel::class,
+        UseSmartestModel::class,
+    ];
+
+    $offenders = [];
+
+    foreach (File::allFiles(app_path('Domains')) as $file) {
+        if ($file->getExtension() !== 'php') {
+            continue;
+        }
+
+        $class = 'App\\'.str_replace(
+            [DIRECTORY_SEPARATOR, '.php'],
+            ['\\', ''],
+            Str::after($file->getRealPath(), base_path('app').DIRECTORY_SEPARATOR),
+        );
+
+        if (! class_exists($class)) {
+            continue;
+        }
+
+        foreach ((new ReflectionClass($class))->getAttributes() as $attribute) {
+            if (in_array($attribute->getName(), $pinning, true)) {
+                $offenders[] = $class.' → '.$attribute->getName();
+            }
+        }
+    }
+
+    expect($offenders)->toBe([]);
 });
 
 test('the registry models expose nothing beyond their own tables', function () {

@@ -2,6 +2,7 @@
 
 namespace App\Domains\Ai\Services;
 
+use App\Contracts\Ai\FieldedAgent;
 use App\Domains\Ai\Exceptions\AiAgentNotRegistered;
 use App\Domains\Ai\Exceptions\AiNotConfigured;
 use App\Domains\Ai\Models\AiAgent;
@@ -46,8 +47,10 @@ class AiAgentRunner
      *                                           exists so a domain can ship its
      *                                           agent before an administrator has
      *                                           created the row.
-     * @param  array<string, mixed>  $settings  per-run overrides for the agent's
-     *                                          own `settings` map (§۶.4)
+     * @param  array<string, mixed>  $settings  per-run overrides: `timeout` here,
+     *                                          `fields` for a {@see FieldedAgent},
+     *                                          anything else stays the agent's own
+     *                                          business (§۶.4)
      *
      * @throws AiNotConfigured when no active provider can be resolved
      * @throws AiAgentNotRegistered when the row names a class that is not an agent
@@ -68,6 +71,8 @@ class AiAgentRunner
         }
 
         $instance = $this->instantiate($agent, $agentClass);
+
+        $instance = $this->narrowToFields($instance, $settings);
 
         $response = $instance->prompt(
             $prompt,
@@ -122,6 +127,26 @@ class AiAgentRunner
         }
 
         return app($class);
+    }
+
+    /**
+     * Hand a requested field subset to an agent that has fields to narrow.
+     *
+     * The runner names the contract, never the vocabulary: `fields` is a list
+     * of opaque strings on this side, and what they mean belongs to whichever
+     * domain wrote the agent. An agent that does not speak the contract is
+     * left alone rather than rejected, so the simplest agents — one prompt,
+     * one answer — still need nothing but {@see Agent}.
+     *
+     * @param  array<string, mixed>  $settings
+     */
+    private function narrowToFields(Agent $instance, array $settings): Agent
+    {
+        if (! $instance instanceof FieldedAgent || ! isset($settings['fields'])) {
+            return $instance;
+        }
+
+        return $instance->withFields((array) $settings['fields']);
     }
 
     /**
