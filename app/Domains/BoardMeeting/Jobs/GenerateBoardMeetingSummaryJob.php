@@ -3,8 +3,11 @@
 namespace App\Domains\BoardMeeting\Jobs;
 
 use App\Domains\Ai\Exceptions\AiNotConfigured;
+use App\Domains\BoardMeeting\Enums\SummaryWriteMode;
+use App\Domains\BoardMeeting\Events\MeetingSummaryGenerated;
 use App\Domains\BoardMeeting\Models\BoardMeeting;
 use App\Domains\BoardMeeting\Services\BoardMeetingSummarizer;
+use App\Domains\BoardMeeting\Services\MeetingSummaryApplier;
 use App\Domains\BoardMeeting\Value\MeetingSummary;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
@@ -14,15 +17,18 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 
 /**
- * Generate a summary for one meeting and store it on the row (D23).
+ * Generate a summary for one meeting (D23).
  *
  * Queued because a meeting's minutes can run to thousands of words and the
  * registry holds hundreds of them: the bulk action must return to the user
  * immediately, and one slow model must not hold the request open. Uniqueness
- * is per (meeting, field set) so a second click while the first run is still
- * in flight is dropped rather than paid for twice — but asking for a
+ * is per (meeting, field set, mode) so a second click while the first run is
+ * still in flight is dropped rather than paid for twice — but asking for a
  * different subset is a different request and is *not* dropped, because that
- * is D26's whole point.
+ * is D26's whole point. The mode is part of the identity for the same reason:
+ * "run it and put it in the record" and "run it and hold it for me" are two
+ * different things to ask for, and silently giving someone the first when they
+ * asked for the second is exactly the surprise the mode exists to prevent.
  *
  * The row is stamped `pending` before the model is called. Under the
  * database queue a bulk action leaves most of the registry in flight at once,
@@ -33,7 +39,9 @@ use Illuminate\Queue\SerializesModels;
  * Only `AiNotConfigured` is caught, because it is the one failure a retry
  * cannot fix — there is no provider to call. Everything else (a dead URL, a
  * rejected key, a timeout) propagates so the queue retries it, and the
- * meeting keeps its `pending` stamp until a run does report.
+ * meeting keeps its `pending` stamp until a run does report. Which also means
+ * a run that never reports leaves no audit row: D22 asks for an event per
+ * *run*, and a run that is still being retried has not finished.
  */
 class GenerateBoardMeetingSummaryJob implements ShouldBeUnique, ShouldQueue
 {
@@ -47,12 +55,20 @@ class GenerateBoardMeetingSummaryJob implements ShouldBeUnique, ShouldQueue
 
     /**
      * @param  list<string>  $fields  empty means every field
-     * @param  string|null  $model  a model name chosen for this run in the UI
+     * @param  string|null  $model  a model name chosen for this run in the UI.
+     *                              Not yet reachable from HTTP: a model picker
+     *                              has to send an id, not a name, because
+     *                              `ai_models` is unique per provider and the
+     *                              same name can exist on two of them. That
+     *                              lands with the picker rather than ahead of
+     *                              it, so no caller can be built on the wrong
+     *                              one of those.
      */
     public function __construct(
         public readonly int $meetingId,
         public readonly array $fields = [],
         public readonly ?string $model = null,
+        public readonly SummaryWriteMode $mode = SummaryWriteMode::Review,
     ) {}
 
     /**
@@ -69,10 +85,10 @@ class GenerateBoardMeetingSummaryJob implements ShouldBeUnique, ShouldQueue
 
         sort($fields);
 
-        return $this->meetingId.'|'.implode(',', $fields);
+        return $this->meetingId.'|'.implode(',', $fields).'|'.$this->mode->value;
     }
 
-    public function handle(BoardMeetingSummarizer $summarizer): void
+    public function handle(BoardMeetingSummarizer $summarizer, MeetingSummaryApplier $applier): void
     {
         $meeting = BoardMeeting::query()->find($this->meetingId);
 
@@ -80,35 +96,30 @@ class GenerateBoardMeetingSummaryJob implements ShouldBeUnique, ShouldQueue
             return;
         }
 
-        $this->store($meeting, MeetingSummary::pending());
+        $applier->applyRun($meeting, MeetingSummary::pending(), $this->mode);
 
         try {
-            $summary = $summarizer->summarize($meeting, $this->fields, $this->model);
+            $run = $summarizer->summarize($meeting, $this->fields, $this->model);
         } catch (AiNotConfigured) {
-            $this->store($meeting, MeetingSummary::failure(MeetingSummary::REASON_NOT_CONFIGURED));
+            $this->report($meeting, $applier->applyRun(
+                $meeting,
+                MeetingSummary::failure(MeetingSummary::REASON_NOT_CONFIGURED),
+                $this->mode,
+            ));
 
             return;
         }
 
-        $this->store($meeting, $summary);
+        $this->report($meeting, $applier->applyRun($meeting, $run, $this->mode));
     }
 
     /**
-     * The write is the meeting's own column and nothing else.
-     *
-     * `summary` is deliberately outside `HUMAN_COLUMNS`, so this can never
-     * freeze the source's view of the row: a summary is regenerated on a
-     * locked meeting on purpose, which is the whole point of regenerating it.
-     *
-     * Every write folds into whatever the row already held rather than
-     * replacing it, including the `pending` stamp — a bulk action over the
-     * registry must not blank two hundred meetings while their runs are in
-     * flight.
+     * The run happened; say so. Dispatched after the write rather than inside
+     * it, so a rolled-back write cannot leave behind an audit row claiming a
+     * run that never landed.
      */
-    private function store(BoardMeeting $meeting, MeetingSummary $summary): void
+    private function report(BoardMeeting $meeting, MeetingSummary $run): void
     {
-        $meeting->forceFill([
-            'summary' => $summary->mergedOver(MeetingSummary::fromArray($meeting->summary))->toArray(),
-        ])->save();
+        event(new MeetingSummaryGenerated($meeting, $run, $this->mode));
     }
 }

@@ -7,13 +7,22 @@ use App\Domains\BoardMeeting\Ai\MeetingSummaryAgent;
 use App\Domains\BoardMeeting\Ai\MeetingSummaryField;
 
 /**
- * One generated summary, in the shape §۶.۳ stores on the meeting.
+ * One summary, in the shape §۶.۳ stores on the meeting.
  *
  * The status vocabulary is deliberately three-valued per field plus a
  * `pending` row state, because "the model had nothing to say about the
  * decisions" and "we never asked" are different facts and a reader has to be
  * able to tell them apart — that is what makes D26's "regenerate just this
  * field" actionable instead of guesswork.
+ *
+ * A stored summary holds two of these, not one: itself, which is what the
+ * meeting is, and `pending`, which is what the last run proposed and a person
+ * has not decided about yet. Both are the same shape on purpose — the thing a
+ * person is being asked to choose between has to be readable by the same code
+ * that reads the thing already chosen, or "show me what changed" becomes a
+ * second, differently-shaped reader. The nesting is one level by construction:
+ * a candidate never has a candidate of its own, because a new run supersedes
+ * the one before it rather than queueing behind it.
  *
  * `error` holds a stable reason key, never prose. A reason string written
  * into the database is read again in whatever language the UI is in next
@@ -37,6 +46,18 @@ final readonly class MeetingSummary
     /** Queued or in flight — the run started and has not reported yet. */
     public const STATUS_PENDING = 'pending';
 
+    /**
+     * Asked, and nothing has been accepted yet.
+     *
+     * A fourth row state, and the one that would have been missing: a meeting
+     * whose only summary is a candidate nobody has looked at has no content
+     * and has not failed, and reporting it as `failed` would tell a user their
+     * summary is broken when in fact it is waiting for them. `pending` cannot
+     * carry it either — that says a run is in flight, and this one has already
+     * reported.
+     */
+    public const STATUS_NONE = 'none';
+
     public const FIELD_OK = 'ok';
 
     public const FIELD_FAILED = 'failed';
@@ -57,6 +78,7 @@ final readonly class MeetingSummary
      * @param  Values  $values  one entry per requested field
      * @param  array<string, FieldState>  $fields  one entry per requested field
      * @param  array{input_tokens: int, output_tokens: int, total_tokens: int}|null  $usage
+     * @param  self|null  $pending  the last run's proposal, undecided
      */
     public function __construct(
         public string $status,
@@ -67,6 +89,7 @@ final readonly class MeetingSummary
         public ?array $usage = null,
         public ?string $error = null,
         public ?string $generatedAt = null,
+        public ?self $pending = null,
     ) {}
 
     /**
@@ -77,6 +100,17 @@ final readonly class MeetingSummary
     public static function pending(): self
     {
         return new self(status: self::STATUS_PENDING, values: [], fields: []);
+    }
+
+    /**
+     * A stored summary that holds nothing: asked about, nothing accepted.
+     *
+     * Only reachable as the outer layer of a review-mode write, where the run's
+     * output has to live somewhere and the record itself must stay untouched.
+     */
+    public static function none(): self
+    {
+        return new self(status: self::STATUS_NONE, values: [], fields: []);
     }
 
     /**
@@ -98,7 +132,9 @@ final readonly class MeetingSummary
     /**
      * The stored shape. Field values sit at the top level next to the
      * envelope so a reader can reach `summary.executive_summary` without
-     * walking the per-field status map first.
+     * walking the per-field status map first, and `pending` sits beside the
+     * envelope as the same shape again rather than as a flattened variant of
+     * it.
      *
      * @return array<string, mixed>
      */
@@ -114,6 +150,10 @@ final readonly class MeetingSummary
             'usage' => $this->usage,
             'error' => $this->error,
             'generated_at' => $this->generatedAt,
+            // Always present, null included: a reader must not have to tell
+            // "nothing awaits a decision" from "an older shape that had no
+            // pending key at all".
+            'pending' => $this->pending?->toArray(),
         ];
     }
 
@@ -189,6 +229,11 @@ final readonly class MeetingSummary
      * the difference between "asked and came back empty" and "never asked",
      * and the whole per-field map exists to keep them apart.
      *
+     * A candidate is read as the same shape, one level only. A `pending` nested
+     * inside a `pending` is dropped rather than followed: nothing writes one,
+     * so honouring it would let a hand-edited row claim a queue of proposals
+     * that has no meaning.
+     *
      * @param  array<string, mixed>|null  $raw
      */
     public static function fromArray(?array $raw): ?self
@@ -197,6 +242,19 @@ final readonly class MeetingSummary
             return null;
         }
 
+        $stored = self::read($raw);
+        $candidate = is_array($raw['pending'] ?? null) ? $raw['pending'] : null;
+
+        return $candidate === null || $candidate === []
+            ? $stored
+            : $stored->withPending(self::read($candidate));
+    }
+
+    /**
+     * @param  array<string, mixed>  $raw
+     */
+    private static function read(array $raw): self
+    {
         $values = [];
         $fields = [];
         $rawStates = is_array($raw['fields'] ?? null) ? $raw['fields'] : [];
@@ -231,6 +289,55 @@ final readonly class MeetingSummary
     }
 
     /**
+     * This row with a proposal waiting on a person, or with none.
+     *
+     * Passing null is how a decision is recorded: a person who looked at the
+     * candidate and took none of it has still decided, and the row must stop
+     * offering it. There is no separate "dismissed" marker, because a dismissed
+     * proposal and one that was never made look the same from here — which is
+     * the truth, and the reason a fresh run is the only way to get another.
+     */
+    public function withPending(?self $pending): self
+    {
+        return $this->copy(['pending' => $pending]);
+    }
+
+    /**
+     * This run seen as only the fields a person accepted.
+     *
+     * The same narrowing the agent was asked for, on the way back: accepting
+     * two of five fields writes a summary of two, so its status is derived from
+     * those two and not from the run as a whole. A field the run left empty can
+     * still be accepted — it carries its failed state, and merging that over a
+     * stored value keeps the stored one, so ticking it changes nothing rather
+     * than blanking the row.
+     *
+     * @param  list<MeetingSummaryField>  $accepted
+     */
+    public function narrowedTo(array $accepted): self
+    {
+        $values = [];
+        $states = [];
+
+        foreach ($accepted as $field) {
+            $name = $field->value;
+
+            $values[$name] = $this->values[$name] ?? ($field->isList() ? [] : null);
+            $states[$name] = $this->fields[$name] ?? [
+                'status' => self::FIELD_FAILED,
+                'error' => self::REASON_EMPTY,
+                'generated_at' => null,
+            ];
+        }
+
+        return $this->copy([
+            'status' => self::deriveStatus($states),
+            'values' => $values,
+            'fields' => $states,
+        ]);
+    }
+
+    /**
      * Fold this run's outcome into whatever the row already held.
      *
      * Overwriting instead would make the second run of a meeting destroy the
@@ -246,7 +353,9 @@ final readonly class MeetingSummary
      *  - a field this run was not asked about is carried over untouched;
      *  - the envelope describes this run, not an average of them — "which
      *    model wrote this?" has to name the model that wrote the most recent
-     *    thing written.
+     *    thing written;
+     *  - any undecided proposal is dropped, because this run supersedes it
+     *    rather than queueing behind it.
      *
      * The row status is then re-derived from the *merged* field map rather
      * than carried over, because it answers a question about the row and not
@@ -255,6 +364,13 @@ final readonly class MeetingSummary
      * run alone would call it failed and throw away a working summary. A run
      * that never judged any field — pending, or failed before a model was
      * reached — keeps saying so, since it knows nothing about the others.
+     *
+     * The row `error` follows the same rule and for the same reason. Carrying
+     * the run's reason over unconditionally would store `partial` next to
+     * `no_fields_returned` — a row that has usable content telling the reader
+     * something went wrong. A reason exists to explain a row with nothing
+     * usable in it, so it survives only while the status is `failed`, and the
+     * failures inside a partially-successful row are already named per field.
      */
     public function mergedOver(?self $previous): self
     {
@@ -274,28 +390,31 @@ final readonly class MeetingSummary
         }
 
         $fields = $this->fields + $previous->fields;
+        $status = $this->fields === [] ? $this->status : self::deriveStatus($fields);
 
-        return new self(
-            status: $this->fields === [] ? $this->status : self::deriveStatus($fields),
-            values: $values,
-            fields: $fields,
-            provider: $this->provider,
-            model: $this->model,
-            usage: $this->usage,
-            error: $this->error,
-            generatedAt: $this->generatedAt,
-        );
+        return $this->copy([
+            'status' => $status,
+            'values' => $values,
+            'fields' => $fields,
+            'error' => $status === self::STATUS_FAILED ? $this->error : null,
+            // Whatever the row was waiting on, this run has answered.
+            'pending' => null,
+        ]);
     }
 
     /**
      * §۶.۳: every field ok is `ok`, some is `partial`, none is `failed`.
+     *
+     * An empty map is `none` rather than `failed` — nothing was judged, which
+     * is not the same as everything having failed. The callers that mean
+     * "failed" for an empty map say so themselves, with a reason key.
      *
      * @param  array<string, FieldState>  $fields
      */
     private static function deriveStatus(array $fields): string
     {
         if ($fields === []) {
-            return self::STATUS_FAILED;
+            return self::STATUS_NONE;
         }
 
         $filled = count(array_filter(
@@ -353,7 +472,41 @@ final readonly class MeetingSummary
             self::STATUS_PARTIAL,
             self::STATUS_FAILED,
             self::STATUS_PENDING,
+            self::STATUS_NONE,
         ], true) ? $status : self::STATUS_FAILED;
+    }
+
+    /**
+     * This summary with some of its parts replaced.
+     *
+     * Every derived summary goes through here rather than through a second
+     * hand-written constructor call, because a property added to this class
+     * and forgotten in one of them is a silent data loss that no test of the
+     * four operations would necessarily catch.
+     *
+     * `array_key_exists`, not `??`, because `pending` and `error` both take a
+     * meaningful null: `??` would make "clear the proposal" unreachable and
+     * silently keep the one being cleared.
+     *
+     * @param  array<string, mixed>  $overrides
+     */
+    private function copy(array $overrides): self
+    {
+        $read = fn (string $key, mixed $fallback): mixed => array_key_exists($key, $overrides)
+            ? $overrides[$key]
+            : $fallback;
+
+        return new self(
+            status: (string) $read('status', $this->status),
+            values: (array) $read('values', $this->values),
+            fields: (array) $read('fields', $this->fields),
+            provider: $read('provider', $this->provider),
+            model: $read('model', $this->model),
+            usage: $read('usage', $this->usage),
+            error: $read('error', $this->error),
+            generatedAt: $read('generatedAt', $this->generatedAt),
+            pending: $read('pending', $this->pending),
+        );
     }
 
     /** @return array{input_tokens: int, output_tokens: int, total_tokens: int}|null */

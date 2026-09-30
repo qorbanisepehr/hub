@@ -126,6 +126,10 @@ return [
         // Board meetings
         'boardmeeting.updated' => ['category' => 'boardmeeting', 'sensitivity' => 'high'],
         'boardmeeting.synced' => ['category' => 'boardmeeting', 'sensitivity' => 'low'],
+        // A run is the model's act and may have changed nothing; a decision
+        // about one is a person changing a board record, like `updated`.
+        'boardmeeting.summary_generated' => ['category' => 'boardmeeting', 'sensitivity' => 'medium'],
+        'boardmeeting.summary_accepted' => ['category' => 'boardmeeting', 'sensitivity' => 'high'],
     ],
 
 ];

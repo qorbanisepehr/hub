@@ -7,14 +7,20 @@ use App\Domains\Ai\Services\AiAgentRunner;
 use App\Domains\Ai\Services\AiProviderResolver;
 use App\Domains\BoardMeeting\Ai\MeetingSummaryAgent;
 use App\Domains\BoardMeeting\Ai\MeetingSummaryField;
+use App\Domains\BoardMeeting\Enums\SummaryWriteMode;
+use App\Domains\BoardMeeting\Events\MeetingSummaryGenerated;
+use App\Domains\BoardMeeting\Exceptions\NoPendingSummary;
 use App\Domains\BoardMeeting\Jobs\GenerateBoardMeetingSummaryJob;
 use App\Domains\BoardMeeting\Models\BoardMeeting;
 use App\Domains\BoardMeeting\Services\BoardMeetingSummarizer;
+use App\Domains\BoardMeeting\Services\MeetingSummaryApplier;
 use App\Domains\BoardMeeting\Value\AgendaItem;
 use App\Domains\BoardMeeting\Value\Attendee;
 use App\Domains\BoardMeeting\Value\MeetingSummary;
+use App\Domains\Tagging\Services\TagService;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\JsonSchema\JsonSchemaTypeFactory;
+use Illuminate\Support\Facades\Event;
 use Tests\Fixtures\Ai\FieldedEchoAgent;
 use Tests\Fixtures\Ai\StructuredEchoAgent;
 
@@ -55,6 +61,26 @@ function capturePrompt(Closure $target): string
     app(BoardMeetingSummarizer::class)->summarize($target());
 
     return (string) $sent;
+}
+
+/**
+ * Run the queued job the way A4's tests mean it: straight into the record.
+ *
+ * The job's own default is `Review`, because a caller that forgets a mode must
+ * not overwrite anything. These tests are about what a run does to the record,
+ * so they say `Apply` out loud — and the review half has its own group below,
+ * where the mode is the thing under test.
+ *
+ * @param  list<string>  $fields
+ */
+function runSummaryJob(int $meetingId, array $fields = [], ?SummaryWriteMode $mode = null): void
+{
+    (new GenerateBoardMeetingSummaryJob(
+        $meetingId,
+        $fields,
+        null,
+        $mode ?? SummaryWriteMode::Apply,
+    ))->handle(app(BoardMeetingSummarizer::class), app(MeetingSummaryApplier::class));
 }
 
 describe('the agent schema', function () {
@@ -342,8 +368,7 @@ describe('the job', function () {
     it('stores the artifact on the meeting', function () {
         MeetingSummaryAgent::fake([['executive_summary' => 'خلاصه', 'topics' => ['بودجه']]]);
 
-        (new GenerateBoardMeetingSummaryJob($this->meeting->id, ['executive_summary', 'topics']))
-            ->handle($this->summarizer);
+        runSummaryJob($this->meeting->id, ['executive_summary', 'topics']);
 
         $stored = $this->meeting->fresh()->summary;
 
@@ -361,8 +386,7 @@ describe('the job', function () {
             return ['executive_summary' => 'خلاصه'];
         });
 
-        (new GenerateBoardMeetingSummaryJob($this->meeting->id, ['executive_summary']))
-            ->handle($this->summarizer);
+        runSummaryJob($this->meeting->id, ['executive_summary']);
 
         expect($this->meeting->fresh()->summary['status'])->toBe(MeetingSummary::STATUS_OK);
     });
@@ -371,7 +395,7 @@ describe('the job', function () {
         $locked = BoardMeeting::factory()->humanOwned()->create(['source_locked_at' => $stamp = now()]);
         MeetingSummaryAgent::fake([['executive_summary' => 'خلاصه']]);
 
-        (new GenerateBoardMeetingSummaryJob($locked->id, ['executive_summary']))->handle($this->summarizer);
+        runSummaryJob($locked->id, ['executive_summary']);
 
         // A summary is regenerated on a locked meeting on purpose — that is
         // the whole point of being able to regenerate it — so generating must
@@ -382,7 +406,7 @@ describe('the job', function () {
     it('does nothing when the meeting is gone', function () {
         MeetingSummaryAgent::fake([['executive_summary' => 'خلاصه']]);
 
-        (new GenerateBoardMeetingSummaryJob(999999, ['executive_summary']))->handle($this->summarizer);
+        runSummaryJob(999999, ['executive_summary']);
 
         MeetingSummaryAgent::assertNeverPrompted();
     });
@@ -394,7 +418,7 @@ describe('the job', function () {
         AiProvider::query()->delete();
         app(AiProviderResolver::class)->forget();
 
-        (new GenerateBoardMeetingSummaryJob($this->meeting->id, ['executive_summary']))->handle($this->summarizer);
+        runSummaryJob($this->meeting->id, ['executive_summary']);
 
         expect($this->meeting->fresh()->summary)
             ->toMatchArray(['status' => MeetingSummary::STATUS_FAILED, 'error' => MeetingSummary::REASON_NOT_CONFIGURED]);
@@ -405,8 +429,7 @@ describe('the job', function () {
         // swallowed into a written `failed`.
         MeetingSummaryAgent::fake(fn () => throw new RuntimeException('connection reset'));
 
-        expect(fn () => (new GenerateBoardMeetingSummaryJob($this->meeting->id, ['executive_summary']))
-            ->handle($this->summarizer))
+        expect(fn () => runSummaryJob($this->meeting->id, ['executive_summary']))
             ->toThrow(RuntimeException::class);
 
         expect($this->meeting->fresh()->summary['status'])->toBe(MeetingSummary::STATUS_PENDING);
@@ -441,7 +464,7 @@ describe('regenerating part of a summary', function () {
     it('replaces only the field it was asked for', function () {
         MeetingSummaryAgent::fake([['key_decisions' => ['مصوبهٔ ۴۲']]]);
 
-        (new GenerateBoardMeetingSummaryJob($this->meeting->id, ['key_decisions']))->handle($this->summarizer);
+        runSummaryJob($this->meeting->id, ['key_decisions']);
 
         $stored = $this->meeting->fresh()->summary;
 
@@ -454,7 +477,7 @@ describe('regenerating part of a summary', function () {
     it('keeps the old answer when the regeneration comes back empty', function () {
         MeetingSummaryAgent::fake([['key_decisions' => []]]);
 
-        (new GenerateBoardMeetingSummaryJob($this->meeting->id, ['key_decisions']))->handle($this->summarizer);
+        runSummaryJob($this->meeting->id, ['key_decisions']);
 
         $stored = $this->meeting->fresh()->summary;
 
@@ -474,7 +497,7 @@ describe('regenerating part of a summary', function () {
             return ['key_decisions' => ['مصوبهٔ ۴۲']];
         });
 
-        (new GenerateBoardMeetingSummaryJob($this->meeting->id, ['key_decisions']))->handle($this->summarizer);
+        runSummaryJob($this->meeting->id, ['key_decisions']);
 
         expect($this->meeting->fresh()->summary['executive_summary'])->toBe('خلاصهٔ قبلی');
     });
@@ -482,7 +505,7 @@ describe('regenerating part of a summary', function () {
     it('names the model that wrote the most recent thing written', function () {
         MeetingSummaryAgent::fake([['key_decisions' => ['مصوبهٔ ۴۲']]]);
 
-        (new GenerateBoardMeetingSummaryJob($this->meeting->id, ['key_decisions']))->handle($this->summarizer);
+        runSummaryJob($this->meeting->id, ['key_decisions']);
 
         $stored = $this->meeting->fresh()->summary;
 
@@ -541,7 +564,391 @@ describe('job identity', function () {
             ->not->toBe((new GenerateBoardMeetingSummaryJob(8))->uniqueId());
     });
 
+    it('keeps a different mode a different request', function () {
+        // "Put it in the record" and "hold it for me" are two things to ask for.
+        // Dropping the second because the first was in flight would hand someone
+        // a proposal when they asked for an answer — the exact surprise the mode
+        // exists to prevent.
+        expect((new GenerateBoardMeetingSummaryJob(7, ['topics'], null, SummaryWriteMode::Apply))->uniqueId())
+            ->not->toBe((new GenerateBoardMeetingSummaryJob(7, ['topics'], null, SummaryWriteMode::Review))->uniqueId());
+    });
+
     it('is implemented as a unique job', function () {
         expect(new GenerateBoardMeetingSummaryJob(7))->toBeInstanceOf(ShouldBeUnique::class);
+    });
+});
+
+describe('the stored shape with a proposal in it', function () {
+    it('always carries the key, so "nothing awaiting a decision" is readable', function () {
+        MeetingSummaryAgent::fake([['executive_summary' => 'خلاصه']]);
+
+        runSummaryJob($this->meeting->id, ['executive_summary']);
+
+        // A reader must not have to tell "nothing pending" from "an older shape
+        // that had no pending key at all" — the two would be the same absent
+        // array to anyone who wrote `summary['pending'] ?? []`.
+        expect($this->meeting->fresh()->summary)->toHaveKey('pending')
+            ->and($this->meeting->fresh()->summary['pending'])->toBeNull();
+    });
+
+    it('reads a proposal back as the same shape it was written as', function () {
+        MeetingSummaryAgent::fake([['executive_summary' => 'خلاصه', 'topics' => ['بودجه']]]);
+
+        runSummaryJob($this->meeting->id, ['executive_summary', 'topics'], SummaryWriteMode::Review);
+
+        $round = MeetingSummary::fromArray($this->meeting->fresh()->summary);
+
+        expect($round->pending)->not->toBeNull()
+            ->and($round->pending->status)->toBe(MeetingSummary::STATUS_OK)
+            ->and($round->pending->values)->toBe(['executive_summary' => 'خلاصه', 'topics' => ['بودجه']])
+            ->and($round->pending->toArray())->toBe($round->pending->toArray());
+    });
+
+    it('drops a proposal nested inside a proposal', function () {
+        $round = MeetingSummary::fromArray([
+            'status' => 'none',
+            'pending' => [
+                'status' => 'ok',
+                'executive_summary' => 'خلاصه',
+                'pending' => ['status' => 'ok', 'topics' => ['بودجه']],
+            ],
+        ]);
+
+        // Nothing writes one, so following it would let a hand-edited row claim
+        // a queue of proposals that has no meaning.
+        expect($round->pending->values)->toBe(['executive_summary' => 'خلاصه'])
+            ->and($round->pending->pending)->toBeNull();
+    });
+
+    it('calls a meeting with a proposal nobody looked at "none", not "failed"', function () {
+        MeetingSummaryAgent::fake([['executive_summary' => 'خلاصه']]);
+
+        runSummaryJob($this->meeting->id, ['executive_summary'], SummaryWriteMode::Review);
+
+        $stored = $this->meeting->fresh()->summary;
+
+        // The record holds no content and has not failed — the output is
+        // waiting for a person. Reporting `failed` would tell a user their
+        // summary is broken when it is sitting in the tab under their cursor.
+        expect($stored['status'])->toBe(MeetingSummary::STATUS_NONE)
+            ->and($stored)->not->toHaveKey('executive_summary')
+            ->and($stored['pending']['status'])->toBe(MeetingSummary::STATUS_OK);
+    });
+});
+
+describe('review mode', function () {
+    it('is what the job does when nobody says otherwise', function () {
+        // The direction to fail in: a caller that forgets the mode leaves the
+        // record alone instead of overwriting content somebody is relying on.
+        // Built by hand rather than through the helper, because the helper is
+        // the thing that spells `Apply` out for the tests above.
+        MeetingSummaryAgent::fake([['executive_summary' => 'خلاصه']]);
+
+        (new GenerateBoardMeetingSummaryJob($this->meeting->id, ['executive_summary']))
+            ->handle(app(BoardMeetingSummarizer::class), app(MeetingSummaryApplier::class));
+
+        $stored = $this->meeting->fresh()->summary;
+
+        expect($stored)->not->toHaveKey('executive_summary')
+            ->and($stored['pending']['executive_summary'])->toBe('خلاصه');
+    });
+
+    it('leaves a working summary exactly as it was', function () {
+        $this->meeting->forceFill(['summary' => [
+            'status' => MeetingSummary::STATUS_OK,
+            'executive_summary' => 'خلاصهٔ قبلی',
+            'fields' => ['executive_summary' => ['status' => 'ok', 'generated_at' => '2026-09-01T10:00:00+00:00']],
+            'generated_at' => '2026-09-01T10:00:00+00:00',
+        ]])->save();
+        MeetingSummaryAgent::fake([['executive_summary' => 'خلاصهٔ تازه']]);
+
+        runSummaryJob($this->meeting->id, ['executive_summary'], SummaryWriteMode::Review);
+
+        $stored = $this->meeting->fresh()->summary;
+
+        // Not even the status moves: a proposal arriving must not make a
+        // working summary look like it is being rewritten under the reader.
+        expect($stored['executive_summary'])->toBe('خلاصهٔ قبلی')
+            ->and($stored['status'])->toBe(MeetingSummary::STATUS_OK)
+            ->and($stored['pending']['executive_summary'])->toBe('خلاصهٔ تازه');
+    });
+
+    it('shows the run in flight as a pending proposal', function () {
+        MeetingSummaryAgent::fake(function (): array {
+            expect($this->meeting->fresh()->summary['pending']['status'])->toBe(MeetingSummary::STATUS_PENDING);
+
+            return ['executive_summary' => 'خلاصه'];
+        });
+
+        runSummaryJob($this->meeting->id, ['executive_summary'], SummaryWriteMode::Review);
+
+        expect($this->meeting->fresh()->summary['pending']['status'])->toBe(MeetingSummary::STATUS_OK);
+    });
+
+    it('replaces an undecided proposal rather than stacking a second one', function () {
+        MeetingSummaryAgent::fake([['executive_summary' => 'اول']]);
+
+        runSummaryJob($this->meeting->id, ['executive_summary'], SummaryWriteMode::Review);
+
+        MeetingSummaryAgent::fake([['executive_summary' => 'دوم']]);
+        runSummaryJob($this->meeting->id, ['executive_summary'], SummaryWriteMode::Review);
+
+        $round = MeetingSummary::fromArray($this->meeting->fresh()->summary);
+
+        expect($round->pending->values['executive_summary'])->toBe('دوم');
+    });
+
+    it('drops an undecided proposal when a later run is applied', function () {
+        MeetingSummaryAgent::fake([['executive_summary' => 'پیشنهاد']]);
+
+        runSummaryJob($this->meeting->id, ['executive_summary'], SummaryWriteMode::Review);
+
+        MeetingSummaryAgent::fake([['topics' => ['بودجه']]]);
+        runSummaryJob($this->meeting->id, ['topics'], SummaryWriteMode::Apply);
+
+        // The applied run answers the question the proposal was waiting on, so
+        // leaving it on the row would ask the person to decide about output that
+        // has already been superseded.
+        expect($this->meeting->fresh()->summary['pending'])->toBeNull();
+    });
+});
+
+describe('a person deciding about a proposal', function () {
+    beforeEach(function () {
+        MeetingSummaryAgent::fake([[
+            'executive_summary' => 'خلاصهٔ تازه',
+            'topics' => ['بودجه'],
+            'key_decisions' => ['مصوبهٔ ۴۲'],
+        ]]);
+
+        $this->meeting->forceFill(['summary' => [
+            'status' => MeetingSummary::STATUS_OK,
+            'executive_summary' => 'خلاصهٔ قبلی',
+            'topics' => ['قرارداد'],
+            'fields' => [
+                'executive_summary' => ['status' => 'ok', 'generated_at' => '2026-09-01T10:00:00+00:00'],
+                'topics' => ['status' => 'ok', 'generated_at' => '2026-09-01T10:00:00+00:00'],
+            ],
+            'generated_at' => '2026-09-01T10:00:00+00:00',
+        ]])->save();
+
+        runSummaryJob($this->meeting->id, ['executive_summary', 'topics', 'key_decisions'], SummaryWriteMode::Review);
+
+        // The applier reads the summary off the model it is handed, and the
+        // job wrote through a model of its own — so the test has to hand it a
+        // re-read one, exactly as the controller does.
+        $this->meeting->refresh();
+
+        $this->applier = app(MeetingSummaryApplier::class);
+    });
+
+    it('takes the fields it was given and leaves the rest of the record alone', function () {
+        $this->applier->acceptPending($this->meeting, [
+            MeetingSummaryField::ExecutiveSummary,
+            MeetingSummaryField::KeyDecisions,
+        ], []);
+
+        $stored = $this->meeting->fresh()->summary;
+
+        expect($stored['executive_summary'])->toBe('خلاصهٔ تازه')
+            ->and($stored['key_decisions'])->toBe(['مصوبهٔ ۴۲'])
+            ->and($stored['topics'])->toBe(['قرارداد'])
+            ->and($stored['status'])->toBe(MeetingSummary::STATUS_OK);
+    });
+
+    it('stops offering the proposal', function () {
+        $this->applier->acceptPending($this->meeting, [MeetingSummaryField::Topics], []);
+
+        expect($this->meeting->fresh()->summary['pending'])->toBeNull();
+    });
+
+    it('derives the row status from the accepted fields, not the whole run', function () {
+        $this->applier->acceptPending($this->meeting, [MeetingSummaryField::KeyDecisions], []);
+
+        // One field accepted out of three, and it came back filled — the row
+        // holds a key decision and the old summary, so it is ok. Deriving from
+        // the run instead would have counted fields the person refused.
+        expect($this->meeting->fresh()->summary['status'])->toBe(MeetingSummary::STATUS_OK);
+    });
+
+    it('is happy to set tags without touching any content', function () {
+        $this->applier->acceptPending($this->meeting, [], ['budget', 'tender']);
+
+        $stored = $this->meeting->fresh()->summary;
+
+        expect($stored['executive_summary'])->toBe('خلاصهٔ قبلی')
+            ->and($stored['pending'])->toBeNull()
+            ->and($this->meeting->fresh()->tags->pluck('slug')->all())
+            ->toEqualCanonicalizing(['budget', 'tender']);
+    });
+
+    it('treats an empty decision as having read and rejected the proposal', function () {
+        app(TagService::class)->syncTags($this->meeting, ['budget']);
+
+        $this->applier->acceptPending($this->meeting, [], ['budget']);
+
+        $stored = $this->meeting->fresh()->summary;
+
+        // There is no "dismissed" marker, because a dismissed proposal and one
+        // that was never made look the same from here — which is the truth, and
+        // why the only way to get another is to run again.
+        expect($stored['pending'])->toBeNull()
+            ->and($stored['executive_summary'])->toBe('خلاصهٔ قبلی')
+            ->and($this->meeting->fresh()->tags->pluck('slug')->all())->toBe(['budget']);
+    });
+
+    it('replaces the tag set rather than adding to it', function () {
+        app(TagService::class)->syncTags($this->meeting, ['budget', 'obsolete']);
+
+        $this->applier->acceptPending($this->meeting, [], ['budget', 'tender']);
+
+        expect($this->meeting->fresh()->tags->pluck('slug')->all())
+            ->toEqualCanonicalizing(['budget', 'tender']);
+    });
+
+    it('keeps a stored value when the accepted field came back empty', function () {
+        $this->meeting->forceFill(['summary' => [
+            'status' => MeetingSummary::STATUS_NONE,
+            'pending' => [
+                'status' => MeetingSummary::STATUS_PARTIAL,
+                'topics' => [],
+                'fields' => [
+                    'topics' => [
+                        'status' => MeetingSummary::FIELD_FAILED,
+                        'error' => MeetingSummary::REASON_EMPTY,
+                        'generated_at' => null,
+                    ],
+                ],
+            ],
+        ]])->save();
+
+        $this->applier->acceptPending($this->meeting, [MeetingSummaryField::Topics], []);
+
+        $stored = $this->meeting->fresh()->summary;
+
+        // Ticking a field the run left empty is harmless rather than
+        // destructive: it merges as a failed field, and a failed field keeps
+        // what the record already had. The record still has nothing usable in
+        // it, and says so — the tick did not invent content.
+        expect($stored['status'])->toBe(MeetingSummary::STATUS_FAILED)
+            ->and($stored['fields']['topics']['status'])->toBe(MeetingSummary::FIELD_FAILED)
+            ->and($stored['fields']['topics']['error'])->toBe(MeetingSummary::REASON_EMPTY);
+    });
+
+    it('refuses a decision about a proposal that is not there', function () {
+        $this->applier->acceptPending($this->meeting, [MeetingSummaryField::Topics], []);
+
+        expect(fn () => $this->applier->acceptPending($this->meeting, [MeetingSummaryField::Topics], []))
+            ->toThrow(NoPendingSummary::class);
+    });
+});
+
+describe('tags following a run', function () {
+    it('are set by a run that re-derived them', function () {
+        MeetingSummaryAgent::fake([['suggested_tags' => ['budget', 'tender']]]);
+
+        runSummaryJob($this->meeting->id, ['suggested_tags']);
+
+        expect($this->meeting->fresh()->tags->pluck('slug')->all())
+            ->toEqualCanonicalizing(['budget', 'tender']);
+    });
+
+    it('are left alone by a run that was not asked about them', function () {
+        // D25 routes the run's suggestions through the hub's own tagging
+        // service, which has full-sync semantics: it detaches anything not in
+        // the list it is given. A `key_decisions` regeneration has no opinions
+        // about tags, so passing it the old list would replace a tag set
+        // nobody asked to replace.
+        app(TagService::class)->syncTags($this->meeting, ['budget']);
+        MeetingSummaryAgent::fake([['key_decisions' => ['مصوبهٔ ۴۲']]]);
+
+        runSummaryJob($this->meeting->id, ['key_decisions']);
+
+        expect($this->meeting->fresh()->tags->pluck('slug')->all())->toBe(['budget']);
+    });
+
+    it('are left alone when the run came back without them', function () {
+        app(TagService::class)->syncTags($this->meeting, ['budget']);
+        MeetingSummaryAgent::fake([['suggested_tags' => []]]);
+
+        runSummaryJob($this->meeting->id, ['suggested_tags']);
+
+        // The previous suggestions still stand. Re-syncing them would undo any
+        // retagging done through the hub's own tag screen since.
+        expect($this->meeting->fresh()->tags->pluck('slug')->all())->toBe(['budget']);
+    });
+
+    it('are not touched at all in review mode', function () {
+        // In review mode the run has not been accepted, so its tag suggestions
+        // are a proposal like everything else — writing them would be the
+        // feature deciding on the person's behalf.
+        app(TagService::class)->syncTags($this->meeting, ['budget']);
+        MeetingSummaryAgent::fake([['suggested_tags' => ['tender']]]);
+
+        runSummaryJob($this->meeting->id, ['suggested_tags'], SummaryWriteMode::Review);
+
+        expect($this->meeting->fresh()->tags->pluck('slug')->all())->toBe(['budget']);
+    });
+});
+
+describe('the audit trail', function () {
+    it('records one event per run, describing the run', function () {
+        Event::fake([MeetingSummaryGenerated::class]);
+        MeetingSummaryAgent::fake([['executive_summary' => 'خلاصه']]);
+
+        runSummaryJob($this->meeting->id, ['executive_summary']);
+
+        Event::assertDispatched(MeetingSummaryGenerated::class, function (MeetingSummaryGenerated $event): bool {
+            $metadata = $event->metadata();
+
+            return $event->eventName() === 'boardmeeting.summary_generated'
+                && $event->subject() === ['type' => 'board-meeting', 'id' => $this->meeting->id]
+                && $metadata['mode'] === SummaryWriteMode::Apply->value
+                && $metadata['status'] === MeetingSummary::STATUS_OK
+                && $metadata['requested_fields'] === ['executive_summary']
+                && $metadata['filled_fields'] === ['executive_summary']
+                && $metadata['error'] === null;
+        });
+    });
+
+    it('says which mode the run ran in, because that is what it did', function () {
+        Event::fake([MeetingSummaryGenerated::class]);
+        MeetingSummaryAgent::fake([['executive_summary' => 'خلاصه']]);
+
+        runSummaryJob($this->meeting->id, ['executive_summary'], SummaryWriteMode::Review);
+
+        Event::assertDispatched(
+            MeetingSummaryGenerated::class,
+            fn (MeetingSummaryGenerated $event): bool => $event->metadata()['mode'] === 'review',
+        );
+    });
+
+    it('records a run that produced nothing usable', function () {
+        Event::fake([MeetingSummaryGenerated::class]);
+        $this->meeting->forceFill(['summary' => null])->save();
+        AiProvider::query()->delete();
+        app(AiProviderResolver::class)->forget();
+
+        runSummaryJob($this->meeting->id, ['executive_summary']);
+
+        // "We asked and here is what it said" is the fact the registry's
+        // history has to be able to answer, and no-fields is still an answer.
+        Event::assertDispatched(
+            MeetingSummaryGenerated::class,
+            fn (MeetingSummaryGenerated $event): bool => $event->metadata()['error'] === MeetingSummary::REASON_NOT_CONFIGURED,
+        );
+    });
+
+    it('leaves no row for a run that never reported', function () {
+        Event::fake([MeetingSummaryGenerated::class]);
+        MeetingSummaryAgent::fake(fn () => throw new RuntimeException('connection reset'));
+
+        expect(fn () => runSummaryJob($this->meeting->id, ['executive_summary']))
+            ->toThrow(RuntimeException::class);
+
+        // D22 asks for an event per *run*, and a run still being retried has
+        // not finished. The meeting keeps saying `pending` until one does.
+        Event::assertNotDispatched(MeetingSummaryGenerated::class);
+        expect($this->meeting->fresh()->summary['status'])->toBe(MeetingSummary::STATUS_PENDING);
     });
 });

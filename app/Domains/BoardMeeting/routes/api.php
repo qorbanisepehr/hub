@@ -2,6 +2,7 @@
 
 use App\Domains\BoardMeeting\Controllers\BoardMeetingController;
 use App\Domains\BoardMeeting\Controllers\BoardMeetingDocumentController;
+use App\Domains\BoardMeeting\Controllers\MeetingSummaryController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('auth:sanctum')->group(function () {
@@ -50,4 +51,15 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('board-meetings/documents/{uuid}/serve', [BoardMeetingDocumentController::class, 'serve'])
         ->name('board-meeting.documents.serve')
         ->middleware('permission:board-meeting.documents.download');
+
+    // AI summary. Both paths write the meeting's own record, so both sit on
+    // `board-meeting.update` rather than a permission of their own: asking for
+    // a run and deciding what it produced are the same write, at two moments.
+    Route::post('board-meetings/{meeting}/summary', [MeetingSummaryController::class, 'store'])
+        ->name('board-meetings.summary.store')
+        ->middleware('permission:board-meeting.update');
+
+    Route::post('board-meetings/{meeting}/summary/accept', [MeetingSummaryController::class, 'accept'])
+        ->name('board-meetings.summary.accept')
+        ->middleware('permission:board-meeting.update');
 });

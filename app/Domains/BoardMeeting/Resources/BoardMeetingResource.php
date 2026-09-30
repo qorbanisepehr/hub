@@ -24,7 +24,12 @@ class BoardMeetingResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
-        $detail = $request->routeIs('board-meetings.show')
+        // The two summary routes answer with the meeting, and what they changed
+        // is the summary — so a client that just asked for a run or just decided
+        // one has to get the summary back, or it has nothing to render. Listing
+        // the routes rather than a flag keeps that from depending on the caller
+        // remembering to ask.
+        $detail = $request->routeIs('board-meetings.show', 'board-meetings.summary.*')
             || $request->boolean('with_detail');
 
         $payload = [
