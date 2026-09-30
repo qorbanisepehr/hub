@@ -1,6 +1,7 @@
 <?php
 
 use App\Domains\Ai\Controllers\AiAgentController;
+use App\Domains\Ai\Controllers\AiModelController;
 use App\Domains\Ai\Controllers\AiProviderController;
 use Illuminate\Support\Facades\Route;
 
@@ -19,6 +20,12 @@ Route::middleware('auth:sanctum')->group(function () {
         ->middleware('permission:ai.provider.view');
     Route::get('ai/agents', [AiAgentController::class, 'index'])
         ->name('ai.agents.index')
+        ->middleware('permission:ai.provider.view');
+    // The flat model list, for a per-run picker outside Settings. Same
+    // permission as the registry it reads: choosing among configured
+    // credentials is what `ai.provider.view` already governs.
+    Route::get('ai/models', [AiModelController::class, 'index'])
+        ->name('ai.models.index')
         ->middleware('permission:ai.provider.view');
 
     Route::middleware('permission:ai.provider.manage')->group(function () {

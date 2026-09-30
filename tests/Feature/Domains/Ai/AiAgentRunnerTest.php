@@ -157,14 +157,69 @@ describe('hydration', function () {
 });
 
 describe('model resolution', function () {
-    it('prefers the model override over everything else', function () {
+    it('prefers the chosen model row over everything else', function () {
         $provider = AiProvider::factory()->default()->create();
         AiModel::factory()->create(['provider_id' => $provider->id, 'model_name' => 'bound-model']);
+        $picked = AiModel::factory()->create(['provider_id' => $provider->id, 'model_name' => 'chosen-at-runtime']);
         $agent = AiAgent::factory()->create(['provider_id' => $provider->id]);
 
-        $resolved = $this->resolver->resolveFor($agent, 'chosen-at-runtime');
+        $resolved = $this->resolver->resolveFor($agent, $picked->id);
 
         expect($resolved['model'])->toBe('chosen-at-runtime');
+    });
+
+    it('takes the provider from the chosen row, not from the agent', function () {
+        // The reason the override is an id and not a name: `ai_models` is
+        // unique per provider, so `gpt-4o` can sit under two of them. Honouring
+        // a name against the agent's bound provider would hand one gateway's
+        // model to the other, and the failure would arrive as a vendor error
+        // about a model the user never picked.
+        $bound = AiProvider::factory()->create(['name' => 'bound']);
+        $other = AiProvider::factory()->default()->create(['name' => 'other']);
+        $shared = 'gpt-4o';
+        AiModel::factory()->create(['provider_id' => $bound->id, 'model_name' => $shared]);
+        $picked = AiModel::factory()->create(['provider_id' => $other->id, 'model_name' => $shared]);
+        $agent = AiAgent::factory()->create(['provider_id' => $bound->id]);
+
+        $resolved = $this->resolver->resolveFor($agent, $picked->id);
+
+        expect($resolved['provider']->name)->toBe('other')
+            ->and($resolved['model'])->toBe($shared);
+    });
+
+    it('ignores a chosen row that has been deactivated', function () {
+        $provider = AiProvider::factory()->default()->create();
+        $retired = AiModel::factory()->inactive()->create(['provider_id' => $provider->id, 'model_name' => 'retired']);
+        AiModel::factory()->create(['provider_id' => $provider->id, 'model_name' => 'live']);
+        $agent = AiAgent::factory()->create(['provider_id' => $provider->id]);
+
+        // A row switched off between choosing and running must not answer; the
+        // run falls back rather than failing, and records what it used.
+        expect($this->resolver->resolveFor($agent, $retired->id)['model'])->toBe('live');
+    });
+
+    it('ignores a chosen row whose provider is switched off', function () {
+        $dead = AiProvider::factory()->inactive()->create(['name' => 'dead']);
+        $live = AiProvider::factory()->default()->create(['name' => 'live']);
+        $picked = AiModel::factory()->create(['provider_id' => $dead->id, 'model_name' => 'ghost']);
+        AiModel::factory()->create(['provider_id' => $live->id, 'model_name' => 'working']);
+        $agent = AiAgent::factory()->create(['provider_id' => $live->id]);
+
+        $resolved = $this->resolver->resolveFor($agent, $picked->id);
+
+        expect($resolved['provider']->name)->toBe('live')
+            ->and($resolved['model'])->toBe('working');
+    });
+
+    it('survives a chosen id that no longer exists', function () {
+        // A job queued against a model somebody deleted in Settings must still
+        // run. Failing here would turn a registry cleanup into a queue of
+        // failures nobody asked for.
+        $provider = AiProvider::factory()->default()->create();
+        AiModel::factory()->create(['provider_id' => $provider->id, 'model_name' => 'live']);
+        $agent = AiAgent::factory()->create(['provider_id' => $provider->id]);
+
+        expect($this->resolver->resolveFor($agent, 999_999)['model'])->toBe('live');
     });
 
     it("falls back to the agent's bound model", function () {
@@ -270,13 +325,14 @@ describe('running an agent', function () {
             ->and($this->runner->run('test.echo', 'hello')->provider)->toBe('local');
     });
 
-    it('passes the model override through to the run', function () {
+    it('passes the chosen model through to the run', function () {
         $provider = AiProvider::factory()->default()->create(['name' => 'dev']);
         AiModel::factory()->create(['provider_id' => $provider->id, 'model_name' => 'default-model']);
+        $picked = AiModel::factory()->create(['provider_id' => $provider->id, 'model_name' => 'other-model']);
         AiAgent::factory()->create(['key' => 'test.echo', 'agent_class' => EchoAgent::class]);
         EchoAgent::fake(['done']);
 
-        expect($this->runner->run('test.echo', 'hello', modelOverride: 'other-model')->model)
+        expect($this->runner->run('test.echo', 'hello', modelId: $picked->id)->model)
             ->toBe('other-model');
     });
 

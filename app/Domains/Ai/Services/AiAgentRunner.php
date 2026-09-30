@@ -20,10 +20,11 @@ use Laravel\Ai\Responses\StructuredAgentResponse;
  *
  * The caller passes a key, not a provider or a model. That is D28's whole
  * point: swapping models is a click in Settings, not a deploy, so no
- * consumer is allowed to name a provider in code. The optional `?model=`
+ * consumer is allowed to name a provider in code. The optional `?modelId=`
  * override is the one exception, and it exists so a user can pick a model
- * per request from the UI; it is a model *name*, never a provider, and it
- * still goes through the registry.
+ * per request from the UI; it is a registry row id, never a provider name,
+ * and the row it names also decides the provider — a model name is unique
+ * per provider, not globally, so a name would be ambiguous.
  *
  * This class holds no knowledge of how a provider is faked. Faking is the
  * SDK's `Agent::fake()` facility, keyed by agent class, and it belongs to the
@@ -47,10 +48,17 @@ class AiAgentRunner
      *                                           exists so a domain can ship its
      *                                           agent before an administrator has
      *                                           created the row.
+     * @param  int|null  $modelId  a model chosen for this one run from the
+     *                             UI. An id and not a name, because a model
+     *                             name is only unique per provider
+     *                             ({@see AiProviderResolver}); the row it
+     *                             names also decides the provider.
      * @param  array<string, mixed>  $settings  per-run overrides: `timeout` here,
      *                                          `fields` for a {@see FieldedAgent},
-     *                                          anything else stays the agent's own
-     *                                          business (§۶.4)
+     *                                          `previous` for one that can
+     *                                          reconcile against a stored
+     *                                          record, anything else stays the
+     *                                          agent's own business (§۶.4)
      *
      * @throws AiNotConfigured when no active provider can be resolved
      * @throws AiAgentNotRegistered when the row names a class that is not an agent
@@ -59,12 +67,12 @@ class AiAgentRunner
         string $key,
         string $prompt,
         ?string $agentClass = null,
-        ?string $modelOverride = null,
+        ?int $modelId = null,
         array $settings = [],
     ): AiRun {
         $agent = $this->registryRow($key, $agentClass);
 
-        ['provider' => $provider, 'model' => $model] = $this->resolver->resolveFor($agent, $modelOverride);
+        ['provider' => $provider, 'model' => $model] = $this->resolver->resolveFor($agent, $modelId);
 
         if ($provider === null) {
             throw AiNotConfigured::forAgent($key);
@@ -73,6 +81,8 @@ class AiAgentRunner
         $instance = $this->instantiate($agent, $agentClass);
 
         $instance = $this->narrowToFields($instance, $settings);
+
+        $instance = $this->reconcileAgainst($instance, $settings);
 
         $response = $instance->prompt(
             $prompt,
@@ -147,6 +157,33 @@ class AiAgentRunner
         }
 
         return $instance->withFields((array) $settings['fields']);
+    }
+
+    /**
+     * Hand an agent the stored values it should reconcile against.
+     *
+     * A second, optional capability beside `FieldedAgent` rather than a
+     * requirement of it: most agents read a document and say what is in it, and
+     * forcing them all to accept a "previous" argument would put a reconciling
+     * idea into a contract that has nothing to do with it. An agent that does
+     * not implement it is left alone, exactly as one that does not speak
+     * `FieldedAgent` is.
+     *
+     * @param  array<string, mixed>  $settings
+     */
+    private function reconcileAgainst(Agent $instance, array $settings): Agent
+    {
+        $previous = $settings['previous'] ?? null;
+
+        if (! is_array($previous) || $previous === []) {
+            return $instance;
+        }
+
+        if (! method_exists($instance, 'withPrevious')) {
+            return $instance;
+        }
+
+        return $instance->withPrevious($previous);
     }
 
     /**

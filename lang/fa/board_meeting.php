@@ -9,5 +9,6 @@ return [
      */
     'summary' => [
         'nothing_pending' => 'خلاصه‌ای در انتظار تصمیم وجود ندارد.',
+        'bulk_queued' => ':count جلسه در صف قرار گرفت. :skipped مورد رد شد.',
     ],
 ];

@@ -62,4 +62,15 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('board-meetings/{meeting}/summary/accept', [MeetingSummaryController::class, 'accept'])
         ->name('board-meetings.summary.accept')
         ->middleware('permission:board-meeting.update');
+
+    // The registry-level pair, on the sync permission rather than update: both
+    // act on the whole registry instead of one row, so they belong beside the
+    // registry sync rather than beside a single meeting's write.
+    Route::get('board-meetings/summary/candidates', [MeetingSummaryController::class, 'candidates'])
+        ->name('board-meetings.summary.candidates')
+        ->middleware('permission:board-meeting.sync');
+
+    Route::post('board-meetings/summary/bulk', [MeetingSummaryController::class, 'bulk'])
+        ->name('board-meetings.summary.bulk')
+        ->middleware('permission:board-meeting.sync');
 });

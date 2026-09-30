@@ -9,8 +9,8 @@ use App\Domains\BoardMeeting\Models\BoardMeeting;
 use App\Domains\BoardMeeting\Requests\BoardMeetingListRequest;
 use App\Domains\BoardMeeting\Requests\UpdateBoardMeetingRequest;
 use App\Domains\BoardMeeting\Resources\BoardMeetingResource;
+use App\Domains\BoardMeeting\Services\BoardMeetingListQuery;
 use App\Domains\BoardMeeting\Value\Attendee;
-use App\Domains\Tagging\Services\TagService;
 use App\Support\Audit\AttributeDiff;
 use App\Support\Exports\Concerns\StreamsTabularExports;
 use App\Support\Exports\ExportService;
@@ -37,11 +37,9 @@ class BoardMeetingController
     /** Sort whitelist. */
     private const SORTABLE = ['held_on', 'sequence', 'imported_at'];
 
-    /** Global-search columns: the registry key and the human title. */
-    private const SEARCHABLE = ['held_on_jalali', 'title'];
-
     public function __construct(
         private readonly ExportService $exports,
+        private readonly BoardMeetingListQuery $listQuery,
     ) {}
 
     public function index(BoardMeetingListRequest $request): AnonymousResourceCollection
@@ -146,25 +144,7 @@ class BoardMeetingController
      */
     private function scopedQuery(BoardMeetingListRequest $request): Builder
     {
-        $query = BoardMeeting::query()->with('tags');
-
-        if (($from = $request->listDateFrom()) !== null) {
-            $query->whereDate('held_on', '>=', $from->toDateString());
-        }
-
-        if (($to = $request->listDateTo()) !== null) {
-            $query->whereDate('held_on', '<=', $to->toDateString());
-        }
-
-        if (($year = $request->listJalaliYear()) !== null) {
-            $query->where('held_on_jalali', 'like', $year.'-%');
-        }
-
-        ListQuery::search($query, ListQuery::filter($request), self::SEARCHABLE);
-
-        app(TagService::class)->applyFilter($query, $request->listTagSlugs());
-
-        return $query;
+        return $this->listQuery->scoped($request);
     }
 
     /**

@@ -7,9 +7,14 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
- * One model reachable through a provider. Serialization only — the typed
+ * One model reachable through a provider. Serialization only - the typed
  * capability list already came out of the cast, so the client can offer
  * capability-aware pickers without a second vocabulary.
+ *
+ * `provider_name` rides along only when the relation is loaded. Nested under a
+ * provider in the Settings payload it is redundant, and a flat model list for a
+ * per-run picker cannot say which gateway a model belongs to without it — so
+ * one resource serves both, and the field appears exactly where it is true.
  *
  * @property AiModel $resource
  */
@@ -23,6 +28,10 @@ class AiModelResource extends JsonResource
         return [
             'id' => $this->resource->id,
             'provider_id' => $this->resource->provider_id,
+            'provider_name' => $this->whenLoaded(
+                'provider',
+                fn (): ?string => $this->resource->provider?->name,
+            ),
             'model_name' => $this->resource->model_name,
             'label' => $this->resource->label,
             'display_label' => $this->resource->displayLabel(),

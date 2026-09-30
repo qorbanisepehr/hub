@@ -115,7 +115,7 @@ class AiProviderResolver
 
     /**
      * Resolve which provider and model an agent runs against, in the
-     * priority order of D28: the caller's `?model=` override, then the
+     * priority order of D28: the caller's `?model_id=` override, then the
      * agent's own binding, then the default provider's first active model.
      *
      * Returns nulls rather than throwing when nothing is configured: D24
@@ -125,14 +125,46 @@ class AiProviderResolver
      *
      * @return array{provider: ?AiProvider, model: ?string}
      */
-    public function resolveFor(AiAgent $agent, ?string $modelOverride = null): array
+    public function resolveFor(AiAgent $agent, ?int $modelId = null): array
     {
         $this->hydrate();
 
+        if ($modelId !== null && ($picked = $this->activeModel($modelId)) !== null) {
+            return ['provider' => $picked->provider, 'model' => $picked->model_name];
+        }
+
         $provider = $this->usableProvider($agent);
-        $model = $this->modelFor($agent, $provider, $modelOverride);
+        $model = $this->modelFor($agent, $provider);
 
         return ['provider' => $provider, 'model' => $model];
+    }
+
+    /**
+     * A pickable model row, or null when the id names nothing usable.
+     *
+     * The id rather than the name, and the reason is the unique index on
+     * `ai_models`: it is `(provider_id, model_name)`, so one name can sit
+     * under two providers. A name-only override would be honoured against the
+     * agent's bound provider and hand one provider's model to the other — a
+     * request that fails at the far end complaining about a model the user
+     * never picked. Taking the id makes the provider part of the choice.
+     *
+     * A deactivated row, or one whose provider is off, is not pickable: the
+     * list only ever offers active models, and a row switched off between
+     * choosing and running must not answer. Null rather than an exception,
+     * because a stale id has to be survivable — the alternative would let a
+     * row deleted in Settings fail every job still queued against it. The
+     * artifact records the provider and model that actually ran, so the
+     * outcome is reported rather than silent.
+     */
+    private function activeModel(int $modelId): ?AiModel
+    {
+        return AiModel::query()
+            ->with('provider')
+            ->whereKey($modelId)
+            ->where('is_active', true)
+            ->get()
+            ->first(fn (AiModel $model): bool => $model->provider?->is_active === true);
     }
 
     /**
@@ -184,12 +216,8 @@ class AiProviderResolver
             ->first();
     }
 
-    private function modelFor(AiAgent $agent, ?AiProvider $provider, ?string $modelOverride): ?string
+    private function modelFor(AiAgent $agent, ?AiProvider $provider): ?string
     {
-        if (filled($modelOverride)) {
-            return $modelOverride;
-        }
-
         $bound = $agent->model;
 
         if ($bound instanceof AiModel) {

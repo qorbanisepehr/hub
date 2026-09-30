@@ -8,10 +8,17 @@ use App\Domains\BoardMeeting\Exceptions\NoPendingSummary;
 use App\Domains\BoardMeeting\Jobs\GenerateBoardMeetingSummaryJob;
 use App\Domains\BoardMeeting\Models\BoardMeeting;
 use App\Domains\BoardMeeting\Requests\AcceptMeetingSummaryRequest;
+use App\Domains\BoardMeeting\Requests\BoardMeetingListRequest;
+use App\Domains\BoardMeeting\Requests\BulkMeetingSummaryRequest;
 use App\Domains\BoardMeeting\Requests\GenerateMeetingSummaryRequest;
 use App\Domains\BoardMeeting\Resources\BoardMeetingResource;
+use App\Domains\BoardMeeting\Resources\MeetingSummaryCandidateResource;
+use App\Domains\BoardMeeting\Services\BoardMeetingListQuery;
 use App\Domains\BoardMeeting\Services\MeetingSummaryApplier;
+use App\Domains\BoardMeeting\Services\MeetingSummaryBulk;
+use App\Support\ListQuery;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -28,6 +35,11 @@ use Symfony\Component\HttpFoundation\Response;
  * the person who asked for a run decides what it did. Both are gated on
  * `board-meeting.update`, because both are writes to the meeting's record and
  * neither is a registry operation.
+ *
+ * `candidates` and `bulk` are the list-level pair (D23) and sit on
+ * `board-meeting.sync` instead, next to the registry sync they resemble: both
+ * act on the whole registry rather than on one row, and a person allowed to
+ * push the source's records in is the person trusted to push a job per meeting.
  */
 class MeetingSummaryController
 {
@@ -36,7 +48,9 @@ class MeetingSummaryController
         GenerateBoardMeetingSummaryJob::dispatch(
             meetingId: $meeting->getKey(),
             fields: $request->summaryFields(),
+            modelId: $request->summaryModelId(),
             mode: $request->summaryMode(),
+            merge: $request->shouldMerge(),
         );
 
         return new BoardMeetingResource($meeting->refresh()->load('tags'));
@@ -77,5 +91,50 @@ class MeetingSummaryController
         ));
 
         return new BoardMeetingResource($meeting->refresh()->load('tags'));
+    }
+
+    /**
+     * The meetings a bulk run could still generate for, under the list's own
+     * filters.
+     *
+     * Filtered rather than whole, so "generate the ones I am looking at" is
+     * free: the dialog reads the same date window, Jalali year, tag filter and
+     * search the list is showing, so narrowing the blast radius is something a
+     * person does by filtering rather than by remembering what they last saw.
+     */
+    public function candidates(
+        BoardMeetingListRequest $request,
+        BoardMeetingListQuery $listQuery,
+        MeetingSummaryBulk $bulk,
+    ): AnonymousResourceCollection {
+        return MeetingSummaryCandidateResource::collection(
+            $bulk->candidates($listQuery->scoped($request), ListQuery::perPage($request, 20, 200)),
+        );
+    }
+
+    /**
+     * Queue a run for a chosen set of meetings.
+     *
+     * The id list is re-checked against the same eligibility rule the
+     * candidate list used, and the answer reports what it skipped. A person who
+     * left the dialog open while somebody else generated a meeting should be
+     * told that rather than quietly paying for a run they did not ask for, and
+     * should not have to refresh to find out.
+     */
+    public function bulk(BulkMeetingSummaryRequest $request, MeetingSummaryBulk $bulk): JsonResponse
+    {
+        $result = $bulk->dispatch(
+            $request->meetingIds(),
+            $request->summaryMode(),
+            $request->summaryModelId(),
+        );
+
+        return response()->json([
+            'data' => $result,
+            'message' => __('board_meeting.summary.bulk_queued', [
+                'count' => $result['queued'],
+                'skipped' => $result['skipped'],
+            ]),
+        ]);
     }
 }

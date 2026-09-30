@@ -60,6 +60,9 @@ final class MeetingSummaryAgent implements FieldedAgent
     /** @var list<MeetingSummaryField> */
     private array $fields;
 
+    /** @var array<string, string|list<string>> */
+    private array $previous = [];
+
     /** @param list<string>|null $fields */
     public function __construct(?array $fields = null)
     {
@@ -83,6 +86,36 @@ final class MeetingSummaryAgent implements FieldedAgent
         return $agent;
     }
 
+    /**
+     * Reconcile against what the record already holds, instead of writing each
+     * requested field from the minutes alone.
+     *
+     * A second agent with its own registry key was the alternative, and it was
+     * rejected: the job is the same one — read this meeting and say what it
+     * decided — and the only difference is that the model is also handed the
+     * text a person already accepted. A second row would ask an administrator
+     * to maintain two capabilities differing by one input.
+     *
+     * Cloned for the same reason {@see withFields()} clones: the SDK mutates
+     * the instance it prompts, so two runs must not bleed together.
+     *
+     * @param  array<string, string|list<string>>  $previous
+     */
+    public function withPrevious(array $previous): static
+    {
+        $agent = clone $this;
+
+        $agent->previous = $previous;
+
+        return $agent;
+    }
+
+    /** Whether this run reconciles rather than replacing. */
+    public function isMerging(): bool
+    {
+        return $this->previous !== [];
+    }
+
     public function instructions(): string
     {
         return implode("\n", [
@@ -94,7 +127,35 @@ final class MeetingSummaryAgent implements FieldedAgent
             'Keep proper nouns as the minutes spell them, even where the OCR mangled them; do not translate a company or project name into English.',
             'Suggested tags are short subject slugs for the hub\'s tagging system: two or three words, no punctuation, no numbering, no duplicates.',
             'Leave a field out or return an empty list when the minutes genuinely contain nothing for it. An honest gap is worth more than an invented decision, and a fabricated decision in a board record is worse than no summary at all.',
+            ...$this->mergeInstructions(),
         ]);
+    }
+
+    /**
+     * The extra rules a reconciling run gets, and nothing when it is not one.
+     *
+     * Conditional rather than a second agent on purpose: the language, the
+     * "no preamble" rule and the definition of a decision are identical either
+     * way, and a second class would either duplicate them or inherit from a
+     * base that exists only to be inherited from. What changes is the job — the
+     * model now has an earlier draft that a person accepted, and the risk to
+     * manage is a *lazy* answer that echoes the old text back because it is
+     * right there in the prompt.
+     *
+     * @return list<string>
+     */
+    private function mergeInstructions(): array
+    {
+        if (! $this->isMerging()) {
+            return [];
+        }
+
+        return [
+            'The prompt contains the CURRENT RECORD: a version of these fields that a person has already accepted. Your job is to reconcile the minutes with it, not to start over and not to copy it.',
+            'Keep what the current record already gets right, correct what the minutes contradict, and add what the minutes say that the record is missing.',
+            'Do not return the current text unchanged just because it is present. If you cannot find anything to add or fix for a field, that is a signal you read it too quickly — say so in the field rather than echoing.',
+            'Do not drop something from the current record without cause either: a decision a person already recorded stays unless the minutes clearly say otherwise.',
+        ];
     }
 
     /** The hub's own language, named rather than inferred from the input. */

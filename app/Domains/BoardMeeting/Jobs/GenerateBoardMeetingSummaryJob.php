@@ -55,20 +55,27 @@ class GenerateBoardMeetingSummaryJob implements ShouldBeUnique, ShouldQueue
 
     /**
      * @param  list<string>  $fields  empty means every field
-     * @param  string|null  $model  a model name chosen for this run in the UI.
-     *                              Not yet reachable from HTTP: a model picker
-     *                              has to send an id, not a name, because
-     *                              `ai_models` is unique per provider and the
-     *                              same name can exist on two of them. That
-     *                              lands with the picker rather than ahead of
-     *                              it, so no caller can be built on the wrong
-     *                              one of those.
+     * @param  int|null  $modelId  a model row chosen for this one run in the
+     *                             UI. An id, not a name: `ai_models` is
+     *                             unique per provider, so one name can exist
+     *                             under two of them and a name-only choice
+     *                             would send the other provider's model.
+     *                             The row it names also decides which
+     *                             provider answers, so the choice cannot end
+     *                             up split across two registries.
+     * @param  bool  $merge  reconcile the requested fields with what the record
+     *                       already holds, rather than writing them from the
+     *                       minutes alone. Part of the identity below, because
+     *                       "write this field fresh" and "improve this field"
+     *                       are two different requests and the second must not
+     *                       be swallowed as a duplicate of the first.
      */
     public function __construct(
         public readonly int $meetingId,
         public readonly array $fields = [],
-        public readonly ?string $model = null,
+        public readonly ?int $modelId = null,
         public readonly SummaryWriteMode $mode = SummaryWriteMode::Review,
+        public readonly bool $merge = false,
     ) {}
 
     /**
@@ -78,6 +85,9 @@ class GenerateBoardMeetingSummaryJob implements ShouldBeUnique, ShouldQueue
      * `['key_decisions', 'topics']` are recognised as the same request — the
      * order a client happened to send is not a different run, and treating it
      * as one would let a duplicate through the very lock meant to stop it.
+     * The model is in the identity for the same reason as the mode: asking
+     * twice on purpose with two different models is a comparison, and
+     * dropping the second would silently answer it with the first.
      */
     public function uniqueId(): string
     {
@@ -85,7 +95,7 @@ class GenerateBoardMeetingSummaryJob implements ShouldBeUnique, ShouldQueue
 
         sort($fields);
 
-        return $this->meetingId.'|'.implode(',', $fields).'|'.$this->mode->value;
+        return $this->meetingId.'|'.implode(',', $fields).'|'.$this->mode->value.'|'.($this->modelId ?? '').'|'.($this->merge ? 'merge' : 'fresh');
     }
 
     public function handle(BoardMeetingSummarizer $summarizer, MeetingSummaryApplier $applier): void
@@ -99,7 +109,12 @@ class GenerateBoardMeetingSummaryJob implements ShouldBeUnique, ShouldQueue
         $applier->applyRun($meeting, MeetingSummary::pending(), $this->mode);
 
         try {
-            $run = $summarizer->summarize($meeting, $this->fields, $this->model);
+            $run = $summarizer->summarize(
+                $meeting,
+                $this->fields,
+                $this->modelId,
+                $this->merge,
+            );
         } catch (AiNotConfigured) {
             $this->report($meeting, $applier->applyRun(
                 $meeting,

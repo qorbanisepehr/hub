@@ -9,5 +9,6 @@ return [
      */
     'summary' => [
         'nothing_pending' => 'There is no summary awaiting a decision.',
+        'bulk_queued' => ':count meetings queued. :skipped skipped.',
     ],
 ];
