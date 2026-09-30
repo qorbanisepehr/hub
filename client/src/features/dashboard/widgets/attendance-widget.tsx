@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { IconArrowLeft, IconCalendarStats } from "@tabler/icons-react";
 
@@ -25,16 +26,31 @@ function localIso(date: Date): string {
     return `${year}-${month}-${day}`;
 }
 
+/**
+ * Dashboard card: a fixed last-7-days window, newest first. No URL state
+ * here — the full report page owns interactive filters/pagination.
+ *
+ * Computed once per mount rather than per render: `new Date()` is an impure
+ * read that React Compiler refuses to run during render, and recomputing it
+ * would also let the window slide if the card re-rendered at midnight.
+ */
+function useLastSevenDays(): { dateFrom: string; dateTo: string } {
+    const [range] = useState(() => {
+        const to = new Date();
+        const from = new Date();
+        from.setDate(from.getDate() - 6);
+
+        return { dateFrom: localIso(from), dateTo: localIso(to) };
+    });
+
+    return range;
+}
+
 /** Attendance card: the actor's last 7 days, permission-gated. */
 export function AttendanceWidget() {
     const canView = usePermission(PERMISSIONS.REPORT_ATTENDANCE_VIEW);
 
-    // Dashboard card: fixed last-7-days window, newest first (no URL state
-    // here — the full page owns interactive filters/pagination).
-    const dateTo = localIso(new Date());
-    const fromDate = new Date();
-    fromDate.setDate(fromDate.getDate() - 6);
-    const dateFrom = localIso(fromDate);
+    const { dateFrom, dateTo } = useLastSevenDays();
 
     const { data, isLoading } = useAttendanceReport({
         date_from: dateFrom,
