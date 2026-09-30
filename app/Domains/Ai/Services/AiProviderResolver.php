@@ -136,6 +136,34 @@ class AiProviderResolver
     }
 
     /**
+     * Make one named row callable by the SDK, whatever its `is_active` flag,
+     * and point `ai.default` at it.
+     *
+     * This exists for the connection test in Settings, which is the one
+     * operation that must reach a row hydration deliberately skips. Testing a
+     * credential that is switched off is the whole point — "it works, but I
+     * have not enabled it yet" is the answer an administrator needs, and it is
+     * the answer they cannot get any other way. Everything else keeps using
+     * {@see hydrate()}, so the active-only rule holds everywhere else.
+     *
+     * Merged rather than assigned: the other hydrated rows stay reachable, so
+     * a probe cannot strand the rest of the registry behind a half-written
+     * map. The instance is forgotten first, for the same reason
+     * {@see forgetInstances()} does it — the SDK reads config only when it
+     * first builds a provider.
+     */
+    public function hydrateFor(AiProvider $provider): void
+    {
+        Ai::forgetInstance($provider->name);
+
+        $config = Config::get('ai.providers', []);
+        $config[$provider->name] = $this->configFor($provider);
+
+        Config::set('ai.providers', $config);
+        Config::set('ai.default', $provider->name);
+    }
+
+    /**
      * The provider an agent runs against: its own binding while that
      * binding is usable, otherwise the default. A bound-but-disabled
      * provider falls back rather than failing, so deactivating a credential
@@ -172,6 +200,17 @@ class AiProviderResolver
             return $bound;
         }
 
+        return $this->firstActiveModelFor($provider);
+    }
+
+    /**
+     * The model a provider falls back to when nothing more specific applies:
+     * its own first active row, or null when it has none — in which case the
+     * SDK uses that driver's own default, which is a working answer and not
+     * an error (A2).
+     */
+    public function firstActiveModelFor(?AiProvider $provider): ?string
+    {
         return $provider?->models()
             ->where('is_active', true)
             ->orderBy('id')

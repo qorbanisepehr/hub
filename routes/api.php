@@ -37,3 +37,4 @@ require base_path('app/Domains/Notification/routes/api.php');
 require base_path('app/Domains/Reporting/routes/api.php');
 require base_path('app/Domains/BoardMeeting/routes/api.php');
 require base_path('app/Domains/Tagging/routes/api.php');
+require base_path('app/Domains/Ai/routes/api.php');

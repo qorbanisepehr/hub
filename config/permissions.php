@@ -194,7 +194,7 @@ return [
             'name' => 'AI',
             'permissions' => [
                 'ai.provider.view' => 'View AI providers, models, and agents',
-                'ai.provider.manage' => 'Manage AI providers, credentials, and agent bindings',
+                'ai.provider.manage' => 'Manage AI providers, models, credentials, and agent bindings',
             ],
         ],
 
