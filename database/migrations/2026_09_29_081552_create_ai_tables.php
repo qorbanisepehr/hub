@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -57,6 +58,22 @@ return new class extends Migration
             $table->boolean('is_default')->default(false);
             $table->timestamps();
         });
+
+        // At most one default provider, and nothing said about the rest.
+        //
+        // This has to be a *partial* index, and the distinction is the whole
+        // point: a plain unique index on a boolean column indexes the false
+        // rows too, so it caps the table at one default plus one non-default,
+        // and the second provider anybody adds fails on insert with a unique
+        // violation naming `is_default = f`.
+        //
+        // The model's `booted()` hook already demotes the previous default,
+        // but that is PHP, and two concurrent requests can both pass it. The
+        // schema is what turns "at most one default" from a convention into a
+        // fact.
+        DB::statement(
+            'CREATE UNIQUE INDEX ai_providers_is_default_unique ON ai_providers (is_default) WHERE is_default'
+        );
 
         Schema::create('ai_models', function (Blueprint $table): void {
             $table->id();

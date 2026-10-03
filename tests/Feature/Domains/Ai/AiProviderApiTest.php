@@ -8,7 +8,9 @@ use App\Domains\Ai\Models\AiModel;
 use App\Domains\Ai\Models\AiProvider;
 use App\Domains\Ai\Services\AiConnectionTester;
 use App\Models\User;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 
 use function Pest\Laravel\actingAs;
 
@@ -68,6 +70,52 @@ describe('GET /api/ai/providers', function () {
 });
 
 describe('POST /api/ai/providers', function () {
+    it('accepts a second provider that is not the default', function () {
+        AiProvider::factory()->default()->create(['name' => 'local']);
+        AiProvider::factory()->create(['name' => 'first-backup']);
+
+        actingAs(createUserWithPermissions(['ai.provider.manage']))
+            ->postJson('/api/ai/providers', [
+                'name' => 'second-backup',
+                'driver' => 'openai-compatible',
+                'base_url' => 'https://example.test/v1',
+                'api_key' => 'sk-second',
+            ])
+            ->assertCreated();
+
+        expect(AiProvider::where('is_default', false)->count())->toBe(2);
+    });
+
+    it('accepts several providers created back to back', function () {
+        foreach (['one', 'two', 'three'] as $name) {
+            actingAs(createUserWithPermissions(['ai.provider.manage']))
+                ->postJson('/api/ai/providers', [
+                    'name' => $name,
+                    'driver' => 'ollama',
+                ])
+                ->assertCreated();
+        }
+
+        expect(AiProvider::count())->toBe(3);
+    });
+
+    it('still refuses a second default at the schema', function () {
+        // The model's `booted()` hook demotes the previous default, so through
+        // the API a second default is accepted and demoted. What the partial
+        // index is for is the case PHP cannot cover: two requests racing, both
+        // reading "no default yet" and both writing one. A raw insert is the
+        // only way to reach it from a test.
+        AiProvider::factory()->default()->create(['name' => 'local']);
+
+        expect(fn () => DB::table('ai_providers')->insert([
+            'name' => 'racer',
+            'driver' => 'ollama',
+            'is_default' => true,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]))->toThrow(QueryException::class);
+    });
+
     it('creates a provider with the manage permission', function () {
         $user = createUserWithPermissions(['ai.provider.manage']);
 
