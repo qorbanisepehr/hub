@@ -22,6 +22,7 @@ class AiModelFactory extends Factory
             'label' => null,
             'capabilities' => [AiCapability::Text, AiCapability::StructuredOutput],
             'is_active' => true,
+            'is_default' => false,
         ];
     }
 
@@ -31,6 +32,18 @@ class AiModelFactory extends Factory
     public function capabilities(array $capabilities): static
     {
         return $this->state(fn (): array => ['capabilities' => $capabilities]);
+    }
+
+    /**
+     * The model runs fall back to for this provider.
+     *
+     * Named `default` for symmetry with {@see AiProviderFactory::default()};
+     * `AiModelFactory` and `AiProviderFactory` are separate classes so the
+     * state cannot be reached by accident on the wrong one.
+     */
+    public function default(): static
+    {
+        return $this->state(fn (): array => ['is_default' => true]);
     }
 
     public function inactive(): static

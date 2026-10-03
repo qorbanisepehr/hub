@@ -3,7 +3,6 @@
 namespace App\Domains\Ai\Services;
 
 use App\Domains\Ai\Enums\AiDriver;
-use App\Domains\Ai\Models\AiAgent;
 use App\Domains\Ai\Models\AiModel;
 use App\Domains\Ai\Models\AiProvider;
 use Illuminate\Support\Facades\Config;
@@ -125,7 +124,7 @@ class AiProviderResolver
      *
      * @return array{provider: ?AiProvider, model: ?string}
      */
-    public function resolveFor(AiAgent $agent, ?int $modelId = null): array
+    public function resolveFor(?int $modelId = null): array
     {
         $this->hydrate();
 
@@ -133,10 +132,9 @@ class AiProviderResolver
             return ['provider' => $picked->provider, 'model' => $picked->model_name];
         }
 
-        $provider = $this->usableProvider($agent);
-        $model = $this->modelFor($agent, $provider);
+        $provider = $this->defaultProvider();
 
-        return ['provider' => $provider, 'model' => $model];
+        return ['provider' => $provider, 'model' => $this->modelFor($provider)];
     }
 
     /**
@@ -196,19 +194,16 @@ class AiProviderResolver
     }
 
     /**
-     * The provider an agent runs against: its own binding while that
-     * binding is usable, otherwise the default. A bound-but-disabled
-     * provider falls back rather than failing, so deactivating a credential
-     * degrades one agent instead of breaking it.
+     * The provider a run falls back to: the one marked default, else the
+     * first active row.
+     *
+     * Was `usableProvider(AiAgent)`, which preferred a binding on the agent's
+     * own row. With the binding gone there is nothing to prefer — the default
+     * provider *is* the choice, and like every other default in this domain it
+     * is chosen in Settings.
      */
-    private function usableProvider(AiAgent $agent): ?AiProvider
+    private function defaultProvider(): ?AiProvider
     {
-        $bound = $agent->provider;
-
-        if ($bound?->is_active) {
-            return $bound;
-        }
-
         return AiProvider::query()
             ->where('is_active', true)
             ->orderByDesc('is_default')
@@ -216,33 +211,35 @@ class AiProviderResolver
             ->first();
     }
 
-    private function modelFor(AiAgent $agent, ?AiProvider $provider): ?string
+    /**
+     * The model a provider falls back to: its own default row, then the first
+     * active one, then null.
+     *
+     * Ordered by `is_default` before `id` so an administrator's explicit
+     * choice wins even when it is not the lowest id — which is the entire
+     * point of the flag. Null is a working answer rather than an error: the
+     * SDK then uses that driver's own default model (A2).
+     */
+    private function modelFor(?AiProvider $provider): ?string
     {
-        $bound = $agent->model;
-
-        if ($bound instanceof AiModel) {
-            if ($bound->is_active) {
-                return $bound->model_name;
-            }
-        } elseif (filled($bound)) {
-            return $bound;
+        if ($provider === null) {
+            return null;
         }
 
-        return $this->firstActiveModelFor($provider);
+        return $provider->models()
+            ->where('is_active', true)
+            ->orderByDesc('is_default')
+            ->orderBy('id')
+            ->value('model_name');
     }
 
     /**
-     * The model a provider falls back to when nothing more specific applies:
-     * its own first active row, or null when it has none — in which case the
-     * SDK uses that driver's own default, which is a working answer and not
-     * an error (A2).
+     * Public because the Settings connection test reports which model a
+     * provider would use, so it must be the same answer the resolver gives.
      */
     public function firstActiveModelFor(?AiProvider $provider): ?string
     {
-        return $provider?->models()
-            ->where('is_active', true)
-            ->orderBy('id')
-            ->value('model_name');
+        return $this->modelFor($provider);
     }
 
     /**

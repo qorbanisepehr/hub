@@ -5,22 +5,16 @@ namespace App\Domains\Ai\Exceptions;
 use InvalidArgumentException;
 
 /**
- * An agent was requested with no registry row and no fallback class, or the
- * class a row names is not a `Laravel\Ai\Contracts\Agent`.
+ * A class that was asked to run as an agent is not a `Laravel\Ai\Contracts\Agent`.
  *
- * Both are configuration faults rather than runtime conditions: the first
- * means a caller named a key nobody registered, the second means a row in
- * `ai_agents.agent_class` points at something that is not an agent. Both
- * would otherwise surface as a container error far from the row that caused
- * them.
+ * This used to have a second case: a registry key with no row and no fallback
+ * class, named by `forKey()`. That case cannot happen now — there is no
+ * `ai_agents` table, so a caller always supplies the class — and the remaining
+ * fault is purely a wiring mistake in the calling domain's own code, which is
+ * exactly where it should surface rather than as a container error far away.
  */
 class AiAgentNotRegistered extends InvalidArgumentException
 {
-    public static function forKey(string $key): self
-    {
-        return new self("No AI agent is registered under the key [{$key}], and no fallback class was given.");
-    }
-
     /**
      * @param  class-string|string  $class
      */

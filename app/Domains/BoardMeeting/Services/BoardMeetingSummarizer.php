@@ -30,6 +30,11 @@ use Illuminate\Support\Str;
  */
 class BoardMeetingSummarizer
 {
+    /**
+     * How long one summary run may take, in seconds.
+     */
+    private const TIMEOUT_SECONDS = 180;
+
     public function __construct(
         private readonly AiAgentRunner $runner,
     ) {}
@@ -74,6 +79,13 @@ class BoardMeetingSummarizer
                     $requested,
                 ),
                 'previous' => $previous,
+                // The registry no longer holds a per-agent settings blob, so
+                // the timeout is stated here - by the code that knows what it
+                // is willing to wait for. Three minutes because the archive
+                // minutes run to thousands of words on a locally-hosted model,
+                // and the alternative to a stated timeout is the SDK's own
+                // default cutting a legitimate run off mid-answer.
+                'timeout' => self::TIMEOUT_SECONDS,
             ],
         );
 

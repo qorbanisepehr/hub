@@ -2,7 +2,6 @@
 
 namespace App\Domains\Ai\Services;
 
-use App\Domains\Ai\Models\AiAgent;
 use App\Domains\Ai\Models\AiModel;
 use App\Domains\Ai\Models\AiProvider;
 
@@ -99,51 +98,26 @@ class AiProviderService
     }
 
     /**
-     * Point an agent at a provider, a model, or neither.
+     * Promote one of a provider's models to be the one runs fall back to.
      *
-     * Both ids are nullable and clearing them is a real operation, not an
-     * omission: "inherit the default provider" is the state an agent starts
-     * in, so a Settings screen has to be able to put it back.
+     * This replaces the agent binding table: what a domain's agent used to pin
+     * is now a property of the provider, so an administrator picks it the same
+     * way they pick the default provider. Demoting the previous default is the
+     * model's own `saving` hook, and the partial index
+     * `ai_models_one_default_per_provider` is what makes the invariant true
+     * when two requests race.
      *
-     * The model's provider is checked here rather than in the request,
-     * because the rule is a property of the registry and not of one HTTP
-     * shape: a model row belongs to a provider, so binding an agent to a
-     * model of a different provider would silently mean a different model
-     * than the one the administrator picked.
-     *
-     * @param  array{provider_id?: int|null, model_id?: int|null}  $data
+     * No ownership check here: the controller loads the model through
+     * `$provider->models()`, so a model belonging to another provider is
+     * already a 404 by the time it arrives. A second check would be a branch
+     * no test could ever reach.
      */
-    public function bindAgent(AiAgent $agent, array $data): AiAgent
+    public function makeDefaultModel(AiProvider $provider, AiModel $model): AiModel
     {
-        $providerId = array_key_exists('provider_id', $data) ? $data['provider_id'] : $agent->provider_id;
-        $modelId = array_key_exists('model_id', $data) ? $data['model_id'] : $agent->model_id;
+        $model->update(['is_default' => true]);
 
-        if ($modelId !== null) {
-            $model = AiModel::query()->findOrFail($modelId);
+        $this->resolver->forget();
 
-            if ($providerId !== null) {
-                $this->assertModelBelongsToProvider($model, $providerId);
-            }
-        }
-
-        // `array_key_exists` rather than `??` throughout: clearing a binding
-        // sends an explicit null, and `??` reads that as "not sent" — which
-        // would make "inherit the default" the one state an administrator
-        // could never return to.
-        $agent->update([
-            'provider_id' => $providerId,
-            'model_id' => $modelId,
-        ]);
-
-        return $agent->refresh();
-    }
-
-    private function assertModelBelongsToProvider(AiModel $model, int $providerId): void
-    {
-        abort_if(
-            $model->provider_id !== $providerId,
-            422,
-            __('ai.model_provider_mismatch'),
-        );
+        return $model->refresh();
     }
 }

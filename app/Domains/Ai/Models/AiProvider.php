@@ -19,13 +19,16 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * That is the whole reason `ai.provider.view` and `ai.provider.manage`
  * are separate permissions (R4).
  *
- * At most one row is the default, enforced in {@see booted()} rather than
- * by a partial unique index: SQLite — which the test suite runs on — drops
- * the `where` clause of an index, so the constraint would hold in tests and
- * not in Postgres. A default is what an agent inherits when it names no
- * provider (A2), so promoting a row demotes the previous default, and
- * having no default is a supported state (D24: nothing configured breaks
- * nothing).
+ * At most one row is the default, enforced by a partial unique index in the
+ * migration as well as by {@see booted()}: the index so the invariant holds
+ * when two requests race, and the hook so "set as default" also demotes the
+ * previous one, which an index cannot do. An earlier version of this comment
+ * explained the index away on the grounds that "SQLite drops the `where`
+ * clause of an index". That is false. Partial indexes are supported and
+ * honoured since SQLite 3.8, verified on 3.49, and believing otherwise left
+ * the rule in PHP alone for no reason. A default is what a run falls back to
+ * when nothing more specific applies (A2), and having no default is a
+ * supported state (D24: nothing configured breaks nothing).
  */
 #[UseFactory(AiProviderFactory::class)]
 final class AiProvider extends Model
@@ -84,14 +87,6 @@ final class AiProvider extends Model
     public function models(): HasMany
     {
         return $this->hasMany(AiModel::class, 'provider_id');
-    }
-
-    /**
-     * @return HasMany<AiAgent, $this>
-     */
-    public function agents(): HasMany
-    {
-        return $this->hasMany(AiAgent::class, 'provider_id');
     }
 
     /** Whether a credential is stored. Never reveals the key. */

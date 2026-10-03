@@ -2,7 +2,6 @@
 
 use App\Domains\Ai\Enums\AiCapability;
 use App\Domains\Ai\Enums\AiDriver;
-use App\Domains\Ai\Models\AiAgent;
 use App\Domains\Ai\Models\AiModel;
 use App\Domains\Ai\Models\AiProvider;
 use Illuminate\Database\QueryException;
@@ -162,43 +161,55 @@ describe('AiModel', function () {
     });
 });
 
-describe('AiAgent', function () {
-    it('is unbound until it names a provider', function () {
-        expect(AiAgent::factory()->create()->isBound())->toBeFalse();
-
-        $bound = AiAgent::factory()->create(['provider_id' => AiProvider::factory()->create()->id]);
-
-        expect($bound->isBound())->toBeTrue();
-    });
-
-    it('resolves its provider and model bindings', function () {
+describe('the default model of a provider', function () {
+    it('promotes the chosen row and demotes the one it replaced', function () {
         $provider = AiProvider::factory()->create();
-        $model = AiModel::factory()->create(['provider_id' => $provider->id]);
-        $agent = AiAgent::factory()->create(['provider_id' => $provider->id, 'model_id' => $model->id]);
+        $previous = AiModel::factory()->default()->create(['provider_id' => $provider->id]);
+        $replacement = AiModel::factory()->create(['provider_id' => $provider->id]);
 
-        expect($agent->provider->is($provider))->toBeTrue()
-            ->and($agent->model->is($model))->toBeTrue();
+        $replacement->update(['is_default' => true]);
+
+        expect($previous->refresh()->is_default)->toBeFalse()
+            ->and($replacement->refresh()->is_default)->toBeTrue();
     });
 
-    it('unbinds rather than deletes when its provider is deleted', function () {
+    it('keeps one default per provider', function () {
+        // The partial index is what holds this; the model's hook only demotes
+        // the sibling. Two providers may each have a default, because each has
+        // its own choice to make.
+        $mine = AiProvider::factory()->create();
+        $theirs = AiProvider::factory()->create();
+        AiModel::factory()->default()->create(['provider_id' => $theirs->id]);
+        $mineModel = AiModel::factory()->create(['provider_id' => $mine->id]);
+
+        $mineModel->update(['is_default' => true]);
+
+        expect(AiModel::where('is_default', true)->count())->toBe(2);
+    });
+
+    it('refuses two defaults under the same provider at the database', function () {
+        // Reached through a raw insert, because the model's own hook would
+        // release the sibling first. This is the invariant two concurrent
+        // "set as default" requests could otherwise both pass.
         $provider = AiProvider::factory()->create();
-        $agent = AiAgent::factory()->create(['provider_id' => $provider->id]);
+        AiModel::factory()->default()->create(['provider_id' => $provider->id]);
 
-        $provider->delete();
-
-        expect($agent->fresh()->provider_id)->toBeNull()
-            ->and($agent->fresh()->isBound())->toBeFalse();
+        expect(fn () => AiModel::query()->insert([
+            'provider_id' => $provider->id,
+            'model_name' => 'racer',
+            'capabilities' => '[]',
+            'is_active' => true,
+            'is_default' => true,
+        ]))->toThrow(QueryException::class);
     });
 
-    it('rejects a duplicate agent key', function () {
-        AiAgent::factory()->create(['key' => 'board-meeting.summary']);
+    it('leaves every other model of that provider alone', function () {
+        $provider = AiProvider::factory()->create();
+        $other = AiModel::factory()->create(['provider_id' => $provider->id]);
+        $default = AiModel::factory()->create(['provider_id' => $provider->id]);
 
-        AiAgent::factory()->create(['key' => 'board-meeting.summary']);
-    })->throws(QueryException::class);
+        $default->update(['is_default' => true]);
 
-    it('reads and writes the settings map', function () {
-        $agent = AiAgent::factory()->create(['settings' => ['temperature' => 0.2]]);
-
-        expect($agent->fresh()->settings)->toBe(['temperature' => 0.2]);
+        expect($other->refresh()->is_default)->toBeFalse();
     });
 });

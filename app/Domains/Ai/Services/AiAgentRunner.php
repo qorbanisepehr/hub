@@ -5,7 +5,6 @@ namespace App\Domains\Ai\Services;
 use App\Contracts\Ai\FieldedAgent;
 use App\Domains\Ai\Exceptions\AiAgentNotRegistered;
 use App\Domains\Ai\Exceptions\AiNotConfigured;
-use App\Domains\Ai\Models\AiAgent;
 use App\Domains\Ai\Value\AiRun;
 use Laravel\Ai\Contracts\Agent;
 use Laravel\Ai\Responses\AgentResponse;
@@ -61,24 +60,22 @@ class AiAgentRunner
      *                                          agent's own business (§۶.4)
      *
      * @throws AiNotConfigured when no active provider can be resolved
-     * @throws AiAgentNotRegistered when the row names a class that is not an agent
+     * @throws AiAgentNotRegistered when the class is not an agent
      */
     public function run(
         string $key,
         string $prompt,
-        ?string $agentClass = null,
+        string $agentClass,
         ?int $modelId = null,
         array $settings = [],
     ): AiRun {
-        $agent = $this->registryRow($key, $agentClass);
-
-        ['provider' => $provider, 'model' => $model] = $this->resolver->resolveFor($agent, $modelId);
+        ['provider' => $provider, 'model' => $model] = $this->resolver->resolveFor($modelId);
 
         if ($provider === null) {
             throw AiNotConfigured::forAgent($key);
         }
 
-        $instance = $this->instantiate($agent, $agentClass);
+        $instance = $this->instantiate($agentClass);
 
         $instance = $this->narrowToFields($instance, $settings);
 
@@ -88,7 +85,7 @@ class AiAgentRunner
             $prompt,
             provider: $provider->name,
             model: $model,
-            timeout: $this->timeout($agent, $settings),
+            timeout: $this->timeout($settings),
         );
 
         return new AiRun(
@@ -102,41 +99,25 @@ class AiAgentRunner
     }
 
     /**
-     * The registry row for a key, or a transient one when the row does not
-     * exist yet. A missing row is not an error on day one: the hub has to
-     * boot with an empty AI registry, and D24 makes that a supported state.
-     */
-    private function registryRow(string $key, ?string $agentClass): AiAgent
-    {
-        $agent = AiAgent::query()->where('key', $key)->first();
-
-        if ($agent !== null) {
-            return $agent;
-        }
-
-        if ($agentClass === null) {
-            throw AiAgentNotRegistered::forKey($key);
-        }
-
-        return new AiAgent([
-            'key' => $key,
-            'label' => $key,
-            'agent_class' => $agentClass,
-        ]);
-    }
-
-    /**
+     * The agent to run.
+     *
+     * The class now comes from the caller and nowhere else. There is no
+     * `ai_agents` row: the key is only a label on the resulting run, the
+     * provider and model come from the registry's defaults, and the per-run
+     * overrides come from `$settings`. A domain's agent is part of its code,
+     * so a domain that ships without any AI configuration still works - which
+     * D24 requires and which the old table only pretended to, by falling back
+     * to the caller's class whenever the row was absent.
+     *
      * @param  class-string<Agent>  $agentClass
      */
-    private function instantiate(AiAgent $agent, ?string $agentClass): Agent
+    private function instantiate(string $agentClass): Agent
     {
-        $class = $agent->exists ? $agent->agent_class : ($agentClass ?? $agent->agent_class);
-
-        if (! is_subclass_of($class, Agent::class)) {
-            throw AiAgentNotRegistered::forClass($class);
+        if (! is_subclass_of($agentClass, Agent::class)) {
+            throw AiAgentNotRegistered::forClass($agentClass);
         }
 
-        return app($class);
+        return app($agentClass);
     }
 
     /**
@@ -187,11 +168,19 @@ class AiAgentRunner
     }
 
     /**
+     * The per-run timeout, in seconds, or null for the SDK's own default.
+     *
+     * Only ever a caller-supplied value now. It used to fall back to the
+     * `settings` blob on the agent's registry row, which meant an administrator
+     * could set a timeout that suited one feature and silently applied it to
+     * every other feature running on the same row. A timeout belongs to the
+     * caller that knows how long it is willing to wait.
+     *
      * @param  array<string, mixed>  $settings
      */
-    private function timeout(AiAgent $agent, array $settings): ?int
+    private function timeout(array $settings): ?int
     {
-        $timeout = $settings['timeout'] ?? $agent->settings['timeout'] ?? null;
+        $timeout = $settings['timeout'] ?? null;
 
         return is_numeric($timeout) ? (int) $timeout : null;
     }

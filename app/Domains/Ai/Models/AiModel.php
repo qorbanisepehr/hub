@@ -8,7 +8,6 @@ use Illuminate\Database\Eloquent\Attributes\UseFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * A model reachable through one provider. `model_name` is the name the
@@ -33,6 +32,7 @@ final class AiModel extends Model
         'label',
         'capabilities',
         'is_active',
+        'is_default',
     ];
 
     protected function casts(): array
@@ -40,7 +40,34 @@ final class AiModel extends Model
         return [
             'capabilities' => AiCapabilityListCast::class,
             'is_active' => 'boolean',
+            'is_default' => 'boolean',
         ];
+    }
+
+    /**
+     * Demote this provider's other defaults when this row becomes the default.
+     *
+     * The partial index `ai_models_one_default_per_provider` is what actually
+     * guarantees the invariant; this hook exists so that "set as default" also
+     * *demotes* the previous one, which an index cannot do. Mirrors
+     * {@see AiProvider}'s own hook, and two details are load-bearing: it runs on
+     * `saving` rather than `saved`, because the sibling has to be released
+     * *before* the database will accept this row, and it is scoped to
+     * `provider_id` so one gateway's choice never touches another's.
+     */
+    protected static function booted(): void
+    {
+        self::saving(function (self $model): void {
+            if (! $model->is_default) {
+                return;
+            }
+
+            self::query()
+                ->where('provider_id', $model->provider_id)
+                ->whereKeyNot($model->getKey())
+                ->where('is_default', true)
+                ->update(['is_default' => false]);
+        });
     }
 
     /**
@@ -49,14 +76,6 @@ final class AiModel extends Model
     public function provider(): BelongsTo
     {
         return $this->belongsTo(AiProvider::class);
-    }
-
-    /**
-     * @return HasMany<AiAgent, $this>
-     */
-    public function agents(): HasMany
-    {
-        return $this->hasMany(AiAgent::class, 'model_id');
     }
 
     public function displayLabel(): string

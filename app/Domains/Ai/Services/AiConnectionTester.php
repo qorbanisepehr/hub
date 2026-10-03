@@ -19,9 +19,9 @@ use Throwable;
  * avoid a failed paid request later.
  *
  * The prompt goes through the SDK's `AnonymousAgent` rather than the registry,
- * so testing a provider needs no `ai_agents` row: the row an administrator is
- * looking at is a credential, and requiring a registered agent to probe it
- * would make the two concepts look related when they are not.
+ * because the row an administrator is looking at is a credential, and routing
+ * a probe through a domain's agent would make the two concepts look related
+ * when they are not.
  */
 class AiConnectionTester
 {

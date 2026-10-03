@@ -118,6 +118,20 @@ class AiProviderController
         return new AiModelResource($model);
     }
 
+    /**
+     * Promote one of a provider's models to the one runs fall back to.
+     *
+     * Same shape as the provider's own "set as default": a descriptor-only
+     * POST, no body, gated the same way. What a domain's agent used to pin in
+     * a registry row is now chosen here instead.
+     */
+    public function makeDefaultModel(AiProvider $provider, int $ai_model): AiModelResource
+    {
+        $model = $provider->models()->findOrFail($ai_model);
+
+        return new AiModelResource($this->providers->makeDefaultModel($provider, $model));
+    }
+
     public function updateModel(AiModelRequest $request, AiProvider $provider, int $ai_model): AiModelResource
     {
         $model = $provider->models()->findOrFail($ai_model);

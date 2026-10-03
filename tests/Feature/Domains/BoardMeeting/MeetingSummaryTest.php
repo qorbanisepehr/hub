@@ -1,7 +1,7 @@
 <?php
 
 use App\Domains\Ai\Enums\AiDriver;
-use App\Domains\Ai\Models\AiAgent;
+use App\Domains\Ai\Models\AiModel;
 use App\Domains\Ai\Models\AiProvider;
 use App\Domains\Ai\Services\AiAgentRunner;
 use App\Domains\Ai\Services\AiProviderResolver;
@@ -331,15 +331,15 @@ describe('reading a run', function () {
     });
 });
 
-describe('an unregistered agent', function () {
-    it('still runs, so a domain can ship before an administrator configures it', function () {
+describe('an agent that needs no configuration', function () {
+    it('runs on a hub where nobody has ever opened the AI settings tab', function () {
         // D24 makes an empty AI registry a supported state, which means the
-        // summary agent has to work on a hub where nobody has ever opened the
-        // AI settings tab. The class is the fallback; the registry row is what
-        // production uses, and the day it exists it takes over.
+        // summary agent has to work on a hub nobody has configured. There is no
+        // registry row to fall back from any more: the agent is code, and the
+        // model comes from the provider's default.
         MeetingSummaryAgent::fake([['executive_summary' => 'خلاصه']]);
 
-        expect(AiAgent::query()->where('key', MeetingSummaryAgent::REGISTRY_KEY)->exists())->toBeFalse();
+        expect(AiModel::query()->count())->toBe(0);
 
         $summary = $this->summarizer->summarize($this->meeting, ['executive_summary']);
 
@@ -347,20 +347,18 @@ describe('an unregistered agent', function () {
             ->and($summary->toArray()['agent'])->toBe(MeetingSummaryAgent::REGISTRY_KEY);
     });
 
-    it('prefers the registry row once one exists', function () {
-        // Otherwise "create a row in Settings" would be a change that silently
-        // does nothing until a deploy, which is the opposite of D28's promise.
+    it('follows the provider default model, so changing it takes effect at once', function () {
+        // What replaced the per-agent binding: an administrator promotes a
+        // model in Settings and the next run uses it, with no deploy and no
+        // row naming a domain.
+        $provider = AiProvider::factory()->default()->create(['name' => 'dev']);
+        AiModel::factory()->create(['provider_id' => $provider->id, 'model_name' => 'first-by-id']);
+        $chosen = AiModel::factory()->create(['provider_id' => $provider->id, 'model_name' => 'chosen']);
+        $chosen->update(['is_default' => true]);
         MeetingSummaryAgent::fake([['executive_summary' => 'خلاصه']]);
 
-        AiAgent::factory()->create([
-            'key' => MeetingSummaryAgent::REGISTRY_KEY,
-            'agent_class' => MeetingSummaryAgent::class,
-        ]);
-
-        expect($this->summarizer->summarize($this->meeting, ['executive_summary'])->status)
-            ->toBe(MeetingSummary::STATUS_OK);
-
-        expect(AiAgent::query()->where('key', MeetingSummaryAgent::REGISTRY_KEY)->count())->toBe(1);
+        expect($this->summarizer->summarize($this->meeting, ['executive_summary'])->model)
+            ->toBe('chosen');
     });
 });
 

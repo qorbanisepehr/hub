@@ -40,6 +40,10 @@ class AiModelResource extends JsonResource
                 $this->resource->capabilities,
             ),
             'is_active' => $this->resource->is_active,
+            // Which model runs fall back to for this provider. The client needs
+            // it to show the current default without inferring one, and to
+            // disable the action on the row that already holds it.
+            'is_default' => $this->resource->is_default,
         ];
     }
 }

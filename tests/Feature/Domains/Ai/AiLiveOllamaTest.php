@@ -2,7 +2,6 @@
 
 use App\Domains\Ai\Enums\AiDriver;
 use App\Domains\Ai\Exceptions\AiProviderUnreachable;
-use App\Domains\Ai\Models\AiAgent;
 use App\Domains\Ai\Models\AiModel;
 use App\Domains\Ai\Models\AiProvider;
 use App\Domains\Ai\Services\AiAgentRunner;
@@ -72,47 +71,53 @@ beforeEach(function () use ($live, $model) {
 });
 
 describe('live ollama', function () {
-    it('reaches the model and gets text back', function () {
-        AiProvider::factory()->default()->create(['name' => 'local', 'driver' => AiDriver::Ollama]);
-        AiAgent::factory()->create([
-            'key' => 'test.live',
-            'agent_class' => EchoAgent::class,
-            'settings' => ['timeout' => 120],
+    /**
+     * A provider whose only model is the live one, marked default.
+     *
+     * This is how a run picks a model now: not an `ai_agents` row naming it,
+     * and not a name passed through a `modelOverride` argument that the runner
+     * never had. `?model_id=` takes a row id, and with no override the provider's
+     * default answers - so the test sets that default instead.
+     */
+    $localProvider = function (): AiProvider {
+        $provider = AiProvider::factory()->default()->create(['name' => 'local', 'driver' => AiDriver::Ollama]);
+
+        AiModel::factory()->default()->create([
+            'provider_id' => $provider->id,
+            'model_name' => $this->liveModel,
         ]);
 
-        $run = app(AiAgentRunner::class)->run('test.live', 'Reply with the single word: pong', modelOverride: $this->liveModel);
+        return $provider;
+    };
+
+    it('reaches the model and gets text back', function () use ($localProvider) {
+        $localProvider();
+        EchoAgent::fake([]);
+
+        $run = app(AiAgentRunner::class)->run('test.live', 'Reply with the single word: pong', EchoAgent::class);
 
         expect($run->text)->not->toBe('')
-            ->and($run->provider)->toBe('local');
+            ->and($run->provider)->toBe('local')
+            ->and($run->model)->toBe($this->liveModel);
     });
 
-    it('gets structured output back from a real model', function () {
-        AiProvider::factory()->default()->create(['name' => 'local', 'driver' => AiDriver::Ollama]);
-        AiAgent::factory()->create([
-            'key' => 'test.live.structured',
-            'agent_class' => StructuredEchoAgent::class,
-            'settings' => ['timeout' => 120],
-        ]);
+    it('gets structured output back from a real model', function () use ($localProvider) {
+        $localProvider();
 
         $run = app(AiAgentRunner::class)->run(
             'test.live.structured',
             'Summarize in one sentence: the hub keeps its AI credentials in a registry.',
-            modelOverride: $this->liveModel,
+            StructuredEchoAgent::class,
         );
 
         expect($run->structured)->toBeArray()
             ->and($run->structured)->toHaveKeys(['executive_summary', 'topics']);
     });
 
-    it('reports real token usage', function () {
-        AiProvider::factory()->default()->create(['name' => 'local', 'driver' => AiDriver::Ollama]);
-        AiAgent::factory()->create([
-            'key' => 'test.live.usage',
-            'agent_class' => EchoAgent::class,
-            'settings' => ['timeout' => 120],
-        ]);
+    it('reports real token usage', function () use ($localProvider) {
+        $localProvider();
 
-        $run = app(AiAgentRunner::class)->run('test.live.usage', 'Say hello.', modelOverride: $this->liveModel);
+        $run = app(AiAgentRunner::class)->run('test.live.usage', 'Say hello.', EchoAgent::class);
 
         expect($run->usage['total_tokens'])->toBeGreaterThan(0);
     });
@@ -145,18 +150,12 @@ describe('live ollama', function () {
             ->toThrow(AiProviderUnreachable::class);
     });
 
-    it('summarises a real meeting through the real agent', function () {
+    it('summarises a real meeting through the real agent', function () use ($localProvider) {
         // The one test that would catch a schema a real model refuses: the
         // faked suite proves we *ask* for five fields, not that anything can
         // answer them. A small model on five fields of Persian minutes is
         // also the slowest case, so it gets its own generous timeout.
-        $provider = AiProvider::factory()->default()->create(['name' => 'local', 'driver' => AiDriver::Ollama]);
-
-        AiAgent::factory()->create([
-            'key' => MeetingSummaryAgent::REGISTRY_KEY,
-            'agent_class' => MeetingSummaryAgent::class,
-            'settings' => ['timeout' => 180],
-        ]);
+        $localProvider();
 
         $meeting = BoardMeeting::factory()->create([
             'title' => 'جلسهٔ شورای معاونین',
@@ -170,7 +169,7 @@ describe('live ollama', function () {
         $run = app(AiAgentRunner::class)->run(
             key: MeetingSummaryAgent::REGISTRY_KEY,
             prompt: app(BoardMeetingSummarizer::class)->promptFor($meeting),
-            modelOverride: $this->liveModel,
+            agentClass: MeetingSummaryAgent::class,
             settings: ['fields' => ['executive_summary', 'key_decisions']],
         );
 

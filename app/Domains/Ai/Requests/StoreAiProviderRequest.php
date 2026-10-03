@@ -12,7 +12,7 @@ use Illuminate\Validation\Rule;
  * `name` is the provider's identity everywhere else — it is the SDK's config
  * key and what a caller sees in a run's attribution (A2) — so it is frozen
  * after creation. Renaming it would orphan every run that recorded it and
- * silently repoint an `ai_agents` binding at a row that no longer exists.
+ * silently repoint a provider's default model at a row that no longer exists.
  *
  * `api_key` is required only for drivers that need one. Ollama does not, and
  * forcing a key there would make the zero-credential path (D24) impossible to

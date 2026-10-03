@@ -1,6 +1,5 @@
 <?php
 
-use App\Domains\Ai\Models\AiAgent;
 use App\Domains\Ai\Models\AiModel;
 use App\Domains\Ai\Models\AiProvider;
 use Illuminate\Support\Facades\File;
@@ -106,9 +105,9 @@ test('no domain agent pins a model or a provider', function () {
 });
 
 test('the registry models expose nothing beyond their own tables', function () {
-    // The registry is a leaf too: its relations are the three AI tables and
+    // The registry is a leaf too: its relations are the two AI tables and
     // nothing else, so no association can quietly pull a business domain in.
-    foreach ([AiProvider::class, AiModel::class, AiAgent::class] as $model) {
+    foreach ([AiProvider::class, AiModel::class] as $model) {
         $relations = array_keys((new ReflectionClass($model))->getMethods(ReflectionMethod::IS_PUBLIC));
 
         expect($relations)->not->toContain('employees', 'documents', 'meetings');

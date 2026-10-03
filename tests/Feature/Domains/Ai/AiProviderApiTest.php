@@ -3,7 +3,6 @@
 use App\Domains\Ai\Enums\AiCapability;
 use App\Domains\Ai\Enums\AiDriver;
 use App\Domains\Ai\Exceptions\AiProviderUnreachable;
-use App\Domains\Ai\Models\AiAgent;
 use App\Domains\Ai\Models\AiModel;
 use App\Domains\Ai\Models\AiProvider;
 use App\Domains\Ai\Services\AiConnectionTester;
@@ -419,132 +418,79 @@ describe('provider models', function () {
     });
 });
 
-describe('GET /api/ai/agents', function () {
-    it('forbids a user without ai.provider.view', function () {
-        actingAs(User::factory()->create())->getJson('/api/ai/agents')->assertForbidden();
-    });
-
-    it('lists agents with what they are bound to', function () {
-        $provider = AiProvider::factory()->create(['name' => 'local']);
-        $model = AiModel::factory()->create(['provider_id' => $provider->id, 'label' => 'Summarizer']);
-        AiAgent::factory()->create([
-            'key' => 'board-meeting.summary',
-            'provider_id' => $provider->id,
-            'model_id' => $model->id,
-        ]);
-
-        $user = createUserWithPermissions(['ai.provider.view']);
-        $response = actingAs($user)->getJson('/api/ai/agents')->assertOk();
-
-        expect($response->json('data.0.key'))->toBe('board-meeting.summary')
-            ->and($response->json('data.0.is_bound'))->toBeTrue()
-            ->and($response->json('data.0.provider_name'))->toBe('local')
-            ->and($response->json('data.0.model_name'))->toBe('Summarizer');
-    });
-
-    it('reports an unbound agent as not bound', function () {
-        AiAgent::factory()->create(['key' => 'board-meeting.summary', 'provider_id' => null]);
-        $user = createUserWithPermissions(['ai.provider.view']);
-
-        $response = actingAs($user)->getJson('/api/ai/agents')->assertOk();
-
-        expect($response->json('data.0.is_bound'))->toBeFalse()
-            ->and($response->json('data.0.provider_name'))->toBeNull();
-    });
-});
-
-describe('PUT /api/ai/agents/{agent}', function () {
-    it('binds an agent to a provider and model', function () {
+describe('POST /api/ai/providers/{provider}/models/{model}/default', function () {
+    it('forbids a user without ai.provider.manage', function () {
         $provider = AiProvider::factory()->create();
         $model = AiModel::factory()->create(['provider_id' => $provider->id]);
-        $agent = AiAgent::factory()->create(['key' => 'board-meeting.summary']);
-        $user = createUserWithPermissions(['ai.provider.manage']);
-
-        $response = actingAs($user)
-            ->putJson("/api/ai/agents/{$agent->id}", [
-                'provider_id' => $provider->id,
-                'model_id' => $model->id,
-            ])
-            ->assertOk();
-
-        expect($response->json('data.is_bound'))->toBeTrue()
-            ->and($agent->refresh()->provider_id)->toBe($provider->id);
-    });
-
-    it('clears a binding back to inheriting the default', function () {
-        $provider = AiProvider::factory()->create();
-        $agent = AiAgent::factory()->create(['provider_id' => $provider->id]);
-        $user = createUserWithPermissions(['ai.provider.manage']);
-
-        $response = actingAs($user)
-            ->putJson("/api/ai/agents/{$agent->id}", ['provider_id' => null, 'model_id' => null])
-            ->assertOk();
-
-        // "Inherit the default" is a real state an administrator has to be
-        // able to return to, not just the initial one.
-        expect($response->json('data.is_bound'))->toBeFalse()
-            ->and($agent->refresh()->provider_id)->toBeNull();
-    });
-
-    it('rejects a model belonging to another provider', function () {
-        $provider = AiProvider::factory()->create();
-        $other = AiProvider::factory()->create();
-        $model = AiModel::factory()->create(['provider_id' => $other->id]);
-        $agent = AiAgent::factory()->create();
-        $user = createUserWithPermissions(['ai.provider.manage']);
-
-        actingAs($user)
-            ->putJson("/api/ai/agents/{$agent->id}", [
-                'provider_id' => $provider->id,
-                'model_id' => $model->id,
-            ])
-            ->assertUnprocessable();
-
-        expect($agent->refresh()->model_id)->toBeNull();
-    });
-
-    it('leaves the agent class and key alone', function () {
-        $agent = AiAgent::factory()->create([
-            'key' => 'board-meeting.summary',
-            'agent_class' => 'App\\Some\\MeetingSummaryAgent',
-        ]);
-        $provider = AiProvider::factory()->create();
-        $user = createUserWithPermissions(['ai.provider.manage']);
-
-        $response = actingAs($user)
-            ->putJson("/api/ai/agents/{$agent->id}", [
-                'key' => 'hijacked',
-                'agent_class' => 'App\\Evil\\Agent',
-                'provider_id' => $provider->id,
-            ])
-            ->assertOk();
-
-        // Both are the consuming domain's identity, not settings state; a
-        // wrong class here would only surface on the next real run.
-        expect($response->json('data.key'))->toBe('board-meeting.summary')
-            ->and($response->json('data.agent_class'))->toBe('App\\Some\\MeetingSummaryAgent');
-    });
-
-    it('rejects an unknown provider id', function () {
-        $agent = AiAgent::factory()->create();
-        $user = createUserWithPermissions(['ai.provider.manage']);
-
-        actingAs($user)
-            ->putJson("/api/ai/agents/{$agent->id}", ['provider_id' => 9999])
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors('provider_id');
-    });
-
-    it('forbids a viewer', function () {
-        $agent = AiAgent::factory()->create();
-        $provider = AiProvider::factory()->create();
         $user = createUserWithPermissions(['ai.provider.view']);
 
         actingAs($user)
-            ->putJson("/api/ai/agents/{$agent->id}", ['provider_id' => $provider->id])
+            ->postJson("/api/ai/providers/{$provider->id}/models/{$model->id}/default")
             ->assertForbidden();
 
-        expect($agent->refresh()->provider_id)->toBeNull();
+        expect($model->refresh()->is_default)->toBeFalse();
+    });
+
+    it('promotes one of the provider own models', function () {
+        $provider = AiProvider::factory()->create();
+        $model = AiModel::factory()->create(['provider_id' => $provider->id]);
+        $user = createUserWithPermissions(['ai.provider.manage']);
+
+        $response = actingAs($user)
+            ->postJson("/api/ai/providers/{$provider->id}/models/{$model->id}/default")
+            ->assertOk();
+
+        expect($response->json('data.is_default'))->toBeTrue()
+            ->and($model->refresh()->is_default)->toBeTrue();
+    });
+
+    it('demotes the model it replaces', function () {
+        $provider = AiProvider::factory()->create();
+        $previous = AiModel::factory()->default()->create(['provider_id' => $provider->id]);
+        $replacement = AiModel::factory()->create(['provider_id' => $provider->id]);
+        $user = createUserWithPermissions(['ai.provider.manage']);
+
+        actingAs($user)
+            ->postJson("/api/ai/providers/{$provider->id}/models/{$replacement->id}/default")
+            ->assertOk();
+
+        // "Set as default" that leaves the old one set would be no setting at
+        // all, and the index would reject the second row anyway.
+        expect($previous->refresh()->is_default)->toBeFalse()
+            ->and($replacement->refresh()->is_default)->toBeTrue();
+    });
+
+    it('leaves another provider default alone', function () {
+        $mine = AiProvider::factory()->create();
+        $theirs = AiProvider::factory()->create();
+        $theirDefault = AiModel::factory()->default()->create(['provider_id' => $theirs->id]);
+        $mineModel = AiModel::factory()->create(['provider_id' => $mine->id]);
+        $user = createUserWithPermissions(['ai.provider.manage']);
+
+        actingAs($user)
+            ->postJson("/api/ai/providers/{$mine->id}/models/{$mineModel->id}/default")
+            ->assertOk();
+
+        // One default *per provider*, not one in the table: a second gateway
+        // has its own choice to make.
+        expect($theirDefault->refresh()->is_default)->toBeTrue();
+    });
+
+    it('is not found for a model of another provider', function () {
+        // The model is looked up through the provider, so a mismatch is a 404
+        // rather than a 422: there is no such address, only an existing model
+        // that is not this provider's. One gateway's "set as default" can
+        // never promote another's model, whatever the id says.
+        $provider = AiProvider::factory()->create();
+        $other = AiProvider::factory()->create();
+        $foreign = AiModel::factory()->create(['provider_id' => $other->id]);
+        $user = createUserWithPermissions(['ai.provider.manage']);
+
+        actingAs($user)
+            ->postJson("/api/ai/providers/{$provider->id}/models/{$foreign->id}/default")
+            ->assertNotFound();
+
+        expect($foreign->refresh()->is_default)->toBeFalse();
     });
 });
 

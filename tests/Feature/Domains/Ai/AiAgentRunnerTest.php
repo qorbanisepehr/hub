@@ -3,7 +3,6 @@
 use App\Domains\Ai\Enums\AiDriver;
 use App\Domains\Ai\Exceptions\AiAgentNotRegistered;
 use App\Domains\Ai\Exceptions\AiNotConfigured;
-use App\Domains\Ai\Models\AiAgent;
 use App\Domains\Ai\Models\AiModel;
 use App\Domains\Ai\Models\AiProvider;
 use App\Domains\Ai\Services\AiAgentRunner;
@@ -159,29 +158,27 @@ describe('hydration', function () {
 describe('model resolution', function () {
     it('prefers the chosen model row over everything else', function () {
         $provider = AiProvider::factory()->default()->create();
-        AiModel::factory()->create(['provider_id' => $provider->id, 'model_name' => 'bound-model']);
+        AiModel::factory()->default()->create(['provider_id' => $provider->id, 'model_name' => 'registry-default']);
         $picked = AiModel::factory()->create(['provider_id' => $provider->id, 'model_name' => 'chosen-at-runtime']);
-        $agent = AiAgent::factory()->create(['provider_id' => $provider->id]);
 
-        $resolved = $this->resolver->resolveFor($agent, $picked->id);
+        $resolved = $this->resolver->resolveFor($picked->id);
 
         expect($resolved['model'])->toBe('chosen-at-runtime');
     });
 
-    it('takes the provider from the chosen row, not from the agent', function () {
+    it('takes the provider from the chosen row', function () {
         // The reason the override is an id and not a name: `ai_models` is
         // unique per provider, so `gpt-4o` can sit under two of them. Honouring
-        // a name against the agent's bound provider would hand one gateway's
-        // model to the other, and the failure would arrive as a vendor error
-        // about a model the user never picked.
-        $bound = AiProvider::factory()->create(['name' => 'bound']);
+        // a name against the registry's default provider would hand one
+        // gateway's model to the other, and the failure would arrive as a
+        // vendor error about a model the user never picked.
+        $first = AiProvider::factory()->create(['name' => 'first']);
         $other = AiProvider::factory()->default()->create(['name' => 'other']);
         $shared = 'gpt-4o';
-        AiModel::factory()->create(['provider_id' => $bound->id, 'model_name' => $shared]);
+        AiModel::factory()->create(['provider_id' => $first->id, 'model_name' => $shared]);
         $picked = AiModel::factory()->create(['provider_id' => $other->id, 'model_name' => $shared]);
-        $agent = AiAgent::factory()->create(['provider_id' => $bound->id]);
 
-        $resolved = $this->resolver->resolveFor($agent, $picked->id);
+        $resolved = $this->resolver->resolveFor($picked->id);
 
         expect($resolved['provider']->name)->toBe('other')
             ->and($resolved['model'])->toBe($shared);
@@ -191,11 +188,10 @@ describe('model resolution', function () {
         $provider = AiProvider::factory()->default()->create();
         $retired = AiModel::factory()->inactive()->create(['provider_id' => $provider->id, 'model_name' => 'retired']);
         AiModel::factory()->create(['provider_id' => $provider->id, 'model_name' => 'live']);
-        $agent = AiAgent::factory()->create(['provider_id' => $provider->id]);
 
         // A row switched off between choosing and running must not answer; the
         // run falls back rather than failing, and records what it used.
-        expect($this->resolver->resolveFor($agent, $retired->id)['model'])->toBe('live');
+        expect($this->resolver->resolveFor($retired->id)['model'])->toBe('live');
     });
 
     it('ignores a chosen row whose provider is switched off', function () {
@@ -203,9 +199,8 @@ describe('model resolution', function () {
         $live = AiProvider::factory()->default()->create(['name' => 'live']);
         $picked = AiModel::factory()->create(['provider_id' => $dead->id, 'model_name' => 'ghost']);
         AiModel::factory()->create(['provider_id' => $live->id, 'model_name' => 'working']);
-        $agent = AiAgent::factory()->create(['provider_id' => $live->id]);
 
-        $resolved = $this->resolver->resolveFor($agent, $picked->id);
+        $resolved = $this->resolver->resolveFor($picked->id);
 
         expect($resolved['provider']->name)->toBe('live')
             ->and($resolved['model'])->toBe('working');
@@ -217,26 +212,37 @@ describe('model resolution', function () {
         // failures nobody asked for.
         $provider = AiProvider::factory()->default()->create();
         AiModel::factory()->create(['provider_id' => $provider->id, 'model_name' => 'live']);
-        $agent = AiAgent::factory()->create(['provider_id' => $provider->id]);
 
-        expect($this->resolver->resolveFor($agent, 999_999)['model'])->toBe('live');
+        expect($this->resolver->resolveFor(999_999)['model'])->toBe('live');
     });
 
-    it("falls back to the agent's bound model", function () {
+    it('falls back to the registry default model', function () {
+        // The replacement for the agent's bound model: the provider says which
+        // of its models runs should use, chosen in Settings like every other
+        // default in this domain.
         $provider = AiProvider::factory()->default()->create();
-        $model = AiModel::factory()->create(['provider_id' => $provider->id, 'model_name' => 'bound-model']);
-        $agent = AiAgent::factory()->create(['provider_id' => $provider->id, 'model_id' => $model->id]);
+        AiModel::factory()->create(['provider_id' => $provider->id, 'model_name' => 'first-by-id']);
+        $chosen = AiModel::factory()->default()->create(['provider_id' => $provider->id, 'model_name' => 'chosen']);
 
-        expect($this->resolver->resolveFor($agent)['model'])->toBe('bound-model');
+        expect($this->resolver->resolveFor()['model'])->toBe('chosen');
     });
 
-    it('ignores a bound model that has been deactivated', function () {
+    it('prefers the registry default even when it is not the lowest id', function () {
+        // The flag has to outrank the id, or "make this the default" would be a
+        // no-op for every model but the first an administrator ever added.
         $provider = AiProvider::factory()->default()->create();
-        $bound = AiModel::factory()->inactive()->create(['provider_id' => $provider->id, 'model_name' => 'retired']);
+        AiModel::factory()->create(['provider_id' => $provider->id, 'model_name' => 'added-first']);
+        AiModel::factory()->default()->create(['provider_id' => $provider->id, 'model_name' => 'added-second']);
+
+        expect($this->resolver->resolveFor()['model'])->toBe('added-second');
+    });
+
+    it('ignores a default model that has been deactivated', function () {
+        $provider = AiProvider::factory()->default()->create();
+        AiModel::factory()->inactive()->default()->create(['provider_id' => $provider->id, 'model_name' => 'retired']);
         AiModel::factory()->create(['provider_id' => $provider->id, 'model_name' => 'live']);
-        $agent = AiAgent::factory()->create(['provider_id' => $provider->id, 'model_id' => $bound->id]);
 
-        expect($this->resolver->resolveFor($agent)['model'])->toBe('live');
+        expect($this->resolver->resolveFor()['model'])->toBe('live');
     });
 
     it('falls back to the default provider first active model', function () {
@@ -244,42 +250,38 @@ describe('model resolution', function () {
         AiModel::factory()->inactive()->create(['provider_id' => $provider->id, 'model_name' => 'retired']);
         AiModel::factory()->create(['provider_id' => $provider->id, 'model_name' => 'live']);
 
-        expect($this->resolver->resolveFor(AiAgent::factory()->create())['model'])->toBe('live');
+        expect($this->resolver->resolveFor()['model'])->toBe('live');
     });
 
     it('leaves the model null when the provider offers none', function () {
         AiProvider::factory()->default()->create();
 
-        expect($this->resolver->resolveFor(AiAgent::factory()->create())['model'])->toBeNull();
+        expect($this->resolver->resolveFor()['model'])->toBeNull();
     });
 
-    it('keeps using a bound provider while it is active', function () {
-        $bound = AiProvider::factory()->create(['name' => 'bound']);
+    it('uses the default provider', function () {
+        AiProvider::factory()->create(['name' => 'other']);
         AiProvider::factory()->default()->create(['name' => 'fallback']);
-        $agent = AiAgent::factory()->create(['provider_id' => $bound->id]);
 
-        expect($this->resolver->resolveFor($agent)['provider']->name)->toBe('bound');
+        expect($this->resolver->resolveFor()['provider']->name)->toBe('fallback');
     });
 
-    it('falls back to the default when the bound provider is deactivated', function () {
-        $bound = AiProvider::factory()->inactive()->create(['name' => 'bound']);
-        AiProvider::factory()->default()->create(['name' => 'fallback']);
-        $agent = AiAgent::factory()->create(['provider_id' => $bound->id]);
+    it('falls back to the first active provider when the default is deactivated', function () {
+        AiProvider::factory()->inactive()->default()->create(['name' => 'retired']);
+        AiProvider::factory()->create(['name' => 'live']);
 
-        expect($this->resolver->resolveFor($agent)['provider']->name)->toBe('fallback');
+        expect($this->resolver->resolveFor()['provider']->name)->toBe('live');
     });
 });
 
 describe('running an agent', function () {
-    it('runs the agent registered under a key', function () {
+    it('runs the class it is given, with no registry row anywhere', function () {
+        // The whole point of dropping `ai_agents`: a domain ships its agent in
+        // code and needs nothing in the database for it to answer.
         AiProvider::factory()->default()->create(['name' => 'dev']);
-        AiAgent::factory()->create([
-            'key' => 'board-meeting.summary',
-            'agent_class' => EchoAgent::class,
-        ]);
         EchoAgent::fake(['generated summary']);
 
-        $run = $this->runner->run('board-meeting.summary', 'summarize this');
+        $run = $this->runner->run('board-meeting.summary', 'summarize this', EchoAgent::class);
 
         expect($run->text)->toBe('generated summary')
             ->and($run->providerKey)->toBe('board-meeting.summary');
@@ -287,11 +289,10 @@ describe('running an agent', function () {
 
     it('records the provider and model that answered', function () {
         $provider = AiProvider::factory()->default()->create(['name' => 'dev']);
-        AiModel::factory()->create(['provider_id' => $provider->id, 'model_name' => 'dev-model']);
-        AiAgent::factory()->create(['key' => 'test.echo', 'agent_class' => EchoAgent::class]);
+        AiModel::factory()->default()->create(['provider_id' => $provider->id, 'model_name' => 'dev-model']);
         EchoAgent::fake(['done']);
 
-        $run = $this->runner->run('test.echo', 'hello');
+        $run = $this->runner->run('test.echo', 'hello', EchoAgent::class);
 
         expect($run->provider)->toBe('dev')
             ->and($run->model)->toBe('dev-model');
@@ -299,80 +300,57 @@ describe('running an agent', function () {
 
     it('returns structured output for a structured agent', function () {
         AiProvider::factory()->default()->create(['name' => 'dev']);
-        AiAgent::factory()->create(['key' => 'test.structured', 'agent_class' => StructuredEchoAgent::class]);
         StructuredEchoAgent::fake([['executive_summary' => 'a summary', 'topics' => ['a', 'b']]]);
 
-        $run = $this->runner->run('test.structured', 'summarize');
+        $run = $this->runner->run('test.structured', 'summarize', StructuredEchoAgent::class);
 
         expect($run->structured)->toBe(['executive_summary' => 'a summary', 'topics' => ['a', 'b']]);
     });
 
     it('reports token usage', function () {
         AiProvider::factory()->default()->create(['name' => 'dev']);
-        AiAgent::factory()->create(['key' => 'test.echo', 'agent_class' => EchoAgent::class]);
         EchoAgent::fake(['done']);
 
-        expect($this->runner->run('test.echo', 'hello')->usage)
+        expect($this->runner->run('test.echo', 'hello', EchoAgent::class)->usage)
             ->toHaveKeys(['input_tokens', 'output_tokens', 'total_tokens']);
     });
 
     it('needs no api key to run a zero-credential provider', function () {
         $provider = AiProvider::factory()->default()->create(['name' => 'local']);
-        AiAgent::factory()->create(['key' => 'test.echo', 'agent_class' => EchoAgent::class]);
         EchoAgent::fake(['done']);
 
         expect($provider->hasApiKey())->toBeFalse()
-            ->and($this->runner->run('test.echo', 'hello')->provider)->toBe('local');
+            ->and($this->runner->run('test.echo', 'hello', EchoAgent::class)->provider)->toBe('local');
     });
 
     it('passes the chosen model through to the run', function () {
         $provider = AiProvider::factory()->default()->create(['name' => 'dev']);
-        AiModel::factory()->create(['provider_id' => $provider->id, 'model_name' => 'default-model']);
+        AiModel::factory()->default()->create(['provider_id' => $provider->id, 'model_name' => 'registry-default']);
         $picked = AiModel::factory()->create(['provider_id' => $provider->id, 'model_name' => 'other-model']);
-        AiAgent::factory()->create(['key' => 'test.echo', 'agent_class' => EchoAgent::class]);
         EchoAgent::fake(['done']);
 
-        expect($this->runner->run('test.echo', 'hello', modelId: $picked->id)->model)
+        expect($this->runner->run('test.echo', 'hello', EchoAgent::class, modelId: $picked->id)->model)
             ->toBe('other-model');
     });
 
-    it('uses the timeout from the agent settings', function () {
+    it('takes a caller-supplied timeout', function () {
         AiProvider::factory()->default()->create(['name' => 'dev']);
-        AiAgent::factory()->create([
-            'key' => 'test.echo',
-            'agent_class' => EchoAgent::class,
-            'settings' => ['timeout' => 5],
-        ]);
         EchoAgent::fake(['done']);
 
-        expect($this->runner->run('test.echo', 'hello'))->toBeInstanceOf(AiRun::class);
+        expect($this->runner->run('test.echo', 'hello', EchoAgent::class, settings: ['timeout' => 5]))
+            ->toBeInstanceOf(AiRun::class);
     });
 
     it('refuses to run when no provider is configured', function () {
-        AiAgent::factory()->create(['key' => 'test.echo', 'agent_class' => EchoAgent::class]);
-
-        $this->runner->run('test.echo', 'hello');
+        $this->runner->run('test.echo', 'hello', EchoAgent::class);
     })->throws(AiNotConfigured::class);
 
-    it('refuses an unregistered key with no fallback class', function () {
+    it('refuses a class that is not an agent', function () {
         AiProvider::factory()->default()->create(['name' => 'dev']);
 
-        $this->runner->run('nobody.registered', 'hello');
+        // Caught in the calling domain's own wiring, which is where it should
+        // surface: the class travels in code, so there is no row far away that
+        // could have been the cause.
+        $this->runner->run('test.broken', 'hello', AiProvider::class);
     })->throws(AiAgentNotRegistered::class);
-
-    it('refuses a registry row whose class is not an agent', function () {
-        AiProvider::factory()->default()->create(['name' => 'dev']);
-        AiAgent::factory()->create(['key' => 'test.broken', 'agent_class' => AiProvider::class]);
-
-        $this->runner->run('test.broken', 'hello');
-    })->throws(AiAgentNotRegistered::class);
-
-    it('falls back to the given class when no registry row exists', function () {
-        AiProvider::factory()->default()->create(['name' => 'dev']);
-        EchoAgent::fake(['from fallback']);
-
-        $run = $this->runner->run('test.unregistered', 'hello', EchoAgent::class);
-
-        expect($run->text)->toBe('from fallback');
-    });
 });

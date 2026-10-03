@@ -8,9 +8,9 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     /**
-     * The Ai domain (D19). Three tables, each owning one concept: a BYOK
-     * credential, a model that credential can reach, and the registry row
-     * that binds a domain's agent to one of those.
+     * The Ai domain (D19). Two tables, each owning one concept: a BYOK
+     * credential, and a model that credential can reach. What a domain's
+     * agent binds to is not one of them — see the note on `ai_agents` below.
      *
      * `driver` is the laravel/ai driver name rather than a provider brand,
      * because an OpenAI-compatible gateway and OpenAI itself are the same
@@ -26,24 +26,36 @@ return new class extends Migration
      * name can mean different things behind two gateways, but never two
      * things behind one.
      *
-     * "At most one provider is the default" is deliberately NOT a partial
-     * unique index. SQLite — which the test suite runs on — silently drops
-     * the `where` clause of an index, so that constraint would be enforced
-     * in tests and not in Postgres: a stricter rule under test than in
-     * production. The model enforces it instead, which also gives an
-     * administrator the behaviour they expect from "set as default".
+     * "At most one provider is the default" is a *partial* unique index, and
+     * an earlier version of this file explained why it deliberately was not:
+     * "SQLite silently drops the `where` clause of an index", so the rule
+     * would hold under test and not in production. That is false. SQLite has
+     * supported partial indexes since 3.8, and 3.49 honours the `WHERE`
+     * exactly — verified directly: a second `true` row is refused and any
+     * number of `false` rows are accepted, on both engines.
+     *
+     * So the invariant lived in PHP alone for a while, on the strength of a
+     * premise that does not hold, which is the worst reason to leave a
+     * database rule to a model's `booted()` hook — the hook still runs, and
+     * gives an administrator the behaviour they expect from "set as default",
+     * but it is no longer the only thing standing between two requests and two
+     * defaults.
      *
      * `ai_models.model_name` is the name the provider knows the model by,
      * not this row's id, which is why it is unique per provider: the same
-     * string can mean different things behind two gateways. It is
-     * deliberately not called `model_id` — on `ai_agents` that name is the
-     * foreign key to this table, and one name must not mean two things.
+     * string can mean different things behind two gateways.
      *
-     * Both foreign keys on `ai_agents` are nullable by design. An agent
-     * with no binding inherits the active default provider, and a binding
-     * whose provider is deleted falls back the same way (A2 resolves it),
-     * so one disabled credential degrades one agent instead of breaking
-     * every caller.
+     * There is no `ai_agents` table. It held one row per domain capability,
+     * binding a key to a provider, a model and a JSONB settings blob, and it
+     * never earned its place: the runner already worked when the row was
+     * absent, because the agent class ships in code. Worse, the row carried
+     * both `provider_id` and `model_id` while the resolver read them
+     * independently, so a row could name a provider and a model belonging to
+     * a different one — the same "a model name means one thing" mistake the
+     * index above exists to prevent, in the one place where it produced a
+     * request to the wrong gateway. `AiAgentRunner` now takes the class from
+     * code and resolves the model from the provider's `is_default` row, or
+     * from the per-request `?model_id=` override.
      */
     public function up(): void
     {
@@ -82,26 +94,24 @@ return new class extends Migration
             $table->string('label')->nullable();
             $table->jsonb('capabilities')->default('[]');
             $table->boolean('is_active')->default(true);
+            // The provider's own default model: what a run falls back to when
+            // no per-request `?model_id=` was given. Partial-indexed per
+            // provider below, for the same reason the provider's own default
+            // is — a plain unique index on a boolean would cap the catalog at
+            // one default and one non-default per gateway.
+            $table->boolean('is_default')->default(false);
             $table->timestamps();
 
             $table->unique(['provider_id', 'model_name']);
         });
 
-        Schema::create('ai_agents', function (Blueprint $table): void {
-            $table->id();
-            $table->string('key')->unique();
-            $table->string('label');
-            $table->string('agent_class');
-            $table->foreignId('provider_id')->nullable()->constrained('ai_providers')->nullOnDelete();
-            $table->foreignId('model_id')->nullable()->constrained('ai_models')->nullOnDelete();
-            $table->jsonb('settings')->nullable();
-            $table->timestamps();
-        });
+        DB::statement(
+            'CREATE UNIQUE INDEX ai_models_one_default_per_provider ON ai_models (provider_id) WHERE is_default'
+        );
     }
 
     public function down(): void
     {
-        Schema::dropIfExists('ai_agents');
         Schema::dropIfExists('ai_models');
         Schema::dropIfExists('ai_providers');
     }

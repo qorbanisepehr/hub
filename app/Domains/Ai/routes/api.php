@@ -1,6 +1,5 @@
 <?php
 
-use App\Domains\Ai\Controllers\AiAgentController;
 use App\Domains\Ai\Controllers\AiModelController;
 use App\Domains\Ai\Controllers\AiProviderController;
 use Illuminate\Support\Facades\Route;
@@ -17,9 +16,6 @@ use Illuminate\Support\Facades\Route;
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('ai/providers', [AiProviderController::class, 'index'])
         ->name('ai.providers.index')
-        ->middleware('permission:ai.provider.view');
-    Route::get('ai/agents', [AiAgentController::class, 'index'])
-        ->name('ai.agents.index')
         ->middleware('permission:ai.provider.view');
     // The flat model list, for a per-run picker outside Settings. Same
     // permission as the registry it reads: choosing among configured
@@ -49,7 +45,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('ai/providers/{provider}/models/{ai_model}', [AiProviderController::class, 'destroyModel'])
             ->name('ai.providers.models.destroy');
 
-        Route::put('ai/agents/{agent}', [AiAgentController::class, 'update'])
-            ->name('ai.agents.update');
+        // Which model runs fall back to, when no per-request override says.
+        Route::post('ai/providers/{provider}/models/{ai_model}/default', [AiProviderController::class, 'makeDefaultModel'])
+            ->name('ai.providers.models.default');
     });
 });
