@@ -183,9 +183,6 @@ export const aiKeys = {
     providers: () => [...aiKeys.all, "providers"] as const,
     providerList: (params: Record<string, unknown>) =>
         [...aiKeys.providers(), params] as const,
-    agents: () => [...aiKeys.all, "agents"] as const,
-    agentList: (params: Record<string, unknown>) =>
-        [...aiKeys.agents(), params] as const,
     /** The flat, cross-provider list a per-run model picker reads. */
     models: () => [...aiKeys.all, "models"] as const,
 };

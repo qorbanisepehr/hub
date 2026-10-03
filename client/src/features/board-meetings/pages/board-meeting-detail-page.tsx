@@ -6,16 +6,12 @@ import {
     IconFileText,
     IconPencil,
     IconRobot,
+    IconTag,
     IconUsers,
 } from "@tabler/icons-react";
 
 import { Badge } from "@/components/ui/badge";
-import {
-    Card,
-    CardContent,
-    CardHeader,
-    CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
     Collapsible,
     CollapsibleContent,
@@ -52,7 +48,13 @@ const route = getRouteApi("/protected/board-meetings/$meetingId");
  * route drops an unknown value, and a tab list that grew a name the enum forgot
  * would render an empty panel rather than fall back.
  */
-const TABS = ["preview", "analysis", "agenda", "attendees", "documents"] as const;
+const TABS = [
+    "preview",
+    "analysis",
+    "agenda",
+    "attendees",
+    "documents",
+] as const;
 
 type Tab = (typeof TABS)[number];
 
@@ -155,14 +157,10 @@ export function BoardMeetingDetailPage() {
 
             <MeetingStats meeting={meeting} isLoading={false} />
 
-            <Tabs
-                value={activeTab}
-                onValueChange={selectTab}
-                className="gap-4"
-            >
+            <Tabs value={activeTab} onValueChange={selectTab} className="gap-4">
                 <TabsList
                     variant="line"
-                    className="w-full justify-start overflow-x-auto"
+                    className="w-full justify-start overflow-x-auto overflow-y-clip"
                 >
                     <TabsTrigger value="preview">
                         <IconFileText />
@@ -212,9 +210,7 @@ export function BoardMeetingDetailPage() {
                             </CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <MeetingMinutesPreview
-                                minutes={meeting.minutes}
-                            />
+                            <MeetingMinutesPreview minutes={meeting.minutes} />
                         </CardContent>
                     </Card>
                 </TabsContent>
@@ -351,9 +347,7 @@ function MeetingProvenance({
                     <div>
                         <p>منبعِ داده</p>
                         <p className="text-foreground text-xs break-all">
-                            {hasProvenance
-                                ? JSON.stringify(provenance)
-                                : "—"}
+                            {hasProvenance ? JSON.stringify(provenance) : "—"}
                         </p>
                     </div>
                 </div>
@@ -377,33 +371,38 @@ function MeetingProvenance({
  */
 function MeetingIdentity({ meeting }: { meeting: BoardMeetingDetailResponse }) {
     return (
-        <div className="bg-muted/50 flex flex-wrap items-center gap-2 rounded-lg px-4 py-3 text-sm">
-            <span className="font-medium">
-                جلسه {toPersianDate(meeting.held_on)}
-            </span>
-            <span className="text-muted-foreground" dir="ltr">
-                {meeting.registry_label}
-            </span>
-            <span className="text-muted-foreground" dir="ltr">
-                {meeting.origin}
-            </span>
+        <div className="bg-muted/50- flex flex-wrap items-center gap-2 rounded-lg px-4 py-3 text-sm">
+            <div className="flex w-full flex-wrap items-center justify-between gap-1">
+                <div className="flex gap-1 items-center">
+                    {/* <Badge variant="outline">
+                        {meeting.registry_label}
+                        </Badge>
+                        <span className="text-muted-foreground" dir="ltr">
+                        {meeting.origin}
+                        </span> */}
+                </div>
+                <div className="flex gap-1 items-center">
+                    {meeting.source_locked ? (
+                        <Badge variant="outline">ویرایش‌شده توسط کاربر</Badge>
+                    ) : (
+                        <Badge variant="secondary">همگام با منبع</Badge>
+                    )}
+                    {meeting.summary?.status === "pending" && (
+                        <Badge variant="secondary">در حال تولید خلاصه</Badge>
+                    )}
+                    {hasContent(meeting.summary) && (
+                        <Badge variant="success">خلاصه دارد</Badge>
+                    )}
+                </div>
+            </div>
 
-            {meeting.source_locked ? (
-                <Badge variant="outline">ویرایش‌شده توسط کاربر</Badge>
-            ) : (
-                <Badge variant="secondary">همگام با منبع</Badge>
-            )}
-
-            {meeting.summary?.status === "pending" && (
-                <Badge variant="secondary">در حال تولید خلاصه</Badge>
-            )}
-
-            {hasContent(meeting.summary) && (
-                <Badge variant="success">خلاصه دارد</Badge>
-            )}
-
-            <div className="flex w-full flex-wrap items-center gap-2 sm:ms-2">
-                <span className="text-muted-foreground text-xs">برچسب‌ها:</span>
+            <div className="flex w-full flex-wrap items-center justify-between gap-1 border-t border-dashed py-2">
+                <div className="flex gap-1 items-center">
+                    <IconTag className="text-muted-foreground size-4" />
+                    <span className="text-muted-foreground text-xs">
+                        برچسب‌ها
+                    </span>
+                </div>
                 <MeetingTagChips tags={meeting.tags} />
             </div>
         </div>

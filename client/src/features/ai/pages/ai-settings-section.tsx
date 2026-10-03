@@ -7,7 +7,6 @@ import {
     IconPencil,
     IconPlus,
     IconRefresh,
-    IconRobot,
     IconStar,
 } from "@tabler/icons-react";
 import { toast } from "sonner";
@@ -29,16 +28,14 @@ import {
 } from "@/hooks/use-data-table-page";
 import { usePermission } from "@/features/auth/components/permission-guard";
 import {
-    useAiAgents,
     useAiProviders,
     useDeleteAiProvider,
     useMakeAiProviderDefault,
     useTestAiProvider,
 } from "@/features/ai/hooks";
-import { AiAgentDialog } from "@/features/ai/pages/ai-agent-dialog";
 import { AiProviderDialog } from "@/features/ai/pages/ai-provider-dialog";
 import { AiProviderModelsDialog } from "@/features/ai/pages/ai-provider-models-dialog";
-import { AI_DRIVERS, type AiAgentDto, type AiProviderDto } from "@/features/ai/types";
+import { AI_DRIVERS, type AiProviderDto } from "@/features/ai/types";
 import { getApiError } from "@/lib/error-utils";
 import { PERMISSIONS } from "@/lib/permissions";
 import { Route } from "@/routes/_protected/settings";
@@ -70,16 +67,6 @@ export function AiSettingsSection() {
         },
     });
 
-    const agentsUrl = useDataTableUrlState({
-        search: search as unknown as Record<string, unknown>,
-        navigate,
-        urlState: {
-            pagination: { pageKey: "ai_page", pageSizeKey: "ai_per_page" },
-            sorting: { sortKey: "ai_sort", orderKey: "ai_order" },
-            globalFilter: { enabled: true, key: "ai_filter" },
-        },
-    });
-
     const {
         data: providersData,
         isLoading: providersLoading,
@@ -94,20 +81,6 @@ export function AiSettingsSection() {
         filter: providersUrl.globalFilter || undefined,
     });
 
-    const {
-        data: agentsData,
-        isLoading: agentsLoading,
-        isError: agentsError,
-        isFetching: agentsFetching,
-        refetch: refetchAgents,
-    } = useAiAgents({
-        page: agentsUrl.pagination.pageIndex + 1,
-        per_page: agentsUrl.pagination.pageSize,
-        sort: agentsUrl.activeSort?.id,
-        order: agentsUrl.activeSort?.desc ? "desc" : "asc",
-        filter: agentsUrl.globalFilter || undefined,
-    });
-
     const removeProvider = useDeleteAiProvider();
     const makeDefault = useMakeAiProviderDefault();
     const test = useTestAiProvider();
@@ -118,7 +91,6 @@ export function AiSettingsSection() {
     }>({ open: false, provider: null });
     const [modelsProvider, setModelsProvider] =
         useState<AiProviderDto | null>(null);
-    const [bindingAgent, setBindingAgent] = useState<AiAgentDto | null>(null);
 
     const openCreateProvider = () =>
         setProviderDialog({ open: true, provider: null });
@@ -282,89 +254,11 @@ export function AiSettingsSection() {
             : []),
     ];
 
-    const agentColumns: ColumnDef<StockFeatures, AiAgentDto>[] = [
-        {
-            accessorKey: "key",
-            header: "کلید",
-            cell: ({ row }: { row: Row<StockFeatures, AiAgentDto> }) => (
-                <div>
-                    <div className="flex flex-wrap items-center gap-1.5">
-                        <span dir="ltr" className="font-medium">
-                            {row.original.key}
-                        </span>
-                        {!row.original.is_bound && (
-                            <Badge variant="outline">بدون اتصال</Badge>
-                        )}
-                    </div>
-                    {row.original.label && (
-                        <span className="text-muted-foreground text-sm">
-                            {row.original.label}
-                        </span>
-                    )}
-                </div>
-            ),
-        },
-        {
-            id: "provider",
-            header: "ارائه‌دهنده",
-            enableSorting: false,
-            cell: ({ row }: { row: Row<StockFeatures, AiAgentDto> }) => (
-                <span
-                    dir="ltr"
-                    className="text-muted-foreground text-sm"
-                >
-                    {row.original.provider_name ?? "پیش‌فرض"}
-                </span>
-            ),
-        },
-        {
-            id: "model",
-            header: "مدل",
-            enableSorting: false,
-            cell: ({ row }: { row: Row<StockFeatures, AiAgentDto> }) => (
-                <span dir="ltr" className="text-muted-foreground text-sm">
-                    {row.original.model_name ?? "پیش‌فرض"}
-                </span>
-            ),
-        },
-        ...(canManage
-            ? [
-                  {
-                      id: "actions",
-                      header: "",
-                      enableSorting: false,
-                      cell: ({
-                          row,
-                      }: {
-                          row: Row<StockFeatures, AiAgentDto>;
-                      }) => (
-                          <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon-sm"
-                              title="تغییر اتصال"
-                              onClick={() => setBindingAgent(row.original)}
-                          >
-                              <IconPencil className="size-4" />
-                          </Button>
-                      ),
-                  } satisfies ColumnDef<StockFeatures, AiAgentDto>,
-              ]
-            : []),
-    ];
-
     const providerTable = useDataTable({
         columns: providerColumns,
         data: providersData?.data ?? [],
         meta: providersData?.meta,
         url: providersUrl,
-    });
-
-    const agentTable = useDataTable({
-        columns: agentColumns,
-        data: agentsData?.data ?? [],
-        meta: agentsData?.meta,
-        url: agentsUrl,
     });
 
     return (
@@ -421,45 +315,6 @@ export function AiSettingsSection() {
                 </CardContent>
             </Card>
 
-            <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                        <IconRobot className="size-5" />
-                        عامل‌ها
-                    </CardTitle>
-                    <CardDescription>
-                        عامل‌ها را دامنه‌های مصرف‌کننده تعریف می‌کنند و اینجا
-                        فقط به آن‌ها متصل می‌شوند. عامل بدون اتصال، ارائه‌دهنده و
-                        مدل پیش‌فرض را به ارث می‌برد.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent className="p-0">
-                    <DataTablePage
-                        table={agentTable}
-                        meta={agentsData?.meta}
-                        isLoading={agentsLoading}
-                        isError={agentsError}
-                        title=""
-                        icon={IconRobot}
-                        embedded
-                        searchPlaceholder="جستجوی کلید، عنوان یا کلاس…"
-                        globalFilter={agentsUrl.globalFilter}
-                        onGlobalFilterChange={agentsUrl.onGlobalFilterChange}
-                        actions={[
-                            {
-                                id: "refresh",
-                                label: "بازخوانی",
-                                icon: IconRefresh,
-                                onClick: () => refetchAgents(),
-                                disabled: agentsFetching,
-                            },
-                        ]}
-                        onRetry={() => refetchAgents()}
-                        colSpan={agentColumns.length}
-                        emptyMessage="هنوز عاملی ثبت نشده است"
-                    />
-                </CardContent>
-            </Card>
 
             <AiProviderDialog
                 open={providerDialog.open}
@@ -482,14 +337,6 @@ export function AiSettingsSection() {
                 />
             )}
 
-            {bindingAgent && (
-                <AiAgentDialog
-                    open
-                    onOpenChange={(open) => !open && setBindingAgent(null)}
-                    agent={bindingAgent}
-                    providers={providersData?.data ?? []}
-                />
-            )}
         </div>
     );
 }

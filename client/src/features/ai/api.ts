@@ -1,9 +1,5 @@
 import { api } from "@/lib/api";
 import type {
-    AiAgentBindingPayload,
-    AiAgentDto,
-    AiAgentListParams,
-    AiAgentListResponse,
     AiConnectionTestResult,
     AiModelDto,
     AiModelListResponse,
@@ -23,10 +19,6 @@ import type {
 
 export function fetchAiProviders(params: AiProviderListParams) {
     return api.get<AiProviderListResponse>("/ai/providers", { params });
-}
-
-export function fetchAiAgents(params: AiAgentListParams) {
-    return api.get<AiAgentListResponse>("/ai/agents", { params });
 }
 
 /**
@@ -96,7 +88,14 @@ export function deleteAiModel(providerId: number, modelId: number) {
     );
 }
 
-/** Binding only — `key` and `agent_class` belong to the consuming domain. */
-export function updateAiAgentBinding(id: number, payload: AiAgentBindingPayload) {
-    return api.put<{ data: AiAgentDto }>(`/ai/agents/${id}`, payload);
+/**
+ * Promote one of a provider's models to be the one runs fall back to.
+ *
+ * Descriptor-only, exactly like the provider's own "set as default": no body,
+ * and the previous default is demoted server-side.
+ */
+export function makeAiModelDefault(providerId: number, modelId: number) {
+    return api.post<{ data: AiModelDto }>(
+        `/ai/providers/${providerId}/models/${modelId}/default`,
+    );
 }

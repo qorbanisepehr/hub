@@ -1,14 +1,13 @@
 export {
-    useAiAgents,
     useAiModels,
     useAiProviders,
     useCreateAiModel,
     useCreateAiProvider,
     useDeleteAiModel,
     useDeleteAiProvider,
+    useMakeAiModelDefault,
     useMakeAiProviderDefault,
     useTestAiProvider,
-    useUpdateAiAgentBinding,
     useUpdateAiModel,
     useUpdateAiProvider,
 } from "./use-ai";

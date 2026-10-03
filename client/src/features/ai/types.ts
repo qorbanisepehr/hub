@@ -83,6 +83,12 @@ export interface AiModelDto {
     display_label: string;
     capabilities: AiCapability[];
     is_active: boolean;
+    /**
+     * The model runs fall back to for this provider. Shown as a badge rather
+     * than left for the reader to infer, because "which model will this hub
+     * actually use" is not answerable by reading the list.
+     */
+    is_default: boolean;
 }
 
 export type AiModelListResponse = PaginatedResponse<AiModelDto>;
@@ -109,38 +115,12 @@ export interface AiProviderDto {
     models: AiModelDto[];
 }
 
-export interface AiAgentDto {
-    id: number;
-    /** The agent's identity in every caller; not editable here. */
-    key: string;
-    label: string | null;
-    /** The consuming domain's class; not editable here. */
-    agent_class: string;
-    /** True when it names its own provider rather than inheriting. */
-    is_bound: boolean;
-    provider_id: number | null;
-    provider_name: string | null;
-    model_id: number | null;
-    model_name: string | null;
-    settings: Record<string, unknown> | null;
-}
-
 export type AiProviderListResponse = PaginatedResponse<AiProviderDto>;
-
-export type AiAgentListResponse = PaginatedResponse<AiAgentDto>;
 
 export interface AiProviderListParams {
     page?: number;
     per_page?: number;
     /** Whitelisted sort columns: `name` | `driver` | `created_at`. */
-    sort?: string;
-    order?: "asc" | "desc";
-    filter?: string;
-}
-
-export interface AiAgentListParams {
-    page?: number;
-    per_page?: number;
     sort?: string;
     order?: "asc" | "desc";
     filter?: string;
@@ -176,12 +156,6 @@ export interface AiModelPayload {
     label?: string | null;
     capabilities?: AiCapability[];
     is_active?: boolean;
-}
-
-/** Both ids nullable, and null means "inherit the active default". */
-export interface AiAgentBindingPayload {
-    provider_id?: number | null;
-    model_id?: number | null;
 }
 
 /** The result of a successful connection probe. */

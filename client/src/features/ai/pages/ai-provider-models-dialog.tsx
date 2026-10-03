@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { IconPencil, IconPlus, IconTrash } from "@tabler/icons-react";
+import { IconPencil, IconPlus, IconStar, IconTrash } from "@tabler/icons-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,7 @@ import { Switch } from "@/components/ui/switch";
 import {
     useCreateAiModel,
     useDeleteAiModel,
+    useMakeAiModelDefault,
     useUpdateAiModel,
 } from "@/features/ai/hooks";
 import {
@@ -55,6 +56,7 @@ export function AiProviderModelsDialog({
     const [formOpen, setFormOpen] = useState(false);
 
     const remove = useDeleteAiModel();
+    const makeDefault = useMakeAiModelDefault();
 
     const openCreate = () => {
         setEditing(null);
@@ -103,6 +105,11 @@ export function AiProviderModelsDialog({
                                                     {model.label}
                                                 </span>
                                             )}
+                                        {model.is_default && (
+                                            <Badge variant="success">
+                                                پیش‌فرض
+                                            </Badge>
+                                        )}
                                         {!model.is_active && (
                                             <Badge variant="outline">
                                                 غیرفعال
@@ -127,6 +134,23 @@ export function AiProviderModelsDialog({
                                 </div>
 
                                 <div className="flex shrink-0 items-center gap-1">
+                                    {!model.is_default && (
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="icon-sm"
+                                            onClick={() =>
+                                                makeDefault.mutate({
+                                                    providerId: provider.id,
+                                                    modelId: model.id,
+                                                })
+                                            }
+                                            disabled={makeDefault.isPending}
+                                            title="مدل پیش‌فرض این ارائه‌دهنده"
+                                        >
+                                            <IconStar className="size-4" />
+                                        </Button>
+                                    )}
                                     <Button
                                         type="button"
                                         variant="ghost"

@@ -8,18 +8,15 @@ import {
     createAiProvider,
     deleteAiModel,
     deleteAiProvider,
-    fetchAiAgents,
     fetchAiModels,
     fetchAiProviders,
+    makeAiModelDefault,
     makeAiProviderDefault,
     testAiProviderConnection,
-    updateAiAgentBinding,
     updateAiModel,
     updateAiProvider,
 } from "../api";
 import type {
-    AiAgentListParams,
-    AiAgentBindingPayload,
     AiModelPayload,
     AiProviderListParams,
     CreateAiProviderPayload,
@@ -36,16 +33,6 @@ export function useAiProviders(params: AiProviderListParams) {
         queryKey: aiKeys.providerList(params as Record<string, unknown>),
         queryFn: async () => {
             const { data } = await fetchAiProviders(params);
-            return data;
-        },
-    });
-}
-
-export function useAiAgents(params: AiAgentListParams) {
-    return useQuery({
-        queryKey: aiKeys.agentList(params as Record<string, unknown>),
-        queryFn: async () => {
-            const { data } = await fetchAiAgents(params);
             return data;
         },
     });
@@ -202,13 +189,20 @@ export function useDeleteAiModel() {
     });
 }
 
-export function useUpdateAiAgentBinding() {
+/**
+ * Promote one of a provider's models to be the one runs fall back to.
+ *
+ * This is what the agent-binding screen used to do, and the toast says what a
+ * reader needs to know: the change affects the *next* run, not the one in
+ * progress, because a run resolves its model when it starts.
+ */
+export function useMakeAiModelDefault() {
     const invalidate = useInvalidateAi();
 
     return useMutation({
-        mutationFn: ({ id, payload }: { id: number; payload: AiAgentBindingPayload }) =>
-            updateAiAgentBinding(id, payload),
-        onSuccess: () => invalidate("اتصال عامل به‌روزرسانی شد"),
+        mutationFn: ({ providerId, modelId }: { providerId: number; modelId: number }) =>
+            makeAiModelDefault(providerId, modelId),
+        onSuccess: () => invalidate("مدل پیش‌فرض تغییر کرد"),
         onError: (error) => toast.error(getApiError(error)),
     });
 }
