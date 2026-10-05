@@ -1,8 +1,5 @@
 <?php
 
-use App\Domains\Ai\Enums\AiDriver;
-use App\Domains\Ai\Models\AiModel;
-use App\Domains\Ai\Models\AiProvider;
 use App\Domains\BoardMeeting\Enums\SummaryWriteMode;
 use App\Domains\BoardMeeting\Jobs\GenerateBoardMeetingSummaryJob;
 use App\Domains\BoardMeeting\Models\BoardMeeting;
@@ -20,7 +17,7 @@ use function Pest\Laravel\actingAs;
  */
 
 beforeEach(function () {
-    $this->provider = AiProvider::factory()->create(['name' => 'local', 'driver' => AiDriver::Ollama]);
+    $this->provider = seedSummaryProvider();
 
     $this->generate = function (array $attributes = []): BoardMeeting {
         return BoardMeeting::factory()->create($attributes + ['minutes' => 'مصوبهٔ ۴۱ تصویب شد.']);
@@ -42,9 +39,9 @@ describe('GET /api/ai/models', function () {
     });
 
     it('lists pickable models across providers, flat and named', function () {
-        $second = AiProvider::factory()->create(['name' => 'gateway']);
-        AiModel::factory()->create(['provider_id' => $this->provider->id, 'model_name' => 'llama3.2']);
-        AiModel::factory()->create(['provider_id' => $second->id, 'model_name' => 'gpt-4o-mini']);
+        seedSummaryProvider('gateway', makeDefault: false);
+        seedSummaryModel('local', 'llama3.2');
+        seedSummaryModel('gateway', 'gpt-4o-mini');
 
         $rows = collect(actingAs(createUserWithPermissions(['ai.provider.view']))
             ->getJson('/api/ai/models')
@@ -61,10 +58,10 @@ describe('GET /api/ai/models', function () {
     });
 
     it('omits a model nobody can pick', function () {
-        AiModel::factory()->create(['provider_id' => $this->provider->id, 'model_name' => 'live']);
-        AiModel::factory()->inactive()->create(['provider_id' => $this->provider->id, 'model_name' => 'retired']);
-        $dead = AiProvider::factory()->inactive()->create(['name' => 'dead']);
-        AiModel::factory()->create(['provider_id' => $dead->id, 'model_name' => 'unreachable']);
+        seedSummaryModel('local', 'live');
+        seedSummaryModel('local', 'retired', isActive: false);
+        seedSummaryProvider('dead', isActive: false, makeDefault: false);
+        seedSummaryModel('dead', 'unreachable');
 
         $names = actingAs(createUserWithPermissions(['ai.provider.view']))
             ->getJson('/api/ai/models')
@@ -76,7 +73,7 @@ describe('GET /api/ai/models', function () {
     });
 
     it('never carries the provider row it does not need', function () {
-        AiModel::factory()->create(['provider_id' => $this->provider->id]);
+        seedSummaryModel('local', 'llama3.2');
 
         $model = actingAs(createUserWithPermissions(['ai.provider.view']))
             ->getJson('/api/ai/models')
@@ -205,16 +202,17 @@ describe('POST /api/board-meetings/summary/bulk', function () {
         );
     });
 
-    it('passes the chosen model and mode through', function () {
+    it('passes the chosen pair and mode through', function () {
         Queue::fake();
-        $model = AiModel::factory()->create(['provider_id' => $this->provider->id]);
+        $model = seedSummaryModel('local', 'llama3.2');
         $meeting = ($this->generate)();
 
         actingAs(createUserWithPermissions(['board-meeting.sync']))
             ->postJson('/api/board-meetings/summary/bulk', [
                 'meeting_ids' => [$meeting->id],
                 'mode' => 'apply',
-                'model_id' => $model->id,
+                'provider' => 'local',
+                'model' => $model->name,
                 'fields' => ['topics'],
             ])
             ->assertOk();
@@ -222,7 +220,8 @@ describe('POST /api/board-meetings/summary/bulk', function () {
         Queue::assertPushed(
             GenerateBoardMeetingSummaryJob::class,
             fn (GenerateBoardMeetingSummaryJob $job): bool => $job->mode === SummaryWriteMode::Apply
-                && $job->modelId === $model->id
+                && $job->provider === 'local'
+                && $job->model === 'llama3.2'
                 // Empty means every field, the same rule the single endpoint and
                 // the agent use, so a bulk run needs no special value.
                 && $job->fields === [],
@@ -236,13 +235,17 @@ describe('POST /api/board-meetings/summary/bulk', function () {
         actingAs(createUserWithPermissions(['board-meeting.sync']))
             ->postJson('/api/board-meetings/summary/bulk', [
                 'meeting_ids' => [$meeting->id],
-                'model_id' => null,
+                'provider' => null,
+                'model' => null,
             ])
             ->assertOk();
 
+        // "No override" is a value the client sends, not a key it omits: the
+        // picker's default is the agent's own binding, expressed as an explicit
+        // null. `sometimes` alone would leave a present null to satisfy `string`.
         Queue::assertPushed(
             GenerateBoardMeetingSummaryJob::class,
-            fn (GenerateBoardMeetingSummaryJob $job): bool => $job->modelId === null,
+            fn (GenerateBoardMeetingSummaryJob $job): bool => $job->provider === null && $job->model === null,
         );
     });
 
@@ -288,28 +291,65 @@ describe('POST /api/board-meetings/summary/bulk', function () {
 });
 
 describe('choosing a model for one meeting', function () {
-    it('carries the model id onto the job', function () {
+    it('carries the named pair onto the job', function () {
         Queue::fake();
-        $model = AiModel::factory()->create(['provider_id' => $this->provider->id]);
+        seedSummaryModel('local', 'llama3.2');
         $meeting = ($this->generate)();
 
         actingAs(createUserWithPermissions(['board-meeting.update']))
-            ->postJson("/api/board-meetings/{$meeting->id}/summary", ['model_id' => $model->id])
+            ->postJson("/api/board-meetings/{$meeting->id}/summary", [
+                'provider' => 'local',
+                'model' => 'llama3.2',
+            ])
             ->assertOk();
 
         Queue::assertPushed(
             GenerateBoardMeetingSummaryJob::class,
-            fn (GenerateBoardMeetingSummaryJob $job): bool => $job->modelId === $model->id,
+            fn (GenerateBoardMeetingSummaryJob $job): bool => $job->provider === 'local'
+                && $job->model === 'llama3.2',
         );
     });
 
-    it('rejects a model id that is not a number', function () {
+    it('rejects a model name that no provider serves', function () {
+        $meeting = ($this->generate)();
+
+        // The refusal is field-keyed: a form has to know which select to mark,
+        // and a message-only 422 renders as a banner while both look fine.
+        actingAs(createUserWithPermissions(['board-meeting.update']))
+            ->postJson("/api/board-meetings/{$meeting->id}/summary", [
+                'provider' => 'local',
+                'model' => 'no-such-model',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('model');
+    });
+
+    it('rejects a provider that does not exist, against the provider field', function () {
         $meeting = ($this->generate)();
 
         actingAs(createUserWithPermissions(['board-meeting.update']))
-            ->postJson("/api/board-meetings/{$meeting->id}/summary", ['model_id' => 'gpt-4o'])
+            ->postJson("/api/board-meetings/{$meeting->id}/summary", [
+                'provider' => 'ghost',
+                'model' => 'llama3.2',
+            ])
             ->assertUnprocessable()
-            ->assertJsonValidationErrors('model_id');
+            ->assertJsonValidationErrors('provider');
+    });
+
+    it('rejects a model the named provider does not serve', function () {
+        seedSummaryProvider('gateway', makeDefault: false);
+        seedSummaryModel('gateway', 'gpt-4o-mini');
+        $meeting = ($this->generate)();
+
+        // A model name is unique only within a provider, so the pair is what
+        // makes a request answerable: `local` does not serve `gpt-4o-mini`.
+        actingAs(createUserWithPermissions(['board-meeting.update']))
+            ->postJson("/api/board-meetings/{$meeting->id}/summary", [
+                'provider' => 'local',
+                'model' => 'gpt-4o-mini',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('model');
     });
 
     it('accepts an explicit null as the agent bound model', function () {
@@ -320,36 +360,48 @@ describe('choosing a model for one meeting', function () {
         // key present-and-null. Without `nullable` that is the one value the
         // boundary refuses, and the button fails before queueing anything.
         actingAs(createUserWithPermissions(['board-meeting.update']))
-            ->postJson("/api/board-meetings/{$meeting->id}/summary", ['model_id' => null])
+            ->postJson("/api/board-meetings/{$meeting->id}/summary", [
+                'provider' => null,
+                'model' => null,
+            ])
             ->assertOk();
 
         Queue::assertPushed(
             GenerateBoardMeetingSummaryJob::class,
-            fn (GenerateBoardMeetingSummaryJob $job): bool => $job->modelId === null,
+            fn (GenerateBoardMeetingSummaryJob $job): bool => $job->provider === null && $job->model === null,
         );
     });
 
-    it('accepts an id that no longer exists rather than failing the run', function () {
+    it('accepts a model name with no provider at all', function () {
         Queue::fake();
+        seedSummaryModel('local', 'llama3.2');
         $meeting = ($this->generate)();
 
-        // Validated as a plain integer, not against the Ai domain's table: that
-        // table is the Ai domain's, and a queued job whose model was deleted in
-        // Settings has to still run when it finally gets its turn.
+        // The ordinary case: "this model, on whichever provider the run would
+        // have used anyway". Refusing it would make the simpler request the
+        // broken one.
         actingAs(createUserWithPermissions(['board-meeting.update']))
-            ->postJson("/api/board-meetings/{$meeting->id}/summary", ['model_id' => 999_999])
+            ->postJson("/api/board-meetings/{$meeting->id}/summary", ['model' => 'llama3.2'])
             ->assertOk();
 
-        Queue::assertPushed(GenerateBoardMeetingSummaryJob::class);
+        Queue::assertPushed(
+            GenerateBoardMeetingSummaryJob::class,
+            fn (GenerateBoardMeetingSummaryJob $job): bool => $job->provider === null
+                && $job->model === 'llama3.2',
+        );
     });
 
     it('keeps two runs on different models from being the same request', function () {
-        $a = AiModel::factory()->create(['provider_id' => $this->provider->id]);
-        $b = AiModel::factory()->create(['provider_id' => $this->provider->id]);
-
         // Asking twice on purpose with two models is a comparison, so the
         // uniqueness lock must not swallow the second.
-        expect((new GenerateBoardMeetingSummaryJob(1, [], $a->id))->uniqueId())
-            ->not->toBe((new GenerateBoardMeetingSummaryJob(1, [], $b->id))->uniqueId());
+        expect((new GenerateBoardMeetingSummaryJob(1, [], 'local', 'llama3.2'))->uniqueId())
+            ->not->toBe((new GenerateBoardMeetingSummaryJob(1, [], 'local', 'gpt-4o'))->uniqueId());
+    });
+
+    it('keeps two runs on the same model behind different providers apart', function () {
+        // The pair is the identity: one model name under two gateways is two
+        // different requests, and collapsing them would drop a paid run.
+        expect((new GenerateBoardMeetingSummaryJob(1, [], 'local', 'gpt-4o'))->uniqueId())
+            ->not->toBe((new GenerateBoardMeetingSummaryJob(1, [], 'gateway', 'gpt-4o'))->uniqueId());
     });
 });

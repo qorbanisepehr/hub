@@ -1,10 +1,10 @@
 <?php
 
-use App\Domains\Ai\Enums\AiDriver;
-use App\Domains\Ai\Models\AiAgent;
-use App\Domains\Ai\Models\AiProvider;
 use App\Domains\Ai\Services\AiAgentRunner;
 use App\Domains\Ai\Services\AiProviderResolver;
+use App\Domains\Ai\Value\AiAgent;
+use App\Domains\Ai\Value\AiProvider;
+use App\Domains\Ai\Value\AiRegistryKey;
 use App\Domains\BoardMeeting\Ai\MeetingSummaryAgent;
 use App\Domains\BoardMeeting\Ai\MeetingSummaryField;
 use App\Domains\BoardMeeting\Enums\SummaryWriteMode;
@@ -17,6 +17,7 @@ use App\Domains\BoardMeeting\Services\MeetingSummaryApplier;
 use App\Domains\BoardMeeting\Value\AgendaItem;
 use App\Domains\BoardMeeting\Value\Attendee;
 use App\Domains\BoardMeeting\Value\MeetingSummary;
+use App\Domains\Settings\Repositories\SystemSettingsRepositoryInterface;
 use App\Domains\Tagging\Services\TagService;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\JsonSchema\JsonSchemaTypeFactory;
@@ -32,7 +33,7 @@ use Tests\Fixtures\Ai\StructuredEchoAgent;
  */
 
 beforeEach(function () {
-    AiProvider::factory()->create(['name' => 'local', 'driver' => AiDriver::Ollama]);
+    seedSummaryProvider();
 
     $this->summarizer = app(BoardMeetingSummarizer::class);
     $this->meeting = BoardMeeting::factory()->create([
@@ -73,12 +74,18 @@ function capturePrompt(Closure $target): string
  *
  * @param  list<string>  $fields
  */
-function runSummaryJob(int $meetingId, array $fields = [], ?SummaryWriteMode $mode = null): void
-{
+function runSummaryJob(
+    int $meetingId,
+    array $fields = [],
+    ?SummaryWriteMode $mode = null,
+    ?string $provider = null,
+    ?string $model = null,
+): void {
     (new GenerateBoardMeetingSummaryJob(
         $meetingId,
         $fields,
-        null,
+        $provider,
+        $model,
         $mode ?? SummaryWriteMode::Apply,
     ))->handle(app(BoardMeetingSummarizer::class), app(MeetingSummaryApplier::class));
 }
@@ -339,7 +346,10 @@ describe('an unregistered agent', function () {
         // production uses, and the day it exists it takes over.
         MeetingSummaryAgent::fake([['executive_summary' => 'خلاصه']]);
 
-        expect(AiAgent::query()->where('key', MeetingSummaryAgent::REGISTRY_KEY)->exists())->toBeFalse();
+        expect(app(SystemSettingsRepositoryInterface::class)->get(
+            AiAgent::class,
+            AiRegistryKey::AGENTS.MeetingSummaryAgent::REGISTRY_KEY,
+        ))->toBeNull();
 
         $summary = $this->summarizer->summarize($this->meeting, ['executive_summary']);
 
@@ -352,15 +362,21 @@ describe('an unregistered agent', function () {
         // does nothing until a deploy, which is the opposite of D28's promise.
         MeetingSummaryAgent::fake([['executive_summary' => 'خلاصه']]);
 
-        AiAgent::factory()->create([
-            'key' => MeetingSummaryAgent::REGISTRY_KEY,
-            'agent_class' => MeetingSummaryAgent::class,
-        ]);
+        app(SystemSettingsRepositoryInterface::class)->put(
+            new AiAgent(
+                MeetingSummaryAgent::REGISTRY_KEY,
+                'Moulid khalase',
+                MeetingSummaryAgent::class,
+            ),
+        );
 
         expect($this->summarizer->summarize($this->meeting, ['executive_summary'])->status)
             ->toBe(MeetingSummary::STATUS_OK);
 
-        expect(AiAgent::query()->where('key', MeetingSummaryAgent::REGISTRY_KEY)->count())->toBe(1);
+        expect(app(SystemSettingsRepositoryInterface::class)->get(
+            AiAgent::class,
+            AiRegistryKey::AGENTS.MeetingSummaryAgent::REGISTRY_KEY,
+        ))->not->toBeNull();
     });
 });
 
@@ -415,7 +431,7 @@ describe('the job', function () {
         // No provider at all: the run cannot start, and no number of retries
         // will conjure one.
         $this->meeting->forceFill(['summary' => null])->save();
-        AiProvider::query()->delete();
+        app(SystemSettingsRepositoryInterface::class)->forget(AiProvider::class, AiRegistryKey::PROVIDERS.'local');
         app(AiProviderResolver::class)->forget();
 
         runSummaryJob($this->meeting->id, ['executive_summary']);
@@ -567,10 +583,33 @@ describe('job identity', function () {
     it('keeps a different mode a different request', function () {
         // "Put it in the record" and "hold it for me" are two things to ask for.
         // Dropping the second because the first was in flight would hand someone
-        // a proposal when they asked for an answer — the exact surprise the mode
+        // a proposal when they asked for an answer - the exact surprise the mode
         // exists to prevent.
-        expect((new GenerateBoardMeetingSummaryJob(7, ['topics'], null, SummaryWriteMode::Apply))->uniqueId())
-            ->not->toBe((new GenerateBoardMeetingSummaryJob(7, ['topics'], null, SummaryWriteMode::Review))->uniqueId());
+        expect((new GenerateBoardMeetingSummaryJob(7, ['topics'], null, null, SummaryWriteMode::Apply))->uniqueId())
+            ->not->toBe((new GenerateBoardMeetingSummaryJob(7, ['topics'], null, null, SummaryWriteMode::Review))->uniqueId());
+    });
+
+    it('keeps a different model a different request', function () {
+        // D26's promise again: asking twice on purpose with two models is a
+        // comparison, so the lock must not swallow the second.
+        expect((new GenerateBoardMeetingSummaryJob(7, ['topics'], 'local', 'llama3.2'))->uniqueId())
+            ->not->toBe((new GenerateBoardMeetingSummaryJob(7, ['topics'], 'local', 'gpt-4o'))->uniqueId());
+    });
+
+    it('keeps the same model behind two gateways two different requests', function () {
+        // A model name is unique only within a provider, so the pair is the
+        // identity. Collapsing these would drop a paid run.
+        expect((new GenerateBoardMeetingSummaryJob(7, ['topics'], 'local', 'gpt-4o'))->uniqueId())
+            ->not->toBe((new GenerateBoardMeetingSummaryJob(7, ['topics'], 'gateway', 'gpt-4o'))->uniqueId());
+    });
+
+    it('does not treat an inherited model as a named one', function () {
+        // "Whatever this run would have used anyway" and "this model, on the
+        // provider that was going to run it" produce the same run, so the lock
+        // may collapse them - but naming a provider is not the same request as
+        // naming nothing, and must not be mistaken for it.
+        expect((new GenerateBoardMeetingSummaryJob(7, ['topics'], null, 'llama3.2'))->uniqueId())
+            ->not->toBe((new GenerateBoardMeetingSummaryJob(7, ['topics'], 'local', 'llama3.2'))->uniqueId());
     });
 
     it('is implemented as a unique job', function () {
@@ -926,7 +965,7 @@ describe('the audit trail', function () {
     it('records a run that produced nothing usable', function () {
         Event::fake([MeetingSummaryGenerated::class]);
         $this->meeting->forceFill(['summary' => null])->save();
-        AiProvider::query()->delete();
+        app(SystemSettingsRepositoryInterface::class)->forget(AiProvider::class, AiRegistryKey::PROVIDERS.'local');
         app(AiProviderResolver::class)->forget();
 
         runSummaryJob($this->meeting->id, ['executive_summary']);

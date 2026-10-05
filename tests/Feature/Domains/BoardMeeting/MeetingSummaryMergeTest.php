@@ -1,7 +1,5 @@
 <?php
 
-use App\Domains\Ai\Enums\AiDriver;
-use App\Domains\Ai\Models\AiProvider;
 use App\Domains\BoardMeeting\Ai\MeetingSummaryAgent;
 use App\Domains\BoardMeeting\Enums\SummaryWriteMode;
 use App\Domains\BoardMeeting\Jobs\GenerateBoardMeetingSummaryJob;
@@ -50,7 +48,7 @@ function acceptedSummary(array $values): array
 }
 
 beforeEach(function () {
-    AiProvider::factory()->create(['name' => 'local', 'driver' => AiDriver::Ollama]);
+    seedSummaryProvider();
 
     $this->summarizer = app(BoardMeetingSummarizer::class);
     $this->meeting = BoardMeeting::factory()->create([
@@ -186,6 +184,7 @@ describe('what a merging run reconciles against', function () {
             $this->meeting,
             ['executive_summary'],
             null,
+            null,
             true,
         );
 
@@ -210,6 +209,7 @@ describe('what a merging run reconciles against', function () {
         app(BoardMeetingSummarizer::class)->summarize(
             $this->meeting,
             ['key_decisions'],
+            null,
             null,
             true,
         );
@@ -268,6 +268,7 @@ describe('asking for a merging run', function () {
         $merge = new GenerateBoardMeetingSummaryJob(
             1,
             ['topics'],
+            null,
             null,
             SummaryWriteMode::Review,
             true,

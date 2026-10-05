@@ -21,7 +21,13 @@ use Illuminate\Support\Str;
  * them can be answered inside the Ai domain without that domain learning what
  * a board meeting is. So this service names no provider and no model: it hands
  * a key and a prompt to {@see AiAgentRunner} and reads an artifact back, and
- * everything about *which* model ran is decided in Settings (D28).
+ * everything about *which* model ran is decided in Settings (D28). The optional
+ * provider/model pair is the one thing it does name, and only because a person
+ * picked it for one run in the UI — the same exception the runner's own
+ * docblock makes. The pair is passed through unexamined: whether it could still
+ * be served was answered by the request before the run was queued, and a name
+ * that goes stale in the queue degrades to the agent's binding instead of
+ * failing the job.
  *
  * The prompt is assembled from `minutes` + `agenda` + `attendees` only (D21).
  * Registry columns such as `origin` and `provenance` describe where the row
@@ -38,11 +44,19 @@ class BoardMeetingSummarizer
      * @param  list<string>  $fields  the fields to fill; empty means all of
      *                                them, which is what a first run and the
      *                                bulk action both send
-     * @param  int|null  $modelId  a model row chosen for this one run from the
-     *                             UI; never a provider (D28). An id rather
-     *                             than a name because a name is only unique
-     *                             per provider, and the row also decides
-     *                             which provider answers
+     * @param  string|null  $provider  a gateway chosen for this one run from the
+     *                                 UI. Optional because naming it is not
+     *                                 necessary: an unqualified model picks the
+     *                                 gateway the rest of the ladder would have
+     *                                 used, which is the ordinary case
+     * @param  string|null  $model  a model chosen for this one run from the UI,
+     *                              read on whichever provider the run resolves
+     *                              to. Names rather than ids because a name is
+     *                              unique only within a provider, and the id this
+     *                              used to take also decided the provider — so
+     *                              the two could never be disagreed with each
+     *                              other and the choice could not be expressed
+     *                              as "this model, on that gateway"
      *
      * @throws AiNotConfigured when no provider can answer
      * @throws \ValueError when a field name is outside the vocabulary
@@ -50,7 +64,8 @@ class BoardMeetingSummarizer
     public function summarize(
         BoardMeeting $meeting,
         array $fields = [],
-        ?int $modelId = null,
+        ?string $provider = null,
+        ?string $model = null,
         bool $merge = false,
     ): MeetingSummary {
         $requested = MeetingSummaryField::fromValues($fields);
@@ -67,7 +82,8 @@ class BoardMeetingSummarizer
             key: MeetingSummaryAgent::REGISTRY_KEY,
             prompt: $this->promptFor($meeting, $previous),
             agentClass: MeetingSummaryAgent::class,
-            modelId: $modelId,
+            provider: $provider,
+            model: $model,
             settings: [
                 'fields' => array_map(
                     fn (MeetingSummaryField $field): string => $field->value,

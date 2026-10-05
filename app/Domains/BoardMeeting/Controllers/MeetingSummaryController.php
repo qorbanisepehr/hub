@@ -48,7 +48,8 @@ class MeetingSummaryController
         GenerateBoardMeetingSummaryJob::dispatch(
             meetingId: $meeting->getKey(),
             fields: $request->summaryFields(),
-            modelId: $request->summaryModelId(),
+            provider: $request->summaryProvider(),
+            model: $request->summaryModel(),
             mode: $request->summaryMode(),
             merge: $request->shouldMerge(),
         );
@@ -126,7 +127,8 @@ class MeetingSummaryController
         $result = $bulk->dispatch(
             $request->meetingIds(),
             $request->summaryMode(),
-            $request->summaryModelId(),
+            $request->summaryProvider(),
+            $request->summaryModel(),
         );
 
         return response()->json([

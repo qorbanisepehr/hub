@@ -2,38 +2,35 @@
 
 namespace App\Domains\BoardMeeting\Requests;
 
+use App\Domains\Ai\Services\AiAgentRunner;
+use App\Domains\BoardMeeting\Ai\MeetingSummaryAgent;
 use App\Domains\BoardMeeting\Ai\MeetingSummaryField;
 use App\Domains\BoardMeeting\Enums\SummaryWriteMode;
+use Illuminate\Contracts\Validation\Validator as ValidationValidator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 /**
  * HTTP boundary for POST /api/board-meetings/{meeting}/summary.
  *
- * `fields` absent or empty means every field — the same rule the agent and the
- * job use, so "generate the whole thing" needs no special value.
+ * `fields` absent or empty means every field. `mode` falls back to `review`,
+ * the direction that leaves the record alone, so a client that never heard of
+ * the choice proposes rather than overwrites.
  *
- * `mode` is validated rather than defaulted into existence at the controller,
- * but it is optional and falls back to `review`, the direction that leaves the
- * record alone. A client that never heard of the choice therefore proposes
- * instead of overwriting, which is the outcome a person can still undo by
- * reading the tab.
+ * The model choice is a `provider` and a `model` name, not one row id: a name is
+ * unique only within a provider, so two names say which gateway answers *and*
+ * which model on it - the shape `GET /api/ai/models` already presents. Naming
+ * only `model` means "this model, on whichever provider the run would have used".
  *
- * `model_id` is an id and not a model name, because a name is unique only
- * within a provider. It is deliberately validated as a plain integer rather
- * than checked against the Ai domain's table: the Ai domain owns that table, so
- * a `exists` rule here would have this request reading another domain's schema
- * to answer a question the resolver can answer better. An id that names nothing
- * pickable — deleted, or switched off in the meantime — falls back to the
- * agent's bound model, which the artifact then records, so what actually ran
- * is reported rather than assumed. That also keeps a job queued against a model
- * someone deleted in Settings from failing when it finally runs.
+ * Both are `nullable` as well as `sometimes`, because "no override" is a value a
+ * client sends rather than a key it omits; `sometimes` alone would leave a
+ * present null to satisfy `string`.
  *
- * It is `nullable` as well as `sometimes`, because "no override" is a value a
- * client sends rather than a key it omits — the model picker's default is the
- * agent's own binding, expressed as an explicit null. `sometimes` alone skips
- * only an *absent* key, so a present null would still have to satisfy
- * `integer`.
+ * Neither is checked against the Ai domain's storage - that is not this
+ * request's question. It hands the pair to {@see AiAgentRunner::unusableChoice()}
+ * and reports the field that came back, so a name that has since been deleted
+ * is refused here, to the person who typed it, while the queued job stays lenient
+ * and degrades instead of failing.
  */
 class GenerateMeetingSummaryRequest extends FormRequest
 {
@@ -52,7 +49,8 @@ class GenerateMeetingSummaryRequest extends FormRequest
             'fields' => ['sometimes', 'array', 'max:5'],
             'fields.*' => ['required', 'string', Rule::in(array_column(MeetingSummaryField::cases(), 'value'))],
             'mode' => ['sometimes', Rule::enum(SummaryWriteMode::class)],
-            'model_id' => ['sometimes', 'nullable', 'integer', 'min:1'],
+            'provider' => ['sometimes', 'nullable', 'string', 'max:100'],
+            'model' => ['sometimes', 'nullable', 'string', 'max:150'],
             'merge' => ['sometimes', 'boolean'],
         ];
     }
@@ -72,20 +70,58 @@ class GenerateMeetingSummaryRequest extends FormRequest
         return is_string($mode) ? SummaryWriteMode::from($mode) : SummaryWriteMode::Review;
     }
 
-    public function summaryModelId(): ?int
+    /**
+     * The provider this one run should use, or null to inherit.
+     */
+    public function summaryProvider(): ?string
     {
-        $id = $this->input('model_id');
+        $provider = $this->input('provider');
 
-        return is_numeric($id) ? (int) $id : null;
+        return is_string($provider) && $provider !== '' ? $provider : null;
+    }
+
+    /**
+     * The model this one run should use, or null to inherit.
+     */
+    public function summaryModel(): ?string
+    {
+        $model = $this->input('model');
+
+        return is_string($model) && $model !== '' ? $model : null;
     }
 
     /**
      * Whether this run reconciles with the stored record instead of replacing
-     * it. Off by default: writing a field fresh is the ordinary request, and
-     * merging is the deliberate one.
+     * it. Off by default: writing a field fresh is the ordinary request.
      */
     public function shouldMerge(): bool
     {
         return $this->boolean('merge');
+    }
+
+    public function withValidator(ValidationValidator $validator): void
+    {
+        $validator->after(function (ValidationValidator $validator): void {
+            $atFault = app(AiAgentRunner::class)->unusableChoice(
+                MeetingSummaryAgent::REGISTRY_KEY,
+                $this->summaryProvider(),
+                $this->summaryModel(),
+            );
+
+            if ($atFault !== null) {
+                $validator->errors()->add($atFault, $this->unusableMessage($atFault));
+            }
+        });
+    }
+
+    /**
+     * Attached to the field that is wrong rather than to `model` always, so the
+     * dialog can mark the select the user has to change.
+     */
+    private function unusableMessage(string $field): string
+    {
+        return $field === 'provider'
+            ? __('ai.provider_not_found')
+            : __('ai.model_not_found');
     }
 }

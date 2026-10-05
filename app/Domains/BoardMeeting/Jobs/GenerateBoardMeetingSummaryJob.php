@@ -55,14 +55,19 @@ class GenerateBoardMeetingSummaryJob implements ShouldBeUnique, ShouldQueue
 
     /**
      * @param  list<string>  $fields  empty means every field
-     * @param  int|null  $modelId  a model row chosen for this one run in the
-     *                             UI. An id, not a name: `ai_models` is
-     *                             unique per provider, so one name can exist
-     *                             under two of them and a name-only choice
-     *                             would send the other provider's model.
-     *                             The row it names also decides which
-     *                             provider answers, so the choice cannot end
-     *                             up split across two registries.
+     * @param  string|null  $provider  a gateway picked for this one run in the
+     *                                 UI, or null to inherit. Names rather
+     *                                 than ids: a model name is unique only
+     *                                 within a provider, and a row id that
+     *                                 implied the provider too meant the
+     *                                 choice could never be expressed as
+     *                                 "this model, on that gateway"
+     * @param  string|null  $model  a model picked for this one run in the UI, or
+     *                              null to inherit. Kept lenient on purpose —
+     *                              a name that no longer resolves falls back to
+     *                              the agent's binding, so a job queued against a
+     *                              model somebody deleted in Settings produces a
+     *                              degraded summary instead of failing
      * @param  bool  $merge  reconcile the requested fields with what the record
      *                       already holds, rather than writing them from the
      *                       minutes alone. Part of the identity below, because
@@ -73,7 +78,8 @@ class GenerateBoardMeetingSummaryJob implements ShouldBeUnique, ShouldQueue
     public function __construct(
         public readonly int $meetingId,
         public readonly array $fields = [],
-        public readonly ?int $modelId = null,
+        public readonly ?string $provider = null,
+        public readonly ?string $model = null,
         public readonly SummaryWriteMode $mode = SummaryWriteMode::Review,
         public readonly bool $merge = false,
     ) {}
@@ -88,6 +94,12 @@ class GenerateBoardMeetingSummaryJob implements ShouldBeUnique, ShouldQueue
      * The model is in the identity for the same reason as the mode: asking
      * twice on purpose with two different models is a comparison, and
      * dropping the second would silently answer it with the first.
+     *
+     * Both binding halves are in it, separated from the fields by a character
+     * no name can contain. Without that separator `provider = 'a'` and
+     * `model = 'bc'` would collide with `provider = 'ab'` and `model = 'c'`,
+     * and the second click would be dropped as a duplicate of the first — which
+     * is the one outcome this lock exists to prevent.
      */
     public function uniqueId(): string
     {
@@ -95,7 +107,14 @@ class GenerateBoardMeetingSummaryJob implements ShouldBeUnique, ShouldQueue
 
         sort($fields);
 
-        return $this->meetingId.'|'.implode(',', $fields).'|'.$this->mode->value.'|'.($this->modelId ?? '').'|'.($this->merge ? 'merge' : 'fresh');
+        return implode('|', [
+            $this->meetingId,
+            implode(',', $fields),
+            $this->mode->value,
+            $this->provider ?? '',
+            $this->model ?? '',
+            $this->merge ? 'merge' : 'fresh',
+        ]);
     }
 
     public function handle(BoardMeetingSummarizer $summarizer, MeetingSummaryApplier $applier): void
@@ -112,7 +131,8 @@ class GenerateBoardMeetingSummaryJob implements ShouldBeUnique, ShouldQueue
             $run = $summarizer->summarize(
                 $meeting,
                 $this->fields,
-                $this->modelId,
+                $this->provider,
+                $this->model,
                 $this->merge,
             );
         } catch (AiNotConfigured) {

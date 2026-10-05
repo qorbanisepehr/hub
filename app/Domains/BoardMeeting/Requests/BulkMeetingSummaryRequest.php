@@ -2,27 +2,26 @@
 
 namespace App\Domains\BoardMeeting\Requests;
 
+use App\Domains\Ai\Services\AiAgentRunner;
+use App\Domains\BoardMeeting\Ai\MeetingSummaryAgent;
 use App\Domains\BoardMeeting\Ai\MeetingSummaryField;
 use App\Domains\BoardMeeting\Enums\SummaryWriteMode;
+use Illuminate\Contracts\Validation\Validator as ValidationValidator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 /**
  * HTTP boundary for POST /api/board-meetings/summary/bulk.
  *
- * `meeting_ids` is required and may not be empty. The bulk action's cost is a
- * slow model call per meeting, so "queue nothing" is not a harmless request —
- * it is a button that appears to have worked. Making the list explicit also
- * means the dialog is the thing being validated: a person chooses which
- * meetings to generate, and that choice is what arrives.
+ * `meeting_ids` is required and may not be empty: "queue nothing" is not a
+ * harmless request, it is a button that appears to have worked.
  *
- * The cap is a bound on the request, not on the registry. A filtered dialog
- * can legitimately name a few hundred meetings, and a list longer than that
- * has stopped being a choice and become a bulk import.
- *
- * `fields` and `model_id` mean exactly what they mean on the single-meeting
- * generate request, and for the same reasons — empty means all fields, and the
- * model is an id because a model name is unique only per provider.
+ * `fields`, `provider` and `model` mean exactly what they mean on the
+ * single-meeting generate request. The pair is checked here because this is the
+ * last moment somebody is looking at a form, and a bad model name on this
+ * endpoint costs one slow call per meeting - so it has to be refused before it
+ * is multiplied by the size of the selection. The per-meeting leniency the job
+ * applies still covers the window between this check and the queue draining.
  */
 class BulkMeetingSummaryRequest extends FormRequest
 {
@@ -46,7 +45,8 @@ class BulkMeetingSummaryRequest extends FormRequest
             'fields' => ['sometimes', 'array', 'max:5'],
             'fields.*' => ['required', 'string', Rule::in(array_column(MeetingSummaryField::cases(), 'value'))],
             'mode' => ['sometimes', Rule::enum(SummaryWriteMode::class)],
-            'model_id' => ['sometimes', 'nullable', 'integer', 'min:1'],
+            'provider' => ['sometimes', 'nullable', 'string', 'max:100'],
+            'model' => ['sometimes', 'nullable', 'string', 'max:150'],
         ];
     }
 
@@ -79,10 +79,35 @@ class BulkMeetingSummaryRequest extends FormRequest
         return is_string($mode) ? SummaryWriteMode::from($mode) : SummaryWriteMode::Review;
     }
 
-    public function summaryModelId(): ?int
+    public function summaryProvider(): ?string
     {
-        $id = $this->input('model_id');
+        $provider = $this->input('provider');
 
-        return is_numeric($id) ? (int) $id : null;
+        return is_string($provider) && $provider !== '' ? $provider : null;
+    }
+
+    public function summaryModel(): ?string
+    {
+        $model = $this->input('model');
+
+        return is_string($model) && $model !== '' ? $model : null;
+    }
+
+    public function withValidator(ValidationValidator $validator): void
+    {
+        $validator->after(function (ValidationValidator $validator): void {
+            $atFault = app(AiAgentRunner::class)->unusableChoice(
+                MeetingSummaryAgent::REGISTRY_KEY,
+                $this->summaryProvider(),
+                $this->summaryModel(),
+            );
+
+            if ($atFault !== null) {
+                $validator->errors()->add(
+                    $atFault,
+                    $atFault === 'provider' ? __('ai.provider_not_found') : __('ai.model_not_found'),
+                );
+            }
+        });
     }
 }

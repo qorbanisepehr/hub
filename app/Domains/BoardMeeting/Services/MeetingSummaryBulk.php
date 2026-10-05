@@ -58,8 +58,12 @@ final readonly class MeetingSummaryBulk
      * @param  list<int>  $meetingIds
      * @return array{queued: int, skipped: int, meeting_ids: list<int>}
      */
-    public function dispatch(array $meetingIds, SummaryWriteMode $mode, ?int $modelId): array
-    {
+    public function dispatch(
+        array $meetingIds,
+        SummaryWriteMode $mode,
+        ?string $provider = null,
+        ?string $model = null,
+    ): array {
         $eligible = BoardMeeting::query()
             ->whereIn('id', $meetingIds)
             ->where(fn (Builder $un) => $this->ungenerated($un))
@@ -68,7 +72,8 @@ final readonly class MeetingSummaryBulk
         foreach ($eligible as $id) {
             GenerateBoardMeetingSummaryJob::dispatch(
                 meetingId: (int) $id,
-                modelId: $modelId,
+                provider: $provider,
+                model: $model,
                 mode: $mode,
             );
         }

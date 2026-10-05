@@ -1,7 +1,5 @@
 <?php
 
-use App\Domains\Ai\Enums\AiDriver;
-use App\Domains\Ai\Models\AiProvider;
 use App\Domains\Audit\Models\AuditLog;
 use App\Domains\BoardMeeting\Ai\MeetingSummaryAgent;
 use App\Domains\BoardMeeting\Enums\SummaryWriteMode;
@@ -25,7 +23,7 @@ use function Pest\Laravel\actingAs;
  */
 
 beforeEach(function () {
-    AiProvider::factory()->create(['name' => 'local', 'driver' => AiDriver::Ollama]);
+    seedSummaryProvider();
 
     $this->meeting = BoardMeeting::factory()->create(['minutes' => 'مصوبهٔ شمارهٔ ۴۱ تصویب شد.']);
 
@@ -35,6 +33,7 @@ beforeEach(function () {
         (new GenerateBoardMeetingSummaryJob(
             $this->meeting->getKey(),
             ['executive_summary', 'topics', 'suggested_tags'],
+            null,
             null,
             $mode,
         ))->handle(app(BoardMeetingSummarizer::class), app(MeetingSummaryApplier::class));
