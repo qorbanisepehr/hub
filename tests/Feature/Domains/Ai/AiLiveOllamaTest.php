@@ -1,15 +1,14 @@
 <?php
 
-use App\Domains\Ai\Enums\AiDriver;
 use App\Domains\Ai\Exceptions\AiProviderUnreachable;
-use App\Domains\Ai\Models\AiAgent;
-use App\Domains\Ai\Models\AiModel;
-use App\Domains\Ai\Models\AiProvider;
 use App\Domains\Ai\Services\AiAgentRunner;
 use App\Domains\Ai\Services\AiConnectionTester;
+use App\Domains\Ai\Value\AiAgent;
+use App\Domains\Ai\Value\AiProvider;
 use App\Domains\BoardMeeting\Ai\MeetingSummaryAgent;
 use App\Domains\BoardMeeting\Models\BoardMeeting;
 use App\Domains\BoardMeeting\Services\BoardMeetingSummarizer;
+use App\Domains\Settings\Repositories\SystemSettingsRepositoryInterface;
 use Illuminate\Support\Facades\Http;
 use Tests\Fixtures\Ai\EchoAgent;
 use Tests\Fixtures\Ai\StructuredEchoAgent;
@@ -63,6 +62,25 @@ beforeAll(function () use ($live, $model) {
     }
 });
 
+/**
+ * Seed a provider plus the agent that runs on it, both through the store.
+ *
+ * There is no factory any more, and a factory that writes a document would
+ * have to reach past the store — seeding state the application cannot write.
+ *
+ * @param  array<string, mixed>  $settings
+ */
+function seedLiveBinding(string $agentKey, string $agentClass, string $liveModel, bool $isActive = true, array $settings = []): AiProvider
+{
+    $provider = seedSummaryProvider('local', $isActive);
+
+    app(SystemSettingsRepositoryInterface::class)->put(
+        new AiAgent($agentKey, 'Live test agent', $agentClass, null, $liveModel, $settings),
+    );
+
+    return $provider;
+}
+
 beforeEach(function () use ($live, $model) {
     if (! $live()) {
         $this->markTestSkipped('set AI_TEST_LIVE=1 to run against a real Ollama');
@@ -73,31 +91,20 @@ beforeEach(function () use ($live, $model) {
 
 describe('live ollama', function () {
     it('reaches the model and gets text back', function () {
-        AiProvider::factory()->default()->create(['name' => 'local', 'driver' => AiDriver::Ollama]);
-        AiAgent::factory()->create([
-            'key' => 'test.live',
-            'agent_class' => EchoAgent::class,
-            'settings' => ['timeout' => 120],
-        ]);
+        seedLiveBinding('test.live', EchoAgent::class, $this->liveModel, settings: ['timeout' => 120]);
 
-        $run = app(AiAgentRunner::class)->run('test.live', 'Reply with the single word: pong', modelOverride: $this->liveModel);
+        $run = app(AiAgentRunner::class)->run('test.live', 'Reply with the single word: pong');
 
         expect($run->text)->not->toBe('')
             ->and($run->provider)->toBe('local');
     });
 
     it('gets structured output back from a real model', function () {
-        AiProvider::factory()->default()->create(['name' => 'local', 'driver' => AiDriver::Ollama]);
-        AiAgent::factory()->create([
-            'key' => 'test.live.structured',
-            'agent_class' => StructuredEchoAgent::class,
-            'settings' => ['timeout' => 120],
-        ]);
+        seedLiveBinding('test.live.structured', StructuredEchoAgent::class, $this->liveModel, settings: ['timeout' => 120]);
 
         $run = app(AiAgentRunner::class)->run(
             'test.live.structured',
             'Summarize in one sentence: the hub keeps its AI credentials in a registry.',
-            modelOverride: $this->liveModel,
         );
 
         expect($run->structured)->toBeArray()
@@ -105,21 +112,16 @@ describe('live ollama', function () {
     });
 
     it('reports real token usage', function () {
-        AiProvider::factory()->default()->create(['name' => 'local', 'driver' => AiDriver::Ollama]);
-        AiAgent::factory()->create([
-            'key' => 'test.live.usage',
-            'agent_class' => EchoAgent::class,
-            'settings' => ['timeout' => 120],
-        ]);
+        seedLiveBinding('test.live.usage', EchoAgent::class, $this->liveModel, settings: ['timeout' => 120]);
 
-        $run = app(AiAgentRunner::class)->run('test.live.usage', 'Say hello.', modelOverride: $this->liveModel);
+        $run = app(AiAgentRunner::class)->run('test.live.usage', 'Say hello.');
 
         expect($run->usage['total_tokens'])->toBeGreaterThan(0);
     });
 
     it('confirms a real connection through the Settings probe', function () {
-        $provider = AiProvider::factory()->default()->create(['name' => 'local', 'driver' => AiDriver::Ollama]);
-        AiModel::factory()->create(['provider_id' => $provider->id, 'model_name' => $this->liveModel]);
+        $provider = seedSummaryProvider('local');
+        seedSummaryModel('local', $this->liveModel);
 
         $result = app(AiConnectionTester::class)->test($provider);
 
@@ -129,17 +131,19 @@ describe('live ollama', function () {
     });
 
     it('probes a provider that is switched off', function () {
-        // The probe is the one operation that must reach a row hydration
-        // skips, because "it works, I just have not enabled it" is an answer
-        // an administrator can get no other way.
-        $provider = AiProvider::factory()->inactive()->create(['name' => 'local', 'driver' => AiDriver::Ollama]);
-        AiModel::factory()->create(['provider_id' => $provider->id, 'model_name' => $this->liveModel]);
+        // The probe is the one operation that must reach a provider hydration
+        // skips, because "it works, I just have not enabled it" is an answer an
+        // administrator can get no other way. The model list is built with it,
+        // which is the other half of that: an inactive provider is a state the
+        // registry can describe even though hydration will not offer it.
+        $provider = seedSummaryProvider('local', isActive: false);
+        seedSummaryModel('local', $this->liveModel);
 
         expect(app(AiConnectionTester::class)->test($provider)['ok'])->toBeTrue();
     });
 
     it('fails the probe against a model the host does not serve', function () {
-        $provider = AiProvider::factory()->default()->create(['name' => 'local', 'driver' => AiDriver::Ollama]);
+        $provider = seedSummaryProvider('local');
 
         expect(fn () => app(AiConnectionTester::class)->test($provider, 'no-such-model-anywhere'))
             ->toThrow(AiProviderUnreachable::class);
@@ -150,13 +154,12 @@ describe('live ollama', function () {
         // faked suite proves we *ask* for five fields, not that anything can
         // answer them. A small model on five fields of Persian minutes is
         // also the slowest case, so it gets its own generous timeout.
-        $provider = AiProvider::factory()->default()->create(['name' => 'local', 'driver' => AiDriver::Ollama]);
-
-        AiAgent::factory()->create([
-            'key' => MeetingSummaryAgent::REGISTRY_KEY,
-            'agent_class' => MeetingSummaryAgent::class,
-            'settings' => ['timeout' => 180],
-        ]);
+        $provider = seedLiveBinding(
+            MeetingSummaryAgent::REGISTRY_KEY,
+            MeetingSummaryAgent::class,
+            $this->liveModel,
+            settings: ['timeout' => 180],
+        );
 
         $meeting = BoardMeeting::factory()->create([
             'title' => 'جلسهٔ شورای معاونین',
@@ -170,7 +173,6 @@ describe('live ollama', function () {
         $run = app(AiAgentRunner::class)->run(
             key: MeetingSummaryAgent::REGISTRY_KEY,
             prompt: app(BoardMeetingSummarizer::class)->promptFor($meeting),
-            modelOverride: $this->liveModel,
             settings: ['fields' => ['executive_summary', 'key_decisions']],
         );
 
@@ -190,6 +192,6 @@ describe('live ollama', function () {
             ->and($run->structured)->not->toHaveKey('topics')
             ->and($run->structured['executive_summary'])->toBeString()
             ->and($run->structured['key_decisions'])->toBeArray()
-            ->and($provider->name)->toBe('local');
+            ->and($provider->name())->toBe('local');
     });
 });

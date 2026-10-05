@@ -3,108 +3,253 @@
 namespace App\Domains\Ai\Services;
 
 use App\Domains\Ai\Enums\AiDriver;
-use App\Domains\Ai\Models\AiAgent;
-use App\Domains\Ai\Models\AiModel;
-use App\Domains\Ai\Models\AiProvider;
+use App\Domains\Ai\Value\AiAgent;
+use App\Domains\Ai\Value\AiDefaultProvider;
+use App\Domains\Ai\Value\AiProvider;
+use App\Domains\Settings\Repositories\SystemSettingsRepositoryInterface;
 use Illuminate\Support\Facades\Config;
 use Laravel\Ai\Ai;
 
 /**
- * Turns the BYOK registry into the runtime the SDK reads (`config/ai.php`).
+ * Turns the stored registry into the runtime the SDK reads (`config/ai.php`).
  *
- * The SDK resolves a provider by name through `MultipleInstanceManager`,
- * which caches each built provider and reads its config on first use. That
- * is why hydration also has to forget the instances: a config rewritten
- * under a cached provider is a provider built from the previous key, which
- * is the kind of bug that only shows up after someone rotates a credential.
+ * Two rules here are load-bearing and easy to undo by accident.
  *
- * Hydration runs at most once per process. A request is short and a job
- * changes one binding, so re-reading the registry per prompt would buy
- * nothing and cost a query per call. {@see forget()} exists for the two
- * cases that do need it: tests, and the Settings screens that just wrote a
- * provider.
+ * A model name is only ever looked for **on the provider that was already
+ * chosen**, never across the registry. Names are not unique - `gpt-4o-mini` sits
+ * under more than one provider - so searching would hand one gateway's model to
+ * another and fail at the far end complaining about a model the user never
+ * picked.
  *
- * Provider names are the DB `name`, because that is the one string an
- * administrator recognizes. Two rows cannot share a name (unique index), so
- * the SDK's name-keyed map is a faithful projection of the table.
+ * The default is the explicitly named pointer when there is one, and otherwise
+ * the alphabetically first active name. Providers are keyed by name in a store
+ * with no insertion order to consult, so anything positional would answer
+ * differently on different databases.
  */
 class AiProviderResolver
 {
-    /**
-     * The endpoint Ollama listens on out of the box, used when a provider row
-     * leaves `base_url` empty. Making it the fallback rather than requiring it
-     * is what keeps "no credential, no deploy" true: a row with no URL is a
-     * working local model, not a broken one.
-     */
+    /** Fallback endpoint for a provider that leaves `base_url` empty. */
     public const OLLAMA_ENDPOINT = 'http://localhost:11434';
 
-    private bool $hydrated = false;
+    /** @var array<string, AiProvider>|null active providers keyed by name */
+    private ?array $active = null;
+
+    public function __construct(
+        private readonly SystemSettingsRepositoryInterface $store,
+    ) {}
 
     /**
-     * Write every active provider into `config('ai.providers')` and point
-     * `ai.default` at the default one.
+     * Read the registry once and write every active provider into
+     * `config('ai.providers')`, with `ai.default` pointed at the default one.
      *
-     * @return list<string> the hydrated provider names
+     * Also forgets the SDK's cached instances: it reads a provider's config
+     * only when it first builds it, so a rewritten config under a cached
+     * instance stays on the old credential. {@see forget()} covers tests and
+     * the Settings screens that just wrote a provider; every write path calls
+     * it so no caller can be the one who forgets.
+     *
+     * @return array<string, AiProvider>
      */
     public function hydrate(): array
     {
-        if ($this->hydrated) {
-            return array_keys((array) Config::get('ai.providers', []));
+        if ($this->active !== null) {
+            return $this->active;
         }
 
-        $providers = AiProvider::query()
-            ->where('is_active', true)
-            ->orderBy('id')
-            ->get();
+        $active = [];
+
+        foreach ($this->store->all(AiProvider::class) as $provider) {
+            if ($provider->isActive()) {
+                $active[$provider->name()] = $provider;
+            }
+        }
 
         $config = [];
 
-        foreach ($providers as $provider) {
-            $config[$provider->name] = $this->configFor($provider);
+        foreach ($active as $name => $provider) {
+            $config[$name] = $this->configFor($provider);
         }
 
-        // Forgetting first matters: a provider that was deactivated is about
-        // to disappear from the map, and the instance cached under its name
-        // would then survive with nothing left to forget it by.
+        // Forgetting first matters: a provider that was deactivated is about to
+        // disappear from the map, and the instance cached under its name would
+        // then survive with nothing left to forget it by. Assigned rather than
+        // merged, for the same reason.
         $this->forgetInstances();
 
-        // Assigned rather than merged: a deactivated provider must stop being
-        // reachable through its old key, and merging would leave the previous
-        // request's map behind.
         Config::set('ai.providers', $config);
 
-        Config::set(
-            'ai.default',
-            ($providers->firstWhere('is_default', true) ?? $providers->first())?->name,
-        );
+        Config::set('ai.default', $this->defaultName($active));
 
-        $this->hydrated = true;
-
-        return array_keys($config);
+        return $this->active = $active;
     }
 
     /**
-     * Drop the hydration memo and the cached SDK instances, so the next
-     * `hydrate()` reads the registry again.
+     * Drop the memo and the cached SDK instances, so the next call reads the
+     * registry again.
      */
     public function forget(): void
     {
-        $this->hydrated = false;
+        $this->active = null;
 
         $this->forgetInstances();
     }
 
     /**
-     * Drop every provider instance the SDK has already built.
+     * Resolve which provider and model a run uses. A caller who names only a
+     * model gets it on whichever provider the rest of the ladder picks.
      *
-     * The SDK caches a provider by name the first time it is used, and reads
-     * its config only at that moment — so a config rewritten afterwards is
-     * ignored by anything already holding the old instance. That is not
-     * visible until someone rotates a credential, which is precisely why it
-     * has to be handled here rather than left to a process restart.
+     * Lenient on purpose: an unresolvable name falls through to the next rung
+     * rather than throwing, because the caller is usually a queued job - a
+     * binding deleted after the job was queued must produce a degraded summary,
+     * not a hard failure. A live request gets the strict answer from
+     * {@see unusableChoice()} at its own edge, before anything is queued.
      *
-     * The default is always in that map by name, so no extra call is needed
-     * for it.
+     * @return array{provider: ?AiProvider, model: ?string}
+     */
+    public function resolveFor(?AiAgent $agent, ?string $providerName = null, ?string $modelName = null): array
+    {
+        $active = $this->hydrate();
+
+        $provider = $this->pickProvider($active, $agent, $providerName);
+
+        return [
+            'provider' => $provider,
+            'model' => $this->pickModel($provider, $agent, $modelName),
+        ];
+    }
+
+    /**
+     * Which half of an explicitly requested provider/model pair is unusable,
+     * or null when the pair could be served - for a request being accepted now.
+     *
+     * The counterpart to {@see resolveFor()}'s leniency: "fall back quietly" is
+     * right for a job and wrong for a person. Someone who picked a model from a
+     * list deserves to be told it is gone rather than quietly given a different
+     * one. It names the offending field rather than answering yes/no because the
+     * caller is a form, which needs to know whether `provider` or `model` was
+     * wrong to point at the right select.
+     *
+     * A named provider that is missing or deactivated fails outright instead of
+     * falling back: it was asked for by name, so answering with a different
+     * provider is a wrong answer rather than a graceful degradation. A named
+     * model is checked only against the provider that will run it.
+     *
+     * @return 'provider'|'model'|null
+     */
+    public function unusableChoice(?AiAgent $agent, ?string $providerName, ?string $modelName): ?string
+    {
+        $active = $this->hydrate();
+
+        if ($providerName !== null && ! isset($active[$providerName])) {
+            return 'provider';
+        }
+
+        if ($modelName === null) {
+            return null;
+        }
+
+        $provider = $this->pickProvider($active, $agent, $providerName);
+
+        return $provider !== null && $provider->hasActiveModel($modelName) ? null : 'model';
+    }
+
+    /**
+     * Make one named provider callable by the SDK, whatever its `is_active`
+     * flag, and point `ai.default` at it.
+     *
+     * For the Settings connection test, the one operation that must reach a
+     * provider hydration deliberately skips: "it works, but I have not enabled
+     * it yet" is the answer an administrator needs and cannot get any other
+     * way. Merged rather than assigned so a probe cannot strand the rest of the
+     * registry behind a half-written map.
+     */
+    public function hydrateFor(AiProvider $provider): void
+    {
+        Ai::forgetInstance($provider->name());
+
+        $config = Config::get('ai.providers', []);
+        $config[$provider->name()] = $this->configFor($provider);
+
+        Config::set('ai.providers', $config);
+        Config::set('ai.default', $provider->name());
+    }
+
+    /**
+     * The provider that will run: the request's own choice, else the agent's
+     * binding, else the registry default. A named provider that is not usable
+     * falls through, so deactivating a credential degrades one agent instead of
+     * breaking it. The agent is nullable because "no binding" is a state, not
+     * an error - the hub boots with an empty registry (D24).
+     *
+     * @param  array<string, AiProvider>  $active
+     */
+    private function pickProvider(array $active, ?AiAgent $agent, ?string $requested): ?AiProvider
+    {
+        foreach ([$requested, $agent?->provider()] as $named) {
+            if ($named !== null && isset($active[$named])) {
+                return $active[$named];
+            }
+        }
+
+        $default = $this->defaultName($active);
+
+        return $default === null ? null : $active[$default];
+    }
+
+    /**
+     * The model that will run, on the provider already chosen: the request's own
+     * choice, else the agent's binding, else the provider's own preference.
+     *
+     * Each rung is checked against the provider, never across the registry, and
+     * an inactive model counts as absent — the list only ever offers active
+     * ones, so a name that has been switched off should not answer here either.
+     */
+    private function pickModel(?AiProvider $provider, ?AiAgent $agent, ?string $requested): ?string
+    {
+        if ($provider === null) {
+            return null;
+        }
+
+        foreach ([$requested, $agent?->model()] as $named) {
+            if ($named !== null && $provider->hasActiveModel($named)) {
+                return $named;
+            }
+        }
+
+        return $provider->preferredModel();
+    }
+
+    /**
+     * The provider `ai.default` points at.
+     *
+     * A pointer to a provider that has since been deactivated or deleted is
+     * ignored: `ai.default` has to name something the SDK can actually build,
+     * so a dangling name would fail every prompt in the process instead of one.
+     * Sorted, not first-found, because the store gives no order to consult.
+     *
+     * @param  array<string, AiProvider>  $active
+     */
+    private function defaultName(array $active): ?string
+    {
+        $named = $this->store->get(AiDefaultProvider::class, AiDefaultProvider::KEY)?->provider();
+
+        if ($named !== null && isset($active[$named])) {
+            return $named;
+        }
+
+        $names = array_keys($active);
+
+        sort($names);
+
+        return $names[0] ?? null;
+    }
+
+    /**
+     * Drop every provider instance the SDK has already built. The SDK reads a
+     * provider's config only when it first builds it, so a config rewritten
+     * afterwards is ignored by anything already holding the old instance -
+     * which is only visible once someone rotates a credential. The default is
+     * always in that map by name, so no extra call is needed for it.
      */
     private function forgetInstances(): void
     {
@@ -114,176 +259,43 @@ class AiProviderResolver
     }
 
     /**
-     * Resolve which provider and model an agent runs against, in the
-     * priority order of D28: the caller's `?model_id=` override, then the
-     * agent's own binding, then the default provider's first active model.
-     *
-     * Returns nulls rather than throwing when nothing is configured: D24
-     * makes "no provider" a supported state, so deciding what that means
-     * belongs to the caller, which is the only layer that knows whether a
-     * missing model is a degraded summary or a hard failure.
-     *
-     * @return array{provider: ?AiProvider, model: ?string}
-     */
-    public function resolveFor(AiAgent $agent, ?int $modelId = null): array
-    {
-        $this->hydrate();
-
-        if ($modelId !== null && ($picked = $this->activeModel($modelId)) !== null) {
-            return ['provider' => $picked->provider, 'model' => $picked->model_name];
-        }
-
-        $provider = $this->usableProvider($agent);
-        $model = $this->modelFor($agent, $provider);
-
-        return ['provider' => $provider, 'model' => $model];
-    }
-
-    /**
-     * A pickable model row, or null when the id names nothing usable.
-     *
-     * The id rather than the name, and the reason is the unique index on
-     * `ai_models`: it is `(provider_id, model_name)`, so one name can sit
-     * under two providers. A name-only override would be honoured against the
-     * agent's bound provider and hand one provider's model to the other — a
-     * request that fails at the far end complaining about a model the user
-     * never picked. Taking the id makes the provider part of the choice.
-     *
-     * A deactivated row, or one whose provider is off, is not pickable: the
-     * list only ever offers active models, and a row switched off between
-     * choosing and running must not answer. Null rather than an exception,
-     * because a stale id has to be survivable — the alternative would let a
-     * row deleted in Settings fail every job still queued against it. The
-     * artifact records the provider and model that actually ran, so the
-     * outcome is reported rather than silent.
-     */
-    private function activeModel(int $modelId): ?AiModel
-    {
-        return AiModel::query()
-            ->with('provider')
-            ->whereKey($modelId)
-            ->where('is_active', true)
-            ->get()
-            ->first(fn (AiModel $model): bool => $model->provider?->is_active === true);
-    }
-
-    /**
-     * Make one named row callable by the SDK, whatever its `is_active` flag,
-     * and point `ai.default` at it.
-     *
-     * This exists for the connection test in Settings, which is the one
-     * operation that must reach a row hydration deliberately skips. Testing a
-     * credential that is switched off is the whole point — "it works, but I
-     * have not enabled it yet" is the answer an administrator needs, and it is
-     * the answer they cannot get any other way. Everything else keeps using
-     * {@see hydrate()}, so the active-only rule holds everywhere else.
-     *
-     * Merged rather than assigned: the other hydrated rows stay reachable, so
-     * a probe cannot strand the rest of the registry behind a half-written
-     * map. The instance is forgotten first, for the same reason
-     * {@see forgetInstances()} does it — the SDK reads config only when it
-     * first builds a provider.
-     */
-    public function hydrateFor(AiProvider $provider): void
-    {
-        Ai::forgetInstance($provider->name);
-
-        $config = Config::get('ai.providers', []);
-        $config[$provider->name] = $this->configFor($provider);
-
-        Config::set('ai.providers', $config);
-        Config::set('ai.default', $provider->name);
-    }
-
-    /**
-     * The provider an agent runs against: its own binding while that
-     * binding is usable, otherwise the default. A bound-but-disabled
-     * provider falls back rather than failing, so deactivating a credential
-     * degrades one agent instead of breaking it.
-     */
-    private function usableProvider(AiAgent $agent): ?AiProvider
-    {
-        $bound = $agent->provider;
-
-        if ($bound?->is_active) {
-            return $bound;
-        }
-
-        return AiProvider::query()
-            ->where('is_active', true)
-            ->orderByDesc('is_default')
-            ->orderBy('id')
-            ->first();
-    }
-
-    private function modelFor(AiAgent $agent, ?AiProvider $provider): ?string
-    {
-        $bound = $agent->model;
-
-        if ($bound instanceof AiModel) {
-            if ($bound->is_active) {
-                return $bound->model_name;
-            }
-        } elseif (filled($bound)) {
-            return $bound;
-        }
-
-        return $this->firstActiveModelFor($provider);
-    }
-
-    /**
-     * The model a provider falls back to when nothing more specific applies:
-     * its own first active row, or null when it has none — in which case the
-     * SDK uses that driver's own default, which is a working answer and not
-     * an error (A2).
-     */
-    public function firstActiveModelFor(?AiProvider $provider): ?string
-    {
-        return $provider?->models()
-            ->where('is_active', true)
-            ->orderBy('id')
-            ->value('model_name');
-    }
-
-    /**
-     * The SDK's provider config for a registry row.
-     *
-     * The key is read only here — nothing else in the hub may read
-     * `api_key` (§۶.5) — which makes this the one place decryption happens.
+     * The SDK's provider config for a stored provider. The credential is read
+     * only here - nowhere else in the hub may read it - which makes this the one
+     * place a secret is taken out of storage.
      *
      * @return array<string, mixed>
      */
     private function configFor(AiProvider $provider): array
     {
-        $config = ['driver' => $provider->driver->value];
+        $config = ['driver' => $provider->driver()->value];
 
-        if ($provider->hasApiKey()) {
-            $config['key'] = $provider->api_key;
+        if ($provider->hasCredential()) {
+            $config['key'] = $provider->apiKey();
         }
 
         if (filled($url = $this->urlFor($provider))) {
             $config['url'] = $url;
         }
 
-        if (filled($provider->headers)) {
-            $config['headers'] = $provider->headers;
+        if ($provider->headers() !== []) {
+            $config['headers'] = $provider->headers();
         }
 
         return $config;
     }
 
     /**
-     * A row that leaves `base_url` empty still has to resolve to something
-     * the SDK can call, so Ollama falls back to its own default endpoint.
-     * Every other driver has no sensible default: guessing a URL for a
-     * hosted API would turn a missing field into a request to the wrong host.
+     * A provider that leaves `base_url` empty still has to resolve to something
+     * callable, so Ollama falls back to its own endpoint. Every other driver
+     * has no sensible default: guessing a URL for a hosted API would turn a
+     * missing field into a request to the wrong host.
      */
     private function urlFor(AiProvider $provider): ?string
     {
-        if (filled($provider->base_url)) {
-            return $provider->base_url;
+        if (filled($provider->baseUrl())) {
+            return $provider->baseUrl();
         }
 
-        return $provider->driver === AiDriver::Ollama ? self::OLLAMA_ENDPOINT : null;
+        return $provider->driver() === AiDriver::Ollama ? self::OLLAMA_ENDPOINT : null;
     }
 }

@@ -3,7 +3,7 @@
 namespace App\Domains\Ai\Services;
 
 use App\Domains\Ai\Exceptions\AiProviderUnreachable;
-use App\Domains\Ai\Models\AiProvider;
+use App\Domains\Ai\Value\AiProvider;
 use Laravel\Ai\AnonymousAgent;
 use Throwable;
 
@@ -48,11 +48,18 @@ class AiConnectionTester
      *
      * @throws AiProviderUnreachable when the provider cannot answer
      */
-    public function test(AiProvider $provider, ?string $modelOverride = null): array
+    public function test(AiProvider $provider, ?string $requestedModel = null): array
     {
         $this->resolver->hydrateFor($provider);
 
-        $model = $this->resolver->firstActiveModelFor($provider) ?? $modelOverride;
+        // The requested model wins, and the order matters: an administrator
+        // typing a model name is usually about to save it, so this button has
+        // to answer for the name they typed — including one the registry has
+        // never heard of, which is the case the box exists for. Falling back to
+        // the provider's own preference first would have quietly tested
+        // something else and reported it as a pass. Same ladder the resolver
+        // uses: request first, provider's preference second.
+        $model = $requestedModel ?? $provider->preferredModel();
 
         $agent = new AnonymousAgent(
             instructions: self::PROBE_INSTRUCTIONS,
@@ -63,7 +70,7 @@ class AiConnectionTester
         try {
             $response = $agent->prompt(
                 'ok',
-                provider: $provider->name,
+                provider: $provider->name(),
                 model: $model,
                 timeout: self::TIMEOUT_SECONDS,
             );

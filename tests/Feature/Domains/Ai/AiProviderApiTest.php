@@ -3,16 +3,58 @@
 use App\Domains\Ai\Enums\AiCapability;
 use App\Domains\Ai\Enums\AiDriver;
 use App\Domains\Ai\Exceptions\AiProviderUnreachable;
-use App\Domains\Ai\Models\AiAgent;
-use App\Domains\Ai\Models\AiModel;
-use App\Domains\Ai\Models\AiProvider;
 use App\Domains\Ai\Services\AiConnectionTester;
+use App\Domains\Ai\Value\AiAgent;
+use App\Domains\Ai\Value\AiDefaultProvider;
+use App\Domains\Ai\Value\AiModel;
+use App\Domains\Ai\Value\AiProvider;
+use App\Domains\Settings\Repositories\SystemSettingsRepositoryInterface;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Laravel\Ai\Contracts\Agent;
 
 use function Pest\Laravel\actingAs;
 
 uses(RefreshDatabase::class);
+
+/**
+ * Seeded through the store rather than a factory.
+ *
+ * There is no provider factory any more and there should not be one: a factory
+ * that inserts a document has to reach past the store to do it, and then it is
+ * seeding rows the application itself cannot write. Going through the store
+ * means every row in these tests arrived the way a real one does, typed and
+ * validated.
+ */
+function stored(): SystemSettingsRepositoryInterface
+{
+    return app(SystemSettingsRepositoryInterface::class);
+}
+
+function storeProvider(
+    string $name = 'local',
+    AiDriver $driver = AiDriver::Ollama,
+    ?string $apiKey = null,
+    array $models = [],
+    ?string $defaultModel = null,
+): AiProvider {
+    $provider = AiProvider::make($name, $driver)
+        ->withApiKey($apiKey)
+        ->withModels($models, $defaultModel);
+
+    stored()->put($provider);
+
+    return $provider;
+}
+
+function storeAgent(string $key = 'board-meeting.summary', ?string $provider = null, ?string $model = null): AiAgent
+{
+    $agent = new AiAgent($key, 'Moulid khalase', Agent::class, $provider, $model);
+
+    stored()->put($agent);
+
+    return $agent;
+}
 
 describe('GET /api/ai/providers', function () {
     it('forbids a user without ai.provider.view', function () {
@@ -20,24 +62,40 @@ describe('GET /api/ai/providers', function () {
     });
 
     it('lists providers with their models', function () {
-        $provider = AiProvider::factory()->create(['name' => 'local']);
-        AiModel::factory()->create(['provider_id' => $provider->id, 'model_name' => 'gpt-oss:20b']);
+        storeProvider('local', models: ['gpt-oss:20b' => new AiModel('gpt-oss:20b', null, [], true)]);
 
-        $user = createUserWithPermissions(['ai.provider.view']);
-
-        $response = actingAs($user)->getJson('/api/ai/providers')->assertOk();
+        $response = actingAs(createUserWithPermissions(['ai.provider.view']))->getJson('/api/ai/providers')->assertOk();
 
         expect($response->json('data.0.name'))->toBe('local')
             ->and($response->json('data.0.models.0.model_name'))->toBe('gpt-oss:20b');
     });
 
+    // Every other AI list depends on the paginator surviving the mapping from
+    // documents to resources. `setCollection()` is typed to a Collection and
+    // `meta`/`links` only exist on a paginated response, so this is the one
+    // assertion that would have caught that wiring being wrong.
+    it('answers with the pagination envelope the client tables read', function () {
+        storeProvider('alpha');
+        storeProvider('zed');
+
+        $response = actingAs(createUserWithPermissions(['ai.provider.view']))
+            ->getJson('/api/ai/providers?per_page=1&page=2')
+            ->assertOk();
+
+        expect($response->json('data'))->toHaveCount(1)
+            ->and($response->json('data.0.name'))->toBe('zed')
+            ->and($response->json('meta.total'))->toBe(2)
+            ->and($response->json('meta.current_page'))->toBe(2)
+            ->and($response->json('meta.last_page'))->toBe(2)
+            ->and($response->json('links'))->not->toBeNull();
+    });
+
     it('never returns the api key, only whether one is stored', function () {
-        AiProvider::factory()->withApiKey('sk-secret-value')->create(['name' => 'cloud']);
-        $user = createUserWithPermissions(['ai.provider.view']);
+        storeProvider('cloud', AiDriver::OpenAI, 'sk-secret-value');
 
-        $response = actingAs($user)->getJson('/api/ai/providers')->assertOk();
+        $response = actingAs(createUserWithPermissions(['ai.provider.view']))->getJson('/api/ai/providers')->assertOk();
 
-        // Not just absent from `data` — absent from the whole body. A key that
+        // Not just absent from `data` - absent from the whole body. A key that
         // leaked into a `meta` envelope or an error field would be just as bad.
         expect($response->json('data.0'))->not->toHaveKey('api_key')
             ->and($response->json('data.0.has_api_key'))->toBeTrue()
@@ -45,7 +103,8 @@ describe('GET /api/ai/providers', function () {
     });
 
     it('is readable by a viewer who holds no manage permission', function () {
-        AiProvider::factory()->create(['name' => 'local']);
+        storeProvider();
+
         $user = createUserWithPermissions(['ai.provider.view']);
 
         actingAs($user)->getJson('/api/ai/providers')->assertOk();
@@ -55,319 +114,440 @@ describe('GET /api/ai/providers', function () {
             ->assertForbidden();
     });
 
-    it('filters by name', function () {
-        AiProvider::factory()->create(['name' => 'production-gateway']);
-        AiProvider::factory()->create(['name' => 'laptop']);
-        $user = createUserWithPermissions(['ai.provider.view']);
+    it('filters by a document field, which is not a column', function () {
+        storeProvider('production-gateway');
+        storeProvider('laptop');
 
-        $response = actingAs($user)->getJson('/api/ai/providers?filter=production')->assertOk();
+        $response = actingAs(createUserWithPermissions(['ai.provider.view']))
+            ->getJson('/api/ai/providers?filter=production')
+            ->assertOk();
 
         expect($response->json('data'))->toHaveCount(1)
-            ->and($response->json('data.0.name'))->toBe('production-gateway');
+            ->and($response->json('data.0.name'))->toBe('production-gateway')
+            ->and($response->json('meta.total'))->toBe(1);
+    });
+
+    it('searches inside a url, which the stored text would otherwise hide', function () {
+        $user = createUserWithPermissions(['ai.provider.view']);
+
+        stored()->put(AiProvider::make('tunnelled', AiDriver::Ollama)->withBaseUrl('https://ollama.internal:11434'));
+        storeProvider('plain');
+
+        // `json_encode` writes `https:\/\/…`, so matching the raw column would
+        // find nothing here, and `jsonb LIKE text` is not a legal operator on
+        // Postgres at all. Only the extracted value can answer this.
+        expect(actingAs($user)->getJson('/api/ai/providers?filter=//ollama')->assertOk()->json('data.0.name'))
+            ->toBe('tunnelled');
+    });
+
+    it('sorts by a document field, with the key settling ties', function () {
+        $user = createUserWithPermissions(['ai.provider.view']);
+
+        storeProvider('zed');
+        storeProvider('alpha');
+        storeProvider('cloud', AiDriver::OpenAI, 'sk-1');
+
+        // Both ollama providers tie on `driver`, and the tie has to break the
+        // same way on every request — otherwise paging through a tied sort can
+        // show the same row twice and skip another.
+        $names = actingAs($user)
+            ->getJson('/api/ai/providers?sort=driver&order=asc')
+            ->assertOk()
+            ->json('data.*.name');
+
+        expect($names)->toBe(['alpha', 'zed', 'cloud']);
+    });
+
+    it('falls back to the default order for a column it does not have', function () {
+        $user = createUserWithPermissions(['ai.provider.view']);
+
+        storeProvider('alpha');
+        storeProvider('zed');
+
+        // `created_at` is gone with the columns. A client still offering that
+        // header gets the default order rather than an error or a wrong answer.
+        expect(actingAs($user)->getJson('/api/ai/providers?sort=created_at')->assertOk()->json('data.*.name'))
+            ->toBe(['alpha', 'zed']);
+    });
+
+    it('marks which provider is the default', function () {
+        $user = createUserWithPermissions(['ai.provider.view']);
+
+        storeProvider('alpha');
+        storeProvider('zed');
+        stored()->put(AiDefaultProvider::make('zed'));
+
+        $defaults = actingAs($user)->getJson('/api/ai/providers')->assertOk()->json('data.*.is_default');
+
+        expect($defaults)->toBe([false, true]);
     });
 });
 
 describe('POST /api/ai/providers', function () {
     it('creates a provider with the manage permission', function () {
-        $user = createUserWithPermissions(['ai.provider.manage']);
+        $response = actingAs(createUserWithPermissions(['ai.provider.manage']))
+            ->postJson('/api/ai/providers', ['name' => 'local', 'driver' => 'ollama', 'base_url' => 'http://localhost:11434'])
+            ->assertCreated();
 
-        $response = actingAs($user)->postJson('/api/ai/providers', [
-            'name' => 'cloud',
-            'driver' => 'openai',
-            'api_key' => 'sk-new',
-            'is_default' => true,
-        ])->assertCreated();
-
-        expect($response->json('data.name'))->toBe('cloud')
-            ->and($response->json('data.has_api_key'))->toBeTrue()
-            ->and(AiProvider::where('name', 'cloud')->exists())->toBeTrue();
+        expect($response->json('data.name'))->toBe('local')
+            ->and($response->json('data.driver'))->toBe('ollama')
+            ->and(stored()->exists(AiProvider::class, 'providers/local'))->toBeTrue();
     });
 
     it('accepts an ollama provider with no api key at all', function () {
-        $user = createUserWithPermissions(['ai.provider.manage']);
-
-        $response = actingAs($user)
+        $response = actingAs(createUserWithPermissions(['ai.provider.manage']))
             ->postJson('/api/ai/providers', ['name' => 'local', 'driver' => 'ollama'])
             ->assertCreated();
 
-        // D24's zero-credential path has to be reachable through the screen
-        // that offers it; requiring a key would make it unreachable.
-        expect($response->json('data.has_api_key'))->toBeFalse();
+        expect($response->json('data.has_api_key'))->toBeFalse()
+            // With the opening quote, so this cannot match inside the
+            // `has_api_key` flag that is *meant* to be there.
+            ->and($response->getContent())->not->toContain('"api_key":');
     });
 
     it('requires an api key for a hosted driver', function () {
-        $user = createUserWithPermissions(['ai.provider.manage']);
-
-        actingAs($user)
+        actingAs(createUserWithPermissions(['ai.provider.manage']))
             ->postJson('/api/ai/providers', ['name' => 'cloud', 'driver' => 'openai'])
             ->assertUnprocessable()
             ->assertJsonValidationErrors('api_key');
     });
 
     it('rejects a duplicate name', function () {
-        AiProvider::factory()->create(['name' => 'taken']);
-        $user = createUserWithPermissions(['ai.provider.manage']);
+        storeProvider('local');
 
-        actingAs($user)
-            ->postJson('/api/ai/providers', ['name' => 'taken', 'driver' => 'ollama'])
+        actingAs(createUserWithPermissions(['ai.provider.manage']))
+            ->postJson('/api/ai/providers', ['name' => 'local', 'driver' => 'ollama'])
             ->assertUnprocessable()
             ->assertJsonValidationErrors('name');
     });
 
     it('rejects an unknown driver', function () {
-        $user = createUserWithPermissions(['ai.provider.manage']);
-
-        actingAs($user)
-            ->postJson('/api/ai/providers', ['name' => 'x', 'driver' => 'telepathy'])
+        actingAs(createUserWithPermissions(['ai.provider.manage']))
+            ->postJson('/api/ai/providers', ['name' => 'local', 'driver' => 'teapot'])
             ->assertUnprocessable()
             ->assertJsonValidationErrors('driver');
     });
 
     it('forbids a viewer', function () {
-        $user = createUserWithPermissions(['ai.provider.view']);
-
-        actingAs($user)
-            ->postJson('/api/ai/providers', ['name' => 'x', 'driver' => 'ollama'])
+        actingAs(createUserWithPermissions(['ai.provider.view']))
+            ->postJson('/api/ai/providers', ['name' => 'new', 'driver' => 'ollama'])
             ->assertForbidden();
     });
 });
 
 describe('PUT /api/ai/providers/{provider}', function () {
     it('keeps the stored key when the request omits one', function () {
-        $provider = AiProvider::factory()->withApiKey('sk-original')->create(['name' => 'cloud']);
-        $user = createUserWithPermissions(['ai.provider.manage']);
+        storeProvider('local', AiDriver::OpenAI, 'sk-original');
 
-        $response = actingAs($user)
-            ->putJson("/api/ai/providers/{$provider->id}", ['base_url' => 'https://llm.internal/v1'])
+        actingAs(createUserWithPermissions(['ai.provider.manage']))
+            ->putJson('/api/ai/providers/local', ['base_url' => 'http://ollama.internal:11434'])
             ->assertOk();
 
-        // The form has nothing to put in the key box — it is write-only — so an
-        // unrelated edit must not be read as "clear the credential".
-        expect($response->json('data.base_url'))->toBe('https://llm.internal/v1')
-            ->and($response->json('data.has_api_key'))->toBeTrue()
-            ->and($provider->refresh()->api_key)->toBe('sk-original');
+        expect(stored()->get(AiProvider::class, 'providers/local')?->apiKey())->toBe('sk-original');
     });
 
     it('replaces the key when one is sent', function () {
-        $provider = AiProvider::factory()->withApiKey('sk-original')->create();
-        $user = createUserWithPermissions(['ai.provider.manage']);
+        storeProvider('local', AiDriver::OpenAI, 'sk-original');
 
-        actingAs($user)
-            ->putJson("/api/ai/providers/{$provider->id}", ['api_key' => 'sk-rotated'])
+        actingAs(createUserWithPermissions(['ai.provider.manage']))
+            ->putJson('/api/ai/providers/local', ['api_key' => 'sk-replaced'])
             ->assertOk();
 
-        expect($provider->refresh()->api_key)->toBe('sk-rotated');
+        expect(stored()->get(AiProvider::class, 'providers/local')?->apiKey())->toBe('sk-replaced');
     });
 
     it('clears a stored key only when asked explicitly', function () {
-        $provider = AiProvider::factory()->withApiKey('sk-original')->create();
-        $user = createUserWithPermissions(['ai.provider.manage']);
+        storeProvider('local', AiDriver::OpenAI, 'sk-original');
 
-        $response = actingAs($user)
-            ->putJson("/api/ai/providers/{$provider->id}", ['clear_api_key' => true])
+        actingAs(createUserWithPermissions(['ai.provider.manage']))
+            ->putJson('/api/ai/providers/local', ['clear_api_key' => true])
             ->assertOk();
 
-        // An empty key box is what "untouched" looks like on the wire, so
-        // deletion gets its own flag rather than sharing one with "unchanged".
-        expect($response->json('data.has_api_key'))->toBeFalse()
-            ->and($provider->refresh()->api_key)->toBeNull();
+        expect(stored()->get(AiProvider::class, 'providers/local')?->apiKey())->toBeNull();
     });
 
     it('keeps the key when the flag and a new key are both sent', function () {
-        $provider = AiProvider::factory()->withApiKey('sk-original')->create();
-        $user = createUserWithPermissions(['ai.provider.manage']);
+        storeProvider('local', AiDriver::OpenAI, 'sk-original');
 
-        $response = actingAs($user)
-            ->putJson("/api/ai/providers/{$provider->id}", [
-                'clear_api_key' => true,
-                'api_key' => 'sk-new',
-            ])
+        actingAs(createUserWithPermissions(['ai.provider.manage']))
+            ->putJson('/api/ai/providers/local', ['api_key' => 'sk-new', 'clear_api_key' => true])
             ->assertOk();
 
-        expect($response->json('data.has_api_key'))->toBeFalse();
+        expect(stored()->get(AiProvider::class, 'providers/local')?->apiKey())->toBeNull();
     });
 
     it('never renames a provider', function () {
-        $provider = AiProvider::factory()->create(['name' => 'original']);
-        $user = createUserWithPermissions(['ai.provider.manage']);
+        storeProvider('local');
 
-        $response = actingAs($user)
-            ->putJson("/api/ai/providers/{$provider->id}", ['name' => 'renamed'])
+        // The name is the key the setting is stored under and the segment the
+        // URL addresses, so a rename is a move rather than an edit. The route
+        // does not accept it and the request does not either.
+        actingAs(createUserWithPermissions(['ai.provider.manage']))
+            ->putJson('/api/ai/providers/local', ['name' => 'renamed'])
             ->assertOk();
 
-        // `name` is the SDK config key and the identity in a run's
-        // attribution; renaming it would orphan every run that recorded it.
-        expect($response->json('data.name'))->toBe('original')
-            ->and($provider->refresh()->name)->toBe('original');
+        expect(stored()->exists(AiProvider::class, 'providers/local'))->toBeTrue()
+            ->and(stored()->exists(AiProvider::class, 'providers/renamed'))->toBeFalse();
     });
 
-    it('deactivating the default leaves the registry without a default', function () {
-        $provider = AiProvider::factory()->default()->create();
-        $user = createUserWithPermissions(['ai.provider.manage']);
+    it('ignores a driver the client echoed back, and reports the real one', function () {
+        storeProvider('local', AiDriver::Ollama);
 
-        actingAs($user)
-            ->putJson("/api/ai/providers/{$provider->id}", ['is_active' => false])
+        // The dialog sends the row it was given, so `driver` is present on every
+        // edit. Refusing it would make editing a base URL impossible; silently
+        // keeping it is what a frozen field has to mean, and the response still
+        // carries the truth so the form re-renders with the real driver.
+        $response = actingAs(createUserWithPermissions(['ai.provider.manage']))
+            ->putJson('/api/ai/providers/local', ['driver' => 'openai', 'base_url' => 'http://x.internal'])
             ->assertOk();
 
-        expect($provider->refresh()->is_active)->toBeFalse();
+        expect($response->json('data.driver'))->toBe('ollama')
+            ->and($response->json('data.base_url'))->toBe('http://x.internal')
+            ->and(stored()->get(AiProvider::class, 'providers/local')?->driver())->toBe(AiDriver::Ollama);
+    });
+
+    it('answers 404 for a provider that is not there', function () {
+        actingAs(createUserWithPermissions(['ai.provider.manage']))
+            ->putJson('/api/ai/providers/never-stored', ['base_url' => 'http://x.internal'])
+            ->assertNotFound();
     });
 
     it('forbids a viewer', function () {
-        $provider = AiProvider::factory()->create();
-        $user = createUserWithPermissions(['ai.provider.view']);
+        storeProvider();
 
-        actingAs($user)
-            ->putJson("/api/ai/providers/{$provider->id}", ['base_url' => 'https://x.test'])
+        actingAs(createUserWithPermissions(['ai.provider.view']))
+            ->putJson('/api/ai/providers/local', ['base_url' => 'http://x.internal'])
             ->assertForbidden();
     });
 });
 
 describe('POST /api/ai/providers/{provider}/default', function () {
-    it('promotes a row and demotes the previous default', function () {
-        $first = AiProvider::factory()->default()->create(['name' => 'first']);
-        $second = AiProvider::factory()->create(['name' => 'second']);
-        $user = createUserWithPermissions(['ai.provider.manage']);
+    it('promotes a provider and demotes the previous default', function () {
+        storeProvider('alpha');
+        storeProvider('zed');
+        stored()->put(AiDefaultProvider::make('alpha'));
 
-        $response = actingAs($user)
-            ->postJson("/api/ai/providers/{$second->id}/default")
+        actingAs(createUserWithPermissions(['ai.provider.manage']))
+            ->postJson('/api/ai/providers/zed/default')
             ->assertOk();
 
-        expect($response->json('data.is_default'))->toBeTrue()
-            ->and($first->refresh()->is_default)->toBeFalse()
-            ->and($second->refresh()->is_default)->toBeTrue();
+        expect(stored()->get(AiDefaultProvider::class, 'default_provider')?->provider())
+            ->toBe('zed');
     });
 
     it('forbids a viewer', function () {
-        $provider = AiProvider::factory()->create();
-        $user = createUserWithPermissions(['ai.provider.view']);
+        storeProvider();
 
-        actingAs($user)->postJson("/api/ai/providers/{$provider->id}/default")->assertForbidden();
+        actingAs(createUserWithPermissions(['ai.provider.view']))
+            ->postJson('/api/ai/providers/local/default')
+            ->assertForbidden();
     });
 });
 
 describe('DELETE /api/ai/providers/{provider}', function () {
-    it('deletes a provider and its models', function () {
-        $provider = AiProvider::factory()->create();
-        AiModel::factory()->create(['provider_id' => $provider->id]);
-        $user = createUserWithPermissions(['ai.provider.manage']);
+    it('deletes a provider with its models', function () {
+        storeProvider('local', models: ['gpt-oss:20b' => new AiModel('gpt-oss:20b', null, [], true)]);
 
-        actingAs($user)->deleteJson("/api/ai/providers/{$provider->id}")->assertOk();
+        actingAs(createUserWithPermissions(['ai.provider.manage']))
+            ->deleteJson('/api/ai/providers/local')
+            ->assertOk();
 
-        expect(AiProvider::find($provider->id))->toBeNull()
-            ->and(AiModel::where('provider_id', $provider->id)->count())->toBe(0);
+        expect(stored()->exists(AiProvider::class, 'providers/local'))->toBeFalse();
     });
 
     it('forbids a viewer', function () {
-        $provider = AiProvider::factory()->create();
-        $user = createUserWithPermissions(['ai.provider.view']);
+        storeProvider();
 
-        actingAs($user)->deleteJson("/api/ai/providers/{$provider->id}")->assertForbidden();
-
-        expect(AiProvider::find($provider->id))->not->toBeNull();
+        actingAs(createUserWithPermissions(['ai.provider.view']))
+            ->deleteJson('/api/ai/providers/local')
+            ->assertForbidden();
     });
 });
 
 describe('provider models', function () {
     it('adds a model under its provider', function () {
-        $provider = AiProvider::factory()->create();
-        $user = createUserWithPermissions(['ai.provider.manage']);
+        storeProvider('local');
 
-        $response = actingAs($user)
-            ->postJson("/api/ai/providers/{$provider->id}/models", [
-                'model_name' => 'gpt-oss:20b',
-                'capabilities' => ['text', 'structured-output'],
-            ])
+        actingAs(createUserWithPermissions(['ai.provider.manage']))
+            ->postJson('/api/ai/providers/local/models', ['model_name' => 'gpt-oss:20b'])
             ->assertCreated();
 
-        expect($response->json('data.model_name'))->toBe('gpt-oss:20b')
-            ->and($response->json('data.capabilities'))->toBe(['text', 'structured-output'])
-            ->and($response->json('data.display_label'))->toBe('gpt-oss:20b');
+        expect(stored()->get(AiProvider::class, 'providers/local')?->hasModel('gpt-oss:20b'))->toBeTrue();
+    });
+
+    it('rejects a model name the gateway would never publish', function () {
+        storeProvider('local');
+
+        // Real model names carry colons and dots (`llama3:8b`, `qwen2.5:14b`),
+        // so the model pattern is looser than the provider one.
+        actingAs(createUserWithPermissions(['ai.provider.manage']))
+            ->postJson('/api/ai/providers/local/models', ['model_name' => 'llama3:8b'])
+            ->assertCreated();
     });
 
     it('rejects a capability outside the enum', function () {
-        $provider = AiProvider::factory()->create();
-        $user = createUserWithPermissions(['ai.provider.manage']);
+        storeProvider('local');
 
-        actingAs($user)
-            ->postJson("/api/ai/providers/{$provider->id}/models", [
-                'model_name' => 'x',
-                'capabilities' => ['telepathy'],
-            ])
+        actingAs(createUserWithPermissions(['ai.provider.manage']))
+            ->postJson('/api/ai/providers/local/models', ['model_name' => 'x', 'capabilities' => ['telepathy']])
             ->assertUnprocessable()
             ->assertJsonValidationErrors('capabilities.0');
     });
 
     it('rejects the same model name twice on one provider', function () {
-        $provider = AiProvider::factory()->create();
-        AiModel::factory()->create(['provider_id' => $provider->id, 'model_name' => 'dupe']);
-        $user = createUserWithPermissions(['ai.provider.manage']);
+        storeProvider('local', models: ['gpt-oss:20b' => new AiModel('gpt-oss:20b', null, [], true)]);
 
-        actingAs($user)
-            ->postJson("/api/ai/providers/{$provider->id}/models", ['model_name' => 'dupe'])
+        // jsonb would quietly keep the last of a duplicated key, so without this
+        // check the first entry would silently become the second.
+        actingAs(createUserWithPermissions(['ai.provider.manage']))
+            ->postJson('/api/ai/providers/local/models', ['model_name' => 'gpt-oss:20b'])
             ->assertUnprocessable()
             ->assertJsonValidationErrors('model_name');
     });
 
     it('allows the same model name on two providers', function () {
-        $first = AiProvider::factory()->create();
-        $second = AiProvider::factory()->create();
-        AiModel::factory()->create(['provider_id' => $first->id, 'model_name' => 'shared']);
+        storeProvider('alpha');
+        storeProvider('zed');
 
         $user = createUserWithPermissions(['ai.provider.manage']);
 
-        actingAs($user)
-            ->postJson("/api/ai/providers/{$second->id}/models", ['model_name' => 'shared'])
-            ->assertCreated();
+        actingAs($user)->postJson('/api/ai/providers/alpha/models', ['model_name' => 'gpt-4o-mini'])->assertCreated();
+        actingAs($user)->postJson('/api/ai/providers/zed/models', ['model_name' => 'gpt-4o-mini'])->assertCreated();
+
+        expect(stored()->get(AiProvider::class, 'providers/alpha')?->hasModel('gpt-4o-mini'))->toBeTrue()
+            ->and(stored()->get(AiProvider::class, 'providers/zed')?->hasModel('gpt-4o-mini'))->toBeTrue();
     });
 
     it('renames a model without colliding with itself', function () {
-        $provider = AiProvider::factory()->create();
-        $model = AiModel::factory()->create(['provider_id' => $provider->id, 'model_name' => 'before']);
-        $user = createUserWithPermissions(['ai.provider.manage']);
+        storeProvider('local', models: ['gpt-oss:20b' => new AiModel('gpt-oss:20b', null, [], true)]);
 
-        $response = actingAs($user)
-            ->putJson("/api/ai/providers/{$provider->id}/models/{$model->id}", [
-                'model_name' => 'before',
-                'label' => 'نام نمایشی',
-            ])
+        actingAs(createUserWithPermissions(['ai.provider.manage']))
+            ->putJson('/api/ai/providers/local/models/gpt-oss:20b', ['model_name' => 'gpt-oss:120b'])
             ->assertOk();
 
-        // The unique rule must exclude the row being updated, or a rename to
-        // the same value would reject itself.
-        expect($response->json('data.label'))->toBe('نام نمایشی')
-            ->and($response->json('data.display_label'))->toBe('نام نمایشی');
+        $provider = stored()->get(AiProvider::class, 'providers/local');
+
+        expect($provider?->hasModel('gpt-oss:20b'))->toBeFalse()
+            ->and($provider?->hasModel('gpt-oss:120b'))->toBeTrue();
+    });
+
+    it('moves the default pointer with a rename', function () {
+        storeProvider('local', models: ['gpt-oss:20b' => new AiModel('gpt-oss:20b', null, [], true)], defaultModel: 'gpt-oss:20b');
+
+        actingAs(createUserWithPermissions(['ai.provider.manage']))
+            ->putJson('/api/ai/providers/local/models/gpt-oss:20b', ['model_name' => 'gpt-oss:120b'])
+            ->assertOk();
+
+        // The pointer names a model, so leaving it on the old name would make
+        // the stored document refuse to load at all.
+        expect(stored()->get(AiProvider::class, 'providers/local')?->defaultModel())->toBe('gpt-oss:120b');
     });
 
     it('refuses to edit a model through the wrong provider', function () {
-        $provider = AiProvider::factory()->create();
-        $other = AiProvider::factory()->create();
-        $model = AiModel::factory()->create(['provider_id' => $provider->id]);
-        $user = createUserWithPermissions(['ai.provider.manage']);
+        storeProvider('alpha');
+        storeProvider('zed', models: ['gpt-oss:20b' => new AiModel('gpt-oss:20b', null, [], true)]);
 
-        actingAs($user)
-            ->putJson("/api/ai/providers/{$other->id}/models/{$model->id}", ['model_name' => 'stolen'])
+        // 404, not 422: the route addresses a model *under a provider*, and
+        // `alpha` serves no such model, so the thing being addressed is not
+        // there. A 422 would be right if the provider were a body field.
+        actingAs(createUserWithPermissions(['ai.provider.manage']))
+            ->putJson('/api/ai/providers/alpha/models/gpt-oss:20b', ['model_name' => 'stolen'])
             ->assertNotFound();
+
+        expect(stored()->get(AiProvider::class, 'providers/zed')?->hasModel('gpt-oss:20b'))->toBeTrue();
+    });
+
+    it('unbinds an agent that was using the model being deleted', function () {
+        storeProvider('local', models: ['gpt-oss:20b' => new AiModel('gpt-oss:20b', null, [], true)]);
+        storeAgent('board-meeting.summary', 'local', 'gpt-oss:20b');
+
+        actingAs(createUserWithPermissions(['ai.provider.manage']))
+            ->deleteJson('/api/ai/providers/local/models/gpt-oss:20b')
+            ->assertOk();
+
+        // What the foreign keys used to do for free. A binding left naming a
+        // deleted model would resolve to nothing at run time and fail there.
+        expect(stored()->get(AiAgent::class, 'agents/board-meeting.summary')?->model())->toBeNull();
     });
 
     it('deletes a model', function () {
-        $provider = AiProvider::factory()->create();
-        $model = AiModel::factory()->create(['provider_id' => $provider->id]);
-        $user = createUserWithPermissions(['ai.provider.manage']);
+        storeProvider('local', models: ['gpt-oss:20b' => new AiModel('gpt-oss:20b', null, [], true)]);
 
-        actingAs($user)
-            ->deleteJson("/api/ai/providers/{$provider->id}/models/{$model->id}")
+        actingAs(createUserWithPermissions(['ai.provider.manage']))
+            ->deleteJson('/api/ai/providers/local/models/gpt-oss:20b')
             ->assertOk();
 
-        expect(AiModel::find($model->id))->toBeNull();
+        expect(stored()->get(AiProvider::class, 'providers/local')?->hasModel('gpt-oss:20b'))->toBeFalse();
     });
 
     it('forbids a viewer', function () {
-        $provider = AiProvider::factory()->create();
+        storeProvider();
+
+        actingAs(createUserWithPermissions(['ai.provider.view']))
+            ->postJson('/api/ai/providers/local/models', ['model_name' => 'x'])
+            ->assertForbidden();
+    });
+});
+
+describe('GET /api/ai/models', function () {
+    it('lists every pickable model across providers, with its provider', function () {
         $user = createUserWithPermissions(['ai.provider.view']);
 
-        actingAs($user)
-            ->postJson("/api/ai/providers/{$provider->id}/models", ['model_name' => 'x'])
-            ->assertForbidden();
+        storeProvider('alpha', models: [
+            'gpt-oss:20b' => new AiModel('gpt-oss:20b', 'GPT OSS', [], true),
+            'retired:1b' => new AiModel('retired:1b', null, [], false),
+        ]);
+        storeProvider('zed', models: ['qwen2.5:14b' => new AiModel('qwen2.5:14b', null, [], true)]);
+
+        $models = actingAs($user)->getJson('/api/ai/models')->assertOk()->json('data');
+
+        // Only the active ones, and only on an active provider: the picker has
+        // to offer exactly what the resolver will accept.
+        expect($models)->toHaveCount(2)
+            ->and($models[0])->toMatchArray(['provider_name' => 'alpha', 'model_name' => 'gpt-oss:20b', 'display_label' => 'GPT OSS'])
+            ->and($models[1])->toMatchArray(['provider_name' => 'zed', 'model_name' => 'qwen2.5:14b']);
+    });
+
+    it('offers nothing behind a deactivated provider', function () {
+        // `asActive()` returns a new provider, so the deactivated one has to be
+        // the one that is stored — writing the original would leave it live.
+        stored()->put(AiProvider::make('alpha', AiDriver::Ollama)->asActive(false)->withModels(
+            ['gpt-oss:20b' => new AiModel('gpt-oss:20b', null, [], true)],
+            null,
+        ));
+
+        expect(actingAs(createUserWithPermissions(['ai.provider.view']))
+            ->getJson('/api/ai/models')
+            ->assertOk()
+            ->json('data'))->toBe([]);
+    });
+
+    it('answers with the pagination envelope too', function () {
+        $user = createUserWithPermissions(['ai.provider.view']);
+
+        storeProvider('alpha', models: [
+            'a:1b' => new AiModel('a:1b', null, [], true),
+            'b:1b' => new AiModel('b:1b', null, [], true),
+        ]);
+
+        $response = actingAs($user)->getJson('/api/ai/models?per_page=1&page=2')->assertOk();
+
+        // Hand-built paginator, so this is the assertion that keeps it shaped
+        // like the query-backed lists rather than like a bare array.
+        expect($response->json('data'))->toHaveCount(1)
+            ->and($response->json('meta.total'))->toBe(2)
+            ->and($response->json('meta.last_page'))->toBe(2);
+    });
+
+    it('never exposes a credential through the picker', function () {
+        storeProvider('alpha', AiDriver::OpenAI, 'sk-secret-value', [
+            'gpt-4o-mini' => new AiModel('gpt-4o-mini', null, [], true),
+        ]);
+
+        $response = actingAs(createUserWithPermissions(['ai.provider.view']))->getJson('/api/ai/models')->assertOk();
+
+        expect($response->json('data.0'))->not->toHaveKeys(['base_url', 'has_api_key', 'headers', 'api_key'])
+            ->and($response->getContent())->not->toContain('sk-secret-value');
     });
 });
 
@@ -377,235 +557,242 @@ describe('GET /api/ai/agents', function () {
     });
 
     it('lists agents with what they are bound to', function () {
-        $provider = AiProvider::factory()->create(['name' => 'local']);
-        $model = AiModel::factory()->create(['provider_id' => $provider->id, 'label' => 'Summarizer']);
-        AiAgent::factory()->create([
+        storeProvider('local');
+        storeAgent('board-meeting.summary', 'local', 'gemma3:latest');
+
+        $response = actingAs(createUserWithPermissions(['ai.provider.view']))->getJson('/api/ai/agents')->assertOk();
+
+        expect($response->json('data.0'))->toMatchArray([
             'key' => 'board-meeting.summary',
-            'provider_id' => $provider->id,
-            'model_id' => $model->id,
+            'label' => 'Moulid khalase',
+            'provider' => 'local',
+            'model' => 'gemma3:latest',
+            'is_bound' => true,
         ]);
+    });
 
-        $user = createUserWithPermissions(['ai.provider.view']);
-        $response = actingAs($user)->getJson('/api/ai/agents')->assertOk();
+    it('sends the binding as names, with no row ids to disagree with them', function () {
+        storeProvider('local');
+        storeAgent('board-meeting.summary', 'local', 'gemma3:latest');
 
-        expect($response->json('data.0.key'))->toBe('board-meeting.summary')
-            ->and($response->json('data.0.is_bound'))->toBeTrue()
-            ->and($response->json('data.0.provider_name'))->toBe('local')
-            ->and($response->json('data.0.model_name'))->toBe('Summarizer');
+        $agent = actingAs(createUserWithPermissions(['ai.provider.view']))
+            ->getJson('/api/ai/agents')
+            ->assertOk()
+            ->json('data.0');
+
+        expect($agent)->not->toHaveKeys(['id', 'provider_id', 'model_id']);
+    });
+
+    it('answers with the pagination envelope', function () {
+        storeAgent('board-meeting.summary');
+        storeAgent('cv.rewrite');
+
+        $response = actingAs(createUserWithPermissions(['ai.provider.view']))
+            ->getJson('/api/ai/agents?per_page=1&page=2')
+            ->assertOk();
+
+        expect($response->json('data.0.key'))->toBe('cv.rewrite')
+            ->and($response->json('meta.total'))->toBe(2)
+            ->and($response->json('links'))->not->toBeNull();
     });
 
     it('reports an unbound agent as not bound', function () {
-        AiAgent::factory()->create(['key' => 'board-meeting.summary', 'provider_id' => null]);
-        $user = createUserWithPermissions(['ai.provider.view']);
+        storeAgent('board-meeting.summary');
 
-        $response = actingAs($user)->getJson('/api/ai/agents')->assertOk();
+        $agent = actingAs(createUserWithPermissions(['ai.provider.view']))
+            ->getJson('/api/ai/agents')
+            ->assertOk()
+            ->json('data.0');
 
-        expect($response->json('data.0.is_bound'))->toBeFalse()
-            ->and($response->json('data.0.provider_name'))->toBeNull();
+        expect($agent['is_bound'])->toBeFalse()
+            ->and($agent['provider'])->toBeNull()
+            ->and($agent['model'])->toBeNull();
     });
 });
 
 describe('PUT /api/ai/agents/{agent}', function () {
     it('binds an agent to a provider and model', function () {
-        $provider = AiProvider::factory()->create();
-        $model = AiModel::factory()->create(['provider_id' => $provider->id]);
-        $agent = AiAgent::factory()->create(['key' => 'board-meeting.summary']);
-        $user = createUserWithPermissions(['ai.provider.manage']);
+        storeProvider('local', models: ['gemma3:latest' => new AiModel('gemma3:latest', null, [], true)]);
+        storeAgent();
 
-        $response = actingAs($user)
-            ->putJson("/api/ai/agents/{$agent->id}", [
-                'provider_id' => $provider->id,
-                'model_id' => $model->id,
-            ])
+        actingAs(createUserWithPermissions(['ai.provider.manage']))
+            ->putJson('/api/ai/agents/board-meeting.summary', ['provider' => 'local', 'model' => 'gemma3:latest'])
             ->assertOk();
 
-        expect($response->json('data.is_bound'))->toBeTrue()
-            ->and($agent->refresh()->provider_id)->toBe($provider->id);
+        $agent = stored()->get(AiAgent::class, 'agents/board-meeting.summary');
+
+        expect($agent?->provider())->toBe('local')
+            ->and($agent?->model())->toBe('gemma3:latest');
     });
 
     it('clears a binding back to inheriting the default', function () {
-        $provider = AiProvider::factory()->create();
-        $agent = AiAgent::factory()->create(['provider_id' => $provider->id]);
-        $user = createUserWithPermissions(['ai.provider.manage']);
+        storeProvider('local');
+        storeAgent('board-meeting.summary', 'local', 'gemma3:latest');
 
-        $response = actingAs($user)
-            ->putJson("/api/ai/agents/{$agent->id}", ['provider_id' => null, 'model_id' => null])
+        actingAs(createUserWithPermissions(['ai.provider.manage']))
+            ->putJson('/api/ai/agents/board-meeting.summary', ['provider' => null, 'model' => null])
             ->assertOk();
 
-        // "Inherit the default" is a real state an administrator has to be
-        // able to return to, not just the initial one.
-        expect($response->json('data.is_bound'))->toBeFalse()
-            ->and($agent->refresh()->provider_id)->toBeNull();
+        $agent = stored()->get(AiAgent::class, 'agents/board-meeting.summary');
+
+        expect($agent?->provider())->toBeNull()
+            ->and($agent?->model())->toBeNull()
+            ->and($agent?->isBound())->toBeFalse();
     });
 
     it('rejects a model belonging to another provider', function () {
-        $provider = AiProvider::factory()->create();
-        $other = AiProvider::factory()->create();
-        $model = AiModel::factory()->create(['provider_id' => $other->id]);
-        $agent = AiAgent::factory()->create();
-        $user = createUserWithPermissions(['ai.provider.manage']);
+        storeProvider('alpha', models: ['shared:1b' => new AiModel('shared:1b', null, [], true)]);
+        storeProvider('zed');
+        storeAgent();
 
-        actingAs($user)
-            ->putJson("/api/ai/agents/{$agent->id}", [
-                'provider_id' => $provider->id,
-                'model_id' => $model->id,
-            ])
+        actingAs(createUserWithPermissions(['ai.provider.manage']))
+            ->putJson('/api/ai/agents/board-meeting.summary', ['provider' => 'zed', 'model' => 'shared:1b'])
             ->assertUnprocessable();
+    });
 
-        expect($agent->refresh()->model_id)->toBeNull();
+    it('rejects a provider that is not there', function () {
+        storeAgent();
+
+        actingAs(createUserWithPermissions(['ai.provider.manage']))
+            ->putJson('/api/ai/agents/board-meeting.summary', ['provider' => 'never-stored'])
+            ->assertUnprocessable();
     });
 
     it('leaves the agent class and key alone', function () {
-        $agent = AiAgent::factory()->create([
-            'key' => 'board-meeting.summary',
-            'agent_class' => 'App\\Some\\MeetingSummaryAgent',
-        ]);
-        $provider = AiProvider::factory()->create();
         $user = createUserWithPermissions(['ai.provider.manage']);
 
-        $response = actingAs($user)
-            ->putJson("/api/ai/agents/{$agent->id}", [
-                'key' => 'hijacked',
-                'agent_class' => 'App\\Evil\\Agent',
-                'provider_id' => $provider->id,
-            ])
-            ->assertOk();
+        storeProvider('local');
+        storeAgent();
 
-        // Both are the consuming domain's identity, not settings state; a
-        // wrong class here would only surface on the next real run.
-        expect($response->json('data.key'))->toBe('board-meeting.summary')
-            ->and($response->json('data.agent_class'))->toBe('App\\Some\\MeetingSummaryAgent');
-    });
+        actingAs($user)->putJson('/api/ai/agents/board-meeting.summary', [
+            'key' => 'hijacked',
+            'agent_class' => 'App\\Nope',
+            'provider' => 'local',
+        ])->assertOk();
 
-    it('rejects an unknown provider id', function () {
-        $agent = AiAgent::factory()->create();
-        $user = createUserWithPermissions(['ai.provider.manage']);
+        $agent = stored()->get(AiAgent::class, 'agents/board-meeting.summary');
 
-        actingAs($user)
-            ->putJson("/api/ai/agents/{$agent->id}", ['provider_id' => 9999])
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors('provider_id');
+        expect($agent?->agentKey())->toBe('board-meeting.summary')
+            ->and($agent?->agentClass())->toBe(Agent::class)
+            ->and(stored()->exists(AiAgent::class, 'agents/hijacked'))->toBeFalse();
     });
 
     it('forbids a viewer', function () {
-        $agent = AiAgent::factory()->create();
-        $provider = AiProvider::factory()->create();
-        $user = createUserWithPermissions(['ai.provider.view']);
+        storeAgent();
 
-        actingAs($user)
-            ->putJson("/api/ai/agents/{$agent->id}", ['provider_id' => $provider->id])
+        actingAs(createUserWithPermissions(['ai.provider.view']))
+            ->putJson('/api/ai/agents/board-meeting.summary', ['provider' => 'local'])
             ->assertForbidden();
-
-        expect($agent->refresh()->provider_id)->toBeNull();
     });
 });
 
 describe('POST /api/ai/providers/{provider}/test', function () {
     it('reports a reachable provider', function () {
-        $provider = AiProvider::factory()->create(['name' => 'local']);
+        storeProvider('local');
 
-        // The probe is a real prompt, so the assertion is on the shape of a
-        // successful answer rather than on any model's wording.
         $this->partialMock(AiConnectionTester::class)
             ->shouldReceive('test')
             ->once()
-            ->andReturn(['ok' => true, 'model' => 'qwen3.5:4b', 'reply' => 'ok', 'tokens' => 12]);
+            ->andReturn(['ok' => true, 'model' => 'gemma3:latest', 'reply' => 'ok', 'tokens' => 3]);
 
-        $user = createUserWithPermissions(['ai.provider.manage']);
-
-        $response = actingAs($user)
-            ->postJson("/api/ai/providers/{$provider->id}/test")
-            ->assertOk();
-
-        expect($response->json())->toHaveKeys(['ok', 'model', 'reply', 'tokens'])
-            ->and($response->json('ok'))->toBeTrue();
+        actingAs(createUserWithPermissions(['ai.provider.manage']))
+            ->postJson('/api/ai/providers/local/test')
+            ->assertOk()
+            ->assertJsonPath('ok', true);
     });
 
-    it('passes a model override through', function () {
-        $provider = AiProvider::factory()->create();
+    it('passes the model it was asked to test through', function () {
+        storeProvider('local', models: ['registered:1b' => new AiModel('registered:1b', null, [], true)]);
 
+        // The registry already serves a model, and the point of the box is to
+        // try a *different* one - usually one about to be saved.
         $this->partialMock(AiConnectionTester::class)
             ->shouldReceive('test')
             ->once()
-            // Route model binding builds its own instance, so the provider
-            // argument is matched loosely; the override is the thing under test.
-            ->with($this->anything(), 'gpt-oss:20b')
-            ->andReturn(['ok' => true, 'model' => 'gpt-oss:20b', 'reply' => 'ok', 'tokens' => 1]);
+            ->with(Mockery::on(fn (AiProvider $p): bool => $p->name() === 'local'), 'unregistered:7b')
+            ->andReturn(['ok' => true, 'model' => 'unregistered:7b', 'reply' => 'ok', 'tokens' => 3]);
 
-        $user = createUserWithPermissions(['ai.provider.manage']);
-
-        actingAs($user)
-            ->postJson("/api/ai/providers/{$provider->id}/test?model=gpt-oss:20b")
+        actingAs(createUserWithPermissions(['ai.provider.manage']))
+            ->postJson('/api/ai/providers/local/test', ['model' => 'unregistered:7b'])
             ->assertOk();
     });
 
     it('answers 422 with the reason when the provider cannot be reached', function () {
-        $provider = AiProvider::factory()->create(['name' => 'broken']);
+        storeProvider('local');
 
         $this->partialMock(AiConnectionTester::class)
             ->shouldReceive('test')
             ->once()
             ->andThrow(AiProviderUnreachable::because(
-                $provider,
-                new RuntimeException('invalid api key'),
+                stored()->get(AiProvider::class, 'providers/local'),
+                new RuntimeException('401 Unauthorized'),
             ));
 
-        $user = createUserWithPermissions(['ai.provider.manage']);
+        actingAs(createUserWithPermissions(['ai.provider.manage']))
+            ->postJson('/api/ai/providers/local/test')
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'AI provider [local] could not be reached: 401 Unauthorized');
+    });
 
-        $response = actingAs($user)
-            ->postJson("/api/ai/providers/{$provider->id}/test")
+    it('never puts the credential in the failure it reports', function () {
+        storeProvider('local', AiDriver::OpenAI, 'sk-secret-value');
+
+        $this->partialMock(AiConnectionTester::class)
+            ->shouldReceive('test')
+            ->once()
+            ->andThrow(AiProviderUnreachable::because(
+                stored()->get(AiProvider::class, 'providers/local'),
+                new RuntimeException('401 Unauthorized'),
+            ));
+
+        $response = actingAs(createUserWithPermissions(['ai.provider.manage']))
+            ->postJson('/api/ai/providers/local/test')
             ->assertUnprocessable();
 
-        // The whole point of the button is to be told *which* mistake it is.
-        expect($response->json('message'))->toContain('invalid api key');
+        expect($response->getContent())->not->toContain('sk-secret-value');
     });
 
     it('forbids a viewer', function () {
-        $provider = AiProvider::factory()->create();
+        storeProvider();
 
-        $this->partialMock(AiConnectionTester::class)
-            ->shouldNotReceive('test');
-
-        $user = createUserWithPermissions(['ai.provider.view']);
-
-        actingAs($user)
-            ->postJson("/api/ai/providers/{$provider->id}/test")
+        actingAs(createUserWithPermissions(['ai.provider.view']))
+            ->postJson('/api/ai/providers/local/test')
             ->assertForbidden();
     });
 });
 
-describe('capability vocabulary', function () {
+describe('the capability vocabulary', function () {
     it('exposes every capability the enum defines', function () {
-        $provider = AiProvider::factory()->create();
-        $user = createUserWithPermissions(['ai.provider.manage']);
+        storeProvider('local');
 
-        $response = actingAs($user)
-            ->postJson("/api/ai/providers/{$provider->id}/models", [
-                'model_name' => 'multi',
-                'capabilities' => array_map(
-                    fn (AiCapability $c): string => $c->value,
-                    AiCapability::cases(),
-                ),
+        $capabilities = actingAs(createUserWithPermissions(['ai.provider.view']))
+            ->getJson('/api/ai/providers')
+            ->assertOk();
+
+        $posted = actingAs(createUserWithPermissions(['ai.provider.manage']))
+            ->postJson('/api/ai/providers/local/models', [
+                'model_name' => 'everything',
+                'capabilities' => array_map(fn (AiCapability $c): string => $c->value, AiCapability::cases()),
             ])
             ->assertCreated();
 
-        expect($response->json('data.capabilities'))->toHaveCount(count(AiCapability::cases()));
+        expect($posted->json('data.capabilities'))->toHaveCount(count(AiCapability::cases()))
+            ->and($capabilities->status())->toBe(200);
     });
 
-    it('accepts a provider row for every driver the enum offers', function () {
+    it('accepts a provider for every driver the enum offers', function () {
         $user = createUserWithPermissions(['ai.provider.manage']);
 
         foreach (AiDriver::cases() as $index => $driver) {
-            actingAs($user)->postJson('/api/ai/providers', [
-                'name' => "driver-{$index}",
-                'driver' => $driver->value,
-                'base_url' => 'https://example.test/v1',
-                // Only Ollama is allowed to be keyless, so every other row has
-                // to bring one to be valid.
-                'api_key' => $driver === AiDriver::Ollama ? null : 'sk-test',
-            ])->assertCreated();
+            actingAs($user)
+                ->postJson('/api/ai/providers', [
+                    'name' => 'driver-'.$index,
+                    'driver' => $driver->value,
+                    'api_key' => 'sk-'.$index,
+                ])
+                ->assertCreated();
         }
 
-        expect(AiProvider::count())->toBe(count(AiDriver::cases()));
+        expect(stored()->all(AiProvider::class))->toHaveCount(count(AiDriver::cases()));
     });
 });

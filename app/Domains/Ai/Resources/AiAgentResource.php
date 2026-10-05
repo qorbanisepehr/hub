@@ -2,18 +2,23 @@
 
 namespace App\Domains\Ai\Resources;
 
-use App\Domains\Ai\Models\AiAgent;
+use App\Domains\Ai\Value\AiAgent;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
  * One registered agent and what it is bound to. Serialization only.
  *
- * `is_bound` is sent alongside the ids because "inherits the default
- * provider" and "explicitly pinned to the default provider" run identically
- * (A2) while meaning different things to an administrator — one follows a
- * change of default, the other does not. The client needs that to warn
- * before someone pins an agent by accident.
+ * The binding is sent as the two names it is stored as. There is no
+ * `provider_id` or `model_id` to send, and that is the point of storing names:
+ * a pair of ids could name a provider and a model that do not belong together,
+ * and the client would have no way to tell that from a valid pair.
+ *
+ * `is_bound` rides alongside because "inherits the default provider" and
+ * "explicitly pinned to the default provider" run identically (A2) while
+ * meaning different things to an administrator — one follows a change of
+ * default, the other does not. The client needs that to warn before someone
+ * pins an agent by accident.
  *
  * @property AiAgent $resource
  */
@@ -25,16 +30,13 @@ class AiAgentResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
-            'id' => $this->resource->id,
-            'key' => $this->resource->key,
-            'label' => $this->resource->label,
-            'agent_class' => $this->resource->agent_class,
+            'key' => $this->resource->agentKey(),
+            'label' => $this->resource->label(),
+            'agent_class' => $this->resource->agentClass(),
             'is_bound' => $this->resource->isBound(),
-            'provider_id' => $this->resource->provider_id,
-            'provider_name' => $this->whenLoaded('provider', fn () => $this->resource->provider?->name),
-            'model_id' => $this->resource->model_id,
-            'model_name' => $this->whenLoaded('model', fn () => $this->resource->model?->displayLabel()),
-            'settings' => $this->resource->settings,
+            'provider' => $this->resource->provider(),
+            'model' => $this->resource->model(),
+            'settings' => $this->resource->settings(),
         ];
     }
 }

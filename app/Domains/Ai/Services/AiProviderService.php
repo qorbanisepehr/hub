@@ -2,148 +2,301 @@
 
 namespace App\Domains\Ai\Services;
 
-use App\Domains\Ai\Models\AiAgent;
-use App\Domains\Ai\Models\AiModel;
-use App\Domains\Ai\Models\AiProvider;
+use App\Domains\Ai\Value\AiAgent;
+use App\Domains\Ai\Value\AiDefaultProvider;
+use App\Domains\Ai\Value\AiModel;
+use App\Domains\Ai\Value\AiProvider;
+use App\Domains\Ai\Value\AiRegistryKey;
+use App\Domains\Settings\Repositories\SystemSettingsRepositoryInterface;
+use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
  * Writes to the AI registry.
  *
+ * This is where the invariants the schema used to enforce now live. Dropping
+ * three tables took the foreign keys with them, so three things that were free
+ * before are done here on purpose:
+ *
+ * - a provider name is unique, because `put()` on an existing key *replaces* it
+ *   and would otherwise turn a duplicate name into a silent overwrite;
+ * - a model name is unique within its provider, and this one really had to be
+ *   checked — a jsonb object silently keeps the last of a duplicated key, so a
+ *   duplicate model name would replace the first entry with no error at all;
+ * - deleting a provider or a model unbinds whatever pointed at it, which is
+ *   what `nullOnDelete` used to do. Skipping it would leave bindings naming
+ *   something that no longer exists.
+ *
  * Every mutation ends by forgetting the resolver's hydration, which is not a
  * cache concern but a correctness one: the SDK builds each provider once per
- * process and reads its config at that moment, so a key saved here would
- * otherwise keep answering with the credential that was there before the save.
+ * process and reads its config at that moment, so a credential saved here
+ * would otherwise keep answering with the one that was there before the save.
  * Doing it here rather than in the controller means no caller can forget.
  */
 class AiProviderService
 {
     public function __construct(
+        private readonly SystemSettingsRepositoryInterface $store,
         private readonly AiProviderResolver $resolver,
     ) {}
 
     /**
-     * @param  array{name: string, driver: string, base_url?: ?string, api_key?: ?string, headers?: ?array<string, string>, is_active?: bool, is_default?: bool}  $data
+     * @return list<AiProvider>
      */
-    public function create(array $data): AiProvider
+    public function providers(): array
     {
-        $provider = AiProvider::query()->create($data);
-
-        $this->resolver->forget();
-
-        return $provider->refresh();
+        return $this->store->all(AiProvider::class);
     }
 
     /**
-     * @param  array<string, mixed>  $data
+     * @throws NotFoundHttpException
      */
-    public function update(AiProvider $provider, array $data): AiProvider
+    public function provider(string $name): AiProvider
     {
-        $provider->update($data);
+        return $this->store->get(AiProvider::class, AiRegistryKey::PROVIDERS.$name)
+            ?? abort(404, __('ai.provider_not_found'));
+    }
+
+    public function createProvider(AiProvider $provider, ?int $updatedBy = null): AiProvider
+    {
+        // Raised as a field-keyed validation failure rather than a bare 422,
+        // because the Settings form reads `errors.name` to put the message next
+        // to the box that caused it. A `message`-only 422 renders as a banner
+        // at the top of the dialog and leaves the name field looking fine.
+        if ($this->store->exists(AiProvider::class, $provider->key())) {
+            throw ValidationException::withMessages([
+                'name' => __('ai.provider_exists'),
+            ]);
+        }
+
+        $this->store->put($provider, $updatedBy);
 
         $this->resolver->forget();
 
-        return $provider->refresh();
+        return $provider;
     }
 
-    public function delete(AiProvider $provider): void
+    public function updateProvider(AiProvider $provider, ?int $updatedBy = null): AiProvider
     {
-        $provider->delete();
+        $this->store->put($provider, $updatedBy);
+
+        $this->resolver->forget();
+
+        return $provider;
+    }
+
+    /**
+     * Remove a provider, and everything that named it.
+     *
+     * The unbind is the part that is easy to forget and was previously the
+     * database's job. Without it an agent would keep naming a provider that no
+     * longer exists — harmless today because resolution falls back, but it
+     * leaves the Settings screen showing a binding to nothing.
+     */
+    public function deleteProvider(string $name, ?int $updatedBy = null): void
+    {
+        $this->store->forget(AiProvider::class, AiRegistryKey::PROVIDERS.$name);
+
+        if ($this->defaultProviderName() === $name) {
+            $this->store->forget(AiDefaultProvider::class, AiDefaultProvider::KEY);
+        }
+
+        foreach ($this->agents() as $agent) {
+            if ($agent->provider() === $name) {
+                $this->store->put($agent->boundTo(null, null), $updatedBy);
+            }
+        }
 
         $this->resolver->forget();
     }
 
     /**
-     * Promote a row to be the default. Split out from `update()` because it
-     * is also the "make this the default" action on the list, which carries no
-     * other fields, and because the demotion of the previous default happens
-     * in the model's `booted()` hook rather than here.
+     * Point the registry at one provider.
+     *
+     * Its own operation rather than a field on the provider, for the reason the
+     * previous `is_default` column existed at all: the answer to "which one is
+     * the default" has to be single-valued, and a row that can say so for
+     * itself cannot be made to say it without a second write.
      */
-    public function makeDefault(AiProvider $provider): AiProvider
+    public function makeDefault(string $name, ?int $updatedBy = null): AiProvider
     {
-        $provider->update(['is_default' => true]);
+        $provider = $this->provider($name);
+
+        $this->store->put(AiDefaultProvider::make($provider->name()), $updatedBy);
 
         $this->resolver->forget();
 
-        return $provider->refresh();
+        return $provider;
+    }
+
+    public function defaultProviderName(): ?string
+    {
+        return $this->store->get(AiDefaultProvider::class, AiDefaultProvider::KEY)?->provider();
     }
 
     /**
-     * @param  array{provider_id: int, model_name: string, label?: ?string, capabilities?: list<string>, is_active?: bool}  $data
+     * @return list<AiAgent>
      */
-    public function addModel(AiProvider $provider, array $data): AiModel
+    public function agents(): array
     {
-        $model = $provider->models()->create($data);
-
-        $this->resolver->forget();
-
-        return $model->refresh();
+        return $this->store->all(AiAgent::class);
     }
 
     /**
-     * @param  array<string, mixed>  $data
+     * @throws NotFoundHttpException
      */
-    public function updateModel(AiModel $model, array $data): AiModel
+    public function agent(string $key): AiAgent
     {
-        $model->update($data);
-
-        $this->resolver->forget();
-
-        return $model->refresh();
-    }
-
-    public function deleteModel(AiModel $model): void
-    {
-        $model->delete();
-
-        $this->resolver->forget();
+        return $this->store->get(AiAgent::class, AiRegistryKey::AGENTS.$key)
+            ?? abort(404, __('ai.agent_not_found'));
     }
 
     /**
      * Point an agent at a provider, a model, or neither.
      *
-     * Both ids are nullable and clearing them is a real operation, not an
+     * Both halves are nullable and clearing them is a real operation, not an
      * omission: "inherit the default provider" is the state an agent starts
      * in, so a Settings screen has to be able to put it back.
      *
-     * The model's provider is checked here rather than in the request,
-     * because the rule is a property of the registry and not of one HTTP
-     * shape: a model row belongs to a provider, so binding an agent to a
-     * model of a different provider would silently mean a different model
-     * than the one the administrator picked.
+     * The pair is checked here rather than in the request, because the rule is a
+     * property of the registry and not of one HTTP shape. A model named without
+     * a provider cannot be checked at all — it means "this model on whatever
+     * provider I would have used" — and that is deliberate: resolving the
+     * provider first is what keeps the two halves from disagreeing about which
+     * gateway serves the model.
      *
-     * @param  array{provider_id?: int|null, model_id?: int|null}  $data
+     * @throws NotFoundHttpException
      */
-    public function bindAgent(AiAgent $agent, array $data): AiAgent
+    public function bindAgent(AiAgent $agent, ?string $provider, ?string $model, ?int $updatedBy = null): AiAgent
     {
-        $providerId = array_key_exists('provider_id', $data) ? $data['provider_id'] : $agent->provider_id;
-        $modelId = array_key_exists('model_id', $data) ? $data['model_id'] : $agent->model_id;
+        // Looked up without the 404 that `provider()` raises. Here the provider
+        // is a value in a request body rather than a route segment, so "no such
+        // provider" is a field the administrator filled in wrongly — 422
+        // against `provider`, which is what lets the dialog point at the select
+        // instead of reporting a missing page.
+        $target = $provider === null
+            ? null
+            : $this->store->get(AiProvider::class, AiRegistryKey::PROVIDERS.$provider);
 
-        if ($modelId !== null) {
-            $model = AiModel::query()->findOrFail($modelId);
+        if ($provider !== null && $target === null) {
+            throw ValidationException::withMessages([
+                'provider' => __('ai.provider_not_found'),
+            ]);
+        }
 
-            if ($providerId !== null) {
-                $this->assertModelBelongsToProvider($model, $providerId);
+        // Only checked when a provider was named. A model on its own is the
+        // legitimate "prefer this model, on whatever provider I resolve to"
+        // binding, and refusing it here would make the two halves impossible to
+        // set independently.
+        if ($target !== null && $model !== null && ! $target->hasModel($model)) {
+            throw ValidationException::withMessages([
+                'model' => __('ai.model_provider_mismatch'),
+            ]);
+        }
+
+        $agent = $agent->boundTo($provider, $model);
+
+        $this->store->put($agent, $updatedBy);
+
+        $this->resolver->forget();
+
+        return $agent;
+    }
+
+    /**
+     * Add a model to a provider.
+     */
+    public function addModel(AiProvider $provider, AiModel $model, ?int $updatedBy = null): AiProvider
+    {
+        if ($provider->hasModel($model->name)) {
+            throw ValidationException::withMessages([
+                'model_name' => __('ai.model_already_registered'),
+            ]);
+        }
+
+        return $this->updateProvider($provider->withModels(
+            [...$provider->models(), $model->name => $model],
+            $provider->defaultModel(),
+        ), $updatedBy);
+    }
+
+    /**
+     * Edit a model, including renaming it.
+     *
+     * A rename moves the entry, because the name is the key it is stored under
+     * — and a key that changes is a different key, so the old entry is dropped
+     * rather than left behind. The default pointer follows the rename instead
+     * of being cleared, so renaming a provider's default model does not
+     * silently change which model that provider prefers.
+     */
+    public function updateModel(AiProvider $provider, string $from, AiModel $model, ?int $updatedBy = null): AiProvider
+    {
+        $models = $provider->models();
+
+        abort_unless(isset($models[$from]), 404, __('ai.model_not_found'));
+
+        if ($from !== $model->name && isset($models[$model->name])) {
+            throw ValidationException::withMessages([
+                'model_name' => __('ai.model_already_registered'),
+            ]);
+        }
+
+        unset($models[$from]);
+        $models[$model->name] = $model;
+
+        $default = match ($provider->defaultModel()) {
+            null => null,
+            $from => $model->name,
+            default => $provider->defaultModel(),
+        };
+
+        return $this->updateProvider($provider->withModels($models, $default), $updatedBy);
+    }
+
+    /**
+     * Remove a model, and unbind whatever was pinned to it.
+     *
+     * When the removed model was the provider's default, the pointer is
+     * repointed at the alphabetically first model still active rather than
+     * cleared: clearing it would leave the provider with models and no answer
+     * to "which one do you use", and falling back to the SDK's own driver
+     * default would quietly switch gateway behaviour. Sorted, not first-found,
+     * because jsonb does not preserve the order the map was written in, so
+     * anything positional would change answer between writes.
+     */
+    public function deleteModel(AiProvider $provider, string $name, ?int $updatedBy = null): AiProvider
+    {
+        $models = $provider->models();
+
+        abort_unless(isset($models[$name]), 404, __('ai.model_not_found'));
+
+        unset($models[$name]);
+
+        $default = $provider->defaultModel() === $name
+            ? $this->firstActiveName($models)
+            : $provider->defaultModel();
+
+        foreach ($this->agents() as $agent) {
+            if ($agent->provider() === $provider->name() && $agent->model() === $name) {
+                $this->store->put($agent->boundTo(null, null), $updatedBy);
             }
         }
 
-        // `array_key_exists` rather than `??` throughout: clearing a binding
-        // sends an explicit null, and `??` reads that as "not sent" — which
-        // would make "inherit the default" the one state an administrator
-        // could never return to.
-        $agent->update([
-            'provider_id' => $providerId,
-            'model_id' => $modelId,
-        ]);
-
-        return $agent->refresh();
+        return $this->updateProvider($provider->withModels($models, $default), $updatedBy);
     }
 
-    private function assertModelBelongsToProvider(AiModel $model, int $providerId): void
+    /**
+     * @param  array<string, AiModel>  $models
+     */
+    private function firstActiveName(array $models): ?string
     {
-        abort_if(
-            $model->provider_id !== $providerId,
-            422,
-            __('ai.model_provider_mismatch'),
-        );
+        $active = array_keys(array_filter(
+            $models,
+            static fn (AiModel $model): bool => $model->isActive,
+        ));
+
+        sort($active);
+
+        return $active[0] ?? null;
     }
 }

@@ -1,8 +1,8 @@
 <?php
 
-use App\Domains\Ai\Models\AiAgent;
-use App\Domains\Ai\Models\AiModel;
-use App\Domains\Ai\Models\AiProvider;
+use App\Domains\Ai\Enums\AiDriver;
+use App\Domains\Ai\Value\AiModel;
+use App\Domains\Ai\Value\AiProvider;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 use Laravel\Ai\Attributes\Model;
@@ -105,22 +105,34 @@ test('no domain agent pins a model or a provider', function () {
     expect($offenders)->toBe([]);
 });
 
-test('the registry models expose nothing beyond their own tables', function () {
-    // The registry is a leaf too: its relations are the three AI tables and
-    // nothing else, so no association can quietly pull a business domain in.
-    foreach ([AiProvider::class, AiModel::class, AiAgent::class] as $model) {
-        $relations = array_keys((new ReflectionClass($model))->getMethods(ReflectionMethod::IS_PUBLIC));
+test('a provider can never serialize its api key', function () {
+    $provider = AiProvider::make('cloud', AiDriver::OpenAI)->withApiKey('sk-should-never-leave-the-server');
 
-        expect($relations)->not->toContain('employees', 'documents', 'meetings');
-    }
+    /*
+     * The guarantee used to be an Eloquent `$hidden`, which the resource
+     * relied on. A setting document has no such column list, so the guarantee
+     * is structural instead: the credential is in `toSecrets()` and the public
+     * half is `toValue()`. Every read path goes through one of the two, so a
+     * provider that is serialized for the outside world can only reach the
+     * first - there is no key in `toValue()` that could hold it by accident.
+     */
+    expect($provider->toValue())->not->toHaveKey('api_key')
+        ->and(json_encode($provider->toValue()))->not->toContain('sk-should-never-leave-the-server')
+        ->and($provider->toSecrets())->toBe(['api_key' => 'sk-should-never-leave-the-server'])
+        ->and($provider->hasCredential())->toBeTrue();
 });
 
-test('a provider row can never serialize its api key', function () {
-    $provider = new AiProvider(['api_key' => 'sk-should-never-leave-the-server']);
+test('the public half of a provider round-trips without the secret', function () {
+    $provider = AiProvider::make('cloud', AiDriver::OpenAI)
+        ->withApiKey('sk-secret')
+        ->withModels(['gpt-4o-mini' => new AiModel('gpt-4o-mini', 'GPT-4o mini', [], true)], 'gpt-4o-mini');
 
-    // `hidden` is the guarantee the resource relies on; assert it here so a
-    // future serializer that forgets to hide it fails at the model, not in a
-    // browser.
-    expect($provider->toArray())->not->toHaveKey('api_key')
-        ->and($provider->toJson())->not->toContain('sk-should-never-leave-the-server');
+    $restored = AiProvider::fromStored($provider->key(), $provider->toValue(), $provider->toSecrets());
+
+    // Rebuilding from the stored halves must give the same provider back, and
+    // the credential must arrive through the secrets channel alone.
+    expect($restored->name())->toBe('cloud')
+        ->and($restored->apiKey())->toBe('sk-secret')
+        ->and($restored->activeModelNames())->toBe(['gpt-4o-mini'])
+        ->and($restored->toValue())->not->toHaveKey('api_key');
 });
