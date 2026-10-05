@@ -221,7 +221,8 @@ export function useBulkGenerateMeetingSummary() {
             meeting_ids: number[];
             fields?: MeetingSummaryFieldName[];
             mode?: SummaryWriteMode;
-            model_id?: number | null;
+            provider?: string | null;
+            model?: string | null;
         }): Promise<SummaryBulkResult> => {
             const { data } = await bulkGenerateMeetingSummary(payload);
 

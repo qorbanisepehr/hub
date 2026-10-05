@@ -32,7 +32,26 @@ import type { BoardMeetingListParams, SummaryWriteMode } from "../types";
 /** How many candidates to pull at a time; the server caps a page at 200. */
 const PAGE_SIZE = 100;
 
-const AGENT_DEFAULT = "agent";
+/**
+ * The picker's value for "whatever the agent is bound to".
+ *
+ * Starts with a `|`, which no provider or model name can contain, so it cannot
+ * collide with a real `provider|model` pair however the registry is filled.
+ */
+const AGENT_DEFAULT = "|inherit";
+
+/**
+ * The picker's value for one model: `provider|model`.
+ *
+ * Both halves, because a model name is unique only within a provider — two
+ * gateways offering the same name under one value would be indistinguishable.
+ */
+function modelValue(model: {
+    provider_name?: string | null;
+    model_name: string;
+}): string {
+    return `${model.provider_name ?? ""}|${model.model_name}`;
+}
 
 const MODE_LABELS: Record<SummaryWriteMode, string> = {
     review: "پیشنهاد بده",
@@ -130,7 +149,7 @@ export function BulkSummaryDialog({
         [AGENT_DEFAULT]: MODEL_DEFAULT_LABEL,
         ...Object.fromEntries(
             (models?.data ?? []).map((model) => [
-                String(model.id),
+                modelValue(model),
                 modelLabel(model),
             ]),
         ),
@@ -177,9 +196,15 @@ export function BulkSummaryDialog({
                         count={picked.size}
                         meetingIds={[...picked]}
                         mode={(mode[0] ?? "review") as SummaryWriteMode}
-                        modelId={
-                            modelId === AGENT_DEFAULT ? null : Number(modelId)
-                        }
+                        {...(modelId === AGENT_DEFAULT
+                            ? { provider: null, model: null }
+                            : {
+                                  provider: modelId.slice(
+                                      0,
+                                      modelId.indexOf("|"),
+                                  ),
+                                  model: modelId.slice(modelId.indexOf("|") + 1),
+                              })}
                         onDone={() => onOpenChange(false)}
                     />
                 </>
@@ -236,8 +261,8 @@ export function BulkSummaryDialog({
                                     </SelectItem>
                                     {(models?.data ?? []).map((model) => (
                                         <SelectItem
-                                            key={model.id}
-                                            value={String(model.id)}
+                                            key={modelValue(model)}
+                                            value={modelValue(model)}
                                         >
                                             {modelLabel(model)}
                                         </SelectItem>
@@ -366,13 +391,16 @@ function BulkSubmit({
     count,
     meetingIds,
     mode,
-    modelId,
+    provider,
+    model,
     onDone,
 }: {
     count: number;
     meetingIds: number[];
     mode: SummaryWriteMode;
-    modelId: number | null;
+    /** The gateway and model for this batch, as names; null means inherit. */
+    provider: string | null;
+    model: string | null;
     onDone: () => void;
 }) {
     const bulk = useBulkGenerateMeetingSummary();
@@ -381,7 +409,7 @@ function BulkSubmit({
         <Button
             onClick={() => {
                 bulk.mutate(
-                    { meeting_ids: meetingIds, mode, model_id: modelId },
+                    { meeting_ids: meetingIds, mode, provider, model },
                     { onSuccess: onDone },
                 );
             }}

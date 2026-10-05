@@ -55,16 +55,16 @@ export function AiAgentDialog({
 }: AiAgentDialogProps) {
     const update = useUpdateAiAgentBinding();
 
-    const [providerId, setProviderId] = useState<string>(INHERIT);
-    const [modelId, setModelId] = useState<string>(INHERIT);
+    const [providerName, setProviderName] = useState<string>(INHERIT);
+    const [modelName, setModelName] = useState<string>(INHERIT);
 
     useEffect(() => {
         if (!open) {
             return;
         }
 
-        setProviderId(agent.provider_id ? String(agent.provider_id) : INHERIT);
-        setModelId(agent.model_id ? String(agent.model_id) : INHERIT);
+        setProviderName(agent.provider ?? INHERIT);
+        setModelName(agent.model ?? INHERIT);
     }, [open, agent]);
 
     const activeProviders = useMemo(
@@ -73,29 +73,26 @@ export function AiAgentDialog({
     );
 
     const availableModels = useMemo(() => {
-        if (providerId === INHERIT) {
+        if (providerName === INHERIT) {
             return [];
         }
 
         return (
             providers
-                .find((p) => p.id === Number(providerId))
+                .find((p) => p.name === providerName)
                 ?.models.filter((m) => m.is_active) ?? []
         );
-    }, [providers, providerId]);
-
+    }, [providers, providerName]);
 
     // Value-to-label maps for the two selects. Base UI's `Select.Value`
     // renders the selected item's *value* unless the root is given `items`,
     // and the popup that would register those labels is not mounted until the
-    // menu opens — so a closed trigger showed `__inherit__` or a bare id
+    // menu opens — so a closed trigger showed `__inherit__` or a bare name
     // where the label belonged.
     const providerLabels = useMemo(
         () => ({
             [INHERIT]: "ارائه‌دهنده پیش‌فرض (بدون اتصال)",
-            ...Object.fromEntries(
-                activeProviders.map((p) => [String(p.id), p.name]),
-            ),
+            ...Object.fromEntries(activeProviders.map((p) => [p.name, p.name])),
         }),
         [activeProviders],
     );
@@ -104,7 +101,7 @@ export function AiAgentDialog({
         () => ({
             [INHERIT]: "مدل پیش‌فرض ارائه‌دهنده",
             ...Object.fromEntries(
-                availableModels.map((m) => [String(m.id), m.display_label]),
+                availableModels.map((m) => [m.model_name, m.display_label]),
             ),
         }),
         [availableModels],
@@ -113,10 +110,10 @@ export function AiAgentDialog({
     const handleSave = () => {
         update.mutate(
             {
-                id: agent.id,
+                key: agent.key,
                 payload: {
-                    provider_id: providerId === INHERIT ? null : Number(providerId),
-                    model_id: modelId === INHERIT ? null : Number(modelId),
+                    provider: providerName === INHERIT ? null : providerName,
+                    model: modelName === INHERIT ? null : modelName,
                 },
             },
             { onSuccess: () => onOpenChange(false) },
@@ -143,15 +140,15 @@ export function AiAgentDialog({
                     <div className="grid gap-2">
                         <Label htmlFor="ai-agent-provider">ارائه‌دهنده</Label>
                         <Select
-                            value={providerId}
+                            value={providerName}
                             items={providerLabels}
                             onValueChange={(value) => {
-                                setProviderId(value ?? INHERIT);
+                                setProviderName(value ?? INHERIT);
                                 // Switching provider invalidates the model: the
                                 // old one belongs to a gateway the agent can no
                                 // longer reach, and leaving it selected would
                                 // submit a pair the server rejects.
-                                setModelId(INHERIT);
+                                setModelName(INHERIT);
                             }}
                         >
                             <SelectTrigger id="ai-agent-provider">
@@ -163,8 +160,8 @@ export function AiAgentDialog({
                                 </SelectItem>
                                 {activeProviders.map((provider) => (
                                     <SelectItem
-                                        key={provider.id}
-                                        value={String(provider.id)}
+                                        key={provider.name}
+                                        value={provider.name}
                                     >
                                         {provider.name}
                                     </SelectItem>
@@ -172,7 +169,7 @@ export function AiAgentDialog({
                             </SelectContent>
                         </Select>
                         <p className="text-muted-foreground text-xs">
-                            {providerId === INHERIT
+                            {providerName === INHERIT
                                 ? "با تغییر ارائه‌دهنده پیش‌فرض، این عامل هم دنبال آن می‌رود."
                                 : "این عامل همیشه همین ارائه‌دهنده را به کار می‌برد، حتی وقتی پیش‌فرض عوض شود."}
                         </p>
@@ -181,13 +178,13 @@ export function AiAgentDialog({
                     <div className="grid gap-2">
                         <Label htmlFor="ai-agent-model">مدل</Label>
                         <Select
-                            value={modelId}
+                            value={modelName}
                             items={modelLabels}
                             onValueChange={(value) =>
                                 // Base UI can report null on a cleared
                                 // selection; there is no cleared state here,
                                 // so it means "inherit" like the empty option.
-                                setModelId(value ?? INHERIT)
+                                setModelName(value ?? INHERIT)
                             }
                             disabled={availableModels.length === 0}
                         >
@@ -200,15 +197,15 @@ export function AiAgentDialog({
                                 </SelectItem>
                                 {availableModels.map((model) => (
                                     <SelectItem
-                                        key={model.id}
-                                        value={String(model.id)}
+                                        key={model.model_name}
+                                        value={model.model_name}
                                     >
                                         {model.display_label}
                                     </SelectItem>
                                 ))}
                             </SelectContent>
                         </Select>
-                        {providerId === INHERIT && (
+                        {providerName === INHERIT && (
                             <p className="text-muted-foreground text-xs">
                                 برای انتخاب مدل، اول یک ارائه‌دهنده انتخاب کنید.
                             </p>

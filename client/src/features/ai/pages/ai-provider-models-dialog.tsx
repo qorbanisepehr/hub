@@ -86,7 +86,7 @@ export function AiProviderModelsDialog({
                     ) : (
                         provider.models.map((model) => (
                             <div
-                                key={model.id}
+                                key={model.model_name}
                                 className="flex items-center justify-between gap-3 rounded-md border px-3 py-2"
                             >
                                 <div className="min-w-0">
@@ -141,8 +141,8 @@ export function AiProviderModelsDialog({
                                         size="icon-sm"
                                         onClick={() =>
                                             remove.mutate({
-                                                providerId: provider.id,
-                                                modelId: model.id,
+                                                providerName: provider.name,
+                                                modelName: model.model_name,
                                             })
                                         }
                                         disabled={remove.isPending}
@@ -233,8 +233,16 @@ function AiModelFormDialog({
         };
 
         if (model) {
+            // Addressed by its *old* name: the name is the key the entry is
+            // stored under inside the provider's document, so renaming a model
+            // is a move rather than an edit and the row has to say which entry
+            // it is moving.
             update.mutate(
-                { providerId: provider.id, modelId: model.id, payload },
+                {
+                    providerName: provider.name,
+                    modelName: model.model_name,
+                    payload,
+                },
                 { onSuccess: () => onOpenChange(false) },
             );
 
@@ -242,7 +250,7 @@ function AiModelFormDialog({
         }
 
         create.mutate(
-            { providerId: provider.id, payload },
+            { providerName: provider.name, payload },
             { onSuccess: () => onOpenChange(false) },
         );
     };

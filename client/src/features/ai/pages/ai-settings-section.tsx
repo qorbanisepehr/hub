@@ -38,10 +38,16 @@ import {
 import { AiAgentDialog } from "@/features/ai/pages/ai-agent-dialog";
 import { AiProviderDialog } from "@/features/ai/pages/ai-provider-dialog";
 import { AiProviderModelsDialog } from "@/features/ai/pages/ai-provider-models-dialog";
-import { AI_DRIVERS, type AiAgentDto, type AiProviderDto } from "@/features/ai/types";
+import {
+    AI_DRIVERS,
+    type AiAgentDto,
+    type AiProviderDto,
+} from "@/features/ai/types";
 import { getApiError } from "@/lib/error-utils";
 import { PERMISSIONS } from "@/lib/permissions";
-import { Route } from "@/routes/_protected/settings";
+import { getRouteApi } from "@tanstack/react-router";
+
+const aiRoute = getRouteApi("/protected/settings/ai");
 
 /**
  * The AI tab (R3): bring-your-own-key providers, their models, and what each
@@ -59,8 +65,8 @@ import { Route } from "@/routes/_protected/settings";
 export function AiSettingsSection() {
     const canManage = usePermission([PERMISSIONS.AI_PROVIDER_MANAGE]);
 
-    const search = Route.useSearch();
-    const navigate = Route.useNavigate();
+    const search = aiRoute.useSearch();
+    const navigate = aiRoute.useNavigate();
 
     const providersUrl = useDataTableUrlState({
         search: search as unknown as Record<string, unknown>,
@@ -116,8 +122,9 @@ export function AiSettingsSection() {
         open: boolean;
         provider: AiProviderDto | null;
     }>({ open: false, provider: null });
-    const [modelsProvider, setModelsProvider] =
-        useState<AiProviderDto | null>(null);
+    const [modelsProvider, setModelsProvider] = useState<AiProviderDto | null>(
+        null,
+    );
     const [bindingAgent, setBindingAgent] = useState<AiAgentDto | null>(null);
 
     const openCreateProvider = () =>
@@ -128,7 +135,7 @@ export function AiSettingsSection() {
 
     const handleTest = (provider: AiProviderDto) => {
         test.mutate(
-            { id: provider.id },
+            { name: provider.name },
             {
                 onSuccess: (result) =>
                     toast.success(
@@ -196,7 +203,9 @@ export function AiSettingsSection() {
                 ) : (
                     // Said plainly rather than as a dash: for a local provider
                     // the absent key is the working configuration, not a gap.
-                    <span className="text-muted-foreground text-sm">بدون کلید</span>
+                    <span className="text-muted-foreground text-sm">
+                        بدون کلید
+                    </span>
                 ),
         },
         {
@@ -230,7 +239,7 @@ export function AiSettingsSection() {
                                   disabled={test.isPending}
                               >
                                   {test.isPending &&
-                                  test.variables?.id === row.original.id ? (
+                                  test.variables?.name === row.original.name ? (
                                       <IconCheck className="size-4 animate-pulse" />
                                   ) : (
                                       <IconLink className="size-4" />
@@ -241,7 +250,9 @@ export function AiSettingsSection() {
                                   variant="ghost"
                                   size="icon-sm"
                                   title="مدل‌ها"
-                                  onClick={() => setModelsProvider(row.original)}
+                                  onClick={() =>
+                                      setModelsProvider(row.original)
+                                  }
                               >
                                   <IconBrain className="size-4" />
                               </Button>
@@ -261,7 +272,7 @@ export function AiSettingsSection() {
                                       size="icon-sm"
                                       title="پیش‌فرض کردن"
                                       onClick={() =>
-                                          makeDefault.mutate(row.original.id)
+                                          makeDefault.mutate(row.original.name)
                                       }
                                       disabled={makeDefault.isPending}
                                   >
@@ -271,7 +282,7 @@ export function AiSettingsSection() {
                               <ConfirmDeleteButton
                                   iconOnly
                                   onConfirm={() =>
-                                      removeProvider.mutate(row.original.id)
+                                      removeProvider.mutate(row.original.name)
                                   }
                                   isPending={removeProvider.isPending}
                               />
@@ -309,11 +320,8 @@ export function AiSettingsSection() {
             header: "ارائه‌دهنده",
             enableSorting: false,
             cell: ({ row }: { row: Row<StockFeatures, AiAgentDto> }) => (
-                <span
-                    dir="ltr"
-                    className="text-muted-foreground text-sm"
-                >
-                    {row.original.provider_name ?? "پیش‌فرض"}
+                <span dir="ltr" className="text-muted-foreground text-sm">
+                    {row.original.provider ?? "پیش‌فرض"}
                 </span>
             ),
         },
@@ -323,7 +331,7 @@ export function AiSettingsSection() {
             enableSorting: false,
             cell: ({ row }: { row: Row<StockFeatures, AiAgentDto> }) => (
                 <span dir="ltr" className="text-muted-foreground text-sm">
-                    {row.original.model_name ?? "پیش‌فرض"}
+                    {row.original.model ?? "پیش‌فرض"}
                 </span>
             ),
         },
@@ -376,18 +384,15 @@ export function AiSettingsSection() {
                         ارائه‌دهنده‌های هوش مصنوعی
                     </CardTitle>
                     <CardDescription>
-                        درگاه‌ها و کلیدهای دسترسی. هر عاملی که اتصال مشخصی
-                        ندارد از ارائه‌دهنده فعال پیش‌فرض استفاده می‌کند؛ خالی
-                        بودن کلید برای Ollama محلی حالت درست است، نه نقص.
+                        درگاه‌ها و کلیدهای دسترسی. هر عاملی که اتصال مشخصی ندارد
+                        از ارائه‌دهنده فعال پیش‌فرض استفاده می‌کند؛ خالی بودن
+                        کلید برای Ollama محلی حالت درست است، نه نقص.
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="p-0">
                     <div className="flex flex-wrap items-center justify-end gap-3 px-4 pt-4">
                         {canManage && (
-                            <Button
-                                type="button"
-                                onClick={openCreateProvider}
-                            >
+                            <Button type="button" onClick={openCreateProvider}>
                                 <IconPlus className="size-4" />
                                 افزودن ارائه‌دهنده
                             </Button>
@@ -429,8 +434,8 @@ export function AiSettingsSection() {
                     </CardTitle>
                     <CardDescription>
                         عامل‌ها را دامنه‌های مصرف‌کننده تعریف می‌کنند و اینجا
-                        فقط به آن‌ها متصل می‌شوند. عامل بدون اتصال، ارائه‌دهنده و
-                        مدل پیش‌فرض را به ارث می‌برد.
+                        فقط به آن‌ها متصل می‌شوند. عامل بدون اتصال، ارائه‌دهنده
+                        و مدل پیش‌فرض را به ارث می‌برد.
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="p-0">
@@ -463,7 +468,9 @@ export function AiSettingsSection() {
 
             <AiProviderDialog
                 open={providerDialog.open}
-                onOpenChange={(open) => setProviderDialog((s) => ({ ...s, open }))}
+                onOpenChange={(open) =>
+                    setProviderDialog((s) => ({ ...s, open }))
+                }
                 provider={providerDialog.provider}
             />
 
@@ -476,7 +483,7 @@ export function AiSettingsSection() {
                     // deleted elsewhere must be visible here too.
                     provider={
                         providersData?.data.find(
-                            (p) => p.id === modelsProvider.id,
+                            (p) => p.name === modelsProvider.name,
                         ) ?? modelsProvider
                     }
                 />

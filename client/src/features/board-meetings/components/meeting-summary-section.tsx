@@ -53,8 +53,28 @@ import type {
     SummaryWriteMode,
 } from "../types";
 
-/** The value the model picker stores for "whatever the agent is bound to". */
-const AGENT_DEFAULT = "agent";
+/**
+ * The value the model picker stores for "whatever the agent is bound to".
+ *
+ * Starts with a `|`, which no provider or model name can: a provider name must
+ * begin with a letter or digit, and neither name pattern allows `|` at all. So
+ * the sentinel cannot collide with a real pair however the registry is filled —
+ * which matters now that the picker's values *are* names, where the old numeric
+ * ids could never collide with anything.
+ */
+const AGENT_DEFAULT = "|inherit";
+
+/**
+ * The picker's value for one model: `provider|model`.
+ *
+ * Both halves, because a model name is unique only within a provider and a
+ * picker that offered two gateways' identically-named models under one value
+ * could not tell them apart. `|` is not legal in either name, so the pair is
+ * unambiguous rather than merely conventional.
+ */
+function modelValue(model: { provider_name?: string | null; model_name: string }): string {
+    return `${model.provider_name ?? ""}|${model.model_name}`;
+}
 
 /**
  * Option labels keyed by the value that goes on the wire — and handed to
@@ -85,7 +105,13 @@ function modelLabel(model: {
 export interface SummaryRunPayload {
     fields?: MeetingSummaryFieldName[];
     mode?: SummaryWriteMode;
-    model_id?: number | null;
+    /**
+     * The gateway and model for this one run, as names. The pair is what the
+     * server needs: a model name says nothing without a provider, and the two
+     * are sent separately so a model with no provider is expressible.
+     */
+    provider?: string | null;
+    model?: string | null;
     /** Reconcile with the stored record rather than writing the fields fresh. */
     merge?: boolean;
 }
@@ -324,7 +350,7 @@ function RunControls({
         [AGENT_DEFAULT]: MODEL_DEFAULT_LABEL,
         ...Object.fromEntries(
             (models?.data ?? []).map((model) => [
-                String(model.id),
+                modelValue(model),
                 modelLabel(model),
             ]),
         ),
@@ -382,8 +408,8 @@ function RunControls({
                             </SelectItem>
                             {(models?.data ?? []).map((model) => (
                                 <SelectItem
-                                    key={model.id}
-                                    value={String(model.id)}
+                                    key={modelValue(model)}
+                                    value={modelValue(model)}
                                 >
                                     {modelLabel(model)}
                                 </SelectItem>
@@ -397,8 +423,19 @@ function RunControls({
                 onClick={() =>
                     onGenerate({
                         mode: selectedMode,
-                        model_id:
-                            modelId === AGENT_DEFAULT ? null : Number(modelId),
+                        // Split back into the two names the server takes. Both
+                        // go null together for "inherit": the picker's value is
+                        // the pair, and sending half of it would ask for a model
+                        // on a gateway the person did not choose.
+                        ...(modelId === AGENT_DEFAULT
+                            ? { provider: null, model: null }
+                            : {
+                                  provider: modelId.slice(
+                                      0,
+                                      modelId.indexOf("|"),
+                                  ),
+                                  model: modelId.slice(modelId.indexOf("|") + 1),
+                              }),
                     })
                 }
                 disabled={!canRun || isGenerating}

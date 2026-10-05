@@ -190,15 +190,26 @@ export type SummaryWriteMode = "review" | "apply";
 /**
  * Ask for a run.
  *
- * `fields` absent or empty means every field. `model_id` is a registry row id
- * and not a model name, because a name is unique only within a provider — the
- * same `gpt-4o` can sit under two of them, and a name would let the run reach
- * the wrong gateway. Omitted means the agent's own bound model.
+ * `fields` absent or empty means every field.
+ *
+ * The per-run model choice is a `provider` and a `model` name rather than one
+ * row id. The old `model_id` was a compromise that did not work: a name is
+ * unique only within a provider — the same `gpt-4o` can sit under two of them —
+ * and an id had to imply the provider to be unambiguous, which is exactly what
+ * stopped a person choosing "this model, on that gateway". Naming both halves
+ * says it, and a run whose names no longer resolve is refused here rather than
+ * silently landing on a different model.
+ *
+ * Omitted (or null) means the agent's own binding, and then the registry
+ * default. The two are set independently: naming a model with no provider is the
+ * ordinary case, and naming a provider with no model is a deliberate choice of
+ * gateway.
  */
 export interface GenerateSummaryPayload {
     fields?: MeetingSummaryFieldName[];
     mode?: SummaryWriteMode;
-    model_id?: number | null;
+    provider?: string | null;
+    model?: string | null;
     /**
      * Reconcile the requested fields with what the record already holds,
      * instead of writing them fresh from the minutes. Off by default: a fresh

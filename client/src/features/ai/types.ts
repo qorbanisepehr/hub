@@ -65,9 +65,16 @@ export const AI_CAPABILITIES: ReadonlyArray<{
     { value: "transcription", label: "رونویسی" },
 ];
 
+/**
+ * A model, addressed by (provider, model_name) rather than by an id.
+ *
+ * Neither half is optional, which is the whole change: a model name is unique
+ * only *within* a provider, so one name can exist under two gateways and an id
+ * that silently implied the provider could not be checked. With the pair, a
+ * client can hold two rows of the same name and still tell them apart — and can
+ * refuse the mismatch before sending rather than discovering it as a 422.
+ */
 export interface AiModelDto {
-    id: number;
-    provider_id: number;
     /**
      * The provider's own name, present only where the relation is loaded — the
      * flat per-run list. A dropdown cannot let somebody choose between two
@@ -76,7 +83,7 @@ export interface AiModelDto {
      * the provider it hangs off.
      */
     provider_name?: string | null;
-    /** The name the provider itself knows the model by, not this row's id. */
+    /** The name the provider itself knows the model by. */
     model_name: string;
     label: string | null;
     /** `label` when set, else `model_name` — what pickers should show. */
@@ -88,11 +95,13 @@ export interface AiModelDto {
 export type AiModelListResponse = PaginatedResponse<AiModelDto>;
 
 export interface AiProviderDto {
-    id: number;
     /**
-     * The provider's identity: the SDK's config key and what a run's
-     * attribution records. Frozen after creation, so the form never offers
-     * to change it.
+     * The provider's identity: the SDK's config key, the URL segment that
+     * addresses it, and what a run's attribution records. There is no `id`
+     * beside it — the name *is* the key the row is stored under, so a second
+     * identifier would be one more thing to keep in step with it for no gain.
+     *
+     * Frozen after creation, so the form never offers to change it.
      */
     name: string;
     driver: AiDriver;
@@ -110,18 +119,15 @@ export interface AiProviderDto {
 }
 
 export interface AiAgentDto {
-    id: number;
     /** The agent's identity in every caller; not editable here. */
     key: string;
     label: string | null;
     /** The consuming domain's class; not editable here. */
     agent_class: string;
-    /** True when it names its own provider rather than inheriting. */
+    /** True when it names its own binding rather than inheriting. */
     is_bound: boolean;
-    provider_id: number | null;
-    provider_name: string | null;
-    model_id: number | null;
-    model_name: string | null;
+    provider: string | null;
+    model: string | null;
     settings: Record<string, unknown> | null;
 }
 
@@ -132,7 +138,14 @@ export type AiAgentListResponse = PaginatedResponse<AiAgentDto>;
 export interface AiProviderListParams {
     page?: number;
     per_page?: number;
-    /** Whitelisted sort columns: `name` | `driver` | `created_at`. */
+    /**
+     * Whitelisted sort columns: `name` | `driver`.
+     *
+     * `created_at` is gone with the columns it named. A document has no
+     * timestamp of its own, and sorting configuration by when a file happened
+     * to be rewritten is not a question worth answering. A table still offering
+     * that header falls back to the default order rather than erroring.
+     */
     sort?: string;
     order?: "asc" | "desc";
     filter?: string;
@@ -152,7 +165,6 @@ export interface CreateAiProviderPayload {
     base_url?: string | null;
     api_key?: string | null;
     is_active?: boolean;
-    is_default?: boolean;
 }
 
 /**
@@ -161,14 +173,19 @@ export interface CreateAiProviderPayload {
  * untouched form has nothing to resubmit and clearing on absence would
  * destroy a working credential on every unrelated edit. Deletion is the
  * explicit `clearApiKey` flag.
+ *
+ * `driver` is deliberately absent, and that is not an oversight. The provider
+ * decides the protocol every stored credential was issued for, so it is frozen
+ * after creation — but the server *ignores* a driver sent back rather than
+ * refusing the request, precisely because this dialog echoes the row it was
+ * given and a rejected field would break editing a base URL entirely. So: not
+ * sent here, and a stale copy left in the object is harmless.
  */
 export interface UpdateAiProviderPayload {
-    driver?: AiDriver;
     base_url?: string | null;
     api_key?: string | null;
     clear_api_key?: boolean;
     is_active?: boolean;
-    is_default?: boolean;
 }
 
 export interface AiModelPayload {
@@ -178,10 +195,16 @@ export interface AiModelPayload {
     is_active?: boolean;
 }
 
-/** Both ids nullable, and null means "inherit the active default". */
+/**
+ * The binding, as the two names it is stored as. Both null means "inherit the
+ * active default", and they are sent independently: a model with no provider is
+ * the legitimate "prefer this model, on whatever gateway I'd resolve to" —
+ * refusing to let the two be set one at a time is what made the old id pair
+ * tedious to use.
+ */
 export interface AiAgentBindingPayload {
-    provider_id?: number | null;
-    model_id?: number | null;
+    provider?: string | null;
+    model?: string | null;
 }
 
 /** The result of a successful connection probe. */

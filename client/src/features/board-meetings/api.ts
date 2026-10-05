@@ -129,7 +129,8 @@ export function bulkGenerateMeetingSummary(payload: {
     meeting_ids: number[];
     fields?: MeetingSummaryFieldName[];
     mode?: SummaryWriteMode;
-    model_id?: number | null;
+    provider?: string | null;
+    model?: string | null;
 }) {
     return api.post<SummaryBulkResponse>("/board-meetings/summary/bulk", payload);
 }

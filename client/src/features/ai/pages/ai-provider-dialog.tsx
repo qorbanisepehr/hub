@@ -19,11 +19,12 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { useCreateAiProvider, useUpdateAiProvider } from "@/features/ai/hooks";
 import {
-    useCreateAiProvider,
-    useUpdateAiProvider,
-} from "@/features/ai/hooks";
-import { AI_DRIVERS, type AiDriver, type AiProviderDto } from "@/features/ai/types";
+    AI_DRIVERS,
+    type AiDriver,
+    type AiProviderDto,
+} from "@/features/ai/types";
 import { getApiError } from "@/lib/error-utils";
 import { toast } from "sonner";
 
@@ -79,7 +80,6 @@ export function AiProviderDialog({
     const [apiKey, setApiKey] = useState("");
     const [clearApiKey, setClearApiKey] = useState(false);
     const [isActive, setIsActive] = useState(true);
-    const [isDefault, setIsDefault] = useState(false);
 
     // Re-seed from the row each time the dialog opens, so a cancelled edit
     // never leaks its half-typed values into the next one.
@@ -94,7 +94,6 @@ export function AiProviderDialog({
         setApiKey("");
         setClearApiKey(false);
         setIsActive(provider?.is_active ?? true);
-        setIsDefault(provider?.is_default ?? false);
     }, [open, provider]);
 
     const driverMeta = AI_DRIVERS.find((d) => d.value === driver);
@@ -103,7 +102,10 @@ export function AiProviderDialog({
     // A key is mandatory for every driver except the local one. Ollama is the
     // zero-credential path (D24), and requiring a key there would make the
     // screen that offers it the one screen that cannot reach it.
-    const keySatisfied = driverMeta?.keyless ? true : apiKey !== "" || (isEdit && provider?.has_api_key === true && !clearApiKey);
+    const keySatisfied = driverMeta?.keyless
+        ? true
+        : apiKey !== "" ||
+          (isEdit && provider?.has_api_key === true && !clearApiKey);
     const baseUrlValid = baseUrl === "" || /^https?:\/\/\S+$/i.test(baseUrl);
     const pending = create.isPending || update.isPending;
 
@@ -111,14 +113,17 @@ export function AiProviderDialog({
         if (isEdit && provider) {
             update.mutate(
                 {
-                    id: provider.id,
+                    name: provider.name,
+                    // `driver` is deliberately not sent. It is frozen after
+                    // creation, and the server ignores it rather than refusing
+                    // the request — so a stale copy left in this form could
+                    // never change anything, but sending it would still be
+                    // claiming a change that does not happen.
                     payload: {
-                        driver,
                         base_url: baseUrl === "" ? null : baseUrl.trim(),
                         ...(apiKey === "" ? {} : { api_key: apiKey.trim() }),
                         ...(clearApiKey ? { clear_api_key: true } : {}),
                         is_active: isActive,
-                        is_default: isDefault,
                     },
                 },
                 {
@@ -137,7 +142,6 @@ export function AiProviderDialog({
                 base_url: baseUrl === "" ? null : baseUrl.trim(),
                 ...(apiKey === "" ? {} : { api_key: apiKey.trim() }),
                 is_active: isActive,
-                is_default: isDefault,
             },
             {
                 onSuccess: () => onOpenChange(false),
@@ -184,7 +188,9 @@ export function AiProviderDialog({
                         <Select
                             value={driver}
                             items={DRIVER_LABELS}
-                            onValueChange={(value) => setDriver(value as AiDriver)}
+                            onValueChange={(value) =>
+                                setDriver(value as AiDriver)
+                            }
                         >
                             <SelectTrigger id="ai-provider-driver" dir="ltr">
                                 <SelectValue />
@@ -253,7 +259,8 @@ export function AiProviderDialog({
                         />
                         {isEdit && provider?.has_api_key && !clearApiKey && (
                             <p className="text-muted-foreground text-xs">
-                                خالی گذاشتن این کادر یعنی کلید فعلی دست‌نخورده بماند.
+                                خالی گذاشتن این کادر یعنی کلید فعلی دست‌نخورده
+                                بماند.
                             </p>
                         )}
                         {isEdit && provider?.has_api_key && (
@@ -288,24 +295,16 @@ export function AiProviderDialog({
                             />
                         </div>
                         <p className="text-muted-foreground -mt-1 text-xs">
-                            ارائه‌دهنده غیرفعال در اجرای عامل‌ها استفاده نمی‌شود؛
-                            عامل‌های متصل به آن به ارائه‌دهنده پیش‌فرض برمی‌گردند.
+                            ارائه‌دهنده غیرفعال در اجرای عامل‌ها استفاده
+                            نمی‌شود؛ عامل‌های متصل به آن به ارائه‌دهنده پیش‌فرض
+                            برمی‌گردند.
                         </p>
 
                         {!isEdit && (
-                            <div className="flex items-center justify-between gap-2">
-                                <Label
-                                    htmlFor="ai-provider-default"
-                                    className="font-normal"
-                                >
-                                    ارائه‌دهنده پیش‌فرض
-                                </Label>
-                                <Switch
-                                    id="ai-provider-default"
-                                    checked={isDefault}
-                                    onCheckedChange={setIsDefault}
-                                />
-                            </div>
+                            <p className="text-muted-foreground -mt-1 text-xs">
+                                پس از ساخت، با دکمهٔ ستاره در فهرست می‌توان
+                                این ارائه‌دهنده را پیش‌فرض کرد.
+                            </p>
                         )}
                     </div>
                 </div>
@@ -323,7 +322,9 @@ export function AiProviderDialog({
                         onClick={handleSave}
                         disabled={
                             pending ||
-                            (isEdit ? false : name.trim() === "" || !nameValid) ||
+                            (isEdit
+                                ? false
+                                : name.trim() === "" || !nameValid) ||
                             !keySatisfied ||
                             !baseUrlValid
                         }

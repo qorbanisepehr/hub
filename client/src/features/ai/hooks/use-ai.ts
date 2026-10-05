@@ -107,12 +107,12 @@ export function useUpdateAiProvider() {
 
     return useMutation({
         mutationFn: ({
-            id,
+            name,
             payload,
         }: {
-            id: number;
+            name: string;
             payload: UpdateAiProviderPayload;
-        }) => updateAiProvider(id, payload),
+        }) => updateAiProvider(name, payload),
         onSuccess: () => invalidate("تغییرات ذخیره شد"),
     });
 }
@@ -121,7 +121,7 @@ export function useDeleteAiProvider() {
     const invalidate = useInvalidateAi();
 
     return useMutation({
-        mutationFn: (id: number) => deleteAiProvider(id),
+        mutationFn: (name: string) => deleteAiProvider(name),
         onSuccess: () => invalidate("ارائه‌دهنده حذف شد"),
     });
 }
@@ -130,7 +130,7 @@ export function useMakeAiProviderDefault() {
     const invalidate = useInvalidateAi();
 
     return useMutation({
-        mutationFn: (id: number) => makeAiProviderDefault(id),
+        mutationFn: (name: string) => makeAiProviderDefault(name),
         onSuccess: () => invalidate("ارائه‌دهنده پیش‌فرض تغییر کرد"),
         onError: (error) => toast.error(getApiError(error)),
     });
@@ -147,13 +147,8 @@ export function useMakeAiProviderDefault() {
  */
 export function useTestAiProvider() {
     return useMutation({
-        mutationFn: ({
-            id,
-            model,
-        }: {
-            id: number;
-            model?: string;
-        }) => testAiProviderConnection(id, model).then((r) => r.data),
+        mutationFn: ({ name, model }: { name: string; model?: string }) =>
+            testAiProviderConnection(name, model).then((r) => r.data),
     });
 }
 
@@ -162,12 +157,12 @@ export function useCreateAiModel() {
 
     return useMutation({
         mutationFn: ({
-            providerId,
+            providerName,
             payload,
         }: {
-            providerId: number;
+            providerName: string;
             payload: AiModelPayload;
-        }) => createAiModel(providerId, payload),
+        }) => createAiModel(providerName, payload),
         onSuccess: () => invalidate("مدل افزوده شد"),
         onError: (error) => toast.error(getApiError(error)),
     });
@@ -178,14 +173,14 @@ export function useUpdateAiModel() {
 
     return useMutation({
         mutationFn: ({
-            providerId,
-            modelId,
+            providerName,
+            modelName,
             payload,
         }: {
-            providerId: number;
-            modelId: number;
+            providerName: string;
+            modelName: string;
             payload: AiModelPayload;
-        }) => updateAiModel(providerId, modelId, payload),
+        }) => updateAiModel(providerName, modelName, payload),
         onSuccess: () => invalidate("مدل به‌روزرسانی شد"),
         onError: (error) => toast.error(getApiError(error)),
     });
@@ -195,8 +190,13 @@ export function useDeleteAiModel() {
     const invalidate = useInvalidateAi();
 
     return useMutation({
-        mutationFn: ({ providerId, modelId }: { providerId: number; modelId: number }) =>
-            deleteAiModel(providerId, modelId),
+        mutationFn: ({
+            providerName,
+            modelName,
+        }: {
+            providerName: string;
+            modelName: string;
+        }) => deleteAiModel(providerName, modelName),
         onSuccess: () => invalidate("مدل حذف شد"),
         onError: (error) => toast.error(getApiError(error)),
     });
@@ -206,8 +206,13 @@ export function useUpdateAiAgentBinding() {
     const invalidate = useInvalidateAi();
 
     return useMutation({
-        mutationFn: ({ id, payload }: { id: number; payload: AiAgentBindingPayload }) =>
-            updateAiAgentBinding(id, payload),
+        mutationFn: ({
+            key,
+            payload,
+        }: {
+            key: string;
+            payload: AiAgentBindingPayload;
+        }) => updateAiAgentBinding(key, payload),
         onSuccess: () => invalidate("اتصال عامل به‌روزرسانی شد"),
         onError: (error) => toast.error(getApiError(error)),
     });
