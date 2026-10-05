@@ -29,7 +29,12 @@ class TagController
 
         ListQuery::search($query, ListQuery::filter($request), self::SEARCHABLE);
 
-        $query->orderBy(ListQuery::sort($request, ['name', 'usage_count'], 'usage_count'), ListQuery::order($request, 'desc'));
+        $sort = ListQuery::sort($request, ['name', 'taggables_count'], 'taggables_count');
+        if ($sort === 'name') {
+            $query->orderBy($sort, ListQuery::order($request, 'asc'));
+        } else {
+            $query->orderByRaw('"taggables_count" '.ListQuery::order($request, 'desc'));
+        }
 
         $tags = $query->paginate(ListQuery::perPage($request, 50, 200));
 
