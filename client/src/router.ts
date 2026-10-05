@@ -20,6 +20,13 @@ import { Route as UserViewRoute } from "@/routes/_protected/users/$userId";
 import { Route as UserEditRoute } from "@/routes/_protected/users/$userId.edit";
 import { Route as UserRolesRoute } from "@/routes/_protected/users/$userId.roles";
 import { Route as SettingsRoute } from "@/routes/_protected/settings";
+import { Route as SettingsIndexRoute } from "@/routes/_protected/settings/index";
+import { Route as SettingsBrandingRoute } from "@/routes/_protected/settings/branding";
+import { Route as SettingsPermissionsRoute } from "@/routes/_protected/settings/permissions";
+import { Route as SettingsFormOptionsRoute } from "@/routes/_protected/settings/form-options";
+import { Route as SettingsImportsRoute } from "@/routes/_protected/settings/imports";
+import { Route as SettingsTagsRoute } from "@/routes/_protected/settings/tags";
+import { Route as SettingsAiRoute } from "@/routes/_protected/settings/ai";
 import { Route as ProfileRoute } from "@/routes/_protected/profile";
 import { Route as ProfileEditRoute } from "@/routes/_protected/profile.edit";
 import { Route as UnauthorizedRoute } from "@/routes/_protected/unauthorized";
@@ -68,7 +75,15 @@ const routeTree = RootRoute.addChildren([
         UserViewRoute,
         UserEditRoute,
         UserRolesRoute,
-        SettingsRoute,
+        SettingsRoute.addChildren([
+            SettingsIndexRoute,
+            SettingsBrandingRoute,
+            SettingsPermissionsRoute,
+            SettingsFormOptionsRoute,
+            SettingsImportsRoute,
+            SettingsTagsRoute,
+            SettingsAiRoute,
+        ]),
         ProfileRoute,
         ProfileEditRoute,
         UnauthorizedRoute,

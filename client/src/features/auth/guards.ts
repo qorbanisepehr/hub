@@ -73,6 +73,43 @@ export function requirePermission(permission: string | string[]) {
     };
 }
 
+/**
+ * Resolve the first candidate whose permissions the user actually holds.
+ *
+ * Used by index routes that pick a default landing tab: a hardcoded redirect
+ * would send a user without that tab's permission straight into a guard that
+ * bounces them to /unauthorized. Pass `fallback` to redirect elsewhere when
+ * nothing matches (e.g. no settings tab is visible at all).
+ */
+export async function redirectToFirstAllowed(
+    candidates: ReadonlyArray<{ to: string; permissions: string | string[] }>,
+    fallback: string = "/unauthorized",
+) {
+    const user = await resolveUser();
+
+    if (user?.is_super_admin) {
+        throw redirect({ to: candidates[0]?.to ?? fallback });
+    }
+
+    const authorization = await getEffectiveAuthorization(user);
+
+    for (const candidate of candidates) {
+        const names = Array.isArray(candidate.permissions)
+            ? candidate.permissions
+            : [candidate.permissions];
+
+        const allowed = names.some(
+            (name) => authorization?.permissions[name]?.allowed === true,
+        );
+
+        if (allowed) {
+            throw redirect({ to: candidate.to });
+        }
+    }
+
+    throw redirect({ to: fallback });
+}
+
 export function redirectIfAuthenticated() {
     if (authClient.isAuthenticated()) {
         throw redirect({ to: "/dashboard" });
