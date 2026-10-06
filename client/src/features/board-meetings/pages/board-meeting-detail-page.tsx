@@ -27,12 +27,15 @@ import { MeetingDocumentsTab } from "../components/meeting-documents-tab";
 import { MeetingEditDialog } from "../components/meeting-edit-dialog";
 import { MeetingMinutesPreview } from "../components/meeting-minutes-preview";
 import { MeetingStats } from "../components/meeting-stats";
+import { useRunProgressChannel } from "@/features/realtime/use-run-progress-channel";
+
 import { MeetingSummarySection } from "../components/meeting-summary-section";
 import { MeetingTagChips } from "../components/meeting-tag-chips";
 import { hasContent } from "../summary-read";
 import {
     useAcceptMeetingSummary,
     useBoardMeeting,
+    useDismissMeetingSummary,
     useGenerateMeetingSummary,
 } from "../hooks";
 import type {
@@ -102,6 +105,15 @@ export function BoardMeetingDetailPage() {
 
     const generate = useGenerateMeetingSummary(meetingId);
     const accept = useAcceptMeetingSummary(meetingId);
+    const dismiss = useDismissMeetingSummary(meetingId);
+
+    // Live progress for the run this page started. The hook only invalidates
+    // the queries the event names, so the meeting is re-read and the tab's own
+    // `pending` stamp decides what to show - the event never renders anything
+    // itself. Mounted here rather than inside the summary section because this
+    // is the page that owns the meeting's cache key, and the section receives
+    // the meeting as a prop and has no business knowing it came from a query.
+    useRunProgressChannel();
 
     if (isLoading) {
         return (
@@ -223,9 +235,11 @@ export function BoardMeetingDetailPage() {
                                 tags={meeting.tags.map((tag) => tag.slug)}
                                 isGenerating={generate.isPending}
                                 isAccepting={accept.isPending}
+                                isDismissing={dismiss.isPending}
                                 onGenerate={(payload) =>
                                     generate.mutate(payload)
                                 }
+                                onDismiss={() => dismiss.mutate()}
                                 onAccept={(
                                     fields: MeetingSummaryFieldName[],
                                     tags: string[],

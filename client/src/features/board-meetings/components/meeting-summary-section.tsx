@@ -131,15 +131,19 @@ export function MeetingSummarySection({
     tags,
     onGenerate,
     onAccept,
+    onDismiss,
     isGenerating,
     isAccepting,
+    isDismissing,
 }: {
     summary: MeetingSummaryArtifact | null;
     tags: string[];
     onGenerate: (payload: SummaryRunPayload) => void;
     onAccept: (fields: MeetingSummaryFieldName[], tags: string[]) => void;
+    onDismiss: () => void;
     isGenerating: boolean;
     isAccepting: boolean;
+    isDismissing: boolean;
 }) {
     const canUpdate = usePermission([PERMISSIONS.BOARD_MEETING_UPDATE]);
 
@@ -190,7 +194,9 @@ export function MeetingSummarySection({
                     candidate={candidate}
                     currentTags={tags}
                     onAccept={onAccept}
+                    onDismiss={onDismiss}
                     isAccepting={isAccepting}
+                    isDismissing={isDismissing}
                 />
             )}
 

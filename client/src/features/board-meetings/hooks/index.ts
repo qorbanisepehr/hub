@@ -3,6 +3,7 @@ export {
     useBoardMeetings,
     useBoardMeeting,
     useBulkGenerateMeetingSummary,
+    useDismissMeetingSummary,
     useGenerateMeetingSummary,
     useMeetingDocuments,
     useSummaryCandidates,

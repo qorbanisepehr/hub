@@ -104,6 +104,22 @@ export function generateMeetingSummary(
 }
 
 /**
+ * Refuse a proposal outright, changing nothing.
+ *
+ * Its own endpoint rather than an accept with an empty selection, because
+ * accept has to carry the meeting's tags in full — so a person who wants none
+ * of the proposal and no opinion about tags has nothing they could send, and
+ * the workaround used to re-write the tag pivot on the way through. Takes no
+ * body for the same reason: a body could name tags to set, which is the one
+ * thing this must not be able to do.
+ */
+export function dismissMeetingSummary(id: number | string) {
+    return api.post<{ data: BoardMeetingDetailResponse }>(
+        `/board-meetings/${id}/summary/dismiss`,
+    );
+}
+
+/**
  * Record a decision about the pending proposal.
  *
  * A 409 here means somebody else got there first, or the run was applied

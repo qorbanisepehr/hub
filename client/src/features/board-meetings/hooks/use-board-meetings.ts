@@ -12,6 +12,7 @@ import {
     acceptMeetingSummary,
     bulkGenerateMeetingSummary,
     deleteMeetingDocument,
+    dismissMeetingSummary,
     fetchBoardMeeting,
     fetchBoardMeetings,
     fetchMeetingDocuments,
@@ -152,6 +153,48 @@ export function useAcceptMeetingSummary(meetingId: number | string) {
             }
 
             toast.error("ثبت تصمیم ناموفق بود", {
+                description: getApiError(error) ?? "خطای ناشناخته",
+            });
+        },
+    });
+}
+
+/**
+ * Refuse the pending proposal without changing anything.
+ *
+ * Not `accept` with an empty selection: that request has to carry the meeting's
+ * tags in full, so it cannot express "none of this, and leave my tags alone" —
+ * and sending the tags back re-wrote the pivot, which quietly undid any
+ * re-tagging done while the proposal sat undecided.
+ *
+ * The 409 means the same thing it does on accept: the proposal is gone because
+ * the run was applied instead, or somebody else decided first. The meeting is
+ * still there, so the recovery is a re-read.
+ */
+export function useDismissMeetingSummary(meetingId: number | string) {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: () => dismissMeetingSummary(meetingId),
+        onSuccess: () => {
+            void queryClient.invalidateQueries({
+                queryKey: boardMeetingKeys.detail(meetingId),
+            });
+            void queryClient.invalidateQueries({
+                queryKey: boardMeetingKeys.lists(),
+            });
+        },
+        onError: (error) => {
+            if (getApiErrorStatus(error) === 409) {
+                toast.error("این پیشنهاد دیگر وجود ندارد.", {
+                    description:
+                        "پیشنهاد پیش‌تر پذیرفته یا کنار گذاشته شده است؛ وضعیت جلسه به‌روز شد.",
+                });
+
+                return;
+            }
+
+            toast.error("کنار گذاشتن پیشنهاد انجام نشد.", {
                 description: getApiError(error) ?? "خطای ناشناخته",
             });
         },

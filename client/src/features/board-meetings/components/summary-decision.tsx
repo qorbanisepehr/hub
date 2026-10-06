@@ -50,13 +50,17 @@ export function SummaryDecision({
     candidate,
     currentTags,
     onAccept,
+    onDismiss,
     isAccepting,
+    isDismissing,
 }: {
     current: MeetingSummaryArtifact;
     candidate: MeetingSummaryArtifact;
     currentTags: string[];
     onAccept: (fields: MeetingSummaryFieldName[], tags: string[]) => void;
+    onDismiss: () => void;
     isAccepting: boolean;
+    isDismissing: boolean;
 }) {
     const canUpdate = usePermission([PERMISSIONS.BOARD_MEETING_UPDATE]);
 
@@ -132,15 +136,33 @@ export function SummaryDecision({
 
     const changedTags = tags.filter((slug) => !currentTags.includes(slug));
     const droppedTags = currentTags.filter((slug) => !tags.includes(slug));
-    const tagsUnchanged = droppedTags.length === 0;
+
+    /**
+     * Whether there is anything here to accept at all.
+     *
+     * A run can finish with no field filled and no tag proposed — it says so in
+     * `summary.error` — and then the only honest action is to close the
+     * question. Offering a save button for a proposal with nothing in it asks
+     * a person to click "save" to achieve no change.
+     */
+    // Compared by value, not by reference: `baselineTags` is a fresh array
+    // every render, so `!==` would be true always and the panel would offer a
+    // save button for a proposal that had nothing in it.
+    const hasSomethingToAccept =
+        offered.length > 0 ||
+        !(
+            baselineTags.length === currentTags.length &&
+            baselineTags.every((slug) => currentTags.includes(slug))
+        );
 
     return (
         <Alert className="border-warning/40 bg-warning/5">
             <IconHash className="text-warning" />
             <AlertTitle>پیشنهاد تازه برای این جلسه</AlertTitle>
             <AlertDescription>
-                هر بخش را جدا تصمیم بگیرید؛ آنچه تیک نخورد روی رکورد جلسه نوشته
-                نمی‌شود.
+                {hasSomethingToAccept
+                    ? "هر بخش را جدا تصمیم بگیرید؛ آنچه تیک نخورد روی رکورد جلسه نوشته نمی‌شود."
+                    : "این اجرا چیزی برای پذیرفتن تولید نکرد. می‌توانید پیشنهاد را ببندید تا دوباره تلاش کنید."}
             </AlertDescription>
 
             <div className="col-start-2 flex flex-col gap-4">
@@ -226,20 +248,31 @@ export function SummaryDecision({
                                   .filter(Boolean)
                                   .join("، ")}
                     </p>
-                    <Button
-                        onClick={() => onAccept(accepted, tags)}
-                        disabled={!canUpdate || isAccepting}
-                    >
-                        {!isAccepting && <IconCheck data-icon="inline-start" />}
-                        {isAccepting ? "در حال ثبت…" : null}
-                        {!isAccepting && accepted.length === 0 && tagsUnchanged
-                            ? "بستن پیشنهاد"
-                            : null}
-                        {!isAccepting &&
-                        !(accepted.length === 0 && tagsUnchanged)
-                            ? "ثبت تصمیم"
-                            : null}
-                    </Button>
+                    <div className="flex flex-wrap items-center gap-2">
+                        {/* Always offered, even when accepting would decide
+                            something: refusing the whole proposal is a normal
+                            outcome and used to be reachable only by unticking
+                            every box, which reads as a decision rather than a
+                            refusal. */}
+                        <Button
+                            variant="outline"
+                            onClick={onDismiss}
+                            disabled={!canUpdate || isAccepting || isDismissing}
+                        >
+                            {isDismissing ? "در حال بستن…" : "کنار گذاشتن پیشنهاد"}
+                        </Button>
+                        {hasSomethingToAccept && (
+                            <Button
+                                onClick={() => onAccept(accepted, tags)}
+                                disabled={!canUpdate || isAccepting || isDismissing}
+                            >
+                                {!isAccepting && (
+                                    <IconCheck data-icon="inline-start" />
+                                )}
+                                {isAccepting ? "در حال ثبت…" : "ثبت تصمیم"}
+                            </Button>
+                        )}
+                    </div>
                 </div>
             </div>
         </Alert>
