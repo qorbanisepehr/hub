@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { getRouteApi } from "@tanstack/react-router";
 import type { ColumnDef, Row, StockFeatures } from "@tanstack/react-table";
 import {
     IconPencil,
@@ -40,7 +41,8 @@ import {
 } from "../hooks";
 import type { TagDto } from "../types";
 import { PERMISSIONS } from "@/lib/permissions";
-import { Route } from "@/routes/_protected/settings";
+
+const tagsRoute = getRouteApi("/protected/settings/tags");
 
 /** The slug rule the backend enforces — mirrored client-side for UX. */
 // Built from a string: TS's regex type-checker does not know Script property
@@ -55,14 +57,16 @@ const SLUG_PATTERN = new RegExp("^[\\p{Arabic}\\p{Latin}\\p{N}_-]+$/u");
 export function TagsSection() {
     const canManage = usePermission([PERMISSIONS.TAG_MANAGE]);
 
-    const search = Route.useSearch();
-    const navigate = Route.useNavigate();
+    const search = tagsRoute.useSearch();
+    const navigate = tagsRoute.useNavigate();
 
     const url = useDataTableUrlState({
         search: search as unknown as Record<string, unknown>,
         navigate,
         urlState: {
-            globalFilter: { enabled: true, key: "filter" },
+            pagination: { pageKey: "tags_page", pageSizeKey: "tags_per_page" },
+            sorting: { sortKey: "tags_sort", orderKey: "tags_order" },
+            globalFilter: { enabled: true, key: "tags_filter" },
         },
     });
 
@@ -122,6 +126,7 @@ export function TagsSection() {
         {
             accessorKey: "name",
             header: "عنوان",
+            enableSorting: true,
             cell: ({ row }: { row: Row<StockFeatures, TagDto> }) => (
                 <span className="font-medium">{row.original.name}</span>
             ),
@@ -129,6 +134,7 @@ export function TagsSection() {
         {
             accessorKey: "slug",
             header: "شناسه",
+            enableSorting: false,
             cell: ({ row }: { row: Row<StockFeatures, TagDto> }) => (
                 <span
                     dir="ltr"
@@ -141,6 +147,7 @@ export function TagsSection() {
         {
             accessorKey: "usage_count",
             header: "تعداد استفاده",
+            enableSorting: true,
             cell: ({ row }: { row: Row<StockFeatures, TagDto> }) => (
                 <span className="text-muted-foreground">
                     {(row.original.usage_count ?? 0).toLocaleString("fa-IR")}

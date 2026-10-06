@@ -34,8 +34,10 @@ import { usePermission } from "@/features/auth/components/permission-guard";
 import { groupDisplayName } from "@/features/form-options/groups";
 import { useAdminFormOptionGroups, useAdminFormOptions, useFormOptionsAdmin } from "@/features/form-options/hooks/use-form-options";
 import type { FormOption } from "@/features/form-options/types";
-import { Route } from "@/routes/_protected/settings";
+import { getRouteApi } from "@tanstack/react-router";
 import { PERMISSIONS } from "@/lib/permissions";
+
+const formOptionsRoute = getRouteApi("/protected/settings/form-options");
 import { OptionEditorDialog } from "./option-editor-dialog";
 import {
     emptyForm,
@@ -52,10 +54,10 @@ export function FormOptionsSection() {
     const canManage = usePermission([PERMISSIONS.FORM_OPTIONS_MANAGE]);
     const admin = useFormOptionsAdmin();
 
-    const search = Route.useSearch();
-    const navigate = Route.useNavigate();
+    const search = formOptionsRoute.useSearch();
+    const navigate = formOptionsRoute.useNavigate();
 
-    const selectedGroup = search.group ?? "";
+    const selectedGroup = (search as { group?: string | undefined }).group ?? "";
 
     const [dialogOpen, setDialogOpen] = useState(false);
     const [editing, setEditing] = useState<FormOption | null>(null);
@@ -259,7 +261,6 @@ export function FormOptionsSection() {
                             navigate({
                                 search: (prev) => ({
                                     ...prev,
-                                    tab: "form-options",
                                     group: value,
                                     page: undefined,
                                 }),
