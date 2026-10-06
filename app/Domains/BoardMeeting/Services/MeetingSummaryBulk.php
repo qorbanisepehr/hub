@@ -63,6 +63,7 @@ final readonly class MeetingSummaryBulk
         SummaryWriteMode $mode,
         ?string $provider = null,
         ?string $model = null,
+        ?int $requestedBy = null,
     ): array {
         $eligible = BoardMeeting::query()
             ->whereIn('id', $meetingIds)
@@ -75,6 +76,7 @@ final readonly class MeetingSummaryBulk
                 provider: $provider,
                 model: $model,
                 mode: $mode,
+                requestedBy: $requestedBy,
             );
         }
 

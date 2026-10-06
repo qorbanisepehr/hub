@@ -52,6 +52,7 @@ class MeetingSummaryController
             model: $request->summaryModel(),
             mode: $request->summaryMode(),
             merge: $request->shouldMerge(),
+            requestedBy: $request->user()?->getKey(),
         );
 
         return new BoardMeetingResource($meeting->refresh()->load('tags'));
@@ -129,6 +130,7 @@ class MeetingSummaryController
             $request->summaryMode(),
             $request->summaryProvider(),
             $request->summaryModel(),
+            $request->user()?->getKey(),
         );
 
         return response()->json([

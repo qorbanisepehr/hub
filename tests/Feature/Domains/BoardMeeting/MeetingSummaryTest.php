@@ -19,6 +19,8 @@ use App\Domains\BoardMeeting\Value\Attendee;
 use App\Domains\BoardMeeting\Value\MeetingSummary;
 use App\Domains\Settings\Repositories\SystemSettingsRepositoryInterface;
 use App\Domains\Tagging\Services\TagService;
+use App\Support\Realtime\RunProgressed;
+use App\Support\Realtime\RunState;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\JsonSchema\JsonSchemaTypeFactory;
 use Illuminate\Support\Facades\Event;
@@ -80,6 +82,7 @@ function runSummaryJob(
     ?SummaryWriteMode $mode = null,
     ?string $provider = null,
     ?string $model = null,
+    ?int $requestedBy = null,
 ): void {
     (new GenerateBoardMeetingSummaryJob(
         $meetingId,
@@ -87,6 +90,7 @@ function runSummaryJob(
         $provider,
         $model,
         $mode ?? SummaryWriteMode::Apply,
+        requestedBy: $requestedBy,
     ))->handle(app(BoardMeetingSummarizer::class), app(MeetingSummaryApplier::class));
 }
 
@@ -449,6 +453,79 @@ describe('the job', function () {
             ->toThrow(RuntimeException::class);
 
         expect($this->meeting->fresh()->summary['status'])->toBe(MeetingSummary::STATUS_PENDING);
+    });
+});
+
+describe('run progress', function () {
+    it('reports running then finished to the requester', function () {
+        // The run is what tells the waiting person it moved, so the sequence is
+        // the contract: `running` once the model is actually being called, then
+        // a terminal state. A client that only ever saw `finished` would sit on
+        // a spinner with nothing between "asked" and "done".
+        Event::fake([RunProgressed::class]);
+
+        MeetingSummaryAgent::fake([['executive_summary' => 'خلاصه']]);
+
+        runSummaryJob($this->meeting->id, ['executive_summary'], requestedBy: 4242);
+
+        Event::assertDispatchedTimes(RunProgressed::class, 2);
+
+        Event::assertDispatched(RunProgressed::class, fn (RunProgressed $e): bool => $e->state === RunState::Running
+            && $e->userId === 4242);
+
+        Event::assertDispatched(RunProgressed::class, fn (RunProgressed $e): bool => $e->state === RunState::Finished
+            && $e->context === ['status' => MeetingSummary::STATUS_OK]);
+    });
+
+    it('reports a permanent failure as failed rather than finished', function () {
+        // The distinction the client draws its whole reaction on: a finished run
+        // and a failed one are different sentences, and both are terminal.
+        Event::fake([RunProgressed::class]);
+
+        $this->meeting->forceFill(['summary' => null])->save();
+        app(SystemSettingsRepositoryInterface::class)->forget(AiProvider::class, AiRegistryKey::PROVIDERS.'local');
+        app(AiProviderResolver::class)->forget();
+
+        runSummaryJob($this->meeting->id, ['executive_summary'], requestedBy: 4242);
+
+        Event::assertDispatched(RunProgressed::class, fn (RunProgressed $e): bool => $e->state === RunState::Failed
+            && $e->context === ['reason' => MeetingSummary::REASON_NOT_CONFIGURED]);
+    });
+
+    it('names the client cache key rather than the run itself', function () {
+        // The channel is the client's cache prefix, so it has to be the one the
+        // meeting's queries actually live under - otherwise the event arrives
+        // and invalidates nothing, and the feature is silently dead while every
+        // assertion about "an event was sent" still passes.
+        Event::fake([RunProgressed::class]);
+
+        MeetingSummaryAgent::fake([['executive_summary' => 'خلاصه']]);
+
+        runSummaryJob($this->meeting->id, ['executive_summary'], requestedBy: 4242);
+
+        Event::assertDispatched(RunProgressed::class, fn (RunProgressed $e): bool => $e->channel === 'board-meetings');
+    });
+
+    it('reports nothing when the run has no requester', function () {
+        // The scheduled/CLI shape. Reporting to nobody must be silent rather
+        // than broken - the outcome is written to the row either way.
+        Event::fake([RunProgressed::class]);
+
+        MeetingSummaryAgent::fake([['executive_summary' => 'خلاصه']]);
+
+        runSummaryJob($this->meeting->id, ['executive_summary']);
+
+        Event::assertNotDispatched(RunProgressed::class);
+    });
+
+    it('still writes the outcome when there is no requester to tell', function () {
+        // The regression that matters most: progress is a courtesy, and adding
+        // it must not make the run depend on somebody being subscribed.
+        MeetingSummaryAgent::fake([['executive_summary' => 'خلاصه']]);
+
+        runSummaryJob($this->meeting->id, ['executive_summary']);
+
+        expect($this->meeting->fresh()->summary['status'])->toBe(MeetingSummary::STATUS_OK);
     });
 });
 

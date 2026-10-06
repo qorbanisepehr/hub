@@ -9,6 +9,8 @@ use App\Domains\BoardMeeting\Models\BoardMeeting;
 use App\Domains\BoardMeeting\Services\BoardMeetingSummarizer;
 use App\Domains\BoardMeeting\Services\MeetingSummaryApplier;
 use App\Domains\BoardMeeting\Value\MeetingSummary;
+use App\Support\Realtime\Concerns\ReportsRunProgress;
+use App\Support\Realtime\RunState;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -48,6 +50,7 @@ class GenerateBoardMeetingSummaryJob implements ShouldBeUnique, ShouldQueue
     use Dispatchable;
     use InteractsWithQueue;
     use Queueable;
+    use ReportsRunProgress;
     use SerializesModels;
 
     /** Release the lock in case the worker dies holding it. */
@@ -74,6 +77,14 @@ class GenerateBoardMeetingSummaryJob implements ShouldBeUnique, ShouldQueue
      *                       "write this field fresh" and "improve this field"
      *                       are two different requests and the second must not
      *                       be swallowed as a duplicate of the first.
+     * @param  int|null  $requestedBy  who asked for this run, so it can report
+     *                                 progress to them. Nullable because only
+     *                                 an HTTP dispatch has a user behind it -
+     *                                 a scheduled or CLI path has nobody
+     *                                 watching, and inventing an id would put a
+     *                                 run's progress on a stranger's channel.
+     *                                 Null just means nothing is reported; the
+     *                                 outcome is written to the row either way
      */
     public function __construct(
         public readonly int $meetingId,
@@ -82,7 +93,25 @@ class GenerateBoardMeetingSummaryJob implements ShouldBeUnique, ShouldQueue
         public readonly ?string $model = null,
         public readonly SummaryWriteMode $mode = SummaryWriteMode::Review,
         public readonly bool $merge = false,
-    ) {}
+        public readonly ?int $requestedBy = null,
+    ) {
+        // The run id is the queue lock's identity, reused rather than invented a
+        // second time: the client needs to recognise a continuation of *this*
+        // run, and the lock's id already answers exactly that. A separate id
+        // would be a second thing that has to agree with the first.
+        //
+        // The channel is the client's cache prefix rather than something finer
+        // grained on purpose. A summary lands on the meeting row, so the detail
+        // query has to be re-read; a bulk run moves the list's own columns too,
+        // so the list has to be. One prefix covers both, and naming the exact
+        // query here would mean this job had to know the client's cache layout
+        // and keep it in step.
+        $this->reportProgressTo(
+            $requestedBy,
+            $this->uniqueId(),
+            'board-meetings',
+        );
+    }
 
     /**
      * Identity for uniqueness: the meeting plus what it was asked for.
@@ -127,6 +156,8 @@ class GenerateBoardMeetingSummaryJob implements ShouldBeUnique, ShouldQueue
 
         $applier->applyRun($meeting, MeetingSummary::pending(), $this->mode);
 
+        $this->reportProgress(RunState::Running);
+
         try {
             $run = $summarizer->summarize(
                 $meeting,
@@ -136,6 +167,10 @@ class GenerateBoardMeetingSummaryJob implements ShouldBeUnique, ShouldQueue
                 $this->merge,
             );
         } catch (AiNotConfigured) {
+            $this->reportProgress(RunState::Failed, [
+                'reason' => MeetingSummary::REASON_NOT_CONFIGURED,
+            ]);
+
             $this->report($meeting, $applier->applyRun(
                 $meeting,
                 MeetingSummary::failure(MeetingSummary::REASON_NOT_CONFIGURED),
@@ -144,6 +179,11 @@ class GenerateBoardMeetingSummaryJob implements ShouldBeUnique, ShouldQueue
 
             return;
         }
+
+        $this->reportProgress(
+            $run->status === MeetingSummary::STATUS_FAILED ? RunState::Failed : RunState::Finished,
+            ['status' => $run->status],
+        );
 
         $this->report($meeting, $applier->applyRun($meeting, $run, $this->mode));
     }
