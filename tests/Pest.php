@@ -1,11 +1,17 @@
 <?php
 
+use App\Domains\Ai\Enums\AiDriver;
+use App\Domains\Ai\Services\AiProviderService;
+use App\Domains\Ai\Value\AiDefaultProvider;
+use App\Domains\Ai\Value\AiModel;
+use App\Domains\Ai\Value\AiProvider;
 use App\Domains\Authorization\Models\Permission;
 use App\Domains\Authorization\Models\PermissionGroup;
 use App\Domains\Authorization\Models\Role;
 use App\Domains\Document\Models\DocumentCategory;
 use App\Domains\FormOptions\Models\FormOption;
 use App\Domains\Questionnaire\Models\Questionnaire;
+use App\Domains\Settings\Repositories\SystemSettingsRepositoryInterface;
 use App\Enums\GrantPurpose;
 use App\Enums\OtpContext;
 use App\Models\User;
@@ -122,6 +128,61 @@ function createUserWithPermissions(array $permissionNames = []): User
     $user->assignRole($role->id, true);
 
     return $user;
+}
+
+/**
+ * Seed an AI provider through the store and make it the default.
+ *
+ * Seeded through the store rather than a factory: there is no provider factory
+ * any more and there should not be one. A factory that writes a document has to
+ * reach past the store to do it, and then it is seeding state the application
+ * itself cannot write — so a green test would be proving something the product
+ * cannot do.
+ *
+ * This lives here rather than in one test file because Pest loads every test
+ * file into a single process, so a helper defined in one file is silently
+ * unavailable when another file is run on its own.
+ */
+function seedSummaryProvider(
+    string $name = 'local',
+    bool $isActive = true,
+    bool $makeDefault = true,
+    AiDriver $driver = AiDriver::Ollama,
+): AiProvider {
+    $provider = AiProvider::make($name, $driver)->asActive($isActive);
+
+    $store = app(SystemSettingsRepositoryInterface::class);
+    $store->put($provider);
+
+    // Only claim the pointer when asked. There is exactly one default row, so a
+    // second provider seeded for a comparison would silently steal it and leave
+    // the tests that depend on the first resolving against the wrong gateway.
+    if ($makeDefault) {
+        $store->put(AiDefaultProvider::make($name));
+    }
+
+    return $provider;
+}
+
+/**
+ * Add a model to a stored provider, re-reading it first.
+ *
+ * The re-read is load-bearing, not tidiness. A provider and its model list are
+ * one aggregate, so `addModel()` checks the duplicate-name rule against the
+ * document it is handed: a caller holding the value from *before* an earlier
+ * write is one model behind, and the duplicate it should have refused gets
+ * stored silently.
+ */
+function seedSummaryModel(string $providerName, string $modelName, bool $isActive = true, array $capabilities = []): AiModel
+{
+    $service = app(AiProviderService::class);
+
+    $service->addModel(
+        $service->provider($providerName),
+        new AiModel($modelName, null, $capabilities, $isActive),
+    );
+
+    return $service->provider($providerName)->model($modelName);
 }
 
 /**

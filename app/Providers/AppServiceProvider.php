@@ -21,8 +21,10 @@ use App\Domains\Questionnaire\Repositories\QuestionnaireRepositoryInterface;
 use App\Domains\Reporting\Reports\UnifiedInbox\SenderIdentityResolver;
 use App\Domains\Reporting\Reports\UnifiedInbox\Sources\GatewayInboxSource;
 use App\Domains\Reporting\Reports\UnifiedInbox\Sources\InboxSourceRegistry;
+use App\Domains\Settings\Repositories\DatabaseSystemSettingsRepository;
 use App\Domains\Settings\Repositories\FileSettingsRepository;
 use App\Domains\Settings\Repositories\SettingsRepositoryInterface;
+use App\Domains\Settings\Repositories\SystemSettingsRepositoryInterface;
 use App\Domains\Settings\Services\SettingsService;
 use App\Integrations\Automation\AutomationInboxMapper;
 use App\Integrations\Automation\FakeAutomationInboxGateway;
@@ -167,6 +169,15 @@ class AppServiceProvider extends ServiceProvider
         });
 
         $this->app->singleton(SettingsRepositoryInterface::class, FileSettingsRepository::class);
+
+        // The typed, table-backed store. Separate from the file-backed one above:
+        // this one gives a key a shape and keeps a private half in its own
+        // column, which the flat branding store has no concept of.
+        $this->app->singleton(
+            SystemSettingsRepositoryInterface::class,
+            DatabaseSystemSettingsRepository::class,
+        );
+
         $this->app->singleton(SettingsService::class);
 
         // Export kernel: formats are registered here (OCP — a new format is a
