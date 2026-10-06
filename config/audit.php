@@ -130,6 +130,10 @@ return [
         // about one is a person changing a board record, like `updated`.
         'boardmeeting.summary_generated' => ['category' => 'boardmeeting', 'sensitivity' => 'medium'],
         'boardmeeting.summary_accepted' => ['category' => 'boardmeeting', 'sensitivity' => 'high'],
+        // Refusing a proposal changed no record at all - the same fields, the same
+        // tags, one fewer open question - so it is not an `updated`-weight event
+        // the way accepting one is.
+        'boardmeeting.summary_dismissed' => ['category' => 'boardmeeting', 'sensitivity' => 'low'],
     ],
 
 ];

@@ -290,3 +290,149 @@ describe('POST /api/board-meetings/{meeting}/summary/accept', function () {
             ->toBe(MeetingSummary::STATUS_NONE);
     });
 });
+
+describe('POST /api/board-meetings/{meeting}/summary/dismiss', function () {
+    it('forbids a user who cannot edit the meeting', function () {
+        ($this->run)(['executive_summary' => 'خلاصه']);
+
+        actingAs(createUserWithPermissions(['board-meeting.view']))
+            ->postJson("/api/board-meetings/{$this->meeting->id}/summary/dismiss")
+            ->assertForbidden();
+
+        expect(MeetingSummary::fromArray($this->meeting->fresh()->summary)->pending)->not->toBeNull();
+    });
+
+    it('closes the proposal and leaves the record alone', function () {
+        ($this->run)(['executive_summary' => 'خلاصه', 'topics' => ['بودجه']]);
+
+        $before = MeetingSummary::fromArray($this->meeting->fresh()->summary);
+
+        actingAs(createUserWithPermissions(['board-meeting.update']))
+            ->postJson("/api/board-meetings/{$this->meeting->id}/summary/dismiss")
+            ->assertOk();
+
+        $after = MeetingSummary::fromArray($this->meeting->fresh()->summary);
+
+        expect($after->pending)->toBeNull()
+            // Everything the proposal was not is exactly what it was: refusing
+            // it is not a request to blank the fields it proposed.
+            ->and($after->status)->toBe($before->status)
+            ->and($after->values)->toBe($before->values)
+            ->and($after->fields)->toBe($before->fields);
+    });
+
+    it('cannot touch the tags, even when they changed under the panel', function () {
+        // The regression this endpoint exists for. Accepting carries the tag
+        // list in full, so refusing used to mean sending the tags back — and
+        // that re-wrote the pivot inside the summary transaction, silently
+        // reverting anybody who re-tagged the meeting between the panel
+        // rendering and the click. A bodiless request cannot name tags, so
+        // there is nothing to get wrong.
+        ($this->run)(['executive_summary' => 'خلاصه']);
+        app(TagService::class)->syncTags($this->meeting, ['budget', 'tender']);
+
+        // Somebody re-tags the meeting while the proposal sits undecided.
+        app(TagService::class)->syncTags($this->meeting, ['strategy']);
+
+        actingAs(createUserWithPermissions(['board-meeting.update']))
+            ->postJson("/api/board-meetings/{$this->meeting->id}/summary/dismiss")
+            ->assertOk();
+
+        expect($this->meeting->fresh()->tags->pluck('slug')->all())->toBe(['strategy']);
+    });
+
+    it('ignores a body rather than acting on it', function () {
+        // A dismiss that honoured `accepted_fields` or `tag_slugs` would be a
+        // second way to spell accept, with the tag hazard the dedicated
+        // endpoint just removed. Sending them must change nothing.
+        ($this->run)(['executive_summary' => 'خلاصه']);
+
+        actingAs(createUserWithPermissions(['board-meeting.update']))
+            ->postJson("/api/board-meetings/{$this->meeting->id}/summary/dismiss", [
+                'accepted_fields' => ['executive_summary'],
+                'tag_slugs' => ['budget'],
+            ])
+            ->assertOk();
+
+        $stored = MeetingSummary::fromArray($this->meeting->fresh()->summary);
+
+        expect($stored->pending)->toBeNull()
+            ->and($stored->values['executive_summary'] ?? null)->toBeNull()
+            ->and($this->meeting->fresh()->tags)->toHaveCount(0);
+    });
+
+    it('records a refusal as its own act, not as an acceptance of nothing', function () {
+        ($this->run)(['executive_summary' => 'خلاصه']);
+
+        $user = createUserWithPermissions(['board-meeting.update']);
+
+        actingAs($user)->postJson("/api/board-meetings/{$this->meeting->id}/summary/dismiss")
+            ->assertOk();
+
+        // A rejection and "accepted nothing while setting a tag list" are
+        // different facts, and an audit trail that records both as
+        // `summary_accepted` cannot tell them apart. The refusal also records
+        // no diff: nothing about the record changed.
+        $row = AuditLog::query()
+            ->where('event', 'boardmeeting.summary_dismissed')
+            ->where('subject_type', 'board-meeting')
+            ->where('subject_id', $this->meeting->id)
+            ->sole();
+
+        expect($row->actor_id)->toBe($user->id)
+            ->and($row->category)->toBe('boardmeeting')
+            ->and($row->old_values)->toBeNull()
+            ->and($row->new_values)->toBeNull()
+            // The run's own status, not a word about the person: this helper
+            // asks for three fields and the fake answered one, so the run is
+            // `partial` - and that is exactly the fact worth keeping.
+            ->and($row->metadata['run_status'])->toBe(MeetingSummary::STATUS_PARTIAL);
+
+        expect(AuditLog::query()->where('event', 'boardmeeting.summary_accepted')->exists())->toBeFalse();
+    });
+
+    it('names the run status, so an unusable run is distinguishable from a read one', function () {
+        // "Refused because the model returned nothing" and "refused after
+        // reading it" are different facts about how the feature is working,
+        // and only the first is a signal that something is wrong.
+        $this->meeting->forceFill(['summary' => null])->save();
+        MeetingSummaryAgent::fake([[]]);
+
+        (new GenerateBoardMeetingSummaryJob(
+            $this->meeting->getKey(),
+            ['executive_summary'],
+            null,
+            null,
+            SummaryWriteMode::Review,
+        ))->handle(app(BoardMeetingSummarizer::class), app(MeetingSummaryApplier::class));
+
+        actingAs(createUserWithPermissions(['board-meeting.update']))
+            ->postJson("/api/board-meetings/{$this->meeting->id}/summary/dismiss")
+            ->assertOk();
+
+        expect(AuditLog::query()
+            ->where('event', 'boardmeeting.summary_dismissed')
+            ->sole()
+            ->metadata['run_status'])->toBe(MeetingSummary::STATUS_FAILED);
+    });
+
+    it('answers a conflict when there is nothing to refuse', function () {
+        ($this->run)(['executive_summary' => 'خلاصه'], SummaryWriteMode::Apply);
+
+        // Applied, so nothing awaits a decision. The same 409 the accept path
+        // raises: the meeting and route are there, the thing being decided
+        // about is gone.
+        actingAs(createUserWithPermissions(['board-meeting.update']))
+            ->postJson("/api/board-meetings/{$this->meeting->id}/summary/dismiss")
+            ->assertStatus(409);
+    });
+
+    it('answers a conflict on a second refusal', function () {
+        ($this->run)(['executive_summary' => 'خلاصه']);
+
+        $user = createUserWithPermissions(['board-meeting.update']);
+
+        actingAs($user)->postJson("/api/board-meetings/{$this->meeting->id}/summary/dismiss")->assertOk();
+        actingAs($user)->postJson("/api/board-meetings/{$this->meeting->id}/summary/dismiss")->assertStatus(409);
+    });
+});

@@ -63,6 +63,15 @@ Route::middleware('auth:sanctum')->group(function () {
         ->name('board-meetings.summary.accept')
         ->middleware('permission:board-meeting.update');
 
+    // Refusing a proposal, which is not the same request as accepting an empty
+    // selection and does not share its endpoint. Accept has to carry the
+    // meeting's tags in full, so a person with no opinion about tags has
+    // nothing they could send; routing refusal through accept made them repeat
+    // the tag list to say "none of this", and re-wrote the pivot on the way.
+    Route::post('board-meetings/{meeting}/summary/dismiss', [MeetingSummaryController::class, 'dismiss'])
+        ->name('board-meetings.summary.dismiss')
+        ->middleware('permission:board-meeting.update');
+
     // The registry-level pair, on the sync permission rather than update: both
     // act on the whole registry instead of one row, so they belong beside the
     // registry sync rather than beside a single meeting's write.

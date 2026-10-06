@@ -4,18 +4,22 @@ namespace App\Domains\BoardMeeting\Controllers;
 
 use App\Domains\BoardMeeting\Ai\MeetingSummaryField;
 use App\Domains\BoardMeeting\Events\MeetingSummaryAccepted;
+use App\Domains\BoardMeeting\Events\MeetingSummaryDismissed;
 use App\Domains\BoardMeeting\Exceptions\NoPendingSummary;
 use App\Domains\BoardMeeting\Jobs\GenerateBoardMeetingSummaryJob;
 use App\Domains\BoardMeeting\Models\BoardMeeting;
 use App\Domains\BoardMeeting\Requests\AcceptMeetingSummaryRequest;
 use App\Domains\BoardMeeting\Requests\BoardMeetingListRequest;
 use App\Domains\BoardMeeting\Requests\BulkMeetingSummaryRequest;
+use App\Domains\BoardMeeting\Requests\DismissMeetingSummaryRequest;
 use App\Domains\BoardMeeting\Requests\GenerateMeetingSummaryRequest;
 use App\Domains\BoardMeeting\Resources\BoardMeetingResource;
 use App\Domains\BoardMeeting\Resources\MeetingSummaryCandidateResource;
 use App\Domains\BoardMeeting\Services\BoardMeetingListQuery;
 use App\Domains\BoardMeeting\Services\MeetingSummaryApplier;
 use App\Domains\BoardMeeting\Services\MeetingSummaryBulk;
+use App\Domains\BoardMeeting\Services\MeetingSummaryDismisser;
+use App\Domains\BoardMeeting\Value\MeetingSummary;
 use App\Support\ListQuery;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -91,6 +95,44 @@ class MeetingSummaryController
             $before,
             $after,
         ));
+
+        return new BoardMeetingResource($meeting->refresh()->load('tags'));
+    }
+
+    /**
+     * Refuse a proposal outright, changing nothing.
+     *
+     * The third decision, and the one the other two cannot express: accepting
+     * can only be sent as a complete tag list, so somebody who wants none of
+     * the proposal and no opinion about tags has nothing to say. Rejecting by
+     * accepting an empty selection used to be the workaround, and it re-wrote
+     * the tag pivot on the way - silently reverting any tag change made since
+     * the panel rendered. Hence a bodiless request rather than a flag.
+     *
+     * The 409 is the same conflict the accept path raises: the meeting and the
+     * route are there, the thing being decided about is gone, because the run
+     * was applied instead of proposed or somebody else got there first.
+     */
+    public function dismiss(
+        DismissMeetingSummaryRequest $request,
+        BoardMeeting $meeting,
+        MeetingSummaryDismisser $dismisser,
+    ): BoardMeetingResource|JsonResponse {
+        // Read off the already-loaded column, not a query: it is the run's own
+        // status, which is what tells "refused because the model returned
+        // nothing" apart from "refused after reading it", and only the first
+        // says anything about whether the feature is working.
+        $refused = MeetingSummary::fromArray($meeting->summary)?->pending;
+
+        try {
+            $dismisser->dismiss($meeting);
+        } catch (NoPendingSummary) {
+            return response()->json([
+                'message' => __('board_meeting.summary.nothing_pending'),
+            ], Response::HTTP_CONFLICT);
+        }
+
+        event(new MeetingSummaryDismissed($meeting, $refused?->status ?? MeetingSummary::STATUS_NONE));
 
         return new BoardMeetingResource($meeting->refresh()->load('tags'));
     }
