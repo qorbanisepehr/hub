@@ -2,6 +2,7 @@
 
 namespace App\Support\Realtime;
 
+use App\Support\Realtime\Value\RunSubject;
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PrivateChannel;
@@ -27,8 +28,15 @@ use Illuminate\Queue\SerializesModels;
  *
  * Carries no entity. A progress event naming a model would couple every future
  * run to the shape of whatever it is reporting on, and the re-read is going to
- * fetch that entity by its own route anyway. What travels is a reference the
- * client can key its cache on.
+ * fetch that entity by its own route anyway. What travels is a {@see RunSubject}
+ * reference and the cache key to re-read under.
+ *
+ * The two are different questions and both are needed. The cache key says *what
+ * to re-read*; the subject says *which one*, which is the only thing that makes
+ * a bulk run legible - ten runs share one cache prefix, so a client watching the
+ * list cannot otherwise tell which meeting just went running and which is still
+ * queued. A single-meeting page does not need it, since the URL already said so,
+ * but it costs one field and it is what makes one kernel serve both.
  *
  * Private, and per-user rather than per-role: a run belongs to the person who
  * paid for it. A 200-row bulk would otherwise broadcast 200 messages to every
@@ -49,6 +57,12 @@ class RunProgressed implements ShouldBroadcast
      * @param  string  $channel  the query/cache key the client re-reads under;
      *                           the client owns the vocabulary, this kernel
      *                           only carries it
+     * @param  RunSubject|null  $subject  what this run is about, so a client
+     *                                    watching several at once can tell them
+     *                                    apart. Null rather than required: a run
+     *                                    that is genuinely about nothing in
+     *                                    particular should say so rather than
+     *                                    invent a type
      * @param  array<string, mixed>  $context  caller-defined detail for the
      *                                         message itself - a count, a label, an error.
      *                                         Never the entity: see the class docblock.
@@ -58,6 +72,7 @@ class RunProgressed implements ShouldBroadcast
         public readonly string $runId,
         public readonly RunState $state,
         public readonly string $channel,
+        public readonly ?RunSubject $subject = null,
         public readonly array $context = [],
     ) {}
 
@@ -101,6 +116,11 @@ class RunProgressed implements ShouldBroadcast
             'run_id' => $this->runId,
             'state' => $this->state->value,
             'channel' => $this->channel,
+            // Always present, null included: a client must not have to tell
+            // "this run is about nothing" from "an older payload that had no
+            // subject key at all". Same rule the stored summary's `pending`
+            // key follows.
+            'subject' => $this->subject?->toArray(),
             'context' => $this->context,
             'occurred_at' => now()->toISOString(),
         ];

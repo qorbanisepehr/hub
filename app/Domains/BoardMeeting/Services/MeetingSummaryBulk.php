@@ -8,6 +8,7 @@ use App\Domains\BoardMeeting\Models\BoardMeeting;
 use App\Domains\BoardMeeting\Value\MeetingSummary;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Str;
 
 /**
  * The bulk arm of the summary feature (D23): «تولید برای همهٔ تولیدنشده‌ها».
@@ -33,6 +34,10 @@ use Illuminate\Database\Eloquent\Builder;
  */
 final readonly class MeetingSummaryBulk
 {
+    public function __construct(
+        private readonly MeetingSummaryBatchTracker $batches,
+    ) {}
+
     /**
      * The meetings still waiting for a first summary, newest registry key first
      * so the dialog's top rows are the ones a person is most likely working on.
@@ -70,6 +75,23 @@ final readonly class MeetingSummaryBulk
             ->where(fn (Builder $un) => $this->ungenerated($un))
             ->pluck('id');
 
+        // One identity for the whole dispatch, so the runs can be summarised as
+        // a batch instead of one notification per meeting. A bulk over the whole
+        // registry would otherwise put two hundred rows in the notification
+        // centre, which does not inform anybody - it just teaches them to
+        // ignore the channel. Generated per dispatch rather than derived from
+        // the meetings, so pressing the button twice produces two batches
+        // instead of one batch that silently absorbs the second press.
+        $batchId = $eligible->isEmpty()
+            ? null
+            : (string) Str::uuid();
+
+        // Counted before dispatching, so a run that reports quickly cannot find
+        // no counter and conclude the batch was already done.
+        if ($batchId !== null) {
+            $this->batches->start($batchId, $eligible->count());
+        }
+
         foreach ($eligible as $id) {
             GenerateBoardMeetingSummaryJob::dispatch(
                 meetingId: (int) $id,
@@ -77,6 +99,7 @@ final readonly class MeetingSummaryBulk
                 model: $model,
                 mode: $mode,
                 requestedBy: $requestedBy,
+                batchId: $batchId,
             );
         }
 
@@ -84,6 +107,10 @@ final readonly class MeetingSummaryBulk
             'queued' => $eligible->count(),
             'skipped' => count($meetingIds) - $eligible->count(),
             'meeting_ids' => array_map('intval', $eligible->all()),
+            // Returned so the client can group the live progress events it is
+            // about to receive, and so a person who closes the dialog can tell
+            // which dispatch they were watching.
+            'batch_id' => $batchId,
         ];
     }
 

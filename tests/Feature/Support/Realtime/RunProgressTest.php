@@ -3,6 +3,7 @@
 use App\Support\Realtime\Concerns\ReportsRunProgress;
 use App\Support\Realtime\RunProgressed;
 use App\Support\Realtime\RunState;
+use App\Support\Realtime\Value\RunSubject;
 use Illuminate\Support\Facades\Event;
 
 /*
@@ -45,17 +46,46 @@ test('the payload names what to re-read and never carries the result', function 
         'run-1',
         RunState::Finished,
         'board-meetings',
+        RunSubject::of('board-meeting', 42),
         ['status' => 'ok'],
     ))->broadcastWith();
 
-    // The four fields the client's `RunProgress` type declares. Asserted by
-    // name rather than compared wholesale so a field added later fails here
-    // instead of quietly widening the contract the client mirrors.
-    expect(array_keys($payload))->toBe(['run_id', 'state', 'channel', 'context', 'occurred_at'])
+    // The fields the client's `RunProgress` type declares. Asserted by name
+    // rather than compared wholesale so a field added later fails here instead
+    // of quietly widening the contract the client mirrors.
+    expect(array_keys($payload))->toBe(['run_id', 'state', 'channel', 'subject', 'context', 'occurred_at'])
         ->and($payload['run_id'])->toBe('run-1')
         ->and($payload['state'])->toBe('finished')
         ->and($payload['channel'])->toBe('board-meetings')
+        ->and($payload['subject'])->toBe(['type' => 'board-meeting', 'id' => 42])
         ->and($payload['context'])->toBe(['status' => 'ok']);
+});
+
+test('a run about nothing says so rather than omitting the key', function () {
+    // Always present, null included - the same rule the stored summary's
+    // `pending` key follows. A client must not have to tell "this run is about
+    // nothing" from "an older payload that had no subject key at all".
+    $payload = (new RunProgressed(7, 'run-1', RunState::Running, 'imports'))->broadcastWith();
+
+    expect(array_key_exists('subject', $payload))->toBeTrue()
+        ->and($payload['subject'])->toBeNull();
+});
+
+test('a subject keeps the id it was given, string or integer', function () {
+    // The client's route params arrive as strings while its cached data arrives
+    // as integers, and a subject that silently normalised would compare unequal
+    // to the same id read from a payload - which is exactly the kind of quiet
+    // mismatch that makes an event appear to be about nothing.
+    expect(RunSubject::of('board-meeting', 42)->toArray())->toBe(['type' => 'board-meeting', 'id' => 42])
+        ->and(RunSubject::of('board-meeting', '42')->toArray())->toBe(['type' => 'board-meeting', 'id' => '42']);
+});
+
+test('a subject refuses to be empty', function () {
+    // Silently accepting a blank type or id would produce an event that routes
+    // nowhere, which reads as a lost event rather than a bug at the call site.
+    expect(fn () => RunSubject::of('', 1))->toThrow(InvalidArgumentException::class)
+        ->and(fn () => RunSubject::of('board-meeting', ''))->toThrow(InvalidArgumentException::class)
+        ->and(fn () => RunSubject::of('board-meeting', 0))->toThrow(InvalidArgumentException::class);
 });
 
 test('a run reports its states when somebody is listening', function () {

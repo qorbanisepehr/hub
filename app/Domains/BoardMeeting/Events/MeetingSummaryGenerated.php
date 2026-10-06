@@ -29,11 +29,37 @@ use App\Events\BaseAuditEvent;
  */
 class MeetingSummaryGenerated extends BaseAuditEvent
 {
+    /**
+     * @param  int|null  $requestedBy  who asked for this run. Null for a run
+     *                                 dispatched from a scheduled or CLI path,
+     *                                 which has nobody behind it. Recorded
+     *                                 because it is a fact about the run that
+     *                                 the audit row would otherwise lose, and
+     *                                 because the notification listener needs
+     *                                 it to know who to tell
+     * @param  string|null  $batchId  set when the run was one of a bulk
+     *                                dispatch, so a batch of runs can be
+     *                                summarised once instead of notifying per
+     *                                meeting. Null for a run started from one
+     *                                meeting's page
+     */
     public function __construct(
         private readonly BoardMeeting $meeting,
         private readonly MeetingSummary $run,
         private readonly SummaryWriteMode $mode,
+        private readonly ?int $requestedBy = null,
+        private readonly ?string $batchId = null,
     ) {}
+
+    public function requestedBy(): ?int
+    {
+        return $this->requestedBy;
+    }
+
+    public function batchId(): ?string
+    {
+        return $this->batchId;
+    }
 
     public function eventName(): string
     {
@@ -72,6 +98,15 @@ class MeetingSummaryGenerated extends BaseAuditEvent
             'mode' => $this->mode->value,
             'status' => $this->run->status,
             'error' => $this->run->error,
+            // Who asked, when somebody did. Kept out of the description because
+            // the audit row already carries the actor for a human-initiated
+            // run; this records the requester for the ones dispatched from a
+            // queue, where there is no request context to resolve one from.
+            'requested_by' => $this->requestedBy,
+            // Present only for a bulk dispatch. Null rather than omitted for a
+            // single run, so a reader can tell "not part of a batch" from "this
+            // shape predates batches".
+            'batch_id' => $this->batchId,
             'requested_fields' => array_keys($this->run->fields),
             'filled_fields' => array_keys(array_filter(
                 $this->run->fields,

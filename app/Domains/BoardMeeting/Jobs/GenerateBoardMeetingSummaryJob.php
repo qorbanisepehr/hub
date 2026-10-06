@@ -11,6 +11,7 @@ use App\Domains\BoardMeeting\Services\MeetingSummaryApplier;
 use App\Domains\BoardMeeting\Value\MeetingSummary;
 use App\Support\Realtime\Concerns\ReportsRunProgress;
 use App\Support\Realtime\RunState;
+use App\Support\Realtime\Value\RunSubject;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -102,6 +103,14 @@ class GenerateBoardMeetingSummaryJob implements ShouldBeUnique, ShouldQueue
      *                                 run's progress on a stranger's channel.
      *                                 Null just means nothing is reported; the
      *                                 outcome is written to the row either way
+     * @param  string|null  $batchId  set when this run is one of a bulk
+     *                                dispatch, so a batch can be summarised once
+     *                                at the end rather than notifying per meeting.
+     *                                Deliberately *not* part of `uniqueId()`:
+     *                                asking for the same summary again after a
+     *                                bulk is the same request as asking for it
+     *                                the first time, and the lock should treat
+     *                                it that way
      */
     public function __construct(
         public readonly int $meetingId,
@@ -111,6 +120,7 @@ class GenerateBoardMeetingSummaryJob implements ShouldBeUnique, ShouldQueue
         public readonly SummaryWriteMode $mode = SummaryWriteMode::Review,
         public readonly bool $merge = false,
         public readonly ?int $requestedBy = null,
+        public readonly ?string $batchId = null,
     ) {
         // The run id is the queue lock's identity, reused rather than invented a
         // second time: the client needs to recognise a continuation of *this*
@@ -123,10 +133,17 @@ class GenerateBoardMeetingSummaryJob implements ShouldBeUnique, ShouldQueue
         // so the list has to be. One prefix covers both, and naming the exact
         // query here would mean this job had to know the client's cache layout
         // and keep it in step.
+        //
+        // The subject is what makes a bulk run legible. Ten of these jobs share
+        // that one prefix, so without saying which meeting each event is about, a
+        // client watching the dialog would see "something moved" and could not
+        // show which row went running - which is the whole reason the dialog
+        // stays open.
         $this->reportProgressTo(
             $requestedBy,
             $this->uniqueId(),
             'board-meetings',
+            RunSubject::of('board-meeting', $meetingId),
         );
     }
 
@@ -212,6 +229,12 @@ class GenerateBoardMeetingSummaryJob implements ShouldBeUnique, ShouldQueue
      */
     private function report(BoardMeeting $meeting, MeetingSummary $run): void
     {
-        event(new MeetingSummaryGenerated($meeting, $run, $this->mode));
+        event(new MeetingSummaryGenerated(
+            $meeting,
+            $run,
+            $this->mode,
+            $this->requestedBy,
+            $this->batchId,
+        ));
     }
 }

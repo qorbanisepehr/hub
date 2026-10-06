@@ -3,8 +3,10 @@
 namespace App\Providers;
 
 use App\Domains\Auth\Events\LoginFailed;
+use App\Domains\BoardMeeting\Events\MeetingSummaryGenerated;
 use App\Domains\Notification\Listeners\NotifyAccountOwnerOfFailedLogin;
 use App\Domains\Notification\Listeners\NotifyQuestionnaireViewers;
+use App\Domains\Notification\Listeners\NotifySummaryRequesterOfRun;
 use App\Domains\Questionnaire\Events\QuestionnaireSubmitted;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
@@ -22,5 +24,6 @@ final class NotificationServiceProvider extends ServiceProvider
     {
         Event::listen(QuestionnaireSubmitted::class, NotifyQuestionnaireViewers::class);
         Event::listen(LoginFailed::class, NotifyAccountOwnerOfFailedLogin::class);
+        Event::listen(MeetingSummaryGenerated::class, NotifySummaryRequesterOfRun::class);
     }
 }

@@ -163,6 +163,81 @@ describe('POST /api/board-meetings/summary/bulk', function () {
             ->and($response->json('data.meeting_ids'))->toEqualCanonicalizing([$first->id, $second->id]);
     });
 
+    it('gives the whole dispatch one batch identity', function () {
+        // The batch id is what lets two hundred runs be announced once instead
+        // of two hundred times, and what lets the client group the live progress
+        // events it is about to receive. Every job in one dispatch carries the
+        // same value - and a second press produces a different one, or the
+        // second dispatch would silently join the first batch and be announced
+        // as part of it.
+        Queue::fake();
+        $first = ($this->generate)();
+        $second = ($this->generate)();
+
+        $user = createUserWithPermissions(['board-meeting.sync']);
+
+        $one = actingAs($user)->postJson('/api/board-meetings/summary/bulk', [
+            'meeting_ids' => [$first->id, $second->id],
+        ])->assertOk();
+
+        $batchId = $one->json('data.batch_id');
+
+        expect($batchId)->toBeString()->not->toBeEmpty();
+
+        Queue::assertPushed(GenerateBoardMeetingSummaryJob::class, fn (GenerateBoardMeetingSummaryJob $job): bool => $job->batchId === $batchId
+            && $job->requestedBy === $user->id);
+
+        $two = actingAs($user)->postJson('/api/board-meetings/summary/bulk', [
+            'meeting_ids' => [$first->id],
+        ])->assertOk();
+
+        expect($two->json('data.batch_id'))->not->toBe($batchId);
+    });
+
+    it('gives no batch to a dispatch that queued nothing', function () {
+        // A batch with no runs in it would be a counter nobody ever decrements,
+        // and a client grouping by it would wait for events that cannot arrive.
+        Queue::fake();
+        $meeting = ($this->generate)();
+        ($this->withSummary)(['status' => MeetingSummary::STATUS_NONE]);
+        $meeting->forceFill(['summary' => ['status' => MeetingSummary::STATUS_NONE]])->save();
+
+        $response = actingAs(createUserWithPermissions(['board-meeting.sync']))
+            ->postJson('/api/board-meetings/summary/bulk', ['meeting_ids' => [$meeting->id]])
+            ->assertOk();
+
+        expect($response->json('data.queued'))->toBe(0)
+            ->and($response->json('data.batch_id'))->toBeNull();
+    });
+
+    it('keeps a batch id out of the run identity, so a rerun is not a new lock', function () {
+        // The batch is bookkeeping for the notification, not part of what was
+        // asked for. Folding it into `uniqueId()` would give two presses of the
+        // button two different identities, the uniqueness lock would let both
+        // through, and the same summary would be paid for twice.
+        //
+        // Asserted by the *second* press being dropped rather than queued: the
+        // fake honours ShouldBeUnique, so a second push would mean the two
+        // dispatches looked like different requests. That is the stronger
+        // assertion - it is the behaviour, not a string comparison.
+        Queue::fake();
+        $meeting = ($this->generate)();
+
+        $user = createUserWithPermissions(['board-meeting.sync']);
+
+        $first = actingAs($user)->postJson('/api/board-meetings/summary/bulk', ['meeting_ids' => [$meeting->id]])->assertOk();
+        $second = actingAs($user)->postJson('/api/board-meetings/summary/bulk', ['meeting_ids' => [$meeting->id]])->assertOk();
+
+        // Each dispatch still reports its own batch and its own queued count -
+        // the lock suppresses the job, not the eligibility answer, so the client
+        // is not told the work was skipped when it was merely deduplicated.
+        expect($first->json('data.batch_id'))->not->toBe($second->json('data.batch_id'))
+            ->and($first->json('data.queued'))->toBe(1)
+            ->and($second->json('data.queued'))->toBe(1);
+
+        Queue::assertPushed(GenerateBoardMeetingSummaryJob::class, 1);
+    });
+
     it('skips a meeting that gained a summary after the list was rendered', function () {
         Queue::fake();
         $stale = ($this->generate)();

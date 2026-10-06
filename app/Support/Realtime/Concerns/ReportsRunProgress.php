@@ -4,6 +4,7 @@ namespace App\Support\Realtime\Concerns;
 
 use App\Support\Realtime\RunProgressed;
 use App\Support\Realtime\RunState;
+use App\Support\Realtime\Value\RunSubject;
 
 /**
  * Lets a queued job say where it got to, to the person who asked for it.
@@ -51,16 +52,26 @@ trait ReportsRunProgress
     protected ?string $progressChannel = null;
 
     /**
+     * What this run is about, for a client watching more than one at a time.
+     */
+    protected ?RunSubject $progressSubject = null;
+
+    /**
      * Set up who is listening and what this run is called.
      *
      * @param  string  $runId  stable for the life of the run
      * @param  string  $channel  the client's own cache/query key
      */
-    public function reportProgressTo(?int $userId, string $runId, string $channel): static
-    {
+    public function reportProgressTo(
+        ?int $userId,
+        string $runId,
+        string $channel,
+        ?RunSubject $subject = null,
+    ): static {
         $this->progressUserId = $userId;
         $this->progressRunId = $runId;
         $this->progressChannel = $channel;
+        $this->progressSubject = $subject;
 
         return $this;
     }
@@ -82,6 +93,7 @@ trait ReportsRunProgress
                 runId: $this->progressRunId,
                 state: $state,
                 channel: $this->progressChannel,
+                subject: $this->progressSubject,
                 context: $context,
             );
         } catch (\Throwable) {
