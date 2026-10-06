@@ -167,6 +167,27 @@ final class MeetingSummaryAgent implements FieldedAgent
     }
 
     /**
+     * Every requested field is *required* in the output schema, not merely
+     * permitted.
+     *
+     * The SDK wraps these properties in an `ObjectSchema` that sets
+     * `additionalProperties: false` and nothing else. That forbids extra keys
+     * while saying nothing about missing ones, so on Ollama the model may
+     * legally answer `{"topics": [...]}` and leave the other four out - which
+     * is exactly what it did: a four-field request came back with one field, and
+     * the rest were recorded as failed fields. Nothing surfaced it, because the
+     * instructions separately ask the model to leave a field out when the
+     * minutes hold nothing for it, so an omission reads as an honest gap.
+     *
+     * `Type::required()` is the framework's own flag for this, and the
+     * serializer derives the `required` array from it - so the schema reaches
+     * Ollama complete. Measured against the same meeting and model: without it,
+     * one key returned; with it, all four.
+     *
+     * The distinction it restores is the one D26 exists for: a field the model
+     * genuinely has nothing for now comes back *empty*, so "the model said
+     * nothing" and "the model never said" stop looking the same on the row.
+     *
      * @return array<string, Type>
      */
     public function schema(JsonSchema $schema): array
@@ -174,7 +195,7 @@ final class MeetingSummaryAgent implements FieldedAgent
         $properties = [];
 
         foreach ($this->fields as $field) {
-            $properties[$field->value] = $field->type($schema);
+            $properties[$field->value] = $field->type($schema)->required();
         }
 
         return $properties;

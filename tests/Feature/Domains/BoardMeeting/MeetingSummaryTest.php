@@ -24,6 +24,7 @@ use App\Support\Realtime\RunState;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\JsonSchema\JsonSchemaTypeFactory;
 use Illuminate\Support\Facades\Event;
+use Laravel\Ai\ObjectSchema;
 use Tests\Fixtures\Ai\FieldedEchoAgent;
 use Tests\Fixtures\Ai\StructuredEchoAgent;
 
@@ -105,6 +106,42 @@ describe('the agent schema', function () {
             'key_decisions',
             'suggested_tags',
         ]);
+    });
+
+    it('makes every field required, so the model cannot legally omit one', function () {
+        // The SDK's ObjectSchema sets `additionalProperties: false` and nothing
+        // else, so without `required` a model may answer `{"topics": [...]}` and
+        // drop the rest - which it did: a four-field request returned one field
+        // and the others were recorded as failed. Nothing surfaced it, because
+        // the instructions separately invite the model to omit a field it has
+        // nothing for, so an omission read as an honest gap.
+        //
+        // Asserted on the schema as it reaches the wire, not on the agent's own
+        // return, because the agent's shape is not what Ollama is sent: the SDK
+        // wraps it and derives `required` from the per-property flags.
+        $wire = (new ObjectSchema(
+            (new MeetingSummaryAgent)->schema(new JsonSchemaTypeFactory),
+        ))->toSchema();
+
+        expect($wire['required'] ?? null)->toBe([
+            'executive_summary',
+            'topics',
+            'bullet_points',
+            'key_decisions',
+            'suggested_tags',
+        ]);
+    });
+
+    it('requires only the fields the run asked for', function () {
+        // A narrowed schema that still required everything would push the model
+        // to invent content for fields nobody asked about.
+        $wire = (new ObjectSchema(
+            (new MeetingSummaryAgent)
+                ->withFields(['key_decisions', 'suggested_tags'])
+                ->schema(new JsonSchemaTypeFactory),
+        ))->toSchema();
+
+        expect($wire['required'] ?? null)->toBe(['key_decisions', 'suggested_tags']);
     });
 
     it('drops the unrequested fields from the schema, not just from the prompt', function () {
@@ -504,6 +541,28 @@ describe('run progress', function () {
         runSummaryJob($this->meeting->id, ['executive_summary'], requestedBy: 4242);
 
         Event::assertDispatched(RunProgressed::class, fn (RunProgressed $e): bool => $e->channel === 'board-meetings');
+    });
+
+    it('names the meeting, so a bulk run tells its runs apart', function () {
+        // Ten of these jobs share one cache prefix, so without a subject a client
+        // watching the bulk dialog would see "something moved" and could not show
+        // which row went running - which is the whole reason the dialog stays
+        // open. Asserted on every state, because a subject that only the terminal
+        // event carried would leave the queued and running rows indistinguishable.
+        Event::fake([RunProgressed::class]);
+
+        MeetingSummaryAgent::fake([['executive_summary' => 'خلاصه']]);
+
+        runSummaryJob($this->meeting->id, ['executive_summary'], requestedBy: 4242);
+
+        Event::assertDispatchedTimes(RunProgressed::class, 2);
+
+        Event::assertDispatched(RunProgressed::class, fn (RunProgressed $e): bool => $e->subject?->type === 'board-meeting'
+            && $e->subject->id === $this->meeting->id
+            && $e->state === RunState::Running);
+
+        Event::assertDispatched(RunProgressed::class, fn (RunProgressed $e): bool => $e->subject?->id === $this->meeting->id
+            && $e->state === RunState::Finished);
     });
 
     it('reports nothing when the run has no requester', function () {
