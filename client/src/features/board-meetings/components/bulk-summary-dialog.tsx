@@ -23,10 +23,7 @@ import { usePermission } from "@/features/auth/components/permission-guard";
 import { PERMISSIONS } from "@/lib/permissions";
 import { useAiModels } from "@/features/ai/hooks";
 import { toPersianDate } from "@/lib/date-format";
-import {
-    useBulkGenerateMeetingSummary,
-    useSummaryCandidates,
-} from "../hooks";
+import { useBulkGenerateMeetingSummary, useSummaryCandidates } from "../hooks";
 import type { BoardMeetingListParams, SummaryWriteMode } from "../types";
 
 /** How many candidates to pull at a time; the server caps a page at 200. */
@@ -104,13 +101,8 @@ export function BulkSummaryDialog({
     const [mode, setMode] = useState<SummaryWriteMode[]>(["review"]);
     const [modelId, setModelId] = useState(AGENT_DEFAULT);
 
-    const {
-        data,
-        isLoading,
-        isFetchingNextPage,
-        fetchNextPage,
-        hasNextPage,
-    } = useSummaryCandidates({ ...params, per_page: PAGE_SIZE }, open);
+    const { data, isLoading, isFetchingNextPage, fetchNextPage, hasNextPage } =
+        useSummaryCandidates({ ...params, per_page: PAGE_SIZE }, open);
 
     // The query accumulates the loaded pages; `meta` is read off the first one
     // because the total belongs to the whole result set, not to a page of it.
@@ -203,7 +195,9 @@ export function BulkSummaryDialog({
                                       0,
                                       modelId.indexOf("|"),
                                   ),
-                                  model: modelId.slice(modelId.indexOf("|") + 1),
+                                  model: modelId.slice(
+                                      modelId.indexOf("|") + 1,
+                                  ),
                               })}
                         onDone={() => onOpenChange(false)}
                     />

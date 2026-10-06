@@ -26,78 +26,81 @@ function countOrDash(count: number): string {
  * the registry label, the two counts — is pinned to `enableSorting:
  * false` for that reason.
  */
-export const boardMeetingColumns: ColumnDef<StockFeatures, BoardMeetingDto>[] = [
-    {
-        accessorKey: "held_on",
-        header: ({ column }) => (
-            <DataTableColumnHeader column={column} title="تاریخ جلسه" />
-        ),
-        cell: ({ row }) => (
-            <Link
-                to="/board-meetings/$meetingId"
-                params={{ meetingId: String(row.original.id) }}
-                className="text-sm text-muted-foreground transition-colors hover:text-primary"
-                title={row.original.held_on ?? undefined}
-            >
-                {toPersianDate(row.original.held_on)}
-            </Link>
-        ),
-        meta: { displayName: "تاریخ جلسه" },
-    },
-    {
-        accessorKey: "registry_label",
-        enableSorting: false,
-        header: () => <span className="text-sm font-medium">شمارهٔ جلسه</span>,
-        cell: ({ row }) => (
-            <span dir="ltr" className="text-sm font-medium">
-                {row.original.registry_label}
-            </span>
-        ),
-        meta: { displayName: "شمارهٔ جلسه" },
-    },
-    {
-        accessorKey: "approval_count",
-        enableSorting: false,
-        header: () => <span className="text-sm font-medium">مصوبات</span>,
-        cell: ({ row }) => {
-            const count = row.original.approval_count;
-
-            return count > 0 ? (
-                <Badge variant="outline">
-                    {count.toLocaleString("fa-IR")} مورد
-                </Badge>
-            ) : (
-                <span className="text-sm text-muted-foreground">—</span>
-            );
+export const boardMeetingColumns: ColumnDef<StockFeatures, BoardMeetingDto>[] =
+    [
+        {
+            accessorKey: "held_on",
+            header: ({ column }) => (
+                <DataTableColumnHeader column={column} title="تاریخ جلسه" />
+            ),
+            cell: ({ row }) => (
+                <Link
+                    to="/board-meetings/$meetingId"
+                    params={{ meetingId: String(row.original.id) }}
+                    className="text-sm text-muted-foreground transition-colors hover:text-primary"
+                    title={row.original.held_on ?? undefined}
+                >
+                    {toPersianDate(row.original.held_on)}
+                </Link>
+            ),
+            meta: { displayName: "تاریخ جلسه" },
         },
-        meta: { displayName: "مصوبات" },
-    },
-    {
-        accessorKey: "attendee_count",
-        enableSorting: false,
-        header: () => <span className="text-sm font-medium">حاضران</span>,
-        cell: ({ row }) => (
-            <span className="text-sm text-muted-foreground">
-                {countOrDash(row.original.attendee_count)}
-            </span>
-        ),
-        meta: { displayName: "حاضران" },
-    },
-    {
-        id: "actions",
-        header: "عملیات",
-        cell: ({ row }) => (
-            <RowActions
-                actions={[
-                    {
-                        icon: <IconEye className="size-4" />,
-                        label: "مشاهده",
-                        href: `/board-meetings/${row.original.id}`,
-                    },
-                ]}
-            />
-        ),
-        enableSorting: false,
-        enableHiding: false,
-    },
-];
+        {
+            accessorKey: "registry_label",
+            enableSorting: false,
+            header: () => (
+                <span className="text-sm font-medium">شمارهٔ جلسه</span>
+            ),
+            cell: ({ row }) => (
+                <span dir="ltr" className="text-sm font-medium">
+                    {row.original.registry_label}
+                </span>
+            ),
+            meta: { displayName: "شمارهٔ جلسه" },
+        },
+        {
+            accessorKey: "approval_count",
+            enableSorting: false,
+            header: () => <span className="text-sm font-medium">مصوبات</span>,
+            cell: ({ row }) => {
+                const count = row.original.approval_count;
+
+                return count > 0 ? (
+                    <Badge variant="outline">
+                        {count.toLocaleString("fa-IR")} مورد
+                    </Badge>
+                ) : (
+                    <span className="text-sm text-muted-foreground">—</span>
+                );
+            },
+            meta: { displayName: "مصوبات" },
+        },
+        {
+            accessorKey: "attendee_count",
+            enableSorting: false,
+            header: () => <span className="text-sm font-medium">حاضران</span>,
+            cell: ({ row }) => (
+                <span className="text-sm text-muted-foreground">
+                    {countOrDash(row.original.attendee_count)}
+                </span>
+            ),
+            meta: { displayName: "حاضران" },
+        },
+        {
+            id: "actions",
+            header: "عملیات",
+            cell: ({ row }) => (
+                <RowActions
+                    actions={[
+                        {
+                            icon: <IconEye className="size-4" />,
+                            label: "مشاهده",
+                            href: `/board-meetings/${row.original.id}`,
+                        },
+                    ]}
+                />
+            ),
+            enableSorting: false,
+            enableHiding: false,
+        },
+    ];

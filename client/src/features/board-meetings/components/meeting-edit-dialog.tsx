@@ -106,14 +106,12 @@ export function MeetingEditDialog({
     // and the tag write only runs when the tagging actually changed.
     function save() {
         const contentChanged =
-            draftTitle !== (title ?? "") ||
-            draftMinutes !== (minutes ?? "");
+            draftTitle !== (title ?? "") || draftMinutes !== (minutes ?? "");
 
         const next = contentChanged
             ? update.mutateAsync({
                   title: draftTitle.trim() === "" ? null : draftTitle.trim(),
-                  minutes:
-                      draftMinutes.trim() === "" ? null : draftMinutes,
+                  minutes: draftMinutes.trim() === "" ? null : draftMinutes,
               })
             : Promise.resolve();
 
@@ -261,8 +259,8 @@ export function MeetingEditDialog({
                             )}
                         </div>
                         <FieldDescription>
-                            فهرست کامل برچسب‌های جلسه ذخیره می‌شود؛ آنچه
-                            تیک بخورد همان برچسب‌های نهایی است.
+                            فهرست کامل برچسب‌های جلسه ذخیره می‌شود؛ آنچه تیک
+                            بخورد همان برچسب‌های نهایی است.
                         </FieldDescription>
                     </Field>
                 )}

@@ -7,11 +7,7 @@ import {
     IconTextScanAi,
 } from "@tabler/icons-react";
 
-import {
-    Alert,
-    AlertDescription,
-    AlertTitle,
-} from "@/components/ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -72,7 +68,10 @@ const AGENT_DEFAULT = "|inherit";
  * could not tell them apart. `|` is not legal in either name, so the pair is
  * unambiguous rather than merely conventional.
  */
-function modelValue(model: { provider_name?: string | null; model_name: string }): string {
+function modelValue(model: {
+    provider_name?: string | null;
+    model_name: string;
+}): string {
     return `${model.provider_name ?? ""}|${model.model_name}`;
 }
 
@@ -169,7 +168,8 @@ export function MeetingSummarySection({
                     <Spinner />
                     <AlertTitle>در حال تولید خلاصه</AlertTitle>
                     <AlertDescription>
-                        نتیجه همین‌جا به‌روز می‌شود؛ لازم نیست صفحه را تازه کنید.
+                        نتیجه همین‌جا به‌روز می‌شود؛ لازم نیست صفحه را تازه
+                        کنید.
                     </AlertDescription>
                 </Alert>
             )}
@@ -194,16 +194,19 @@ export function MeetingSummarySection({
                 />
             )}
 
-            {!isInFlight && candidate === null && !hasSummary && !isGenerating && (
-                <EmptyState
-                    icon={IconRobot}
-                    message={
-                        summary === null
-                            ? "هنوز خلاصه‌ای برای این جلسه تولید نشده است."
-                            : "این جلسه خلاصهٔ پذیرفته‌شده‌ای ندارد."
-                    }
-                />
-            )}
+            {!isInFlight &&
+                candidate === null &&
+                !hasSummary &&
+                !isGenerating && (
+                    <EmptyState
+                        icon={IconRobot}
+                        message={
+                            summary === null
+                                ? "هنوز خلاصه‌ای برای این جلسه تولید نشده است."
+                                : "این جلسه خلاصهٔ پذیرفته‌شده‌ای ندارد."
+                        }
+                    />
+                )}
 
             {hasSummary && (
                 <div className="flex flex-col gap-5">
@@ -434,7 +437,9 @@ function RunControls({
                                       0,
                                       modelId.indexOf("|"),
                                   ),
-                                  model: modelId.slice(modelId.indexOf("|") + 1),
+                                  model: modelId.slice(
+                                      modelId.indexOf("|") + 1,
+                                  ),
                               }),
                     })
                 }
@@ -535,8 +540,7 @@ function RegenerateFields({
                                             checked === true
                                                 ? [...prev, field.name]
                                                 : prev.filter(
-                                                      (f) =>
-                                                          f !== field.name,
+                                                      (f) => f !== field.name,
                                                   ),
                                         )
                                     }

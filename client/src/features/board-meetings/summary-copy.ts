@@ -82,19 +82,21 @@ export const SUMMARY_FIELD_LABELS: Readonly<
     SUMMARY_FIELDS.map((field) => [field.name, field.label]),
 ) as Record<MeetingSummaryFieldName, string>;
 
-export const SUMMARY_STATUSES: Readonly<
-    Record<MeetingSummaryStatus, string>
-> = {
-    ok: "کامل",
-    partial: "ناقص",
-    failed: "ناموفق",
-    pending: "در حال پردازش",
-    none: "بدون خلاصهٔ پذیرفته‌شده",
-};
+export const SUMMARY_STATUSES: Readonly<Record<MeetingSummaryStatus, string>> =
+    {
+        ok: "کامل",
+        partial: "ناقص",
+        failed: "ناموفق",
+        pending: "در حال پردازش",
+        none: "بدون خلاصهٔ پذیرفته‌شده",
+    };
 
 /** The Badge variant each row state gets, so colour means the same thing here. */
 export const SUMMARY_STATUS_VARIANTS: Readonly<
-    Record<MeetingSummaryStatus, "success" | "warning" | "destructive" | "secondary">
+    Record<
+        MeetingSummaryStatus,
+        "success" | "warning" | "destructive" | "secondary"
+    >
 > = {
     ok: "success",
     partial: "warning",
@@ -109,13 +111,13 @@ export const SUMMARY_STATUS_VARIANTS: Readonly<
  * "something went wrong" are different things to a person deciding whether to
  * regenerate.
  */
-export const SUMMARY_REASONS: Readonly<Record<MeetingSummaryReason, string>> =
-    {
-        not_configured: "هیچ ارائه‌دهندهٔ فعالی برای هوش مصنوعی تنظیم نشده است.",
-        no_structured_output: "مدل به‌جای ساختار خواسته‌شده، متن آزاد برگرداند.",
-        no_fields_returned: "مدل ساختار درستی برگرداند اما هیچ‌کدام از فیلدها خالی بود.",
-        empty: "مدل برای این فیلد چیزی ننوشت.",
-    };
+export const SUMMARY_REASONS: Readonly<Record<MeetingSummaryReason, string>> = {
+    not_configured: "هیچ ارائه‌دهندهٔ فعالی برای هوش مصنوعی تنظیم نشده است.",
+    no_structured_output: "مدل به‌جای ساختار خواسته‌شده، متن آزاد برگرداند.",
+    no_fields_returned:
+        "مدل ساختار درستی برگرداند اما هیچ‌کدام از فیلدها خالی بود.",
+    empty: "مدل برای این فیلد چیزی ننوشت.",
+};
 
 export const SUMMARY_FIELD_STATUSES: Readonly<
     Record<MeetingSummaryFieldStatus, string>
@@ -126,9 +128,7 @@ export const SUMMARY_FIELD_STATUSES: Readonly<
 
 /** Shown instead of a field label the server has introduced since this build. */
 export function fieldLabel(name: string): string {
-    return (
-        SUMMARY_FIELD_LABELS[name as MeetingSummaryFieldName] ?? name
-    );
+    return SUMMARY_FIELD_LABELS[name as MeetingSummaryFieldName] ?? name;
 }
 
 export function reasonText(reason: string | null): string | null {

@@ -124,18 +124,11 @@ export interface MeetingSummaryFieldState {
  * accepted nothing, which is neither a failure nor a run still in flight.
  */
 export type MeetingSummaryStatus =
-    | "pending"
-    | "none"
-    | "ok"
-    | "partial"
-    | "failed";
+    "pending" | "none" | "ok" | "partial" | "failed";
 
 /** Why a run could not fill a field, or the row at all. Stable keys. */
 export type MeetingSummaryReason =
-    | "no_structured_output"
-    | "no_fields_returned"
-    | "not_configured"
-    | "empty";
+    "no_structured_output" | "no_fields_returned" | "not_configured" | "empty";
 
 export interface MeetingSummaryArtifact {
     status: MeetingSummaryStatus;
@@ -144,9 +137,7 @@ export interface MeetingSummaryArtifact {
     bullet_points?: string[];
     key_decisions?: string[];
     suggested_tags?: string[];
-    fields: Partial<
-        Record<MeetingSummaryFieldName, MeetingSummaryFieldState>
-    >;
+    fields: Partial<Record<MeetingSummaryFieldName, MeetingSummaryFieldState>>;
     /** A proposal awaiting a decision, in the same shape, or null. */
     pending: MeetingSummaryArtifact | null;
     /** The registry key the run was made under — always the same value. */
@@ -243,8 +234,7 @@ export interface MeetingSummaryCandidateDto {
     title: string | null;
 }
 
-export interface SummaryCandidateListResponse
-    extends PaginatedResponse<MeetingSummaryCandidateDto> {}
+export interface SummaryCandidateListResponse extends PaginatedResponse<MeetingSummaryCandidateDto> {}
 
 /** What a bulk dispatch actually did, including what it declined to do. */
 export interface SummaryBulkResult {

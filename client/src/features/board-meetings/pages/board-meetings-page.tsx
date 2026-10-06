@@ -22,7 +22,11 @@ import {
 } from "@/hooks/use-data-table-page";
 import { boardMeetingKeys } from "@/lib/query-keys";
 import { PERMISSIONS } from "@/lib/permissions";
-import { EXPORT_MIME_TYPES, exportDateStamp, saveBlobResponse } from "@/lib/download";
+import {
+    EXPORT_MIME_TYPES,
+    exportDateStamp,
+    saveBlobResponse,
+} from "@/lib/download";
 import { useTagOptions } from "@/features/tags/hooks";
 import { exportBoardMeetings, fetchBoardMeetingExportFields } from "../api";
 import { boardMeetingColumns } from "../columns";
@@ -55,7 +59,11 @@ export function BoardMeetingsPage() {
         navigate,
         urlState: {
             columnFilters: [
-                { columnId: "date_from", searchKey: "date_from", type: "string" },
+                {
+                    columnId: "date_from",
+                    searchKey: "date_from",
+                    type: "string",
+                },
                 { columnId: "date_to", searchKey: "date_to", type: "string" },
                 { columnId: "tags", searchKey: "tags", type: "array" },
             ],

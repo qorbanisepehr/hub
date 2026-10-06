@@ -3,12 +3,7 @@ import { IconFileUpload, IconPaperclip } from "@tabler/icons-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-    Card,
-    CardContent,
-    CardHeader,
-    CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
     Dialog,
     DialogContent,
@@ -118,8 +113,7 @@ export function MeetingDocumentsTab({
                             <ul className="divide-y">
                                 {documents.map((doc) => {
                                     const approval = numberByDocumentId.get(
-                                        doc.document_id ??
-                                            doc.id,
+                                        doc.document_id ?? doc.id,
                                     );
 
                                     return (
@@ -156,8 +150,8 @@ export function MeetingDocumentsTab({
                         {missingDocument.length > 0 && (
                             <div className="flex flex-col gap-2">
                                 <p className="text-muted-foreground text-sm">
-                                    مصوباتی که هنوز سندی برایشان بارگذاری
-                                    نشده است:
+                                    مصوباتی که هنوز سندی برایشان بارگذاری نشده
+                                    است:
                                 </p>
                                 <ul className="flex flex-wrap gap-1.5">
                                     {missingDocument.map((approval) => (

@@ -20,11 +20,7 @@ import { EmptyState } from "@/components/layout";
  */
 const PREVIEW_PARAGRAPHS = 2;
 
-export function MeetingMinutesPreview({
-    minutes,
-}: {
-    minutes: string | null;
-}) {
+export function MeetingMinutesPreview({ minutes }: { minutes: string | null }) {
     const [expanded, setExpanded] = useState(false);
 
     const text = minutes?.trim() ?? "";
@@ -69,9 +65,7 @@ export function MeetingMinutesPreview({
                         {expanded ? "بستن به نمای کوتاه" : "خواندن کل صورتجلسه"}
                     </Button>
                     <span>
-                        {(
-                            text.length - preview.length
-                        ).toLocaleString("fa-IR")}{" "}
+                        {(text.length - preview.length).toLocaleString("fa-IR")}{" "}
                         کاراکتر دیگر
                     </span>
                 </div>

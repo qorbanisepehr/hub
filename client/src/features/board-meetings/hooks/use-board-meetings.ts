@@ -229,7 +229,6 @@ export function useBulkGenerateMeetingSummary() {
             return data.data;
         },
         onSuccess: ({ queued, skipped }) => {
-
             toast.success("درخواست تولید ثبت شد", {
                 description:
                     skipped > 0

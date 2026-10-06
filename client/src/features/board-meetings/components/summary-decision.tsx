@@ -1,11 +1,7 @@
 import { useMemo, useState } from "react";
 import { IconCheck, IconHash, IconPointFilled } from "@tabler/icons-react";
 
-import {
-    Alert,
-    AlertDescription,
-    AlertTitle,
-} from "@/components/ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -30,10 +26,7 @@ import {
     readField,
     tagSlugsOf,
 } from "../summary-read";
-import type {
-    MeetingSummaryArtifact,
-    MeetingSummaryFieldName,
-} from "../types";
+import type { MeetingSummaryArtifact, MeetingSummaryFieldName } from "../types";
 
 /**
  * The compare-and-decide panel: a run proposed something, and this is where a
@@ -123,8 +116,7 @@ export function SummaryDecision({
     // its field names may not even exist here. Reinterpreting the stored value
     // against the run id is why there is no reset effect: there is no state to
     // reset, only a value that is either about this run or about none.
-    const accepted =
-        selection?.runId === runId ? selection.fields : allFields;
+    const accepted = selection?.runId === runId ? selection.fields : allFields;
     const tags = selection?.runId === runId ? selection.tags : baselineTags;
 
     function update(next: {
@@ -147,8 +139,8 @@ export function SummaryDecision({
             <IconHash className="text-warning" />
             <AlertTitle>پیشنهاد تازه برای این جلسه</AlertTitle>
             <AlertDescription>
-                هر بخش را جدا تصمیم بگیرید؛ آنچه تیک نخورد روی رکورد جلسه
-                نوشته نمی‌شود.
+                هر بخش را جدا تصمیم بگیرید؛ آنچه تیک نخورد روی رکورد جلسه نوشته
+                نمی‌شود.
             </AlertDescription>
 
             <div className="col-start-2 flex flex-col gap-4">
@@ -178,29 +170,26 @@ export function SummaryDecision({
                         </FieldDescription>
                     ) : (
                         <div className="flex flex-col gap-3">
-                            {offered.map(
-                                ({ field, reading, stored }) => (
-                                    <FieldDecisionRow
-                                        key={field.name}
-                                        config={field}
-                                        proposed={reading.value}
-                                        stored={stored.value}
-                                        hasStored={stored.isFilled}
-                                        checked={accepted.includes(field.name)}
-                                        onToggle={(on) =>
-                                            update({
-                                                fields: on
-                                                    ? [...accepted, field.name]
-                                                    : accepted.filter(
-                                                          (f) =>
-                                                              f !== field.name,
-                                                      ),
-                                            })
-                                        }
-                                        disabled={!canUpdate}
-                                    />
-                                ),
-                            )}
+                            {offered.map(({ field, reading, stored }) => (
+                                <FieldDecisionRow
+                                    key={field.name}
+                                    config={field}
+                                    proposed={reading.value}
+                                    stored={stored.value}
+                                    hasStored={stored.isFilled}
+                                    checked={accepted.includes(field.name)}
+                                    onToggle={(on) =>
+                                        update({
+                                            fields: on
+                                                ? [...accepted, field.name]
+                                                : accepted.filter(
+                                                      (f) => f !== field.name,
+                                                  ),
+                                        })
+                                    }
+                                    disabled={!canUpdate}
+                                />
+                            ))}
                         </div>
                     )}
                 </FieldSet>
@@ -246,7 +235,8 @@ export function SummaryDecision({
                         {!isAccepting && accepted.length === 0 && tagsUnchanged
                             ? "بستن پیشنهاد"
                             : null}
-                        {!isAccepting && !(accepted.length === 0 && tagsUnchanged)
+                        {!isAccepting &&
+                        !(accepted.length === 0 && tagsUnchanged)
                             ? "ثبت تصمیم"
                             : null}
                     </Button>

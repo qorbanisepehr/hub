@@ -67,11 +67,16 @@ export function exportBoardMeetings(params: {
 
 export function fetchBoardMeeting(id: number | string) {
     // Standard envelope: the meeting object rides `data`.
-    return api.get<{ data: BoardMeetingDetailResponse }>(`/board-meetings/${id}`);
+    return api.get<{ data: BoardMeetingDetailResponse }>(
+        `/board-meetings/${id}`,
+    );
 }
 
 /** Update the human-owned fields (title/minutes/attendees). */
-export function updateBoardMeeting(id: number | string, payload: UpdateBoardMeetingPayload) {
+export function updateBoardMeeting(
+    id: number | string,
+    payload: UpdateBoardMeetingPayload,
+) {
     return api.put<{ data: BoardMeetingDetailResponse }>(
         `/board-meetings/${id}`,
         payload,
@@ -116,9 +121,7 @@ export function acceptMeetingSummary(
 }
 
 /** The meetings a bulk run could still generate for, under the list's filters. */
-export function fetchSummaryCandidates(
-    params: BoardMeetingListParams,
-) {
+export function fetchSummaryCandidates(params: BoardMeetingListParams) {
     return api.get<SummaryCandidateListResponse>(
         "/board-meetings/summary/candidates",
         { params },
@@ -132,7 +135,10 @@ export function bulkGenerateMeetingSummary(payload: {
     provider?: string | null;
     model?: string | null;
 }) {
-    return api.post<SummaryBulkResponse>("/board-meetings/summary/bulk", payload);
+    return api.post<SummaryBulkResponse>(
+        "/board-meetings/summary/bulk",
+        payload,
+    );
 }
 
 /**
@@ -149,11 +155,12 @@ export function uploadMeetingDocument(
     meetingId: number | string,
     formData: FormData,
 ) {
-    return api.post<{ data: MeetingDocumentsResponse["data"][number]; message: string }>(
-        `/board-meetings/${meetingId}/documents`,
-        formData,
-        { headers: FORM_DATA_HEADERS },
-    );
+    return api.post<{
+        data: MeetingDocumentsResponse["data"][number];
+        message: string;
+    }>(`/board-meetings/${meetingId}/documents`, formData, {
+        headers: FORM_DATA_HEADERS,
+    });
 }
 
 export function deleteMeetingDocument(
