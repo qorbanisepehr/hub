@@ -27,7 +27,10 @@ import { MeetingDocumentsTab } from "../components/meeting-documents-tab";
 import { MeetingEditDialog } from "../components/meeting-edit-dialog";
 import { MeetingMinutesPreview } from "../components/meeting-minutes-preview";
 import { MeetingStats } from "../components/meeting-stats";
-import { useRunProgressChannel } from "@/features/realtime/use-run-progress-channel";
+import {
+    useRunProgressChannel,
+    useRunStates,
+} from "@/features/realtime/use-run-progress-channel";
 
 import { MeetingSummarySection } from "../components/meeting-summary-section";
 import { MeetingTagChips } from "../components/meeting-tag-chips";
@@ -107,13 +110,27 @@ export function BoardMeetingDetailPage() {
     const accept = useAcceptMeetingSummary(meetingId);
     const dismiss = useDismissMeetingSummary(meetingId);
 
-    // Live progress for the run this page started. The hook only invalidates
-    // the queries the event names, so the meeting is re-read and the tab's own
-    // `pending` stamp decides what to show - the event never renders anything
-    // itself. Mounted here rather than inside the summary section because this
-    // is the page that owns the meeting's cache key, and the section receives
-    // the meeting as a prop and has no business knowing it came from a query.
-    useRunProgressChannel();
+    // The live run states for every meeting this user has in flight, so the
+    // summary tab can be told which run is *this* one. Tracked per subject
+    // rather than kept as a single "something is running" flag: the same user
+    // may have a bulk going and come back to one meeting, and the two must not
+    // be confused for each other.
+    const { states: runStates, track: trackRun } = useRunStates();
+
+    // Compared as a string because the route hands the id over as text while
+    // the event carries whatever type the server serialised - the two are the
+    // same meeting, and a strict `===` would silently never match.
+    const run = runStates.get(`board-meeting:${meetingId}`) ?? null;
+
+    // Live progress for the runs this user started. The channel hook only
+    // invalidates the queries an event names; the states hook files them by
+    // subject so this page can pick out its own meeting. `track` is stable
+    // across renders, so passing it straight through does not tear the
+    // subscription down and rebuild it on every render. Mounted here rather
+    // than inside the summary section because this is the page that owns the
+    // meeting's cache key, and the section receives the meeting as a prop and
+    // has no business knowing it came from a query.
+    useRunProgressChannel(trackRun);
 
     if (isLoading) {
         return (
@@ -233,6 +250,7 @@ export function BoardMeetingDetailPage() {
                             <MeetingSummarySection
                                 summary={meeting.summary}
                                 tags={meeting.tags.map((tag) => tag.slug)}
+                                run={run}
                                 isGenerating={generate.isPending}
                                 isAccepting={accept.isPending}
                                 isDismissing={dismiss.isPending}

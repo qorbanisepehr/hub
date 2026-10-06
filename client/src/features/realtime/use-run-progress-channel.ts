@@ -1,42 +1,51 @@
-import { useEffect } from "react";
-import { useQueryClient, type QueryClient } from "@tanstack/react-query";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 
 import { useAuth } from "@/features/auth/hooks/use-auth";
 import { getEcho } from "@/lib/echo";
 
 import {
     RUN_PROGRESS_EVENT,
-    isTerminalRunState,
     type RunProgress,
-    type RunState,
 } from "./types";
 
 /**
- * React to long-running runs the signed-in user started.
+ * Live progress for the long-running runs this user started.
  *
- * The whole design is that this is a nudge, not a feed. Every event's only
- * obligation is to make the client *re-read* the thing it names, exactly as the
- * notification centre re-reads its queries on `notification.created`. Nothing
- * here renders a run's outcome, because a browser that was closed, a websocket
- * that dropped, or a deployment with no Reverb configured all mean the same
- * thing: events were missed. A UI that trusted them would show a run as
- * finished that never finished, and would still be showing it after a refresh.
+ * Two things are deliberately kept apart here, because they have nothing in
+ * common but the channel they arrive on.
  *
- * So progress is only ever a timing optimisation over data the client could
- * fetch anyway. That is also why there is no polling fallback here: the queries
- * this invalidates already have their own staleness behaviour, and a second
- * timer would be a second thing to reason about for no gain.
+ * **State transitions** (`run.progressed`) are few, and they invalidate queries.
+ * The event names the cache key to re-read and nothing else - never a result -
+ * so a client that missed one, or was closed while it happened, simply shows
+ * slightly stale data until the next fetch. That is the same split the
+ * notification centre uses: the database row is the truth, the broadcast only
+ * makes the UI react now rather than at the next poll. It is why there is no
+ * persistence here and no read model; a browser with no websocket, a dropped
+ * connection, or a deployment with no Reverb all degrade to "fetch later"
+ * instead of to a lie.
  *
- * One private channel per user for every kind of run (`users.{id}.runs`), so a
- * feature needing live progress subscribes here rather than opening another
- * connection. `getEcho()` returns null when Reverb is not configured, which
- * makes this a safe no-op rather than a crash.
+ * **Run states are also delivered per subject**, so a client watching several
+ * runs at once - the bulk dialog, say - can say which one is running and which
+ * are still queued. A cache key alone cannot answer that: ten runs share one
+ * prefix, so without a subject every event reads as "something moved".
+ *
+ * No polling fallback, unlike notifications. The queries this invalidates
+ * already carry their own staleness behaviour, and a second timer would be a
+ * second thing to reason about for no gain.
  */
 export function useRunProgressChannel(
     onProgress?: (progress: RunProgress) => void,
 ) {
     const { user } = useAuth();
     const queryClient = useQueryClient();
+
+    // Held in a ref so the subscription does not tear down and rebuild every
+    // time the caller passes a new callback - which for an inline arrow is
+    // every render, and would mean dropping and re-adding the channel
+    // constantly enough to drop real events between the two.
+    const handler = useRef(onProgress);
+    handler.current = onProgress;
 
     useEffect(() => {
         if (!user) {
@@ -50,30 +59,93 @@ export function useRunProgressChannel(
 
         const channel = echo.private(`users.${user.id}.runs`);
 
-        channel.listen(RUN_PROGRESS_EVENT, (progress: RunProgress) => {
+        const onEvent = (progress: RunProgress): void => {
             reRunAffectedQueries(queryClient, progress);
+            handler.current?.(progress);
+        };
 
-            onProgress?.(progress);
-        });
+        channel.listen(RUN_PROGRESS_EVENT, onEvent);
 
         return () => {
             channel.stopListening(RUN_PROGRESS_EVENT);
             echo.leaveChannel(channel.name);
         };
-    }, [user, queryClient, onProgress]);
+    }, [user, queryClient]);
+}
+
+/**
+ * The per-subject run states one user currently has in flight.
+ *
+ * Returned as a map keyed by `type:id` rather than as a list, because the
+ * question a client asks is always "what is this one doing?" - the bulk dialog
+ * renders a row per meeting and looks each one up. A list would make every row
+ * scan every event.
+ *
+ * Scratch state, deliberately never cached: a run's progress is true while it
+ * is happening and meaningless afterwards, so putting it in the query cache
+ * would mean reconciling or expiring it - and the moment it stops mattering is
+ * the moment the durable record takes over. Dropping it on unmount is the
+ * correct lifetime, not a limitation.
+ *
+ * @returns a map of subject key to the latest state seen for it
+ */
+export function useRunStates(): {
+    states: ReadonlyMap<string, RunProgress>;
+    track: (progress: RunProgress) => void;
+    reset: () => void;
+} {
+    const [states, setStates] = useState<ReadonlyMap<string, RunProgress>>(
+        new Map(),
+    );
+
+    const track = useCallback((progress: RunProgress): void => {
+        const key = runSubjectKey(progress);
+
+        // An event with no subject is not about any one thing, so there is
+        // nothing to file it under. Still delivered to `onProgress` above -
+        // this map is only for per-subject lookup.
+        if (key === null) {
+            return;
+        }
+
+        setStates((previous) => {
+            const next = new Map(previous);
+
+            next.set(key, progress);
+
+            return next;
+        });
+    }, []);
+
+    const reset = useCallback((): void => {
+        setStates(new Map());
+    }, []);
+
+    return { states, track, reset };
+}
+
+/** The map key for a run's subject, or null when it names nothing. */
+export function runSubjectKey(progress: RunProgress): string | null {
+    const subject = progress.subject;
+
+    if (subject == null) {
+        return null;
+    }
+
+    return `${subject.type}:${subject.id}`;
 }
 
 /**
  * Invalidate whatever the event says changed.
  *
- * Keyed by the `channel` the caller chose, so this function needs no knowledge
- * of any feature: the job named the key its result appears under, and that is
- * the one thing worth re-reading. A `null` or empty key invalidates nothing,
- * which is the safe reading - a malformed event should not cause a full cache
- * flush on the chance that something moved.
+ * Keyed by the `channel` the run chose, so this needs no knowledge of any
+ * feature: the job named the key its result appears under, and that is the one
+ * thing worth re-reading. An empty key invalidates nothing, which is the safe
+ * reading - a malformed event should not flush somebody's whole cache on the
+ * chance that something moved.
  */
 function reRunAffectedQueries(
-    queryClient: QueryClient,
+    queryClient: ReturnType<typeof useQueryClient>,
     progress: RunProgress,
 ): void {
     if (progress.channel === "") {
@@ -82,26 +154,3 @@ function reRunAffectedQueries(
 
     void queryClient.invalidateQueries({ queryKey: [progress.channel] });
 }
-
-/**
- * A short human sentence for a run state, for a toast.
- *
- * Translated on this side rather than sent by the server, like every other
- * string in this client: the payload carries the state and the server's own
- * keys, and the words are the UI's business.
- */
-export function runStateLabel(state: RunState): string {
-    switch (state) {
-        case "queued":
-            return "در صف اجرا قرار گرفت.";
-        case "running":
-            return "در حال اجرا...";
-        case "finished":
-            return "پایان یافت.";
-        case "failed":
-            return "ناموفق بود.";
-    }
-}
-
-/** Whether a state is one the UI should stop waiting on. */
-export { isTerminalRunState };

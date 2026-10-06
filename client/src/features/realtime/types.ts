@@ -45,6 +45,22 @@ export function isTerminalRunState(state: RunState): boolean {
     return TERMINAL_STATES.has(state);
 }
 
+/**
+ * What a run is about, as a routing reference.
+ *
+ * The same `{type, id}` shape the notification contract already uses, matched
+ * on purpose rather than reinvented. Never a URL and never the entity: the
+ * client re-reads by its own route, so this exists only to say *which* one.
+ *
+ * The `id` stays whatever the server sent. Route params arrive as strings while
+ * cached data arrives as numbers, so a client comparing them has to normalise -
+ * which is better done in one visible helper than silently in a comparison.
+ */
+export interface RunSubject {
+    type: string;
+    id: string | number;
+}
+
 export interface RunProgress {
     /**
      * Identifies the run across its lifecycle, so a client can tell a
@@ -58,6 +74,12 @@ export interface RunProgress {
      * vocabulary; the kernel only carries it.
      */
     channel: string;
+    /**
+     * What this run is about, so a client watching several at once can tell
+     * them apart. Always present, null included - a run that is genuinely about
+     * nothing says so rather than omitting the key.
+     */
+    subject: RunSubject | null;
     /**
      * Caller-defined detail for the message itself - a count, a status, an
      * error key. Never the entity itself.

@@ -34,6 +34,8 @@ import { EmptyState } from "@/components/layout";
 import { usePermission } from "@/features/auth/components/permission-guard";
 import { PERMISSIONS } from "@/lib/permissions";
 import { useAiModels } from "@/features/ai/hooks";
+import type { RunProgress, RunState } from "@/features/realtime/types";
+import { RunStatus } from "./run-status";
 import {
     SUMMARY_FIELDS,
     SUMMARY_STATUS_VARIANTS,
@@ -135,6 +137,7 @@ export function MeetingSummarySection({
     isGenerating,
     isAccepting,
     isDismissing,
+    run,
 }: {
     summary: MeetingSummaryArtifact | null;
     tags: string[];
@@ -144,12 +147,37 @@ export function MeetingSummarySection({
     isGenerating: boolean;
     isAccepting: boolean;
     isDismissing: boolean;
+    /**
+     * The live run event for *this* meeting, or null when none has arrived.
+     *
+     * Passed in rather than subscribed to here: the section receives the
+     * meeting as a prop and has no business knowing it came from a query, and
+     * the page is what owns which meeting is on screen.
+     */
+    run: RunProgress | null;
 }) {
     const canUpdate = usePermission([PERMISSIONS.BOARD_MEETING_UPDATE]);
 
     const candidate = summary?.pending ?? null;
     const isInFlight = summary?.status === "pending";
     const hasSummary = hasContent(summary);
+
+    /**
+     * The row's own state, as the fallback for when no event has arrived.
+     *
+     * The stored status is a coarser answer than a live event - it cannot say
+     * queued versus running, only pending - but it is durable and always right,
+     * so the status block never has nothing to show.
+     */
+    const runState: RunState | null = isInFlight
+        ? "running"
+        : summary === null
+          ? null
+          : summary.status === "failed"
+            ? "failed"
+            : summary.status === "none"
+              ? null
+              : "finished";
 
     return (
         <div className="flex flex-col gap-4">
@@ -167,16 +195,10 @@ export function MeetingSummarySection({
                 )}
             </div>
 
-            {isInFlight && (
-                <Alert>
-                    <Spinner />
-                    <AlertTitle>در حال تولید خلاصه</AlertTitle>
-                    <AlertDescription>
-                        نتیجه همین‌جا به‌روز می‌شود؛ لازم نیست صفحه را تازه
-                        کنید.
-                    </AlertDescription>
-                </Alert>
-            )}
+            <RunStatus
+                state={runState}
+                run={run}
+            />
 
             {!isInFlight && summary?.error != null && (
                 <Alert variant="destructive">
