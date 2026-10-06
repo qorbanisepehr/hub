@@ -36,6 +36,25 @@ use Illuminate\Support\Str;
  */
 class BoardMeetingSummarizer
 {
+    /**
+     * How long one model call may take, in seconds.
+     *
+     * Measured, not guessed: a real board meeting's prompt runs to roughly
+     * 60,000 characters and takes ~160s against a local Ollama on a 12B model.
+     * The SDK's own default is 60s, so without this every real summary dies at
+     * exactly one minute with `cURL error 28 ... 0 bytes received` - a timeout
+     * that looks like a broken provider and is not one at all. This value used
+     * to live in `ai_agents.settings` as `{"timeout": 180}` and was lost when
+     * the three AI tables were dropped; it belongs here because the timeout
+     * describes the domain that waits, not a row an administrator edits.
+     *
+     * Deliberately a constant rather than configuration. Nobody has asked to
+     * tune this per environment, and a setting an admin can change is a setting
+     * that can be set too low - which reintroduces the same silent failure in a
+     * place where it is much harder to notice.
+     */
+    private const TIMEOUT_SECONDS = 180;
+
     public function __construct(
         private readonly AiAgentRunner $runner,
     ) {}
@@ -90,6 +109,7 @@ class BoardMeetingSummarizer
                     $requested,
                 ),
                 'previous' => $previous,
+                'timeout' => self::TIMEOUT_SECONDS,
             ],
         );
 

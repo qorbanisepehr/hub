@@ -40,7 +40,13 @@ return [
             'connection' => env('DB_QUEUE_CONNECTION'),
             'table' => env('DB_QUEUE_TABLE', 'jobs'),
             'queue' => env('DB_QUEUE', 'default'),
-            'retry_after' => (int) env('DB_QUEUE_RETRY_AFTER', 90),
+            // How long a job may run before the worker assumes it died and
+            // re-dispatches it. Laravel's default of 90 is shorter than this
+            // project's slowest job - the board-meeting summary allows 300s -
+            // so every long summary would be paid for twice. The failure is
+            // silent, so it surfaces only as a bill. Must stay above every
+            // job's own `timeout`.
+            'retry_after' => (int) env('DB_QUEUE_RETRY_AFTER', 600),
             'after_commit' => false,
         ],
 

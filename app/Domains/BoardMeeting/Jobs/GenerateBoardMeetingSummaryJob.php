@@ -57,6 +57,23 @@ class GenerateBoardMeetingSummaryJob implements ShouldBeUnique, ShouldQueue
     public int $uniqueFor = 900;
 
     /**
+     * Give up on this job after five minutes.
+     *
+     * Must sit above the summarizer's own 180s HTTP timeout, or the worker would
+     * kill the job while the model was still answering - losing a run that was
+     * about to succeed. It also has to sit below the queue connection's
+     * `retry_after`, which is a different failure: that one re-dispatches a job
+     * it believes died, so a run longer than `retry_after` gets paid for twice.
+     *
+     * `$failOnTimeout` stays false on purpose. A timeout here is transient
+     * infrastructure - a model still loading, a machine busy - and unlike
+     * `AiNotConfigured` there is no number of retries that would fix it, so it
+     * should reach the queue's own retry policy rather than being abandoned on
+     * the first attempt.
+     */
+    public int $timeout = 300;
+
+    /**
      * @param  list<string>  $fields  empty means every field
      * @param  string|null  $provider  a gateway picked for this one run in the
      *                                 UI, or null to inherit. Names rather
