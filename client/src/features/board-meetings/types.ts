@@ -151,6 +151,14 @@ export interface MeetingSummaryArtifact {
     } | null;
     error: MeetingSummaryReason | null;
     generated_at: string | null;
+    /**
+     * When the run behind a `pending` stamp began, else null.
+     *
+     * Written and cleared together with the stamp, and never reused for
+     * anything else: `generated_at` dates the *content*, and a run in flight has
+     * established none yet, so a reader that wants both facts needs both keys.
+     */
+    started_at?: string | null;
 }
 
 /** The detail endpoint returns the meeting inside the standard `data` envelope. */

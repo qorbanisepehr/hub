@@ -112,6 +112,18 @@ export function useGenerateMeetingSummary(meetingId: number | string) {
     return useMutation({
         mutationFn: (payload: GenerateSummaryPayload) =>
             generateMeetingSummary(meetingId, payload),
+        onError: (error) => {
+            // The endpoint refuses a second run while the first is going, and
+            // a person who has just been refused needs to know why rather than
+            // to see nothing happen. The re-read in `onSettled` then shows the
+            // run they are already waiting for, which is the actual answer.
+            if (getApiErrorStatus(error) === 409) {
+                toast.error("اجرای این جلسه هنوز تمام نشده است", {
+                    description:
+                        "تا پایان همین اجرا امکان شروع اجرای تازه نیست؛ پس از پایان، نتیجه همین‌جا می‌آید.",
+                });
+            }
+        },
         onSettled: () => {
             void queryClient.invalidateQueries({
                 queryKey: boardMeetingKeys.detail(meetingId),

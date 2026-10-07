@@ -117,3 +117,61 @@ export function proposedTagSlugs(
 
     return reading.isFilled ? tagSlugsOf(reading.value) : current;
 }
+
+/**
+ * Whether a run is under way for this meeting, as the row says.
+ *
+ * The stamp sits in two places depending on the write mode, and this is the
+ * only place the client is allowed to look for it: under `Apply` the run is the
+ * row, so the outer status reads `pending`, while under `Review` — the default
+ * — the record's own content is deliberately left untouched, so the run reports
+ * on the *candidate* instead and the outer status still reads `none` or `ok`.
+ *
+ * Reading only the outer status, as this section used to, meant a review run was
+ * invisible the moment the page was reloaded: the running block came from a
+ * realtime event, events are held in memory, and a refresh or a second tab had
+ * nothing durable to fall back on. Both placements are the server's own words
+ * for one thing, so a tab that has been open for a minute and a tab opened
+ * cold answer the same question the same way.
+ */
+export function isRunInFlight(
+    summary: MeetingSummaryArtifact | null,
+): boolean {
+    if (summary === null) {
+        return false;
+    }
+
+    return (
+        summary.status === "pending" ||
+        summary.pending?.status === "pending"
+    );
+}
+
+/**
+ * When the run under way began, or null when nothing is.
+ *
+ * Stamped by the worker at the moment it picks the job up, which is the only
+ * start time that means anything — dispatch says when somebody asked, not when
+ * the model was actually reached. It lives beside the `pending` stamp for the
+ * same reason, so a page that has never seen an event can still count how long
+ * this run has been going instead of showing no number at all.
+ */
+export function runStartedAt(
+    summary: MeetingSummaryArtifact | null,
+): string | null {
+    if (summary === null) {
+        return null;
+    }
+
+    // `?? null` rather than a bare read: the detail endpoint passes the JSONB
+    // column through as it stands, so a row written before this key existed
+    // answers `undefined`, and a type that promised `string | null` would be
+    // describing the writer rather than the payload.
+    if (summary.status === "pending") {
+        return summary.started_at ?? null;
+    }
+
+    return summary.pending?.status === "pending"
+        ? (summary.pending.started_at ?? null)
+        : null;
+}

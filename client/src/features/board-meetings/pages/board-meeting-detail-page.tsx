@@ -34,7 +34,7 @@ import {
 
 import { MeetingSummarySection } from "../components/meeting-summary-section";
 import { MeetingTagChips } from "../components/meeting-tag-chips";
-import { hasContent } from "../summary-read";
+import { hasContent, isRunInFlight } from "../summary-read";
 import {
     useAcceptMeetingSummary,
     useBoardMeeting,
@@ -198,7 +198,7 @@ export function BoardMeetingDetailPage() {
                     <TabsTrigger value="analysis">
                         <IconRobot />
                         تحلیل هوشمند
-                        {meeting.summary?.status === "pending" && (
+                        {isRunInFlight(meeting.summary) && (
                             <Spinner className="size-3" />
                         )}
                     </TabsTrigger>
@@ -419,7 +419,7 @@ function MeetingIdentity({ meeting }: { meeting: BoardMeetingDetailResponse }) {
                     ) : (
                         <Badge variant="secondary">همگام با منبع</Badge>
                     )}
-                    {meeting.summary?.status === "pending" && (
+                    {isRunInFlight(meeting.summary) && (
                         <Badge variant="secondary">در حال تولید خلاصه</Badge>
                     )}
                     {hasContent(meeting.summary) && (

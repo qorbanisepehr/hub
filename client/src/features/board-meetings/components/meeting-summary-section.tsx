@@ -43,7 +43,7 @@ import {
     reasonText,
     statusText,
 } from "../summary-copy";
-import { hasContent, readFields } from "../summary-read";
+import { hasContent, isRunInFlight, readFields, runStartedAt } from "../summary-read";
 import { SummaryDecision, SummaryValueText } from "./summary-decision";
 import type {
     MeetingSummaryArtifact,
@@ -159,7 +159,19 @@ export function MeetingSummarySection({
     const canUpdate = usePermission([PERMISSIONS.BOARD_MEETING_UPDATE]);
 
     const candidate = summary?.pending ?? null;
-    const isInFlight = summary?.status === "pending";
+
+    /**
+     * Whether a run is under way, as the row says it rather than as an event
+     * said it earlier.
+     *
+     * Read from both of the places the stamp can sit — the candidate for a
+     * review run, the status for an apply run — because only one of them is
+     * touched in each mode, and reading the outer status alone made a review
+     * run invisible on a freshly loaded page: the block fell back to the row,
+     * the row said `none` or `ok`, and the whole "something is happening"
+     * answer came from an event that a refresh has thrown away.
+     */
+    const isInFlight = isRunInFlight(summary);
     const hasSummary = hasContent(summary);
 
     /**
@@ -185,6 +197,7 @@ export function MeetingSummarySection({
                 <RunControls
                     canRun={canUpdate}
                     isGenerating={isGenerating}
+                    isRunning={isInFlight}
                     onGenerate={onGenerate}
                 />
 
@@ -198,6 +211,7 @@ export function MeetingSummarySection({
             <RunStatus
                 state={runState}
                 run={run}
+                startedAt={runStartedAt(summary)}
             />
 
             {!isInFlight && summary?.error != null && (
@@ -219,6 +233,7 @@ export function MeetingSummarySection({
                     onDismiss={onDismiss}
                     isAccepting={isAccepting}
                     isDismissing={isDismissing}
+                    isRunning={isInFlight}
                 />
             )}
 
@@ -298,7 +313,9 @@ export function MeetingSummarySection({
                                                 variant="ghost"
                                                 size="icon-xs"
                                                 className="ms-auto"
-                                                disabled={isGenerating}
+                                                disabled={
+                                                    isGenerating || isInFlight
+                                                }
                                                 title={`بازتولید ${config.label}`}
                                                 onClick={() =>
                                                     onGenerate({
@@ -361,14 +378,23 @@ export function MeetingSummarySection({
  * to a user who may read the registry at all — the endpoint is behind
  * `ai.provider.view`, and a picker that appears and then fails is worse than no
  * picker.
+ *
+ * Both ways to ask for a run are held while one is under way, and the row is
+ * what says so rather than this component's own memory of having been clicked.
+ * Two runs of one meeting fight over one `summary` column and the second to
+ * land takes the first one's proposal with it, so the disable is not a
+ * convenience — it is the visible half of a rule the endpoint refuses on its
+ * own, and reading it from the row means a second tab is stopped too.
  */
 function RunControls({
     canRun,
     isGenerating,
+    isRunning,
     onGenerate,
 }: {
     canRun: boolean;
     isGenerating: boolean;
+    isRunning: boolean;
     onGenerate: (payload: SummaryRunPayload) => void;
 }) {
     const [mode, setMode] = useState<SummaryWriteMode[]>(["review"]);
@@ -471,9 +497,9 @@ function RunControls({
                               }),
                     })
                 }
-                disabled={!canRun || isGenerating}
+                disabled={!canRun || isGenerating || isRunning}
             >
-                {isGenerating ? (
+                {isGenerating || isRunning ? (
                     <Spinner data-icon="inline-start" />
                 ) : (
                     <IconSparkles data-icon="inline-start" />
@@ -481,7 +507,11 @@ function RunControls({
                 تولید خلاصه
             </Button>
 
-            <RegenerateFields canRun={canRun} onGenerate={onGenerate} />
+            <RegenerateFields
+                canRun={canRun}
+                isRunning={isRunning}
+                onGenerate={onGenerate}
+            />
         </div>
     );
 }
@@ -499,9 +529,11 @@ function RunControls({
  */
 function RegenerateFields({
     canRun,
+    isRunning,
     onGenerate,
 }: {
     canRun: boolean;
+    isRunning: boolean;
     onGenerate: (payload: SummaryRunPayload) => void;
 }) {
     const [open, setOpen] = useState(false);
@@ -535,7 +567,7 @@ function RegenerateFields({
             title="بازتولید بخش‌های انتخابی"
             description="فقط همین بخش‌ها دوباره ساخته می‌شوند و به‌صورت پیشنهاد ثبت می‌شوند؛ بقیهٔ خلاصه دست‌نخورده می‌ماند."
             trigger={
-                <Button variant="outline" disabled={!canRun}>
+                <Button variant="outline" disabled={!canRun || isRunning}>
                     <IconChevronDown data-icon="inline-end" />
                     بازتولید بخش‌ها
                 </Button>
@@ -545,7 +577,10 @@ function RegenerateFields({
                     <Button variant="outline" onClick={() => setOpen(false)}>
                         انصراف
                     </Button>
-                    <Button onClick={submit} disabled={picked.length === 0}>
+                    <Button
+                        onClick={submit}
+                        disabled={picked.length === 0 || isRunning}
+                    >
                         بازتولید
                         {picked.length > 0 &&
                             ` (${picked.length.toLocaleString("fa-IR")})`}

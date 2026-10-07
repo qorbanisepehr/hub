@@ -1,8 +1,19 @@
 import { useEffect, useState } from "react";
-import { IconClock, IconInfoCircle, IconRobot } from "@tabler/icons-react";
+import {
+    IconClock,
+    IconInfoCircle,
+    IconRobot,
+    IconX,
+} from "@tabler/icons-react";
 
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import {
+    Alert,
+    AlertAction,
+    AlertDescription,
+    AlertTitle,
+} from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 import type { RunProgress, RunState } from "@/features/realtime/types";
@@ -26,16 +37,24 @@ import type { RunProgress, RunState } from "@/features/realtime/types";
  *
  * Which model is answering is shown because the row records it, and because
  * "it is slow" and "it is slow *on that model*" call for different reactions.
+ *
+ * Two inputs, deliberately: a live event says *which* run and how it is going,
+ * while the row's own start time says when it began. The first is fresher and
+ * the second outlives it - a refresh or a second tab has never seen an event,
+ * and reporting on the row alone is why the block survives one.
  */
 export function RunStatus({
     state,
     run,
+    startedAt,
     className,
 }: {
     /** What the durable row says, used when no live event has arrived yet. */
     state: RunState | null;
     /** The latest progress event, when there is one. */
     run: RunProgress | null;
+    /** When the run under way began, from the row, or null. */
+    startedAt?: string | null;
     className?: string;
 }) {
     // `run` wins over `state`: an event is fresher than anything the row said
@@ -43,9 +62,22 @@ export function RunStatus({
     // nobody is listening, since this degrades to the row alone - the row is
     // still a correct answer, just a coarser one.
     const shown = run?.state ?? state ?? null;
-    const startedAt = run?.occurred_at ?? null;
+    const since = run?.occurred_at ?? startedAt ?? null;
 
-    if (shown === null) {
+    /**
+     * What is currently on screen, as far as dismissal is concerned.
+     *
+     * A notice somebody has closed should stay closed, but only for as long as
+     * it is *the same notice*: a state change, a second run, or a run reported
+     * from a different origin all mean the question is being asked again, and a
+     * dismissal carried across those would hide something nobody has seen yet.
+     * `run_id` is the queue's own lock id, so it changes exactly when a new run
+     * does and never when a query is merely refetched.
+     */
+    const signature = [shown ?? "", run?.run_id ?? "", since ?? ""].join("|");
+    const [dismissed, setDismissed] = useState<string | null>(null);
+
+    if (shown === null || dismissed === signature) {
         return null;
     }
 
@@ -78,6 +110,17 @@ export function RunStatus({
                         : "در حال تولید خلاصه"}
             </AlertTitle>
 
+            <AlertAction>
+                <Button
+                    variant="ghost"
+                    size="icon-xs"
+                    aria-label="بستن این پیام"
+                    onClick={() => setDismissed(signature)}
+                >
+                    <IconX />
+                </Button>
+            </AlertAction>
+
             <AlertDescription className="flex flex-wrap items-center gap-x-3 gap-y-1">
                 <span>
                     {waiting
@@ -89,8 +132,8 @@ export function RunStatus({
                             : "مدل در حال پاسخ دادن است؛ نتیجه همین‌جا به‌روز می‌شود."}
                 </span>
 
-                {!waiting && !done && !failed && startedAt !== null && (
-                    <Elapsed since={startedAt} />
+                {!waiting && !done && !failed && since !== null && (
+                    <Elapsed since={since} />
                 )}
 
                 {run?.context?.model != null && (
@@ -108,9 +151,11 @@ export function RunStatus({
  *
  * Ticks locally rather than on a server round trip: the number is for reading,
  * not for deciding, and a per-second request would be absurd for that. The
- * starting point comes from the event that arrived, so this measures "how long
- * since you heard from it" - which for a run whose events have stopped is
- * exactly the useful thing to show.
+ * starting point comes from whichever of the two inputs has it - a live event
+ * when one arrived, the row's own stamp when the page was just opened - so this
+ * measures "how long since this run began" either way, and a tab that learned
+ * of the run from the database counts from the same moment a tab that heard it
+ * on the socket would.
  */
 function Elapsed({ since }: { since: string }) {
     const [now, setNow] = useState(() => Date.now());
