@@ -22,8 +22,11 @@ use App\Domains\Tagging\Services\TagService;
 use App\Support\Realtime\RunProgressed;
 use App\Support\Realtime\RunState;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
+use Illuminate\Http\Client\Request;
 use Illuminate\JsonSchema\JsonSchemaTypeFactory;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Http;
+use Laravel\Ai\Enums\Lab;
 use Laravel\Ai\ObjectSchema;
 use Tests\Fixtures\Ai\FieldedEchoAgent;
 use Tests\Fixtures\Ai\StructuredEchoAgent;
@@ -210,6 +213,77 @@ describe('the runner hand-off', function () {
         );
 
         expect($run->structured)->toHaveKeys(['executive_summary', 'topics']);
+    });
+});
+
+describe('the context window', function () {
+    it('asks the local runtime for a window the whole prompt fits in', function () {
+        // The failure this guards against is invisible from the outside.
+        // Ollama's default window is 4096 tokens and it reserves half of that
+        // for the answer, so a 60k-character prompt was reaching the model
+        // truncated to ~2000 tokens — about a fifth of the minutes — and it
+        // still returned a fluent, well-formed summary of a document it had
+        // mostly not seen. No error, no partial answer, no signal anywhere:
+        // just a confident summary of the wrong amount of text.
+        //
+        // Asserted on the wire rather than on the method that returns the
+        // options, because the wiring is the part that can silently stop
+        // working: `HasProviderOptions` is only honoured when the SDK builds
+        // its options from the agent, and that is not this code's call.
+        Http::preventStrayRequests();
+        Http::fake([
+            'http://localhost:11434/*' => Http::response([
+                'model' => 'gemma3:12b',
+                'message' => [
+                    'role' => 'assistant',
+                    'content' => json_encode(['executive_summary' => 'خلاصه'], JSON_UNESCAPED_UNICODE),
+                ],
+                'done' => true,
+                'done_reason' => 'stop',
+                'prompt_eval_count' => 11022,
+                'eval_count' => 52,
+            ]),
+        ]);
+
+        seedSummaryModel('local', 'gemma3:12b');
+
+        app(AiAgentRunner::class)->run(
+            key: MeetingSummaryAgent::REGISTRY_KEY,
+            prompt: 'go',
+            agentClass: MeetingSummaryAgent::class,
+            settings: ['fields' => ['executive_summary'], 'timeout' => 5],
+        );
+
+        Http::assertSent(function (Request $request): bool {
+            $body = $request->data();
+
+            return str_contains($request->url(), '/api/chat')
+                && data_get($body, 'options.num_ctx') === MeetingSummaryAgent::CONTEXT_TOKENS
+                && data_get($body, 'keep_alive') === MeetingSummaryAgent::KEEP_ALIVE;
+        });
+    });
+
+    it('keeps those knobs away from a runtime that does not have them', function () {
+        // A cloud provider handed `num_ctx` would either reject the request
+        // or ignore it, and finding out which during a multi-minute run is a
+        // poor way to learn it.
+        expect((new MeetingSummaryAgent)->providerOptions(Lab::OpenAI))->toBe([])
+            ->and((new MeetingSummaryAgent)->providerOptions('openai-compatible'))->toBe([]);
+    });
+
+    it('keeps the window above the size the real prompt proved it needs', function () {
+        // The other test asserts the option reaches the wire but reads the
+        // constant, so it passes unchanged if the constant is lowered back
+        // into the range where truncation happens. This one puts the floor
+        // in numbers: a real four-field run measured 11530 input tokens, and
+        // Ollama reserves half the window for the answer, so anything under
+        // 23060 drops the minutes back to the fifth of themselves that this
+        // whole change exists to stop.
+        //
+        // The floor is asserted rather than the value 32768 itself because
+        // 32768 is a choice - a power of two, with room to spare - and 23060
+        // is a measurement. Only the measurement is a fact to hold onto.
+        expect(MeetingSummaryAgent::CONTEXT_TOKENS)->toBeGreaterThanOrEqual(23060);
     });
 });
 
@@ -491,6 +565,47 @@ describe('the job', function () {
 
         expect($this->meeting->fresh()->summary['status'])->toBe(MeetingSummary::STATUS_PENDING);
     });
+
+    it('writes the outcome once the queue has given up on the run', function () {
+        // The test above describes what happens *between* attempts, and it is
+        // right that the row stays pending there. This is the last attempt.
+        //
+        // Without it an abandoned run keeps its `pending` stamp for ever, so
+        // "the gateway timed out" and "the model is still thinking" read
+        // identically - the exact confusion the pending stamp was introduced to
+        // prevent, reached from the other side. The worker retries nothing by
+        // default, so in practice this is every timeout.
+        $this->meeting->forceFill(['summary' => MeetingSummary::pending()->toArray()])->save();
+
+        $job = new GenerateBoardMeetingSummaryJob(
+            $this->meeting->id,
+            ['executive_summary'],
+            mode: SummaryWriteMode::Apply,
+            requestedBy: 4242,
+        );
+
+        $job->failed(new RuntimeException('cURL error 28: Operation timed out'));
+
+        expect($this->meeting->fresh()->summary)
+            ->toMatchArray([
+                'status' => MeetingSummary::STATUS_FAILED,
+                'error' => MeetingSummary::REASON_UNAVAILABLE,
+            ]);
+    });
+
+    it('says nothing when the meeting was deleted while the run was in flight', function () {
+        // Deleting the meeting is not a reason for the failure handler to
+        // throw: there is no row to write to and no subject to report about,
+        // and a second exception inside the failure path would only replace a
+        // recorded failure with an unrecorded one.
+        Event::fake([RunProgressed::class, MeetingSummaryGenerated::class]);
+
+        (new GenerateBoardMeetingSummaryJob(999999, ['executive_summary']))
+            ->failed(new RuntimeException('gateway refused'));
+
+        Event::assertNotDispatched(RunProgressed::class);
+        Event::assertNotDispatched(MeetingSummaryGenerated::class);
+    });
 });
 
 describe('run progress', function () {
@@ -527,6 +642,32 @@ describe('run progress', function () {
 
         Event::assertDispatched(RunProgressed::class, fn (RunProgressed $e): bool => $e->state === RunState::Failed
             && $e->context === ['reason' => MeetingSummary::REASON_NOT_CONFIGURED]);
+    });
+
+    it('reports an abandoned run as failed and announces it', function () {
+        // Two facts a waiting person needs and would otherwise never get: the
+        // run stopped, and it stopped for a reason that is not "you misconfigured
+        // the hub". The announcement is what makes the notification reachable
+        // at all - a run the queue abandoned used to fire no event, so it had
+        // no progress, no audit row and no message to anybody.
+        Event::fake([RunProgressed::class, MeetingSummaryGenerated::class]);
+
+        $job = new GenerateBoardMeetingSummaryJob(
+            $this->meeting->id,
+            ['executive_summary'],
+            requestedBy: 4242,
+        );
+
+        $job->failed(new RuntimeException('cURL error 28: Operation timed out'));
+
+        Event::assertDispatched(RunProgressed::class, fn (RunProgressed $e): bool => $e->state === RunState::Failed
+            && $e->userId === 4242
+            && $e->context === ['reason' => MeetingSummary::REASON_UNAVAILABLE]
+            && $e->subject?->id === $this->meeting->id);
+
+        Event::assertDispatched(MeetingSummaryGenerated::class, fn (MeetingSummaryGenerated $e): bool => $e->requestedBy() === 4242
+            && $e->metadata()['status'] === MeetingSummary::STATUS_FAILED
+            && $e->metadata()['error'] === MeetingSummary::REASON_UNAVAILABLE);
     });
 
     it('names the client cache key rather than the run itself', function () {

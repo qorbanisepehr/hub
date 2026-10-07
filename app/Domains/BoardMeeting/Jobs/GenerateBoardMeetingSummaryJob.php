@@ -41,10 +41,18 @@ use Illuminate\Queue\SerializesModels;
  *
  * Only `AiNotConfigured` is caught, because it is the one failure a retry
  * cannot fix — there is no provider to call. Everything else (a dead URL, a
- * rejected key, a timeout) propagates so the queue retries it, and the
- * meeting keeps its `pending` stamp until a run does report. Which also means
- * a run that never reports leaves no audit row: D22 asks for an event per
- * *run*, and a run that is still being retried has not finished.
+ * rejected key, a timeout) propagates, and the meeting keeps its `pending`
+ * stamp while the queue decides whether to try again: D22 asks for an event
+ * per *run*, and a run still being retried has not finished.
+ *
+ * That leaves the case this class originally had no answer for — the queue
+ * giving up. A transport failure escaping `handle()` used to end the job with
+ * the row still stamped `pending`, no terminal progress event and no
+ * notification, so a run that died looked exactly like a run still going and
+ * told nobody. The worker retries nothing by default (`queue:listen --tries=1`
+ * in `composer run dev`), so in practice that was every timeout. `failed()`
+ * closes it: called once, after the last attempt, so a run merely being
+ * retried still stays quiet.
  */
 class GenerateBoardMeetingSummaryJob implements ShouldBeUnique, ShouldQueue
 {
@@ -54,17 +62,40 @@ class GenerateBoardMeetingSummaryJob implements ShouldBeUnique, ShouldQueue
     use ReportsRunProgress;
     use SerializesModels;
 
-    /** Release the lock in case the worker dies holding it. */
-    public int $uniqueFor = 900;
+    /**
+     * How long the uniqueness lock outlives a run, in seconds.
+     *
+     * Its placement is the whole point: above the job's own `timeout`, and
+     * below the queue's `retry_after`. Below `timeout`, a run still going
+     * legitimately would lose its lock part way through and a second click
+     * would start the same work twice - the exact thing the lock exists to
+     * prevent. Above `retry_after`, a worker that died holding the lock would
+     * leave it in place when the queue re-dispatched that job, and the
+     * re-dispatch would be dropped as a duplicate: the run would then never
+     * happen at all, with the row sitting `pending` and nothing left in the
+     * system to fail it.
+     *
+     * Both neighbours, and why all three move together, are documented in
+     * {@see BoardMeetingSummarizer}'s timeout docblock.
+     */
+    public int $uniqueFor = 1200;
 
     /**
-     * Give up on this job after five minutes.
+     * Give up on this job after eighteen minutes.
      *
-     * Must sit above the summarizer's own 180s HTTP timeout, or the worker would
-     * kill the job while the model was still answering - losing a run that was
-     * about to succeed. It also has to sit below the queue connection's
-     * `retry_after`, which is a different failure: that one re-dispatches a job
-     * it believes died, so a run longer than `retry_after` gets paid for twice.
+     * Must sit above the summarizer's own 900s HTTP timeout, or the worker
+     * would kill the job while the model was still answering - losing a run
+     * that was about to succeed. In practice the HTTP timeout fires first and
+     * this is only the backstop for a call that does not answer it (a hung
+     * socket, a gateway that accepts and then never replies), which is where
+     * the 180s of margin comes from rather than it being spare.
+     *
+     * It also has to sit below the queue's `retry_after`, which is a different
+     * failure: that one re-dispatches a job it believes died, so a run longer
+     * than `retry_after` gets paid for twice. That number, and the `uniqueFor`
+     * between them, are documented together in
+     * {@see BoardMeetingSummarizer}'s timeout docblock because none of the
+     * three can be changed independently of the others.
      *
      * `$failOnTimeout` stays false on purpose. A timeout here is transient
      * infrastructure - a model still loading, a machine busy - and unlike
@@ -72,7 +103,7 @@ class GenerateBoardMeetingSummaryJob implements ShouldBeUnique, ShouldQueue
      * should reach the queue's own retry policy rather than being abandoned on
      * the first attempt.
      */
-    public int $timeout = 300;
+    public int $timeout = 1080;
 
     /**
      * @param  list<string>  $fields  empty means every field
@@ -205,11 +236,9 @@ class GenerateBoardMeetingSummaryJob implements ShouldBeUnique, ShouldQueue
                 'reason' => MeetingSummary::REASON_NOT_CONFIGURED,
             ]);
 
-            $this->report($meeting, $applier->applyRun(
-                $meeting,
-                MeetingSummary::failure(MeetingSummary::REASON_NOT_CONFIGURED),
-                $this->mode,
-            ));
+            $run = MeetingSummary::failure(MeetingSummary::REASON_NOT_CONFIGURED);
+            $applier->applyRun($meeting, $run, $this->mode);
+            $this->report($meeting, $run);
 
             return;
         }
@@ -219,13 +248,72 @@ class GenerateBoardMeetingSummaryJob implements ShouldBeUnique, ShouldQueue
             ['status' => $run->status],
         );
 
-        $this->report($meeting, $applier->applyRun($meeting, $run, $this->mode));
+        $applier->applyRun($meeting, $run, $this->mode);
+        $this->report($meeting, $run);
+    }
+
+    /**
+     * The queue has given up on this run.
+     *
+     * Reached only once the attempts are exhausted, never between them, which
+     * is what keeps the promise above: a run still worth retrying says nothing
+     * and keeps its `pending` stamp, and only an abandoned one reports. This is
+     * deliberately the *same* outcome written by `handle()`'s own failure path
+     * rather than a separate "the infrastructure broke" state, because to the
+     * person waiting there is one fact — the run will not produce a proposal —
+     * and two states for it would mean two places to check for it.
+     *
+     * The reason is `unavailable` rather than `not_configured`: nothing here
+     * says the hub is misconfigured, and telling an administrator to go and
+     * configure a provider that was configured all along sends them looking in
+     * the wrong place. It is the transient case, and the failed notification
+     * says so.
+     *
+     * Any throwable is accepted, not a curated list. Guzzle's own
+     * `ConnectException` reaches this method unwrapped for the Ollama gateway,
+     * so a hand-picked set of provider exceptions would miss precisely the
+     * failure this exists for — a filtered list is a list that grows a hole
+     * the first time a new driver ships.
+     */
+    public function failed(\Throwable $e): void
+    {
+        $meeting = BoardMeeting::query()->find($this->meetingId);
+
+        if ($meeting === null) {
+            // The meeting was deleted while the run was in flight. There is
+            // nowhere to write the outcome and nobody to point at, so this is
+            // a no-op rather than a second failure inside the failure handler.
+            return;
+        }
+
+        $this->reportProgress(RunState::Failed, [
+            'reason' => MeetingSummary::REASON_UNAVAILABLE,
+        ]);
+
+        $run = MeetingSummary::failure(MeetingSummary::REASON_UNAVAILABLE);
+        app(MeetingSummaryApplier::class)->applyRun($meeting, $run, $this->mode);
+        $this->report($meeting, $run);
     }
 
     /**
      * The run happened; say so. Dispatched after the write rather than inside
      * it, so a rolled-back write cannot leave behind an audit row claiming a
      * run that never landed.
+     *
+     * The *run*, not the row it produced. This used to be handed the result of
+     * `applyRun()`, which is a different thing and made the event contradict
+     * its own contract ("the run is described, not the row"): under `review`
+     * the applied result is the previous summary with this run attached as a
+     * proposal, so its `status` was the status of whatever was there before -
+     * `none` on a meeting nobody had summarised yet. The notification listener
+     * reads that status to decide whether to announce a failure, so a run that
+     * died under the default mode announced itself as ready to review, and the
+     * rows it wrote carried `status: "none"`. Under `apply` the row is a merge
+     * of this run and every earlier one, so `filled_fields` credited fields
+     * from previous runs to this one.
+     *
+     * Writing the row is still the applier's job and still happens first; only
+     * the description of what happened is taken from what actually ran.
      */
     private function report(BoardMeeting $meeting, MeetingSummary $run): void
     {

@@ -5,6 +5,8 @@ namespace App\Domains\BoardMeeting\Ai;
 use App\Contracts\Ai\FieldedAgent;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\JsonSchema\Types\Type;
+use Laravel\Ai\Contracts\HasProviderOptions;
+use Laravel\Ai\Enums\Lab;
 use Laravel\Ai\Promptable;
 
 /**
@@ -23,7 +25,7 @@ use Laravel\Ai\Promptable;
  * from the registry row, so swapping models is a click in Settings rather
  * than a deploy, and nothing here can pin one by accident.
  */
-final class MeetingSummaryAgent implements FieldedAgent
+final class MeetingSummaryAgent implements FieldedAgent, HasProviderOptions
 {
     use Promptable;
 
@@ -56,6 +58,50 @@ final class MeetingSummaryAgent implements FieldedAgent
         'fa' => 'Persian (فارسی)',
         'en' => 'English',
     ];
+
+    /**
+     * The context window this prompt is sent with, in tokens.
+     *
+     * Ollama's default is 4096 and it reserves half of that for the answer,
+     * so the model was only ever reading about 2000 tokens of a prompt that
+     * carries 11530 — the tail of the minutes, roughly a fifth of them. That
+     * is not a slow summary, it is a wrong one, and wrong invisibly: the
+     * answer arrives on time, is well formed, and is about a document the
+     * model mostly did not see.
+     *
+     * Measured against the real prompt rather than guessed: 60k characters of
+     * minutes reach the model as 11530 tokens on a four-field run, and
+     * Ollama's reservation rule needs a window of at least twice the prompt.
+     * 32768 is the smallest power of two that clears 23060 and still leaves
+     * room for the answer to be written out in full — which matters, because
+     * the answer is not small either: the same run generated 1008 tokens.
+     *
+     * Here rather than in configuration because the window a prompt needs is
+     * a property of the prompt. An agent whose inputs are a paragraph has no
+     * reason to reserve this much, and a number an administrator can lower is
+     * the same silent truncation with an easier way to bring it back.
+     *
+     * Public because the test that guards this asserts on the request that
+     * leaves the machine, and would otherwise have to restate a number whose
+     * whole point is that it is not guessed.
+     */
+    public const CONTEXT_TOKENS = 32768;
+
+    /**
+     * How long the model stays loaded after a run, when the provider is local.
+     *
+     * Ollama's own default is five minutes, and a single run takes several
+     * minutes on its own — so a person who runs one summary, thinks for ten
+     * minutes, and runs another pays a cold model load on top of an already
+     * long run, and the timeout that has to cover it has to cover that too.
+     *
+     * Deliberately finite rather than `-1` (keep forever): this pins a model
+     * resident for as long as somebody is using the hub, not for as long as
+     * the process lives, which is the trade a shared machine should be making.
+     *
+     * Public for the same reason {@see self::CONTEXT_TOKENS} is.
+     */
+    public const KEEP_ALIVE = '30m';
 
     /** @var list<MeetingSummaryField> */
     private array $fields;
@@ -114,6 +160,36 @@ final class MeetingSummaryAgent implements FieldedAgent
     public function isMerging(): bool
     {
         return $this->previous !== [];
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * The two knobs {@see CONTEXT_TOKENS} and {@see KEEP_ALIVE} are Ollama's,
+     * and this is the only place the SDK exposes them to an agent. They are
+     * carried here rather than passed per call because `prompt()` has no
+     * options parameter to pass them to — the contract would have to grow one,
+     * and the values would have to be rediscovered by every caller.
+     *
+     * Empty for every other provider. These are the vocabulary of one local
+     * runtime; a cloud provider given `num_ctx` would either reject it or
+     * ignore it, and finding out which during a six-minute run is a poor way
+     * to learn it.
+     *
+     * @return array<string, mixed>
+     */
+    public function providerOptions(Lab|string $provider): array
+    {
+        $driver = $provider instanceof Lab ? $provider : Lab::tryFrom($provider);
+
+        if ($driver !== Lab::Ollama) {
+            return [];
+        }
+
+        return [
+            'num_ctx' => self::CONTEXT_TOKENS,
+            'keep_alive' => self::KEEP_ALIVE,
+        ];
     }
 
     public function instructions(): string

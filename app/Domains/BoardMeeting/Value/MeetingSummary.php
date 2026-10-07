@@ -71,6 +71,17 @@ final readonly class MeetingSummary
     /** No active provider exists, so the run never left the hub. */
     public const REASON_NOT_CONFIGURED = 'not_configured';
 
+    /**
+     * The provider was configured but never answered: the connection timed
+     * out, the model was still loading, the gateway refused.
+     *
+     * Kept apart from `not_configured` because the two are different news to
+     * the person reading it. Not configured is an administrator's task and will
+     * not fix itself; unavailable is infrastructure, and the same run usually
+     * succeeds on a second attempt.
+     */
+    public const REASON_UNAVAILABLE = 'unavailable';
+
     /** Per-field: the model left this one empty. */
     public const REASON_EMPTY = 'empty';
 

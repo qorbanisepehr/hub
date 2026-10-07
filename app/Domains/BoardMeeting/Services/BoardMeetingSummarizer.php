@@ -39,21 +39,51 @@ class BoardMeetingSummarizer
     /**
      * How long one model call may take, in seconds.
      *
-     * Measured, not guessed: a real board meeting's prompt runs to roughly
-     * 60,000 characters and takes ~160s against a local Ollama on a 12B model.
-     * The SDK's own default is 60s, so without this every real summary dies at
-     * exactly one minute with `cURL error 28 ... 0 bytes received` - a timeout
-     * that looks like a broken provider and is not one at all. This value used
-     * to live in `ai_agents.settings` as `{"timeout": 180}` and was lost when
-     * the three AI tables were dropped; it belongs here because the timeout
-     * describes the domain that waits, not a row an administrator edits.
+     * Measured, not guessed - and it has grown twice, because each time the
+     * earlier figure turned out to be about a smaller job than the one that
+     * actually runs. A real board meeting's prompt is roughly 60,000
+     * characters, which tokenises to 11,530 tokens; a complete run against a
+     * local Ollama on a 12B model measured 550s warm, plus 94s of model
+     * loading when the model had been unloaded since the last run - about
+     * 645s end to end. The 160s this quoted first, and the 180s after that,
+     * were both measured while the model was reading a fifth of that prompt,
+     * because Ollama's default context window was truncating it, so neither
+     * was ever a figure about this work at all. The 405s in between was
+     * measured on a run whose answer happened to be 52 tokens instead of
+     * 1008, which is most of the difference: generation is the one part of
+     * this that does not scale with the minutes.
+     *
+     * The SDK's own default is 60s, so without this every real summary dies
+     * at exactly one minute with `cURL error 28 ... 0 bytes received` - a
+     * timeout that looks like a broken provider and is not one at all.
+     *
+     * 900 rather than the 645 the measurement showed, because the number it
+     * has to survive is the *worst* cold run on a machine that is also doing
+     * other things - the first attempt at this timed out at 600 while the
+     * test suite and a frontend build were competing for the same CPU. A
+     * generous timeout costs nothing when a run succeeds and everything when
+     * a run that would have finished is killed: the retry pays the whole
+     * cost again from the beginning.
      *
      * Deliberately a constant rather than configuration. Nobody has asked to
      * tune this per environment, and a setting an admin can change is a setting
      * that can be set too low - which reintroduces the same silent failure in a
      * place where it is much harder to notice.
+     *
+     * Three numbers must stay above it, and all three fail in ways that look
+     * like something else: the job's own `timeout` (1080) or the worker kills
+     * a call that was still allowed to finish; the queue's `retry_after`
+     * (1500) or the queue hands the job to a second worker while the first is
+     * still running it, paying for the same run twice; and the job's
+     * `uniqueFor` (1200), which sits between the two - long enough that a run
+     * still going does not lose its lock, short enough that a lock left behind
+     * by a worker that died is gone before `retry_after` tries to re-dispatch
+     * the job, or that retry would be dropped as a duplicate and the run would
+     * never happen at all. The ordering is this constant < job `timeout` <
+     * `uniqueFor` < `retry_after`, and it is why none of them can be raised
+     * alone.
      */
-    private const TIMEOUT_SECONDS = 180;
+    private const TIMEOUT_SECONDS = 900;
 
     public function __construct(
         private readonly AiAgentRunner $runner,
