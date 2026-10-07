@@ -115,23 +115,35 @@ final readonly class MeetingSummaryBulk
     }
 
     /**
-     * A meeting with nothing usable in its summary column.
+     * A meeting with nothing usable in its summary column, and no run going.
      *
      * Written against the JSONB rather than a `whereNull` alone, because "no
      * summary" and "a summary that failed" are both a meeting a person would
      * expect the bulk action to cover, while `pending` and `none` are meetings
      * somebody else is already dealing with.
      *
+     * The second condition is the same rule the single-run endpoint enforces,
+     * and it has to be spelled out separately because the first condition does
+     * not imply it: under `Review` a run leaves the record's own content — and
+     * so its status — untouched, so a meeting whose last run failed still
+     * reads `failed` while a fresh run is under it. Without this, the dialog
+     * would offer that meeting and pay for a second model call that then
+     * overwrites the first one's proposal.
+     *
      * The JSON path goes through Laravel's `column->key` syntax rather than a
      * raw fragment. A raw string as the first argument to `where` is a column
      * name to the grammar, so `"summary->>'status' = ?"` compiles to
-     * `"summary"->>'>''status'' = ?'` — valid SQL that matches nothing, and
+     * `"summary"->>'>''status'' = ?'` - valid SQL that matches nothing, and
      * silent about it, which is the worst shape a filter can have.
      */
     private function ungenerated(Builder $query): void
     {
         $query
-            ->whereNull('summary')
-            ->orWhere('summary->status', MeetingSummary::STATUS_FAILED);
+            ->where(fn (Builder $unused) => $unused
+                ->whereNull('summary')
+                ->orWhere('summary->status', MeetingSummary::STATUS_FAILED))
+            ->where(fn (Builder $running) => $running
+                ->whereNull('summary->pending->status')
+                ->orWhere('summary->pending->status', '!=', MeetingSummary::STATUS_PENDING));
     }
 }

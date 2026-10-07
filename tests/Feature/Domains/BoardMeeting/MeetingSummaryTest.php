@@ -512,14 +512,46 @@ describe('the job', function () {
         MeetingSummaryAgent::fake(function (): array {
             // Read inside the run: a bulk action leaves most of the registry
             // in flight at once, and "queued" must not look like "never asked".
-            expect($this->meeting->fresh()->summary['status'])->toBe(MeetingSummary::STATUS_PENDING);
+            $running = $this->meeting->fresh()->summary;
+
+            expect($running['status'])->toBe(MeetingSummary::STATUS_PENDING)
+                // Under `Apply` the run is the row, so its start time sits at
+                // the top — the only start time a reloaded tab can count from.
+                ->and(abs(time() - strtotime($running['started_at'])))->toBeLessThan(60);
 
             return ['executive_summary' => 'خلاصه'];
         });
 
         runSummaryJob($this->meeting->id, ['executive_summary']);
 
-        expect($this->meeting->fresh()->summary['status'])->toBe(MeetingSummary::STATUS_OK);
+        expect($this->meeting->fresh()->summary['status'])->toBe(MeetingSummary::STATUS_OK)
+            ->and($this->meeting->fresh()->summary['started_at'])->toBeNull();
+    });
+
+    it('stamps when the run began, alongside the stamp itself', function () {
+        MeetingSummaryAgent::fake(function (): array {
+            // A refresh or a second tab has never seen a progress event, so
+            // the start time it counts from is this one. Under `Review` the
+            // run *is* the candidate - the record's own content is left alone
+            // on purpose - so the date lives there rather than at the top.
+            $started = $this->meeting->fresh()->summary['pending']['started_at'];
+
+            expect($started)->toBeString()
+                ->and(abs(time() - strtotime($started)))->toBeLessThan(60);
+
+            return ['executive_summary' => 'خلاصه'];
+        });
+
+        runSummaryJob(
+            $this->meeting->id,
+            ['executive_summary'],
+            SummaryWriteMode::Review,
+        );
+
+        // Cleared with the stamp: a row whose run has reported has no run
+        // under way, and a date saying otherwise would make the next reader
+        // count from a run that is over.
+        expect($this->meeting->fresh()->summary['pending']['started_at'])->toBeNull();
     });
 
     it('leaves a human-owned meeting unlocked', function () {

@@ -107,6 +107,27 @@ describe('GET /api/board-meetings/summary/candidates', function () {
         expect($ids)->toEqualCanonicalizing([$blank->id, $failed->id]);
     });
 
+    it('omits a meeting whose run is under way even though its last run failed', function () {
+        $stillWaiting = ($this->withSummary)(['status' => MeetingSummary::STATUS_FAILED]);
+        $underWay = ($this->withSummary)([
+            'status' => MeetingSummary::STATUS_FAILED,
+            'error' => MeetingSummary::REASON_UNAVAILABLE,
+            'pending' => MeetingSummary::pending()->toArray(),
+        ]);
+
+        $ids = actingAs(createUserWithPermissions(['board-meeting.sync']))
+            ->getJson('/api/board-meetings/summary/candidates')
+            ->json('data.*.id');
+
+        // Under `Review` a run leaves the record's own status alone, so a
+        // meeting whose *last* run failed still reads `failed` while a new one
+        // is going. Without the second condition the dialog would offer it,
+        // queue a second model call, and the first one's proposal would be
+        // taken by whichever landed later.
+        expect($ids)->toEqualCanonicalizing([$stillWaiting->id])
+            ->and($ids)->not->toContain($underWay->id);
+    });
+
     it('carries the list filters, so the dialog can be narrowed', function () {
         $inRange = ($this->generate)(['held_on' => '2026-03-01', 'held_on_jalali' => '1405-01-10', 'sequence' => 1]);
         ($this->generate)(['held_on' => '2024-01-01', 'held_on_jalali' => '1402-10-22', 'sequence' => 3]);

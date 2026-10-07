@@ -10,5 +10,6 @@ return [
     'summary' => [
         'nothing_pending' => 'There is no summary awaiting a decision.',
         'bulk_queued' => ':count meetings queued. :skipped skipped.',
+        'run_in_flight' => 'A summary run for this meeting is already under way; wait for it to finish before starting another.',
     ],
 ];

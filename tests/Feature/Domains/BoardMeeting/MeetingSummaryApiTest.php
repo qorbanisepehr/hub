@@ -122,6 +122,65 @@ describe('POST /api/board-meetings/{meeting}/summary', function () {
             ->assertUnprocessable()
             ->assertJsonValidationErrors('mode');
     });
+
+    it('refuses a second run while a proposal run is under way', function () {
+        Queue::fake();
+
+        // The run reports on the candidate under `Review`, and the record's own
+        // status is deliberately left alone — so a guard that read the status
+        // only would wave a second run straight through the first one. Two runs
+        // of one meeting race for one `summary` column, and whichever lands
+        // second takes the first one's proposal with it.
+        $this->meeting->forceFill(['summary' => MeetingSummary::pending()->toArray()])->save();
+
+        actingAs(createUserWithPermissions(['board-meeting.update']))
+            ->postJson("/api/board-meetings/{$this->meeting->id}/summary")
+            ->assertConflict();
+
+        Queue::assertNotPushed(GenerateBoardMeetingSummaryJob::class);
+    });
+
+    it('refuses a second run while an applied run has the row itself pending', function () {
+        Queue::fake();
+
+        // The same rule under `Apply`, where the run *is* the row and the
+        // candidate is never written. Both placements, or one of the two modes
+        // would be unguarded.
+        $this->meeting->forceFill([
+            'summary' => MeetingSummary::pending()->mergedOver(MeetingSummary::none())->toArray(),
+        ])->save();
+
+        expect($this->meeting->fresh()->summary['status'])->toBe(MeetingSummary::STATUS_PENDING)
+            ->and($this->meeting->fresh()->summary['pending'])->toBeNull();
+
+        actingAs(createUserWithPermissions(['board-meeting.update']))
+            ->postJson("/api/board-meetings/{$this->meeting->id}/summary")
+            ->assertConflict();
+
+        Queue::assertNotPushed(GenerateBoardMeetingSummaryJob::class);
+    });
+
+    it('allows a run once the previous one has reported', function () {
+        Queue::fake();
+
+        // A proposal awaiting a decision is not a run in flight, and the whole
+        // point of being able to ask for another run is that the first one may
+        // have got it wrong. The guard is about concurrency, not about how many
+        // times somebody may ask.
+        $this->meeting->forceFill([
+            'summary' => MeetingSummary::none()->withPending(new MeetingSummary(
+                status: MeetingSummary::STATUS_OK,
+                values: ['executive_summary' => 'خلاصهٔ نادرست'],
+                fields: ['executive_summary' => ['status' => MeetingSummary::FIELD_OK]],
+            ))->toArray(),
+        ])->save();
+
+        actingAs(createUserWithPermissions(['board-meeting.update']))
+            ->postJson("/api/board-meetings/{$this->meeting->id}/summary")
+            ->assertOk();
+
+        Queue::assertPushed(GenerateBoardMeetingSummaryJob::class);
+    });
 });
 
 describe('POST /api/board-meetings/{meeting}/summary/accept', function () {

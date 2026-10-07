@@ -89,6 +89,12 @@ final readonly class MeetingSummary
      * @param  Values  $values  one entry per requested field
      * @param  array<string, FieldState>  $fields  one entry per requested field
      * @param  array{input_tokens: int, output_tokens: int, total_tokens: int}|null  $usage
+     * @param  string|null  $startedAt  when the run behind a `pending` stamp
+     *                                  began, so a reader can measure the wait
+     *                                  without asking the server again. Null
+     *                                  for every state that is not a run in
+     *                                  flight: the stamp and the date are
+     *                                  written together and cleared together
      * @param  self|null  $pending  the last run's proposal, undecided
      */
     public function __construct(
@@ -100,6 +106,7 @@ final readonly class MeetingSummary
         public ?array $usage = null,
         public ?string $error = null,
         public ?string $generatedAt = null,
+        public ?string $startedAt = null,
         public ?self $pending = null,
     ) {}
 
@@ -107,10 +114,42 @@ final readonly class MeetingSummary
      * The row state for a meeting whose run has been dispatched but has not
      * reported. Written before the model is called so a bulk action over the
      * whole registry reads as "queued" rather than as "never asked".
+     *
+     * The date it started is stamped here rather than being left to
+     * `generated_at`, which answers a different question: that one is "when
+     * was this row's content established", and a run in flight has established
+     * nothing yet. Both are needed - one to date the content, one to measure
+     * the wait - and sharing a key would make them able to disagree.
      */
     public static function pending(): self
     {
-        return new self(status: self::STATUS_PENDING, values: [], fields: []);
+        return new self(
+            status: self::STATUS_PENDING,
+            values: [],
+            fields: [],
+            startedAt: now()->toIso8601String(),
+        );
+    }
+
+    /**
+     * Whether a run is queued or under way for this summary.
+     *
+     * The stamp sits in two places depending on the mode, which is the whole
+     * reason this is a method rather than a comparison at each call site: under
+     * `Review` the record's own content is left untouched, so the run reports
+     * on `pending`, while under `Apply` the run is the row and reports on the
+     * status itself. Read from either, at either level - a candidate never has
+     * a candidate of its own, so calling this on the proposal reads its own
+     * status and nothing else.
+     *
+     * This is what a second request for a run has to ask before it starts one.
+     * Two runs of the same meeting race for one `summary` column, and the one
+     * that lands second takes the first one's proposal with it.
+     */
+    public function isInFlight(): bool
+    {
+        return $this->status === self::STATUS_PENDING
+            || $this->pending?->status === self::STATUS_PENDING;
     }
 
     /**
@@ -165,6 +204,9 @@ final readonly class MeetingSummary
             // "nothing awaits a decision" from "an older shape that had no
             // pending key at all".
             'pending' => $this->pending?->toArray(),
+            // Beside `pending` rather than inside it because both modes need
+            // it: `Apply` stamps the row itself, and only the row is written.
+            'started_at' => $this->startedAt,
         ];
     }
 
@@ -296,6 +338,7 @@ final readonly class MeetingSummary
             usage: self::readUsage($raw['usage'] ?? null),
             error: is_string($raw['error'] ?? null) ? $raw['error'] : null,
             generatedAt: is_string($raw['generated_at'] ?? null) ? $raw['generated_at'] : null,
+            startedAt: is_string($raw['started_at'] ?? null) ? $raw['started_at'] : null,
         );
     }
 
@@ -495,9 +538,9 @@ final readonly class MeetingSummary
      * and forgotten in one of them is a silent data loss that no test of the
      * four operations would necessarily catch.
      *
-     * `array_key_exists`, not `??`, because `pending` and `error` both take a
-     * meaningful null: `??` would make "clear the proposal" unreachable and
-     * silently keep the one being cleared.
+     * `array_key_exists`, not `??`, because `pending`, `error` and `startedAt`
+     * all take a meaningful null: `??` would make "clear the proposal"
+     * unreachable and silently keep the one being cleared.
      *
      * @param  array<string, mixed>  $overrides
      */
@@ -516,6 +559,7 @@ final readonly class MeetingSummary
             usage: $read('usage', $this->usage),
             error: $read('error', $this->error),
             generatedAt: $read('generatedAt', $this->generatedAt),
+            startedAt: $read('startedAt', $this->startedAt),
             pending: $read('pending', $this->pending),
         );
     }

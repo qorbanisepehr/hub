@@ -33,7 +33,8 @@ use Symfony\Component\HttpFoundation\Response;
  * request and get out of the way — under the sync queue used in development
  * the work happens inline and the response is simply the finished row, which
  * is the same response either way and keeps the client from needing two
- * code paths.
+ * code paths. It refuses while a run for that meeting is still going, for the
+ * reason stated at the check itself.
  *
  * `accept` is the other half, and the reason the first one is safe to expose:
  * the person who asked for a run decides what it did. Both are gated on
@@ -47,8 +48,24 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class MeetingSummaryController
 {
-    public function store(GenerateMeetingSummaryRequest $request, BoardMeeting $meeting): BoardMeetingResource
+    public function store(GenerateMeetingSummaryRequest $request, BoardMeeting $meeting): BoardMeetingResource|JsonResponse
     {
+        // One run at a time per meeting, and the row says whether one is going.
+        // Two runs of the same meeting race for one `summary` column, and the
+        // second to land takes the first one's proposal with it; the queue's
+        // own lock only drops a *repeat* of an identical request, so a
+        // different field subset or a different model would slip past it, be
+        // paid for twice, and overwrite the run already under way.
+        //
+        // A conflict rather than a 422: nothing about the request is wrong, and
+        // the recovery is the same one the other two paths hand back - re-read
+        // the meeting, which is what a 409 tells the client to do.
+        if (MeetingSummary::fromArray($meeting->summary)?->isInFlight() === true) {
+            return response()->json([
+                'message' => __('board_meeting.summary.run_in_flight'),
+            ], Response::HTTP_CONFLICT);
+        }
+
         GenerateBoardMeetingSummaryJob::dispatch(
             meetingId: $meeting->getKey(),
             fields: $request->summaryFields(),
