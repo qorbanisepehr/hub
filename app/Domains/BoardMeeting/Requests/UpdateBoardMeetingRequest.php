@@ -11,7 +11,7 @@ use Illuminate\Validation\Rule;
  *
  * Only human-owned columns are accepted: `title`, `minutes`, and
  * `attendees` (ADR-011 D7). The registry columns — dates, sequence,
- * approvals, agenda, provenance — belong to the source and are refreshed
+ * agenda, provenance — belong to the source and are refreshed
  * by a sync, never typed by a person; `summary` belongs to the AI job.
  *
  * The attendee payload is validated here and converted to its contract

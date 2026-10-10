@@ -22,6 +22,12 @@ return new class extends Migration
      * are human-owned, and `source_locked_at` is set by the model on the first
      * human edit so a later re-import can never revert it.
      *
+     * A مصوبه's registry number is deliberately not a column here (vault idea
+     * 567): it lives where the scan does — on the meeting's document-usage
+     * `metadata` as `registry_number`/`title` (next to `notes`/`source_path`).
+     * The retired `approvals` JSONB column existed only briefly in dev and is
+     * folded into this create migration: fresh schemas never see it.
+     *
      * `held_on` is the Gregorian canonical date (hub-wide convention);
      * `held_on_jalali` is the registry key in `yyyy-MM-dd` and is NOT a second
      * source of truth for the same value — it is the identity under which the
@@ -36,7 +42,6 @@ return new class extends Migration
             $table->unsignedSmallInteger('sequence')->default(1);
             $table->string('title')->nullable();
             $table->text('minutes')->nullable();
-            $table->jsonb('approvals')->nullable();
             $table->jsonb('agenda')->nullable();
             $table->jsonb('attendees')->nullable();
             $table->jsonb('summary')->nullable();

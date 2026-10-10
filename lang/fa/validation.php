@@ -536,6 +536,8 @@ return [
         'job_request.job_priority_2' => 'اولویت شغلی ۲',
         'job_request.currently_employed' => 'شاغل در حال حاضر',
         'job_request.available_start_date' => 'تاریخ شروع به کار',
+        'registry_number' => 'شمارهٔ مصوبه',
+        'title' => 'عنوان',
     ],
 
 ];

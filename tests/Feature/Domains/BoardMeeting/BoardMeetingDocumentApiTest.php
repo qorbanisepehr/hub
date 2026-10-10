@@ -46,6 +46,7 @@ describe('GET /api/board-meetings/{meeting}/documents', function () {
             ->postJson("/api/board-meetings/{$meeting->id}/documents", [
                 'document_category_id' => $category->id,
                 'file' => UploadedFile::fake()->createWithContent('approval.pdf', 'pdf-content'),
+                'registry_number' => '1001/ص/1404',
             ])
             ->assertCreated();
 
@@ -75,6 +76,8 @@ describe('POST /api/board-meetings/{meeting}/documents', function () {
             ->postJson("/api/board-meetings/{$meeting->id}/documents", [
                 'document_category_id' => $category->id,
                 'file' => UploadedFile::fake()->createWithContent('approval.pdf', 'pdf-content'),
+                'registry_number' => '1001/ص/1404',
+                'title' => 'مصوبهٔ بودجه',
                 'notes' => 'صورتجلسه امضاشده',
             ])
             ->assertCreated();
@@ -83,6 +86,8 @@ describe('POST /api/board-meetings/{meeting}/documents', function () {
 
         expect($data['structure_name'])->toBe('2025-07-23 — مصوبات جلسات هیئت مدیره')
             ->and($data['notes'])->toBe('صورتجلسه امضاشده')
+            ->and($data['metadata']['registry_number'])->toBe('1001/ص/1404')
+            ->and($data['metadata']['title'])->toBe('مصوبهٔ بودجه')
             ->and($data['deleted_at'])->toBeNull();
 
         expect(Document::query()->whereHas('usages', fn ($query) => $query->where('entity_type', BoardMeeting::class))->exists())->toBeTrue();
@@ -91,12 +96,28 @@ describe('POST /api/board-meetings/{meeting}/documents', function () {
         Storage::disk('local')->assertExists($path);
     });
 
+    it('requires the registry number for an upload', function () {
+        // Vault idea 567, order A: a meeting upload must name its مصوبه
+        // number — it is the only place those numbers live anymore.
+        $meeting = BoardMeeting::factory()->create();
+        $user = createUserWithPermissions(['board-meeting.documents.upload']);
+
+        actingAs($user)
+            ->postJson("/api/board-meetings/{$meeting->id}/documents", [
+                'file' => UploadedFile::fake()->createWithContent('approval.pdf', 'pdf-content'),
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['registry_number']);
+    });
+
     it('validates the file (category is fixed and not client-chosen)', function () {
         $meeting = BoardMeeting::factory()->create();
         $user = createUserWithPermissions(['board-meeting.documents.upload']);
 
         actingAs($user)
-            ->postJson("/api/board-meetings/{$meeting->id}/documents", [])
+            ->postJson("/api/board-meetings/{$meeting->id}/documents", [
+                'registry_number' => '1001/ص/1404',
+            ])
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['file']);
     });
@@ -115,6 +136,7 @@ describe('POST /api/board-meetings/{meeting}/documents', function () {
             ->postJson("/api/board-meetings/{$meeting->id}/documents", [
                 'document_category_id' => $foreign->id,
                 'file' => UploadedFile::fake()->createWithContent('a.pdf', 'x'),
+                'registry_number' => '1002/ص/1404',
             ])
             ->assertCreated();
 
@@ -132,6 +154,7 @@ describe('POST /api/board-meetings/{meeting}/documents', function () {
             ->postJson("/api/board-meetings/{$meeting->id}/documents", [
                 'document_category_id' => $category->id,
                 'file' => UploadedFile::fake()->createWithContent('big.pdf', str_repeat('a', 2048)),
+                'registry_number' => '1003/ص/1404',
             ])
             ->assertUnprocessable();
     });
@@ -145,6 +168,7 @@ describe('POST /api/board-meetings/{meeting}/documents', function () {
             ->postJson("/api/board-meetings/{$meeting->id}/documents", [
                 'document_category_id' => $category->id,
                 'file' => UploadedFile::fake()->createWithContent('a.pdf', 'x'),
+                'registry_number' => '1004/ص/1404',
             ])
             ->assertForbidden();
     });
@@ -161,6 +185,7 @@ describe('DELETE /api/board-meetings/{meeting}/documents/{usage}', function () {
             ->postJson("/api/board-meetings/{$meeting->id}/documents", [
                 'document_category_id' => $category->id,
                 'file' => UploadedFile::fake()->createWithContent('a.pdf', 'x'),
+                'registry_number' => '1005/ص/1404',
             ])
             ->assertCreated()
             ->json('data.usage_id');
@@ -183,6 +208,7 @@ describe('DELETE /api/board-meetings/{meeting}/documents/{usage}', function () {
             ->postJson("/api/board-meetings/{$meeting->id}/documents", [
                 'document_category_id' => $category->id,
                 'file' => UploadedFile::fake()->createWithContent('a.pdf', 'x'),
+                'registry_number' => '1006/ص/1404',
             ])
             ->assertCreated();
 
@@ -205,6 +231,7 @@ describe('GET /api/board-meetings/documents/{uuid}/serve', function () {
             ->postJson("/api/board-meetings/{$meeting->id}/documents", [
                 'document_category_id' => $category->id,
                 'file' => UploadedFile::fake()->createWithContent('a.pdf', 'file-body'),
+                'registry_number' => '1007/ص/1404',
             ])
             ->assertCreated()
             ->json('data.uuid');

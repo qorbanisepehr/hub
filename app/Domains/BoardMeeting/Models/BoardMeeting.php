@@ -3,7 +3,6 @@
 namespace App\Domains\BoardMeeting\Models;
 
 use App\Casts\AgendaItemListCast;
-use App\Casts\ApprovalListCast;
 use App\Casts\AttendeeListCast;
 use App\Contracts\Documentable;
 use App\Domains\Tagging\Concerns\Taggable;
@@ -28,12 +27,12 @@ use Illuminate\Database\Eloquent\Model;
  * can never revert it. The rest of the registry columns belong to the
  * source and are refreshed by `BoardMeetingRegistry::import()`.
  *
- * Two columns belong to neither side, and the registry's input contract
- * simply does not carry them: `approvals` arrives once with the archive
- * migration and afterwards only the Document system links to it
- * (ADR-011 decision 9); `summary` is the AI job's. Both are deliberately
- * outside the lock — a summary must regenerate on a locked row, and no
- * sync may empty a list of approved numbers.
+ * One column belongs to neither side, and the registry's input contract
+ * simply does not carry it: `summary` is the AI job's. A meeting's
+ * registry numbers are not a column here at all — they live in the hub
+ * Document system, on each usage's `metadata` (`registry_number`/`title`,
+ * ADR-011 decision 9). `summary` is deliberately outside the lock: it
+ * must regenerate on a locked row.
  */
 #[UseFactory(BoardMeetingFactory::class)]
 final class BoardMeeting extends Model implements Documentable
@@ -59,7 +58,6 @@ final class BoardMeeting extends Model implements Documentable
         'sequence',
         'title',
         'minutes',
-        'approvals',
         'agenda',
         'attendees',
         'summary',
@@ -74,7 +72,6 @@ final class BoardMeeting extends Model implements Documentable
         return [
             'held_on' => 'date',
             'sequence' => 'integer',
-            'approvals' => ApprovalListCast::class,
             'agenda' => AgendaItemListCast::class,
             'attendees' => AttendeeListCast::class,
             'provenance' => 'array',

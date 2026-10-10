@@ -18,10 +18,11 @@ use InvalidArgumentException;
  * - `minutes` and `attendees` are human-owned. They are only ever
  *   written when the registry CREATES the row, and only until a human
  *   edit has set `source_locked_at`.
- * - `approvals` is deliberately ABSENT, which is the enforcement rather
- *   than a convention: the registry cannot refresh it, so no source can
- *   wipe a list of approved numbers and their documents. See ADR-011
- *   decision 9.
+ * - registry numbers are deliberately ABSENT — there is no field for
+ *   them, which is the enforcement rather than a convention: the
+ *   registry cannot refresh them, so no source can wipe a list of
+ *   approved numbers. They live in the hub Document system, on each
+ *   usage's `metadata` (`registry_number`/`title`, ADR-011 decision 9).
  *
  * @phpstan-type Provenance array{letter_ids?: list<int>, session_ids?: list<int>}
  */

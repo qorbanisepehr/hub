@@ -14,14 +14,6 @@ export interface BoardMeetingTagDto {
     name: string;
 }
 
-export interface BoardMeetingApprovalDto {
-    /** Registry number as the archive files it, e.g. `1001/ص/1404`. */
-    number: string;
-    title: string | null;
-    /** Set once the approval PDF is in the hub Document system (F3). */
-    document_id: number | null;
-}
-
 export interface BoardMeetingAgendaItemDto {
     position: number;
     title: string;
@@ -43,8 +35,6 @@ export interface BoardMeetingDto {
     registry_label: string;
     sequence: number;
     title: string | null;
-    approval_count: number;
-    approvals: BoardMeetingApprovalDto[];
     attendee_count: number;
     tags: BoardMeetingTagDto[];
     /** Which source seeded the registry columns, e.g. `farzin`. */
@@ -279,6 +269,12 @@ export interface MeetingDocumentDto {
     section_key: string | null;
     field_key: string | null;
     notes: string | null;
+    /**
+     * `registry_number`/`title`/`source_path` — where a meeting's مصوبات
+     * numbers live (vault idea 567). The API emits it inline, in the same
+     * shape the shared document worker reads.
+     */
+    metadata: Record<string, unknown> | null;
     deleted_at: string | null;
     url: string;
     download_url: string;
@@ -300,4 +296,22 @@ export interface MeetingDocumentCapabilities {
 export interface MeetingDocumentsResponse {
     data: MeetingDocumentDto[];
     capabilities: MeetingDocumentCapabilities;
+}
+
+/** A bulk-upload row that was not written — the metadata names it. */
+export interface BulkUploadRejectedRow {
+    file: string;
+    metadata: Record<string, unknown>;
+    reason: string;
+}
+
+/**
+ * Per-file report of the meeting bulk upload: imported entries carry the same
+ * payloads as the list, and skipped/failed rows say what was not written and
+ * why — a batch that mostly landed is a normal result, not an error.
+ */
+export interface BulkDocumentUploadReport {
+    imported: MeetingDocumentDto[];
+    skipped: BulkUploadRejectedRow[];
+    failed: BulkUploadRejectedRow[];
 }

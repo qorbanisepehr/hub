@@ -29,12 +29,11 @@ use Illuminate\Support\Collection;
  * day has one, otherwise the Jalali key is converted. Letters group by
  * the meeting date in their subject, never by the letter's own date.
  *
- * Approvals are NOT projected here. They were read off the TCK archive
- * folder's filenames, and that folder is not a Farzin source — Farzin
- * stores no file blobs — so a live sync would have projected an empty
- * list and wiped the numbers the one-time migration imported along with
- * their documents. The archive therefore lives only in the migration
- * (ADR-011 decision 9).
+ * Registry numbers are NOT projected here. They are not a Farzin column —
+ * Farzin stores no file blobs and no مصوبات list — and they have never
+ * been part of the registry's input contract. The one-time archive
+ * migration recorded them on the hub Document system's usages, so a live
+ * sync physically cannot touch them (ADR-011 decision 9).
  *
  * @phpstan-type LetterGroup Collection<int, IntegrationRecord>
  */

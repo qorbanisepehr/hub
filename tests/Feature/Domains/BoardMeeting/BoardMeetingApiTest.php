@@ -5,7 +5,6 @@ use App\Domains\BoardMeeting\Enums\AttendeeRole;
 use App\Domains\BoardMeeting\Events\BoardMeetingUpdated;
 use App\Domains\BoardMeeting\Models\BoardMeeting;
 use App\Domains\BoardMeeting\Value\AgendaItem;
-use App\Domains\BoardMeeting\Value\Approval;
 use App\Domains\BoardMeeting\Value\Attendee;
 use App\Domains\Tagging\Services\TagService;
 use App\Models\User;
@@ -36,7 +35,7 @@ describe('GET /api/board-meetings', function () {
             'data' => [
                 '*' => [
                     'id', 'held_on', 'held_on_jalali', 'registry_label', 'sequence',
-                    'title', 'approval_count', 'approvals', 'attendee_count',
+                    'title', 'attendee_count',
                     'tags', 'origin', 'imported_at', 'source_locked_at', 'source_locked',
                 ],
             ],
@@ -128,7 +127,7 @@ describe('GET /api/board-meetings', function () {
 describe('GET /api/board-meetings/{meeting}', function () {
     it('shows the meeting with minutes, agenda, and attendance', function () {
         $meeting = BoardMeeting::factory()
-            ->withApprovals(new Approval('1234/ص/1404', 'بودجهٔ ۱۴۰۳'))
+            ->withApprovalDocuments(1)
             ->withAgenda(new AgendaItem(1, 'تصویب صورت‌های مالی'))
             ->withAttendees(new Attendee('عضو نمونه', AttendeeRole::Chair))
             ->create([
@@ -146,8 +145,13 @@ describe('GET /api/board-meetings/{meeting}', function () {
             ->and($response->json('data.registry_label'))->toBe('1404/06/15')
             ->and($response->json('data.minutes'))->toBe('بند اول صورتجلسه')
             ->and($response->json('data.agenda'))->toHaveCount(1)
-            ->and($response->json('data.attendees.0.role'))->toBe('chair')
-            ->and($response->json('data.approvals.0.number'))->toBe('1234/ص/1404');
+            ->and($response->json('data.attendees.0.role'))->toBe('chair');
+
+        // Registry numbers are not a meeting field (vault idea 567): they
+        // live on the documents endpoint, so the meeting payload must not
+        // carry an approvals list at all.
+        $response->assertJsonMissingPath('data.approvals')
+            ->assertJsonMissingPath('data.approval_count');
     });
 
     it('labels a second meeting of the same day', function () {
@@ -210,7 +214,6 @@ describe('PUT /api/board-meetings/{meeting}', function () {
         actingAs($user)
             ->putJson("/api/board-meetings/{$meeting->id}", [
                 'held_on' => '2020-01-01', // registry-owned, never accepted
-                'approvals' => [], // ditto
                 'attendees' => [['name' => 'x', 'role' => 'wizard']],
             ])
             ->assertUnprocessable()

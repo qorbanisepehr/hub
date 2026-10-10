@@ -5,6 +5,7 @@ namespace App\Domains\BoardMeeting\Controllers;
 use App\Contracts\DocumentAuthorization;
 use App\Domains\BoardMeeting\Models\BoardMeeting;
 use App\Domains\BoardMeeting\Requests\StoreBoardMeetingDocumentRequest;
+use App\Domains\BoardMeeting\Requests\StoreBoardMeetingDocumentsBulkRequest;
 use App\Domains\Document\Auth\DocumentAuthorizationContext;
 use App\Domains\Document\Enums\DocumentAction;
 use App\Domains\Document\Models\Document;
@@ -57,7 +58,15 @@ class BoardMeetingDocumentController extends Controller
             DocumentAuthorizationContext::forOwner($meeting, category: $category),
         );
 
-        $metadata = [];
+        // The registry number is the point of a meeting upload (vault idea
+        // 567, order A): it is stored on the usage's metadata — where the
+        // archive import and the export read it — not on the meeting.
+        $metadata = ['registry_number' => $request->input('registry_number')];
+
+        if ($title = $request->input('title')) {
+            $metadata['title'] = $title;
+        }
+
         if ($notes = $request->input('notes')) {
             $metadata['notes'] = $notes;
         }
@@ -66,7 +75,7 @@ class BoardMeetingDocumentController extends Controller
             $meeting,
             $request->file('file'),
             $category,
-            metadata: $metadata !== [] ? $metadata : null,
+            metadata: $metadata,
         );
 
         $usage = $this->documentService->newestUsageFor($meeting, $document->id);
@@ -75,6 +84,49 @@ class BoardMeetingDocumentController extends Controller
             'data' => $this->documentService->documentPayload($document, $usage, 'board-meeting.documents.serve'),
             'message' => __('document.document_uploaded'),
         ], 201);
+    }
+
+    /**
+     * Import many مصوب in one pass. The response is a per-file report
+     * (imported / skipped duplicated / failed), so a batch that mostly landed
+     * is a 200 with the exceptions named — not a failed whole import. One
+     * authorization for the whole batch: the capability is per meeting, not
+     * per file.
+     */
+    public function bulkStore(StoreBoardMeetingDocumentsBulkRequest $request, BoardMeeting $meeting): JsonResponse
+    {
+        $category = DocumentCategory::findOrFail($request->resolvedCategoryId());
+
+        $this->authorizeRequest(
+            $request,
+            DocumentAction::Upload,
+            DocumentAuthorizationContext::forOwner($meeting, category: $category),
+        );
+
+        $entries = array_map(
+            static fn (array $row): array => [
+                'file' => $row['file'],
+                'metadata' => array_filter([
+                    'registry_number' => $row['registry_number'],
+                    'title' => $row['title'],
+                    'notes' => $row['notes'],
+                ], static fn ($value) => $value !== null),
+            ],
+            $request->entries(),
+        );
+
+        $report = $this->documentService->bulkUpload(
+            $meeting,
+            $category,
+            $entries,
+            dedupeKey: 'registry_number',
+            serveRouteName: 'board-meeting.documents.serve',
+        );
+
+        return response()->json([
+            'data' => $report,
+            'message' => __('document.bulk_uploaded', ['count' => count($report['imported'])]),
+        ]);
     }
 
     public function destroy(Request $request, BoardMeeting $meeting, DocumentUsage $usage): JsonResponse

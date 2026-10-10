@@ -2,7 +2,7 @@
 
 namespace App\Domains\BoardMeeting\Requests;
 
-use App\Domains\Document\Models\DocumentCategory;
+use App\Domains\BoardMeeting\Requests\Concerns\ResolvesApprovalCategory;
 use App\Domains\Document\Requests\Concerns\ValidatesDocumentUpload;
 use Illuminate\Foundation\Http\FormRequest;
 
@@ -13,13 +13,16 @@ use Illuminate\Foundation\Http\FormRequest;
  * is FIXED (user decision 2026-09-28 — the approvals category is known
  * and constant for this entity): clients do not choose one, and any
  * document_category_id a legacy client still sends is ignored.
+ *
+ * An upload must name its registry number (vault idea 567, order A): the
+ * number is stored on the usage's `metadata` as `registry_number`, the
+ * only place a meeting's مصوبات numbers live now that the `approvals`
+ * column is gone. `title` is the optional human title of that مصوبه.
  */
 class StoreBoardMeetingDocumentRequest extends FormRequest
 {
+    use ResolvesApprovalCategory;
     use ValidatesDocumentUpload;
-
-    /** The fixed category slug meeting documents belong to. */
-    public const FIXED_CATEGORY_SLUG = 'board-meeting-approvals';
 
     public function authorize(): bool
     {
@@ -29,19 +32,10 @@ class StoreBoardMeetingDocumentRequest extends FormRequest
     /** @return array<string, mixed> */
     public function rules(): array
     {
-        return $this->documentUploadRules('board-meeting', withPlacement: false, withMeta: false);
-    }
-
-    /** The fixed category, created on first use (no seeding dependency). */
-    public function resolvedCategoryId(): int
-    {
-        return (int) DocumentCategory::query()->firstOrCreate(
-            ['slug' => self::FIXED_CATEGORY_SLUG],
-            [
-                'name' => 'مصوبات جلسات هیئت مدیره',
-                'type' => DocumentCategory::TYPE_PERSONNEL,
-                'sort_order' => 90,
-            ],
-        )->id;
+        return [
+            ...$this->documentUploadRules('board-meeting', withPlacement: false, withMeta: false),
+            'registry_number' => ['required', 'string', 'max:64'],
+            'title' => ['nullable', 'string', 'max:255'],
+        ];
     }
 }

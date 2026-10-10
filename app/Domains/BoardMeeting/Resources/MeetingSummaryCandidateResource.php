@@ -10,9 +10,10 @@ use Illuminate\Http\Resources\Json\JsonResource;
  * One meeting in the bulk summary picker.
  *
  * Deliberately not the full meeting resource. This list exists to be read and
- * ticked, and the full payload carries approvals, attendees, agenda and the
- * minutes — hundreds of meetings of minutes would be downloaded to render a
- * checklist. Only the two things a person identifies a meeting by are here.
+ * ticked, and the full payload carries the attendees, agenda and the minutes —
+ * hundreds of meetings of minutes would be downloaded to render a
+ * checklist, and the documents are read through their own endpoint anyway.
+ * Only the two things a person identifies a meeting by are here.
  *
  * @property BoardMeeting $resource
  */

@@ -21,6 +21,7 @@ import {
     syncBoardMeetings,
     updateBoardMeeting,
     uploadMeetingDocument,
+    uploadMeetingDocumentsBulk,
 } from "../api";
 import type {
     AcceptSummaryPayload,
@@ -61,9 +62,10 @@ export function useBoardMeeting(id: number | string) {
 }
 
 /**
- * Meeting documents + capabilities. Upload/delete mutations refresh both
- * the documents query and the meeting detail (its `approval_count` and
- * the `document_id` on each approval).
+ * Meeting documents + capabilities — the only place a meeting's registry
+ * numbers are read now (vault idea 567): each number sits on its usage's
+ * `metadata`, not on the meeting row. Upload/delete refresh it, and the
+ * detail page reads the same query for its tab badge and stats tile.
  */
 export function useMeetingDocuments(meetingId: number | string) {
     return useQuery({
@@ -348,6 +350,52 @@ export function useUploadMeetingDocument(meetingId: number | string) {
             });
             void queryClient.invalidateQueries({
                 queryKey: boardMeetingKeys.detail(meetingId),
+            });
+        },
+    });
+}
+
+/**
+ * Import several مصوب in one pass. The server returns a per-file report; the
+ * toast leads with the count that actually landed and says how many were
+ * skipped as duplicates — uploading a number the meeting already has should
+ * be heard, not silently dropped.
+ */
+export function useBulkUploadMeetingDocuments(meetingId: number | string) {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (formData: FormData) =>
+            uploadMeetingDocumentsBulk(meetingId, formData),
+        onSuccess: (result) => {
+            const { imported, skipped, failed } = result.data.data;
+
+            toast.success("بارگذاری گروهی انجام شد", {
+                description: [
+                    imported.length > 0
+                        ? `${imported.length.toLocaleString("fa-IR")} مصوبه بارگذاری شد`
+                        : null,
+                    skipped.length > 0
+                        ? `${skipped.length.toLocaleString("fa-IR")} تکراری رد شد`
+                        : null,
+                    failed.length > 0
+                        ? `${failed.length.toLocaleString("fa-IR")} ناموفق`
+                        : null,
+                ]
+                    .filter(Boolean)
+                    .join(" · "),
+            });
+
+            void queryClient.invalidateQueries({
+                queryKey: boardMeetingKeys.documents(meetingId),
+            });
+            void queryClient.invalidateQueries({
+                queryKey: boardMeetingKeys.detail(meetingId),
+            });
+        },
+        onError: (error) => {
+            toast.error("بارگذاری گروهی ناموفق بود", {
+                description: getApiError(error) ?? "خطای ناشناخته",
             });
         },
     });

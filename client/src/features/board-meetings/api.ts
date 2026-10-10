@@ -6,6 +6,7 @@ import type {
     BoardMeetingListParams,
     BoardMeetingListResponse,
     BoardMeetingSyncResult,
+    BulkDocumentUploadReport,
     GenerateSummaryPayload,
     MeetingDocumentsResponse,
     MeetingSummaryFieldName,
@@ -175,6 +176,23 @@ export function uploadMeetingDocument(
         data: MeetingDocumentsResponse["data"][number];
         message: string;
     }>(`/board-meetings/${meetingId}/documents`, formData, {
+        headers: FORM_DATA_HEADERS,
+    });
+}
+
+/**
+ * Import many مصوب in one pass. The response is a per-file report rather
+ * than a single created resource, so a batch that mostly succeeded is 200
+ * with the skipped/failed rows naming what was not written.
+ */
+export function uploadMeetingDocumentsBulk(
+    meetingId: number | string,
+    formData: FormData,
+) {
+    return api.post<{
+        data: BulkDocumentUploadReport;
+        message: string;
+    }>(`/board-meetings/${meetingId}/documents/bulk`, formData, {
         headers: FORM_DATA_HEADERS,
     });
 }

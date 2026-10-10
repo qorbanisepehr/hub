@@ -10,6 +10,7 @@ use App\Contracts\External\FarzinGateway;
 use App\Contracts\External\InboxGateway;
 use App\Domains\Authorization\Policies\DynamicPolicy;
 use App\Domains\Authorization\Services\AuthorizationService;
+use App\Domains\BoardMeeting\Imports\BoardMeetingDocumentsImportDefinition;
 use App\Domains\Cv\Repositories\CvRepository;
 use App\Domains\Cv\Repositories\CvRepositoryInterface;
 use App\Domains\Document\Repositories\DocumentRepository;
@@ -50,6 +51,7 @@ use App\Support\Exports\Writer\JsonlWriter;
 use App\Support\Exports\Writer\TsvWriter;
 use App\Support\Exports\Writer\XlsxWriter;
 use App\Support\Exports\WriterRegistry;
+use App\Support\Imports\DocumentBundleImporterRegistry;
 use App\Support\Imports\ImportDefinitionRegistry;
 use App\Support\Imports\ImportService;
 use App\Support\Imports\Reader\CsvReader;
@@ -224,6 +226,16 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(ImportDefinitionRegistry::class, function (): ImportDefinitionRegistry {
             $registry = new ImportDefinitionRegistry;
             $registry->register('employees', app(EmployeeImportDefinition::class));
+
+            return $registry;
+        });
+
+        // Document-bundle importers: the sibling arm of the import kernel
+        // (bulk scanned files resolved by the user's filename pattern) —
+        // registered here like the tabular definitions.
+        $this->app->singleton(DocumentBundleImporterRegistry::class, function (): DocumentBundleImporterRegistry {
+            $registry = new DocumentBundleImporterRegistry;
+            $registry->register('board-meeting-documents', app(BoardMeetingDocumentsImportDefinition::class));
 
             return $registry;
         });

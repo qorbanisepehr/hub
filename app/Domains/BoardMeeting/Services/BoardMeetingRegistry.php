@@ -28,10 +28,11 @@ use Illuminate\Support\Facades\DB;
  *   the first human edit freezes the row so a re-import can never
  *   revert their work (D5).
  * - `approvals` is not in the input contract at all, so it is not
- *   written here. The approved numbers arrived with the one-time archive
- *   import and belong to the hub's Document system from then on; a
+ *   written here. A meeting's مصوبات numbers live in the hub's Document
+ *   system — each usage's `metadata` carries `registry_number`/`title` —
+ *   where the one-time archive import put them (ADR-011 decision 9); a
  *   source that could rewrite them could silently drop 269 numbers and
- *   their files (ADR-011 decision 9).
+ *   their files.
  *
  * Importing never deletes. A row that disappeared from the source is
  * kept: removal is a human decision, not a sync side effect.

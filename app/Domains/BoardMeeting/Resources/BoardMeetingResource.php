@@ -4,7 +4,6 @@ namespace App\Domains\BoardMeeting\Resources;
 
 use App\Domains\BoardMeeting\Models\BoardMeeting;
 use App\Domains\BoardMeeting\Value\AgendaItem;
-use App\Domains\BoardMeeting\Value\Approval;
 use App\Domains\BoardMeeting\Value\Attendee;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -39,11 +38,6 @@ class BoardMeetingResource extends JsonResource
             'registry_label' => $this->resource->registryLabel(),
             'sequence' => $this->resource->sequence,
             'title' => $this->resource->title,
-            'approval_count' => count($this->resource->approvals),
-            'approvals' => array_map(
-                fn (Approval $approval) => $approval->toArray(),
-                $this->resource->approvals,
-            ),
             'attendee_count' => count($this->resource->attendees),
             'tags' => $this->resource->tags->map(fn ($tag) => [
                 'slug' => $tag->slug,

@@ -4,9 +4,10 @@ use App\Domains\BoardMeeting\Enums\AttendeeRole;
 use App\Domains\BoardMeeting\Models\BoardMeeting;
 use App\Domains\BoardMeeting\Services\BoardMeetingRegistry;
 use App\Domains\BoardMeeting\Value\AgendaItem;
-use App\Domains\BoardMeeting\Value\Approval;
 use App\Domains\BoardMeeting\Value\Attendee;
 use App\Domains\BoardMeeting\Value\IncomingMeeting;
+use App\Domains\Document\Models\Document;
+use App\Domains\Document\Models\DocumentUsage;
 use Illuminate\Support\Facades\Storage;
 
 /**
@@ -68,24 +69,28 @@ it('round-trips the typed lists through their casts', function () {
         ->and($meeting->attendees[0]->role)->toBe(AttendeeRole::Member);
 });
 
-it('round-trips approvals, which no import may write', function () {
-    // `approvals` has no field on `IncomingMeeting`, so the cast's only
-    // writer today is the one-time archive migration. It still has to
-    // survive a round trip through the JSONB column (ADR-011 decision 9).
-    BoardMeeting::query()->create([
-        'held_on' => '2025-09-06',
-        'held_on_jalali' => '1404-06-15',
-        'sequence' => 1,
-        'origin' => 'farzin',
-        'approvals' => [new Approval('1234/ص/1404', 'صورت‌های مالی', 12)],
+it('never touches the Document system, so a re-import cannot drop a registry number', function () {
+    // Regression (vault idea 567, order A). Registry numbers are not a
+    // meeting field — they live on the hub Document system's usages, in
+    // `metadata->registry_number` — so the registry's input contract has
+    // no field for them and a re-import physically cannot reach them.
+    $registry = app(BoardMeetingRegistry::class);
+    $registry->import([incoming()]);
+
+    $usage = DocumentUsage::create([
+        'document_id' => Document::factory()->create()->id,
+        'entity_type' => BoardMeeting::class,
+        'entity_id' => BoardMeeting::query()->sole()->id,
+        'section_key' => null,
+        'field_key' => null,
+        'metadata' => ['registry_number' => '1234/ص/1404', 'title' => 'صورت‌های مالی'],
     ]);
 
-    $approval = BoardMeeting::query()->sole()->approvals[0];
+    $registry->import([incoming()]);
 
-    expect($approval)->toBeInstanceOf(Approval::class)
-        ->and($approval->number)->toBe('1234/ص/1404')
-        ->and($approval->title)->toBe('صورت‌های مالی')
-        ->and($approval->documentId)->toBe(12);
+    expect(DocumentUsage::query()->count())->toBe(1)
+        ->and($usage->refresh()->metadata['registry_number'])->toBe('1234/ص/1404')
+        ->and($usage->metadata['title'])->toBe('صورت‌های مالی');
 });
 
 it('refreshes the source columns on a re-import instead of duplicating', function () {

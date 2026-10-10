@@ -40,6 +40,7 @@ import {
     useBoardMeeting,
     useDismissMeetingSummary,
     useGenerateMeetingSummary,
+    useMeetingDocuments,
 } from "../hooks";
 import type {
     BoardMeetingDetailResponse,
@@ -81,10 +82,10 @@ function isTab(value: unknown): value is Tab {
  * the only one whose empty state is an invitation rather than an absence,
  * because asking is how its content arrives.
  *
- * Approvals and documents are one tab, not two. Every approval either has a
- * document in the hub or is waiting for one, and splitting the registry numbers
- * from their scans made a reader hold two lists to answer "is this approval on
- * file?".
+ * Approvals and documents are one tab, not two, and it is always rendered:
+ * a مصوبه's number is written onto its scan's usage metadata, so the
+ * documents tab is where the meeting's registry numbers are read — and it is
+ * the only place an upload can start (vault idea 567).
  *
  * Tags have no tab. A tag is a facet of the meeting rather than a section of
  * it — it answers "what is this about", which is the same question the title
@@ -105,6 +106,13 @@ export function BoardMeetingDetailPage() {
     const [isEditing, setIsEditing] = useState(false);
 
     const { data: meeting, isLoading, isError } = useBoardMeeting(meetingId);
+
+    // The document count is the meeting's scanned مصوبات — their numbers sit
+    // on each usage's `metadata`, not on the row — so the stats tile and the
+    // tab badge read the documents query, the same cache upload/delete
+    // invalidate.
+    const { data: documentsData } = useMeetingDocuments(String(meetingId));
+    const documentCount = documentsData?.data.length ?? 0;
 
     const generate = useGenerateMeetingSummary(meetingId);
     const accept = useAcceptMeetingSummary(meetingId);
@@ -184,7 +192,11 @@ export function BoardMeetingDetailPage() {
 
             <MeetingIdentity meeting={meeting} />
 
-            <MeetingStats meeting={meeting} isLoading={false} />
+            <MeetingStats
+                meeting={meeting}
+                documentCount={documentCount}
+                isLoading={false}
+            />
 
             <Tabs value={activeTab} onValueChange={selectTab} className="gap-4">
                 <TabsList
@@ -202,13 +214,14 @@ export function BoardMeetingDetailPage() {
                             <Spinner className="size-3" />
                         )}
                     </TabsTrigger>
-                    {meeting.approvals.length > 0 && (
-                        <TabsTrigger value="documents">
-                            <IconFileText />
-                            اسناد و مصوبات (
-                            {meeting.approvals.length.toLocaleString("fa-IR")})
-                        </TabsTrigger>
-                    )}
+                    {/*
+                    The documents tab is always rendered even when empty:
+                    it is the only entry point for an upload.
+                */}
+                    <TabsTrigger value="documents">
+                        <IconFileText />
+                        اسناد و مصوبات ({documentCount.toLocaleString("fa-IR")})
+                    </TabsTrigger>
                     {meeting.agenda.length > 0 && (
                         <TabsTrigger value="agenda">
                             <IconFileDescription />
@@ -272,14 +285,9 @@ export function BoardMeetingDetailPage() {
                     </Card>
                 </TabsContent>
 
-                {meeting.approvals.length > 0 && (
-                    <TabsContent value="documents">
-                        <MeetingDocumentsTab
-                            meetingId={String(meetingId)}
-                            approvals={meeting.approvals}
-                        />
-                    </TabsContent>
-                )}
+                <TabsContent value="documents">
+                    <MeetingDocumentsTab meetingId={String(meetingId)} />
+                </TabsContent>
 
                 {meeting.agenda.length > 0 && (
                     <TabsContent value="agenda">

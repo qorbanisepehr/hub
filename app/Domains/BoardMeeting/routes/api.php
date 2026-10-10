@@ -43,6 +43,13 @@ Route::middleware('auth:sanctum')->group(function () {
         ->name('board-meetings.documents.store')
         ->middleware('permission:board-meeting.documents.upload');
 
+    // Bulk import (idea basket, D30 — the only path new مصوب enter the hub).
+    // Declared before `{usage}`: a literal path segment must never be bound
+    // as the usage parameter of the delete route below.
+    Route::post('board-meetings/{meeting}/documents/bulk', [BoardMeetingDocumentController::class, 'bulkStore'])
+        ->name('board-meetings.documents.bulk')
+        ->middleware('permission:board-meeting.documents.upload');
+
     Route::delete('board-meetings/{meeting}/documents/{usage}', [BoardMeetingDocumentController::class, 'destroy'])
         ->name('board-meetings.documents.destroy')
         ->middleware('permission:board-meeting.documents.delete');

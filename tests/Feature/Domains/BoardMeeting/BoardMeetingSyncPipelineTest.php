@@ -6,8 +6,8 @@ use App\Domains\BoardMeeting\Enums\AttendeeRole;
 use App\Domains\BoardMeeting\Events\BoardMeetingSynced;
 use App\Domains\BoardMeeting\Models\BoardMeeting;
 use App\Domains\BoardMeeting\Value\AgendaItem;
-use App\Domains\BoardMeeting\Value\Approval;
 use App\Domains\BoardMeeting\Value\Attendee;
+use App\Domains\Document\Models\DocumentUsage;
 use App\Domains\Ingest\Contracts\Normalizer;
 use App\Domains\Ingest\IngestRegistry;
 use App\Domains\Ingest\Jobs\SyncIngestRecordsJob;
@@ -109,24 +109,23 @@ it('stays silent when an import has nothing to sync', function () {
     expect(BoardMeeting::count())->toBe(0);
 });
 
-it('never rewrites approvals, so a sync cannot drop the imported numbers', function () {
-    // Regression (ADR-011 decision 9). Approvals used to be projected from
-    // the TCK archive folder's filenames on every sync. That folder is not
-    // a Farzin source, so a production sync read it empty — and the
-    // wholesale replace took all 269 registry numbers and their documents
-    // with it. The archive is gone; the import owns the list now.
+it('leaves the Document system untouched, so a sync cannot drop the imported numbers', function () {
+    // Regression (vault idea 567, order A). Registry numbers used to be
+    // projected from the TCK archive folder's filenames on every sync;
+    // that folder was not a Farzin source, so a production sync read it
+    // empty and wiped all 269 numbers. Today they live in the hub Document
+    // system — on the usage metadata — and a sync has no field for them.
     $meeting = BoardMeetingFactory::new()
-        ->withApprovals(new Approval('1111/ص/1404', 'صورت‌های مالی', 7))
+        ->withApprovalDocuments(1)
         ->create(['held_on_jalali' => '1404-06-15', 'sequence' => 1]);
 
     app(RegistrySync::class)->run(false);
 
-    $synced = $meeting->fresh();
+    $usage = $meeting->fresh()->documentUsages()->sole();
 
-    expect($synced->approvals)->toHaveCount(1)
-        ->and($synced->approvals[0]->number)->toBe('1111/ص/1404')
-        ->and($synced->approvals[0]->title)->toBe('صورت‌های مالی')
-        ->and($synced->approvals[0]->documentId)->toBe(7);
+    expect(DocumentUsage::query()->count())->toBe(1)
+        ->and($usage->metadata['registry_number'])->toBe('1001/ص/1404')
+        ->and($usage->metadata['title'])->toBe('مصوبهٔ شمارهٔ 1001');
 });
 
 it('skips a source row without its identity and syncs the rest', function () {

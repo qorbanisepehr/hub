@@ -2,7 +2,6 @@ import type { ElementType } from "react";
 import {
     IconChecks,
     IconFileText,
-    IconListCheck,
     IconRobot,
     IconTextScanAi,
     IconUsers,
@@ -23,34 +22,31 @@ import { hasContent } from "../summary-read";
  * opening. The row is the difference between the list telling you about a
  * meeting and the meeting telling you about itself.
  *
- * Two figures earn their place by being *derived* rather than copied:
- *
- *  - approvals split into "with a scan" and "without", because that is the
- *    question a registry actually raises and the tab count cannot answer it;
- *  - the minutes' length, because an empty or half-imported OCR scan looks
- *    identical to a short one until you have read it.
+ * One figure earns its place by being *derived* rather than copied: the
+ * documents tile. The count is not part of the meeting payload (a meeting's
+ * مصوبات numbers no longer sit on the row, vault idea 567) — it comes from the
+ * documents query, so the tile sums what the tab holds. مصوبات and اسناد were
+ * one thing even before the split: every مصوبه is a document in the hub, so the
+ * two are a single tile.
  */
 export function MeetingStats({
     meeting,
+    documentCount,
     isLoading,
 }: {
     meeting: BoardMeetingDetailResponse;
+    documentCount: number;
     isLoading: boolean;
 }) {
     if (isLoading) {
         return (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-                {Array.from({ length: 6 }, (_, index) => (
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+                {Array.from({ length: 5 }, (_, index) => (
                     <Skeleton key={index} className="h-16 w-full" />
                 ))}
             </div>
         );
     }
-
-    const withScan = meeting.approvals.filter(
-        (approval) => approval.document_id !== null,
-    ).length;
-    const withoutScan = meeting.approvals.length - withScan;
 
     const minutesLength = meeting.minutes?.trim().length ?? 0;
 
@@ -62,18 +58,8 @@ export function MeetingStats({
         tone?: "muted" | "success";
     }> = [
         {
-            label: "مصوبات",
-            value: meeting.approvals.length.toLocaleString("fa-IR"),
-            hint:
-                withoutScan > 0
-                    ? `${withoutScan.toLocaleString("fa-IR")} بدون سند`
-                    : "همه با سند",
-            icon: IconListCheck,
-            tone: withoutScan > 0 ? "muted" : "success",
-        },
-        {
-            label: "اسناد",
-            value: meeting.approval_count.toLocaleString("fa-IR"),
+            label: "اسناد و مصوبات",
+            value: documentCount.toLocaleString("fa-IR"),
             hint: "سند پیوست",
             icon: IconFileText,
         },
@@ -110,7 +96,7 @@ export function MeetingStats({
     ];
 
     return (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
             {tiles.map((tile) => {
                 const Icon = tile.icon;
 

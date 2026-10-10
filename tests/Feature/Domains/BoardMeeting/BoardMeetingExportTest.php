@@ -1,5 +1,6 @@
 <?php
 
+use App\Domains\BoardMeeting\Exports\BoardMeetingExporter;
 use App\Domains\BoardMeeting\Models\BoardMeeting;
 use App\Domains\Tagging\Services\TagService;
 
@@ -107,5 +108,23 @@ describe('board meeting export endpoints', function () {
             ->getJson('/api/board-meetings/export?format=html')
             ->assertStatus(422)
             ->assertJson(['message' => __('authorization.format_not_supported')]);
+    });
+
+    it('sources the مصوبات detail sheet from document usage metadata', function () {
+        // Vault idea 567, order A: the approvals column is gone, so the
+        // registry artifact — number, title, document — is read off each
+        // usage's metadata instead, mirroring the old Approval list.
+        $meeting = BoardMeeting::factory()
+            ->withApprovalDocuments(2)
+            ->create();
+
+        $rows = (new BoardMeetingExporter(BoardMeeting::query()->whereKey($meeting->id)))
+            ->detailRowsFor($meeting->load('documentUsages'));
+
+        expect($rows['approvals'])->toHaveCount(2)
+            ->and($rows['approvals'][0]['number'])->toBe('1001/ص/1404')
+            ->and($rows['approvals'][0]['title'])->toBe('مصوبهٔ شمارهٔ 1001')
+            ->and($rows['approvals'][0]['document_id'])->toBe($meeting->documentUsages[0]->document_id)
+            ->and($rows['approvals'][1]['number'])->toBe('1002/ص/1404');
     });
 });

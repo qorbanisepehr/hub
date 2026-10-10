@@ -4,8 +4,8 @@ namespace App\Domains\BoardMeeting\Exports;
 
 use App\Domains\BoardMeeting\Models\BoardMeeting;
 use App\Domains\BoardMeeting\Value\AgendaItem;
-use App\Domains\BoardMeeting\Value\Approval;
 use App\Domains\BoardMeeting\Value\Attendee;
+use App\Domains\Document\Models\DocumentUsage;
 use App\Support\Exports\Contract\ProvidesDetailSheets;
 use App\Support\Exports\Contract\ProvidesDocumentTitle;
 use App\Support\Exports\Contract\ProvidesOptionLabels;
@@ -25,10 +25,12 @@ use Illuminate\Database\Eloquent\Builder;
  * The base sheet mirrors the list page one-to-one: the registry key
  * (held_on + sequence), the human-owned title/minutes, the tags, the
  * origin, and the two source-readiness facts — last sync and whether a
- * person has taken over the row. The three JSONB lists that cannot live
- * in a single cell become repeater sheets addressed by the parent keys
- * (approvals / attendees / agenda), the same kernel capability the
- * employee export uses.
+ * person has taken over the row. The two JSONB lists that cannot live in
+ * a single cell become repeater sheets addressed by the parent keys
+ * (attendees / agenda), the same kernel capability the employee export
+ * uses. The مصوبات detail sheet reads the meeting's documents through
+ * the hub Document system instead — each upload carries its registry
+ * number (ADR-011 decision 9).
  *
  * The catalog is hand-written (there is no section registry for this
  * aggregate; the model columns and value objects ARE the contract), and
@@ -58,9 +60,16 @@ final class BoardMeetingExporter implements ProvidesDetailSheets, ProvidesDocume
 
     private ?BoardMeeting $current = null;
 
-    public function __construct(
-        private readonly Builder $query,
-    ) {}
+    /** @var Builder<BoardMeeting> */
+    private Builder $query;
+
+    public function __construct(Builder $query)
+    {
+        // Registry numbers live on the meeting's document usages (there is
+        // no `approvals` column anymore), so the query rows() lazily walks
+        // must carry the usages along — one query, no N+1 per row.
+        $this->query = $query->with('documentUsages');
+    }
 
     /**
      * @return list<ExportColumn>
@@ -262,14 +271,15 @@ final class BoardMeetingExporter implements ProvidesDetailSheets, ProvidesDocume
         }
 
         return [
-            'approvals' => array_map(
-                fn (Approval $approval) => [
-                    'number' => $approval->number,
-                    'title' => $approval->title,
-                    'document_id' => $approval->documentId,
-                ],
-                $entity->approvals,
-            ),
+            'approvals' => $entity->documentUsages
+                ->filter(fn (DocumentUsage $usage): bool => ! $usage->trashed() && isset($usage->metadata['registry_number']))
+                ->map(fn (DocumentUsage $usage): array => [
+                    'number' => $usage->metadata['registry_number'],
+                    'title' => $usage->metadata['title'] ?? null,
+                    'document_id' => $usage->document_id,
+                ])
+                ->values()
+                ->all(),
             'attendees' => array_map(
                 fn (Attendee $attendee) => [
                     'name' => $attendee->name,

@@ -5,8 +5,9 @@ namespace Database\Factories\BoardMeeting;
 use App\Domains\BoardMeeting\Enums\AttendeeRole;
 use App\Domains\BoardMeeting\Models\BoardMeeting;
 use App\Domains\BoardMeeting\Value\AgendaItem;
-use App\Domains\BoardMeeting\Value\Approval;
 use App\Domains\BoardMeeting\Value\Attendee;
+use App\Domains\Document\Models\Document;
+use App\Domains\Document\Models\DocumentUsage;
 use App\Support\External\PersianDateTime;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -28,7 +29,6 @@ class BoardMeetingFactory extends Factory
             'sequence' => 1,
             'title' => null,
             'minutes' => 'متن صورتجلسه نمونه',
-            'approvals' => [],
             'agenda' => [],
             'attendees' => [],
             'summary' => null,
@@ -57,9 +57,34 @@ class BoardMeetingFactory extends Factory
         ]);
     }
 
-    public function withApprovals(Approval ...$approvals): static
+    /**
+     * Attach `$count` approval documents: a document plus one usage whose
+     * `metadata` carries `registry_number`/`title` — the only place a
+     * meeting's مصوبات numbers live now (vault idea 567, order A).
+     *
+     * Numbers start at 1001/ص/1404 so tests can assert a known value.
+     */
+    public function withApprovalDocuments(int $count = 1): static
     {
-        return $this->state(fn (): array => ['approvals' => array_values($approvals)]);
+        return $this->afterCreating(function (BoardMeeting $meeting) use ($count): void {
+            for ($index = 0; $index < $count; $index++) {
+                $document = Document::factory()->create([
+                    'hash' => hash('sha256', "approval-{$meeting->id}-{$index}"),
+                ]);
+
+                DocumentUsage::create([
+                    'document_id' => $document->id,
+                    'entity_type' => BoardMeeting::class,
+                    'entity_id' => $meeting->id,
+                    'section_key' => null,
+                    'field_key' => null,
+                    'metadata' => [
+                        'registry_number' => sprintf('%d/ص/1404', 1001 + $index),
+                        'title' => sprintf('مصوبهٔ شمارهٔ %d', 1001 + $index),
+                    ],
+                ]);
+            }
+        });
     }
 
     public function withAgenda(AgendaItem ...$items): static
