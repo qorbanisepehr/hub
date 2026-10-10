@@ -4,7 +4,9 @@ export type AuditCategory =
     | "employee"
     | "document"
     | "questionnaire"
-    | "workflow";
+    | "workflow"
+    | "boardmeeting"
+    | "audit";
 
 export type AuditActorType = "user" | "system";
 

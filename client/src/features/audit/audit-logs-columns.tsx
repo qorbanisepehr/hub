@@ -74,7 +74,8 @@ export function getAuditLogColumns(): ColumnDef<StockFeatures, AuditLog>[] {
             ),
             cell: ({ row }) => {
                 const category = row.original.category;
-                const Icon = AUDIT_CATEGORY_ICONS[category];
+
+                const Icon = AUDIT_CATEGORY_ICONS[category] ?? null;
                 return (
                     <div className="flex items-center gap-0.5 text-xs">
                         {/* <span
@@ -83,8 +84,7 @@ export function getAuditLogColumns(): ColumnDef<StockFeatures, AuditLog>[] {
                                 AUDIT_CATEGORY_VARIANTS[category]
                             }
                         ></span> */}
-
-                        <Icon className="size-4" />
+                        {Icon && <Icon className="size-4" />}
                         {AUDIT_CATEGORY_LABELS[category] ?? category}
                     </div>
                 );

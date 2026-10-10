@@ -1,9 +1,11 @@
 import {
     Icon,
+    IconClipboardList,
     IconDownload,
     IconFingerprintScan,
     IconFolders,
     IconForms,
+    IconGavel,
     IconUserKey,
     IconUsers,
 } from "@tabler/icons-react";
@@ -20,6 +22,8 @@ export const AUDIT_CATEGORY_LABELS: Record<AuditCategory, string> = {
     document: "مدرک",
     questionnaire: "پرسشنامه",
     workflow: "گردش کار",
+    boardmeeting: "هیئت مدیره",
+    audit: "حسابرسی",
 };
 
 /**
@@ -36,6 +40,8 @@ export const AUDIT_CATEGORY_VARIANTS: Record<
     document: "secondary",
     questionnaire: "secondary",
     workflow: "secondary",
+    boardmeeting: "secondary",
+    audit: "secondary",
 };
 export const AUDIT_CATEGORY_ICONS: Record<AuditCategory, Icon> = {
     auth: IconUserKey,
@@ -44,6 +50,8 @@ export const AUDIT_CATEGORY_ICONS: Record<AuditCategory, Icon> = {
     document: IconFolders,
     questionnaire: IconForms,
     workflow: IconDownload,
+    boardmeeting: IconGavel,
+    audit: IconClipboardList,
 };
 
 export const AUDIT_EVENT_LABELS: Record<string, string> = {
