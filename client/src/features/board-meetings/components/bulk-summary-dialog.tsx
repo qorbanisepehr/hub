@@ -88,6 +88,7 @@ export function BulkSummaryDialog({
     onOpenChange,
     params,
     presetMeetingIds,
+    presetLabels,
     onQueued,
 }: {
     open: boolean;
@@ -102,6 +103,16 @@ export function BulkSummaryDialog({
      * filter-driven path that picks its own candidates.
      */
     presetMeetingIds?: number[];
+    /**
+     * Display names for the preset ids, keyed by id.
+     *
+     * Best-effort: the page can only name the rows it currently has, so a
+     * meeting ticked on another page is not in here and falls back to its id.
+     * Sending the ids and reading them back as `#12` was technically correct
+     * and told the person confirming nothing about what they were about to
+     * spend model runs on.
+     */
+    presetLabels?: Map<number, string>;
     /** Fired once the batch is accepted by the API (not on dialog close) —
      *  the caller clears its row selection here. */
     onQueued?: () => void;
@@ -335,10 +346,10 @@ export function BulkSummaryDialog({
                                     className="rounded px-2 py-1.5 text-sm"
                                 >
                                     <span
-                                        dir="ltr"
+                                        dir={presetLabels?.has(id) ? undefined : "ltr"}
                                         className="font-medium"
                                     >
-                                        {`#${id}`}
+                                        {presetLabels?.get(id) ?? `#${id}`}
                                     </span>
                                 </div>
                             ))}

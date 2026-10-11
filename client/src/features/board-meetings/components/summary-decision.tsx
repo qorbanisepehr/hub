@@ -59,7 +59,6 @@ export function SummaryDecision({
     onDismiss,
     isAccepting,
     isDismissing,
-    isRunning,
 }: {
     current: MeetingSummaryArtifact;
     candidate: MeetingSummaryArtifact;
@@ -68,17 +67,6 @@ export function SummaryDecision({
     onDismiss: () => void;
     isAccepting: boolean;
     isDismissing: boolean;
-    /**
-     * The candidate is a run still going, not a run's answer.
-     *
-     * The panel is mounted from the moment a worker picks the job up, because
-     * that is when the placeholder it is about is written — so without this the
-     * whole panel would spend ten minutes announcing in the past tense that the
-     * run had produced nothing, and would then announce the opposite. Every
-     * sentence below that refers to what "this run" did is asked which of the
-     * two it means first.
-     */
-    isRunning: boolean;
 }) {
     const canUpdate = usePermission([PERMISSIONS.BOARD_MEETING_UPDATE]);
 
@@ -118,6 +106,19 @@ export function SummaryDecision({
     const proposedNames = useMemo(
         () => proposedTagNames(readField(candidate, "suggested_tags", true).value),
         [candidate],
+    );
+
+    /**
+     * Whether the run's tag set differs from what the meeting already carries.
+     *
+     * A run that proposed nothing, or proposed exactly the tags already on the
+     * record, leaves the picker showing every box ticked and nothing to decide.
+     * The section is withheld in that case rather than drawn as a list whose
+     * only honest summary is «بدون تغییر».
+     */
+    const tagSetChanged = !(
+        baselineTags.length === currentTags.length &&
+        baselineTags.every((slug) => currentTags.includes(slug))
     );
 
     /**
@@ -175,53 +176,40 @@ export function SummaryDecision({
     // Compared by value, not by reference: `baselineTags` is a fresh array
     // every render, so `!==` would be true always and the panel would offer a
     // save button for a proposal that had nothing in it.
-    const hasSomethingToAccept =
-        offered.length > 0 ||
-        !(
-            baselineTags.length === currentTags.length &&
-            baselineTags.every((slug) => currentTags.includes(slug))
-        );
+    const hasSomethingToAccept = offered.length > 0 || tagSetChanged;
 
     return (
         <Alert className="border-warning/40 bg-warning/5">
             <IconHash className="text-warning" />
             <AlertTitle>پیشنهاد تازه برای این جلسه</AlertTitle>
             <AlertDescription>
-                {isRunning
-                    ? "این اجرا هنوز چیزی تولید نکرده است؛ پس از پایان، پیشنهاد همین‌جا می‌آید و تا آن‌وقت چیزی برای تصمیم گرفتن روی میز نیست."
-                    : hasSomethingToAccept
-                      ? "هر بخش را جدا تصمیم بگیرید؛ آنچه تیک نخورد روی رکورد جلسه نوشته نمی‌شود."
-                      : "این اجرا چیزی برای پذیرفتن تولید نکرد. می‌توانید پیشنهاد را ببندید تا دوباره تلاش کنید."}
+                {hasSomethingToAccept
+                    ? "هر بخش را جدا تصمیم بگیرید؛ آنچه تیک نخورد روی رکورد جلسه نوشته نمی‌شود."
+                    : "این اجرا چیزی برای پذیرفتن تولید نکرد. می‌توانید پیشنهاد را ببندید تا دوباره تلاش کنید."}
             </AlertDescription>
 
             <div className="col-start-2 flex flex-col gap-4">
-                <FieldSet>
-                    <LegendRow legend="بخش‌های خلاصه">
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => update({ fields: allFields })}
-                            disabled={!canUpdate || isRunning}
-                        >
-                            انتخاب همه
-                        </Button>
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => update({ fields: [] })}
-                            disabled={!canUpdate || isRunning}
-                        >
-                            هیچ‌کدام
-                        </Button>
-                    </LegendRow>
+                {offered.length > 0 && (
+                    <FieldSet>
+                        <LegendRow legend="بخش‌های خلاصه">
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => update({ fields: allFields })}
+                                disabled={!canUpdate}
+                            >
+                                انتخاب همه
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => update({ fields: [] })}
+                                disabled={!canUpdate}
+                            >
+                                هیچ‌کدام
+                            </Button>
+                        </LegendRow>
 
-                    {offered.length === 0 ? (
-                        <FieldDescription>
-                            {isRunning
-                                ? "بخش‌ها پس از پایان اجرا اینجا فهرست می‌شوند."
-                                : "این اجرا هیچ بخش قابل‌قبولی تولید نکرد."}
-                        </FieldDescription>
-                    ) : (
                         <div className="flex flex-col gap-3">
                             {offered.map(({ field, reading, stored }) => (
                                 <FieldDecisionRow
@@ -244,27 +232,30 @@ export function SummaryDecision({
                                 />
                             ))}
                         </div>
-                    )}
-                </FieldSet>
+                    </FieldSet>
+                )}
 
-                <Separator />
+                {tagSetChanged && (
+                    <>
+                        <Separator />
 
-                <TagDecision
-                    tags={tags}
-                    currentTags={currentTags}
-                    proposedNames={proposedNames}
-                    isRunning={isRunning}
-                    onToggle={(slug, on) =>
-                        update({
-                            tags: on
-                                ? [...tags, slug]
-                                : tags.filter((s) => s !== slug),
-                        })
-                    }
-                    onAll={() => update({ tags: baselineTags })}
-                    onNone={() => update({ tags: [] })}
-                    disabled={!canUpdate}
-                />
+                        <TagDecision
+                            tags={tags}
+                            currentTags={currentTags}
+                            proposedNames={proposedNames}
+                            onToggle={(slug, on) =>
+                                update({
+                                    tags: on
+                                        ? [...tags, slug]
+                                        : tags.filter((s) => s !== slug),
+                                })
+                            }
+                            onAll={() => update({ tags: baselineTags })}
+                            onNone={() => update({ tags: [] })}
+                            disabled={!canUpdate}
+                        />
+                    </>
+                )}
 
                 <div className="flex flex-wrap items-center justify-between gap-2">
                     <p className="text-muted-foreground text-xs">
@@ -282,49 +273,33 @@ export function SummaryDecision({
                                   .join("، ")}
                     </p>
 
-                    {/*
-                        Nothing to decide while a run is going, so neither
-                        button is offered rather than being offered greyed: a
-                        running placeholder is a status, not a proposal, and
-                        «کنار گذاشتن پیشنهاد» would clear the very stamp that
-                        says a run is under way — letting a second one start
-                        next to the first.
-                    */}
-                    {!isRunning && (
-                        <div className="flex flex-wrap items-center gap-2">
-                            {/* Always offered, even when accepting would decide
-                                something: refusing the whole proposal is a normal
-                                outcome and used to be reachable only by unticking
-                                every box, which reads as a decision rather than a
-                                refusal. */}
+                    <div className="flex flex-wrap items-center gap-2">
+                        {/* Always offered, even when accepting would decide
+                            something: refusing the whole proposal is a normal
+                            outcome and used to be reachable only by unticking
+                            every box, which reads as a decision rather than a
+                            refusal. */}
+                        <Button
+                            variant="outline"
+                            onClick={onDismiss}
+                            disabled={!canUpdate || isAccepting || isDismissing}
+                        >
+                            {isDismissing ? "در حال بستن…" : "کنار گذاشتن پیشنهاد"}
+                        </Button>
+                        {hasSomethingToAccept && (
                             <Button
-                                variant="outline"
-                                onClick={onDismiss}
+                                onClick={() => onAccept(accepted, tags)}
                                 disabled={
                                     !canUpdate || isAccepting || isDismissing
                                 }
                             >
-                                {isDismissing
-                                    ? "در حال بستن…"
-                                    : "کنار گذاشتن پیشنهاد"}
+                                {!isAccepting && (
+                                    <IconCheck data-icon="inline-start" />
+                                )}
+                                {isAccepting ? "در حال ثبت…" : "ثبت تصمیم"}
                             </Button>
-                            {hasSomethingToAccept && (
-                                <Button
-                                    onClick={() => onAccept(accepted, tags)}
-                                    disabled={
-                                        !canUpdate ||
-                                        isAccepting ||
-                                        isDismissing
-                                    }
-                                >
-                                    {!isAccepting && (
-                                        <IconCheck data-icon="inline-start" />
-                                    )}
-                                    {isAccepting ? "در حال ثبت…" : "ثبت تصمیم"}
-                                </Button>
-                            )}
-                        </div>
-                    )}
+                        )}
+                    </div>
                 </div>
             </div>
         </Alert>
@@ -420,7 +395,6 @@ function TagDecision({
     tags,
     currentTags,
     proposedNames,
-    isRunning,
     onToggle,
     onAll,
     onNone,
@@ -429,15 +403,12 @@ function TagDecision({
     tags: string[];
     currentTags: string[];
     proposedNames: Map<string, string>;
-    isRunning: boolean;
     onToggle: (slug: string, on: boolean) => void;
     onAll: () => void;
     onNone: () => void;
     disabled: boolean;
 }) {
     const { data: options = [] } = useTagOptions(undefined);
-
-    const busy = disabled || isRunning;
 
     // The registry's names win for a tag the hub already has — it is canonical
     // and the run's spelling is not — and the run's own name covers a tag it is
@@ -471,7 +442,7 @@ function TagDecision({
                     variant="ghost"
                     size="sm"
                     onClick={onAll}
-                    disabled={busy}
+                    disabled={disabled}
                 >
                     انتخاب همه
                 </Button>
@@ -479,22 +450,13 @@ function TagDecision({
                     variant="ghost"
                     size="sm"
                     onClick={onNone}
-                    disabled={busy}
+                    disabled={disabled}
                 >
                     هیچ‌کدام
                 </Button>
             </LegendRow>
 
-            {isRunning ? (
-                // The boxes are withheld rather than shown ticked, because
-                // while a run is going the only thing on offer is the
-                // meeting's *current* tags — a list that says nothing about
-                // what the run proposed, next to a legend offering to change
-                // it, is a control that cannot do what its buttons claim.
-                <FieldDescription>
-                    برچسب‌های پیشنهادی این اجرا پس از پایان همین‌جا می‌آیند.
-                </FieldDescription>
-            ) : slugs.length === 0 ? (
+            {slugs.length === 0 ? (
                 <FieldDescription>
                     این اجرا برچسبی پیشنهاد نکرده است؛ تیک‌ها روی برچسب‌های فعلی
                     جلسه بسته می‌مانند.

@@ -411,16 +411,8 @@ function MeetingProvenance({
  */
 function MeetingIdentity({ meeting }: { meeting: BoardMeetingDetailResponse }) {
     return (
-        <div className="bg-muted/50- flex flex-wrap items-center gap-2 rounded-lg px-4 py-3 text-sm">
+        <div className="bg-muted/50 flex flex-wrap items-center gap-2 rounded-lg px-4 py-3 text-sm">
             <div className="flex w-full flex-wrap items-center justify-between gap-1">
-                <div className="flex gap-1 items-center">
-                    {/* <Badge variant="outline">
-                        {meeting.registry_label}
-                        </Badge>
-                        <span className="text-muted-foreground" dir="ltr">
-                        {meeting.origin}
-                        </span> */}
-                </div>
                 <div className="flex gap-1 items-center">
                     {meeting.source_locked ? (
                         <Badge variant="outline">ویرایش‌شده توسط کاربر</Badge>

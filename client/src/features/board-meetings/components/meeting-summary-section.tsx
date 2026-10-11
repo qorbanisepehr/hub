@@ -7,7 +7,6 @@ import {
     IconTextScanAi,
 } from "@tabler/icons-react";
 
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -191,6 +190,13 @@ export function MeetingSummarySection({
               ? null
               : "finished";
 
+    // The row's own reason when it failed outright, otherwise the proposal's:
+    // under `review` a failed run is written to `pending`, so the outer row
+    // keeps the status it had and the reason only exists on the candidate.
+    const errorReason =
+        reasonText(summary?.error ?? null) ??
+        reasonText(summary?.pending?.error ?? null);
+
     return (
         <div className="flex flex-col gap-4">
             <div className="flex flex-wrap items-start justify-between gap-2">
@@ -212,19 +218,10 @@ export function MeetingSummarySection({
                 state={runState}
                 run={run}
                 startedAt={runStartedAt(summary)}
+                errorReason={errorReason}
             />
 
-            {!isInFlight && summary?.error != null && (
-                <Alert variant="destructive">
-                    <IconAlertCircle />
-                    <AlertTitle>تولید خلاصه انجام نشد</AlertTitle>
-                    <AlertDescription>
-                        {reasonText(summary.error)}
-                    </AlertDescription>
-                </Alert>
-            )}
-
-            {candidate !== null && (
+            {candidate !== null && !isInFlight && (
                 <SummaryDecision
                     current={summary ?? candidate}
                     candidate={candidate}
@@ -233,7 +230,6 @@ export function MeetingSummarySection({
                     onDismiss={onDismiss}
                     isAccepting={isAccepting}
                     isDismissing={isDismissing}
-                    isRunning={isInFlight}
                 />
             )}
 

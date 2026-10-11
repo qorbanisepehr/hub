@@ -55,17 +55,10 @@ export function MeetingTagChips({
                         });
                     }}
                     title={`نمایش جلسات دیگر با برچسب ${tag.name}`}
-                    className="cursor-pointer h-6"
+                    className="cursor-pointer"
                 >
-                    <Badge
-                        variant="outline"
-                        className="rounded px-0! py-0! h-6 relative [&>svg]:size-6! pe-2! overflow-clip border-b-2 gap-0"
-                    >
-                        <IconHash
-                            // data-icon="inline-start"
-                            className="p-1.5 text-primary/50"
-                        />
-                        {/* <span className="absolute rounded bg-primary h-4 w-1 top-1 right-1 inline-flex" /> */}
+                    <Badge variant="outline" className="gap-1 font-normal">
+                        <IconHash className="text-muted-foreground" />
                         {tag.name}
                     </Badge>
                 </button>

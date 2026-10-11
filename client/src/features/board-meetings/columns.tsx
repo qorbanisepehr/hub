@@ -5,6 +5,7 @@ import { DataTableColumnHeader } from "@/components/data-table";
 import { RowActions } from "@/components/shared/row-actions";
 import { toPersianDate } from "@/lib/date-format";
 import type { BoardMeetingDto } from "./types";
+import { Badge } from "@/components/ui/badge";
 
 /**
  * «—» for an empty count, the same way the rest of the app renders a zero.
@@ -69,6 +70,31 @@ export const boardMeetingColumns: ColumnDef<StockFeatures, BoardMeetingDto>[] =
                 </span>
             ),
             meta: { displayName: "حاضران" },
+        },
+        {
+            accessorKey: "tags",
+            enableSorting: false,
+            header: () => <span className="text-sm font-medium">برچسبها</span>,
+            cell: ({ row }) => {
+                const visibleTags = row.original.tags.slice(0, 3);
+                const hiddenTagCount =
+                    row.original.tags.length - visibleTags.length;
+                return (
+                    <div className="mt-auto flex flex-wrap items-center gap-2">
+                        {visibleTags.map((tag) => (
+                            <Badge key={tag.slug} variant="outline">
+                                {tag.name}
+                            </Badge>
+                        ))}
+                        {hiddenTagCount > 0 && (
+                            <Badge variant="secondary">
+                                {hiddenTagCount.toLocaleString("fa-IR")}+
+                            </Badge>
+                        )}
+                    </div>
+                );
+            },
+            meta: { displayName: "برچسب‌ها" },
         },
         {
             id: "actions",

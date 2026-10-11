@@ -1,10 +1,6 @@
-import { useEffect, useState } from "react";
-import {
-    IconClock,
-    IconInfoCircle,
-    IconRobot,
-    IconX,
-} from "@tabler/icons-react";
+import { useEffect, useRef, useState } from "react";
+import { IconClock, IconX } from "@tabler/icons-react";
+import { toast } from "sonner";
 
 import {
     Alert,
@@ -15,7 +11,6 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
-import { cn } from "@/lib/utils";
 import type { RunProgress, RunState } from "@/features/realtime/types";
 
 /**
@@ -27,6 +22,14 @@ import type { RunProgress, RunState } from "@/features/realtime/types";
  * no worker has picked this up yet, the second says the model is being asked.
  * Collapsing them hides the case where a queue is not draining, which is the
  * one thing a waiting person most needs to see.
+ *
+ * Only the live half is drawn here. `queued` and `running` are states somebody
+ * is actively waiting in, so they get a durable block that survives a refresh.
+ * The two terminal states are news rather than status — they are delivered as
+ * toasts and leave nothing behind, which is why a meeting that already carries
+ * a summary no longer opens on a banner announcing that its run finished long
+ * ago. A failure is announced on load as well, because unlike success it is
+ * not self-evident from what is on the page.
  *
  * Deliberately absent: a percentage, a step counter, a per-field progress bar.
  * The summary is produced by one model call, so there is no such thing to
@@ -47,6 +50,7 @@ export function RunStatus({
     state,
     run,
     startedAt,
+    errorReason,
     className,
 }: {
     /** What the durable row says, used when no live event has arrived yet. */
@@ -55,6 +59,15 @@ export function RunStatus({
     run: RunProgress | null;
     /** When the run under way began, from the row, or null. */
     startedAt?: string | null;
+    /**
+     * The durable failure reason, read off the row.
+     *
+     * Carried in for the toast rather than drawn inline: a failed run used to
+     * leave both a status block and a separate destructive alert saying the
+     * same thing, and the reason belongs on the one notice that reports the
+     * failure.
+     */
+    errorReason?: string | null;
     className?: string;
 }) {
     // `run` wins over `state`: an event is fresher than anything the row said
@@ -76,38 +89,58 @@ export function RunStatus({
      */
     const signature = [shown ?? "", run?.run_id ?? "", since ?? ""].join("|");
     const [dismissed, setDismissed] = useState<string | null>(null);
+    const announced = useRef<string | null>(null);
 
-    if (shown === null || dismissed === signature) {
+    const terminal = shown === "finished" || shown === "failed";
+
+    /**
+     * A run's end is news, so it is announced once and not drawn.
+     *
+     * A success is only news while it is happening: a stored `ok` row would
+     * otherwise toast on every page load, which is the banner this replaced in
+     * another costume. A failure is announced either way, because a reload is
+     * exactly when somebody would want to be told the run did not work.
+     */
+    useEffect(() => {
+        if (!terminal || announced.current === signature) {
+            return;
+        }
+
+        if (shown === "finished" && run === null) {
+            return;
+        }
+
+        announced.current = signature;
+
+        if (shown === "finished") {
+            toast.success("اجرا تمام شد", {
+                description: "نتیجه در همین‌جا به‌روز شد.",
+            });
+
+            return;
+        }
+
+        toast.error("اجرا ناموفق بود", {
+            description:
+                errorReason ??
+                "این اجرا تلاش دوباره نمی‌شود؛ می‌توانید دوباره اجرا بگیرید.",
+        });
+    }, [terminal, shown, signature, run, errorReason]);
+
+    // The end of a run is delivered as a toast above; only the live states are
+    // drawn here.
+    if (shown === null || terminal || dismissed === signature) {
         return null;
     }
 
     const waiting = shown === "queued";
-    const done = shown === "finished";
-    const failed = shown === "failed";
 
     return (
-        <Alert
-            variant={failed ? "destructive" : "default"}
-            className={cn(done && "border-success/40 bg-success/5", className)}
-        >
-            {waiting ? (
-                <IconClock />
-            ) : failed ? (
-                <IconInfoCircle />
-            ) : done ? (
-                <IconRobot />
-            ) : (
-                <Spinner />
-            )}
+        <Alert variant="default" className={className}>
+            {waiting ? <IconClock /> : <Spinner />}
 
             <AlertTitle>
-                {waiting
-                    ? "در صف اجرا"
-                    : done
-                      ? "اجرا تمام شد"
-                      : failed
-                        ? "اجرا ناموفق بود"
-                        : "در حال تولید خلاصه"}
+                {waiting ? "در صف اجرا" : "در حال تولید خلاصه"}
             </AlertTitle>
 
             <AlertAction>
@@ -125,16 +158,10 @@ export function RunStatus({
                 <span>
                     {waiting
                         ? "هنوز کارگری این اجرا را برنداشته است."
-                        : done
-                          ? "نتیجه همین‌جا به‌روز شد."
-                          : failed
-                            ? "این اجرا تلاش دوباره نمی‌شود؛ می‌توانید دوباره اجرا بگیرید."
-                            : "مدل در حال پاسخ دادن است؛ نتیجه همین‌جا به‌روز می‌شود."}
+                        : "مدل در حال پاسخ دادن است؛ نتیجه همین‌جا به‌روز می‌شود."}
                 </span>
 
-                {!waiting && !done && !failed && since !== null && (
-                    <Elapsed since={since} />
-                )}
+                {!waiting && since !== null && <Elapsed since={since} />}
 
                 {run?.context?.model != null && (
                     <Badge variant="secondary" className="font-normal">

@@ -237,6 +237,23 @@ export function BoardMeetingsPage() {
     const selectedIds = Object.keys(rowSelection)
         .filter((id) => rowSelection[id])
         .map(Number);
+
+    // Names for the preset face, as far as the loaded page can supply them. A
+    // row ticked on an earlier page is not in the current result window, so
+    // the dialog falls back to the id — best-effort, because a second fetch
+    // just to label a list would cost a round trip to say what the person
+    // already knows.
+    const selectedLabels = useMemo(() => {
+        const labels = new Map<number, string>();
+
+        for (const row of data?.data ?? []) {
+            if (rowSelection[row.id]) {
+                labels.set(row.id, row.registry_label);
+            }
+        }
+
+        return labels;
+    }, [data, rowSelection]);
     const activeTagNames = tagOptions
         ?.filter((tag) => tagsFilterValues.includes(tag.slug))
         .map((tag) => tag.name);
@@ -294,7 +311,7 @@ export function BoardMeetingsPage() {
                 meta={meta}
                 isLoading={isLoading}
                 isError={isError}
-                colSpan={boardMeetingColumns.length}
+                colSpan={boardMeetingColumns.length + 1}
                 onRetry={refresh}
                 title="جلسات هیئت مدیره"
                 totalLabel="جلسه"
@@ -441,6 +458,7 @@ export function BoardMeetingsPage() {
                 }}
                 params={params}
                 presetMeetingIds={bulkPreset}
+                presetLabels={selectedLabels}
                 // A queued batch is the same state change the selection stood
                 // for, so the checkboxes empty with it.
                 onQueued={() => setRowSelection({})}
