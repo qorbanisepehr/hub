@@ -174,28 +174,36 @@ export function MeetingSummarySection({
     const hasSummary = hasContent(summary);
 
     /**
-     * The row's own state, as the fallback for when no event has arrived.
+     * The latest run's terminal state, read from where that run wrote.
      *
-     * The stored status is a coarser answer than a live event - it cannot say
-     * queued versus running, only pending - but it is durable and always right,
-     * so the status block never has nothing to show.
+     * A review run leaves the record untouched and reports on the candidate,
+     * while an apply run writes itself to the row and clears the candidate. So
+     * the candidate is the newest run whenever it exists, and the row's own
+     * status is the fallback rather than the first answer. Reading the row first
+     * let a fresh review run inherit an older apply failure: the row keeps the
+     * status it had, so a run that had just succeeded was announced as failed,
+     * with the previous failure's reason attached.
      */
     const runState: RunState | null = isInFlight
         ? "running"
-        : summary === null
-          ? null
-          : summary.status === "failed"
+        : candidate !== null
+          ? candidate.status === "failed"
             ? "failed"
-            : summary.status === "none"
-              ? null
-              : "finished";
+            : "finished"
+          : summary === null
+            ? null
+            : summary.status === "failed"
+              ? "failed"
+              : summary.status === "none"
+                ? null
+                : "finished";
 
-    // The row's own reason when it failed outright, otherwise the proposal's:
-    // under `review` a failed run is written to `pending`, so the outer row
-    // keeps the status it had and the reason only exists on the candidate.
+    // The same precedence for the reason: the newest run's, then the row's.
+    // Under `review` a failed run is written to `pending`, so the reason may
+    // only exist there, and under `apply` it may only exist on the row.
     const errorReason =
-        reasonText(summary?.error ?? null) ??
-        reasonText(summary?.pending?.error ?? null);
+        reasonText(candidate?.error ?? null) ??
+        reasonText(summary?.error ?? null);
 
     return (
         <div className="flex flex-col gap-4">
