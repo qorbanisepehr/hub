@@ -1,15 +1,23 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 
 import { tagKeys, boardMeetingKeys } from "@/lib/query-keys";
+import { getApiError } from "@/lib/error-utils";
 import {
+    acceptTagMerges,
     attachTags,
     createTag,
     deleteTag,
     fetchTagOptions,
     fetchTags,
+    proposeTagMerges,
     updateTag,
 } from "../api";
-import type { AttachTagsPayload, TagListParams } from "../types";
+import type {
+    AcceptTagMergePayload,
+    AttachTagsPayload,
+    TagListParams,
+} from "../types";
 
 /**
  * Server-paginated tag list (tag management UI). The params object is the
@@ -91,5 +99,46 @@ export function useAttachTags() {
             // New slugs may have been created on first use.
             void queryClient.invalidateQueries({ queryKey: tagKeys.all });
         },
+    });
+}
+
+/**
+ * Ask the consolidator for merge groups.
+ *
+ * Nothing is cached or invalidated: the proposal is not hub state, it is an
+ * answer about the hub's state, and re-asking is how a person gets a fresh one.
+ * The axios envelope is unwrapped here so the dialog receives the proposal
+ * itself rather than a response object it would have to know the shape of.
+ */
+export function useProposeTagMerges() {
+    return useMutation({
+        mutationFn: () => proposeTagMerges().then((response) => response.data.data),
+        onError: (error) => toast.error(getApiError(error)),
+    });
+}
+
+/**
+ * Apply the chosen merge groups.
+ *
+ * Invalidates board meetings too, not just tags: merging repoints attachments
+ * from the duplicate tags onto the canonical one, so every meeting that carried
+ * a duplicate now carries a different tag set than the payload the client holds.
+ */
+export function useAcceptTagMerges() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (payload: AcceptTagMergePayload) =>
+            acceptTagMerges(payload).then((response) => response.data),
+        onSuccess: (result) => {
+            void queryClient.invalidateQueries({ queryKey: tagKeys.all });
+            void queryClient.invalidateQueries({
+                queryKey: boardMeetingKeys.all,
+            });
+            toast.success(
+                `${result.merged.toLocaleString("fa-IR")} برچسب ادغام شد`,
+            );
+        },
+        onError: (error) => toast.error(getApiError(error)),
     });
 }

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { getRouteApi } from "@tanstack/react-router";
 import type { ColumnDef, Row, StockFeatures } from "@tanstack/react-table";
 import {
+    IconGitMerge,
     IconPencil,
     IconPlus,
     IconRefresh,
@@ -18,6 +19,7 @@ import {
     CardTitle,
 } from "@/components/ui/card";
 import { ConfirmDeleteButton } from "@/components/ui/confirm-delete-button";
+import { Spinner } from "@/components/ui/spinner";
 import {
     Dialog,
     DialogContent,
@@ -34,12 +36,15 @@ import {
 } from "@/hooks/use-data-table-page";
 import { usePermission } from "@/features/auth/components/permission-guard";
 import {
+    useAcceptTagMerges,
     useCreateTag,
     useDeleteTag,
+    useProposeTagMerges,
     useTags,
     useUpdateTag,
 } from "../hooks";
-import type { TagDto } from "../types";
+import { TagMergeDialog } from "./tag-merge-dialog";
+import type { TagDto, TagMergeProposalDto } from "../types";
 import { PERMISSIONS } from "@/lib/permissions";
 
 const tagsRoute = getRouteApi("/protected/settings/tags");
@@ -81,11 +86,28 @@ export function TagsSection() {
     const create = useCreateTag();
     const update = useUpdateTag();
     const remove = useDeleteTag();
+    const propose = useProposeTagMerges();
+    const accept = useAcceptTagMerges();
 
     const [dialogOpen, setDialogOpen] = useState(false);
     const [editing, setEditing] = useState<TagDto | null>(null);
     const [name, setName] = useState("");
     const [slug, setSlug] = useState("");
+
+    // Consolidation lives beside the CRUD, not inside it: the proposal is an
+    // answer the server computes on demand and the client holds until the
+    // person decides, so there is nothing here to load on mount.
+    const [mergeOpen, setMergeOpen] = useState(false);
+    const [proposal, setProposal] = useState<TagMergeProposalDto | null>(null);
+
+    const openMerge = () => {
+        propose.mutate(undefined, {
+            onSuccess: (result) => {
+                setProposal(result);
+                setMergeOpen(true);
+            },
+        });
+    };
 
     const openCreate = () => {
         setEditing(null);
@@ -210,10 +232,25 @@ export function TagsSection() {
             <CardContent className="p-0">
                 <div className="flex flex-wrap items-center justify-end gap-3 px-4 pt-4">
                     {canManage && (
-                        <Button type="button" onClick={openCreate}>
-                            <IconPlus className="size-4" />
-                            افزودن برچسب
-                        </Button>
+                        <>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={openMerge}
+                                disabled={propose.isPending}
+                            >
+                                {propose.isPending ? (
+                                    <Spinner />
+                                ) : (
+                                    <IconGitMerge className="size-4" />
+                                )}
+                                ادغام هوشمند
+                            </Button>
+                            <Button type="button" onClick={openCreate}>
+                                <IconPlus className="size-4" />
+                                افزودن برچسب
+                            </Button>
+                        </>
                     )}
                 </div>
 
@@ -303,6 +340,19 @@ export function TagsSection() {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            <TagMergeDialog
+                open={mergeOpen}
+                onOpenChange={setMergeOpen}
+                proposal={proposal}
+                isAccepting={accept.isPending}
+                onAccept={(groups) =>
+                    accept.mutate(
+                        { groups },
+                        { onSuccess: () => setMergeOpen(false) },
+                    )
+                }
+            />
         </Card>
     );
 }

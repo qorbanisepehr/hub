@@ -1,5 +1,6 @@
 <?php
 
+use App\Domains\Tagging\Controllers\TagConsolidationController;
 use App\Domains\Tagging\Controllers\TagController;
 use Illuminate\Support\Facades\Route;
 
@@ -16,6 +17,16 @@ Route::middleware('auth:sanctum')->group(function () {
         ->middleware('permission:tag.manage');
     Route::delete('tags/{tag}', [TagController::class, 'destroy'])
         ->name('tags.destroy')
+        ->middleware('permission:tag.manage');
+
+    // Vocabulary-wide consolidation: propose near-duplicate merges (read-only,
+    // but a `tag.manage` capability because it is the same audience), and
+    // accept the ones a person chose.
+    Route::post('tags/consolidate', [TagConsolidationController::class, 'store'])
+        ->name('tags.consolidate')
+        ->middleware('permission:tag.manage');
+    Route::post('tags/consolidate/accept', [TagConsolidationController::class, 'accept'])
+        ->name('tags.consolidate.accept')
         ->middleware('permission:tag.manage');
 
     // Picker options for filter bars (any tag.view holder).

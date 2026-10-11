@@ -83,6 +83,27 @@ readonly class TagService
     }
 
     /**
+     * Every tag with its slug and usage count loaded, most-used first.
+     *
+     * The consolidation vocabulary, and deliberately not {@see vocabulary()}:
+     * a merge proposal references tags by slug and has to justify which one
+     * survives, so it needs the key and the usage count, not just the label a
+     * per-meeting run echoes. Ordered the same way, so if the list ever has to
+     * be truncated the tags a meeting is most likely to be about lead it.
+     *
+     * @return list<Tag>
+     */
+    public function inventory(): array
+    {
+        return Tag::query()
+            ->withCount('taggables')
+            ->orderByDesc('taggables_count')
+            ->orderBy('name')
+            ->get()
+            ->all();
+    }
+
+    /**
      * Snap proposed tags onto the hub's own vocabulary.
      *
      * A model asked for a label it cannot verify invents one, and an invented
