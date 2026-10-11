@@ -13,6 +13,7 @@ import {
 import {
     IconDotsVertical,
     IconFilter,
+    IconLayoutGrid,
     IconSearch,
     IconSettings,
     IconX,
@@ -31,6 +32,8 @@ import {
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuPortal,
+    DropdownMenuRadioGroup,
+    DropdownMenuRadioItem,
     DropdownMenuSub,
     DropdownMenuSubContent,
     DropdownMenuSubTrigger,
@@ -41,6 +44,10 @@ import {
     DataTableSettingsMenu,
     useHasTableSettings,
 } from "./settings-menu";
+import {
+    ViewModeSwitcher,
+    type DataTableViewOption,
+} from "./view-mode-switcher";
 import { DEBOUNCE } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { useAuthorization } from "@/features/auth";
@@ -83,6 +90,12 @@ type DataTableToolbarProps<TData extends RowData> = {
      *  gear instead of taking a top-level button, next to the column layout
      *  they change. Same descriptor shape, same permission gating. */
     settings?: DataTableToolbarAction[];
+    /** Alternative renderings of the same rows (D15). Two or more build the
+     *  «حالت نمایش» switcher; `view` is the active mode and `onViewChange`
+     *  moves it. Absent means the list only has the table view. */
+    views?: DataTableViewOption[];
+    view?: string;
+    onViewChange?: (mode: string) => void;
 };
 
 function SearchField({
@@ -142,6 +155,9 @@ export function DataTableToolbar<TData extends RowData>({
     filterBar,
     actions,
     settings,
+    views,
+    view,
+    onViewChange,
 }: DataTableToolbarProps<TData>) {
     const { can } = useAuthorization();
     const committedValue = searchKey
@@ -212,6 +228,7 @@ export function DataTableToolbar<TData extends RowData>({
     // (a real dialog, so the reui Filters popovers nest inside it).
     const [filtersOpen, setFiltersOpen] = useState(false);
     const hasSheet = Boolean(filterBar);
+    const hasViews = Boolean(views && views.length > 1 && onViewChange);
 
     return (
         <div className="flex w-full items-center gap-2">
@@ -262,13 +279,21 @@ export function DataTableToolbar<TData extends RowData>({
                     );
                 })}
             </div>
+            {hasViews && (
+                <ViewModeSwitcher
+                    views={views!}
+                    value={view ?? views![0].mode}
+                    onChange={onViewChange!}
+                    className="hidden lg:flex"
+                />
+            )}
             <DataTableSettingsMenu table={table} settings={settings} />
 
             {/* Mobile: everything collapses into one «...» menu with icon +
                 text items — «فیلترها» opens the bottom sheet, commands fire
                 directly, «تنظیمات» is a submenu. One tap per command, same
                 content as the desktop gear, same idiom as PageHeaderActions. */}
-            {(hasSheet || actionList.length > 0 || hasSettings) && (
+            {(hasSheet || actionList.length > 0 || hasSettings || hasViews) && (
                 <DropdownMenu>
                     <DropdownMenuTrigger
                         render={
@@ -304,6 +329,32 @@ export function DataTableToolbar<TData extends RowData>({
                                 {action.label}
                             </DropdownMenuItem>
                         ))}
+                        {hasViews && (
+                            <DropdownMenuSub>
+                                <DropdownMenuSubTrigger>
+                                    <IconLayoutGrid className="size-4" />
+                                    حالت نمایش
+                                </DropdownMenuSubTrigger>
+                                <DropdownMenuPortal>
+                                    <DropdownMenuSubContent className="w-48">
+                                        <DropdownMenuRadioGroup
+                                            value={view}
+                                            onValueChange={onViewChange}
+                                        >
+                                            {views!.map((option) => (
+                                                <DropdownMenuRadioItem
+                                                    key={option.mode}
+                                                    value={option.mode}
+                                                >
+                                                    <option.icon className="size-4" />
+                                                    {option.label}
+                                                </DropdownMenuRadioItem>
+                                            ))}
+                                        </DropdownMenuRadioGroup>
+                                    </DropdownMenuSubContent>
+                                </DropdownMenuPortal>
+                            </DropdownMenuSub>
+                        )}
                         {hasSettings && (
                             <DropdownMenuSub>
                                 <DropdownMenuSubTrigger>

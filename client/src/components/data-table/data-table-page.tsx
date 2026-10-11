@@ -34,6 +34,7 @@ import { TableFilterBar } from "./table-filter-bar";
 import { BulkActionsBar } from "./bulk-actions-bar";
 import type { ListFilterFieldDef } from "./filter-query-adapter";
 import type { DataTableToolbarAction } from "./toolbar-types";
+import type { DataTableViewOption } from "./view-mode-switcher";
 
 type Meta = {
     current_page: number;
@@ -83,6 +84,18 @@ interface DataTablePageProps<TData extends RowData> {
     expandedRowIds?: Record<string, boolean>;
     getExpandedRowId?: (row: TData) => string;
     renderExpandedRow?: (row: TData) => ReactNode;
+    /** Alternative renderings of the same rows (D15). Two or more build the
+     *  shared «حالت نمایش» switcher in the toolbar; `view` is the active mode
+     *  and `onViewChange` moves it. Absent means the table is the only view. */
+    views?: DataTableViewOption[];
+    view?: string;
+    onViewChange?: (mode: string) => void;
+    /** Draws the body for a non-table `view` (card grid, month calendar, …).
+     *  The page owns what each mode looks like; the shell owns the chrome. */
+    renderView?: (mode: string) => ReactNode;
+    /** Suppress the pagination footer: a view that pages a window of its own
+     *  (a month calendar) does not want the table's page controls. */
+    hidePagination?: boolean;
 }
 
 export function DataTablePage<TData extends RowData>({
@@ -113,10 +126,15 @@ export function DataTablePage<TData extends RowData>({
     expandedRowIds,
     getExpandedRowId,
     renderExpandedRow,
+    views,
+    view = "table",
+    onViewChange,
+    renderView,
+    hidePagination = false,
 }: DataTablePageProps<TData>) {
     const composedToolbar =
         toolbar ??
-        (searchPlaceholder || filterFields || settings ? (
+        (searchPlaceholder || filterFields || settings || views ? (
             <div className="flex flex-wrap items-center gap-2">
                 <DataTableToolbar
                     table={table}
@@ -127,6 +145,9 @@ export function DataTablePage<TData extends RowData>({
                     }
                     actions={actions}
                     settings={settings}
+                    views={views}
+                    view={view}
+                    onViewChange={onViewChange}
                     filterBar={
                         filterFields && columnFilters && onColumnFiltersChange ? (
                             <TableFilterBar
@@ -142,6 +163,12 @@ export function DataTablePage<TData extends RowData>({
     const selectedCount = bulkActions ? table.getSelectedRowModel().rows.length : 0;
     const useBulkBar = selectedCount > 0;
 
+    // A non-table mode (card, calendar, …) is the page's body, not the
+    // table's: the shared shell keeps the toolbar/loading/pagination and asks
+    // the page to draw the active mode.
+    const activeView = view ?? "table";
+    const alternateBody = activeView !== "table" ? renderView : undefined;
+
     const tableBody = isLoading ? (
         <div className="p-4">
             <TableSkeleton />
@@ -155,6 +182,9 @@ export function DataTablePage<TData extends RowData>({
             {composedToolbar && (
                 <div className="px-4 pt-3 pb-3">{composedToolbar}</div>
             )}
+            {alternateBody ? (
+                alternateBody(activeView)
+            ) : (
             <div className="relative overflow-x-auto">
                 <Table>
                     <TableHeader>
@@ -257,6 +287,7 @@ export function DataTablePage<TData extends RowData>({
                     </div>
                 )}
             </div>
+            )}
         </>
     );
 
@@ -264,7 +295,7 @@ export function DataTablePage<TData extends RowData>({
         return (
             <section className="flex flex-col">
                 {tableBody}
-                {!isLoading && !isError && (
+                {!isLoading && !isError && !hidePagination && (
                     <div className="mt-4 border-t pt-3">
                         <DataTablePagination table={table} meta={meta} />
                     </div>
@@ -296,7 +327,7 @@ export function DataTablePage<TData extends RowData>({
                 <CardContent className="p-0">
                     {tableBody}
                 </CardContent>
-                {!isLoading && !isError && (
+                {!isLoading && !isError && !hidePagination && (
                     <div className="border-t px-4 py-3">
                         <DataTablePagination table={table} meta={meta} />
                     </div>

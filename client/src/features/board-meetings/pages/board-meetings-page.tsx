@@ -2,14 +2,21 @@ import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getRouteApi } from "@tanstack/react-router";
 import {
+    IconCalendarMonth,
     IconCalendarStats,
     IconDownload,
+    IconLayoutGrid,
     IconRefresh,
     IconRobot,
     IconRotate,
+    IconTable,
 } from "@tabler/icons-react";
 
-import { DataTablePage, dataTableSelectColumn } from "@/components/data-table";
+import {
+    DataTablePage,
+    dataTableSelectColumn,
+    type DataTableViewOption,
+} from "@/components/data-table";
 import { ListPageHeader } from "@/components/layout";
 import {
     ExportDialog,
@@ -28,13 +35,19 @@ import {
     saveBlobResponse,
 } from "@/lib/download";
 import { useTagOptions } from "@/features/tags/hooks";
+import { jalaliMonthBounds, todayJalaliMonth, type JalaliMonth } from "@/lib/jalali";
 import { exportBoardMeetings, fetchBoardMeetingExportFields } from "../api";
 import type { RowSelectionState } from "@tanstack/react-table";
 
 import { boardMeetingColumns } from "../columns";
 import { BulkSummaryDialog } from "../components/bulk-summary-dialog";
+import { MeetingCalendar } from "../components/meeting-calendar";
+import { MeetingCard } from "../components/meeting-card";
 import { useBoardMeetings, useSyncBoardMeetings } from "../hooks";
 import type { BoardMeetingDto, BoardMeetingListParams } from "../types";
+
+/** A month calendar fetches the month at once, not one page of it. */
+const CALENDAR_PER_PAGE = 200;
 
 const route = getRouteApi("/protected/board-meetings");
 
@@ -52,6 +65,19 @@ export function BoardMeetingsPage() {
     const queryClient = useQueryClient();
     const search = route.useSearch();
     const navigate = route.useNavigate();
+
+    // Which rendering of the same rows is active (D15). URL-driven like the
+    // rest of the list state; the calendar view is the only one that needs a
+    // month of its own, so it also owns that month locally.
+    const view = search.view ?? "table";
+    const isCalendarView = view === "calendar";
+    const [calendarMonth, setCalendarMonth] = useState<JalaliMonth>(
+        todayJalaliMonth,
+    );
+    const calendarBounds = useMemo(
+        () => jalaliMonthBounds(calendarMonth),
+        [calendarMonth],
+    );
 
     const [isExportOpen, setIsExportOpen] = useState(false);
     const [isBulkOpen, setIsBulkOpen] = useState(false);
@@ -97,16 +123,30 @@ export function BoardMeetingsPage() {
         ? (tagSlugsFilter.value as string[])
         : [];
 
-    const params: BoardMeetingListParams = {
-        page: url.pagination.pageIndex + 1,
-        per_page: url.pagination.pageSize,
-        sort: url.activeSort?.id,
-        order: url.activeSort?.desc ? "desc" : "asc",
-        filter: url.globalFilter || undefined,
-        tags: tagsFilterValues.length > 0 ? tagsFilterValues : undefined,
-        date_from: url.activeValue("date_from") || undefined,
-        date_to: url.activeValue("date_to") || undefined,
-    };
+    // The calendar reads a whole month at once, keyed off the month in view
+    // rather than the paged window; the table and card views share the
+    // URL-driven page. Tags/search still scope the month.
+    const params: BoardMeetingListParams = isCalendarView
+        ? {
+              page: 1,
+              per_page: CALENDAR_PER_PAGE,
+              sort: "held_on",
+              order: "asc",
+              filter: url.globalFilter || undefined,
+              tags: tagsFilterValues.length > 0 ? tagsFilterValues : undefined,
+              date_from: calendarBounds.from,
+              date_to: calendarBounds.to,
+          }
+        : {
+              page: url.pagination.pageIndex + 1,
+              per_page: url.pagination.pageSize,
+              sort: url.activeSort?.id,
+              order: url.activeSort?.desc ? "desc" : "asc",
+              filter: url.globalFilter || undefined,
+              tags: tagsFilterValues.length > 0 ? tagsFilterValues : undefined,
+              date_from: url.activeValue("date_from") || undefined,
+              date_to: url.activeValue("date_to") || undefined,
+          };
 
     const { data, isLoading, isError, isFetching } = useBoardMeetings(params);
 
@@ -130,12 +170,13 @@ export function BoardMeetingsPage() {
         getRowId: (row) => String(row.id),
     });
 
-    // URL may hold a page beyond the last one; pull it back into range.
+    // URL may hold a page beyond the last one; pull it back into range. The
+    // calendar pages a month of its own, so it leaves the URL page alone.
     useEffect(() => {
-        if (!isLoading && meta) {
+        if (!isCalendarView && !isLoading && meta) {
             ensurePageInRange(table.getPageCount());
         }
-    }, [table, ensurePageInRange, isLoading, meta]);
+    }, [table, ensurePageInRange, isLoading, meta, isCalendarView]);
 
     const { data: tagOptions } = useTagOptions(undefined);
 
@@ -221,6 +262,17 @@ export function BoardMeetingsPage() {
             EXPORT_MIME_TYPES[format],
         );
     };
+
+    // The shared switcher's options (D15): same rows, three renderings. The
+    // page owns what each mode draws (`renderView`); the shell owns the chrome.
+    const views: DataTableViewOption[] = useMemo(
+        () => [
+            { mode: "table", label: "جدول", icon: IconTable },
+            { mode: "card", label: "کارتی", icon: IconLayoutGrid },
+            { mode: "calendar", label: "تقویم", icon: IconCalendarMonth },
+        ],
+        [],
+    );
 
     return (
         <>
@@ -320,6 +372,48 @@ export function BoardMeetingsPage() {
                         permission: PERMISSIONS.BOARD_MEETING_SYNC,
                     },
                 ]}
+                hidePagination={isCalendarView}
+                view={view}
+                views={views}
+                onViewChange={(mode) => {
+                    void navigate({
+                        search: (prev) => ({
+                            ...prev,
+                            view:
+                                mode === "table"
+                                    ? undefined
+                                    : (mode as "card" | "calendar"),
+                        }),
+                    });
+                }}
+                renderView={(mode) => {
+                    if (mode === "card") {
+                        return (
+                            <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2 xl:grid-cols-3">
+                                {(data?.data ?? []).map((meeting) => (
+                                    <MeetingCard
+                                        key={meeting.id}
+                                        meeting={meeting}
+                                    />
+                                ))}
+                            </div>
+                        );
+                    }
+
+                    if (mode === "calendar") {
+                        return (
+                            <div className="p-4">
+                                <MeetingCalendar
+                                    month={calendarMonth}
+                                    onMonthChange={setCalendarMonth}
+                                    meetings={data?.data ?? []}
+                                />
+                            </div>
+                        );
+                    }
+
+                    return null;
+                }}
             />
 
             <BulkSummaryDialog

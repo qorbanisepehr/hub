@@ -20,6 +20,9 @@ const boardMeetingsSearchSchema = paginatedSearchSchema({
     tags: csvArray(),
     date_from: z.string().optional(),
     date_to: z.string().optional(),
+    // Which rendering of the same rows the list shows (D15). Absent means the
+    // table; it is URL state so a card or calendar view is shareable.
+    view: z.enum(["table", "card", "calendar"]).optional(),
 });
 
 export const Route = createRoute({
