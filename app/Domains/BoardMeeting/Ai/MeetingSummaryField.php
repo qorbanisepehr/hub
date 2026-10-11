@@ -57,14 +57,26 @@ enum MeetingSummaryField: string
     /**
      * The JSON schema type this field contributes.
      *
-     * Every list field is a list of strings, which is also what makes the
-     * response parser in {@see MeetingSummary}
-     * able to read all four the same way.
+     * Every list field is a list, and the four prose lists are lists of
+     * strings, which is what lets the response parser in {@see MeetingSummary}
+     * read them the same way. `suggested_tags` is the exception and is the only
+     * field that carries structure: a tag is a label *and* the slug it is
+     * matched by, and a model asked for one string can only ever give one of
+     * the two — which is how a hub with Persian tag names ended up being fed
+     * English tag slugs.
      */
     public function type(JsonSchema $schema): Type
     {
         return match ($this) {
             self::ExecutiveSummary => $schema->string(),
+            self::SuggestedTags => $schema->array()->items(
+                $schema->object([
+                    'name' => $schema->string()->required()
+                        ->description('the tag label, written in Persian'),
+                    'slug' => $schema->string()->required()
+                        ->description('a short lowercase latin transliteration, letters/digits/hyphens only'),
+                ]),
+            ),
             default => $schema->array()
                 ->items($schema->string())
                 ->unique(),

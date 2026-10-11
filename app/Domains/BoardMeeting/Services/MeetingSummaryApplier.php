@@ -102,9 +102,45 @@ final readonly class MeetingSummaryApplier
             ? $previous->withPending(null)
             : $candidate->narrowedTo($accepted)->mergedOver($previous);
 
-        $this->persist($meeting, $result, $tagSlugs);
+        $this->persist($meeting, $result, $this->tagProposals($candidate, $tagSlugs));
 
         return $result;
+    }
+
+    /**
+     * The meeting's full tag set from a decision, as name/slug pairs.
+     *
+     * The decision names slugs, because a tag is a membership and the checkbox
+     * list works in identities. Creating a *new* tag still needs its label,
+     * which lives on the proposal that suggested it — so a slug the candidate
+     * proposed carries that proposal's name, and anything else is an existing
+     * tag whose name the registry already holds (and which `firstOrCreate`
+     * ignores, because the row is already there).
+     *
+     * @param  list<string>  $tagSlugs
+     * @return list<array{name: string, slug: string}>
+     */
+    private function tagProposals(MeetingSummary $candidate, array $tagSlugs): array
+    {
+        $name = MeetingSummaryField::SuggestedTags->value;
+        $proposed = $candidate->values[$name] ?? [];
+
+        $names = [];
+
+        if (is_array($proposed)) {
+            foreach ($proposed as $proposal) {
+                if (is_array($proposal) && is_string($proposal['slug'] ?? null)) {
+                    $names[$proposal['slug']] = is_string($proposal['name'] ?? null)
+                        ? $proposal['name']
+                        : $proposal['slug'];
+                }
+            }
+        }
+
+        return array_map(
+            fn (string $slug): array => ['name' => $names[$slug] ?? $slug, 'slug' => $slug],
+            array_values($tagSlugs),
+        );
     }
 
     /**
@@ -116,7 +152,7 @@ final readonly class MeetingSummaryApplier
      * still stand — re-syncing either would replace a tag set nobody asked to
      * replace, including any the hub's own tag screen has changed since.
      *
-     * @return list<string>|null
+     * @return list<array{name: string, slug: string}>|null
      */
     private function tagsThisRunDecided(MeetingSummary $run, MeetingSummary $result): ?array
     {
@@ -128,28 +164,28 @@ final readonly class MeetingSummaryApplier
 
         $tags = $result->values[$name] ?? [];
 
-        return is_array($tags) ? array_values(array_filter($tags, is_string(...))) : [];
+        return is_array($tags) ? array_values(array_filter($tags, is_array(...))) : [];
     }
 
     /**
      * Commit the pivot and the column together, or neither.
      *
-     * `TagService::syncTags` opens its own transaction, which nests into this
-     * one as a savepoint — which is the point: a tag row that survived while
-     * the summary claiming to justify it did not is the failure mode this
-     * whole class exists to make impossible.
+     * `TagService::syncTagProposals` opens its own transaction, which nests
+     * into this one as a savepoint — which is the point: a tag row that
+     * survived while the summary claiming to justify it did not is the failure
+     * mode this whole class exists to make impossible.
      *
      * `null` tags means the request did not include them, which is not the
      * same as an empty list; the difference is why this is `?array` and the
      * check is `!== null`.
      *
-     * @param  list<string>|null  $tagSlugs
+     * @param  list<array{name: string, slug: string}>|null  $tagProposals
      */
-    private function persist(BoardMeeting $meeting, MeetingSummary $result, ?array $tagSlugs): void
+    private function persist(BoardMeeting $meeting, MeetingSummary $result, ?array $tagProposals): void
     {
-        DB::transaction(function () use ($meeting, $result, $tagSlugs): void {
-            if ($tagSlugs !== null) {
-                $this->tags->syncTags($meeting, $tagSlugs);
+        DB::transaction(function () use ($meeting, $result, $tagProposals): void {
+            if ($tagProposals !== null) {
+                $this->tags->syncTagProposals($meeting, $tagProposals);
             }
 
             $meeting->forceFill(['summary' => $result->toArray()])->save();

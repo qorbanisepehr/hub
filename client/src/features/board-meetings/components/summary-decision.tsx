@@ -22,11 +22,17 @@ import { cn } from "@/lib/utils";
 import { SUMMARY_FIELDS, type SummaryFieldConfig } from "../summary-copy";
 import {
     isEmptyValue,
+    proposedTagNames,
     proposedTagSlugs,
     readField,
     tagSlugsOf,
+    type SummaryValue,
 } from "../summary-read";
-import type { MeetingSummaryArtifact, MeetingSummaryFieldName } from "../types";
+import type {
+    MeetingSuggestionTag,
+    MeetingSummaryArtifact,
+    MeetingSummaryFieldName,
+} from "../types";
 
 /**
  * The compare-and-decide panel: a run proposed something, and this is where a
@@ -103,6 +109,15 @@ export function SummaryDecision({
     const baselineTags = useMemo(
         () => proposedTagSlugs(candidate, currentTags),
         [candidate, currentTags],
+    );
+
+    // The labels the run gave its proposed tags. A tag the registry does not
+    // have yet is not in the options endpoint, so this is the only place its
+    // Persian name reaches the panel — without it a brand-new tag would be
+    // shown to the person as the English slug they are being asked to keep.
+    const proposedNames = useMemo(
+        () => proposedTagNames(readField(candidate, "suggested_tags", true).value),
+        [candidate],
     );
 
     /**
@@ -237,6 +252,7 @@ export function SummaryDecision({
                 <TagDecision
                     tags={tags}
                     currentTags={currentTags}
+                    proposedNames={proposedNames}
                     isRunning={isRunning}
                     onToggle={(slug, on) =>
                         update({
@@ -349,8 +365,8 @@ function FieldDecisionRow({
     disabled,
 }: {
     config: SummaryFieldConfig;
-    proposed: string | string[] | null;
-    stored: string | string[] | null;
+    proposed: SummaryValue;
+    stored: SummaryValue;
     hasStored: boolean;
     checked: boolean;
     onToggle: (on: boolean) => void;
@@ -403,6 +419,7 @@ function FieldDecisionRow({
 function TagDecision({
     tags,
     currentTags,
+    proposedNames,
     isRunning,
     onToggle,
     onAll,
@@ -411,6 +428,7 @@ function TagDecision({
 }: {
     tags: string[];
     currentTags: string[];
+    proposedNames: Map<string, string>;
     isRunning: boolean;
     onToggle: (slug: string, on: boolean) => void;
     onAll: () => void;
@@ -420,7 +438,14 @@ function TagDecision({
     const { data: options = [] } = useTagOptions(undefined);
 
     const busy = disabled || isRunning;
-    const nameBySlug = new Map(options.map((tag) => [tag.slug, tag.name]));
+
+    // The registry's names win for a tag the hub already has — it is canonical
+    // and the run's spelling is not — and the run's own name covers a tag it is
+    // introducing, which the registry cannot name because it does not exist yet.
+    const nameBySlug = new Map<string, string>([
+        ...proposedNames,
+        ...options.map((tag) => [tag.slug, tag.name] as const),
+    ]);
 
     /**
      * Only the tags this decision is actually about: what the run proposed,
@@ -512,7 +537,7 @@ export function SummaryValueText({
     isList,
     muted = false,
 }: {
-    value: string | string[] | null;
+    value: SummaryValue;
     isList: boolean;
     muted?: boolean;
 }) {
@@ -527,19 +552,23 @@ export function SummaryValueText({
     if (isList) {
         return (
             <ul className="flex flex-col gap-1">
-                {(value as string[]).map((item, index) => (
-                    <li
-                        // oxlint-disable-next-line react/no-array-index-key -- list items are model prose with no stable identity
-                        key={index}
-                        className={cn(
-                            "flex items-start gap-1.5 text-sm leading-6",
-                            muted && "text-muted-foreground",
-                        )}
-                    >
-                        <IconPointFilled className="text-muted-foreground mt-1 shrink-0" />
-                        <span>{item}</span>
-                    </li>
-                ))}
+                {(value as (string | MeetingSuggestionTag)[]).map(
+                    (item, index) => (
+                        <li
+                            // oxlint-disable-next-line react/no-array-index-key -- list items are model prose with no stable identity
+                            key={index}
+                            className={cn(
+                                "flex items-start gap-1.5 text-sm leading-6",
+                                muted && "text-muted-foreground",
+                            )}
+                        >
+                            <IconPointFilled className="text-muted-foreground mt-1 shrink-0" />
+                            <span>
+                                {typeof item === "string" ? item : item.name}
+                            </span>
+                        </li>
+                    ),
+                )}
             </ul>
         );
     }

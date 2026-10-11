@@ -62,6 +62,72 @@ test('resolve creates unknown tags and reuses known ones', function () {
         ->and(Tag::count())->toBe(2);
 });
 
+test('vocabulary lists every tag name, for a model to reuse', function () {
+    Tag::create(['name' => 'شرکت سمتک', 'slug' => 'samtak-company']);
+    Tag::create(['name' => 'بودجه', 'slug' => 'budget']);
+
+    expect($this->service->vocabulary())
+        ->toEqualCanonicalizing(['شرکت سمتک', 'بودجه']);
+});
+
+test('canonicalize snaps a proposed label onto the hub tag it means', function () {
+    Tag::create(['name' => 'شرکت سمتک', 'slug' => 'samtak-company']);
+
+    // The model was shown the name and guessed its own key; the existing pair
+    // is what has to win, or one company becomes two tags.
+    $canonical = $this->service->canonicalize([
+        ['name' => 'شرکت سمتک', 'slug' => 'samtak'],
+    ]);
+
+    expect($canonical)->toBe([
+        ['name' => 'شرکت سمتک', 'slug' => 'samtak-company'],
+    ]);
+});
+
+test('canonicalize folds letter variants and separators when matching', function () {
+    Tag::create(['name' => 'شرکت سمتک', 'slug' => 'samtak-company']);
+
+    // Arabic yeh/kaf and an underscore: a different spelling, the same tag.
+    $canonical = $this->service->canonicalize([
+        ['name' => 'شركت_سمتك', 'slug' => 'whatever'],
+    ]);
+
+    expect($canonical)->toBe([
+        ['name' => 'شرکت سمتک', 'slug' => 'samtak-company'],
+    ]);
+});
+
+test('canonicalize makes a safe key for a new tag and keeps its label', function () {
+    $canonical = $this->service->canonicalize([
+        ['name' => 'آموزش رایگان', 'slug' => 'Free Training!'],
+    ]);
+
+    expect($canonical)->toBe([
+        ['name' => 'آموزش رایگان', 'slug' => 'free-training'],
+    ]);
+});
+
+test('canonicalize dedupes by slug and reads a bare string as both halves', function () {
+    $canonical = $this->service->canonicalize([
+        'budget',
+        ['name' => 'بودجه', 'slug' => 'budget'],
+    ]);
+
+    expect($canonical)->toHaveCount(1)
+        ->and($canonical[0]['slug'])->toBe('budget');
+});
+
+test('sync creates a proposed tag under the label and key it was given', function () {
+    $model = TaggableStub::create(['name' => 'a']);
+
+    $this->service->syncTagProposals($model, [
+        ['name' => 'آموزش رایگان', 'slug' => 'free-training'],
+    ]);
+
+    expect(Tag::where('slug', 'free-training')->value('name'))->toBe('آموزش رایگان')
+        ->and($model->tags()->pluck('slug')->all())->toBe(['free-training']);
+});
+
 test('and filter returns only models carrying every tag', function () {
     $both = TaggableStub::create(['name' => 'both']);
     $onlyOne = TaggableStub::create(['name' => 'one']);

@@ -106,7 +106,7 @@ final class MeetingSummaryAgent implements FieldedAgent, HasProviderOptions
     /** @var list<MeetingSummaryField> */
     private array $fields;
 
-    /** @var array<string, string|list<string>> */
+    /** @var array<string, string|list<string>|list<array{name: string, slug: string}>> */
     private array $previous = [];
 
     /** @param list<string>|null $fields */
@@ -145,7 +145,7 @@ final class MeetingSummaryAgent implements FieldedAgent, HasProviderOptions
      * Cloned for the same reason {@see withFields()} clones: the SDK mutates
      * the instance it prompts, so two runs must not bleed together.
      *
-     * @param  array<string, string|list<string>>  $previous
+     * @param  array<string, string|list<string>|list<array{name: string, slug: string}>>  $previous
      */
     public function withPrevious(array $previous): static
     {
@@ -201,10 +201,32 @@ final class MeetingSummaryAgent implements FieldedAgent, HasProviderOptions
             'A key decision is something the board resolved, approved or rejected. A discussion topic, a question, and an item deferred to the next session are not decisions.',
             'Bullet points are the substantive statements of the session, one per line, each a complete thought.',
             'Keep proper nouns as the minutes spell them, even where the OCR mangled them; do not translate a company or project name into English.',
-            'Suggested tags are short subject slugs for the hub\'s tagging system: two or three words, no punctuation, no numbering, no duplicates.',
+            ...$this->tagInstructions(),
             'Leave a field out or return an empty list when the minutes genuinely contain nothing for it. An honest gap is worth more than an invented decision, and a fabricated decision in a board record is worse than no summary at all.',
             ...$this->mergeInstructions(),
         ]);
+    }
+
+    /**
+     * The tag rules, and nothing when this run is not asking for tags.
+     *
+     * Conditional for the same reason {@see mergeInstructions()} is: a run
+     * that was not asked for tags should not be told about a KNOWN TAGS list it
+     * will never see. The summarizer appends that list to the prompt under
+     * exactly this condition, so the two agree by construction.
+     *
+     * @return list<string>
+     */
+    private function tagInstructions(): array
+    {
+        if (! in_array(MeetingSummaryField::SuggestedTags, $this->fields, true)) {
+            return [];
+        }
+
+        return [
+            'Suggested tags are the subject labels of the hub\'s tagging system. Each tag is two strings: `name` is the label written in '.$this->language().', and `slug` is a short lowercase latin transliteration of it using letters, digits and hyphens only (for example "miduk-phase-3-project"). No punctuation, no numbering, no duplicates.',
+            'The prompt lists the tags the hub already has under KNOWN TAGS. When one of those already means what you mean, reuse it and copy its name exactly as written — a near-duplicate is worse than no new tag. Invent a tag only when nothing on that list fits.',
+        ];
     }
 
     /**

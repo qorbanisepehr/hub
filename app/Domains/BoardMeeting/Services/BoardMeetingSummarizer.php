@@ -4,12 +4,14 @@ namespace App\Domains\BoardMeeting\Services;
 
 use App\Domains\Ai\Exceptions\AiNotConfigured;
 use App\Domains\Ai\Services\AiAgentRunner;
+use App\Domains\Ai\Value\AiRun;
 use App\Domains\BoardMeeting\Ai\MeetingSummaryAgent;
 use App\Domains\BoardMeeting\Ai\MeetingSummaryField;
 use App\Domains\BoardMeeting\Models\BoardMeeting;
 use App\Domains\BoardMeeting\Value\AgendaItem;
 use App\Domains\BoardMeeting\Value\Attendee;
 use App\Domains\BoardMeeting\Value\MeetingSummary;
+use App\Domains\Tagging\Services\TagService;
 use Illuminate\Support\Str;
 
 /**
@@ -32,7 +34,9 @@ use Illuminate\Support\Str;
  * The prompt is assembled from `minutes` + `agenda` + `attendees` only (D21).
  * Registry columns such as `origin` and `provenance` describe where the row
  * came from, not what the board did, and feeding them to a model only invites
- * it to summarize the import rather than the meeting.
+ * it to summarize the import rather than the meeting. A run that asks for
+ * `suggested_tags` also gets the hub's own tag names appended, because a model
+ * cannot reuse a vocabulary it was never shown — see {@see knownTagsSection()}.
  */
 class BoardMeetingSummarizer
 {
@@ -85,8 +89,22 @@ class BoardMeetingSummarizer
      */
     private const TIMEOUT_SECONDS = 900;
 
+    /**
+     * How many characters of the hub's tag vocabulary a tag run may carry.
+     *
+     * The whole vocabulary is small today — 338 tags, 5,626 characters of
+     * names, about 1,100 tokens at the measured ratio — so this ceiling does
+     * not bite yet. It exists so that a hub that grows to thousands of tags
+     * degrades by *truncating the list* rather than by silently overflowing the
+     * context window and losing the minutes instead. The list is written
+     * most-used first by {@see TagService::vocabulary()}, so the cut, when it
+     * comes, drops the tags a meeting is least likely to be about.
+     */
+    private const VOCABULARY_CHAR_BUDGET = 8000;
+
     public function __construct(
         private readonly AiAgentRunner $runner,
+        private readonly TagService $tags,
     ) {}
 
     /**
@@ -119,6 +137,11 @@ class BoardMeetingSummarizer
     ): MeetingSummary {
         $requested = MeetingSummaryField::fromValues($fields);
 
+        // Whether to hand the model the hub's tag vocabulary: only a run that
+        // is actually asked for tags can use it, and giving it to the others
+        // only spends context on a list they were told to ignore.
+        $withTags = in_array(MeetingSummaryField::SuggestedTags, $requested, true);
+
         // What the record already holds, narrowed to this run's fields. Read
         // from the row rather than passed in, because the value that matters is
         // the one on disk: a caller holding a stale copy would have the model
@@ -129,7 +152,7 @@ class BoardMeetingSummarizer
 
         $run = $this->runner->run(
             key: MeetingSummaryAgent::REGISTRY_KEY,
-            prompt: $this->promptFor($meeting, $previous),
+            prompt: $this->promptFor($meeting, $previous, $withTags),
             agentClass: MeetingSummaryAgent::class,
             provider: $provider,
             model: $model,
@@ -143,7 +166,7 @@ class BoardMeetingSummarizer
             ],
         );
 
-        return MeetingSummary::fromRun($run, $requested);
+        return MeetingSummary::fromRun($this->resolveTags($run, $requested), $requested);
     }
 
     /**
@@ -154,7 +177,7 @@ class BoardMeetingSummarizer
      * model that a person had already accepted a blank.
      *
      * @param  list<MeetingSummaryField>  $requested
-     * @return array<string, string|list<string>>
+     * @return array<string, string|list<string>|list<array{name: string, slug: string}>>
      */
     private function currentValues(BoardMeeting $meeting, array $requested): array
     {
@@ -184,8 +207,14 @@ class BoardMeetingSummarizer
      * Labels are in English and the content is not: the prompt is written for
      * a model, and mixing a translated label into the Persian minutes would
      * risk the answer following the label's language instead of the meeting's.
+     *
+     * `$withTags` appends the hub's own tag names, and is set by the caller
+     * from the request rather than derived here, so the prompt and the agent's
+     * instructions agree on whether tags are in play.
+     *
+     * @param  array<string, mixed>  $current
      */
-    public function promptFor(BoardMeeting $meeting, array $current = []): string
+    public function promptFor(BoardMeeting $meeting, array $current = [], bool $withTags = false): string
     {
         $sections = [
             "Registry key: {$meeting->held_on_jalali}, session {$meeting->sequence} of that day.",
@@ -193,10 +222,81 @@ class BoardMeetingSummarizer
             $this->section('Title', $meeting->title),
             $this->section('Agenda', $this->agendaLines($meeting)),
             $this->section('Attendees', $this->attendeeLines($meeting)),
+            $withTags ? $this->knownTagsSection() : null,
             $this->section('Minutes', $meeting->minutes),
         ];
 
         return implode("\n\n", array_filter($sections, fn (?string $s): bool => $s !== null && $s !== ''));
+    }
+
+    /**
+     * The hub's existing tags, as the list a tagging run must reuse from.
+     *
+     * Without this the model can only answer with tags it invents, because it
+     * has never seen the hub's — and the hub's are the ones a person will
+     * filter by. The list is names, not slugs: the name is what the model is
+     * asked to echo, and {@see TagService::canonicalize()} maps it back to the
+     * real slug. Truncated at {@see VOCABULARY_CHAR_BUDGET} characters.
+     */
+    private function knownTagsSection(): ?string
+    {
+        $included = [];
+        $length = 0;
+
+        foreach ($this->tags->vocabulary() as $name) {
+            $cost = mb_strlen($name) + 1;
+
+            if ($length + $cost > self::VOCABULARY_CHAR_BUDGET) {
+                break;
+            }
+
+            $included[] = $name;
+            $length += $cost;
+        }
+
+        if ($included === []) {
+            return null;
+        }
+
+        return "KNOWN TAGS (reuse one of these when it means what you mean; do not invent a near-duplicate):\n"
+            .implode(' | ', $included);
+    }
+
+    /**
+     * Snap a run's tag proposals onto the hub's vocabulary before they are
+     * stored.
+     *
+     * The model is asked to reuse known tags, but it cannot be trusted to
+     * spell, and a proposal it got wrong would become a near-duplicate tag
+     * nobody meant to create. The resolver is the deterministic half of that
+     * ask: it matches by name or slug and substitutes the hub's own pair, so
+     * reuse holds whether or not the model did. Only the tags field is touched;
+     * the other four are copied through untouched.
+     *
+     * @param  list<MeetingSummaryField>  $requested
+     */
+    private function resolveTags(AiRun $run, array $requested): AiRun
+    {
+        $name = MeetingSummaryField::SuggestedTags->value;
+
+        if (! in_array(MeetingSummaryField::SuggestedTags, $requested, true)
+            || ! is_array($run->structured[$name] ?? null)) {
+            return $run;
+        }
+
+        $proposals = $run->structured[$name];
+
+        return new AiRun(
+            text: $run->text,
+            structured: [
+                ...$run->structured,
+                $name => $this->tags->canonicalize(array_values($proposals)),
+            ],
+            provider: $run->provider,
+            model: $run->model,
+            usage: $run->usage,
+            providerKey: $run->providerKey,
+        );
     }
 
     /**
@@ -207,7 +307,7 @@ class BoardMeetingSummarizer
      * hint that an earlier draft exists, or the model starts treating the
      * stored text as something to preserve.
      *
-     * @param  array<string, string|list<string>>  $current
+     * @param  array<string, mixed>  $current
      */
     private function currentRecordSection(array $current): ?string
     {
@@ -218,14 +318,32 @@ class BoardMeetingSummarizer
         $lines = ['CURRENT RECORD (accepted by a person; reconcile with it, do not copy it):'];
 
         foreach ($current as $field => $value) {
-            $label = $field;
-
-            $lines[] = is_array($value)
-                ? $label.': '.implode(' | ', $value)
-                : $label.': '.$value;
+            $lines[] = $field.': '.$this->renderCurrentValue($value);
         }
 
         return implode("\n", $lines);
+    }
+
+    /**
+     * One stored field value as a line the model can read.
+     *
+     * A list of strings joins with `|`. A list of tag proposals — the one
+     * field whose items are pairs — renders each as `name (slug)`, so the model
+     * sees both what the tag is called and the key it holds, rather than the
+     * word "Array" repeated once per tag.
+     */
+    private function renderCurrentValue(mixed $value): string
+    {
+        if (! is_array($value)) {
+            return (string) $value;
+        }
+
+        return implode(' | ', array_map(
+            fn (mixed $item): string => is_array($item)
+                ? trim(($item['name'] ?? '').' ('.($item['slug'] ?? '').')')
+                : (string) $item,
+            $value,
+        ));
     }
 
     private function agendaLines(BoardMeeting $meeting): ?string

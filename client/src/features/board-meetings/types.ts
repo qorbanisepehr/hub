@@ -120,13 +120,27 @@ export type MeetingSummaryStatus =
 export type MeetingSummaryReason =
     "no_structured_output" | "no_fields_returned" | "not_configured" | "empty";
 
+/**
+ * One tag a run suggested: the Persian label people read, and the slug it is
+ * stored and matched by.
+ *
+ * Two strings rather than one because the hub keeps two. A tag is identified
+ * by its slug (filters, pivots, the edit dialog) but *read* by its name, and a
+ * model handed a single string can only fill one of them — which is why tags
+ * generated from the minutes alone came back as English slugs.
+ */
+export interface MeetingSuggestionTag {
+    name: string;
+    slug: string;
+}
+
 export interface MeetingSummaryArtifact {
     status: MeetingSummaryStatus;
     executive_summary?: string | null;
     topics?: string[];
     bullet_points?: string[];
     key_decisions?: string[];
-    suggested_tags?: string[];
+    suggested_tags?: MeetingSuggestionTag[];
     fields: Partial<Record<MeetingSummaryFieldName, MeetingSummaryFieldState>>;
     /** A proposal awaiting a decision, in the same shape, or null. */
     pending: MeetingSummaryArtifact | null;

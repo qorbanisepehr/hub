@@ -18,6 +18,7 @@ use App\Domains\BoardMeeting\Value\AgendaItem;
 use App\Domains\BoardMeeting\Value\Attendee;
 use App\Domains\BoardMeeting\Value\MeetingSummary;
 use App\Domains\Settings\Repositories\SystemSettingsRepositoryInterface;
+use App\Domains\Tagging\Models\Tag;
 use App\Domains\Tagging\Services\TagService;
 use App\Support\Realtime\RunProgressed;
 use App\Support\Realtime\RunState;
@@ -796,7 +797,11 @@ describe('regenerating part of a summary', function () {
         expect($stored['key_decisions'])->toBe(['مصوبهٔ ۴۲'])
             ->and($stored['executive_summary'])->toBe('خلاصهٔ قبلی')
             ->and($stored['topics'])->toBe(['بودجه'])
-            ->and($stored['suggested_tags'])->toBe(['budget']);
+            // The stored tags round-trip through the pair shape: a legacy
+            // `['budget']` is read as name-and-slug and written back that way.
+            ->and($stored['suggested_tags'])->toBe([
+                ['name' => 'budget', 'slug' => 'budget'],
+            ]);
     });
 
     it('keeps the old answer when the regeneration comes back empty', function () {
@@ -1236,6 +1241,77 @@ describe('tags following a run', function () {
         runSummaryJob($this->meeting->id, ['suggested_tags'], SummaryWriteMode::Review);
 
         expect($this->meeting->fresh()->tags->pluck('slug')->all())->toBe(['budget']);
+    });
+});
+
+/*
+ * The tag half of the prompt (D20/D25): a model can only reuse a vocabulary it
+ * was shown, and a proposed label only becomes a reused tag if something maps
+ * it back. These two halves are what turn "the model wrote Persian we can read"
+ * into "the meeting carries the hub's own tags".
+ */
+describe('tag proposals and the hub vocabulary', function () {
+    it('shows a tag run the labels the hub already uses, and only that run', function () {
+        Tag::create(['name' => 'شرکت سمتک', 'slug' => 'samtak-company']);
+
+        $withTags = $this->summarizer->promptFor($this->meeting, [], true);
+        $withoutTags = $this->summarizer->promptFor($this->meeting);
+
+        expect($withTags)->toContain('KNOWN TAGS')
+            ->and($withTags)->toContain('شرکت سمتک')
+            ->and($withoutTags)->not->toContain('KNOWN TAGS');
+    });
+
+    it('asks for a Persian label and a latin key, never a bare slug', function () {
+        // The old wording asked for "subject slugs", and on a Persian hub that
+        // is why a tags-only run came back with English words where a person
+        // expected Persian labels.
+        $instructions = (new MeetingSummaryAgent(['suggested_tags']))->instructions();
+
+        expect($instructions)->toContain('`name` is the label written in Persian')
+            ->and($instructions)->toContain('`slug`')
+            // A run that was not asked for tags is not told about a list it
+            // will never be shown.
+            ->and((new MeetingSummaryAgent(['topics']))->instructions())
+            ->not->toContain('KNOWN TAGS');
+    });
+
+    it('reuses an existing tag when the run names it, whatever key it guessed', function () {
+        Tag::create(['name' => 'شرکت سمتک', 'slug' => 'samtak-company']);
+
+        MeetingSummaryAgent::fake([[
+            'suggested_tags' => [
+                ['name' => 'شرکت سمتک', 'slug' => 'samtak'],
+            ],
+        ]]);
+
+        runSummaryJob($this->meeting->id, ['suggested_tags']);
+
+        $stored = $this->meeting->fresh()->summary;
+
+        expect($stored['suggested_tags'])->toBe([
+            ['name' => 'شرکت سمتک', 'slug' => 'samtak-company'],
+        ])->and($this->meeting->fresh()->tags->pluck('slug')->all())
+            ->toBe(['samtak-company'])
+            // The guessed key never became a second tag for one company.
+            ->and(Tag::where('slug', 'samtak')->exists())->toBeFalse();
+    });
+
+    it('keeps the Persian label and makes a safe latin key for a new tag', function () {
+        MeetingSummaryAgent::fake([[
+            'suggested_tags' => [
+                ['name' => 'آموزش رایگان', 'slug' => 'Free Training'],
+            ],
+        ]]);
+
+        runSummaryJob($this->meeting->id, ['suggested_tags']);
+
+        $tag = Tag::where('slug', 'free-training')->first();
+
+        expect($tag)->not->toBeNull()
+            ->and($tag->name)->toBe('آموزش رایگان')
+            ->and($this->meeting->fresh()->tags->pluck('slug')->all())
+            ->toBe(['free-training']);
     });
 });
 

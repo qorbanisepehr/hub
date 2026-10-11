@@ -1,4 +1,5 @@
 import type {
+    MeetingSuggestionTag,
     MeetingSummaryArtifact,
     MeetingSummaryFieldName,
     MeetingSummaryFieldState,
@@ -16,7 +17,7 @@ import { SUMMARY_FIELDS } from "./summary-copy";
  * which is the one distinction the per-field map exists to preserve (D26).
  */
 
-export type SummaryValue = string | string[] | null;
+export type SummaryValue = string | string[] | MeetingSuggestionTag[] | null;
 
 export interface FieldReading {
     name: MeetingSummaryFieldName;
@@ -91,9 +92,46 @@ export function isEmptyValue(value: SummaryValue): boolean {
     return value === null || (Array.isArray(value) && value.length === 0);
 }
 
-/** The string list of a tags-shaped field, for the tag picker. */
+/**
+ * The slugs of a tags-shaped field, for the tag picker.
+ *
+ * A proposal is a name/slug pair and a legacy one may still be a bare string,
+ * so both shapes have to yield a slug: the picker, the accept payload and the
+ * pivot all work in identities, never in labels.
+ */
 export function tagSlugsOf(value: SummaryValue): string[] {
-    return Array.isArray(value) ? value : [];
+    if (!Array.isArray(value)) {
+        return [];
+    }
+
+    return value
+        .map((item) => (typeof item === "string" ? item : item.slug))
+        .filter((slug) => slug !== "");
+}
+
+/**
+ * The labels a run attached to its proposed tags, by slug.
+ *
+ * A proposed tag the registry does not know yet has no entry in the options
+ * endpoint, so without this the decision panel would fall back to showing its
+ * raw slug — the English key — to a person deciding whether to keep it. The
+ * run's own name is the thing a person can actually judge, and it is the name
+ * the accept endpoint will create the tag under.
+ */
+export function proposedTagNames(value: SummaryValue): Map<string, string> {
+    const names = new Map<string, string>();
+
+    if (!Array.isArray(value)) {
+        return names;
+    }
+
+    for (const item of value) {
+        if (typeof item !== "string") {
+            names.set(item.slug, item.name);
+        }
+    }
+
+    return names;
 }
 
 /**
