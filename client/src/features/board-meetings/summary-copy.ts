@@ -116,6 +116,10 @@ export const SUMMARY_REASONS: Readonly<Record<MeetingSummaryReason, string>> = {
     no_structured_output: "مدل به‌جای ساختار خواسته‌شده، متن آزاد برگرداند.",
     no_fields_returned:
         "مدل ساختار درستی برگرداند اما هیچ‌کدام از فیلدها خالی بود.",
+    unavailable:
+        "ارائه‌دهندهٔ هوش مصنوعی پاسخ نداد؛ اتصال قطع شد یا مدل هنوز آماده نبود.",
+    abandoned:
+        "اجرای این خلاصه هرگز به پایان نرسید؛ احتمالاً پردازش صف متوقف شده بود.",
     empty: "مدل برای این فیلد چیزی ننوشت.",
 };
 

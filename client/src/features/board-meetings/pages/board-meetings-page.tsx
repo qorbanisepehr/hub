@@ -105,6 +105,14 @@ export function BoardMeetingsPage() {
         undefined,
     );
 
+    /**
+     * Which scope the summary dialog is open in: false writes a first summary
+     * for meetings that have none, true replaces the summary of a meeting that
+     * already has one. Set on every open, so it never carries over between the
+     * two entries.
+     */
+    const [bulkRegenerate, setBulkRegenerate] = useState(false);
+
     const url = useDataTableUrlState({
         search: search as unknown as Record<string, unknown>,
         navigate,
@@ -381,6 +389,23 @@ export function BoardMeetingsPage() {
                         label: "تولید خلاصه برای جلسات تولیدنشده",
                         icon: IconRobot,
                         onClick: () => {
+                            setBulkRegenerate(false);
+                            setBulkPreset(undefined);
+                            setIsBulkOpen(true);
+                        },
+                        permission: PERMISSIONS.BOARD_MEETING_SYNC,
+                    },
+                    {
+                        // The other half of the same feature: the meetings that
+                        // already have a summary, for a run that replaces it. A
+                        // separate entry rather than a toggle inside the dialog,
+                        // because which set you are choosing from is the
+                        // decision that made you open the dialog at all.
+                        id: "summary-regenerate",
+                        label: "بازتولید خلاصه برای جلسات دارای خلاصه",
+                        icon: IconRefresh,
+                        onClick: () => {
+                            setBulkRegenerate(true);
                             setBulkPreset(undefined);
                             setIsBulkOpen(true);
                         },
@@ -396,6 +421,22 @@ export function BoardMeetingsPage() {
                         label: "تولید خلاصه برای انتخاب‌شده‌ها",
                         icon: IconRobot,
                         onClick: () => {
+                            setBulkRegenerate(false);
+                            setBulkPreset(selectedIds);
+                            setIsBulkOpen(true);
+                        },
+                        permission: PERMISSIONS.BOARD_MEETING_SYNC,
+                    },
+                    {
+                        // The ticked rows may be meetings that already have a
+                        // summary, and those are not a first-run's business —
+                        // so the selection bar offers the scope that runs over
+                        // them too, rather than leaving them un-runnable.
+                        id: "summary-selected-regenerate",
+                        label: "بازتولید خلاصه برای انتخاب‌شده‌ها",
+                        icon: IconRefresh,
+                        onClick: () => {
+                            setBulkRegenerate(true);
                             setBulkPreset(selectedIds);
                             setIsBulkOpen(true);
                         },
@@ -459,6 +500,7 @@ export function BoardMeetingsPage() {
                 params={params}
                 presetMeetingIds={bulkPreset}
                 presetLabels={selectedLabels}
+                regenerate={bulkRegenerate}
                 // A queued batch is the same state change the selection stood
                 // for, so the checkboxes empty with it.
                 onQueued={() => setRowSelection({})}

@@ -28,9 +28,9 @@ import type {
     AcceptSummaryPayload,
     BoardMeetingListParams,
     GenerateSummaryPayload,
-    MeetingSummaryFieldName,
+    SummaryBulkPayload,
     SummaryBulkResult,
-    SummaryWriteMode,
+    SummaryCandidateParams,
     UpdateBoardMeetingPayload,
 } from "../types";
 
@@ -234,7 +234,7 @@ export function useDismissMeetingSummary(meetingId: number | string) {
  * checkbox lying.
  */
 export function useSummaryCandidates(
-    params: BoardMeetingListParams,
+    params: SummaryCandidateParams,
     enabled: boolean,
 ) {
     return useInfiniteQuery({
@@ -282,24 +282,31 @@ export function useBulkGenerateMeetingSummary() {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: async (payload: {
-            meeting_ids: number[];
-            fields?: MeetingSummaryFieldName[];
-            mode?: SummaryWriteMode;
-            provider?: string | null;
-            model?: string | null;
-        }): Promise<SummaryBulkResult> => {
+        mutationFn: async (payload: SummaryBulkPayload): Promise<SummaryBulkResult> => {
             const { data } = await bulkGenerateMeetingSummary(payload);
 
             return data.data;
         },
-        onSuccess: ({ queued, skipped }) => {
-            toast.success("درخواست تولید ثبت شد", {
-                description:
-                    skipped > 0
-                        ? `${queued.toLocaleString("fa-IR")} جلسه در صف قرار گرفت؛ ${skipped.toLocaleString("fa-IR")} مورد به‌دلیل داشتن خلاصه رد شد.`
-                        : `${queued.toLocaleString("fa-IR")} جلسه در صف قرار گرفت.`,
-            });
+        onSuccess: ({ queued, skipped }, payload) => {
+            // What a skip means depends on the scope: a first-run batch skips a
+            // meeting that already has a summary, a regenerate batch skips one
+            // somebody is already working on. The number alone would not say
+            // which happened.
+            const skippedWhy = payload.regenerate
+                ? "به‌دلیل در حال اجرا بودن یا داشتن پیشنهاد باز"
+                : "به‌دلیل داشتن خلاصه";
+
+            toast.success(
+                payload.regenerate
+                    ? "درخواست بازتولید ثبت شد"
+                    : "درخواست تولید ثبت شد",
+                {
+                    description:
+                        skipped > 0
+                            ? `${queued.toLocaleString("fa-IR")} جلسه در صف قرار گرفت؛ ${skipped.toLocaleString("fa-IR")} مورد ${skippedWhy} رد شد.`
+                            : `${queued.toLocaleString("fa-IR")} جلسه در صف قرار گرفت.`,
+                },
+            );
 
             void queryClient.invalidateQueries({
                 queryKey: boardMeetingKeys.all,

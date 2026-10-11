@@ -72,6 +72,17 @@ export interface BoardMeetingListParams {
 }
 
 /**
+ * The list filters plus the bulk picker's own scope.
+ *
+ * `regenerate` swaps the set the picker draws from — meetings that already
+ * have a summary rather than the ones that do not — which is a different
+ * question, not a filter on the same one.
+ */
+export type SummaryCandidateParams = BoardMeetingListParams & {
+    regenerate?: boolean;
+};
+
+/**
  * The AI summary artifact. Keys are the server's contract (ADR-003), so this
  * mirrors `MeetingSummary` on the PHP side rather than renaming anything:
  * the client renders what the server stored and decides nothing about it.
@@ -118,7 +129,12 @@ export type MeetingSummaryStatus =
 
 /** Why a run could not fill a field, or the row at all. Stable keys. */
 export type MeetingSummaryReason =
-    "no_structured_output" | "no_fields_returned" | "not_configured" | "empty";
+    | "no_structured_output"
+    | "no_fields_returned"
+    | "not_configured"
+    | "unavailable"
+    | "abandoned"
+    | "empty";
 
 /**
  * One tag a run suggested: the Persian label people read, and the slug it is
@@ -247,6 +263,22 @@ export interface MeetingSummaryCandidateDto {
 }
 
 export interface SummaryCandidateListResponse extends PaginatedResponse<MeetingSummaryCandidateDto> {}
+
+/**
+ * The bulk dispatch body.
+ *
+ * `regenerate` names the scope the ids were chosen under, so the server
+ * re-checks eligibility against the same set the picker listed rather than
+ * guessing from the ids.
+ */
+export interface SummaryBulkPayload {
+    meeting_ids: number[];
+    fields?: MeetingSummaryFieldName[];
+    mode?: SummaryWriteMode;
+    provider?: string | null;
+    model?: string | null;
+    regenerate?: boolean;
+}
 
 /** What a bulk dispatch actually did, including what it declined to do. */
 export interface SummaryBulkResult {

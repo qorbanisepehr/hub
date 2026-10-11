@@ -9,10 +9,10 @@ import type {
     BulkDocumentUploadReport,
     GenerateSummaryPayload,
     MeetingDocumentsResponse,
-    MeetingSummaryFieldName,
+    SummaryBulkPayload,
     SummaryBulkResponse,
     SummaryCandidateListResponse,
-    SummaryWriteMode,
+    SummaryCandidateParams,
     UpdateBoardMeetingPayload,
 } from "./types";
 
@@ -137,21 +137,15 @@ export function acceptMeetingSummary(
     );
 }
 
-/** The meetings a bulk run could still generate for, under the list's filters. */
-export function fetchSummaryCandidates(params: BoardMeetingListParams) {
+/** The meetings a bulk run could act on, under the list's filters and scope. */
+export function fetchSummaryCandidates(params: SummaryCandidateParams) {
     return api.get<SummaryCandidateListResponse>(
         "/board-meetings/summary/candidates",
         { params },
     );
 }
 
-export function bulkGenerateMeetingSummary(payload: {
-    meeting_ids: number[];
-    fields?: MeetingSummaryFieldName[];
-    mode?: SummaryWriteMode;
-    provider?: string | null;
-    model?: string | null;
-}) {
+export function bulkGenerateMeetingSummary(payload: SummaryBulkPayload) {
     return api.post<SummaryBulkResponse>(
         "/board-meetings/summary/bulk",
         payload,

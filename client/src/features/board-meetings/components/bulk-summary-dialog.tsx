@@ -67,7 +67,7 @@ function modelLabel(model: {
 }
 
 /**
- * The bulk picker: choose which un-generated meetings to run the model over.
+ * The bulk picker: choose which meetings to run the model over.
  *
  * Selection lives here rather than in the table, because the table has no row
  * selection and this action is not really "act on the rows I highlighted" — it
@@ -75,6 +75,12 @@ function modelLabel(model: {
  * choice in a dialog means the list it draws from can be searched and paged
  * without changing what the table itself can do, and it puts the count of what
  * is about to be queued on screen before the button is pressed.
+ *
+ * `regenerate` flips the whole thing to its other scope — the meetings that
+ * already have a summary — without becoming a second dialog: the picker, the
+ * paging, the model choice and the count are the same questions asked about a
+ * different set, so only the list, its words and the rule the server re-checks
+ * change.
  *
  * The candidate list is paged rather than fetched whole. The registry runs to
  * hundreds of meetings and every one of them is a slow model call, so the
@@ -89,6 +95,7 @@ export function BulkSummaryDialog({
     params,
     presetMeetingIds,
     presetLabels,
+    regenerate = false,
     onQueued,
 }: {
     open: boolean;
@@ -113,6 +120,13 @@ export function BulkSummaryDialog({
      * spend model runs on.
      */
     presetLabels?: Map<number, string>;
+    /**
+     * The scope this open is for: false lists the meetings with no summary
+     * yet, true lists the ones that already have a summary. It reaches both
+     * the candidate query and the dispatch payload, because the server
+     * re-checks eligibility against whichever set the list came from.
+     */
+    regenerate?: boolean;
     /** Fired once the batch is accepted by the API (not on dialog close) —
      *  the caller clears its row selection here. */
     onQueued?: () => void;
@@ -132,7 +146,10 @@ export function BulkSummaryDialog({
     // pages here would only be network traffic to decorate a list nobody
     // sees.
     const { data, isLoading, isFetchingNextPage, fetchNextPage, hasNextPage } =
-        useSummaryCandidates({ ...params, per_page: PAGE_SIZE }, open && !isPreset);
+        useSummaryCandidates(
+            { ...params, per_page: PAGE_SIZE, regenerate },
+            open && !isPreset,
+        );
 
     // The query accumulates the loaded pages; `meta` is read off the first one
     // because the total belongs to the whole result set, not to a page of it.
@@ -218,13 +235,19 @@ export function BulkSummaryDialog({
             onOpenChange={onOpenChange}
             title={
                 isPreset
-                    ? "تولید خلاصه برای جلسات انتخاب‌شده"
-                    : "تولید خلاصه برای جلسات تولیدنشده"
+                    ? regenerate
+                        ? "بازتولید خلاصه برای جلسات انتخاب‌شده"
+                        : "تولید خلاصه برای جلسات انتخاب‌شده"
+                    : regenerate
+                      ? "بازتولید خلاصه برای جلسات دارای خلاصه"
+                      : "تولید خلاصه برای جلسات تولیدنشده"
             }
             description={
                 isPreset
-                    ? `${presetMeetingIds.length.toLocaleString("fa-IR")} جلسهٔ انتخاب‌شده اجرا خواهد شد؛ هر جلسه یک اجرای مدل است و زمان می‌برد.`
-                    : `${total.toLocaleString("fa-IR")} جلسه خلاصه ندارد. موارد دلخواه را انتخاب کنید؛ هر جلسه یک اجرای مدل است و زمان می‌برد.`
+                    ? `${presetMeetingIds.length.toLocaleString("fa-IR")} جلسهٔ انتخاب‌شده ${regenerate ? "بازتولید" : "اجرا"} خواهد شد؛ هر جلسه یک اجرای مدل است و زمان می‌برد.`
+                    : regenerate
+                      ? `${total.toLocaleString("fa-IR")} جلسه خلاصه دارد. موارد دلخواه را برای بازتولید انتخاب کنید؛ هر جلسه یک اجرای مدل است و زمان می‌برد.`
+                      : `${total.toLocaleString("fa-IR")} جلسه خلاصه ندارد. موارد دلخواه را انتخاب کنید؛ هر جلسه یک اجرای مدل است و زمان می‌برد.`
             }
             footer={
                 <>
@@ -238,6 +261,7 @@ export function BulkSummaryDialog({
                         count={picked.size}
                         meetingIds={[...picked]}
                         mode={(mode[0] ?? "review") as SummaryWriteMode}
+                        regenerate={regenerate}
                         {...(modelId === AGENT_DEFAULT
                             ? { provider: null, model: null }
                             : {
@@ -396,9 +420,11 @@ export function BulkSummaryDialog({
                                 variant="compact"
                                 icon={IconInbox}
                                 message={
-                                    search === ""
-                                        ? "همهٔ جلسات این فیلتر خلاصه دارند."
-                                        : "جلسه‌ای با این عبارت پیدا نشد."
+                                    search !== ""
+                                        ? "جلسه‌ای با این عبارت پیدا نشد."
+                                        : regenerate
+                                          ? "هیچ جلسهٔ دارای خلاصه‌ای در این فیلتر نیست."
+                                          : "همهٔ جلسات این فیلتر خلاصه دارند."
                                 }
                             />
                         ) : (
@@ -476,6 +502,7 @@ function BulkSubmit({
     mode,
     provider,
     model,
+    regenerate,
     onDone,
     onQueued,
 }: {
@@ -485,6 +512,8 @@ function BulkSubmit({
     /** The gateway and model for this batch, as names; null means inherit. */
     provider: string | null;
     model: string | null;
+    /** The scope the ids were picked under; the server re-checks against it. */
+    regenerate: boolean;
     onDone: () => void;
     onQueued?: () => void;
 }) {
@@ -494,7 +523,13 @@ function BulkSubmit({
         <Button
             onClick={() => {
                 bulk.mutate(
-                    { meeting_ids: meetingIds, mode, provider, model },
+                    {
+                        meeting_ids: meetingIds,
+                        mode,
+                        provider,
+                        model,
+                        regenerate,
+                    },
                     {
                         onSuccess: () => {
                             onQueued?.();
@@ -512,7 +547,8 @@ function BulkSubmit({
             ) : (
                 <IconRobot data-icon="inline-start" />
             )}
-            تولید برای {count.toLocaleString("fa-IR")} جلسه
+            {regenerate ? "بازتولید برای" : "تولید برای"}{" "}
+            {count.toLocaleString("fa-IR")} جلسه
         </Button>
     );
 }
