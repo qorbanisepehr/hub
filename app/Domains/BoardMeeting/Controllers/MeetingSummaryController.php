@@ -170,17 +170,25 @@ class MeetingSummaryController
      * free: the dialog reads the same date window, Jalali year, tag filter and
      * search the list is showing, so narrowing the blast radius is something a
      * person does by filtering rather than by remembering what they last saw.
+     *
+     * An explicit `meeting_ids` set is the exception to both: it is not the
+     * list's window — a row ticked on an earlier page is not in it — and it is
+     * returned whole rather than paged, because the question it answers, "which
+     * of these already have a summary", is about every id in the set.
      */
     public function candidates(
         MeetingSummaryCandidatesRequest $request,
         BoardMeetingListQuery $listQuery,
         MeetingSummaryBulk $bulk,
     ): AnonymousResourceCollection {
+        $ids = $request->meetingIds();
+
         return MeetingSummaryCandidateResource::collection(
             $bulk->candidates(
-                $listQuery->scoped($request),
-                ListQuery::perPage($request, 20, 200),
+                $ids === null ? $listQuery->scoped($request) : BoardMeeting::query(),
+                $ids === null ? ListQuery::perPage($request, 20, 200) : max(count($ids), 1),
                 $request->wantsRegenerate(),
+                $ids,
             ),
         );
     }
@@ -188,18 +196,18 @@ class MeetingSummaryController
     /**
      * Queue a run for a chosen set of meetings.
      *
-     * The id list is re-checked against the same eligibility rule the
-     * candidate list used, and the answer reports what it skipped. A person who
-     * left the dialog open while somebody else generated a meeting should be
-     * told that rather than quietly paying for a run they did not ask for, and
+     * The two groups are re-checked against the eligibility rule each was
+     * chosen under, and the answer reports what it skipped. A person who left
+     * the dialog open while somebody else generated a meeting should be told
+     * that rather than quietly paying for a run they did not ask for, and
      * should not have to refresh to find out.
      */
     public function bulk(BulkMeetingSummaryRequest $request, MeetingSummaryBulk $bulk): JsonResponse
     {
         $result = $bulk->dispatch(
             $request->meetingIds(),
+            $request->regenerateIds(),
             $request->summaryMode(),
-            $request->wantsRegenerate(),
             $request->summaryProvider(),
             $request->summaryModel(),
             $request->user()?->getKey(),

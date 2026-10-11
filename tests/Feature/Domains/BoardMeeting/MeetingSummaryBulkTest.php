@@ -156,6 +156,117 @@ describe('GET /api/board-meetings/summary/candidates', function () {
             // render a few checkboxes.
             ->and($row)->not->toHaveKey('minutes');
     });
+
+    it('marks each scope list with the kind of run it offers', function () {
+        ($this->generate)();
+        ($this->withSummary)(['status' => MeetingSummary::STATUS_OK]);
+
+        $user = createUserWithPermissions(['board-meeting.sync']);
+
+        $ungenerated = collect(
+            actingAs($user)->getJson('/api/board-meetings/summary/candidates')->json('data'),
+        )->pluck('action')->unique()->values()->all();
+
+        $regeneratable = collect(
+            actingAs($user)->getJson('/api/board-meetings/summary/candidates?regenerate=1')->json('data'),
+        )->pluck('action')->unique()->values()->all();
+
+        // Stated rather than left to the client to infer from a missing
+        // summary: the list already knows, and a picker that re-derived it from
+        // what it can see would decide a second time and differently.
+        expect($ungenerated)->toBe(['generate'])
+            ->and($regeneratable)->toBe(['regenerate']);
+    });
+
+    it('classifies an explicit id set instead of filtering it by scope', function () {
+        $blank = ($this->generate)();
+        $failed = ($this->withSummary)(['status' => MeetingSummary::STATUS_FAILED]);
+        $ok = ($this->withSummary)(['status' => MeetingSummary::STATUS_OK]);
+        $partial = ($this->withSummary)(['status' => MeetingSummary::STATUS_PARTIAL]);
+        $none = ($this->withSummary)(['status' => MeetingSummary::STATUS_NONE]);
+        $busy = ($this->withSummary)([
+            'status' => MeetingSummary::STATUS_PARTIAL,
+            'pending' => MeetingSummary::pending()->toArray(),
+        ]);
+        $unpicked = ($this->generate)();
+
+        $ids = [$blank->id, $failed->id, $ok->id, $partial->id, $none->id, $busy->id];
+
+        $rows = collect(actingAs(createUserWithPermissions(['board-meeting.sync']))
+            ->getJson('/api/board-meetings/summary/candidates?'.http_build_query(['meeting_ids' => $ids]))
+            ->json('data'))
+            ->keyBy('id');
+
+        // The row picker has ticks whose summaries it cannot know: a row ticked
+        // on an earlier page is not in the list window, and the registry list
+        // carries no summary status. So it asks about the set it has instead of
+        // filtering by a scope, and a ticked row that cannot run — mid-run, or
+        // holding a proposal nobody has decided — is labelled rather than
+        // dropped from under the person's cursor.
+        expect($rows)->toHaveCount(6)
+            ->and($rows[$blank->id]['action'])->toBe('generate')
+            ->and($rows[$failed->id]['action'])->toBe('generate')
+            ->and($rows[$ok->id]['action'])->toBe('regenerate')
+            ->and($rows[$partial->id]['action'])->toBe('regenerate')
+            ->and($rows[$none->id]['action'])->toBe('blocked')
+            ->and($rows[$busy->id]['action'])->toBe('blocked')
+            ->and($rows)->not->toHaveKey($unpicked->id);
+    });
+
+    it('returns an explicit set whole, however small the page', function () {
+        $meetings = collect(range(1, 25))->map(fn () => ($this->generate)());
+
+        $ids = $meetings->pluck('id')->all();
+
+        $rows = actingAs(createUserWithPermissions(['board-meeting.sync']))
+            ->getJson('/api/board-meetings/summary/candidates?'.http_build_query(['meeting_ids' => $ids]))
+            ->json('data');
+
+        // Paging the answer would answer "which of these have a summary" for
+        // only the first slice of the question, and the picker would submit a
+        // set it never classified.
+        expect($rows)->toHaveCount(25);
+    });
+
+    it('agrees with the scope lists about which rows are which', function () {
+        // The scopes filter in SQL and the explicit set is classified in PHP:
+        // two spellings of one rule, driven here over the same rows, because a
+        // picker that offers a row the dispatch then refuses is the bug this
+        // whole check exists to prevent.
+        ($this->generate)();
+        ($this->withSummary)(['status' => MeetingSummary::STATUS_FAILED]);
+        ($this->withSummary)(['status' => MeetingSummary::STATUS_OK]);
+        ($this->withSummary)(['status' => MeetingSummary::STATUS_PARTIAL]);
+        ($this->withSummary)(['status' => MeetingSummary::STATUS_NONE]);
+        ($this->withSummary)([
+            'status' => MeetingSummary::STATUS_PARTIAL,
+            'pending' => MeetingSummary::pending()->toArray(),
+        ]);
+        ($this->withSummary)([
+            'status' => MeetingSummary::STATUS_FAILED,
+            'pending' => MeetingSummary::pending()->toArray(),
+        ]);
+
+        $user = createUserWithPermissions(['board-meeting.sync']);
+        $all = BoardMeeting::query()->pluck('id')->all();
+
+        $classified = fn (string $action): array => collect(
+            actingAs($user)
+                ->getJson('/api/board-meetings/summary/candidates?'.http_build_query(['meeting_ids' => $all]))
+                ->json('data'),
+        )->where('action', $action)->pluck('id')->sort()->values()->all();
+
+        $ungenerated = collect(
+            actingAs($user)->getJson('/api/board-meetings/summary/candidates')->json('data.*.id'),
+        )->sort()->values()->all();
+
+        $regeneratable = collect(
+            actingAs($user)->getJson('/api/board-meetings/summary/candidates?regenerate=1')->json('data.*.id'),
+        )->sort()->values()->all();
+
+        expect($ungenerated)->toBe($classified('generate'))
+            ->and($regeneratable)->toBe($classified('regenerate'));
+    });
 });
 
 describe('POST /api/board-meetings/summary/bulk', function () {
@@ -543,10 +654,11 @@ describe('the regenerate scope', function () {
         Queue::fake();
         $meeting = ($this->withSummary)(['status' => MeetingSummary::STATUS_OK]);
 
+        // Only the replacement group: the picker answers for a scope, and an
+        // empty first-run group is not an empty request.
         $response = actingAs(createUserWithPermissions(['board-meeting.sync']))
             ->postJson('/api/board-meetings/summary/bulk', [
-                'meeting_ids' => [$meeting->id],
-                'regenerate' => true,
+                'regenerate_ids' => [$meeting->id],
             ])
             ->assertOk();
 
@@ -561,12 +673,11 @@ describe('the regenerate scope', function () {
 
         $response = actingAs(createUserWithPermissions(['board-meeting.sync']))
             ->postJson('/api/board-meetings/summary/bulk', [
-                'meeting_ids' => [$blank->id],
-                'regenerate' => true,
+                'regenerate_ids' => [$blank->id],
             ])
             ->assertOk();
 
-        // The two scopes are disjoint, so an id picked from the wrong list is
+        // The two scopes are disjoint, so an id chosen from the wrong list is
         // skipped rather than quietly run as the other kind of run: the answer
         // says which happened instead of making the person guess.
         Queue::assertNotPushed(GenerateBoardMeetingSummaryJob::class);
@@ -583,8 +694,7 @@ describe('the regenerate scope', function () {
 
         $response = actingAs(createUserWithPermissions(['board-meeting.sync']))
             ->postJson('/api/board-meetings/summary/bulk', [
-                'meeting_ids' => [$busy->id],
-                'regenerate' => true,
+                'regenerate_ids' => [$busy->id],
             ])
             ->assertOk();
 
@@ -592,6 +702,45 @@ describe('the regenerate scope', function () {
         // that keeps two runs of one meeting from overwriting each other.
         Queue::assertNotPushed(GenerateBoardMeetingSummaryJob::class);
         expect($response->json('data.queued'))->toBe(0);
+    });
+
+    it('runs a mixed selection as one batch, each id under its own scope', function () {
+        Queue::fake();
+        $blank = ($this->generate)();
+        $found = ($this->withSummary)(['status' => MeetingSummary::STATUS_OK]);
+
+        $response = actingAs(createUserWithPermissions(['board-meeting.sync']))
+            ->postJson('/api/board-meetings/summary/bulk', [
+                'meeting_ids' => [$blank->id],
+                'regenerate_ids' => [$found->id],
+            ])
+            ->assertOk();
+
+        // One dialog, one press, one batch: a person who ticked a meeting that
+        // has no summary and one that has a summary asked for two runs, not for
+        // two requests, and the progress announcement has to be one story.
+        Queue::assertPushed(GenerateBoardMeetingSummaryJob::class, 2);
+        expect($response->json('data.queued'))->toBe(2)
+            ->and($response->json('data.skipped'))->toBe(0)
+            ->and($response->json('data.meeting_ids'))->toEqualCanonicalizing([$blank->id, $found->id]);
+    });
+
+    it('refuses an id named in both groups', function () {
+        Queue::fake();
+        $meeting = ($this->withSummary)(['status' => MeetingSummary::STATUS_OK]);
+
+        // One id is one intent. A client that lists it twice is not asking for
+        // two runs, it is asking a question with no answer, and the risk of
+        // guessing is paying for the same summary twice.
+        actingAs(createUserWithPermissions(['board-meeting.sync']))
+            ->postJson('/api/board-meetings/summary/bulk', [
+                'meeting_ids' => [$meeting->id],
+                'regenerate_ids' => [$meeting->id],
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('regenerate_ids');
+
+        Queue::assertNotPushed(GenerateBoardMeetingSummaryJob::class);
     });
 });
 

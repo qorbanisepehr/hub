@@ -13,8 +13,10 @@ use Illuminate\Validation\Rule;
 /**
  * HTTP boundary for POST /api/board-meetings/summary/bulk.
  *
- * `meeting_ids` is required and may not be empty: "queue nothing" is not a
- * harmless request, it is a button that appears to have worked.
+ * The selection arrives as two groups, `meeting_ids` and `regenerate_ids`, and
+ * together they may not be empty: "queue nothing" is not a harmless request, it
+ * is a button that appears to have worked. They are disjoint — one id is either
+ * a first summary or a replacement it was explicitly opted into, never both.
  *
  * `fields`, `provider` and `model` mean exactly what they mean on the
  * single-meeting generate request. The pair is checked here because this is the
@@ -40,23 +42,42 @@ class BulkMeetingSummaryRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'meeting_ids' => ['required', 'array', 'min:1', 'max:'.self::MAX_MEETINGS],
+            'meeting_ids' => ['sometimes', 'array', 'max:'.self::MAX_MEETINGS],
             'meeting_ids.*' => ['required', 'integer', 'distinct', 'min:1'],
+            'regenerate_ids' => ['sometimes', 'array', 'max:'.self::MAX_MEETINGS],
+            'regenerate_ids.*' => ['required', 'integer', 'distinct', 'min:1'],
             'fields' => ['sometimes', 'array', 'max:5'],
             'fields.*' => ['required', 'string', Rule::in(array_column(MeetingSummaryField::cases(), 'value'))],
             'mode' => ['sometimes', Rule::enum(SummaryWriteMode::class)],
-            'regenerate' => ['sometimes', 'boolean'],
             'provider' => ['sometimes', 'nullable', 'string', 'max:100'],
             'model' => ['sometimes', 'nullable', 'string', 'max:150'],
         ];
     }
 
     /**
+     * The ids to write a first summary for, drawn from the ungenerated scope.
+     *
      * @return list<int>
      */
     public function meetingIds(): array
     {
         return array_values(array_map('intval', (array) $this->input('meeting_ids', [])));
+    }
+
+    /**
+     * The ids whose existing summary the person explicitly chose to replace.
+     *
+     * A second group rather than a boolean because one dispatch can carry both
+     * kinds: the row picker preselects a mixed set and the person decides per
+     * row, so "which of these is a regeneration" is a fact about each id, not
+     * about the request. It is also what lets the dispatch re-check each id
+     * against the scope it was chosen under instead of one rule for all of them.
+     *
+     * @return list<int>
+     */
+    public function regenerateIds(): array
+    {
+        return array_values(array_map('intval', (array) $this->input('regenerate_ids', [])));
     }
 
     /**
@@ -94,21 +115,24 @@ class BulkMeetingSummaryRequest extends FormRequest
         return is_string($model) && $model !== '' ? $model : null;
     }
 
-    /**
-     * Whether the ids were picked from the meetings that already have a
-     * summary — the «بازتولید» scope — rather than the ones that do not.
-     *
-     * It decides which eligibility rule the dispatch re-checks against, so the
-     * server never has to guess which set the ids came from.
-     */
-    public function wantsRegenerate(): bool
-    {
-        return $this->boolean('regenerate');
-    }
-
     public function withValidator(ValidationValidator $validator): void
     {
         $validator->after(function (ValidationValidator $validator): void {
+            $generate = $this->meetingIds();
+            $regenerate = $this->regenerateIds();
+
+            if ($generate === [] && $regenerate === []) {
+                $validator->errors()->add('meeting_ids', __('validation.required', ['attribute' => 'meeting_ids']));
+
+                return;
+            }
+
+            if (array_intersect($generate, $regenerate) !== []) {
+                $validator->errors()->add('regenerate_ids', __('validation.distinct', ['attribute' => 'regenerate_ids']));
+
+                return;
+            }
+
             $atFault = app(AiAgentRunner::class)->unusableChoice(
                 MeetingSummaryAgent::REGISTRY_KEY,
                 $this->summaryProvider(),
