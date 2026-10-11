@@ -100,16 +100,22 @@ export function BoardMeetingsPage() {
      * Which meetings the summary dialog is preset to, when it was opened
      * from the selection bar. `undefined` means the filter-driven picker
      * (the settings-gear entry) that chooses its own candidates.
+     *
+     * The preset carries ids, not a scope, and the dialog asks the server what
+     * each one would need — a first summary, a replacement, or nothing. The
+     * table can see which meetings are ticked and nothing about their
+     * summaries, so deciding that here would be a second, blind opinion.
      */
     const [bulkPreset, setBulkPreset] = useState<number[] | undefined>(
         undefined,
     );
 
     /**
-     * Which scope the summary dialog is open in: false writes a first summary
-     * for meetings that have none, true replaces the summary of a meeting that
-     * already has one. Set on every open, so it never carries over between the
-     * two entries.
+     * Which scope the filter-driven summary dialog is open in: false writes a
+     * first summary for meetings that have none, true replaces the summary of
+     * a meeting that already has one. Set on every open, so it never carries
+     * over between the two entries. The preset face ignores it — its scope is
+     * the per-row answer the server returns.
      */
     const [bulkRegenerate, setBulkRegenerate] = useState(false);
 
@@ -246,22 +252,6 @@ export function BoardMeetingsPage() {
         .filter((id) => rowSelection[id])
         .map(Number);
 
-    // Names for the preset face, as far as the loaded page can supply them. A
-    // row ticked on an earlier page is not in the current result window, so
-    // the dialog falls back to the id — best-effort, because a second fetch
-    // just to label a list would cost a round trip to say what the person
-    // already knows.
-    const selectedLabels = useMemo(() => {
-        const labels = new Map<number, string>();
-
-        for (const row of data?.data ?? []) {
-            if (rowSelection[row.id]) {
-                labels.set(row.id, row.registry_label);
-            }
-        }
-
-        return labels;
-    }, [data, rowSelection]);
     const activeTagNames = tagOptions
         ?.filter((tag) => tagsFilterValues.includes(tag.slug))
         .map((tag) => tag.name);
@@ -414,29 +404,18 @@ export function BoardMeetingsPage() {
                 ]}
                 bulkActions={[
                     {
-                        // The checked-rows path of the same feature: the dialog
-                        // opens preset to exactly the ticked meetings, no
-                        // candidates list to re-choose from.
+                        // The checked-rows path of the same feature. One entry
+                        // for both kinds: the ticked rows may hold meetings that
+                        // have no summary and meetings that have one, and the
+                        // dialog tells them apart and asks about the second
+                        // kind per row. A second button here would ask the
+                        // person to sort the selection by a fact the table does
+                        // not show.
                         id: "summary-selected",
                         label: "تولید خلاصه برای انتخاب‌شده‌ها",
                         icon: IconRobot,
                         onClick: () => {
                             setBulkRegenerate(false);
-                            setBulkPreset(selectedIds);
-                            setIsBulkOpen(true);
-                        },
-                        permission: PERMISSIONS.BOARD_MEETING_SYNC,
-                    },
-                    {
-                        // The ticked rows may be meetings that already have a
-                        // summary, and those are not a first-run's business —
-                        // so the selection bar offers the scope that runs over
-                        // them too, rather than leaving them un-runnable.
-                        id: "summary-selected-regenerate",
-                        label: "بازتولید خلاصه برای انتخاب‌شده‌ها",
-                        icon: IconRefresh,
-                        onClick: () => {
-                            setBulkRegenerate(true);
                             setBulkPreset(selectedIds);
                             setIsBulkOpen(true);
                         },
@@ -499,7 +478,6 @@ export function BoardMeetingsPage() {
                 }}
                 params={params}
                 presetMeetingIds={bulkPreset}
-                presetLabels={selectedLabels}
                 regenerate={bulkRegenerate}
                 // A queued batch is the same state change the selection stood
                 // for, so the checkboxes empty with it.

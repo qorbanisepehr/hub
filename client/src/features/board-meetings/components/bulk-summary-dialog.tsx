@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { IconInbox, IconRobot } from "@tabler/icons-react";
 
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldLabel, FieldSet } from "@/components/ui/field";
@@ -24,10 +25,29 @@ import { PERMISSIONS } from "@/lib/permissions";
 import { useAiModels } from "@/features/ai/hooks";
 import { toPersianDate } from "@/lib/date-format";
 import { useBulkGenerateMeetingSummary, useSummaryCandidates } from "../hooks";
-import type { BoardMeetingListParams, SummaryWriteMode } from "../types";
+import type {
+    BoardMeetingListParams,
+    MeetingSummaryAction,
+    SummaryWriteMode,
+} from "../types";
 
 /** How many candidates to pull at a time; the server caps a page at 200. */
 const PAGE_SIZE = 100;
+
+/**
+ * The marker a candidate row carries when a run would not be a first one.
+ *
+ * `generate` has none: it is the default state of the list, and a badge on
+ * every row would be noise. The other two are the rows a person has to notice —
+ * one needs an opt-in to run at all, the other cannot run — so they say so on
+ * the row rather than in a summary line the eye skips.
+ */
+const ACTION_BADGES: Partial<
+    Record<MeetingSummaryAction, { label: string; variant: "secondary" | "warning" }>
+> = {
+    regenerate: { label: "خلاصه دارد", variant: "secondary" },
+    blocked: { label: "قابل اجرا نیست", variant: "warning" },
+};
 
 /**
  * The picker's value for "whatever the agent is bound to".
@@ -69,32 +89,43 @@ function modelLabel(model: {
 /**
  * The bulk picker: choose which meetings to run the model over.
  *
- * Selection lives here rather than in the table, because the table has no row
- * selection and this action is not really "act on the rows I highlighted" — it
- * is "run this over some of the meetings that have no summary yet". Putting the
- * choice in a dialog means the list it draws from can be searched and paged
- * without changing what the table itself can do, and it puts the count of what
- * is about to be queued on screen before the button is pressed.
+ * Selection lives here rather than in the table, because this action is not
+ * really "act on the rows I highlighted" — it is "run this over some of the
+ * meetings that have no summary yet". Putting the choice in a dialog means the
+ * list it draws from can be searched and paged without changing what the table
+ * itself can do, and it puts the count of what is about to be queued on screen
+ * before the button is pressed.
  *
- * `regenerate` flips the whole thing to its other scope — the meetings that
- * already have a summary — without becoming a second dialog: the picker, the
- * paging, the model choice and the count are the same questions asked about a
- * different set, so only the list, its words and the rule the server re-checks
+ * `regenerate` flips the filter-driven face to its other scope — the meetings
+ * that already have a summary — without becoming a second dialog: the picker,
+ * the paging, the model choice and the count are the same questions asked about
+ * a different set, so only the list, its words and the rule the server re-checks
  * change.
+ *
+ * The preset face is the same picker over the rows the table already chose. It
+ * asks the server to classify exactly those ids, because the table knows which
+ * meetings are ticked and nothing about their summaries, and a row ticked on an
+ * earlier page is not in the list window at all. Each row comes back with what a
+ * run would do with it: the ones with no summary are already ticked, and the
+ * ones that have one are offered with a checkbox, because replacing a summary is
+ * a different decision from making the first one and is opted into rather than
+ * assumed. A row that cannot run — mid-run, or holding a proposal — says so and
+ * cannot be ticked.
  *
  * The candidate list is paged rather than fetched whole. The registry runs to
  * hundreds of meetings and every one of them is a slow model call, so the
  * dialog loads a page, appends the next on request, and says how much of the
  * total is on screen. A "select all" that quietly meant "all of the hundred
  * that loaded" would be a checkbox telling a lie, with the count beside it as
- * the only way to notice.
+ * the only way to notice. The preset list is the exception: it is bounded by the
+ * selection and returned whole, because paging would answer the classification
+ * question for only part of the set.
  */
 export function BulkSummaryDialog({
     open,
     onOpenChange,
     params,
     presetMeetingIds,
-    presetLabels,
     regenerate = false,
     onQueued,
 }: {
@@ -104,27 +135,17 @@ export function BulkSummaryDialog({
     params: BoardMeetingListParams;
     /**
      * A preset selection (opened from the table's selection bar): the ticked
-     * meeting ids. When set, the candidates picker is skipped — the choice of
-     * WHICH meetings was made by the checkboxes — and the dialog becomes the
-     * confirm-and-configure face over exactly those ids. `undefined` is the
+     * meeting ids. When set, the picker lists exactly those and classifies each
+     * one, instead of drawing a scope from the filters. `undefined` is the
      * filter-driven path that picks its own candidates.
      */
     presetMeetingIds?: number[];
     /**
-     * Display names for the preset ids, keyed by id.
-     *
-     * Best-effort: the page can only name the rows it currently has, so a
-     * meeting ticked on another page is not in here and falls back to its id.
-     * Sending the ids and reading them back as `#12` was technically correct
-     * and told the person confirming nothing about what they were about to
-     * spend model runs on.
-     */
-    presetLabels?: Map<number, string>;
-    /**
-     * The scope this open is for: false lists the meetings with no summary
-     * yet, true lists the ones that already have a summary. It reaches both
-     * the candidate query and the dispatch payload, because the server
-     * re-checks eligibility against whichever set the list came from.
+     * The scope the filter-driven face is for: false lists the meetings with no
+     * summary yet, true lists the ones that already have a summary. It reaches
+     * the candidate query and the dispatch, because the server re-checks
+     * eligibility against whichever set the list came from. The preset face
+     * ignores it: its scope is the action the server reported per row.
      */
     regenerate?: boolean;
     /** Fired once the batch is accepted by the API (not on dialog close) —
@@ -140,15 +161,19 @@ export function BulkSummaryDialog({
     const [search, setSearch] = useState("");
     const [mode, setMode] = useState<SummaryWriteMode[]>(["review"]);
     const [modelId, setModelId] = useState(AGENT_DEFAULT);
+    /** The preset identity already seeded into `picked`, so a re-render does not re-stamp it. */
+    const presetSeeded = useRef<string | null>(null);
 
-    // Off entirely on the preset path: the picker's whole job — choosing which
-    // meetings — was done by the table's checkboxes, so loading candidate
-    // pages here would only be network traffic to decorate a list nobody
-    // sees.
+    // Two ways in, one query. The filter-driven face pages through a scope; the
+    // preset face asks about the ids the table already chose and gets them back
+    // whole, classified. A row ticked on an earlier page is not in the list
+    // window, so there is nothing to filter — only a set to name.
     const { data, isLoading, isFetchingNextPage, fetchNextPage, hasNextPage } =
         useSummaryCandidates(
-            { ...params, per_page: PAGE_SIZE, regenerate },
-            open && !isPreset,
+            isPreset
+                ? { meeting_ids: presetMeetingIds }
+                : { ...params, per_page: PAGE_SIZE, regenerate },
+            open,
         );
 
     // The query accumulates the loaded pages; `meta` is read off the first one
@@ -166,31 +191,86 @@ export function BulkSummaryDialog({
               );
     }, [data, search]);
 
-    const total = data?.pages?.[0]?.meta?.total ?? 0;
+    // The preset's total is its selection, not the query's: the ids ARE the
+    // window, so the count beside the boxes is what the person ticked in the
+    // table rather than how much of the registry the filters happen to match.
+    const total = isPreset
+        ? (presetMeetingIds?.length ?? 0)
+        : (data?.pages?.[0]?.meta?.total ?? 0);
+
+    const presetKey = isPreset ? presetMeetingIds.join(",") : "";
 
     useEffect(() => {
         if (!open) {
             setPicked(new Set());
             setSearch("");
+            presetSeeded.current = null;
         }
     }, [open]);
 
-    // A preset opens with its ids already ticked. Synced on identity rather
-    // than spread-compare: the caller rebuilds the array each open, and equal
-    // presets must not re-stamp the user's mid-dialog edits.
-    const presetKey = isPreset ? presetMeetingIds.join(",") : "";
-
+    // A preset opens with the rows that still need a first summary already
+    // ticked. The ones that have one are the point of the checkbox: the person
+    // chose the rows for a reason, but replacing an existing summary is a
+    // different, more expensive decision, so it is opted into rather than
+    // assumed. Seeded once per open, on identity rather than spread-compare,
+    // because the caller rebuilds the array each open and an unconditional
+    // re-seed would stamp over the person's ticks.
     useEffect(() => {
-        if (isPreset && presetKey !== "") {
-            setPicked(new Set(presetMeetingIds));
+        if (!isPreset || presetKey === "" || rows.length === 0) {
+            return;
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps -- presetMeetingIds' identity is deliberately not a dependency; presetKey is
-    }, [presetKey, isPreset]);
 
-    const visibleIds = rows.map((row) => row.id);
+        if (presetSeeded.current === presetKey) {
+            return;
+        }
+
+        presetSeeded.current = presetKey;
+        setPicked(
+            new Set(
+                rows
+                    .filter((row) => row.action === "generate")
+                    .map((row) => row.id),
+            ),
+        );
+    }, [isPreset, presetKey, rows]);
+
+    // "Select all" means "all of the ones that can run": a blocked row cannot be
+    // ticked, so counting it as visible would leave the header saying "all
+    // selected" while a row sat there unchecked.
+    const visibleIds = rows
+        .filter((row) => row.action !== "blocked")
+        .map((row) => row.id);
     const visiblePickedCount = visibleIds.filter((id) => picked.has(id)).length;
     const everyVisiblePicked =
         visibleIds.length > 0 && visiblePickedCount === visibleIds.length;
+
+    // What the dispatch will hold, split by the intent the server reported per
+    // row. The filter-driven face knows its own scope, so its ticks all carry
+    // it; the preset face reads each row's action.
+    const generateIds = isPreset
+        ? rows
+              .filter((row) => picked.has(row.id) && row.action === "generate")
+              .map((row) => row.id)
+        : regenerate
+          ? []
+          : [...picked];
+    const regenerateIds = isPreset
+        ? rows
+              .filter((row) => picked.has(row.id) && row.action === "regenerate")
+              .map((row) => row.id)
+        : regenerate
+          ? [...picked]
+          : [];
+
+    // What the preset list has to explain about itself: how many rows need an
+    // opt-in before they will run, and how many cannot run at all. The
+    // filter-driven faces are homogeneous — the scope decides for every row —
+    // so this is the one face where the sentence above the list has to describe
+    // a mixed set instead of naming a scope.
+    const regeneratableRows = rows.filter(
+        (row) => row.action === "regenerate",
+    ).length;
+    const blockedRows = rows.filter((row) => row.action === "blocked").length;
 
     // On the Select root, not on `SelectValue`: this is what tells Base UI to
     // print the item's label rather than its raw value. Without it a closed
@@ -235,16 +315,24 @@ export function BulkSummaryDialog({
             onOpenChange={onOpenChange}
             title={
                 isPreset
-                    ? regenerate
-                        ? "بازتولید خلاصه برای جلسات انتخاب‌شده"
-                        : "تولید خلاصه برای جلسات انتخاب‌شده"
+                    ? "خلاصهٔ جلسات انتخاب‌شده"
                     : regenerate
                       ? "بازتولید خلاصه برای جلسات دارای خلاصه"
                       : "تولید خلاصه برای جلسات تولیدنشده"
             }
             description={
                 isPreset
-                    ? `${presetMeetingIds.length.toLocaleString("fa-IR")} جلسهٔ انتخاب‌شده ${regenerate ? "بازتولید" : "اجرا"} خواهد شد؛ هر جلسه یک اجرای مدل است و زمان می‌برد.`
+                    ? [
+                          `${total.toLocaleString("fa-IR")} جلسهٔ انتخاب‌شده؛ هر جلسه یک اجرای مدل است و زمان می‌برد.`,
+                          regeneratableRows > 0
+                              ? "جلساتی که خلاصه دارند انتخاب نشده‌اند؛ برای بازتولید، خودتان تیک بزنید."
+                              : null,
+                          blockedRows > 0
+                              ? `${blockedRows.toLocaleString("fa-IR")} جلسه در حال حاضر قابل اجرا نیست.`
+                              : null,
+                      ]
+                          .filter((part) => part !== null)
+                          .join(" ")
                     : regenerate
                       ? `${total.toLocaleString("fa-IR")} جلسه خلاصه دارد. موارد دلخواه را برای بازتولید انتخاب کنید؛ هر جلسه یک اجرای مدل است و زمان می‌برد.`
                       : `${total.toLocaleString("fa-IR")} جلسه خلاصه ندارد. موارد دلخواه را انتخاب کنید؛ هر جلسه یک اجرای مدل است و زمان می‌برد.`
@@ -258,10 +346,9 @@ export function BulkSummaryDialog({
                         انصراف
                     </Button>
                     <BulkSubmit
-                        count={picked.size}
-                        meetingIds={[...picked]}
+                        generateIds={generateIds}
+                        regenerateIds={regenerateIds}
                         mode={(mode[0] ?? "review") as SummaryWriteMode}
-                        regenerate={regenerate}
                         {...(modelId === AGENT_DEFAULT
                             ? { provider: null, model: null }
                             : {
@@ -346,40 +433,12 @@ export function BulkSummaryDialog({
 
                 <Separator />
 
-                {isPreset ? (
-                    /*
-                     * The preset face: which meetings was decided by the table's
-                     * checkboxes, so this is a read-back of what the user is
-                     * about to spend model runs on — not a picker. Reusing the
-                     * same row style as the candidate list keeps the two faces
-                     * recognisably one feature.
-                     */
-                    <FieldSet>
-                        <div className="flex items-center justify-between gap-2">
-                            <FieldLabel className="font-normal">
-                                جلسات انتخاب‌شده
-                            </FieldLabel>
-                            <span className="text-muted-foreground text-xs">
-                                {picked.size.toLocaleString("fa-IR")} جلسه
-                            </span>
-                        </div>
-                        <div className="mt-2 flex max-h-72 flex-col gap-1 overflow-y-auto rounded-md border p-1">
-                            {presetMeetingIds.map((id) => (
-                                <div
-                                    key={id}
-                                    className="rounded px-2 py-1.5 text-sm"
-                                >
-                                    <span
-                                        dir={presetLabels?.has(id) ? undefined : "ltr"}
-                                        className="font-medium"
-                                    >
-                                        {presetLabels?.get(id) ?? `#${id}`}
-                                    </span>
-                                </div>
-                            ))}
-                        </div>
-                    </FieldSet>
-                ) : (
+                {/*
+                 * One list for both faces. The filter-driven face draws a scope;
+                 * the preset face names the rows the table chose and lets the
+                 * server say what each one would do. Same boxes and same count,
+                 * and only the source of the rows differs.
+                 */}
                 <FieldSet>
                     <div className="flex items-center justify-between gap-2">
                         <FieldLabel className="font-normal">
@@ -397,7 +456,9 @@ export function BulkSummaryDialog({
                                         toggleAll(checked === true)
                                     }
                                 />
-                                انتخاب همهٔ نمایش‌داده‌شده‌ها
+                                {isPreset
+                                    ? "انتخاب همهٔ قابل‌اجرا"
+                                    : "انتخاب همهٔ نمایش‌داده‌شده‌ها"}
                             </span>
                         </FieldLabel>
 
@@ -420,61 +481,80 @@ export function BulkSummaryDialog({
                                 variant="compact"
                                 icon={IconInbox}
                                 message={
-                                    search !== ""
-                                        ? "جلسه‌ای با این عبارت پیدا نشد."
-                                        : regenerate
-                                          ? "هیچ جلسهٔ دارای خلاصه‌ای در این فیلتر نیست."
-                                          : "همهٔ جلسات این فیلتر خلاصه دارند."
+                                    isPreset
+                                        ? "جلسه‌ای برای نمایش نیست."
+                                        : search !== ""
+                                          ? "جلسه‌ای با این عبارت پیدا نشد."
+                                          : regenerate
+                                            ? "هیچ جلسهٔ دارای خلاصه‌ای در این فیلتر نیست."
+                                            : "همهٔ جلسات این فیلتر خلاصه دارند."
                                 }
                             />
                         ) : (
-                            rows.map((row) => (
-                                <Field
-                                    key={row.id}
-                                    orientation="horizontal"
-                                    className="rounded px-2 py-1.5 hover:bg-muted/50"
-                                >
-                                    <Checkbox
-                                        checked={picked.has(row.id)}
-                                        onCheckedChange={(checked) =>
-                                            setPicked((prev) => {
-                                                const next = new Set(prev);
+                            rows.map((row) => {
+                                const marker = ACTION_BADGES[row.action];
 
-                                                if (checked === true) {
-                                                    next.add(row.id);
-                                                } else {
-                                                    next.delete(row.id);
-                                                }
+                                return (
+                                    <Field
+                                        key={row.id}
+                                        orientation="horizontal"
+                                        className="rounded px-2 py-1.5 hover:bg-muted/50"
+                                    >
+                                        <Checkbox
+                                            checked={picked.has(row.id)}
+                                            // A row the server says cannot run
+                                            // cannot be asked for: mid-run, or
+                                            // holding a proposal nobody has
+                                            // decided. A tick on it would queue
+                                            // nothing and say nothing.
+                                            disabled={
+                                                row.action === "blocked"
+                                            }
+                                            onCheckedChange={(checked) =>
+                                                setPicked((prev) => {
+                                                    const next = new Set(prev);
 
-                                                return next;
-                                            })
-                                        }
-                                    />
-                                    <FieldLabel className="min-w-0 flex-1 font-normal">
-                                        <span className="flex min-w-0 items-center gap-2">
-                                            <span
-                                                dir="ltr"
-                                                className="font-medium"
-                                            >
-                                                {row.registry_label}
-                                            </span>
-                                            <span className="text-muted-foreground">
-                                                {toPersianDate(row.held_on)}
-                                            </span>
-                                            {row.title && (
-                                                <span className="text-muted-foreground ms-auto truncate">
-                                                    {row.title}
+                                                    if (checked === true) {
+                                                        next.add(row.id);
+                                                    } else {
+                                                        next.delete(row.id);
+                                                    }
+
+                                                    return next;
+                                                })
+                                            }
+                                        />
+                                        <FieldLabel className="min-w-0 flex-1 font-normal">
+                                            <span className="flex min-w-0 items-center gap-2">
+                                                <span
+                                                    dir="ltr"
+                                                    className="font-medium"
+                                                >
+                                                    {row.registry_label}
                                                 </span>
-                                            )}
-                                        </span>
-                                    </FieldLabel>
-                                </Field>
-                            ))
+                                                <span className="text-muted-foreground">
+                                                    {toPersianDate(row.held_on)}
+                                                </span>
+                                                {marker && (
+                                                    <Badge
+                                                        variant={marker.variant}
+                                                    >
+                                                        {marker.label}
+                                                    </Badge>
+                                                )}
+                                                {row.title && (
+                                                    <span className="text-muted-foreground ms-auto truncate">
+                                                        {row.title}
+                                                    </span>
+                                                )}
+                                            </span>
+                                        </FieldLabel>
+                                    </Field>
+                                );
+                            })
                         )}
                     </div>
                 </FieldSet>
-
-                )}
 
                 {!isPreset && hasNextPage && (
                     <Button
@@ -497,38 +577,49 @@ export function BulkSummaryDialog({
 
 /** The confirm button, split out so the mutation and the dialog stay separate. */
 function BulkSubmit({
-    count,
-    meetingIds,
+    generateIds,
+    regenerateIds,
     mode,
     provider,
     model,
-    regenerate,
     onDone,
     onQueued,
 }: {
-    count: number;
-    meetingIds: number[];
+    /** The ids to write a first summary for. */
+    generateIds: number[];
+    /** The ids whose existing summary the person opted to replace. */
+    regenerateIds: number[];
     mode: SummaryWriteMode;
     /** The gateway and model for this batch, as names; null means inherit. */
     provider: string | null;
     model: string | null;
-    /** The scope the ids were picked under; the server re-checks against it. */
-    regenerate: boolean;
     onDone: () => void;
     onQueued?: () => void;
 }) {
     const bulk = useBulkGenerateMeetingSummary();
+    const count = generateIds.length + regenerateIds.length;
+
+    // One button, two intents. The label says which kinds are inside rather than
+    // naming one of them: a mixed press is neither a generation nor a
+    // regeneration, and calling it either would misdescribe half of what is
+    // about to run.
+    const action =
+        regenerateIds.length === 0
+            ? "تولید برای"
+            : generateIds.length === 0
+              ? "بازتولید برای"
+              : "اجرا برای";
 
     return (
         <Button
             onClick={() => {
                 bulk.mutate(
                     {
-                        meeting_ids: meetingIds,
+                        meeting_ids: generateIds,
+                        regenerate_ids: regenerateIds,
                         mode,
                         provider,
                         model,
-                        regenerate,
                     },
                     {
                         onSuccess: () => {
@@ -547,8 +638,7 @@ function BulkSubmit({
             ) : (
                 <IconRobot data-icon="inline-start" />
             )}
-            {regenerate ? "بازتولید برای" : "تولید برای"}{" "}
-            {count.toLocaleString("fa-IR")} جلسه
+            {action} {count.toLocaleString("fa-IR")} جلسه
         </Button>
     );
 }

@@ -77,9 +77,16 @@ export interface BoardMeetingListParams {
  * `regenerate` swaps the set the picker draws from — meetings that already
  * have a summary rather than the ones that do not — which is a different
  * question, not a filter on the same one.
+ *
+ * `meeting_ids` is the third way in and overrides both: the row picker has
+ * already chosen a set and asks about exactly those, because a row ticked on an
+ * earlier page is outside the list window and the registry rows carry no
+ * summary to classify it by. The answer is the same list with an `action` per
+ * row rather than a filtered one.
  */
 export type SummaryCandidateParams = BoardMeetingListParams & {
     regenerate?: boolean;
+    meeting_ids?: number[];
 };
 
 /**
@@ -253,6 +260,16 @@ export interface AcceptSummaryPayload {
     tag_slugs: string[];
 }
 
+/**
+ * What a bulk run would do with a candidate row, as the server classifies it.
+ *
+ * `blocked` is the answer for a row whose run is in flight, or whose `none`
+ * status is a proposal somebody still has to decide. The picker lists it rather
+ * than dropping it, so a ticked row that will not run says why instead of
+ * disappearing.
+ */
+export type MeetingSummaryAction = "generate" | "regenerate" | "blocked";
+
 /** One meeting in the bulk picker — identity only, never the minutes. */
 export interface MeetingSummaryCandidateDto {
     id: number;
@@ -260,6 +277,7 @@ export interface MeetingSummaryCandidateDto {
     held_on_jalali: string | null;
     registry_label: string;
     title: string | null;
+    action: MeetingSummaryAction;
 }
 
 export interface SummaryCandidateListResponse extends PaginatedResponse<MeetingSummaryCandidateDto> {}
@@ -267,17 +285,19 @@ export interface SummaryCandidateListResponse extends PaginatedResponse<MeetingS
 /**
  * The bulk dispatch body.
  *
- * `regenerate` names the scope the ids were chosen under, so the server
- * re-checks eligibility against the same set the picker listed rather than
- * guessing from the ids.
+ * Two groups rather than one list and a flag, because one dialog can hold both
+ * kinds at once: the row picker preselects a mixed set and a person opts in to
+ * replacing some of them. Each group is re-checked against the scope it was
+ * chosen under, so a meeting that gained a summary in between is skipped
+ * instead of silently regenerated.
  */
 export interface SummaryBulkPayload {
     meeting_ids: number[];
+    regenerate_ids: number[];
     fields?: MeetingSummaryFieldName[];
     mode?: SummaryWriteMode;
     provider?: string | null;
     model?: string | null;
-    regenerate?: boolean;
 }
 
 /** What a bulk dispatch actually did, including what it declined to do. */
