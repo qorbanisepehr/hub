@@ -1,7 +1,17 @@
 import { useMemo, useState } from "react";
-import { IconCheck, IconHash, IconPointFilled } from "@tabler/icons-react";
+import {
+    IconAlertCircle,
+    IconCheck,
+    IconHash,
+    IconPointFilled,
+} from "@tabler/icons-react";
 
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import {
+    Alert,
+    AlertAction,
+    AlertDescription,
+    AlertTitle,
+} from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -19,7 +29,11 @@ import { useTagOptions } from "@/features/tags/hooks";
 import { usePermission } from "@/features/auth/components/permission-guard";
 import { PERMISSIONS } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
-import { SUMMARY_FIELDS, type SummaryFieldConfig } from "../summary-copy";
+import {
+    SUMMARY_FIELDS,
+    reasonText,
+    type SummaryFieldConfig,
+} from "../summary-copy";
 import {
     isEmptyValue,
     proposedTagNames,
@@ -50,6 +64,11 @@ import type {
  * model having got it right is the usual answer — so the useful action is one
  * click rather than five. Unticking is one click each, and "none of them" is
  * one click, so being wrong costs one click in every direction.
+ *
+ * Not every pending run reaches that panel. One that filled no field and
+ * proposed no tag has nothing to compare, so it is drawn as a plain notice
+ * with a single acknowledgement — the panel's framing and its refusal button
+ * would imply a decision that does not exist.
  */
 export function SummaryDecision({
     current,
@@ -169,7 +188,7 @@ export function SummaryDecision({
      * Whether there is anything here to accept at all.
      *
      * A run can finish with no field filled and no tag proposed — it says so in
-     * `summary.error` — and then the only honest action is to close the
+     * its own `error` — and then the only honest action is to close the
      * question. Offering a save button for a proposal with nothing in it asks
      * a person to click "save" to achieve no change.
      */
@@ -178,14 +197,54 @@ export function SummaryDecision({
     // save button for a proposal that had nothing in it.
     const hasSomethingToAccept = offered.length > 0 || tagSetChanged;
 
+    /**
+     * A run that proposed nothing is a notice, not a decision.
+     *
+     * This state used to render through the panel below, titled «پیشنهاد تازه»
+     * and offering a refusal button — which dressed a failed or empty run up
+     * as a proposal and made the only reachable action read as a judgement
+     * about content that does not exist. The run is still there to be
+     * acknowledged, so the action stays; what goes is the framing and the
+     * warning tone, which belong to a real comparison.
+     *
+     * The reason is the candidate's own, not the row's: on a review run the
+     * row is untouched, so `summary.error` would be a previous state talking.
+     */
+    if (!hasSomethingToAccept) {
+        return (
+            <Alert>
+                <IconAlertCircle className="text-muted-foreground" />
+
+                <AlertTitle>این اجرا پیشنهادی نساخت</AlertTitle>
+
+                <AlertDescription>
+                    <p>
+                        {reasonText(candidate.error) ??
+                            "مدل چیزی تولید نکرد که قابل پذیرش باشد."}
+                    </p>
+                    <p>می‌توانید دوباره اجرا بگیرید.</p>
+                </AlertDescription>
+
+                <AlertAction>
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={onDismiss}
+                        disabled={!canUpdate || isAccepting || isDismissing}
+                    >
+                        {isDismissing ? "در حال بستن…" : "بستن"}
+                    </Button>
+                </AlertAction>
+            </Alert>
+        );
+    }
+
     return (
         <Alert className="border-warning/40 bg-warning/5">
             <IconHash className="text-warning" />
             <AlertTitle>پیشنهاد تازه برای این جلسه</AlertTitle>
             <AlertDescription>
-                {hasSomethingToAccept
-                    ? "هر بخش را جدا تصمیم بگیرید؛ آنچه تیک نخورد روی رکورد جلسه نوشته نمی‌شود."
-                    : "این اجرا چیزی برای پذیرفتن تولید نکرد. می‌توانید پیشنهاد را ببندید تا دوباره تلاش کنید."}
+                هر بخش را جدا تصمیم بگیرید؛ آنچه تیک نخورد روی رکورد جلسه نوشته نمی‌شود.
             </AlertDescription>
 
             <div className="col-start-2 flex flex-col gap-4">
@@ -286,19 +345,15 @@ export function SummaryDecision({
                         >
                             {isDismissing ? "در حال بستن…" : "کنار گذاشتن پیشنهاد"}
                         </Button>
-                        {hasSomethingToAccept && (
-                            <Button
-                                onClick={() => onAccept(accepted, tags)}
-                                disabled={
-                                    !canUpdate || isAccepting || isDismissing
-                                }
-                            >
-                                {!isAccepting && (
-                                    <IconCheck data-icon="inline-start" />
-                                )}
-                                {isAccepting ? "در حال ثبت…" : "ثبت تصمیم"}
-                            </Button>
-                        )}
+                        <Button
+                            onClick={() => onAccept(accepted, tags)}
+                            disabled={!canUpdate || isAccepting || isDismissing}
+                        >
+                            {!isAccepting && (
+                                <IconCheck data-icon="inline-start" />
+                            )}
+                            {isAccepting ? "در حال ثبت…" : "ثبت تصمیم"}
+                        </Button>
                     </div>
                 </div>
             </div>

@@ -115,7 +115,7 @@ export const SUMMARY_REASONS: Readonly<Record<MeetingSummaryReason, string>> = {
     not_configured: "هیچ ارائه‌دهندهٔ فعالی برای هوش مصنوعی تنظیم نشده است.",
     no_structured_output: "مدل به‌جای ساختار خواسته‌شده، متن آزاد برگرداند.",
     no_fields_returned:
-        "مدل ساختار درستی برگرداند اما هیچ‌کدام از فیلدها خالی بود.",
+        "مدل ساختار درستی برگرداند اما همهٔ فیلدها خالی بودند.",
     unavailable:
         "ارائه‌دهندهٔ هوش مصنوعی پاسخ نداد؛ اتصال قطع شد یا مدل هنوز آماده نبود.",
     abandoned:

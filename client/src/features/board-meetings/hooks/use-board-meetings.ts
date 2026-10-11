@@ -216,7 +216,7 @@ export function useDismissMeetingSummary(meetingId: number | string) {
                 return;
             }
 
-            toast.error("کنار گذاشتن پیشنهاد انجام نشد.", {
+            toast.error("بستن پیشنهاد انجام نشد.", {
                 description: getApiError(error) ?? "خطای ناشناخته",
             });
         },
