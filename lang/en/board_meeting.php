@@ -11,5 +11,7 @@ return [
         'nothing_pending' => 'There is no summary awaiting a decision.',
         'bulk_queued' => ':count meetings queued. :skipped skipped.',
         'run_in_flight' => 'A summary run for this meeting is already under way; wait for it to finish before starting another.',
+        'nothing_running' => 'There is no summary run here to stop.',
+        'batch_cancelled' => 'Stopped :count runs that were still queued or under way.',
     ],
 ];

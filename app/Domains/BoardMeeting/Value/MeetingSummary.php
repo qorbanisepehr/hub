@@ -60,6 +60,25 @@ final readonly class MeetingSummary
      */
     public const STATUS_NONE = 'none';
 
+    /**
+     * A run somebody stopped before it reported.
+     *
+     * The one status that describes a *run* and is never written to a row: a
+     * cancelled run holds nothing, so clearing its stamp leaves the meeting
+     * exactly as it was, and the status travels only on the event that says the
+     * run was stopped. It exists so a stopped run is not *miscounted* — a batch
+     * has to be able to tell "this one was cancelled" apart from "this one
+     * failed", because one was a person's decision and the other was the
+     * model's.
+     *
+     * Deliberately not a realtime run state: that kernel's vocabulary answers
+     * "is there still work outstanding" for the client's live notice, and it
+     * refuses a cancelled state because it cannot deliver one for a job it does
+     * not own. This domain *does* own its job, and it does stop the run, so the
+     * fact belongs here rather than being denied globally.
+     */
+    public const STATUS_CANCELLED = 'cancelled';
+
     public const FIELD_OK = 'ok';
 
     public const FIELD_FAILED = 'failed';
@@ -235,6 +254,63 @@ final readonly class MeetingSummary
             'pending' => null,
             'startedAt' => null,
         ]);
+    }
+
+    /**
+     * This row with its in-flight stamp removed, because the run will not
+     * report.
+     *
+     * Not the same repair as {@see withoutAbandonedRun()}, even though both
+     * clear a stamp. That one answers "nothing is behind this stamp any more";
+     * this one answers "somebody stopped it", and the difference is the empty
+     * case. A row with nothing else in it goes back to `none` — asked about,
+     * nothing accepted — rather than to a failure with a reason, because a
+     * meeting whose only run was cancelled has not failed at anything. Calling
+     * it `abandoned` would report a lost job, and a reason exists to explain
+     * something that went wrong, not something a person chose.
+     *
+     * The two shapes of an in-flight stamp decide how it is removed. Under
+     * `Review` the run lives on `pending` and the record itself was never
+     * touched, so dropping the proposal restores it exactly. Under `Apply` the
+     * run *is* the row, so there is nothing to drop back to: the status is
+     * re-derived from the fields the stamp carried over, which is what those
+     * fields actually hold.
+     */
+    public function withoutRun(): self
+    {
+        if ($this->pending !== null) {
+            return $this->copy(['pending' => null, 'startedAt' => null]);
+        }
+
+        if ($this->fields === []) {
+            return self::none();
+        }
+
+        $status = self::deriveStatus($this->fields);
+
+        return $this->copy([
+            'status' => $status,
+            // Only a row that ends up with nothing usable keeps a reason; the
+            // reason already on the row explained a different state.
+            'error' => $status === self::STATUS_FAILED ? $this->error : null,
+            'startedAt' => null,
+        ]);
+    }
+
+    /**
+     * A run that was stopped before it reported.
+     *
+     * Carries no content and no reason: there is nothing to explain about a run
+     * that a person chose to stop. It exists so a stopped run can be told apart
+     * from a failed one wherever runs are counted.
+     */
+    public static function cancelled(): self
+    {
+        return new self(
+            status: self::STATUS_CANCELLED,
+            values: [],
+            fields: [],
+        );
     }
 
     /**
@@ -587,6 +663,11 @@ final readonly class MeetingSummary
      * An unrecognised status reads as failed rather than as anything better:
      * every other value would tell a user to trust a row whose shape this
      * code no longer recognises, and regenerating is cheap.
+     *
+     * `cancelled` is recognised even though nothing stores it — a cancelled
+     * run's stamp is cleared rather than written — so a row that somehow
+     * carries it is read as what it says instead of being silently rewritten to
+     * a failure on the way out.
      */
     private static function readStatus(mixed $status): string
     {
@@ -596,6 +677,7 @@ final readonly class MeetingSummary
             self::STATUS_FAILED,
             self::STATUS_PENDING,
             self::STATUS_NONE,
+            self::STATUS_CANCELLED,
         ], true) ? $status : self::STATUS_FAILED;
     }
 

@@ -130,6 +130,106 @@ final readonly class MeetingSummaryApplier
     }
 
     /**
+     * Clear the in-flight stamp for one meeting, because its run was stopped.
+     *
+     * @return bool whether a run was actually in flight
+     */
+    public function cancelInFlightRun(BoardMeeting $meeting): bool
+    {
+        return $this->cancelInFlightRuns([$meeting->getKey()]) > 0;
+    }
+
+    /**
+     * Clear the in-flight stamp on every listed meeting that has one.
+     *
+     * One query rather than one per id, because the batch case is the reason
+     * this exists: a bulk of hundreds of meetings is cancelled by walking the
+     * ids its own tally remembers, and loading the whole registry to find the
+     * handful actually mid-call would be work nobody asked for. The JSONB
+     * filter is the same one `reapAbandonedRuns` uses, and for the same
+     * reason — only a `pending` stamp can be in flight, whichever layer holds
+     * it.
+     *
+     * The select and every clear run in one transaction so the row lock holds:
+     * without it, a run stamping itself between the read and the write would be
+     * cleared by a cancel that had already decided nothing was in flight.
+     *
+     * @param  list<int>  $meetingIds
+     * @return int how many in-flight runs were cleared
+     */
+    public function cancelInFlightRuns(array $meetingIds): int
+    {
+        if ($meetingIds === []) {
+            return 0;
+        }
+
+        return DB::transaction(function () use ($meetingIds): int {
+            $meetings = BoardMeeting::query()
+                ->whereIn('id', $meetingIds)
+                ->where(fn (Builder $inFlight): Builder => $inFlight
+                    ->where('summary->pending->status', MeetingSummary::STATUS_PENDING)
+                    ->orWhere('summary->status', MeetingSummary::STATUS_PENDING))
+                ->lockForUpdate()
+                ->get();
+
+            $cleared = 0;
+
+            foreach ($meetings as $meeting) {
+                $stored = MeetingSummary::fromArray($meeting->summary);
+
+                // Re-checked under the lock rather than trusted from the
+                // filter: the transaction that just started is the first
+                // moment the row's state is guaranteed not to move.
+                if ($stored === null || ! $stored->isInFlight()) {
+                    continue;
+                }
+
+                $this->persist($meeting, $stored->withoutRun(), null);
+                $cleared++;
+            }
+
+            return $cleared;
+        });
+    }
+
+    /**
+     * Whether the row still holds the exact run that stamped it.
+     *
+     * The guard a run consults before it writes its result, and the reason a
+     * cancel can be trusted not to lose a re-run. A run identifies its stamp by
+     * the time it wrote (`started_at`), which the merge preserves — so under
+     * either mode "the run is still mine" means the layer that carries in-flight
+     * state is still `pending` and still says when *this* run started. A stamp
+     * cleared by a cancel, or replaced by a newer run, fails that test, and the
+     * older run stands down rather than writing over whoever owns the row now.
+     *
+     * `started_at` rather than a token of its own: the artifact was already
+     * contractually carrying when a run began, and a second field that has to
+     * agree with it would be a second thing to keep in step. Its resolution is
+     * one second, so two runs of one meeting inside the same second are
+     * indistinguishable — unreachable in practice, because a second run cannot
+     * be asked for while the first is in flight, and a cancel that frees it
+     * arrives at human speed.
+     */
+    public function holdsRun(
+        BoardMeeting $meeting,
+        MeetingSummary $stamp,
+        SummaryWriteMode $mode,
+    ): bool {
+        $stored = MeetingSummary::fromArray($meeting->fresh()->summary);
+
+        if ($stored === null) {
+            return false;
+        }
+
+        $holder = $mode === SummaryWriteMode::Review ? $stored->pending : $stored;
+
+        return $holder !== null
+            && $holder->status === MeetingSummary::STATUS_PENDING
+            && $holder->startedAt === $stamp->startedAt;
+    }
+
+    /**
      * Apply a person's decision about the pending proposal.
      *
      * The two selections in one request mean two different things, and the

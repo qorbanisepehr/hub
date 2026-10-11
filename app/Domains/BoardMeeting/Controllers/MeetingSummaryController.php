@@ -10,6 +10,7 @@ use App\Domains\BoardMeeting\Jobs\GenerateBoardMeetingSummaryJob;
 use App\Domains\BoardMeeting\Models\BoardMeeting;
 use App\Domains\BoardMeeting\Requests\AcceptMeetingSummaryRequest;
 use App\Domains\BoardMeeting\Requests\BulkMeetingSummaryRequest;
+use App\Domains\BoardMeeting\Requests\CancelMeetingSummaryRequest;
 use App\Domains\BoardMeeting\Requests\DismissMeetingSummaryRequest;
 use App\Domains\BoardMeeting\Requests\GenerateMeetingSummaryRequest;
 use App\Domains\BoardMeeting\Requests\MeetingSummaryCandidatesRequest;
@@ -18,6 +19,7 @@ use App\Domains\BoardMeeting\Resources\MeetingSummaryCandidateResource;
 use App\Domains\BoardMeeting\Services\BoardMeetingListQuery;
 use App\Domains\BoardMeeting\Services\MeetingSummaryApplier;
 use App\Domains\BoardMeeting\Services\MeetingSummaryBulk;
+use App\Domains\BoardMeeting\Services\MeetingSummaryCanceller;
 use App\Domains\BoardMeeting\Services\MeetingSummaryDismisser;
 use App\Domains\BoardMeeting\Value\MeetingSummary;
 use App\Support\ListQuery;
@@ -52,6 +54,7 @@ class MeetingSummaryController
         GenerateMeetingSummaryRequest $request,
         BoardMeeting $meeting,
         MeetingSummaryApplier $applier,
+        MeetingSummaryCanceller $canceller,
     ): BoardMeetingResource|JsonResponse {
         // A stamp the queue has long since abandoned is not a run in flight:
         // clear it before deciding, so a run that died without reporting does
@@ -74,6 +77,11 @@ class MeetingSummaryController
             ], Response::HTTP_CONFLICT);
         }
 
+        // A stop from a moment ago does not refuse this run: the marker means
+        // "skip the run already queued", and this is a new request for a new
+        // one. Cleared before dispatch so the job cannot start against it.
+        $canceller->forget($meeting->getKey());
+
         GenerateBoardMeetingSummaryJob::dispatch(
             meetingId: $meeting->getKey(),
             fields: $request->summaryFields(),
@@ -83,6 +91,34 @@ class MeetingSummaryController
             merge: $request->shouldMerge(),
             requestedBy: $request->user()?->getKey(),
         );
+
+        return new BoardMeetingResource($meeting->refresh()->load('tags'));
+    }
+
+    /**
+     * Stop the run a person is waiting on, without waiting for it.
+     *
+     * The cooperative half of cancellation, from the meeting's own page. It
+     * applies only to a run that is queued or under way: once the model has
+     * answered, the question is no longer "is this running" but "do I want
+     * this", and the accept and dismiss paths are where that is answered.
+     * Offering a stop there would be a second way to say dismiss that also
+     * threw away a proposal somebody might still want to cherry-pick.
+     *
+     * The 409 is the same conflict the decision paths raise, for the same
+     * reason: the meeting and the route are there, the thing being stopped is
+     * already gone. Re-reading the meeting is the recovery in every case.
+     */
+    public function cancel(
+        CancelMeetingSummaryRequest $request,
+        BoardMeeting $meeting,
+        MeetingSummaryCanceller $canceller,
+    ): BoardMeetingResource|JsonResponse {
+        if (! $canceller->cancelRun($meeting)) {
+            return response()->json([
+                'message' => __('board_meeting.summary.nothing_running'),
+            ], Response::HTTP_CONFLICT);
+        }
 
         return new BoardMeetingResource($meeting->refresh()->load('tags'));
     }
@@ -219,6 +255,37 @@ class MeetingSummaryController
                 'count' => $result['queued'],
                 'skipped' => $result['skipped'],
             ]),
+        ]);
+    }
+
+    /**
+     * Stop the part of a bulk dispatch that has not run yet.
+     *
+     * The other half of cancellation, and the one with the most to save: a
+     * bulk leaves most of its runs waiting, so a stop is mostly the difference
+     * between skipping work and paying for it. `meeting_ids` from the dispatch
+     * is what makes this possible at all — the batch names what it queued
+     * because a run that has not started has stamped nothing to be found by.
+     *
+     * A 409 rather than an empty success when there is nothing outstanding: the
+     * only way that answer is true is that the batch has already reported, or
+     * its tally has expired, and both mean the client's picture is stale and
+     * re-reading is the recovery — the same contract every other summary
+     * conflict uses.
+     */
+    public function cancelBatch(string $batchId, MeetingSummaryCanceller $canceller): JsonResponse
+    {
+        $stopped = $canceller->cancelBatch($batchId);
+
+        if ($stopped === 0) {
+            return response()->json([
+                'message' => __('board_meeting.summary.nothing_running'),
+            ], Response::HTTP_CONFLICT);
+        }
+
+        return response()->json([
+            'data' => ['stopped' => $stopped],
+            'message' => __('board_meeting.summary.batch_cancelled', ['count' => $stopped]),
         ]);
     }
 }

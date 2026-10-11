@@ -58,24 +58,28 @@ final readonly class MeetingSummaryBatchTracker
     }
 
     /**
-     * Start counting a batch of this size.
+     * Start counting a batch, and remember which meetings it queued.
      *
      * Called at dispatch rather than derived from the meetings later, because
-     * the dispatch already knows how many it queued, and re-deriving it would
-     * mean asking a question whose answer changes as runs land.
+     * the dispatch already knows which ones it queued, and re-deriving it would
+     * mean asking a question whose answer changes as runs land. The ids are
+     * kept, not just their count, because a batch that can be stopped has to be
+     * able to name what it started: a queued run has stamped nothing to find it
+     * by, so without this list "stop the bulk" would have no set to act on.
      *
-     * @param  int  $size  how many runs were queued
+     * @param  list<int>  $meetingIds  the meetings this batch queued a run for
      */
-    public function start(string $batchId, int $size): void
+    public function start(string $batchId, array $meetingIds): void
     {
-        if ($size < 1) {
+        if ($meetingIds === []) {
             return;
         }
 
         $this->cache->put($this->key($batchId), [
-            'remaining' => $size,
+            'remaining' => count($meetingIds),
             'succeeded' => 0,
             'failed' => 0,
+            'meeting_ids' => array_map('intval', array_values($meetingIds)),
         ], self::TTL);
     }
 
@@ -94,6 +98,63 @@ final readonly class MeetingSummaryBatchTracker
      */
     public function complete(string $batchId, bool $succeeded): ?array
     {
+        return $this->settle($batchId, $succeeded);
+    }
+
+    /**
+     * Record one outstanding run settling as *neither* success nor failure.
+     *
+     * A stopped run settles its slot so the batch can still finish and the
+     * remaining runs are not left waiting on a tally that never closes — but it
+     * joins neither total, because the person reading the totals is asking how
+     * the model did and a cancelled run answered nothing.
+     *
+     * @return array{remaining: int, succeeded: int, failed: int}|null
+     */
+    public function skip(string $batchId): ?array
+    {
+        return $this->settle($batchId, null);
+    }
+
+    /**
+     * The meetings this batch queued runs for, so it can be stopped.
+     *
+     * @return list<int>
+     */
+    public function meetingIds(string $batchId): array
+    {
+        $ids = $this->read($batchId)['meeting_ids'] ?? null;
+
+        return is_array($ids) ? array_values(array_map('intval', $ids)) : [];
+    }
+
+    /**
+     * Drop a batch's tally without announcing it, because it was stopped.
+     *
+     * The last run to report would normally speak for the batch; a stopped
+     * batch has nothing it wants said, and a completion notification arriving
+     * after the reader cancelled it would be about work they already refused.
+     */
+    public function forget(string $batchId): void
+    {
+        $this->cache->forget($this->key($batchId));
+    }
+
+    /**
+     * Settle one outstanding run, counting it as a success, a failure, or
+     * neither.
+     *
+     * `null` is the neither case, and it is why this is not two methods: a run
+     * somebody stopped settles its slot without joining either total. Counting
+     * it as a failure would tell a reader the model let them down when a person
+     * decided, and counting it as a success would announce a summary that was
+     * never written. Either would make the batch's totals a lie about the one
+     * thing the notification exists to report.
+     *
+     * @return array{remaining: int, succeeded: int, failed: int}|null
+     */
+    private function settle(string $batchId, ?bool $succeeded): ?array
+    {
         $key = $this->key($batchId);
         $tally = $this->read($batchId);
 
@@ -104,8 +165,8 @@ final readonly class MeetingSummaryBatchTracker
         }
 
         $remaining--;
-        $succeededCount = (int) ($tally['succeeded'] ?? 0) + ($succeeded ? 1 : 0);
-        $failedCount = (int) ($tally['failed'] ?? 0) + ($succeeded ? 0 : 1);
+        $succeededCount = (int) ($tally['succeeded'] ?? 0) + ($succeeded === true ? 1 : 0);
+        $failedCount = (int) ($tally['failed'] ?? 0) + ($succeeded === false ? 1 : 0);
 
         if ($remaining === 0) {
             $this->cache->forget($key);
@@ -121,6 +182,7 @@ final readonly class MeetingSummaryBatchTracker
             'remaining' => $remaining,
             'succeeded' => $succeededCount,
             'failed' => $failedCount,
+            'meeting_ids' => is_array($tally['meeting_ids'] ?? null) ? $tally['meeting_ids'] : [],
         ], self::TTL);
 
         return null;

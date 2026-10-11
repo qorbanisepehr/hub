@@ -14,6 +14,7 @@ use App\Domains\BoardMeeting\Jobs\GenerateBoardMeetingSummaryJob;
 use App\Domains\BoardMeeting\Models\BoardMeeting;
 use App\Domains\BoardMeeting\Services\BoardMeetingSummarizer;
 use App\Domains\BoardMeeting\Services\MeetingSummaryApplier;
+use App\Domains\BoardMeeting\Services\MeetingSummaryCanceller;
 use App\Domains\BoardMeeting\Value\AgendaItem;
 use App\Domains\BoardMeeting\Value\Attendee;
 use App\Domains\BoardMeeting\Value\MeetingSummary;
@@ -96,7 +97,7 @@ function runSummaryJob(
         $model,
         $mode ?? SummaryWriteMode::Apply,
         requestedBy: $requestedBy,
-    ))->handle(app(BoardMeetingSummarizer::class), app(MeetingSummaryApplier::class));
+    ))->handle(app(BoardMeetingSummarizer::class), app(MeetingSummaryApplier::class), app(MeetingSummaryCanceller::class));
 }
 
 describe('the agent schema', function () {
@@ -1007,7 +1008,7 @@ describe('review mode', function () {
         MeetingSummaryAgent::fake([['executive_summary' => 'خلاصه']]);
 
         (new GenerateBoardMeetingSummaryJob($this->meeting->id, ['executive_summary']))
-            ->handle(app(BoardMeetingSummarizer::class), app(MeetingSummaryApplier::class));
+            ->handle(app(BoardMeetingSummarizer::class), app(MeetingSummaryApplier::class), app(MeetingSummaryCanceller::class));
 
         $stored = $this->meeting->fresh()->summary;
 

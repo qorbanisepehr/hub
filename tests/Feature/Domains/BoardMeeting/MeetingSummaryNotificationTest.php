@@ -231,7 +231,7 @@ describe('boardmeeting summary notifications', function () {
 
             $requester = createUserWithPermissions(['board-meeting.view']);
             $tracker = app(MeetingSummaryBatchTracker::class);
-            $tracker->start('batch-7', 2);
+            $tracker->start('batch-7', [1, 2]);
 
             app(NotifySummaryRequesterOfRun::class)->handle(
                 summaryRunAnnounced($this->meeting, summaryRunWorthReviewing(), $requester->id, 'batch-7'),
@@ -253,7 +253,7 @@ describe('boardmeeting summary notifications', function () {
 
             $requester = createUserWithPermissions(['board-meeting.view']);
             $tracker = app(MeetingSummaryBatchTracker::class);
-            $tracker->start('batch-8', 2);
+            $tracker->start('batch-8', [1, 2]);
 
             app(NotifySummaryRequesterOfRun::class)->handle(
                 summaryRunAnnounced($this->meeting, summaryRunWorthReviewing(), $requester->id, 'batch-8'),
@@ -289,7 +289,7 @@ describe('boardmeeting summary notifications', function () {
 
             $requester = createUserWithPermissions(['board-meeting.view']);
             $tracker = app(MeetingSummaryBatchTracker::class);
-            $tracker->start('batch-9', 1);
+            $tracker->start('batch-9', [1]);
 
             app(NotifySummaryRequesterOfRun::class)->handle(
                 summaryRunAnnounced($this->meeting, summaryRunAbandoned(), $requester->id, 'batch-9'),
@@ -298,6 +298,58 @@ describe('boardmeeting summary notifications', function () {
             Notification::assertNotSentTo($requester, BoardmeetingSummaryFailedNotification::class);
             Notification::assertNotSentTo($requester, BoardmeetingSummaryReadyNotification::class);
             Notification::assertSentTo($requester, BoardmeetingSummaryBatchFinishedNotification::class);
+        });
+    });
+
+    describe('a stopped run', function () {
+        it('says nothing, because the requester is the person who stopped it', function () {
+            // There is nothing to tell. The person who pressed stop knows the
+            // run is over, and a message confirming their own act would be the
+            // kind of notification the channel is better without.
+            Notification::fake();
+
+            $requester = createUserWithPermissions(['board-meeting.view']);
+
+            app(NotifySummaryRequesterOfRun::class)->handle(
+                summaryRunAnnounced($this->meeting, MeetingSummary::cancelled(), $requester->id),
+            );
+
+            Notification::assertNothingSent();
+        });
+
+        it('closes a batch slot without counting the stop against the model', function () {
+            // A batch with one stopped run still has to finish, so the stopped
+            // run settles its slot - but the totals answer "how did the model
+            // do", and a run a person called off answered nothing. Counting it
+            // as a failure would blame the model for a person's decision.
+            Notification::fake();
+
+            $requester = createUserWithPermissions(['board-meeting.view']);
+            $tracker = app(MeetingSummaryBatchTracker::class);
+            $tracker->start('batch-10', [1, 2]);
+
+            app(NotifySummaryRequesterOfRun::class)->handle(
+                summaryRunAnnounced($this->meeting, MeetingSummary::cancelled(), $requester->id, 'batch-10'),
+            );
+
+            Notification::assertNothingSent();
+
+            app(NotifySummaryRequesterOfRun::class)->handle(
+                summaryRunAnnounced($this->meeting, summaryRunWorthReviewing(), $requester->id, 'batch-10'),
+            );
+
+            Notification::assertSentTo(
+                $requester,
+                BoardmeetingSummaryBatchFinishedNotification::class,
+                function (BoardmeetingSummaryBatchFinishedNotification $notification, array $channels) use ($requester): bool {
+                    expect($notification->toDatabase($requester))->toMatchArray([
+                        'succeeded' => 1,
+                        'failed' => 0,
+                    ]);
+
+                    return true;
+                },
+            );
         });
     });
 });

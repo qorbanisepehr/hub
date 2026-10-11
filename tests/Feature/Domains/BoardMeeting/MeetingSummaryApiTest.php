@@ -8,6 +8,7 @@ use App\Domains\BoardMeeting\Jobs\GenerateBoardMeetingSummaryJob;
 use App\Domains\BoardMeeting\Models\BoardMeeting;
 use App\Domains\BoardMeeting\Services\BoardMeetingSummarizer;
 use App\Domains\BoardMeeting\Services\MeetingSummaryApplier;
+use App\Domains\BoardMeeting\Services\MeetingSummaryCanceller;
 use App\Domains\BoardMeeting\Value\MeetingSummary;
 use App\Domains\Tagging\Services\TagService;
 use Illuminate\Support\Facades\Event;
@@ -36,7 +37,7 @@ beforeEach(function () {
             null,
             null,
             $mode,
-        ))->handle(app(BoardMeetingSummarizer::class), app(MeetingSummaryApplier::class));
+        ))->handle(app(BoardMeetingSummarizer::class), app(MeetingSummaryApplier::class), app(MeetingSummaryCanceller::class));
     };
 });
 
@@ -489,7 +490,7 @@ describe('POST /api/board-meetings/{meeting}/summary/dismiss', function () {
             null,
             null,
             SummaryWriteMode::Review,
-        ))->handle(app(BoardMeetingSummarizer::class), app(MeetingSummaryApplier::class));
+        ))->handle(app(BoardMeetingSummarizer::class), app(MeetingSummaryApplier::class), app(MeetingSummaryCanceller::class));
 
         actingAs(createUserWithPermissions(['board-meeting.update']))
             ->postJson("/api/board-meetings/{$this->meeting->id}/summary/dismiss")

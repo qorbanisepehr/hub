@@ -52,6 +52,7 @@ final readonly class MeetingSummaryBulk
     public function __construct(
         private readonly MeetingSummaryBatchTracker $batches,
         private readonly MeetingSummaryApplier $applier,
+        private readonly MeetingSummaryCanceller $canceller,
     ) {}
 
     /**
@@ -142,10 +143,16 @@ final readonly class MeetingSummaryBulk
         // Counted before dispatching, so a run that reports quickly cannot find
         // no counter and conclude the batch was already done.
         if ($batchId !== null) {
-            $this->batches->start($batchId, $eligible->count());
+            $this->batches->start($batchId, array_map('intval', $eligible->all()));
         }
 
         foreach ($eligible as $id) {
+            // A meeting that was stopped a moment ago is not closed: the
+            // marker means "skip the run already queued", and this dispatch is
+            // a fresh request. Cleared here rather than inside the job so a
+            // re-run does not depend on the order the jobs happen to start in.
+            $this->canceller->forget((int) $id);
+
             GenerateBoardMeetingSummaryJob::dispatch(
                 meetingId: (int) $id,
                 provider: $provider,

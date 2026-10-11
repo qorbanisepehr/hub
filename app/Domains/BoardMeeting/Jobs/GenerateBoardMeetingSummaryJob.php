@@ -8,6 +8,7 @@ use App\Domains\BoardMeeting\Events\MeetingSummaryGenerated;
 use App\Domains\BoardMeeting\Models\BoardMeeting;
 use App\Domains\BoardMeeting\Services\BoardMeetingSummarizer;
 use App\Domains\BoardMeeting\Services\MeetingSummaryApplier;
+use App\Domains\BoardMeeting\Services\MeetingSummaryCanceller;
 use App\Domains\BoardMeeting\Value\MeetingSummary;
 use App\Support\Realtime\Concerns\ReportsRunProgress;
 use App\Support\Realtime\RunState;
@@ -38,6 +39,15 @@ use Illuminate\Queue\SerializesModels;
  * and without that stamp "queued" and "never asked" would look identical in
  * the detail view. It is also the honest state if this process dies
  * mid-run: the meeting says a run started and did not report.
+ *
+ * Runs can be stopped, cooperatively, because the model call cannot be aborted
+ * from another process. Two moments matter. Before the stamp, a stop is a cache
+ * marker and `handle` returns without asking the model at all - the bulk case,
+ * where most of a dispatch is still waiting. After the model answers, a stop has
+ * already cleared the stamp, and the ownership check before the write refuses an
+ * answer whose stamp is gone: the mark of a run that was stopped, or one that a
+ * fresh run has replaced. The cost of the second case is one paid-for model
+ * call, which is the honest bound of a stop that cannot reach into the socket.
  *
  * Only `AiNotConfigured` is caught, because it is the one failure a retry
  * cannot fix — there is no provider to call. Everything else (a dead URL, a
@@ -211,15 +221,30 @@ class GenerateBoardMeetingSummaryJob implements ShouldBeUnique, ShouldQueue
         ]);
     }
 
-    public function handle(BoardMeetingSummarizer $summarizer, MeetingSummaryApplier $applier): void
-    {
+    public function handle(
+        BoardMeetingSummarizer $summarizer,
+        MeetingSummaryApplier $applier,
+        MeetingSummaryCanceller $canceller,
+    ): void {
         $meeting = BoardMeeting::query()->find($this->meetingId);
 
         if ($meeting === null) {
             return;
         }
 
-        $applier->applyRun($meeting, MeetingSummary::pending(), $this->mode);
+        // Stopped while it waited in the queue: nothing has happened yet, so
+        // nothing needs undoing - the model is never asked and the row is left
+        // exactly as the cancel left it. Reported all the same, because a run
+        // in a batch still has to settle its slot in the tally.
+        if ($canceller->isCancelled($this->meetingId)) {
+            $this->report($meeting, MeetingSummary::cancelled());
+
+            return;
+        }
+
+        $stamp = MeetingSummary::pending();
+
+        $applier->applyRun($meeting, $stamp, $this->mode);
 
         $this->reportProgress(RunState::Running);
 
@@ -232,20 +257,38 @@ class GenerateBoardMeetingSummaryJob implements ShouldBeUnique, ShouldQueue
                 $this->merge,
             );
         } catch (AiNotConfigured) {
-            $this->reportProgress(RunState::Failed, [
-                'reason' => MeetingSummary::REASON_NOT_CONFIGURED,
-            ]);
-
             $run = MeetingSummary::failure(MeetingSummary::REASON_NOT_CONFIGURED);
-            $applier->applyRun($meeting, $run, $this->mode);
-            $this->report($meeting, $run);
+        }
+
+        // Stopped while it was answering. A model call in flight cannot be
+        // interrupted from here, so the most a stop can do is refuse the
+        // answer: the stamp is cleared (a no-op if the cancel already cleared
+        // it) and nothing this run produced is written.
+        if ($canceller->isCancelled($this->meetingId)) {
+            $applier->cancelInFlightRun($meeting);
+            $this->report($meeting, MeetingSummary::cancelled());
 
             return;
         }
 
+        // Superseded. Another run owns the row now - either a fresh one after
+        // a cancel, or the same one re-asked - and this answer belongs to a
+        // question nobody is waiting on any more. Silence rather than a write
+        // and rather than an event: there is no outcome here to report.
+        if (! $applier->holdsRun($meeting, $stamp, $this->mode)) {
+            return;
+        }
+
+        // `not_configured` is the one failure that never reached a provider, so
+        // it is the one that reports its reason rather than the status: the
+        // client already shows "we could not ask", and the reason is what
+        // separates "no provider is set up" from "the model answered badly".
         $this->reportProgress(
             $run->status === MeetingSummary::STATUS_FAILED ? RunState::Failed : RunState::Finished,
-            ['status' => $run->status],
+            $run->status === MeetingSummary::STATUS_FAILED
+                && $run->error === MeetingSummary::REASON_NOT_CONFIGURED
+                    ? ['reason' => MeetingSummary::REASON_NOT_CONFIGURED]
+                    : ['status' => $run->status],
         );
 
         $applier->applyRun($meeting, $run, $this->mode);
@@ -283,6 +326,15 @@ class GenerateBoardMeetingSummaryJob implements ShouldBeUnique, ShouldQueue
             // The meeting was deleted while the run was in flight. There is
             // nowhere to write the outcome and nobody to point at, so this is
             // a no-op rather than a second failure inside the failure handler.
+            return;
+        }
+
+        // A stopped run stays stopped even when the queue gives up on it. The
+        // cancel already cleared the row and acknowledged the stop; writing
+        // `unavailable` here would stamp a failure over the idle state the
+        // person asked for and tell them the model broke when they are the one
+        // who called it off.
+        if (app(MeetingSummaryCanceller::class)->isCancelled($this->meetingId)) {
             return;
         }
 

@@ -38,6 +38,14 @@ use Illuminate\Support\Facades\Notification;
  *    notifications everything they are worth, so a run carrying a batch id is
  *    counted instead and the last one to report speaks for the lot.
  *
+ *  - **A stopped run is counted, not announced.** A run somebody cancelled
+ *    reports like any other, but it joins neither the successes nor the
+ *    failures: the totals answer "how did the model do", and a run a person
+ *    called off says nothing about that. It still settles its slot, so a batch
+ *    with one cancelled run in it can finish rather than waiting forever on a
+ *    tally that never closes. On its own it notifies nobody — the person who
+ *    stopped it does not need to be told.
+ *
  * After-commit, like the others: a rolled-back write must not leave a
  * notification claiming something that did not happen.
  */
@@ -55,7 +63,15 @@ final class NotifySummaryRequesterOfRun implements ShouldHandleEventsAfterCommit
             return;
         }
 
-        $failed = $event->metadata()['status'] === MeetingSummary::STATUS_FAILED;
+        $status = (string) ($event->metadata()['status'] ?? '');
+
+        if ($status === MeetingSummary::STATUS_CANCELLED) {
+            $this->settleCancelledRun($event, $user);
+
+            return;
+        }
+
+        $failed = $status === MeetingSummary::STATUS_FAILED;
 
         if ($event->batchId() !== null) {
             // Counted, not announced. The last run to report speaks for the lot,
@@ -84,6 +100,32 @@ final class NotifySummaryRequesterOfRun implements ShouldHandleEventsAfterCommit
                     (string) $event->metadata()['status'],
                 ),
         );
+    }
+
+    /**
+     * Let a stopped run close its batch without claiming an outcome.
+     *
+     * A single stopped run is silence: the requester is the person who stopped
+     * it, and telling them would be a notification about their own act. Inside
+     * a batch it is the opposite — the run has to settle or the batch waits for
+     * a report that will never come, and if it was the last one the batch's
+     * announcement is still owed. A batch that was stopped outright has had its
+     * tally dropped, so `skip()` finds nothing and says nothing.
+     */
+    private function settleCancelledRun(MeetingSummaryGenerated $event, User $user): void
+    {
+        if ($event->batchId() === null) {
+            return;
+        }
+
+        $tally = $this->batches->skip($event->batchId());
+
+        if ($tally !== null) {
+            Notification::send($user, new BoardmeetingSummaryBatchFinishedNotification(
+                $tally['succeeded'],
+                $tally['failed'],
+            ));
+        }
     }
 
     /**

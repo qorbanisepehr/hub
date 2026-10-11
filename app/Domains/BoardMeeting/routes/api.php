@@ -79,6 +79,14 @@ Route::middleware('auth:sanctum')->group(function () {
         ->name('board-meetings.summary.dismiss')
         ->middleware('permission:board-meeting.update');
 
+    // Stopping a run that is queued or under way. Same permission as the other
+    // three: it is a write to this meeting's record made by somebody allowed to
+    // curate it. It is not a fourth kind of decision - a decision needs a
+    // proposal to decide about, and this is for when there is not one yet.
+    Route::post('board-meetings/{meeting}/summary/cancel', [MeetingSummaryController::class, 'cancel'])
+        ->name('board-meetings.summary.cancel')
+        ->middleware('permission:board-meeting.update');
+
     // The registry-level pair, on the sync permission rather than update: both
     // act on the whole registry instead of one row, so they belong beside the
     // registry sync rather than beside a single meeting's write.
@@ -88,5 +96,13 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::post('board-meetings/summary/bulk', [MeetingSummaryController::class, 'bulk'])
         ->name('board-meetings.summary.bulk')
+        ->middleware('permission:board-meeting.sync');
+
+    // Stopping the part of a bulk that has not run yet. On the sync permission
+    // for the same reason the dispatch is: it acts on a registry-wide batch
+    // rather than on one row. Declared after the literal segments above so a
+    // batch id can never be read as one of them.
+    Route::post('board-meetings/summary/batches/{batchId}/cancel', [MeetingSummaryController::class, 'cancelBatch'])
+        ->name('board-meetings.summary.batch-cancel')
         ->middleware('permission:board-meeting.sync');
 });
