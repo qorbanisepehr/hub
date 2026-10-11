@@ -2,7 +2,13 @@
 
 namespace App\Domains\BoardMeeting\Ai;
 
-use App\Domains\BoardMeeting\Value\MeetingSummary;
+use App\Domains\BoardMeeting\Ai\Fields\BulletPointsField;
+use App\Domains\BoardMeeting\Ai\Fields\ExecutiveSummaryField;
+use App\Domains\BoardMeeting\Ai\Fields\KeyDecisionsField;
+use App\Domains\BoardMeeting\Ai\Fields\SuggestedTagsField;
+use App\Domains\BoardMeeting\Ai\Fields\SummaryFieldContext;
+use App\Domains\BoardMeeting\Ai\Fields\SummaryFieldSpec;
+use App\Domains\BoardMeeting\Ai\Fields\TopicsField;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\JsonSchema\Types\Type;
 use ValueError;
@@ -51,35 +57,57 @@ enum MeetingSummaryField: string
     /** Whether this field holds a list rather than a single string. */
     public function isList(): bool
     {
-        return $this !== self::ExecutiveSummary;
+        return $this->spec()->isList();
+    }
+
+    /**
+     * The rules the model needs for this field, if any.
+     *
+     * @return list<string>
+     */
+    public function instructions(SummaryFieldContext $context): array
+    {
+        return $this->spec()->instructions($context);
     }
 
     /**
      * The JSON schema type this field contributes.
      *
-     * Every list field is a list, and the four prose lists are lists of
-     * strings, which is what lets the response parser in {@see MeetingSummary}
-     * read them the same way. `suggested_tags` is the exception and is the only
-     * field that carries structure: a tag is a label *and* the slug it is
-     * matched by, and a model asked for one string can only ever give one of
-     * the two — which is how a hub with Persian tag names ended up being fed
-     * English tag slugs.
+     * Delegated so a field's schema, its rules and its reader stay together in
+     * one spec. This enum is the vocabulary the rest of the hub names fields
+     * by, not the place their behaviour lives.
      */
     public function type(JsonSchema $schema): Type
     {
+        return $this->spec()->schema($schema);
+    }
+
+    /**
+     * This field's value out of whatever the model sent.
+     *
+     * @return string|null|list<string>|list<array{name: string, slug: string}>
+     */
+    public function read(mixed $raw): string|null|array
+    {
+        return $this->spec()->read($raw);
+    }
+
+    /**
+     * The spec that defines this field.
+     *
+     * The one place the vocabulary and the behaviour are tied together. A field
+     * promoted to its own registered agent keeps its spec and gains a wrapper
+     * around it, so this mapping is what makes that promotion a move rather
+     * than a rewrite.
+     */
+    public function spec(): SummaryFieldSpec
+    {
         return match ($this) {
-            self::ExecutiveSummary => $schema->string(),
-            self::SuggestedTags => $schema->array()->items(
-                $schema->object([
-                    'name' => $schema->string()->required()
-                        ->description('the tag label, written in Persian'),
-                    'slug' => $schema->string()->required()
-                        ->description('a short lowercase latin transliteration, letters/digits/hyphens only'),
-                ]),
-            ),
-            default => $schema->array()
-                ->items($schema->string())
-                ->unique(),
+            self::ExecutiveSummary => new ExecutiveSummaryField,
+            self::Topics => new TopicsField,
+            self::BulletPoints => new BulletPointsField,
+            self::KeyDecisions => new KeyDecisionsField,
+            self::SuggestedTags => new SuggestedTagsField,
         };
     }
 }

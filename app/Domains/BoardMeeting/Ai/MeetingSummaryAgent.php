@@ -3,6 +3,7 @@
 namespace App\Domains\BoardMeeting\Ai;
 
 use App\Contracts\Ai\FieldedAgent;
+use App\Domains\BoardMeeting\Ai\Fields\SummaryFieldContext;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\JsonSchema\Types\Type;
 use Laravel\Ai\Contracts\HasProviderOptions;
@@ -194,39 +195,41 @@ final class MeetingSummaryAgent implements FieldedAgent, HasProviderOptions
 
     public function instructions(): string
     {
+        $context = new SummaryFieldContext($this->language(), $this->fields);
+
         return implode("\n", [
             'You are the secretary of a board meeting, writing the record that the board will be judged against later.',
             'Write every answer in '.$this->language().'. This is not negotiable and does not depend on what language the minutes happen to be in — they are OCR text from a scanned archive and often contain stray glyphs from other scripts, which is not a reason to switch language. Leave those stray glyphs out of your answer.',
             'The hub stores and displays your answer verbatim, so emit nothing but the requested fields: no preamble, no headings, no markdown, no commentary.',
-            'A key decision is something the board resolved, approved or rejected. A discussion topic, a question, and an item deferred to the next session are not decisions.',
-            'Bullet points are the substantive statements of the session, one per line, each a complete thought.',
             'Keep proper nouns as the minutes spell them, even where the OCR mangled them; do not translate a company or project name into English.',
-            ...$this->tagInstructions(),
+            ...$this->fieldInstructions($context),
             'Leave a field out or return an empty list when the minutes genuinely contain nothing for it. An honest gap is worth more than an invented decision, and a fabricated decision in a board record is worse than no summary at all.',
             ...$this->mergeInstructions(),
         ]);
     }
 
     /**
-     * The tag rules, and nothing when this run is not asking for tags.
+     * Every field's own rules, in the order the fields are defined.
      *
-     * Conditional for the same reason {@see mergeInstructions()} is: a run
-     * that was not asked for tags should not be told about a KNOWN TAGS list it
-     * will never see. The summarizer appends that list to the prompt under
-     * exactly this condition, so the two agree by construction.
+     * All of them are asked, not only the requested ones, because a rule that
+     * defines a field outlives the subset this run happens to want: the
+     * definition of a decision is part of what keeps the record coherent even
+     * when the run is only re-writing the paragraph. A spec returns nothing
+     * when its rule would misdescribe the prompt — `suggested_tags` does, when
+     * the run did not ask for tags and so will not be shown the tag list its
+     * rule refers to.
      *
      * @return list<string>
      */
-    private function tagInstructions(): array
+    private function fieldInstructions(SummaryFieldContext $context): array
     {
-        if (! in_array(MeetingSummaryField::SuggestedTags, $this->fields, true)) {
-            return [];
+        $lines = [];
+
+        foreach (MeetingSummaryField::cases() as $field) {
+            $lines = [...$lines, ...$field->instructions($context)];
         }
 
-        return [
-            'Suggested tags are the subject labels of the hub\'s tagging system. Each tag is two strings: `name` is the label written in '.$this->language().', and `slug` is a short lowercase latin transliteration of it using letters, digits and hyphens only (for example "miduk-phase-3-project"). No punctuation, no numbering, no duplicates.',
-            'The prompt lists the tags the hub already has under KNOWN TAGS. When one of those already means what you mean, reuse it and copy its name exactly as written — a near-duplicate is worse than no new tag. Invent a tag only when nothing on that list fits.',
-        ];
+        return $lines;
     }
 
     /**

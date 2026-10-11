@@ -176,6 +176,15 @@ describe('the agent schema', function () {
             ->toThrow(ValueError::class);
     });
 
+    it('defines every field through a spec that names it the same', function () {
+        // The enum is the vocabulary and the spec is the behaviour; a case and
+        // its spec drifting apart would send one field's rules and reader under
+        // another field's key, which nothing downstream could detect.
+        foreach (MeetingSummaryField::cases() as $field) {
+            expect($field->spec()->name())->toBe($field->value);
+        }
+    });
+
     it('types every list field as a list of strings', function () {
         $schema = (new MeetingSummaryAgent)->schema(new JsonSchemaTypeFactory);
 

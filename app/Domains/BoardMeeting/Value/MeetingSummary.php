@@ -484,95 +484,18 @@ final readonly class MeetingSummary
     /**
      * Pull one field's value out of whatever the model actually sent.
      *
-     * List fields are de-duplicated and emptied of blank entries because a
-     * model that emits the same decision twice, or pads a list with `""` to
-     * hit a count, should not turn one meeting into two rows of evidence.
-     *
-     * `suggested_tags` is read by its own rule: it is the one list whose items
-     * are objects rather than strings, because a tag is a Persian label and the
-     * slug it is matched by, and the two have to survive together.
+     * The rule lives with the field's own spec, because "what counts as this
+     * field" and "what shape does it carry" are one question: a reader that
+     * knows `suggested_tags` is a list of pairs but not why is the half of the
+     * contract the other half drifts away from. See
+     * {@see MeetingSummaryField::read()}.
      *
      * @param  array<string, mixed>|null  $source
      * @return string|null|list<string>|list<array{name: string, slug: string}>
      */
     private static function readValue(?array $source, MeetingSummaryField $field): string|null|array
     {
-        $raw = $source[$field->value] ?? null;
-
-        if ($field === MeetingSummaryField::SuggestedTags) {
-            return self::readTagProposals($raw);
-        }
-
-        if (! $field->isList()) {
-            return is_string($raw) && trim($raw) !== '' ? trim($raw) : null;
-        }
-
-        if (! is_array($raw)) {
-            return [];
-        }
-
-        $items = array_filter(
-            array_map(
-                fn (mixed $item): string => is_scalar($item) ? trim((string) $item) : '',
-                $raw,
-            ),
-            fn (string $item): bool => $item !== '',
-        );
-
-        return array_values(array_unique($items));
-    }
-
-    /**
-     * Read a run's tag proposals, keeping the label/slug pair intact.
-     *
-     * A proposal whose name or slug is missing is completed from the other
-     * rather than dropped, because either half alone is still a usable tag and
-     * an incomplete pair is a model slip, not a reason to lose the tag. The
-     * list is de-duplicated by slug — the tag's own identity — so the same tag
-     * named twice does not become two rows of evidence.
-     *
-     * @return list<array{name: string, slug: string}>
-     */
-    private static function readTagProposals(mixed $raw): array
-    {
-        if (! is_array($raw)) {
-            return [];
-        }
-
-        $proposals = [];
-
-        foreach ($raw as $item) {
-            // A stored list from before tags carried a name: the string is the
-            // slug, and its label was the slug. Readable rather than migrated,
-            // so an old row keeps the tags it had.
-            if (is_string($item)) {
-                $slug = trim($item);
-
-                if ($slug !== '') {
-                    $proposals[$slug] = ['name' => $slug, 'slug' => $slug];
-                }
-
-                continue;
-            }
-
-            if (! is_array($item)) {
-                continue;
-            }
-
-            $name = is_string($item['name'] ?? null) ? trim($item['name']) : '';
-            $slug = is_string($item['slug'] ?? null) ? trim($item['slug']) : '';
-
-            if ($name === '' && $slug === '') {
-                continue;
-            }
-
-            $name = $name !== '' ? $name : $slug;
-            $slug = $slug !== '' ? $slug : $name;
-
-            $proposals[$slug] = ['name' => $name, 'slug' => $slug];
-        }
-
-        return array_values($proposals);
+        return $field->read($source[$field->value] ?? null);
     }
 
     /**
