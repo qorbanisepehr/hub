@@ -9,10 +9,10 @@ use App\Domains\BoardMeeting\Exceptions\NoPendingSummary;
 use App\Domains\BoardMeeting\Jobs\GenerateBoardMeetingSummaryJob;
 use App\Domains\BoardMeeting\Models\BoardMeeting;
 use App\Domains\BoardMeeting\Requests\AcceptMeetingSummaryRequest;
-use App\Domains\BoardMeeting\Requests\BoardMeetingListRequest;
 use App\Domains\BoardMeeting\Requests\BulkMeetingSummaryRequest;
 use App\Domains\BoardMeeting\Requests\DismissMeetingSummaryRequest;
 use App\Domains\BoardMeeting\Requests\GenerateMeetingSummaryRequest;
+use App\Domains\BoardMeeting\Requests\MeetingSummaryCandidatesRequest;
 use App\Domains\BoardMeeting\Resources\BoardMeetingResource;
 use App\Domains\BoardMeeting\Resources\MeetingSummaryCandidateResource;
 use App\Domains\BoardMeeting\Services\BoardMeetingListQuery;
@@ -48,8 +48,16 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class MeetingSummaryController
 {
-    public function store(GenerateMeetingSummaryRequest $request, BoardMeeting $meeting): BoardMeetingResource|JsonResponse
-    {
+    public function store(
+        GenerateMeetingSummaryRequest $request,
+        BoardMeeting $meeting,
+        MeetingSummaryApplier $applier,
+    ): BoardMeetingResource|JsonResponse {
+        // A stamp the queue has long since abandoned is not a run in flight:
+        // clear it before deciding, so a run that died without reporting does
+        // not block a person from asking for the one that will replace it.
+        $applier->reapAbandonedRun($meeting);
+
         // One run at a time per meeting, and the row says whether one is going.
         // Two runs of the same meeting race for one `summary` column, and the
         // second to land takes the first one's proposal with it; the queue's
@@ -155,8 +163,8 @@ class MeetingSummaryController
     }
 
     /**
-     * The meetings a bulk run could still generate for, under the list's own
-     * filters.
+     * The meetings a bulk run could still act on, under the list's own filters
+     * and in the scope the dialog was opened with.
      *
      * Filtered rather than whole, so "generate the ones I am looking at" is
      * free: the dialog reads the same date window, Jalali year, tag filter and
@@ -164,12 +172,16 @@ class MeetingSummaryController
      * person does by filtering rather than by remembering what they last saw.
      */
     public function candidates(
-        BoardMeetingListRequest $request,
+        MeetingSummaryCandidatesRequest $request,
         BoardMeetingListQuery $listQuery,
         MeetingSummaryBulk $bulk,
     ): AnonymousResourceCollection {
         return MeetingSummaryCandidateResource::collection(
-            $bulk->candidates($listQuery->scoped($request), ListQuery::perPage($request, 20, 200)),
+            $bulk->candidates(
+                $listQuery->scoped($request),
+                ListQuery::perPage($request, 20, 200),
+                $request->wantsRegenerate(),
+            ),
         );
     }
 
@@ -187,6 +199,7 @@ class MeetingSummaryController
         $result = $bulk->dispatch(
             $request->meetingIds(),
             $request->summaryMode(),
+            $request->wantsRegenerate(),
             $request->summaryProvider(),
             $request->summaryModel(),
             $request->user()?->getKey(),

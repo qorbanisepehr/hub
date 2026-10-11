@@ -8,6 +8,7 @@ use App\Domains\BoardMeeting\Exceptions\NoPendingSummary;
 use App\Domains\BoardMeeting\Models\BoardMeeting;
 use App\Domains\BoardMeeting\Value\MeetingSummary;
 use App\Domains\Tagging\Services\TagService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -29,6 +30,18 @@ use Illuminate\Support\Facades\DB;
  */
 final readonly class MeetingSummaryApplier
 {
+    /**
+     * How long an in-flight stamp is trusted, in seconds.
+     *
+     * Comfortably past every number that bounds a live run: the job's own
+     * `$timeout` (1080s, after which the worker kills the call) and its
+     * `$uniqueFor` lock (1200s, after which a fresh identical request would be
+     * let through anyway). Past both, a stamp protects nothing — it only
+     * measures how long the row has been lying — so clearing it cannot take a
+     * run away from a worker still performing one.
+     */
+    private const ABANDONED_AFTER = 3600;
+
     public function __construct(
         private TagService $tags,
     ) {}
@@ -62,6 +75,58 @@ final readonly class MeetingSummaryApplier
         $this->persist($meeting, $result, $this->tagsThisRunDecided($run, $result));
 
         return $result;
+    }
+
+    /**
+     * Clear a run the queue can no longer be performing, and say whether one
+     * was cleared.
+     *
+     * Called wherever the row's in-flight state is about to be believed — the
+     * bulk picker, a second run request, and the detail read. It repairs the
+     * row instead of teaching each reader the same staleness rule, so every
+     * one of them reads one answer and the client never has to decide for
+     * itself whether a stamp has expired.
+     */
+    public function reapAbandonedRun(BoardMeeting $meeting): bool
+    {
+        $stored = MeetingSummary::fromArray($meeting->summary);
+
+        if ($stored === null || ! $stored->hasAbandonedRun(self::ABANDONED_AFTER, $meeting->updated_at)) {
+            return false;
+        }
+
+        // No tags: a dead run decided none, and the row's own tag set is not
+        // this method's to touch.
+        $this->persist($meeting, $stored->withoutAbandonedRun(), null);
+
+        return true;
+    }
+
+    /**
+     * Clear every abandoned run in the registry, so an eligibility query that
+     * follows reads the true state rather than a stamp nobody is behind.
+     *
+     * Written against the JSONB, and not as a scan of the whole table: only a
+     * `pending` stamp can be abandoned, and even mid-bulk that is a few dozen
+     * rows rather than the hundreds the registry holds.
+     */
+    public function reapAbandonedRuns(): int
+    {
+        $meetings = BoardMeeting::query()
+            ->where(fn (Builder $pending): Builder => $pending
+                ->where('summary->pending->status', MeetingSummary::STATUS_PENDING)
+                ->orWhere('summary->status', MeetingSummary::STATUS_PENDING))
+            ->get();
+
+        $reaped = 0;
+
+        foreach ($meetings as $meeting) {
+            if ($this->reapAbandonedRun($meeting)) {
+                $reaped++;
+            }
+        }
+
+        return $reaped;
     }
 
     /**

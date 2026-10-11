@@ -28,6 +28,13 @@ use Illuminate\Support\Str;
  * a `none` row — that one is a proposal somebody still has to decide about, and
  * overwriting it is the exact thing the propose-then-accept mode exists to stop.
  *
+ * The same pair of questions is asked a second time for the regenerate scope
+ * (D23 follow-up): «بازتولید خلاصه» picks from the meetings that already have a
+ * summary instead of the ones that do not. The eligibility rules are the same
+ * shape and share the one guard that matters — nothing in flight — because a
+ * person who asks to replace a summary is making the opposite choice from one
+ * who asks for a first summary, not bypassing the rule that protects a run.
+ *
  * The jobs are dispatched, never run inline: this returns to the user having
  * queued work, and a registry of hundreds of meetings is hundreds of slow model
  * calls.
@@ -36,20 +43,27 @@ final readonly class MeetingSummaryBulk
 {
     public function __construct(
         private readonly MeetingSummaryBatchTracker $batches,
+        private readonly MeetingSummaryApplier $applier,
     ) {}
 
     /**
-     * The meetings still waiting for a first summary, newest registry key first
-     * so the dialog's top rows are the ones a person is most likely working on.
+     * The meetings a bulk run may act on, newest registry key first so the
+     * dialog's top rows are the ones a person is most likely working on.
      *
-     * @param  array<string, mixed>  $filters  the list request's filters, so
-     *                                         narrowing the bulk to what the
-     *                                         list is showing is free
+     * `$regenerate` flips the scope between "nothing to show yet" and "already
+     * has a summary to replace"; the filters, the ordering and the guards are
+     * shared, because it is one dialog either way and only the list it draws
+     * from changes.
      */
-    public function candidates(Builder $query, int $perPage): LengthAwarePaginator
+    public function candidates(Builder $query, int $perPage, bool $regenerate = false): LengthAwarePaginator
     {
+        // An abandoned run reads as `pending`, and the query below cannot tell
+        // a stamp somebody is behind from one nobody is. Repair them first so
+        // the list a person sees is the true one.
+        $this->applier->reapAbandonedRuns();
+
         return $query
-            ->where(fn (Builder $un) => $this->ungenerated($un))
+            ->where(fn (Builder $eligible) => $this->eligible($eligible, $regenerate))
             ->orderBy('held_on', 'desc')
             ->orderBy('sequence', 'desc')
             ->paginate($perPage)
@@ -60,19 +74,27 @@ final readonly class MeetingSummaryBulk
      * Queue a run per requested meeting, skipping the ones that are no longer
      * eligible.
      *
+     * `$regenerate` names the scope the ids were chosen under, so the re-check
+     * asks the same question the picker did.
+     *
      * @param  list<int>  $meetingIds
      * @return array{queued: int, skipped: int, meeting_ids: list<int>}
      */
     public function dispatch(
         array $meetingIds,
         SummaryWriteMode $mode,
+        bool $regenerate = false,
         ?string $provider = null,
         ?string $model = null,
         ?int $requestedBy = null,
     ): array {
+        // Same repair as the picker: a stale `pending` stamp would otherwise
+        // make a perfectly re-runnable meeting look busy and be skipped.
+        $this->applier->reapAbandonedRuns();
+
         $eligible = BoardMeeting::query()
             ->whereIn('id', $meetingIds)
-            ->where(fn (Builder $un) => $this->ungenerated($un))
+            ->where(fn (Builder $pickable) => $this->eligible($pickable, $regenerate))
             ->pluck('id');
 
         // One identity for the whole dispatch, so the runs can be summarised as
@@ -115,6 +137,29 @@ final readonly class MeetingSummaryBulk
     }
 
     /**
+     * The content half of the eligibility rule, by scope.
+     *
+     * «تولید خلاصه برای جلسات تولیدنشده» picks from meetings with nothing to
+     * show; «بازتولید خلاصه» picks from the opposite set — meetings that
+     * already carry a summary and might be run again.
+     */
+    private function eligible(Builder $query, bool $regenerate): void
+    {
+        if ($regenerate) {
+            $query
+                ->whereIn('summary->status', [
+                    MeetingSummary::STATUS_OK,
+                    MeetingSummary::STATUS_PARTIAL,
+                ])
+                ->where(fn (Builder $running) => $this->notRunning($running));
+
+            return;
+        }
+
+        $this->ungenerated($query);
+    }
+
+    /**
      * A meeting with nothing usable in its summary column, and no run going.
      *
      * Written against the JSONB rather than a `whereNull` alone, because "no
@@ -142,8 +187,21 @@ final readonly class MeetingSummaryBulk
             ->where(fn (Builder $unused) => $unused
                 ->whereNull('summary')
                 ->orWhere('summary->status', MeetingSummary::STATUS_FAILED))
-            ->where(fn (Builder $running) => $running
-                ->whereNull('summary->pending->status')
-                ->orWhere('summary->pending->status', '!=', MeetingSummary::STATUS_PENDING));
+            ->where(fn (Builder $running) => $this->notRunning($running));
+    }
+
+    /**
+     * No run is queued or under way, whichever layer of the artifact holds the
+     * stamp.
+     *
+     * The stamp sits on `pending` under `Review` and on the row's own status
+     * under `Apply`, and both scopes have to respect it: a run nobody is
+     * waiting on is the one thing a second dispatch must never overwrite.
+     */
+    private function notRunning(Builder $query): void
+    {
+        $query
+            ->whereNull('summary->pending->status')
+            ->orWhere('summary->pending->status', '!=', MeetingSummary::STATUS_PENDING);
     }
 }

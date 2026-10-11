@@ -6,6 +6,7 @@ use App\Domains\BoardMeeting\Events\BoardMeetingUpdated;
 use App\Domains\BoardMeeting\Models\BoardMeeting;
 use App\Domains\BoardMeeting\Value\AgendaItem;
 use App\Domains\BoardMeeting\Value\Attendee;
+use App\Domains\BoardMeeting\Value\MeetingSummary;
 use App\Domains\Tagging\Services\TagService;
 use App\Models\User;
 use Carbon\CarbonImmutable;
@@ -171,6 +172,31 @@ describe('GET /api/board-meetings/{meeting}', function () {
         actingAs($user)
             ->getJson("/api/board-meetings/{$meeting->id}")
             ->assertForbidden();
+    });
+
+    it('clears a summary run the queue abandoned before answering', function () {
+        $meeting = BoardMeeting::factory()->create([
+            'summary' => [
+                'status' => MeetingSummary::STATUS_NONE,
+                'pending' => [
+                    'status' => MeetingSummary::STATUS_PENDING,
+                    'started_at' => now()->subDay()->toIso8601String(),
+                ],
+            ],
+        ]);
+
+        $response = actingAs(createUserWithPermissions(['board-meeting.view']))
+            ->getJson("/api/board-meetings/{$meeting->id}")
+            ->assertOk();
+
+        // The detail is where the client's "still generating" state comes from,
+        // and a stamp nobody is behind must not outlive the run it stood for.
+        // The read repairs the row rather than teaching the client the queue's
+        // staleness rule, and answers with what it repaired.
+        expect($response->json('data.summary.status'))->toBe(MeetingSummary::STATUS_FAILED)
+            ->and($response->json('data.summary.error'))->toBe(MeetingSummary::REASON_ABANDONED)
+            ->and($response->json('data.summary.pending'))->toBeNull()
+            ->and($meeting->fresh()->summary['pending'])->toBeNull();
     });
 });
 

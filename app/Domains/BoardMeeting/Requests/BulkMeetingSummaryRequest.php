@@ -45,6 +45,7 @@ class BulkMeetingSummaryRequest extends FormRequest
             'fields' => ['sometimes', 'array', 'max:5'],
             'fields.*' => ['required', 'string', Rule::in(array_column(MeetingSummaryField::cases(), 'value'))],
             'mode' => ['sometimes', Rule::enum(SummaryWriteMode::class)],
+            'regenerate' => ['sometimes', 'boolean'],
             'provider' => ['sometimes', 'nullable', 'string', 'max:100'],
             'model' => ['sometimes', 'nullable', 'string', 'max:150'],
         ];
@@ -91,6 +92,18 @@ class BulkMeetingSummaryRequest extends FormRequest
         $model = $this->input('model');
 
         return is_string($model) && $model !== '' ? $model : null;
+    }
+
+    /**
+     * Whether the ids were picked from the meetings that already have a
+     * summary — the «بازتولید» scope — rather than the ones that do not.
+     *
+     * It decides which eligibility rule the dispatch re-checks against, so the
+     * server never has to guess which set the ids came from.
+     */
+    public function wantsRegenerate(): bool
+    {
+        return $this->boolean('regenerate');
     }
 
     public function withValidator(ValidationValidator $validator): void

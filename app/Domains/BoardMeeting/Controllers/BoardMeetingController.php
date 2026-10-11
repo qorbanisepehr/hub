@@ -10,6 +10,7 @@ use App\Domains\BoardMeeting\Requests\BoardMeetingListRequest;
 use App\Domains\BoardMeeting\Requests\UpdateBoardMeetingRequest;
 use App\Domains\BoardMeeting\Resources\BoardMeetingResource;
 use App\Domains\BoardMeeting\Services\BoardMeetingListQuery;
+use App\Domains\BoardMeeting\Services\MeetingSummaryApplier;
 use App\Domains\BoardMeeting\Value\Attendee;
 use App\Support\Audit\AttributeDiff;
 use App\Support\Exports\Concerns\StreamsTabularExports;
@@ -40,6 +41,7 @@ class BoardMeetingController
     public function __construct(
         private readonly ExportService $exports,
         private readonly BoardMeetingListQuery $listQuery,
+        private readonly MeetingSummaryApplier $summaries,
     ) {}
 
     public function index(BoardMeetingListRequest $request): AnonymousResourceCollection
@@ -97,8 +99,20 @@ class BoardMeetingController
         return $this->streamExport($this->exports, $file);
     }
 
+    /**
+     * The detail read.
+     *
+     * Before it answers, an in-flight stamp nobody is behind is cleared, so the
+     * client's "still generating" state cannot outlive the run it stands for.
+     * A write on a read path, deliberately: the alternative is to have the
+     * client re-derive the queue's staleness rule, which is the one place such
+     * a rule must not live. It is a no-op unless a row is actually stuck, so an
+     * ordinary read stays a read.
+     */
     public function show(BoardMeeting $meeting): BoardMeetingResource
     {
+        $this->summaries->reapAbandonedRun($meeting);
+
         return new BoardMeetingResource($meeting->load('tags'));
     }
 

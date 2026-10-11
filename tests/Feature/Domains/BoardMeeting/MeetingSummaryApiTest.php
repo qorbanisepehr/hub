@@ -181,6 +181,32 @@ describe('POST /api/board-meetings/{meeting}/summary', function () {
 
         Queue::assertPushed(GenerateBoardMeetingSummaryJob::class);
     });
+
+    it('allows a run over a stamp the queue abandoned', function () {
+        Queue::fake();
+
+        // A `pending` stamp is written when a run starts and cleared when it
+        // reports, so a worker killed mid-call clears nothing: the row says
+        // "queued" for ever and the 409 refuses work nobody is doing. Past the
+        // job's own timeout and the uniqueness lock that owns the run, the
+        // stamp is not a run and the guard has to stop treating it as one.
+        $stale = MeetingSummary::pending()->toArray();
+        $stale['started_at'] = now()->subHours(2)->toIso8601String();
+
+        $this->meeting->forceFill(['summary' => $stale])->save();
+
+        $response = actingAs(createUserWithPermissions(['board-meeting.update']))
+            ->postJson("/api/board-meetings/{$this->meeting->id}/summary")
+            ->assertOk();
+
+        Queue::assertPushed(GenerateBoardMeetingSummaryJob::class);
+
+        // Answered with the cleared row, so the client reflects what the guard
+        // just saw rather than the stamp it replaced.
+        expect($response->json('data.summary.status'))->toBe(MeetingSummary::STATUS_FAILED)
+            ->and($response->json('data.summary.error'))->toBe(MeetingSummary::REASON_ABANDONED)
+            ->and($response->json('data.summary.pending'))->toBeNull();
+    });
 });
 
 describe('POST /api/board-meetings/{meeting}/summary/accept', function () {

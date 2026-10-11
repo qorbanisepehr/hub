@@ -386,6 +386,215 @@ describe('POST /api/board-meetings/summary/bulk', function () {
     });
 });
 
+describe('an abandoned run', function () {
+    it('clears a stamp the queue abandoned, and the row reads as failed', function () {
+        $stuck = ($this->withSummary)([
+            'status' => MeetingSummary::STATUS_NONE,
+            'pending' => MeetingSummary::pending()->toArray(),
+        ]);
+
+        $stamp = $stuck->summary;
+        $stamp['pending']['started_at'] = now()->subDay()->toIso8601String();
+        $stuck->forceFill(['summary' => $stamp])->save();
+
+        $ids = actingAs(createUserWithPermissions(['board-meeting.sync']))
+            ->getJson('/api/board-meetings/summary/candidates')
+            ->json('data.*.id');
+
+        $summary = $stuck->fresh()->summary;
+
+        // The stamp stood for a run that never reported, so this is not a
+        // meeting somebody else is working on — it is a meeting whose run was
+        // lost, and the first-run list is exactly where it belongs.
+        expect($ids)->toContain($stuck->id)
+            ->and($summary['status'])->toBe(MeetingSummary::STATUS_FAILED)
+            ->and($summary['error'])->toBe(MeetingSummary::REASON_ABANDONED)
+            ->and($summary['pending'])->toBeNull();
+    });
+
+    it('keeps the summary the abandoned run was standing over', function () {
+        // Under `Review` the run leaves the row's own content, and so its
+        // status, untouched — the stamp is the only thing it adds. Clearing it
+        // has to give the row back rather than turning a good summary into a
+        // failure: the run proposed nothing, and the content still stands.
+        $replaced = ($this->withSummary)([
+            'status' => MeetingSummary::STATUS_OK,
+            'executive_summary' => 'خلاصهٔ پذیرفته‌شده',
+            'fields' => [
+                'executive_summary' => [
+                    'status' => MeetingSummary::FIELD_OK,
+                    'error' => null,
+                    'generated_at' => now()->subDay()->toIso8601String(),
+                ],
+            ],
+            'pending' => MeetingSummary::pending()->toArray(),
+        ]);
+
+        $stamp = $replaced->summary;
+        $stamp['pending']['started_at'] = now()->subDay()->toIso8601String();
+        $replaced->forceFill(['summary' => $stamp])->save();
+
+        $user = createUserWithPermissions(['board-meeting.sync']);
+
+        $ungenerated = actingAs($user)
+            ->getJson('/api/board-meetings/summary/candidates')
+            ->json('data.*.id');
+        $regeneratable = actingAs($user)
+            ->getJson('/api/board-meetings/summary/candidates?regenerate=1')
+            ->json('data.*.id');
+
+        $summary = $replaced->fresh()->summary;
+
+        // Not a first-run candidate (it has content), a replacement candidate
+        // (that content is what regenerate is for), and its content survived.
+        expect($ungenerated)->not->toContain($replaced->id)
+            ->and($regeneratable)->toContain($replaced->id)
+            ->and($summary['status'])->toBe(MeetingSummary::STATUS_OK)
+            ->and($summary['executive_summary'])->toBe('خلاصهٔ پذیرفته‌شده')
+            ->and($summary['pending'])->toBeNull();
+    });
+
+    it('leaves a run that is still young alone', function () {
+        $young = ($this->withSummary)([
+            'status' => MeetingSummary::STATUS_NONE,
+            'pending' => MeetingSummary::pending()->toArray(),
+        ]);
+
+        $ids = actingAs(createUserWithPermissions(['board-meeting.sync']))
+            ->getJson('/api/board-meetings/summary/candidates')
+            ->json('data.*.id');
+
+        // A live run cannot be told from a dead one until its age passes the
+        // bounds of a live run, so the rule errs toward leaving it be: clearing
+        // a stamp a worker is still behind would pay for the same call twice.
+        expect($ids)->not->toContain($young->id)
+            ->and($young->fresh()->summary['pending'])->not->toBeNull();
+    });
+
+    it('clears a stamp that never recorded when it started', function () {
+        // `started_at` is younger than the feature. A row stamped before it
+        // existed has no time to compare against, so the row's own `updated_at`
+        // stands in — it is when the stamp landed.
+        $legacy = ($this->withSummary)([
+            'status' => MeetingSummary::STATUS_NONE,
+            'pending' => ['status' => MeetingSummary::STATUS_PENDING, 'started_at' => null],
+        ]);
+
+        $legacy->timestamps = false;
+        $legacy->forceFill(['updated_at' => now()->subDay()])->save();
+        $legacy->timestamps = true;
+
+        actingAs(createUserWithPermissions(['board-meeting.sync']))
+            ->getJson('/api/board-meetings/summary/candidates')
+            ->assertOk();
+
+        expect($legacy->fresh()->summary['status'])->toBe(MeetingSummary::STATUS_FAILED)
+            ->and($legacy->fresh()->summary['error'])->toBe(MeetingSummary::REASON_ABANDONED);
+    });
+
+    it('reaps before it dispatches, so a lost run is not mistaken for a busy one', function () {
+        Queue::fake();
+
+        $stuck = ($this->withSummary)([
+            'status' => MeetingSummary::STATUS_FAILED,
+            'error' => MeetingSummary::REASON_UNAVAILABLE,
+            'pending' => MeetingSummary::pending()->toArray(),
+        ]);
+
+        $stamp = $stuck->summary;
+        $stamp['pending']['started_at'] = now()->subDay()->toIso8601String();
+        $stuck->forceFill(['summary' => $stamp])->save();
+
+        $response = actingAs(createUserWithPermissions(['board-meeting.sync']))
+            ->postJson('/api/board-meetings/summary/bulk', ['meeting_ids' => [$stuck->id]])
+            ->assertOk();
+
+        // The picker offered it, so the write has to agree — otherwise the
+        // button a person just pressed would report nothing queued for the row
+        // they were looking at.
+        Queue::assertPushed(GenerateBoardMeetingSummaryJob::class, 1);
+        expect($response->json('data.queued'))->toBe(1);
+    });
+});
+
+describe('the regenerate scope', function () {
+    it('lists the meetings that already have a summary', function () {
+        $ok = ($this->withSummary)(['status' => MeetingSummary::STATUS_OK]);
+        $partial = ($this->withSummary)(['status' => MeetingSummary::STATUS_PARTIAL]);
+        ($this->withSummary)(['status' => MeetingSummary::STATUS_FAILED]);
+        ($this->generate)();
+        $inFlight = ($this->withSummary)([
+            'status' => MeetingSummary::STATUS_PARTIAL,
+            'pending' => MeetingSummary::pending()->toArray(),
+        ]);
+
+        $ids = actingAs(createUserWithPermissions(['board-meeting.sync']))
+            ->getJson('/api/board-meetings/summary/candidates?regenerate=1')
+            ->json('data.*.id');
+
+        // The other half of the picker: meetings with something to replace. A
+        // failed or absent summary belongs to the first-run list, and a live run
+        // belongs to neither — the stamp protects it in both scopes.
+        expect($ids)->toEqualCanonicalizing([$ok->id, $partial->id])
+            ->and($ids)->not->toContain($inFlight->id);
+    });
+
+    it('queues a run for a meeting that already has a summary', function () {
+        Queue::fake();
+        $meeting = ($this->withSummary)(['status' => MeetingSummary::STATUS_OK]);
+
+        $response = actingAs(createUserWithPermissions(['board-meeting.sync']))
+            ->postJson('/api/board-meetings/summary/bulk', [
+                'meeting_ids' => [$meeting->id],
+                'regenerate' => true,
+            ])
+            ->assertOk();
+
+        Queue::assertPushed(GenerateBoardMeetingSummaryJob::class, 1);
+        expect($response->json('data.queued'))->toBe(1)
+            ->and($response->json('data.skipped'))->toBe(0);
+    });
+
+    it('skips a meeting with nothing to replace in the regenerate scope', function () {
+        Queue::fake();
+        $blank = ($this->generate)();
+
+        $response = actingAs(createUserWithPermissions(['board-meeting.sync']))
+            ->postJson('/api/board-meetings/summary/bulk', [
+                'meeting_ids' => [$blank->id],
+                'regenerate' => true,
+            ])
+            ->assertOk();
+
+        // The two scopes are disjoint, so an id picked from the wrong list is
+        // skipped rather than quietly run as the other kind of run: the answer
+        // says which happened instead of making the person guess.
+        Queue::assertNotPushed(GenerateBoardMeetingSummaryJob::class);
+        expect($response->json('data.queued'))->toBe(0)
+            ->and($response->json('data.skipped'))->toBe(1);
+    });
+
+    it('still refuses to regenerate over a run in flight', function () {
+        Queue::fake();
+        $busy = ($this->withSummary)([
+            'status' => MeetingSummary::STATUS_PARTIAL,
+            'pending' => MeetingSummary::pending()->toArray(),
+        ]);
+
+        $response = actingAs(createUserWithPermissions(['board-meeting.sync']))
+            ->postJson('/api/board-meetings/summary/bulk', [
+                'meeting_ids' => [$busy->id],
+                'regenerate' => true,
+            ])
+            ->assertOk();
+
+        // Regenerating asks to replace a summary, not to bypass the one guard
+        // that keeps two runs of one meeting from overwriting each other.
+        Queue::assertNotPushed(GenerateBoardMeetingSummaryJob::class);
+        expect($response->json('data.queued'))->toBe(0);
+    });
+});
+
 describe('choosing a model for one meeting', function () {
     it('carries the named pair onto the job', function () {
         Queue::fake();

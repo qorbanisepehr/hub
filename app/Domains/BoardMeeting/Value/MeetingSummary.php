@@ -5,6 +5,8 @@ namespace App\Domains\BoardMeeting\Value;
 use App\Domains\Ai\Value\AiRun;
 use App\Domains\BoardMeeting\Ai\MeetingSummaryAgent;
 use App\Domains\BoardMeeting\Ai\MeetingSummaryField;
+use Carbon\CarbonImmutable;
+use DateTimeInterface;
 
 /**
  * One summary, in the shape §۶.۳ stores on the meeting.
@@ -82,6 +84,17 @@ final readonly class MeetingSummary
      */
     public const REASON_UNAVAILABLE = 'unavailable';
 
+    /**
+     * A run that was stamped and never reported — the worker died, or the
+     * queue was stopped with the job still on it.
+     *
+     * Kept apart from `unavailable`, which is a provider that answered badly
+     * or not at all: this one says the run itself was lost, so the row has to
+     * be cleared by something other than the run. Without it a stamp nobody is
+     * behind reads as "still queued" for ever.
+     */
+    public const REASON_ABANDONED = 'abandoned';
+
     /** Per-field: the model left this one empty. */
     public const REASON_EMPTY = 'empty';
 
@@ -150,6 +163,78 @@ final readonly class MeetingSummary
     {
         return $this->status === self::STATUS_PENDING
             || $this->pending?->status === self::STATUS_PENDING;
+    }
+
+    /**
+     * Whether the in-flight stamp is old enough that no run can be behind it.
+     *
+     * A `pending` stamp is only ever a lie in one direction. It is written
+     * when a run starts and cleared when it reports, so a run that dies
+     * without reporting — a worker killed mid-call, a queue stopped with the
+     * job still on it — leaves the stamp behind and the row says "queued" for
+     * ever. The queue is no help: a job nothing ever picked up is exactly the
+     * case where nothing retries it and nothing fails it.
+     *
+     * The age is measured against the bounds of a live run, not a guessed
+     * timeout: a worker kills a call at the job's `$timeout`, and the
+     * uniqueness lock that owns the run expires sooner than this threshold
+     * too, so anything older than both is work nobody is doing. Clearing it
+     * therefore cannot take a run away from a worker still performing it.
+     *
+     * `$assumedStart` is the fallback for a stamp written before `started_at`
+     * existed: the row's own `updated_at`, which is when the stamp landed. A
+     * stamp with no date at all is treated the same, because it can never be
+     * told apart from a dead one and the cost of guessing wrong is one run.
+     */
+    public function hasAbandonedRun(
+        int $afterSeconds,
+        string|DateTimeInterface|null $assumedStart = null,
+        ?DateTimeInterface $now = null,
+    ): bool {
+        if (! $this->isInFlight()) {
+            return false;
+        }
+
+        $startedAt = $this->pending?->startedAt ?? $this->startedAt ?? $assumedStart;
+
+        if ($startedAt === null) {
+            return true;
+        }
+
+        return CarbonImmutable::parse($startedAt)
+            ->addSeconds($afterSeconds)
+            ->lte($now ?? CarbonImmutable::now());
+    }
+
+    /**
+     * This row with an abandoned run cleared.
+     *
+     * What "cleared" means depends on what the stamp was hiding. Content that
+     * survives the run — the fields of a row under `Review` (whose own
+     * content the run never touched), or those an `Apply`-mode stamp carried
+     * over — is kept and its status re-derived, so the row reads as what it
+     * actually holds rather than as a failure. Only a row with nothing else in
+     * it becomes a failure, and then with a reason naming what happened:
+     * leaving it `pending` would lie again, and `none` would claim a decision
+     * nobody made.
+     */
+    public function withoutAbandonedRun(): self
+    {
+        if ($this->fields === []) {
+            return self::failure(self::REASON_ABANDONED);
+        }
+
+        $status = self::deriveStatus($this->fields);
+
+        return $this->copy([
+            'status' => $status,
+            // The reason only ever explains a row with nothing usable in it;
+            // a row whose fields survived says nothing rather than claiming a
+            // failure it did not have.
+            'error' => $status === self::STATUS_FAILED ? self::REASON_ABANDONED : null,
+            'pending' => null,
+            'startedAt' => null,
+        ]);
     }
 
     /**
