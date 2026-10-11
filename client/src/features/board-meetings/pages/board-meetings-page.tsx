@@ -41,7 +41,10 @@ import type { RowSelectionState } from "@tanstack/react-table";
 
 import { boardMeetingColumns } from "../columns";
 import { BulkSummaryDialog } from "../components/bulk-summary-dialog";
-import { MeetingCalendar } from "../components/meeting-calendar";
+import {
+    MeetingCalendar,
+    type CalendarSpan,
+} from "../components/meeting-calendar";
 import { MeetingCard } from "../components/meeting-card";
 import { useBoardMeetings, useSyncBoardMeetings } from "../hooks";
 import type { BoardMeetingDto, BoardMeetingListParams } from "../types";
@@ -74,6 +77,9 @@ export function BoardMeetingsPage() {
     const [calendarMonth, setCalendarMonth] = useState<JalaliMonth>(
         todayJalaliMonth,
     );
+    // The calendar renders one month or the whole year. The span lives here
+    // rather than in the calendar so the fetch below can widen with it.
+    const [calendarSpan, setCalendarSpan] = useState<CalendarSpan>("month");
     const calendarBounds = useMemo(
         () => jalaliMonthBounds(calendarMonth),
         [calendarMonth],
@@ -123,9 +129,9 @@ export function BoardMeetingsPage() {
         ? (tagSlugsFilter.value as string[])
         : [];
 
-    // The calendar reads a whole month at once, keyed off the month in view
-    // rather than the paged window; the table and card views share the
-    // URL-driven page. Tags/search still scope the month.
+    // The calendar reads a whole month (or year) at once, keyed off the span
+    // in view rather than the paged window; the table and card views share the
+    // URL-driven page. Tags/search still scope it.
     const params: BoardMeetingListParams = isCalendarView
         ? {
               page: 1,
@@ -134,8 +140,15 @@ export function BoardMeetingsPage() {
               order: "asc",
               filter: url.globalFilter || undefined,
               tags: tagsFilterValues.length > 0 ? tagsFilterValues : undefined,
-              date_from: calendarBounds.from,
-              date_to: calendarBounds.to,
+              // The year view spans twelve months. The endpoint already
+              // filters by Jalali year, so ask for the year directly instead
+              // of a date window the server would only narrow again.
+              ...(calendarSpan === "year"
+                  ? { jalali_year: String(calendarMonth.year) }
+                  : {
+                        date_from: calendarBounds.from,
+                        date_to: calendarBounds.to,
+                    }),
           }
         : {
               page: url.pagination.pageIndex + 1,
@@ -406,6 +419,8 @@ export function BoardMeetingsPage() {
                                 <MeetingCalendar
                                     month={calendarMonth}
                                     onMonthChange={setCalendarMonth}
+                                    span={calendarSpan}
+                                    onSpanChange={setCalendarSpan}
                                     meetings={data?.data ?? []}
                                 />
                             </div>

@@ -51,6 +51,11 @@ export const JALALI_WEEKDAYS: readonly string[] = [
     "جمعه",
 ];
 
+/** Single-letter Persian weekday labels for the compact year grid. */
+export const JALALI_WEEKDAYS_SHORT: readonly string[] = JALALI_WEEKDAYS.map(
+    (weekday) => weekday.charAt(0),
+);
+
 export type JalaliMonth = { year: number; month: number };
 
 /** One day of a Jalali month, keyed by both calendars. */
@@ -103,9 +108,17 @@ export function shiftJalaliMonth(
     return { year: nextYear, month: nextMonth };
 }
 
+/**
+ * A Jalali year in Persian digits, WITHOUT grouping: a year is a label, not
+ * a quantity, so «۱۴۰۴» must never become «۱٬۴۰۴».
+ */
+export function formatJalaliYear(year: number): string {
+    return year.toLocaleString("fa-IR", { useGrouping: false });
+}
+
 /** «شهریور ۱۴۰۴» — month name plus Jalali year in Persian digits. */
 export function jalaliMonthLabel({ year, month }: JalaliMonth): string {
-    return `${JALALI_MONTHS[month - 1]} ${year.toLocaleString("fa-IR")}`;
+    return `${JALALI_MONTHS[month - 1]} ${formatJalaliYear(year)}`;
 }
 
 /**

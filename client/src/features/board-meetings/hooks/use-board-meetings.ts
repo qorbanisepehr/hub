@@ -1,4 +1,5 @@
 import {
+    keepPreviousData,
     useInfiniteQuery,
     useMutation,
     useQuery,
@@ -46,6 +47,13 @@ export function useBoardMeetings(params: BoardMeetingListParams) {
             const { data } = await fetchBoardMeetings(params);
             return data;
         },
+        // Keep the rows already on screen while the next month/page/filter
+        // loads. Without this, changing the key drops the query to `pending`,
+        // `isLoading` goes true, and the shell replaces the whole body with a
+        // skeleton — which unmounts the active view. The calendar keeps its
+        // drill-down level in local state, so that remount closed the picker
+        // on every «قبل/بعد».
+        placeholderData: keepPreviousData,
     });
 }
 
