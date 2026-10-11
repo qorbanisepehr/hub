@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getRouteApi } from "@tanstack/react-router";
 import {
@@ -9,7 +9,7 @@ import {
     IconRotate,
 } from "@tabler/icons-react";
 
-import { DataTablePage } from "@/components/data-table";
+import { DataTablePage, dataTableSelectColumn } from "@/components/data-table";
 import { ListPageHeader } from "@/components/layout";
 import {
     ExportDialog,
@@ -29,10 +29,12 @@ import {
 } from "@/lib/download";
 import { useTagOptions } from "@/features/tags/hooks";
 import { exportBoardMeetings, fetchBoardMeetingExportFields } from "../api";
+import type { RowSelectionState } from "@tanstack/react-table";
+
 import { boardMeetingColumns } from "../columns";
 import { BulkSummaryDialog } from "../components/bulk-summary-dialog";
 import { useBoardMeetings, useSyncBoardMeetings } from "../hooks";
-import type { BoardMeetingListParams } from "../types";
+import type { BoardMeetingDto, BoardMeetingListParams } from "../types";
 
 const route = getRouteApi("/protected/board-meetings");
 
@@ -53,6 +55,23 @@ export function BoardMeetingsPage() {
 
     const [isExportOpen, setIsExportOpen] = useState(false);
     const [isBulkOpen, setIsBulkOpen] = useState(false);
+
+    /**
+     * Row selection for the table's checkboxes (§15 steps 4–7). Id-keyed
+     * through `getRowId` so a tick survives paginating away and back, and
+     * cleared when the visible result set changes shape — ids ticked under
+     * one filter mix must not be counted under another.
+     */
+    const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+
+    /**
+     * Which meetings the summary dialog is preset to, when it was opened
+     * from the selection bar. `undefined` means the filter-driven picker
+     * (the settings-gear entry) that chooses its own candidates.
+     */
+    const [bulkPreset, setBulkPreset] = useState<number[] | undefined>(
+        undefined,
+    );
 
     const url = useDataTableUrlState({
         search: search as unknown as Record<string, unknown>,
@@ -93,11 +112,22 @@ export function BoardMeetingsPage() {
 
     const meta = data?.meta;
 
+    // The selection checkbox leads the row; identities come from the row's
+    // own `id`, so selection keys do not move with the server's pages.
+    const columns = useMemo(
+        () => [dataTableSelectColumn<BoardMeetingDto>(), ...boardMeetingColumns],
+        [],
+    );
+
     const table = useDataTable({
-        columns: boardMeetingColumns,
+        columns,
         data: data?.data ?? [],
         meta,
         url,
+        enableRowSelection: true,
+        rowSelection,
+        onRowSelectionChange: setRowSelection,
+        getRowId: (row) => String(row.id),
     });
 
     // URL may hold a page beyond the last one; pull it back into range.
@@ -126,6 +156,33 @@ export function BoardMeetingsPage() {
 
     const activeDateFrom = url.activeValue("date_from");
     const activeDateTo = url.activeValue("date_to");
+
+    // Clear the selection when filters or sorting change: the ticked ids
+    // were chosen from one result set, and carrying them into another would
+    // make the bar's count a claim about rows nobody can see. Pagination is
+    // deliberately not in the signature — paging WITHIN the same filters is
+    // the same result set, only seen through a window.
+    const selectionScope = [
+        url.globalFilter ?? "",
+        tagsFilterValues.join(","),
+        activeDateFrom ?? "",
+        activeDateTo ?? "",
+        url.activeSort?.id ?? "",
+        url.activeSort?.desc ? "desc" : "asc",
+    ].join("|");
+
+    useEffect(() => {
+        // The effect's job is "selection outlived its result set" — the
+        // string above IS the condition, not a captured value the linter
+        // wants enumerated. Cleared unconditionally on first mount too,
+        // which is correct: nothing can be ticked before mount.
+        setRowSelection({});
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectionScope]);
+
+    const selectedIds = Object.keys(rowSelection)
+        .filter((id) => rowSelection[id])
+        .map(Number);
     const activeTagNames = tagOptions
         ?.filter((tag) => tagsFilterValues.includes(tag.slug))
         .map((tag) => tag.name);
@@ -241,7 +298,25 @@ export function BoardMeetingsPage() {
                         id: "summary-bulk",
                         label: "تولید خلاصه برای جلسات تولیدنشده",
                         icon: IconRobot,
-                        onClick: () => setIsBulkOpen(true),
+                        onClick: () => {
+                            setBulkPreset(undefined);
+                            setIsBulkOpen(true);
+                        },
+                        permission: PERMISSIONS.BOARD_MEETING_SYNC,
+                    },
+                ]}
+                bulkActions={[
+                    {
+                        // The checked-rows path of the same feature: the dialog
+                        // opens preset to exactly the ticked meetings, no
+                        // candidates list to re-choose from.
+                        id: "summary-selected",
+                        label: "تولید خلاصه برای انتخاب‌شده‌ها",
+                        icon: IconRobot,
+                        onClick: () => {
+                            setBulkPreset(selectedIds);
+                            setIsBulkOpen(true);
+                        },
                         permission: PERMISSIONS.BOARD_MEETING_SYNC,
                     },
                 ]}
@@ -249,8 +324,17 @@ export function BoardMeetingsPage() {
 
             <BulkSummaryDialog
                 open={isBulkOpen}
-                onOpenChange={setIsBulkOpen}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setBulkPreset(undefined);
+                    }
+                    setIsBulkOpen(open);
+                }}
                 params={params}
+                presetMeetingIds={bulkPreset}
+                // A queued batch is the same state change the selection stood
+                // for, so the checkboxes empty with it.
+                onQueued={() => setRowSelection({})}
             />
 
             <ExportDialog

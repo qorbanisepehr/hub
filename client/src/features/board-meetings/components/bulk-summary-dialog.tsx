@@ -87,22 +87,41 @@ export function BulkSummaryDialog({
     open,
     onOpenChange,
     params,
+    presetMeetingIds,
+    onQueued,
 }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     /** The list page's own filters, so the blast radius is what is on screen. */
     params: BoardMeetingListParams;
+    /**
+     * A preset selection (opened from the table's selection bar): the ticked
+     * meeting ids. When set, the candidates picker is skipped — the choice of
+     * WHICH meetings was made by the checkboxes — and the dialog becomes the
+     * confirm-and-configure face over exactly those ids. `undefined` is the
+     * filter-driven path that picks its own candidates.
+     */
+    presetMeetingIds?: number[];
+    /** Fired once the batch is accepted by the API (not on dialog close) —
+     *  the caller clears its row selection here. */
+    onQueued?: () => void;
 }) {
     const canPickModel = usePermission([PERMISSIONS.AI_PROVIDER_VIEW]);
     const { data: models } = useAiModels(canPickModel);
+
+    const isPreset = presetMeetingIds !== undefined;
 
     const [picked, setPicked] = useState<Set<number>>(new Set());
     const [search, setSearch] = useState("");
     const [mode, setMode] = useState<SummaryWriteMode[]>(["review"]);
     const [modelId, setModelId] = useState(AGENT_DEFAULT);
 
+    // Off entirely on the preset path: the picker's whole job — choosing which
+    // meetings — was done by the table's checkboxes, so loading candidate
+    // pages here would only be network traffic to decorate a list nobody
+    // sees.
     const { data, isLoading, isFetchingNextPage, fetchNextPage, hasNextPage } =
-        useSummaryCandidates({ ...params, per_page: PAGE_SIZE }, open);
+        useSummaryCandidates({ ...params, per_page: PAGE_SIZE }, open && !isPreset);
 
     // The query accumulates the loaded pages; `meta` is read off the first one
     // because the total belongs to the whole result set, not to a page of it.
@@ -127,6 +146,18 @@ export function BulkSummaryDialog({
             setSearch("");
         }
     }, [open]);
+
+    // A preset opens with its ids already ticked. Synced on identity rather
+    // than spread-compare: the caller rebuilds the array each open, and equal
+    // presets must not re-stamp the user's mid-dialog edits.
+    const presetKey = isPreset ? presetMeetingIds.join(",") : "";
+
+    useEffect(() => {
+        if (isPreset && presetKey !== "") {
+            setPicked(new Set(presetMeetingIds));
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- presetMeetingIds' identity is deliberately not a dependency; presetKey is
+    }, [presetKey, isPreset]);
 
     const visibleIds = rows.map((row) => row.id);
     const visiblePickedCount = visibleIds.filter((id) => picked.has(id)).length;
@@ -174,8 +205,16 @@ export function BulkSummaryDialog({
         <ResponsiveDialog
             open={open}
             onOpenChange={onOpenChange}
-            title="تولید خلاصه برای جلسات تولیدنشده"
-            description={`${total.toLocaleString("fa-IR")} جلسه خلاصه ندارد. موارد دلخواه را انتخاب کنید؛ هر جلسه یک اجرای مدل است و زمان می‌برد.`}
+            title={
+                isPreset
+                    ? "تولید خلاصه برای جلسات انتخاب‌شده"
+                    : "تولید خلاصه برای جلسات تولیدنشده"
+            }
+            description={
+                isPreset
+                    ? `${presetMeetingIds.length.toLocaleString("fa-IR")} جلسهٔ انتخاب‌شده اجرا خواهد شد؛ هر جلسه یک اجرای مدل است و زمان می‌برد.`
+                    : `${total.toLocaleString("fa-IR")} جلسه خلاصه ندارد. موارد دلخواه را انتخاب کنید؛ هر جلسه یک اجرای مدل است و زمان می‌برد.`
+            }
             footer={
                 <>
                     <Button
@@ -200,18 +239,21 @@ export function BulkSummaryDialog({
                                   ),
                               })}
                         onDone={() => onOpenChange(false)}
+                        {...(onQueued ? { onQueued } : {})}
                     />
                 </>
             }
         >
             <div className="flex flex-col gap-4">
                 <div className="flex flex-wrap items-center gap-2">
-                    <Input
-                        value={search}
-                        onChange={(event) => setSearch(event.target.value)}
-                        placeholder="جستجو در شماره یا عنوان جلسه…"
-                        className="h-9 min-w-48 flex-1"
-                    />
+                    {!isPreset && (
+                        <Input
+                            value={search}
+                            onChange={(event) => setSearch(event.target.value)}
+                            placeholder="جستجو در شماره یا عنوان جلسه…"
+                            className="h-9 min-w-48 flex-1"
+                        />
+                    )}
                     <ToggleGroup
                         variant="outline"
                         size="sm"
@@ -269,6 +311,40 @@ export function BulkSummaryDialog({
 
                 <Separator />
 
+                {isPreset ? (
+                    /*
+                     * The preset face: which meetings was decided by the table's
+                     * checkboxes, so this is a read-back of what the user is
+                     * about to spend model runs on — not a picker. Reusing the
+                     * same row style as the candidate list keeps the two faces
+                     * recognisably one feature.
+                     */
+                    <FieldSet>
+                        <div className="flex items-center justify-between gap-2">
+                            <FieldLabel className="font-normal">
+                                جلسات انتخاب‌شده
+                            </FieldLabel>
+                            <span className="text-muted-foreground text-xs">
+                                {picked.size.toLocaleString("fa-IR")} جلسه
+                            </span>
+                        </div>
+                        <div className="mt-2 flex max-h-72 flex-col gap-1 overflow-y-auto rounded-md border p-1">
+                            {presetMeetingIds.map((id) => (
+                                <div
+                                    key={id}
+                                    className="rounded px-2 py-1.5 text-sm"
+                                >
+                                    <span
+                                        dir="ltr"
+                                        className="font-medium"
+                                    >
+                                        {`#${id}`}
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+                    </FieldSet>
+                ) : (
                 <FieldSet>
                     <div className="flex items-center justify-between gap-2">
                         <FieldLabel className="font-normal">
@@ -361,7 +437,9 @@ export function BulkSummaryDialog({
                     </div>
                 </FieldSet>
 
-                {hasNextPage && (
+                )}
+
+                {!isPreset && hasNextPage && (
                     <Button
                         variant="ghost"
                         size="sm"
@@ -388,6 +466,7 @@ function BulkSubmit({
     provider,
     model,
     onDone,
+    onQueued,
 }: {
     count: number;
     meetingIds: number[];
@@ -396,6 +475,7 @@ function BulkSubmit({
     provider: string | null;
     model: string | null;
     onDone: () => void;
+    onQueued?: () => void;
 }) {
     const bulk = useBulkGenerateMeetingSummary();
 
@@ -404,7 +484,12 @@ function BulkSubmit({
             onClick={() => {
                 bulk.mutate(
                     { meeting_ids: meetingIds, mode, provider, model },
-                    { onSuccess: onDone },
+                    {
+                        onSuccess: () => {
+                            onQueued?.();
+                            onDone();
+                        },
+                    },
                 );
             }}
             // Nothing selected is not a no-op to perform, it is nothing to do:

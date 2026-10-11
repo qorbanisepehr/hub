@@ -31,6 +31,7 @@ import { ErrorSection } from "@/components/layout";
 import { DataTablePagination } from "./pagination";
 import { DataTableToolbar } from "./toolbar";
 import { TableFilterBar } from "./table-filter-bar";
+import { BulkActionsBar } from "./bulk-actions-bar";
 import type { ListFilterFieldDef } from "./filter-query-adapter";
 import type { DataTableToolbarAction } from "./toolbar-types";
 
@@ -71,6 +72,10 @@ interface DataTablePageProps<TData extends RowData> {
      *  shared «⚙ تنظیمات جدول» gear — desktop dropdown, mobile submenu —
      *  next to the column layout they change, not as top-level buttons. */
     settings?: DataTableToolbarAction[];
+    /** Bulk commands over the rows the user has checked. Rendered in a
+     *  floating bar while any page rows are selected; hidden (and the
+     *  selection column's checkbox never introduced) when selection is off. */
+    bulkActions?: DataTableToolbarAction[];
     emptyMessage?: string;
     emptyAction?: ReactNode;
     onRetry?: () => void;
@@ -100,6 +105,7 @@ export function DataTablePage<TData extends RowData>({
     filterFields,
     actions,
     settings,
+    bulkActions,
     emptyMessage = "هیچ موردی یافت نشد",
     emptyAction,
     onRetry,
@@ -133,6 +139,9 @@ export function DataTablePage<TData extends RowData>({
                 />
             </div>
         ) : null);
+    const selectedCount = bulkActions ? table.getSelectedRowModel().rows.length : 0;
+    const useBulkBar = selectedCount > 0;
+
     const tableBody = isLoading ? (
         <div className="p-4">
             <TableSkeleton />
@@ -146,7 +155,7 @@ export function DataTablePage<TData extends RowData>({
             {composedToolbar && (
                 <div className="px-4 pt-3 pb-3">{composedToolbar}</div>
             )}
-            <div className="overflow-x-auto">
+            <div className="relative overflow-x-auto">
                 <Table>
                     <TableHeader>
                         {table.getHeaderGroups().map((headerGroup) => (
@@ -155,7 +164,7 @@ export function DataTablePage<TData extends RowData>({
                                     <TableHead
                                         key={headerCell.id}
                                         colSpan={headerCell.colSpan}
-                                        className="bg-background group-hover/row:bg-muted"
+                                        className="group-hover/row:bg-muted group-data-[state=selected]/row:bg-muted"
                                     >
                                         {headerCell.isPlaceholder
                                             ? null
@@ -187,11 +196,18 @@ export function DataTablePage<TData extends RowData>({
 
                                 return (
                                     <Fragment key={row.id}>
-                                        <TableRow className="group/row">
+                                        <TableRow
+                                            className="group/row"
+                                            data-state={
+                                                row.getIsSelected()
+                                                    ? "selected"
+                                                    : undefined
+                                            }
+                                        >
                                             {row.getVisibleCells().map((cell) => (
                                                 <TableCell
                                                     key={cell.id}
-                                                    className="bg-background group-hover/row:bg-muted"
+                                                    className="bg-background group-hover/row:bg-muted group-data-[state=selected]/row:bg-muted"
                                                 >
                                                     {flexRender(
                                                         cell.column.columnDef
@@ -225,6 +241,21 @@ export function DataTablePage<TData extends RowData>({
                         )}
                     </TableBody>
                 </Table>
+                {/* The bulk bar ports itself to the viewport (fixed) inside
+                    BulkActionsBar, so it stays visible over the whole page
+                    while the card scrolls; the wrapper only gives it breathing
+                    room before the pagination row below. */}
+                {useBulkBar && (
+                    <div className="px-4 pb-2">
+                        <BulkActionsBar
+                            count={selectedCount}
+                            onClear={() => {
+                                table.resetRowSelection();
+                            }}
+                            actions={bulkActions ?? []}
+                        />
+                    </div>
+                )}
             </div>
         </>
     );
