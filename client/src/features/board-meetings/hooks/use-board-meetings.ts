@@ -12,10 +12,13 @@ import { getApiError, getApiErrorStatus } from "@/lib/error-utils";
 import {
     acceptMeetingSummary,
     bulkGenerateMeetingSummary,
+    cancelMeetingSummary,
+    cancelSummaryBatch,
     deleteMeetingDocument,
     dismissMeetingSummary,
     fetchBoardMeeting,
     fetchBoardMeetings,
+    fetchLiveSummaryBatches,
     fetchMeetingDocuments,
     fetchSummaryCandidates,
     generateMeetingSummary,
@@ -307,6 +310,104 @@ export function useBulkGenerateMeetingSummary() {
         onError: (error) => {
             toast.error("ثبت درخواست ناموفق بود", {
                 description: getApiError(error) ?? "خطای ناشناخته",
+            });
+        },
+    });
+}
+
+/**
+ * Stop one meeting's run.
+ *
+ * The 409 is the one that needs a voice: it means there was nothing in flight
+ * to stop — the run already reported, or has not started — and a person who
+ * pressed stop and saw nothing happen would press it again. The re-read in
+ * `onSettled` shows the row the server settled on either way.
+ */
+export function useCancelMeetingSummary(meetingId: number | string) {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: () => cancelMeetingSummary(meetingId),
+        onSuccess: () => {
+            toast.success("اجرای خلاصه متوقف شد");
+        },
+        onError: (error) => {
+            if (getApiErrorStatus(error) === 409) {
+                toast.error("اجرایی برای توقف وجود ندارد", {
+                    description:
+                        "این اجرا به پایان رسیده یا هنوز آغاز نشده است؛ وضعیت جلسه به‌روز شد.",
+                });
+
+                return;
+            }
+
+            toast.error("توقف اجرا ناموفق بود", {
+                description: getApiError(error) ?? "خطای ناشناخته",
+            });
+        },
+        onSettled: () => {
+            void queryClient.invalidateQueries({
+                queryKey: boardMeetingKeys.detail(meetingId),
+            });
+        },
+    });
+}
+
+/**
+ * The bulk runs this person still has producing.
+ *
+ * Polled only while something is live: a batch is minutes of slow model calls,
+ * so a stop offered on the table page has to keep up with it — but a page with
+ * nothing running asks once and then stops asking rather than polling an empty
+ * list forever. Reverb carries the same news to an open tab, but the count is
+ * read here after a reload, which is the case the broadcast cannot cover.
+ */
+export function useLiveSummaryBatches(enabled = true) {
+    return useQuery({
+        queryKey: boardMeetingKeys.liveSummaryBatches(),
+        queryFn: async () => {
+            const { data } = await fetchLiveSummaryBatches();
+
+            return data.data;
+        },
+        enabled,
+        refetchInterval: (query) =>
+            (query.state.data?.length ?? 0) > 0 ? 5_000 : false,
+    });
+}
+
+/**
+ * Stop every run a bulk dispatch has not reported on.
+ *
+ * The batch leaves the live list on success, so the banner the button lives in
+ * goes with it — which is why the toast carries the count rather than leaving
+ * the person to read it off a control that is no longer there.
+ */
+export function useCancelSummaryBatch() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: async (batchId: string) => {
+            const { data } = await cancelSummaryBatch(batchId);
+
+            return data.data;
+        },
+        onSuccess: ({ stopped }) => {
+            toast.success("تولید گروهی متوقف شد", {
+                description: `${stopped.toLocaleString("fa-IR")} اجرای در انتظار لغو شد.`,
+            });
+
+            void queryClient.invalidateQueries({
+                queryKey: boardMeetingKeys.liveSummaryBatches(),
+            });
+        },
+        onError: (error) => {
+            toast.error("توقف تولید گروهی ناموفق بود", {
+                description: getApiError(error) ?? "خطای ناشناخته",
+            });
+
+            void queryClient.invalidateQueries({
+                queryKey: boardMeetingKeys.liveSummaryBatches(),
             });
         },
     });

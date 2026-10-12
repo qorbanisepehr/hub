@@ -143,7 +143,7 @@ final readonly class MeetingSummaryBulk
         // Counted before dispatching, so a run that reports quickly cannot find
         // no counter and conclude the batch was already done.
         if ($batchId !== null) {
-            $this->batches->start($batchId, array_map('intval', $eligible->all()));
+            $this->batches->start($batchId, array_map('intval', $eligible->all()), $requestedBy);
         }
 
         foreach ($eligible as $id) {

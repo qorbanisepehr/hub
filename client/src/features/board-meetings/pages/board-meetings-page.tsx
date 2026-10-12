@@ -35,12 +35,17 @@ import {
     saveBlobResponse,
 } from "@/lib/download";
 import { useTagOptions } from "@/features/tags/hooks";
-import { jalaliMonthBounds, todayJalaliMonth, type JalaliMonth } from "@/lib/jalali";
+import {
+    jalaliMonthBounds,
+    todayJalaliMonth,
+    type JalaliMonth,
+} from "@/lib/jalali";
 import { exportBoardMeetings, fetchBoardMeetingExportFields } from "../api";
 import type { RowSelectionState } from "@tanstack/react-table";
 
 import { boardMeetingColumns } from "../columns";
 import { BulkSummaryDialog } from "../components/bulk-summary-dialog";
+import { SummaryBatchBanner } from "../components/summary-batch-banner";
 import {
     MeetingCalendar,
     type CalendarSpan,
@@ -74,12 +79,11 @@ export function BoardMeetingsPage() {
     // month of its own, so it also owns that month locally.
     const view = search.view ?? "table";
     const isCalendarView = view === "calendar";
-    const [calendarMonth, setCalendarMonth] = useState<JalaliMonth>(
-        todayJalaliMonth,
-    );
+    const [calendarMonth, setCalendarMonth] =
+        useState<JalaliMonth>(todayJalaliMonth);
     // The calendar renders one month or the whole year. The span lives here
     // rather than in the calendar so the fetch below can widen with it.
-    const [calendarSpan, setCalendarSpan] = useState<CalendarSpan>("month");
+    const [calendarSpan, setCalendarSpan] = useState<CalendarSpan>("year");
     const calendarBounds = useMemo(
         () => jalaliMonthBounds(calendarMonth),
         [calendarMonth],
@@ -182,7 +186,10 @@ export function BoardMeetingsPage() {
     // The selection checkbox leads the row; identities come from the row's
     // own `id`, so selection keys do not move with the server's pages.
     const columns = useMemo(
-        () => [dataTableSelectColumn<BoardMeetingDto>(), ...boardMeetingColumns],
+        () => [
+            dataTableSelectColumn<BoardMeetingDto>(),
+            ...boardMeetingColumns,
+        ],
         [],
     );
 
@@ -315,10 +322,13 @@ export function BoardMeetingsPage() {
                 totalLabel="جلسه"
                 icon={IconCalendarStats}
                 header={
-                    <ListPageHeader
-                        title="جلسات هیئت مدیره"
-                        description="آرشیو جلسات، صورتجلسه‌ها و مصوبات هیئت مدیره"
-                    />
+                    <div className="flex flex-col gap-3">
+                        <ListPageHeader
+                            title="جلسات هیئت مدیره"
+                            description="آرشیو جلسات، صورتجلسه‌ها و مصوبات هیئت مدیره"
+                        />
+                        <SummaryBatchBanner />
+                    </div>
                 }
                 searchPlaceholder="جستجوی تاریخ یا عنوان جلسه..."
                 globalFilter={url.globalFilter}

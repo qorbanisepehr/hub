@@ -92,6 +92,7 @@ export function useRunProgressChannel(
 export function useRunStates(): {
     states: ReadonlyMap<string, RunProgress>;
     track: (progress: RunProgress) => void;
+    forget: (key: string) => void;
     reset: () => void;
 } {
     const [states, setStates] = useState<ReadonlyMap<string, RunProgress>>(
@@ -117,11 +118,25 @@ export function useRunStates(): {
         });
     }, []);
 
+    const forget = useCallback((key: string): void => {
+        setStates((previous) => {
+            if (!previous.has(key)) {
+                return previous;
+            }
+
+            const next = new Map(previous);
+
+            next.delete(key);
+
+            return next;
+        });
+    }, []);
+
     const reset = useCallback((): void => {
         setStates(new Map());
     }, []);
 
-    return { states, track, reset };
+    return { states, track, forget, reset };
 }
 
 /** The map key for a run's subject, or null when it names nothing. */

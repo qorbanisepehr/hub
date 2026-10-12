@@ -7,7 +7,9 @@ import type {
     BoardMeetingListResponse,
     BoardMeetingSyncResult,
     BulkDocumentUploadReport,
+    CancelSummaryBatchResponse,
     GenerateSummaryPayload,
+    LiveSummaryBatch,
     MeetingDocumentsResponse,
     SummaryBulkPayload,
     SummaryBulkResponse,
@@ -149,6 +151,35 @@ export function bulkGenerateMeetingSummary(payload: SummaryBulkPayload) {
     return api.post<SummaryBulkResponse>(
         "/board-meetings/summary/bulk",
         payload,
+    );
+}
+
+/**
+ * Stop one meeting's run.
+ *
+ * A 409 means there was nothing stamped to stop — the run already reported, or
+ * has not started yet — so the caller re-reads rather than retrying.
+ */
+export function cancelMeetingSummary(id: number | string) {
+    return api.post<{ data: BoardMeetingDetailResponse }>(
+        `/board-meetings/${id}/summary/cancel`,
+    );
+}
+
+/** Stop every run a bulk dispatch has not reported on yet. */
+export function cancelSummaryBatch(batchId: string) {
+    return api.post<CancelSummaryBatchResponse>(
+        `/board-meetings/summary/batches/${batchId}/cancel`,
+    );
+}
+
+/**
+ * The bulk runs still producing, so a page can offer to stop one it no longer
+ * remembers dispatching.
+ */
+export function fetchLiveSummaryBatches() {
+    return api.get<{ data: LiveSummaryBatch[] }>(
+        "/board-meetings/summary/batches",
     );
 }
 

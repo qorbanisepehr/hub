@@ -105,4 +105,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('board-meetings/summary/batches/{batchId}/cancel', [MeetingSummaryController::class, 'cancelBatch'])
         ->name('board-meetings.summary.batch-cancel')
         ->middleware('permission:board-meeting.sync');
+
+    // The batches still outstanding, so a page that was reloaded can still find
+    // the one it dispatched. A read, but on the same permission as the stop it
+    // makes reachable rather than on `view`: it exists to feed that control,
+    // and what it describes is registry-wide work, not one meeting's record.
+    Route::get('board-meetings/summary/batches', [MeetingSummaryController::class, 'liveBatches'])
+        ->name('board-meetings.summary.batches')
+        ->middleware('permission:board-meeting.sync');
 });

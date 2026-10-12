@@ -41,6 +41,16 @@ final readonly class MeetingSummaryBatchTracker
 
     private const KEY_PREFIX = 'board-meeting:summary-batch:';
 
+    /**
+     * The ids of the batches whose tallies are still live.
+     *
+     * A cache cannot be enumerated, so the batches that can still be stopped
+     * have to be listed somewhere: the table page asks "is anything of mine
+     * still running" after a reload, and without this the only answer would be
+     * whatever the tab that dispatched them happens to remember.
+     */
+    private const INDEX_KEY = 'board-meeting:summary-batches';
+
     public function __construct(
         private readonly CacheRepository $cache,
     ) {}
@@ -68,8 +78,11 @@ final readonly class MeetingSummaryBatchTracker
      * by, so without this list "stop the bulk" would have no set to act on.
      *
      * @param  list<int>  $meetingIds  the meetings this batch queued a run for
+     * @param  int|null  $requestedBy  who asked for it, so the register of live
+     *                                 batches can be read back as this person's
+     *                                 own rather than as everybody's
      */
-    public function start(string $batchId, array $meetingIds): void
+    public function start(string $batchId, array $meetingIds, ?int $requestedBy = null): void
     {
         if ($meetingIds === []) {
             return;
@@ -80,7 +93,48 @@ final readonly class MeetingSummaryBatchTracker
             'succeeded' => 0,
             'failed' => 0,
             'meeting_ids' => array_map('intval', array_values($meetingIds)),
+            'requested_by' => $requestedBy,
         ], self::TTL);
+
+        $this->track($batchId);
+    }
+
+    /**
+     * The batches that are still outstanding, so a page can offer to stop them.
+     *
+     * Read through the index rather than by scanning tallies, because there is
+     * no way to ask a cache for its keys. A batch that finished or expired
+     * between the index being written and this read is dropped on the way, so
+     * the list never names a batch nobody can stop.
+     *
+     * @return list<array{batch_id: string, remaining: int, succeeded: int, failed: int}>
+     */
+    public function live(?int $requestedBy = null): array
+    {
+        $live = [];
+
+        foreach ($this->index() as $batchId) {
+            $tally = $this->read($batchId);
+
+            if ($tally === []) {
+                $this->untrack($batchId);
+
+                continue;
+            }
+
+            if ($requestedBy !== null && (int) ($tally['requested_by'] ?? 0) !== $requestedBy) {
+                continue;
+            }
+
+            $live[] = [
+                'batch_id' => $batchId,
+                'remaining' => (int) ($tally['remaining'] ?? 0),
+                'succeeded' => (int) ($tally['succeeded'] ?? 0),
+                'failed' => (int) ($tally['failed'] ?? 0),
+            ];
+        }
+
+        return $live;
     }
 
     /**
@@ -138,6 +192,7 @@ final readonly class MeetingSummaryBatchTracker
     public function forget(string $batchId): void
     {
         $this->cache->forget($this->key($batchId));
+        $this->untrack($batchId);
     }
 
     /**
@@ -170,6 +225,7 @@ final readonly class MeetingSummaryBatchTracker
 
         if ($remaining === 0) {
             $this->cache->forget($key);
+            $this->untrack($batchId);
 
             return [
                 'remaining' => 0,
@@ -183,9 +239,57 @@ final readonly class MeetingSummaryBatchTracker
             'succeeded' => $succeededCount,
             'failed' => $failedCount,
             'meeting_ids' => is_array($tally['meeting_ids'] ?? null) ? $tally['meeting_ids'] : [],
+            'requested_by' => $tally['requested_by'] ?? null,
         ], self::TTL);
 
         return null;
+    }
+
+    /**
+     * Add a batch to the register of stoppable batches, once.
+     */
+    private function track(string $batchId): void
+    {
+        $ids = $this->index();
+
+        if (in_array($batchId, $ids, true)) {
+            return;
+        }
+
+        $ids[] = $batchId;
+
+        $this->cache->put(self::INDEX_KEY, $ids, self::TTL);
+    }
+
+    /**
+     * Take a batch out of the register, if it is in it.
+     */
+    private function untrack(string $batchId): void
+    {
+        $remaining = array_values(array_filter(
+            $this->index(),
+            fn (string $id): bool => $id !== $batchId,
+        ));
+
+        if ($remaining === []) {
+            $this->cache->forget(self::INDEX_KEY);
+
+            return;
+        }
+
+        $this->cache->put(self::INDEX_KEY, $remaining, self::TTL);
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function index(): array
+    {
+        $ids = $this->cache->get(self::INDEX_KEY);
+
+        return is_array($ids)
+            ? array_values(array_filter($ids, is_string(...)))
+            : [];
     }
 
     /**

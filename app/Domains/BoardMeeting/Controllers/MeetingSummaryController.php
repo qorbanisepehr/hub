@@ -18,12 +18,14 @@ use App\Domains\BoardMeeting\Resources\BoardMeetingResource;
 use App\Domains\BoardMeeting\Resources\MeetingSummaryCandidateResource;
 use App\Domains\BoardMeeting\Services\BoardMeetingListQuery;
 use App\Domains\BoardMeeting\Services\MeetingSummaryApplier;
+use App\Domains\BoardMeeting\Services\MeetingSummaryBatchTracker;
 use App\Domains\BoardMeeting\Services\MeetingSummaryBulk;
 use App\Domains\BoardMeeting\Services\MeetingSummaryCanceller;
 use App\Domains\BoardMeeting\Services\MeetingSummaryDismisser;
 use App\Domains\BoardMeeting\Value\MeetingSummary;
 use App\Support\ListQuery;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -286,6 +288,26 @@ class MeetingSummaryController
         return response()->json([
             'data' => ['stopped' => $stopped],
             'message' => __('board_meeting.summary.batch_cancelled', ['count' => $stopped]),
+        ]);
+    }
+
+    /**
+     * The bulk runs this person still has outstanding.
+     *
+     * The stop itself needs only a batch id, but the id was only ever in the
+     * dispatch response, and a reload throws that away. Reading the batches
+     * back is what keeps the stop reachable on the table page after one - which
+     * is the whole point of stopping from there rather than from a dialog the
+     * person has to keep open.
+     *
+     * Scoped to the caller's own dispatches: a batch is work somebody asked
+     * for, and another person's runs are not this person's to watch even though
+     * the permission to stop them is the permission that queued them.
+     */
+    public function liveBatches(Request $request, MeetingSummaryBatchTracker $batches): JsonResponse
+    {
+        return response()->json([
+            'data' => $batches->live($request->user()?->getKey()),
         ]);
     }
 }

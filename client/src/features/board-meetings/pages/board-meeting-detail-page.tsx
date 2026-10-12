@@ -38,6 +38,7 @@ import { hasContent, isRunInFlight } from "../summary-read";
 import {
     useAcceptMeetingSummary,
     useBoardMeeting,
+    useCancelMeetingSummary,
     useDismissMeetingSummary,
     useGenerateMeetingSummary,
     useMeetingDocuments,
@@ -117,13 +118,18 @@ export function BoardMeetingDetailPage() {
     const generate = useGenerateMeetingSummary(meetingId);
     const accept = useAcceptMeetingSummary(meetingId);
     const dismiss = useDismissMeetingSummary(meetingId);
+    const cancel = useCancelMeetingSummary(meetingId);
 
     // The live run states for every meeting this user has in flight, so the
     // summary tab can be told which run is *this* one. Tracked per subject
     // rather than kept as a single "something is running" flag: the same user
     // may have a bulk going and come back to one meeting, and the two must not
     // be confused for each other.
-    const { states: runStates, track: trackRun } = useRunStates();
+    const {
+        states: runStates,
+        track: trackRun,
+        forget: forgetRun,
+    } = useRunStates();
 
     // Compared as a string because the route hands the id over as text while
     // the event carries whatever type the server serialised - the two are the
@@ -267,8 +273,20 @@ export function BoardMeetingDetailPage() {
                                 isGenerating={generate.isPending}
                                 isAccepting={accept.isPending}
                                 isDismissing={dismiss.isPending}
+                                isCancellingRun={cancel.isPending}
                                 onGenerate={(payload) =>
                                     generate.mutate(payload)
+                                }
+                                onCancelRun={() =>
+                                    cancel.mutate(undefined, {
+                                        // Drop the state the event filed, or
+                                        // the block would keep drawing a run
+                                        // the server has already ended.
+                                        onSuccess: () =>
+                                            forgetRun(
+                                                `board-meeting:${meetingId}`,
+                                            ),
+                                    })
                                 }
                                 onDismiss={() => dismiss.mutate()}
                                 onAccept={(

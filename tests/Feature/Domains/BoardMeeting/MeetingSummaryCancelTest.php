@@ -322,3 +322,74 @@ describe('POST /api/board-meetings/summary/batches/{batchId}/cancel', function (
             ->assertConflict();
     });
 });
+
+describe('GET /api/board-meetings/summary/batches', function () {
+    it('forbids a user who cannot sync the registry', function () {
+        actingAs(createUserWithPermissions(['board-meeting.update']))
+            ->getJson('/api/board-meetings/summary/batches')
+            ->assertForbidden();
+    });
+
+    it('lists only the batches the caller dispatched', function () {
+        Queue::fake();
+
+        $user = createUserWithPermissions(['board-meeting.sync']);
+        $other = createUserWithPermissions(['board-meeting.sync']);
+
+        $mine = actingAs($user)
+            ->postJson('/api/board-meetings/summary/bulk', ['meeting_ids' => [($this->eligible)()->id]])
+            ->assertOk()
+            ->json('data.batch_id');
+
+        actingAs($other)
+            ->postJson('/api/board-meetings/summary/bulk', ['meeting_ids' => [($this->eligible)()->id]])
+            ->assertOk();
+
+        // A batch id is per dispatch and "my runs" is per person, so reading
+        // them back must not quietly become a view of everybody's work.
+        $listed = collect(actingAs($user)->getJson('/api/board-meetings/summary/batches')->assertOk()->json('data'))
+            ->pluck('batch_id');
+
+        expect($listed->all())->toBe([$mine]);
+    });
+
+    it('reports how much of a batch is still outstanding', function () {
+        Queue::fake();
+
+        $user = createUserWithPermissions(['board-meeting.sync']);
+        $first = ($this->eligible)();
+        $second = ($this->eligible)();
+
+        $batchId = actingAs($user)
+            ->postJson('/api/board-meetings/summary/bulk', ['meeting_ids' => [$first->id, $second->id]])
+            ->assertOk()
+            ->json('data.batch_id');
+
+        app(MeetingSummaryBatchTracker::class)->complete($batchId, true);
+
+        $row = collect(actingAs($user)->getJson('/api/board-meetings/summary/batches')->assertOk()->json('data'))
+            ->firstWhere('batch_id', $batchId);
+
+        expect($row['remaining'])->toBe(1)
+            ->and($row['succeeded'])->toBe(1);
+    });
+
+    it('drops a batch once it has been stopped', function () {
+        Queue::fake();
+
+        $user = createUserWithPermissions(['board-meeting.sync']);
+
+        $batchId = actingAs($user)
+            ->postJson('/api/board-meetings/summary/bulk', ['meeting_ids' => [($this->eligible)()->id]])
+            ->assertOk()
+            ->json('data.batch_id');
+
+        actingAs($user)
+            ->postJson("/api/board-meetings/summary/batches/{$batchId}/cancel")
+            ->assertOk();
+
+        // The register has to forget a stopped batch, or the table page would
+        // keep offering a stop for runs that are already gone.
+        expect(actingAs($user)->getJson('/api/board-meetings/summary/batches')->assertOk()->json('data'))->toBe([]);
+    });
+});

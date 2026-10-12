@@ -312,6 +312,23 @@ export interface SummaryBulkResponse {
     message: string;
 }
 
+/** One bulk dispatch that is still producing summaries. */
+export interface LiveSummaryBatch {
+    batch_id: string;
+    remaining: number;
+    succeeded: number;
+    failed: number;
+}
+
+export interface CancelSummaryBatchResult {
+    stopped: number;
+}
+
+export interface CancelSummaryBatchResponse {
+    data: CancelSummaryBatchResult;
+    message: string;
+}
+
 /** What one registry sync actually moved. */
 export interface BoardMeetingSyncResult {
     records: { synced: number; failed: number };

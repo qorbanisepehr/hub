@@ -138,6 +138,9 @@ export const boardMeetingKeys = {
     /** The bulk picker: meetings still waiting for a first summary. */
     summaryCandidates: (params: Record<string, unknown>) =>
         ["board-meeting-summary-candidates", params] as const,
+    /** The bulk runs still producing, so the table page can offer to stop them. */
+    liveSummaryBatches: () =>
+        [...boardMeetingKeys.all, "summary-batches"] as const,
 };
 
 export const tagKeys = {

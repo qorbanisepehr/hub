@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { IconClock, IconX } from "@tabler/icons-react";
+import { IconClock, IconPlayerStop, IconX } from "@tabler/icons-react";
 import { toast } from "sonner";
 
 import {
@@ -51,6 +51,8 @@ export function RunStatus({
     run,
     startedAt,
     errorReason,
+    onCancel,
+    isCancelling,
     className,
 }: {
     /** What the durable row says, used when no live event has arrived yet. */
@@ -68,6 +70,15 @@ export function RunStatus({
      * failure.
      */
     errorReason?: string | null;
+    /**
+     * Stop this run, when the viewer may. Absent means the block is a report
+     * rather than a control — and the block only ever draws a run that is still
+     * going, so a gesture that is offered here is always one with something to
+     * stop.
+     */
+    onCancel?: () => void;
+    /** The stop request is in flight. */
+    isCancelling?: boolean;
     className?: string;
 }) {
     // `run` wins over `state`: an event is fresher than anything the row said
@@ -144,6 +155,22 @@ export function RunStatus({
             </AlertTitle>
 
             <AlertAction>
+                {onCancel && (
+                    <Button
+                        variant="outline"
+                        size="xs"
+                        disabled={isCancelling}
+                        onClick={onCancel}
+                    >
+                        {isCancelling ? (
+                            <Spinner className="size-3" />
+                        ) : (
+                            <IconPlayerStop />
+                        )}
+                        توقف
+                    </Button>
+                )}
+
                 <Button
                     variant="ghost"
                     size="icon-xs"

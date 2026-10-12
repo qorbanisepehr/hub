@@ -133,9 +133,11 @@ export function MeetingSummarySection({
     onGenerate,
     onAccept,
     onDismiss,
+    onCancelRun,
     isGenerating,
     isAccepting,
     isDismissing,
+    isCancellingRun,
     run,
 }: {
     summary: MeetingSummaryArtifact | null;
@@ -143,9 +145,19 @@ export function MeetingSummarySection({
     onGenerate: (payload: SummaryRunPayload) => void;
     onAccept: (fields: MeetingSummaryFieldName[], tags: string[]) => void;
     onDismiss: () => void;
+    /**
+     * Stop the run that is under way.
+     *
+     * Offered only while one is: the live block is the only place it appears,
+     * and the block only draws a `queued` or `running` run. Cancelling cannot
+     * touch an answered proposal — that is the dismiss decision — so there is
+     * nothing to offer once the run has reported.
+     */
+    onCancelRun: () => void;
     isGenerating: boolean;
     isAccepting: boolean;
     isDismissing: boolean;
+    isCancellingRun: boolean;
     /**
      * The live run event for *this* meeting, or null when none has arrived.
      *
@@ -227,6 +239,8 @@ export function MeetingSummarySection({
                 run={run}
                 startedAt={runStartedAt(summary)}
                 errorReason={errorReason}
+                onCancel={canUpdate ? onCancelRun : undefined}
+                isCancelling={isCancellingRun}
             />
 
             {candidate !== null && !isInFlight && (
