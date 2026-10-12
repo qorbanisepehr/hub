@@ -1,5 +1,5 @@
+import { IconClock, IconPlayerStopFilled, IconX } from "@tabler/icons-react";
 import { useEffect, useRef, useState } from "react";
-import { IconClock, IconPlayerStop, IconX } from "@tabler/icons-react";
 import { toast } from "sonner";
 
 import {
@@ -157,22 +157,22 @@ export function RunStatus({
             <AlertAction>
                 {onCancel && (
                     <Button
-                        variant="outline"
-                        size="xs"
+                        size="icon-xs"
                         disabled={isCancelling}
                         onClick={onCancel}
+                        aria-label="توقف اجرا"
+                        className="me-1"
                     >
                         {isCancelling ? (
                             <Spinner className="size-3" />
                         ) : (
-                            <IconPlayerStop />
+                            <IconPlayerStopFilled />
                         )}
-                        توقف
                     </Button>
                 )}
 
                 <Button
-                    variant="ghost"
+                    variant="outline"
                     size="icon-xs"
                     aria-label="بستن این پیام"
                     onClick={() => setDismissed(signature)}
@@ -241,9 +241,7 @@ function formatElapsed(seconds: number): string {
     const m = Math.floor((seconds % 3600) / 60);
     const s = seconds % 60;
 
-    return h > 0
-        ? `${h}:${pad2(m)}:${pad2(s)}`
-        : `${m}:${pad2(s)}`;
+    return h > 0 ? `${h}:${pad2(m)}:${pad2(s)}` : `${m}:${pad2(s)}`;
 }
 
 function pad2(n: number): string {

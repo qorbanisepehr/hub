@@ -488,8 +488,8 @@ export function MeetingCalendar({
                     </div>
                 </div>
             ) : (
-                <div className="max-h-[70vh] overflow-y-auto rounded-lg border p-3">
-                    <div className="grid grid-cols-1 gap-x-6 gap-y-5 lg:grid-cols-2 2xl:grid-cols-3">
+                <div className="max-h-[70vh] overflow-y-auto rounded-lg border p-3 @container">
+                    <div className="grid grid-cols-1 gap-x-6 gap-y-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6">
                         {yearMonths.map(
                             ({ monthNumber, name, cells: monthCells }) => (
                                 <YearMonth
@@ -593,7 +593,7 @@ function YearMonth({
 
                     const dayMeetings = meetingsByDate.get(day.gregorian) ?? [];
                     const className = cn(
-                        "flex aspect-square items-center justify-center rounded text-xs m-2",
+                        "flex aspect-square items-center justify-center rounded text-xs m-2 lg:m-1",
                         day.gregorian === today && "ring-1 ring-primary",
                         dayMeetings.length > 0
                             ? "bg-primary/10 font-medium text-primary hover:bg-primary/20"

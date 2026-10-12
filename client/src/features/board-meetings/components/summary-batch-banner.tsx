@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { IconPlayerStop, IconRobot } from "@tabler/icons-react";
+import { IconPlayerStopFilled, IconRobot } from "@tabler/icons-react";
 
 import {
     Alert,
@@ -71,17 +71,17 @@ export function SummaryBatchBanner() {
 
             <AlertAction>
                 <Button
-                    variant="outline"
-                    size="xs"
+                    size="icon-xs"
                     disabled={isStopping}
                     onClick={() => void stopAll()}
+                    aria-label="توقف اجرا"
+                    className="me-1"
                 >
                     {isStopping ? (
                         <Spinner className="size-3" />
                     ) : (
-                        <IconPlayerStop />
+                        <IconPlayerStopFilled />
                     )}
-                    توقف
                 </Button>
             </AlertAction>
 
