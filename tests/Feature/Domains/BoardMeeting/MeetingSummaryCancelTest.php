@@ -189,6 +189,7 @@ describe('a stopped run', function () {
                 ?string $provider = null,
                 ?string $model = null,
                 bool $merge = false,
+                ?Closure $onStep = null,
             ): MeetingSummary {
                 app(MeetingSummaryCanceller::class)->cancelRun($meeting->fresh());
 

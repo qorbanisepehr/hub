@@ -7,6 +7,7 @@ use App\Domains\Ai\Services\AiAgentRunner;
 use App\Domains\Ai\Value\AiRun;
 use App\Domains\BoardMeeting\Ai\MeetingSummaryAgent;
 use App\Domains\BoardMeeting\Ai\MeetingSummaryField;
+use App\Domains\BoardMeeting\Enums\MeetingSummaryStep;
 use App\Domains\BoardMeeting\Models\BoardMeeting;
 use App\Domains\BoardMeeting\Value\AgendaItem;
 use App\Domains\BoardMeeting\Value\Attendee;
@@ -124,6 +125,17 @@ class BoardMeetingSummarizer
      *                              the two could never be disagreed with each
      *                              other and the choice could not be expressed
      *                              as "this model, on that gateway"
+     * @param  \Closure(MeetingSummaryStep): void|null  $onStep  Called as each
+     *                                                           phase begins. A plain
+     *                                                           callback, not a
+     *                                                           progress object, so
+     *                                                           this service never
+     *                                                           learns what
+     *                                                           broadcasting or
+     *                                                           translation is —
+     *                                                           the caller that owns
+     *                                                           the channel supplies
+     *                                                           the closure.
      *
      * @throws AiNotConfigured when no provider can answer
      * @throws \ValueError when a field name is outside the vocabulary
@@ -134,7 +146,10 @@ class BoardMeetingSummarizer
         ?string $provider = null,
         ?string $model = null,
         bool $merge = false,
+        ?\Closure $onStep = null,
     ): MeetingSummary {
+        $onStep?->__invoke(MeetingSummaryStep::Preparing);
+
         $requested = MeetingSummaryField::fromValues($fields);
 
         // Whether to hand the model the hub's tag vocabulary: only a run that
@@ -150,9 +165,15 @@ class BoardMeetingSummarizer
             ? $this->currentValues($meeting, $requested)
             : [];
 
+        $onStep?->__invoke(MeetingSummaryStep::Prompting);
+
+        $prompt = $this->promptFor($meeting, $previous, $withTags);
+
+        $onStep?->__invoke(MeetingSummaryStep::CallingModel);
+
         $run = $this->runner->run(
             key: MeetingSummaryAgent::REGISTRY_KEY,
-            prompt: $this->promptFor($meeting, $previous, $withTags),
+            prompt: $prompt,
             agentClass: MeetingSummaryAgent::class,
             provider: $provider,
             model: $model,
@@ -165,6 +186,8 @@ class BoardMeetingSummarizer
                 'timeout' => self::TIMEOUT_SECONDS,
             ],
         );
+
+        $onStep?->__invoke(MeetingSummaryStep::Parsing);
 
         return MeetingSummary::fromRun($this->resolveTags($run, $requested), $requested);
     }

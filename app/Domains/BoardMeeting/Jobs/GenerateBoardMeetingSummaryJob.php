@@ -3,6 +3,7 @@
 namespace App\Domains\BoardMeeting\Jobs;
 
 use App\Domains\Ai\Exceptions\AiNotConfigured;
+use App\Domains\BoardMeeting\Enums\MeetingSummaryStep;
 use App\Domains\BoardMeeting\Enums\SummaryWriteMode;
 use App\Domains\BoardMeeting\Events\MeetingSummaryGenerated;
 use App\Domains\BoardMeeting\Models\BoardMeeting;
@@ -246,8 +247,9 @@ class GenerateBoardMeetingSummaryJob implements ShouldBeUnique, ShouldQueue
 
         $applier->applyRun($meeting, $stamp, $this->mode);
 
-        $this->reportProgress(RunState::Running);
-
+        // No `running` report here on purpose: the summarizer's first step callback
+        // IS the run starting, and a second one before it would announce the
+        // same step twice. One place owns the vocabulary of steps.
         try {
             $run = $summarizer->summarize(
                 $meeting,
@@ -255,6 +257,14 @@ class GenerateBoardMeetingSummaryJob implements ShouldBeUnique, ShouldQueue
                 $this->provider,
                 $this->model,
                 $this->merge,
+                // The step names travel as stable keys; the client owns the
+                // Persian copy, exactly as it owns the status words and the
+                // failure reasons. This closure is the whole of the coupling:
+                // the summarizer knows nothing about broadcasting.
+                onStep: fn (MeetingSummaryStep $step) => $this->reportProgress(
+                    RunState::Running,
+                    ['step' => $step->value],
+                ),
             );
         } catch (AiNotConfigured) {
             $run = MeetingSummary::failure(MeetingSummary::REASON_NOT_CONFIGURED);
@@ -279,6 +289,14 @@ class GenerateBoardMeetingSummaryJob implements ShouldBeUnique, ShouldQueue
             return;
         }
 
+        // Storing is reported before the outcome, not after: the row is written first
+        // and the terminal event follows it, so a client that renders the trail
+        // in order ends on "finished" rather than on a step that happened after
+        // the run was already over.
+        $this->reportProgress(RunState::Running, ['step' => MeetingSummaryStep::Storing->value]);
+
+        $applier->applyRun($meeting, $run, $this->mode);
+
         // `not_configured` is the one failure that never reached a provider, so
         // it is the one that reports its reason rather than the status: the
         // client already shows "we could not ask", and the reason is what
@@ -291,7 +309,6 @@ class GenerateBoardMeetingSummaryJob implements ShouldBeUnique, ShouldQueue
                     : ['status' => $run->status],
         );
 
-        $applier->applyRun($meeting, $run, $this->mode);
         $this->report($meeting, $run);
     }
 

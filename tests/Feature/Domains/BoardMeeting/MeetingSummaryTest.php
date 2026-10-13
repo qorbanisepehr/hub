@@ -7,6 +7,7 @@ use App\Domains\Ai\Value\AiProvider;
 use App\Domains\Ai\Value\AiRegistryKey;
 use App\Domains\BoardMeeting\Ai\MeetingSummaryAgent;
 use App\Domains\BoardMeeting\Ai\MeetingSummaryField;
+use App\Domains\BoardMeeting\Enums\MeetingSummaryStep;
 use App\Domains\BoardMeeting\Enums\SummaryWriteMode;
 use App\Domains\BoardMeeting\Events\MeetingSummaryGenerated;
 use App\Domains\BoardMeeting\Exceptions\NoPendingSummary;
@@ -652,24 +653,51 @@ describe('the job', function () {
 });
 
 describe('run progress', function () {
-    it('reports running then finished to the requester', function () {
-        // The run is what tells the waiting person it moved, so the sequence is
-        // the contract: `running` once the model is actually being called, then
-        // a terminal state. A client that only ever saw `finished` would sit on
-        // a spinner with nothing between "asked" and "done".
+    it('narrates each step, then reports the outcome, to the requester', function () {
+        // The run is what tells the waiting person it moved, so the SEQUENCE is
+        // the contract: the named steps in order while the work happens, then a
+        // terminal state. A client that only ever saw `finished` would sit on a
+        // spinner with nothing between "asked" and "done" — and one that only
+        // ever saw `running` would sit there through a minute of model time with
+        // nothing to show for it.
+        //
+        // The steps are asserted as keys, not as prose: the server names the
+        // phase and the client owns the Persian copy, exactly as it owns the
+        // status words and the failure reasons.
         Event::fake([RunProgressed::class]);
 
         MeetingSummaryAgent::fake([['executive_summary' => 'خلاصه']]);
 
         runSummaryJob($this->meeting->id, ['executive_summary'], requestedBy: 4242);
 
-        Event::assertDispatchedTimes(RunProgressed::class, 2);
+        // Keyed by event class, so collapsed down to the runs themselves in order.
+        $events = Event::dispatched(RunProgressed::class)->collapse()->all();
 
-        Event::assertDispatched(RunProgressed::class, fn (RunProgressed $e): bool => $e->state === RunState::Running
-            && $e->userId === 4242);
+        expect(array_map(fn (RunProgressed $e): string => $e->state->value, $events))->toBe([
+            'running', 'running', 'running', 'running', 'running', 'finished',
+        ]);
 
-        Event::assertDispatched(RunProgressed::class, fn (RunProgressed $e): bool => $e->state === RunState::Finished
-            && $e->context === ['status' => MeetingSummary::STATUS_OK]);
+        expect(array_map(
+            fn (RunProgressed $e): mixed => $e->context['step'] ?? null,
+            array_slice($events, 0, 5),
+        ))->toBe(array_map(
+            static fn (MeetingSummaryStep $step): string => $step->value,
+            [
+                MeetingSummaryStep::Preparing,
+                MeetingSummaryStep::Prompting,
+                MeetingSummaryStep::CallingModel,
+                MeetingSummaryStep::Parsing,
+                MeetingSummaryStep::Storing,
+            ],
+        ));
+
+        // Every step went to the person who asked, and the terminal event
+        // carries the outcome instead of a step.
+        foreach ($events as $event) {
+            expect($event->userId)->toBe(4242);
+        }
+
+        expect($events[5]->context)->toBe(['status' => MeetingSummary::STATUS_OK]);
     });
 
     it('reports a permanent failure as failed rather than finished', function () {
@@ -739,14 +767,15 @@ describe('run progress', function () {
 
         runSummaryJob($this->meeting->id, ['executive_summary'], requestedBy: 4242);
 
-        Event::assertDispatchedTimes(RunProgressed::class, 2);
+        // Every event carries the subject, including the step updates: a bulk dialog
+        // renders one row per meeting, so a step that arrived nameless would
+        // light up nothing at all.
+        $events = Event::dispatched(RunProgressed::class)->collapse()->all();
 
-        Event::assertDispatched(RunProgressed::class, fn (RunProgressed $e): bool => $e->subject?->type === 'board-meeting'
-            && $e->subject->id === $this->meeting->id
-            && $e->state === RunState::Running);
-
-        Event::assertDispatched(RunProgressed::class, fn (RunProgressed $e): bool => $e->subject?->id === $this->meeting->id
-            && $e->state === RunState::Finished);
+        foreach ($events as $event) {
+            expect($event->subject?->type)->toBe('board-meeting')
+                ->and($event->subject->id)->toBe($this->meeting->id);
+        }
     });
 
     it('reports nothing when the run has no requester', function () {
