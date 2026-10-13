@@ -51,29 +51,41 @@ final class MarkdownRenderer implements DocumentRenderer
         return 'md';
     }
 
+    /**
+     * Assembles the document as BLOCKS, one per paragraph, separated by a
+     * blank line.
+     *
+     * The separation is the whole design, not a formatting preference. A GFM
+     * table ends at the first blank line, so a table's rows must travel as ONE
+     * block with single newlines inside it; handing each row out as its own
+     * block produces a document where every `|` line is a separate paragraph
+     * and no reader renders a table at all.
+     *
+     * @return list<string>
+     */
     private function markdown(DocumentSpec $spec): string
     {
-        $out = [];
+        $blocks = [];
 
         if ($spec->title !== '') {
-            $out[] = '# '.$this->inline($spec->title);
+            $blocks[] = '# '.$this->inline($spec->title);
         }
 
         if ($spec->subtitle !== '') {
-            $out[] = $this->inline($spec->subtitle);
+            $blocks[] = $this->inline($spec->subtitle);
         }
 
         foreach ($spec->meta as $field) {
-            $out[] = '- '.$this->fieldLine($field);
+            $blocks[] = '- '.$this->fieldLine($field);
         }
 
         foreach ($spec->sections as $section) {
-            $out = [...$out, ...$this->section($section)];
+            $blocks = [...$blocks, ...$this->section($section)];
         }
 
         // Trimmed and newline-terminated: a file ending in a blank run reads
         // as a mistake in a diff, and most tools want a final newline anyway.
-        return rtrim(implode("\n\n", array_filter($out, fn (string $part): bool => trim($part) !== '')))."\n";
+        return rtrim(implode("\n\n", array_filter($blocks, fn (string $block): bool => trim($block) !== '')))."\n";
     }
 
     /**
@@ -85,26 +97,26 @@ final class MarkdownRenderer implements DocumentRenderer
             return [];
         }
 
-        $out = [];
+        $blocks = [];
 
         if ($section->heading !== '') {
-            $out[] = '## '.$this->inline($section->heading);
+            $blocks[] = '## '.$this->inline($section->heading);
         }
 
         foreach ($section->fields as $field) {
             // A field with no label is body prose — the minutes text, a value
             // that stands on its own. Forcing it into a `**:**` pair would
             // invent a label the domain never gave.
-            $out[] = $field->label === ''
+            $blocks[] = $field->label === ''
                 ? $this->inline($field->value)
                 : $this->fieldLine($field);
         }
 
         foreach ($section->tables as $table) {
-            $out = [...$out, ...$this->table($table)];
+            $blocks = [...$blocks, ...$this->table($table)];
         }
 
-        return $out;
+        return $blocks;
     }
 
     /**
@@ -113,29 +125,36 @@ final class MarkdownRenderer implements DocumentRenderer
     private function table(DocumentTable $table): array
     {
         if ($table->isEmpty()) {
-            return $table->caption === '' ? ['—'] : ['**'.$this->inline($table->caption).'**', '—'];
+            return $table->caption === ''
+                ? ['—']
+                : ['**'.$this->inline($table->caption).'**', '—'];
         }
 
-        $out = [];
+        $lines = [];
 
         if ($table->caption !== '') {
-            $out[] = '**'.$this->inline($table->caption).'**';
+            $lines[] = '**'.$this->inline($table->caption).'**';
+            // The caption is inside the block so it sits directly above the
+            // table it names, rather than a blank line away from it.
+            $lines[] = '';
         }
 
-        $out[] = '| '.implode(' | ', array_map($this->cell(...), $table->headers)).' |';
-        $out[] = '| '.implode(' | ', array_fill(0, count($table->headers), '---')).' |';
+        $lines[] = '| '.implode(' | ', array_map($this->cell(...), $table->headers)).' |';
+        $lines[] = '| '.implode(' | ', array_fill(0, count($table->headers), '---')).' |';
 
         foreach ($table->rows as $row) {
             // Keyed by header index, exactly like the HTML view does: a row that
             // somehow arrived short reads as empty cells rather than shifting
             // every column after the gap.
-            $out[] = '| '.implode(' | ', array_map(
+            $lines[] = '| '.implode(' | ', array_map(
                 fn (int $index): string => $this->cell($row[$index] ?? ''),
                 array_keys($table->headers),
             )).' |';
         }
 
-        return $out;
+        // ONE block, lines joined by a bare newline: this is what makes it a
+        // table rather than a run of pipe-shaped paragraphs.
+        return [implode("\n", $lines)];
     }
 
     private function fieldLine(DocumentField $field): string

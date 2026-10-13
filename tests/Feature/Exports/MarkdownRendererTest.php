@@ -62,6 +62,40 @@ describe('markdown document renderer', function () {
             ->toContain('| زهرا احمدی | رئیس |');
     });
 
+    it('keeps a table\'s rows adjacent, because a blank line ends the table', function () use ($render) {
+        $markdown = $render(new DocumentSpec(
+            title: '',
+            sections: [
+                new DocumentSection(
+                    heading: 'حاضران',
+                    tables: [new DocumentTable('', ['نام', 'نقش'], [
+                        ['زهرا احمدی', 'رئیس'],
+                        ['مریم کاظمی', 'عضو'],
+                        ['سمیرا نوری', 'دبیر'],
+                    ])],
+                ),
+            ],
+        ));
+
+        // The whole table is ONE block. Separating its rows the way paragraphs
+        // are separated is the single easiest way to emit markdown that looks
+        // right in the source and renders as four unrelated pipe-shaped lines in
+        // every reader — a blank line is where a GFM table ends.
+        [$table] = array_values(array_filter(
+            explode("\n\n", $markdown),
+            fn (string $block): bool => str_contains($block, '| نام |'),
+        ));
+
+        expect($table)
+            ->toContain('| نام | نقش |')
+            ->toContain('| زهرا احمدی | رئیس |')
+            ->toContain('| مریم کاظمی | عضو |')
+            ->toContain('| سمیرا نوری | دبیر |')
+            // Header, separator and three rows — five lines, no blanks between.
+            ->and(count(array_filter(explode("\n", $table), fn (string $line): bool => trim($line) !== '')))->toBe(5)
+            ->and($table)->not->toContain("\n\n");
+    });
+
     it('keeps a pipe inside a value from breaking the row around it', function () use ($render) {
         $markdown = $render(new DocumentSpec(
             title: '',
@@ -78,7 +112,9 @@ describe('markdown document renderer', function () {
         // Three table lines (header, separator, row) at two pipes each: a pipe
         // that leaked through would make it seven and split the cell in two.
         expect($markdown)->toContain('| الف &#124; ب |')
-            ->and(substr_count($markdown, '|'))->toBe(6);
+            ->and(substr_count($markdown, '|'))->toBe(6)
+            // Adjacent, or it is not a table at all.
+            ->and($markdown)->not->toContain("| --- | --- |\n\n");
     });
 
     it('folds a multi-line value into one cell instead of one row', function () use ($render) {
