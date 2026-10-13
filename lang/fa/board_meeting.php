@@ -15,4 +15,91 @@ return [
         'nothing_running' => 'اجرایی برای توقف وجود ندارد.',
         'batch_cancelled' => ':count اجرای در صف یا در حال اجرا متوقف شد.',
     ],
+
+    /*
+     * The printed sheet's own vocabulary.
+     *
+     * Not a second translation of the contract above: those keys are what the
+     * API hands the client, and the client renders them. A PDF has no client,
+     * so the words a reader of paper needs are declared here for the print
+     * surface alone — and they are allowed to be more than the API's, because
+     * the sheet also has to SAY which of the two summaries it printed (accepted
+     * or merely proposed), which is a distinction the API expresses structurally
+     * and paper can only express in words.
+     */
+    'print' => [
+        'title' => 'صورتجلسهٔ هیئت مدیره',
+        'yes' => 'بله',
+        'no' => 'خیر',
+        'sections' => [
+            'identity' => 'اطلاعات جلسه',
+            'attendees' => 'حاضران',
+            'agenda' => 'دستور جلسه',
+            'minutes' => 'صورتجلسه',
+            'summary' => 'خلاصه',
+            'approvals' => 'مصوبات',
+            'tags' => 'برچسب‌ها',
+            'attachments' => 'پیوست‌ها',
+        ],
+        'fields' => [
+            'note' => 'توضیح',
+            'title' => 'عنوان',
+            'held_on' => 'تاریخ جلسه (میلادی)',
+            'sequence' => 'شمارهٔ جلسه',
+            'origin' => 'منبع',
+            'generated_at' => 'زمان تولید',
+            'status' => 'وضعیت',
+            'error' => 'دلیل',
+            'provider' => 'ارائه‌دهنده',
+            'model' => 'مدل',
+            'executive_summary' => 'چکیده',
+            'topics' => 'موضوعات',
+            'bullet_points' => 'نکات',
+            'key_decisions' => 'تصمیم‌های کلیدی',
+            'suggested_tags' => 'برچسب‌های پیشنهادی',
+        ],
+        'columns' => [
+            'value' => 'مورد',
+            'name' => 'نام',
+            'role' => 'نقش',
+            'present' => 'حاضر',
+            'position' => 'ردیف',
+            'agenda_title' => 'عنوان',
+            'registry_number' => 'شمارهٔ مصوبه',
+            'document_title' => 'عنوان سند',
+            'tag' => 'برچسب',
+            'file_name' => 'نام فایل',
+            'size' => 'حجم',
+            'mime' => 'نوع',
+            'uploaded_at' => 'زمان بارگذاری',
+        ],
+        'roles' => [
+            'chair' => 'رئیس',
+            'member' => 'عضو',
+            'secretary' => 'دبیر',
+            'observer' => 'ناظر',
+            'guest' => 'مهمان',
+        ],
+        'statuses' => [
+            'ok' => 'کامل',
+            'partial' => 'ناقص',
+            'failed' => 'ناموفق',
+            'pending' => 'در حال اجرا',
+            'none' => 'بدون خلاصه',
+            'cancelled' => 'لغو شده',
+        ],
+        'reasons' => [
+            'no_structured_output' => 'مدل ساختار خواسته‌شده را برنگرداند.',
+            'no_fields_returned' => 'هیچ‌کدام از فیلدها خروجی قابل‌قبولی نداشت.',
+            'not_configured' => 'هیچ ارائه‌دهنده‌ای پیکربندی نشده است.',
+            'unavailable' => 'ارائه‌دهنده پاسخ نداد.',
+            'abandoned' => 'این اجرا هرگز گزارش نکرد.',
+            'empty' => 'این فیلد خالی ماند.',
+        ],
+        'notes' => [
+            'accepted' => 'این خلاصه پذیرفته شده است.',
+            'pending' => 'این خلاصه پیشنهادیِ در انتظارِ تصمیم است و پذیرفته نشده.',
+            'none' => 'برای این جلسه خلاصه‌ای وجود ندارد.',
+        ],
+    ],
 ];

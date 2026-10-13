@@ -26,6 +26,13 @@ Route::middleware('auth:sanctum')->group(function () {
         ->name('board-meetings.export')
         ->middleware('permission:board-meeting.export');
 
+    // One meeting as a printable PDF, on `board-meeting.export` like the
+    // registry export above: taking a copy of a meeting away is that
+    // permission's job, whether the copy is a table of many or one sheet.
+    Route::get('board-meetings/{meeting}/export/pdf', [BoardMeetingController::class, 'exportPdf'])
+        ->name('board-meetings.export.pdf')
+        ->middleware('permission:board-meeting.export');
+
     Route::get('board-meetings/{meeting}', [BoardMeetingController::class, 'show'])
         ->name('board-meetings.show')
         ->middleware('permission:board-meeting.view');

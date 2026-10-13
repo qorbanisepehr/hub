@@ -5,6 +5,7 @@ namespace App\Domains\BoardMeeting\Controllers;
 use App\Contracts\BoardMeeting\RegistrySync;
 use App\Domains\BoardMeeting\Events\BoardMeetingUpdated;
 use App\Domains\BoardMeeting\Exports\BoardMeetingExporter;
+use App\Domains\BoardMeeting\Exports\BoardMeetingPdfExport;
 use App\Domains\BoardMeeting\Models\BoardMeeting;
 use App\Domains\BoardMeeting\Requests\BoardMeetingListRequest;
 use App\Domains\BoardMeeting\Requests\UpdateBoardMeetingRequest;
@@ -14,6 +15,7 @@ use App\Domains\BoardMeeting\Services\MeetingSummaryApplier;
 use App\Domains\BoardMeeting\Value\Attendee;
 use App\Support\Audit\AttributeDiff;
 use App\Support\Exports\Concerns\StreamsTabularExports;
+use App\Support\Exports\DocumentExportService;
 use App\Support\Exports\ExportService;
 use App\Support\Exports\Value\ExportColumn;
 use App\Support\Exports\Value\ExportOptions;
@@ -97,6 +99,33 @@ class BoardMeetingController
         );
 
         return $this->streamExport($this->exports, $file);
+    }
+
+    /**
+     * The printable form of ONE meeting — the detail page, on paper.
+     *
+     * A different pipeline from export() on purpose: that one streams a
+     * registry-wide table through the tabular kernel, and a single meeting is
+     * not a table of one row. This asks the document kernel instead, the same
+     * path a CV or an employee profile takes, so RTL Persian, Jalali dates and
+     * font embedding are already solved rather than re-solved here.
+     *
+     * Gated on `board-meeting.export` — the permission that already exists for
+     * putting meetings into a file — rather than on `view`. Reading a meeting
+     * and taking a copy of it away are different acts, the registry export
+     * already draws that line, and a sheet is a copy.
+     */
+    public function exportPdf(BoardMeeting $meeting, DocumentExportService $documents): StreamedResponse
+    {
+        $file = $documents->run(new BoardMeetingPdfExport, $meeting, 'pdf');
+
+        return response()->streamDownload(function () use ($file): void {
+            $stream = fopen('php://output', 'w');
+            $file->copyTo($stream);
+        }, $documents->dispositionFilename($file), [
+            'Content-Type' => $file->mimeType,
+            'Cache-Control' => 'no-store',
+        ]);
     }
 
     /**

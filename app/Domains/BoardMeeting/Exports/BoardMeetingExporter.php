@@ -49,14 +49,12 @@ final class BoardMeetingExporter implements ProvidesDetailSheets, ProvidesDocume
      */
     private const PARENT_KEYS = ['held_on', 'sequence'];
 
-    /** @var array<string, string> */
-    private const ROLE_LABELS = [
-        'chair' => 'رئیس',
-        'member' => 'عضو',
-        'secretary' => 'دبیر',
-        'observer' => 'ناظر',
-        'guest' => 'مهمان',
-    ];
+    /**
+     * Attendee roles are labelled once, in `board_meeting.print.roles`, and read
+     * from there by both exports: a role spelled two ways is a role a reader
+     * has to reconcile between a spreadsheet and a printed sheet.
+     */
+    private const ROLE_LABEL_KEY = 'board_meeting.print.roles.';
 
     private ?BoardMeeting $current = null;
 
@@ -239,7 +237,9 @@ final class BoardMeetingExporter implements ProvidesDetailSheets, ProvidesDocume
     public function optionLabel(string $columnKey, string $value): ?string
     {
         return match ($columnKey) {
-            'attendees.attendees.*.role' => self::ROLE_LABELS[$value] ?? null,
+            'attendees.attendees.*.role' => __('board_meeting.print.roles.'.$value) === $value
+                ? null
+                : __('board_meeting.print.roles.'.$value),
             default => null,
         };
     }
