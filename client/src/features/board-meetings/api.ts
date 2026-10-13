@@ -109,6 +109,19 @@ export function exportBoardMeetingDocx(id: number | string) {
  * refuses export-only users with a 403. The button hides behind both
  * permissions so nobody is offered a download the server will refuse.
  */
+/**
+ * The same sheet as Markdown — the one format that is not a document at all.
+ *
+ * Worth its own call rather than a format argument: it costs the layout the
+ * other two give you and buys a file that greps, diffs, pastes into an issue,
+ * or goes to an agent with no parser in between.
+ */
+export function exportBoardMeetingMarkdown(id: number | string) {
+    return api.get(`/board-meetings/${id}/export/md`, {
+        responseType: "blob",
+    });
+}
+
 export function exportBoardMeetingBundle(id: number | string) {
     return api.get(`/board-meetings/${id}/export/zip`, {
         responseType: "blob",

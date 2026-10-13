@@ -7,6 +7,7 @@ import {
     IconFileTypeDoc,
     IconFileTypePdf,
     IconFileZip,
+    IconMarkdown,
     IconPencil,
     IconRobot,
     IconTag,
@@ -46,6 +47,7 @@ import { MeetingTagChips } from "../components/meeting-tag-chips";
 import {
     exportBoardMeetingBundle,
     exportBoardMeetingDocx,
+    exportBoardMeetingMarkdown,
     exportBoardMeetingPdf,
 } from "../api";
 import { hasContent, isRunInFlight } from "../summary-read";
@@ -120,7 +122,7 @@ export function BoardMeetingDetailPage() {
 
     const [isEditing, setIsEditing] = useState(false);
     const [exportingFormat, setExportingFormat] = useState<
-        "pdf" | "docx" | "zip" | null
+        "pdf" | "docx" | "md" | "zip" | null
     >(null);
 
     const { data: meeting, isLoading, isError } = useBoardMeeting(meetingId);
@@ -147,13 +149,14 @@ export function BoardMeetingDetailPage() {
     // argument: the two requests differ only in which renderer runs, and a
     // second copy of this block could drift into showing the wrong label or the
     // wrong fallback name.
-    const handleExport = async (format: "pdf" | "docx" | "zip") => {
+    const handleExport = async (format: "pdf" | "docx" | "md" | "zip") => {
         setExportingFormat(format);
 
         try {
             const response = await {
                 pdf: exportBoardMeetingPdf,
                 docx: exportBoardMeetingDocx,
+                md: exportBoardMeetingMarkdown,
                 zip: exportBoardMeetingBundle,
             }[format](meetingId);
 
@@ -264,6 +267,13 @@ export function BoardMeetingDetailPage() {
                         icon: <IconFileTypeDoc />,
                         label: "دانلود Word",
                         onClick: () => handleExport("docx"),
+                        permission: PERMISSIONS.BOARD_MEETING_EXPORT,
+                        disabled: exportingFormat !== null,
+                    },
+                    {
+                        icon: <IconMarkdown />,
+                        label: "دانلود Markdown",
+                        onClick: () => handleExport("md"),
                         permission: PERMISSIONS.BOARD_MEETING_EXPORT,
                         disabled: exportingFormat !== null,
                     },
