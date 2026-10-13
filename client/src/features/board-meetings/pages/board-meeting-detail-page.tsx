@@ -6,6 +6,7 @@ import {
     IconFileText,
     IconFileTypeDoc,
     IconFileTypePdf,
+    IconDownload,
     IconFileZip,
     IconMarkdown,
     IconPencil,
@@ -240,42 +241,50 @@ export function BoardMeetingDetailPage() {
                 backTo="/board-meetings"
                 actions={[
                     {
-                        icon: <IconFileZip />,
-                        label: "دانلود بستهٔ کامل",
-                        onClick: () => handleExport("zip"),
-                        // Two permissions, not one: this archive carries the
-                        // attachments' actual bytes, so the server demands
-                        // document download as well. Offering it to an
-                        // export-only user would be a button whose only
-                        // outcome is a 403.
-                        permission: [
-                            PERMISSIONS.BOARD_MEETING_EXPORT,
-                            PERMISSIONS.BOARD_MEETING_DOCUMENTS_DOWNLOAD,
+                        icon: <IconDownload />,
+                        label: "خروجی",
+                        // The permission the trigger carries is the one most of
+                        // its choices share, so the button disappears exactly
+                        // when nothing inside it can run — and stays visible,
+                        // with the bundle hidden, for an export-only reader.
+                        permission: PERMISSIONS.BOARD_MEETING_EXPORT,
+                        items: [
+                            {
+                                icon: <IconFileTypePdf />,
+                                label: "PDF",
+                                onClick: () => handleExport("pdf"),
+                                disabled: exportingFormat !== null,
+                            },
+                            {
+                                icon: <IconFileTypeDoc />,
+                                label: "Word",
+                                onClick: () => handleExport("docx"),
+                                disabled: exportingFormat !== null,
+                            },
+                            {
+                                icon: <IconMarkdown />,
+                                label: "Markdown",
+                                onClick: () => handleExport("md"),
+                                disabled: exportingFormat !== null,
+                            },
+                            {
+                                icon: <IconFileZip />,
+                                label: "بستهٔ کامل (همهٔ پیوست‌ها)",
+                                onClick: () => handleExport("zip"),
+                                disabled: exportingFormat !== null,
+                                separatorBefore: true,
+                                // Two permissions, not one: this archive
+                                // carries the attachments' actual bytes, so
+                                // the server demands document download too.
+                                // "all" because "either" would offer a
+                                // download whose only outcome is a 403.
+                                permission: [
+                                    PERMISSIONS.BOARD_MEETING_EXPORT,
+                                    PERMISSIONS.BOARD_MEETING_DOCUMENTS_DOWNLOAD,
+                                ],
+                                permissionMode: "all",
+                            },
                         ],
-                        disabled: exportingFormat !== null,
-                    },
-                    {
-                        icon: <IconFileTypePdf />,
-                        label: "دانلود PDF",
-                        onClick: () => handleExport("pdf"),
-                        // Taking a copy away is the export permission's job,
-                        // not the reader's — same line the list page draws.
-                        permission: PERMISSIONS.BOARD_MEETING_EXPORT,
-                        disabled: exportingFormat !== null,
-                    },
-                    {
-                        icon: <IconFileTypeDoc />,
-                        label: "دانلود Word",
-                        onClick: () => handleExport("docx"),
-                        permission: PERMISSIONS.BOARD_MEETING_EXPORT,
-                        disabled: exportingFormat !== null,
-                    },
-                    {
-                        icon: <IconMarkdown />,
-                        label: "دانلود Markdown",
-                        onClick: () => handleExport("md"),
-                        permission: PERMISSIONS.BOARD_MEETING_EXPORT,
-                        disabled: exportingFormat !== null,
                     },
                     {
                         icon: <IconPencil />,
