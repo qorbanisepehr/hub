@@ -296,6 +296,14 @@ export function BoardMeetingDetailPage() {
                                     accept.mutate({
                                         accepted_fields: fields,
                                         tag_slugs: tags,
+                                        // The optimistic-concurrency echo: if a
+                                        // newer run replaced the proposal while
+                                        // this dialog sat open, the server
+                                        // refuses the decision (409) instead of
+                                        // applying it to something unseen.
+                                        generated_at:
+                                            meeting.summary?.pending
+                                                ?.generated_at ?? undefined,
                                     })
                                 }
                             />

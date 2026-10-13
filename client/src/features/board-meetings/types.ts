@@ -258,6 +258,13 @@ export interface GenerateSummaryPayload {
 export interface AcceptSummaryPayload {
     accepted_fields: MeetingSummaryFieldName[];
     tag_slugs: string[];
+    /**
+     * The pending proposal's `generated_at` as this page read it — the echo
+     * that lets the server refuse a decision made about a proposal that has
+     * since been replaced. Optional on the wire so a caller that does not
+     * send it is only unprotected, not refused.
+     */
+    generated_at?: string;
 }
 
 /**
