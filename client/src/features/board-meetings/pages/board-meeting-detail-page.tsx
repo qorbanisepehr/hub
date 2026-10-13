@@ -182,6 +182,7 @@ export function BoardMeetingDetailPage() {
     // be confused for each other.
     const {
         states: runStates,
+        trails: runTrails,
         track: trackRun,
         forget: forgetRun,
     } = useRunStates();
@@ -189,7 +190,9 @@ export function BoardMeetingDetailPage() {
     // Compared as a string because the route hands the id over as text while
     // the event carries whatever type the server serialised - the two are the
     // same meeting, and a strict `===` would silently never match.
-    const run = runStates.get(`board-meeting:${meetingId}`) ?? null;
+    const runKey = `board-meeting:${meetingId}`;
+    const run = runStates.get(runKey) ?? null;
+    const runSteps = runTrails.get(runKey)?.steps;
 
     // Live progress for the runs this user started. The channel hook only
     // invalidates the queries an event names; the states hook files them by
@@ -371,6 +374,7 @@ export function BoardMeetingDetailPage() {
                                 summary={meeting.summary}
                                 tags={meeting.tags.map((tag) => tag.slug)}
                                 run={run}
+            steps={runSteps}
                                 isGenerating={generate.isPending}
                                 isAccepting={accept.isPending}
                                 isDismissing={dismiss.isPending}

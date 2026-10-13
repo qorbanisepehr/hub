@@ -88,5 +88,37 @@ export interface RunProgress {
     occurred_at: string;
 }
 
+/**
+ * One entry in a run's trail: which step it reported, and when.
+ *
+ * The step is the caller's own stable key — for a board meeting summary,
+ * `preparing` / `prompting` / `calling_model` / `parsing` / `storing`. The
+ * realtime kernel neither defines that vocabulary nor translates it, for the
+ * same reason it does not define status words: a feature owns its own keys and
+ * its own copy of them. Keeping them out of here is what lets a second
+ * feature report steps of its own without this file growing a union it would
+ * then have to widen every time.
+ */
+export interface RunStep {
+    step: string;
+    at: string;
+}
+
+/**
+ * Read the step out of a progress event's context, or null when the event is
+ * not reporting one (a state change, or a terminal outcome).
+ *
+ * A string only: anything else in `context` belongs to whichever field made the
+ * event, and guessing at its shape here would be the kernel reading a feature's
+ * vocabulary.
+ */
+export function runStepOf(progress: RunProgress): RunStep | null {
+    const step = progress.context["step"];
+
+    return typeof step === "string"
+        ? { step, at: progress.occurred_at }
+        : null;
+}
+
 /** The generic event name, so clients key off the payload not the class. */
 export const RUN_PROGRESS_EVENT = ".run.progressed";

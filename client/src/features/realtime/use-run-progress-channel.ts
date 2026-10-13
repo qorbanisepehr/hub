@@ -6,7 +6,9 @@ import { getEcho } from "@/lib/echo";
 
 import {
     RUN_PROGRESS_EVENT,
+    runStepOf,
     type RunProgress,
+    type RunStep,
 } from "./types";
 
 /**
@@ -89,13 +91,35 @@ export function useRunProgressChannel(
  *
  * @returns a map of subject key to the latest state seen for it
  */
+/**
+ * The steps one run reported, in order, tagged with the run they belong to.
+ *
+ * Tagged rather than just a list because a subject outlives its run: the same
+ * meeting can be run twice, and a bare list would let the second run inherit
+ * the first one's steps.
+ */
+export interface RunTrail {
+    runId: string;
+    steps: readonly RunStep[];
+}
+
+/**
+ * How many steps to keep. Long enough for every step a run currently reports,
+ * short enough that a misbehaving sender cannot grow a list without end.
+ */
+const MAX_TRAIL_STEPS = 24;
+
 export function useRunStates(): {
     states: ReadonlyMap<string, RunProgress>;
+    trails: ReadonlyMap<string, RunTrail>;
     track: (progress: RunProgress) => void;
     forget: (key: string) => void;
     reset: () => void;
 } {
     const [states, setStates] = useState<ReadonlyMap<string, RunProgress>>(
+        new Map(),
+    );
+    const [trails, setTrails] = useState<ReadonlyMap<string, RunTrail>>(
         new Map(),
     );
 
@@ -116,6 +140,36 @@ export function useRunStates(): {
 
             return next;
         });
+
+        setTrails((previous) => {
+            const step = runStepOf(progress);
+
+            if (step === null) {
+                return previous;
+            }
+
+            const next = new Map(previous);
+            const existing = previous.get(key);
+
+            // A trail narrates ONE run. A new run starts an empty one rather
+            // than inheriting the last run's steps, which would show somebody
+            // work that never happened for the request they are waiting on.
+            if (existing === undefined || existing.runId !== progress.run_id) {
+                next.set(key, { runId: progress.run_id, steps: [step] });
+
+                return next;
+            }
+
+            next.set(key, {
+                runId: existing.runId,
+                // Bounded: a run that reports far more steps than anyone will
+                // read is a signal to shorten the vocabulary, not to grow an
+                // unbounded list in a component's memory.
+                steps: [...existing.steps, step].slice(-MAX_TRAIL_STEPS),
+            });
+
+            return next;
+        });
     }, []);
 
     const forget = useCallback((key: string): void => {
@@ -130,13 +184,26 @@ export function useRunStates(): {
 
             return next;
         });
+
+        setTrails((previous) => {
+            if (!previous.has(key)) {
+                return previous;
+            }
+
+            const next = new Map(previous);
+
+            next.delete(key);
+
+            return next;
+        });
     }, []);
 
     const reset = useCallback((): void => {
         setStates(new Map());
+        setTrails(new Map());
     }, []);
 
-    return { states, track, forget, reset };
+    return { states, trails, track, forget, reset };
 }
 
 /** The map key for a run's subject, or null when it names nothing. */

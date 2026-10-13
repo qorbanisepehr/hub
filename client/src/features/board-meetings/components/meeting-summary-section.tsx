@@ -33,7 +33,11 @@ import { EmptyState } from "@/components/layout";
 import { usePermission } from "@/features/auth/components/permission-guard";
 import { PERMISSIONS } from "@/lib/permissions";
 import { useAiModels } from "@/features/ai/hooks";
-import type { RunProgress, RunState } from "@/features/realtime/types";
+import type {
+    RunProgress,
+    RunState,
+    RunStep,
+} from "@/features/realtime/types";
 import { RunStatus } from "./run-status";
 import {
     SUMMARY_FIELDS,
@@ -139,6 +143,7 @@ export function MeetingSummarySection({
     isDismissing,
     isCancellingRun,
     run,
+    steps,
 }: {
     summary: MeetingSummaryArtifact | null;
     tags: string[];
@@ -166,6 +171,8 @@ export function MeetingSummarySection({
      * the page is what owns which meeting is on screen.
      */
     run: RunProgress | null;
+    /** The named steps this run has reported, oldest first. */
+    steps?: readonly RunStep[];
 }) {
     const canUpdate = usePermission([PERMISSIONS.BOARD_MEETING_UPDATE]);
 
@@ -237,6 +244,7 @@ export function MeetingSummarySection({
             <RunStatus
                 state={runState}
                 run={run}
+                steps={steps}
                 startedAt={runStartedAt(summary)}
                 errorReason={errorReason}
                 onCancel={canUpdate ? onCancelRun : undefined}

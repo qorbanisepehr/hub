@@ -1,4 +1,4 @@
-import { IconClock, IconPlayerStopFilled, IconX } from "@tabler/icons-react";
+import { IconCheck, IconClock, IconPlayerStopFilled, IconX } from "@tabler/icons-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -11,7 +11,9 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
-import type { RunProgress, RunState } from "@/features/realtime/types";
+import type { RunProgress, RunState, RunStep } from "@/features/realtime/types";
+
+import { summaryStepDoneLabel, summaryStepLabel } from "../steps";
 
 /**
  * What the run is doing right now, for somebody waiting on it.
@@ -49,6 +51,7 @@ import type { RunProgress, RunState } from "@/features/realtime/types";
 export function RunStatus({
     state,
     run,
+    steps,
     startedAt,
     errorReason,
     onCancel,
@@ -59,6 +62,16 @@ export function RunStatus({
     state: RunState | null;
     /** The latest progress event, when there is one. */
     run: RunProgress | null;
+    /**
+     * The steps this run has reported, oldest first.
+     *
+     * Drawn as a trail under the status line, which is what turns a minute of
+     * spinner into a minute of something happening. Optional because a run that
+     * has only just been dispatched has none yet, and because a page loaded
+     * after the fact never saw any — the row alone is still a correct answer,
+     * just a coarser one.
+     */
+    steps?: readonly RunStep[];
     /** When the run under way began, from the row, or null. */
     startedAt?: string | null;
     /**
@@ -146,12 +159,22 @@ export function RunStatus({
 
     const waiting = shown === "queued";
 
+    // The newest step is the current position; everything before it is history.
+    // The current one is drawn in the status line itself rather than repeated
+    // as a trail row, so the two never say the same thing twice.
+    const trail = (steps ?? []).slice(0, -1).toReversed();
+    const current = steps?.at(-1)?.step;
+
     return (
         <Alert variant="default" className={className}>
             {waiting ? <IconClock /> : <Spinner />}
 
             <AlertTitle>
-                {waiting ? "در صف اجرا" : "در حال تولید خلاصه"}
+                {waiting
+                    ? "در صف اجرا"
+                    : current !== undefined
+                      ? summaryStepLabel(current)
+                      : "در حال تولید خلاصه"}
             </AlertTitle>
 
             <AlertAction>
@@ -182,11 +205,11 @@ export function RunStatus({
             </AlertAction>
 
             <AlertDescription className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                <span>
-                    {waiting
-                        ? "هنوز کارگری این اجرا را برنداشته است."
-                        : "مدل در حال پاسخ دادن است؛ نتیجه همین‌جا به‌روز می‌شود."}
-                </span>
+                {waiting ? (
+                    <span>هنوز کارگری این اجرا را برنداشته است.</span>
+                ) : (
+                    <span>نتیجه همین‌جا به‌روز می‌شود.</span>
+                )}
 
                 {!waiting && since !== null && <Elapsed since={since} />}
 
@@ -196,6 +219,20 @@ export function RunStatus({
                     </Badge>
                 )}
             </AlertDescription>
+
+            {trail.length > 0 && (
+                <ol className="mt-2 flex flex-col gap-1 ps-6 text-xs text-muted-foreground">
+                    {trail.map((step) => (
+                        <li
+                            key={`${step.step}-${step.at}`}
+                            className="flex items-center gap-1.5"
+                        >
+                            <IconCheck className="size-3 shrink-0" />
+                            {summaryStepDoneLabel(step.step)}
+                        </li>
+                    ))}
+                </ol>
+            )}
         </Alert>
     );
 }
