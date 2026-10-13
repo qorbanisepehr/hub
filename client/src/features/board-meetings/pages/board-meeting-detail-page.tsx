@@ -4,6 +4,7 @@ import { getRouteApi } from "@tanstack/react-router";
 import {
     IconFileDescription,
     IconFileText,
+    IconFileTypeDoc,
     IconFileTypePdf,
     IconPencil,
     IconRobot,
@@ -41,7 +42,7 @@ import {
 
 import { MeetingSummarySection } from "../components/meeting-summary-section";
 import { MeetingTagChips } from "../components/meeting-tag-chips";
-import { exportBoardMeetingPdf } from "../api";
+import { exportBoardMeetingDocx, exportBoardMeetingPdf } from "../api";
 import { hasContent, isRunInFlight } from "../summary-read";
 import {
     useAcceptMeetingSummary,
@@ -113,7 +114,9 @@ export function BoardMeetingDetailPage() {
     const navigate = route.useNavigate();
 
     const [isEditing, setIsEditing] = useState(false);
-    const [isExportingPdf, setIsExportingPdf] = useState(false);
+    const [exportingFormat, setExportingFormat] = useState<
+        "pdf" | "docx" | null
+    >(null);
 
     const { data: meeting, isLoading, isError } = useBoardMeeting(meetingId);
 
@@ -130,27 +133,36 @@ export function BoardMeetingDetailPage() {
     const cancel = useCancelMeetingSummary(meetingId);
 
     // The sheet is rendered by the server, so there is nothing to hold in the
-    // cache and nothing to refetch afterwards: the button's whole job is to ask
+    // cache and nothing to refetch afterwards: a button's whole job is to ask
     // for the file and hand it to the browser. A failed request is the one case
     // worth saying out loud, because a download that silently does not happen
     // looks to a user like the button is broken.
-    const handleExportPdf = async () => {
-        setIsExportingPdf(true);
+    //
+    // One handler for both formats rather than two, and the format is the
+    // argument: the two requests differ only in which renderer runs, and a
+    // second copy of this block could drift into showing the wrong label or the
+    // wrong fallback name.
+    const handleExport = async (format: "pdf" | "docx") => {
+        setExportingFormat(format);
 
         try {
-            const response = await exportBoardMeetingPdf(meetingId);
+            const response =
+                format === "pdf"
+                    ? await exportBoardMeetingPdf(meetingId)
+                    : await exportBoardMeetingDocx(meetingId);
 
             saveBlobResponse(
                 response,
-                `board-meeting-${exportDateStamp()}.pdf`,
-                EXPORT_MIME_TYPES.pdf,
+                `board-meeting-${exportDateStamp()}.${format}`,
+                EXPORT_MIME_TYPES[format],
             );
         } catch {
-            toast.error("صدور PDF انجام نشد.", {
-                description: "لطفاً دوباره تلاش کنید.",
-            });
+            toast.error(
+                format === "pdf" ? "صدور PDF انجام نشد." : "ساخت فایل Word انجام نشد.",
+                { description: "لطفاً دوباره تلاش کنید." },
+            );
         } finally {
-            setIsExportingPdf(false);
+            setExportingFormat(null);
         }
     };
 
@@ -222,11 +234,18 @@ export function BoardMeetingDetailPage() {
                     {
                         icon: <IconFileTypePdf />,
                         label: "دانلود PDF",
-                        onClick: handleExportPdf,
+                        onClick: () => handleExport("pdf"),
                         // Taking a copy away is the export permission's job,
                         // not the reader's — same line the list page draws.
                         permission: PERMISSIONS.BOARD_MEETING_EXPORT,
-                        disabled: isExportingPdf,
+                        disabled: exportingFormat !== null,
+                    },
+                    {
+                        icon: <IconFileTypeDoc />,
+                        label: "دانلود Word",
+                        onClick: () => handleExport("docx"),
+                        permission: PERMISSIONS.BOARD_MEETING_EXPORT,
+                        disabled: exportingFormat !== null,
                     },
                     {
                         icon: <IconPencil />,

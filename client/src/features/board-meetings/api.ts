@@ -89,6 +89,17 @@ export function exportBoardMeetingPdf(id: number | string) {
     });
 }
 
+/**
+ * The same sheet as an editable Word file. Not a `format` argument on the PDF
+ * call: a .docx is something you can change, so it is a different request from
+ * "print this", and the URL says which one was made.
+ */
+export function exportBoardMeetingDocx(id: number | string) {
+    return api.get(`/board-meetings/${id}/export/docx`, {
+        responseType: "blob",
+    });
+}
+
 /** Update the human-owned fields (title/minutes/attendees). */
 export function updateBoardMeeting(
     id: number | string,
