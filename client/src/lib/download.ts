@@ -51,4 +51,5 @@ export const EXPORT_MIME_TYPES: Record<string, string> = {
     jsonl: "application/x-ndjson",
     pdf: "application/pdf",
     docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    zip: "application/zip",
 };

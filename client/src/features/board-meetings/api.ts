@@ -100,6 +100,21 @@ export function exportBoardMeetingDocx(id: number | string) {
     });
 }
 
+/**
+ * The whole meeting in one archive: the printable sheet plus every scan filed
+ * under it.
+ *
+ * Wider than the other two on purpose — it carries the attachments' actual
+ * bytes, so the server demands `board-meeting.documents.download` as well and
+ * refuses export-only users with a 403. The button hides behind both
+ * permissions so nobody is offered a download the server will refuse.
+ */
+export function exportBoardMeetingBundle(id: number | string) {
+    return api.get(`/board-meetings/${id}/export/zip`, {
+        responseType: "blob",
+    });
+}
+
 /** Update the human-owned fields (title/minutes/attendees). */
 export function updateBoardMeeting(
     id: number | string,

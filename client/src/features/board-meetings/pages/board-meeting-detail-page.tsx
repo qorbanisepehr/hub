@@ -6,6 +6,7 @@ import {
     IconFileText,
     IconFileTypeDoc,
     IconFileTypePdf,
+    IconFileZip,
     IconPencil,
     IconRobot,
     IconTag,
@@ -42,7 +43,11 @@ import {
 
 import { MeetingSummarySection } from "../components/meeting-summary-section";
 import { MeetingTagChips } from "../components/meeting-tag-chips";
-import { exportBoardMeetingDocx, exportBoardMeetingPdf } from "../api";
+import {
+    exportBoardMeetingBundle,
+    exportBoardMeetingDocx,
+    exportBoardMeetingPdf,
+} from "../api";
 import { hasContent, isRunInFlight } from "../summary-read";
 import {
     useAcceptMeetingSummary,
@@ -115,7 +120,7 @@ export function BoardMeetingDetailPage() {
 
     const [isEditing, setIsEditing] = useState(false);
     const [exportingFormat, setExportingFormat] = useState<
-        "pdf" | "docx" | null
+        "pdf" | "docx" | "zip" | null
     >(null);
 
     const { data: meeting, isLoading, isError } = useBoardMeeting(meetingId);
@@ -142,14 +147,15 @@ export function BoardMeetingDetailPage() {
     // argument: the two requests differ only in which renderer runs, and a
     // second copy of this block could drift into showing the wrong label or the
     // wrong fallback name.
-    const handleExport = async (format: "pdf" | "docx") => {
+    const handleExport = async (format: "pdf" | "docx" | "zip") => {
         setExportingFormat(format);
 
         try {
-            const response =
-                format === "pdf"
-                    ? await exportBoardMeetingPdf(meetingId)
-                    : await exportBoardMeetingDocx(meetingId);
+            const response = await {
+                pdf: exportBoardMeetingPdf,
+                docx: exportBoardMeetingDocx,
+                zip: exportBoardMeetingBundle,
+            }[format](meetingId);
 
             saveBlobResponse(
                 response,
@@ -157,10 +163,9 @@ export function BoardMeetingDetailPage() {
                 EXPORT_MIME_TYPES[format],
             );
         } catch {
-            toast.error(
-                format === "pdf" ? "صدور PDF انجام نشد." : "ساخت فایل Word انجام نشد.",
-                { description: "لطفاً دوباره تلاش کنید." },
-            );
+            toast.error("ساخت فایل انجام نشد.", {
+                description: "لطفاً دوباره تلاش کنید.",
+            });
         } finally {
             setExportingFormat(null);
         }
@@ -231,6 +236,21 @@ export function BoardMeetingDetailPage() {
                 description={meeting.title ?? meeting.registry_label}
                 backTo="/board-meetings"
                 actions={[
+                    {
+                        icon: <IconFileZip />,
+                        label: "دانلود بستهٔ کامل",
+                        onClick: () => handleExport("zip"),
+                        // Two permissions, not one: this archive carries the
+                        // attachments' actual bytes, so the server demands
+                        // document download as well. Offering it to an
+                        // export-only user would be a button whose only
+                        // outcome is a 403.
+                        permission: [
+                            PERMISSIONS.BOARD_MEETING_EXPORT,
+                            PERMISSIONS.BOARD_MEETING_DOCUMENTS_DOWNLOAD,
+                        ],
+                        disabled: exportingFormat !== null,
+                    },
                     {
                         icon: <IconFileTypePdf />,
                         label: "دانلود PDF",
