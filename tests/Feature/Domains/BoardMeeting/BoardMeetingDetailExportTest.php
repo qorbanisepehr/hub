@@ -6,6 +6,7 @@ use App\Domains\BoardMeeting\Value\MeetingSummary;
 use App\Support\Exports\Value\Document\DocumentField;
 use App\Support\Exports\Value\Document\DocumentSection;
 use App\Support\Exports\Value\Document\DocumentTable;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * One meeting as paper — the same sheet as PDF and as Word.
@@ -66,6 +67,42 @@ function bm_summary_text(BoardMeeting $meeting): string
         ->first(fn (DocumentSection $one): bool => $one->heading === __('board_meeting.print.sections.summary'));
 
     return bm_export_text([$section]);
+}
+
+/**
+ * The factory writes document rows, not files, so a bundle test has to put
+ * something on the faked disk for the archive to have real bytes to add.
+ */
+function bm_store_scans(BoardMeeting $meeting): void
+{
+    foreach ($meeting->documentUsages as $usage) {
+        Storage::disk($usage->document->disk)->put($usage->document->path, 'scanned page');
+    }
+}
+
+/**
+ * The entry names inside a zip carried by a streamed response.
+ *
+ * @return list<string>
+ */
+function bm_zip_names(string $bytes): array
+{
+    $path = tempnam(sys_get_temp_dir(), 'bundle-check-');
+    file_put_contents($path, $bytes);
+
+    $zip = new ZipArchive;
+    $zip->open($path);
+
+    $names = [];
+
+    for ($index = 0; $index < $zip->numFiles; $index++) {
+        $names[] = (string) $zip->getNameIndex($index);
+    }
+
+    $zip->close();
+    @unlink($path);
+
+    return $names;
 }
 
 describe('board meeting detail sheet export', function () {
@@ -139,6 +176,81 @@ describe('board meeting detail sheet export', function () {
         $this->actingAs(createUserWithPermissions(['board-meeting.view']))
             ->getJson("/api/board-meetings/{$meeting->getKey()}/export/docx")
             ->assertStatus(403);
+    });
+
+    it('bundles the sheet and every scan into one archive', function () {
+        Storage::fake('local');
+
+        $meeting = BoardMeeting::factory()->withApprovalDocuments(2)->create(['sequence' => 4]);
+        bm_store_scans($meeting);
+
+        $response = $this->actingAs(createUserWithPermissions([
+            'board-meeting.export',
+            'board-meeting.documents.download',
+        ]))->get("/api/board-meetings/{$meeting->getKey()}/export/zip")
+            ->assertStatus(200)
+            ->assertHeader('Content-Type', 'application/zip');
+
+        expect($response->headers->get('content-disposition'))
+            ->toContain('attachment')
+            ->toContain('.zip');
+
+        expect(substr($response->streamedContent(), 0, 2))->toBe('PK');
+    });
+
+    it('names the sheet after the meeting and keeps the scans beside it', function () {
+        Storage::fake('local');
+
+        $meeting = BoardMeeting::factory()->withApprovalDocuments(2)->create(['sequence' => 4]);
+        bm_store_scans($meeting);
+
+        $response = $this->actingAs(createUserWithPermissions([
+            'board-meeting.export',
+            'board-meeting.documents.download',
+        ]))->get("/api/board-meetings/{$meeting->getKey()}/export/zip")
+            ->assertStatus(200);
+
+        // The archive is unlinked the moment it has been streamed, so the only
+        // way to see what was in it is to open the bytes the response carried.
+        $names = bm_zip_names($response->streamedContent());
+
+        expect($names[0])->toBe('meeting-4-summary.pdf')
+            ->and($names)->toHaveCount(3);
+
+        // Flat: the document bundle nests one folder per owner because it can
+        // hold many entities. A single meeting has one, so every entry would sit
+        // under a folder named after that same meeting.
+        foreach (array_slice($names, 1) as $entry) {
+            expect($entry)->not->toContain('/');
+        }
+    });
+
+    it('refuses the bundle without the sheet permission, even with document download', function () {
+        $meeting = BoardMeeting::factory()->withApprovalDocuments(1)->create();
+
+        $this->actingAs(createUserWithPermissions(['board-meeting.documents.download']))
+            ->getJson("/api/board-meetings/{$meeting->getKey()}/export/zip")
+            ->assertStatus(403);
+    });
+
+    it('refuses the bundle without document download, since the scans are documents', function () {
+        $meeting = BoardMeeting::factory()->withApprovalDocuments(1)->create();
+
+        // The PDF happily hands the same user the meeting: it lists attachment
+        // names and never their bytes. The bundle carries the bytes, so it is
+        // the stricter of the two and must be.
+        $this->actingAs(createUserWithPermissions(['board-meeting.export']))
+            ->getJson("/api/board-meetings/{$meeting->getKey()}/export/zip")
+            ->assertStatus(403);
+    });
+
+    it('still answers a bundle for a meeting with no scans', function () {
+        $meeting = BoardMeeting::factory()->create();
+
+        $this->actingAs(createUserWithPermissions(['board-meeting.export']))
+            ->get("/api/board-meetings/{$meeting->getKey()}/export/zip")
+            ->assertStatus(200)
+            ->assertHeader('Content-Type', 'application/zip');
     });
 
     it('prints the accepted summary, and says it is accepted', function () {

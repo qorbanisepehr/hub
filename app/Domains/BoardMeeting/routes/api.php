@@ -40,6 +40,15 @@ Route::middleware('auth:sanctum')->group(function () {
         ->name('board-meetings.export.docx')
         ->middleware('permission:board-meeting.export');
 
+    // The whole meeting as one archive: the sheet plus its scans. Gated on
+    // `board-meeting.export` for the sheet, and on each scan's own
+    // board-meeting.documents.download inside the action — deny-all, because a
+    // bundle that quietly contained a file the user may not download would be a
+    // way around that permission rather than a use of it.
+    Route::get('board-meetings/{meeting}/export/zip', [BoardMeetingController::class, 'exportBundle'])
+        ->name('board-meetings.export.zip')
+        ->middleware('permission:board-meeting.export');
+
     Route::get('board-meetings/{meeting}', [BoardMeetingController::class, 'show'])
         ->name('board-meetings.show')
         ->middleware('permission:board-meeting.view');

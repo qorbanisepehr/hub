@@ -60,13 +60,21 @@ return [
     ],
 
     /**
-     * Structured zip download (POST /documents/zip). The archive is built on
-     * a temporary local file before the first byte leaves the process, so —
-     * like exports.sync_row_limit for PDF/Word renders — the count cap is
-     * the kernel's only protection against unbounded bundles until the
+     * Structured zip download (POST /documents/zip and a meeting's bundle).
+     * The archive is built on a temporary local file before the first byte
+     * leaves the process, so — like exports.sync_row_limit for PDF/Word renders
+     * — these caps are the only protection against unbounded bundles until the
      * queued-download path lands alongside the heavy exports.
+     *
+     * Two caps because they bound different things. `max_files` bounds how much
+     * work the archive is; `max_bytes` bounds what it costs to build and hold.
+     * A hundred small files and a hundred enormous ones both satisfy the first
+     * and neither should satisfy the second. Sized for a board meeting's scans
+     * rather than for a library: comfortably past any real meeting, and well
+     * short of the temp disk filling up.
      */
     'zip' => [
         'max_files' => (int) env('DOCUMENTS_ZIP_MAX_FILES', 100),
+        'max_bytes' => (int) env('DOCUMENTS_ZIP_MAX_BYTES', 536_870_912),
     ],
 ];

@@ -3,6 +3,7 @@
 namespace App\Domains\BoardMeeting\Controllers;
 
 use App\Contracts\BoardMeeting\RegistrySync;
+use App\Contracts\DocumentAuthorization;
 use App\Domains\BoardMeeting\Events\BoardMeetingUpdated;
 use App\Domains\BoardMeeting\Exports\BoardMeetingExporter;
 use App\Domains\BoardMeeting\Exports\BoardMeetingSheetExport;
@@ -13,7 +14,15 @@ use App\Domains\BoardMeeting\Resources\BoardMeetingResource;
 use App\Domains\BoardMeeting\Services\BoardMeetingListQuery;
 use App\Domains\BoardMeeting\Services\MeetingSummaryApplier;
 use App\Domains\BoardMeeting\Value\Attendee;
+use App\Domains\Document\Auth\DocumentAuthorizationContext;
+use App\Domains\Document\Enums\DocumentAction;
+use App\Domains\Document\Exceptions\DocumentZipLimitExceeded;
+use App\Domains\Document\Models\Document;
+use App\Domains\Document\Models\DocumentUsage;
+use App\Domains\Document\Services\DocumentService;
 use App\Support\Audit\AttributeDiff;
+use App\Support\Exports\BundleBuilder;
+use App\Support\Exports\BundleEntry;
 use App\Support\Exports\Concerns\StreamsTabularExports;
 use App\Support\Exports\DocumentExportService;
 use App\Support\Exports\ExportService;
@@ -23,7 +32,9 @@ use App\Support\Exports\Value\ExportRequest;
 use App\Support\ListQuery;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
@@ -123,6 +134,123 @@ class BoardMeetingController
     public function exportPdf(BoardMeeting $meeting, DocumentExportService $documents): StreamedResponse
     {
         return $this->streamMeetingSheet($meeting, $documents, 'pdf');
+    }
+
+    /**
+     * Everything the meeting is, in one archive: the printable sheet plus the
+     * scans filed under it.
+     *
+     * Two permissions, because the archive holds two kinds of thing. The sheet
+     * needs `board-meeting.export` — the route's own gate. Each scan needs the
+     * document download permission, which the authorization engine resolves from
+     * the usage's owner, so this asks for it per usage rather than assuming one
+     * permission covers both. Holding only the export permission gets you the
+     * sheet and a 403 on the scans, which is exactly the line the PDF already
+     * draws when it lists attachments by name and never their content.
+     *
+     * Deny-all for the same reason the document bundle is: a bundle that
+     * quietly contained a file the user may not download would be a way around
+     * the permission rather than a use of it. One denial refuses the request.
+     *
+     * Flat inside, and deliberately so. The document bundle groups by owner
+     * because it can hold many entities; a single meeting has exactly one, so a
+     * folder named after the meeting containing everything else would be a level
+     * of nesting that teaches a reader nothing.
+     */
+    public function exportBundle(
+        BoardMeeting $meeting,
+        Request $request,
+        DocumentExportService $exports,
+        DocumentService $documentService,
+        BundleBuilder $bundles,
+        DocumentAuthorization $documentAuthorization,
+    ): StreamedResponse {
+        $actor = $request->user();
+
+        if ($actor === null) {
+            abort(401);
+        }
+
+        $meeting->loadMissing('documentUsages.document.category');
+
+        $usages = $meeting->documentUsages;
+
+        foreach ($usages as $usage) {
+            if (! $documentAuthorization->authorize(
+                $actor,
+                DocumentAction::Download,
+                DocumentAuthorizationContext::forUsage($usage),
+            )) {
+                abort(403, __('messages.permission_denied'));
+            }
+        }
+
+        $limit = (int) config('documents.zip.max_files');
+
+        if ($usages->count() > $limit) {
+            throw DocumentZipLimitExceeded::forLimit($limit);
+        }
+
+        // The sheet is the one file in here that is not a document, so it is
+        // the one entry this domain names itself. PDF only: a second editable
+        // copy of the same minutes inside a zip is a file nobody opens, and
+        // Word is already one button away on the page.
+        $entries = [BundleEntry::fromExport(
+            $exports->run(new BoardMeetingSheetExport, $meeting, 'pdf'),
+            $this->sheetName($meeting),
+        )];
+
+        foreach ($usages as $usage) {
+            $document = $usage->document;
+
+            $entries[] = BundleEntry::fromFile(
+                path: Storage::disk($document->disk)->path($document->path),
+                entryName: $this->bundleEntryName($document, $documentService, $usage),
+            );
+        }
+
+        $bundle = $bundles->build(
+            $entries,
+            filename: 'board-meeting-'.$meeting->getKey().'-'.now()->format('Y-m-d').'.zip',
+            // One over the document cap: the cap counts documents, and the
+            // sheet is not one of them.
+            maxEntries: $limit + 1,
+            maxBytes: (int) config('documents.zip.max_bytes'),
+        );
+
+        return response()->streamDownload(function () use ($bundle): void {
+            try {
+                readfile($bundle->path);
+            } finally {
+                $bundle->delete();
+            }
+        }, $bundle->filename, ['Content-Type' => $bundle->mimeType]);
+    }
+
+    /**
+     * The sheet's name inside the archive: the registry sequence when the
+     * meeting has one, since that is how the meeting itself is called.
+     */
+    private function sheetName(BoardMeeting $meeting): string
+    {
+        $stem = $meeting->sequence !== null && $meeting->sequence > 0
+            ? 'meeting-'.$meeting->sequence
+            : 'meeting-'.$meeting->getKey();
+
+        return "{$stem}-summary.pdf";
+    }
+
+    /**
+     * ASCII entry name from the same placement slug the document bundle uses,
+     * so one scan reads identically whichever archive it arrived in.
+     */
+    private function bundleEntryName(Document $document, DocumentService $documentService, DocumentUsage $usage): string
+    {
+        $slug = $documentService->structureNames($document, $usage)['slug'];
+
+        $extension = pathinfo($document->path, PATHINFO_EXTENSION);
+
+        return $extension !== '' ? "{$slug}.{$extension}" : $slug;
     }
 
     /**
