@@ -6,6 +6,7 @@ use App\Domains\BoardMeeting\Ai\MeetingSummaryField;
 use App\Domains\BoardMeeting\Events\MeetingSummaryAccepted;
 use App\Domains\BoardMeeting\Events\MeetingSummaryDismissed;
 use App\Domains\BoardMeeting\Exceptions\NoPendingSummary;
+use App\Domains\BoardMeeting\Exceptions\StalePendingSummary;
 use App\Domains\BoardMeeting\Jobs\GenerateBoardMeetingSummaryJob;
 use App\Domains\BoardMeeting\Models\BoardMeeting;
 use App\Domains\BoardMeeting\Requests\AcceptMeetingSummaryRequest;
@@ -138,7 +139,12 @@ class MeetingSummaryController
         $before = $meeting->tags->pluck('slug')->all();
 
         try {
-            $applier->acceptPending($meeting, $accepted, $request->tagSlugs());
+            $applier->acceptPending(
+                $meeting,
+                $accepted,
+                $request->tagSlugs(),
+                $request->generatedAt(),
+            );
         } catch (NoPendingSummary) {
             // A conflict rather than a 404: the meeting is there and so is the
             // route, the thing being decided about is simply gone — because the
@@ -147,6 +153,15 @@ class MeetingSummaryController
             // re-read the meeting, which is what a 409 tells it to do.
             return response()->json([
                 'message' => __('board_meeting.summary.nothing_pending'),
+            ], Response::HTTP_CONFLICT);
+        } catch (StalePendingSummary) {
+            // Same recovery, different news: the proposal the decision was
+            // made about was replaced while the dialog was open. Applying
+            // it anyway would have a person accepting a proposal they never
+            // saw, so the client is told to re-read — the newer proposal is
+            // what the page will show.
+            return response()->json([
+                'message' => __('board_meeting.summary.stale_pending'),
             ], Response::HTTP_CONFLICT);
         }
 

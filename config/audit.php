@@ -134,6 +134,10 @@ return [
         // tags, one fewer open question - so it is not an `updated`-weight event
         // the way accepting one is.
         'boardmeeting.summary_dismissed' => ['category' => 'boardmeeting', 'sensitivity' => 'low'],
+
+        // Tagging — a merge is a person collapsing vocabulary rows, content
+        // change with a diff, same weight class as the other content events.
+        'tagging.merged' => ['category' => 'tagging', 'sensitivity' => 'medium'],
     ],
 
 ];

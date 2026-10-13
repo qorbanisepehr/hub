@@ -21,6 +21,12 @@ use Illuminate\Validation\Rule;
  * meeting has no tags". Making it required is what keeps "no tags" and "leave
  * the tags alone" apart: a client that omits the key has made a mistake, not a
  * request to clear the meeting's tags.
+ *
+ * `generated_at` is the optimistic-concurrency echo: the proposal's own stamp
+ * as the client read it (it is on every row payload already). Optional, so a
+ * caller that does not implement the check is only unprotected, not refused;
+ * present, it is the assertion that the proposal on the row is the one this
+ * decision was made about.
  */
 class AcceptMeetingSummaryRequest extends FormRequest
 {
@@ -48,7 +54,19 @@ class AcceptMeetingSummaryRequest extends FormRequest
             // answer the boundary refuses to accept.
             'tag_slugs' => ['present', 'array', 'max:50'],
             'tag_slugs.*' => ['required', 'string', 'max:100'],
+            'generated_at' => ['sometimes', 'string', 'max:40'],
         ];
+    }
+
+    /**
+     * The pending proposal's stamp as the caller last read it, or null when
+     * the caller makes no claim about which proposal it is deciding about.
+     */
+    public function generatedAt(): ?string
+    {
+        $value = $this->input('generated_at');
+
+        return is_string($value) && $value !== '' ? $value : null;
     }
 
     /**

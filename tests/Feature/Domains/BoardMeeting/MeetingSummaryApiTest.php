@@ -11,6 +11,7 @@ use App\Domains\BoardMeeting\Services\MeetingSummaryApplier;
 use App\Domains\BoardMeeting\Services\MeetingSummaryCanceller;
 use App\Domains\BoardMeeting\Value\MeetingSummary;
 use App\Domains\Tagging\Services\TagService;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Queue;
 
@@ -317,6 +318,64 @@ describe('POST /api/board-meetings/{meeting}/summary/accept', function () {
             ])
             ->assertStatus(409)
             ->assertJsonPath('message', __('board_meeting.summary.nothing_pending'));
+    });
+
+    it('refuses a decision echoed against a replaced proposal', function () {
+        ($this->run)(['executive_summary' => 'خلاصه قدیم', 'topics' => ['بودجه']]);
+        $staleStamp = MeetingSummary::fromArray($this->meeting->fresh()->summary)->pending->generatedAt;
+
+        // A second run replaces the pending slot silently — the one now on the
+        // row is not the one the caller read and decided about. The clock moves
+        // because stamps have one-second resolution (the same limit documented
+        // at holdsRun), and two fakes within the same second would be
+        // indistinguishable from each other rather than from the stale one.
+        Carbon::setTestNow(now()->addMinute());
+        ($this->run)(['executive_summary' => 'خلاصه جدید', 'topics' => ['قرارداد']]);
+        Carbon::setTestNow();
+
+        actingAs(createUserWithPermissions(['board-meeting.update']))
+            ->postJson("/api/board-meetings/{$this->meeting->id}/summary/accept", [
+                'accepted_fields' => ['executive_summary'],
+                'tag_slugs' => [],
+                'generated_at' => $staleStamp,
+            ])
+            ->assertStatus(409)
+            ->assertJsonPath('message', __('board_meeting.summary.stale_pending'));
+
+        // Nothing was applied: the newer proposal is still waiting, untouched.
+        $stored = MeetingSummary::fromArray($this->meeting->fresh()->summary);
+
+        expect($stored->pending->values['executive_summary'])->toBe('خلاصه جدید')
+            ->and($this->meeting->fresh()->tags->pluck('slug')->all())->toBe([]);
+    });
+
+    it('accepts when the echoed stamp still matches the row', function () {
+        ($this->run)(['executive_summary' => 'خلاصه', 'topics' => ['بودجه']]);
+        $stamp = MeetingSummary::fromArray($this->meeting->fresh()->summary)->pending->generatedAt;
+
+        actingAs(createUserWithPermissions(['board-meeting.update']))
+            ->postJson("/api/board-meetings/{$this->meeting->id}/summary/accept", [
+                'accepted_fields' => ['executive_summary'],
+                'tag_slugs' => ['budget'],
+                'generated_at' => $stamp,
+            ])
+            ->assertOk();
+
+        expect($this->meeting->fresh()->tags->pluck('slug')->all())
+            ->toEqualCanonicalizing(['budget']);
+    });
+
+    it('leaves a caller with no echo unprotected rather than refused', function () {
+        ($this->run)(['executive_summary' => 'خلاصه', 'topics' => ['بودجه']]);
+
+        // The echo is optional by design: a caller that does not implement
+        // the check loses its protection, not its access.
+        actingAs(createUserWithPermissions(['board-meeting.update']))
+            ->postJson("/api/board-meetings/{$this->meeting->id}/summary/accept", [
+                'accepted_fields' => ['executive_summary'],
+                'tag_slugs' => [],
+            ])
+            ->assertOk();
     });
 
     it('rejects a request with no tag list at all', function () {

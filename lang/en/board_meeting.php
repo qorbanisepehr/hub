@@ -9,6 +9,7 @@ return [
      */
     'summary' => [
         'nothing_pending' => 'There is no summary awaiting a decision.',
+        'stale_pending' => 'This proposal was replaced by a newer run since you opened it; re-read the meeting.',
         'bulk_queued' => ':count meetings queued. :skipped skipped.',
         'run_in_flight' => 'A summary run for this meeting is already under way; wait for it to finish before starting another.',
         'nothing_running' => 'There is no summary run here to stop.',

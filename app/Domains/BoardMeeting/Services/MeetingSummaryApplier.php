@@ -5,6 +5,7 @@ namespace App\Domains\BoardMeeting\Services;
 use App\Domains\BoardMeeting\Ai\MeetingSummaryField;
 use App\Domains\BoardMeeting\Enums\SummaryWriteMode;
 use App\Domains\BoardMeeting\Exceptions\NoPendingSummary;
+use App\Domains\BoardMeeting\Exceptions\StalePendingSummary;
 use App\Domains\BoardMeeting\Models\BoardMeeting;
 use App\Domains\BoardMeeting\Value\MeetingSummary;
 use App\Domains\Tagging\Services\TagService;
@@ -253,23 +254,57 @@ final readonly class MeetingSummaryApplier
      * keeps the stored value. Ticking it is therefore harmless rather than
      * destructive, and the client simply has no reason to offer the tick.
      *
+     * The decision is made against a locked re-read, not the instance the
+     * route binding handed over: that one was read some time before the
+     * decision, and a run landing between its read and this write would
+     * otherwise be overwritten by whichever lands last. The lock closes the
+     * write-write race; `$expectedGeneratedAt` closes the read-write one —
+     * the caller's assertion, when it sends one, that the proposal it decided
+     * about is still the one on the row (a newer run replaces the pending
+     * slot silently, so only the echo can catch the gap). Null keeps older
+     * callers working: unprotected, not refused.
+     *
      * @param  list<MeetingSummaryField>  $accepted
      * @param  list<string>  $tagSlugs
+     * @param  string|null  $expectedGeneratedAt  the pending proposal's stamp
+     *                                            as the caller read it
      *
      * @throws NoPendingSummary when the meeting has nothing to decide about
+     * @throws StalePendingSummary when the pending proposal is not the one the
+     *                             caller decided about
      */
-    public function acceptPending(BoardMeeting $meeting, array $accepted, array $tagSlugs): MeetingSummary
-    {
-        $previous = MeetingSummary::fromArray($meeting->summary);
-        $candidate = $previous?->pending ?? throw NoPendingSummary::for($meeting);
+    public function acceptPending(
+        BoardMeeting $meeting,
+        array $accepted,
+        array $tagSlugs,
+        ?string $expectedGeneratedAt = null,
+    ): MeetingSummary {
+        return DB::transaction(function () use ($meeting, $accepted, $tagSlugs, $expectedGeneratedAt): MeetingSummary {
+            // Selected and locked in one statement: from here to the commit
+            // the row's summary cannot move, which is the guarantee both
+            // checks below and the persist rely on.
+            $fresh = BoardMeeting::query()
+                ->whereKey($meeting->getKey())
+                ->lockForUpdate()
+                ->first();
 
-        $result = $accepted === []
-            ? $previous->withPending(null)
-            : $candidate->narrowedTo($accepted)->mergedOver($previous);
+            $previous = MeetingSummary::fromArray($fresh?->summary);
+            $candidate = $previous?->pending ?? throw NoPendingSummary::for($meeting);
 
-        $this->persist($meeting, $result, $this->tagProposals($candidate, $tagSlugs));
+            if ($expectedGeneratedAt !== null
+                && $candidate->generatedAt !== $expectedGeneratedAt
+            ) {
+                throw StalePendingSummary::for($meeting);
+            }
 
-        return $result;
+            $result = $accepted === []
+                ? $previous->withPending(null)
+                : $candidate->narrowedTo($accepted)->mergedOver($previous);
+
+            $this->persist($fresh, $result, $this->tagProposals($candidate, $tagSlugs));
+
+            return $result;
+        });
     }
 
     /**
