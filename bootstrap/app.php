@@ -2,6 +2,7 @@
 
 use App\Domains\Authorization\Middleware\CheckPermission;
 use App\Domains\Authorization\Middleware\CheckRole;
+use App\Domains\Document\Exceptions\DocumentZipLimitExceeded;
 use App\Http\Middleware\VerifyGrantAccess;
 use App\Http\Middleware\VerifyServeGrant;
 use App\Integrations\Farzin\FarzinUnavailableException;
@@ -62,6 +63,15 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->render(function (DocumentRowLimitExceeded $e, Request $request) {
             return response()->json([
                 'message' => __('exports.row_limit_exceeded'),
+            ], 422);
+        });
+
+        // The zip bundle is built on a temporary file before it streams, so
+        // the kernel caps it by document count; over the cap the caller must
+        // narrow the selection.
+        $exceptions->render(function (DocumentZipLimitExceeded $e, Request $request) {
+            return response()->json([
+                'message' => __('document.zip_limit_exceeded'),
             ], 422);
         });
 

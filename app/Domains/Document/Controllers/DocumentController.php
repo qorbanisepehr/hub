@@ -8,16 +8,21 @@ use App\Domains\Document\Auth\DocumentAuthorizationContext;
 use App\Domains\Document\Enums\DocumentAction;
 use App\Domains\Document\Events\DocumentDownloaded;
 use App\Domains\Document\Events\DocumentForceDeleted;
+use App\Domains\Document\Events\DocumentsZipped;
+use App\Domains\Document\Exceptions\DocumentZipLimitExceeded;
 use App\Domains\Document\Models\Document;
 use App\Domains\Document\Models\DocumentCategory;
 use App\Domains\Document\Models\DocumentUsage;
 use App\Domains\Document\Requests\StoreDocumentRequest;
 use App\Domains\Document\Requests\StoreFromLibraryRequest;
+use App\Domains\Document\Requests\ZipDocumentsRequest;
 use App\Domains\Document\Resources\DocumentResource;
 use App\Domains\Document\Services\DocumentService;
+use App\Domains\Document\Services\DocumentZipService;
 use App\Support\DocumentRouteType;
 use App\Support\ListQuery;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -30,6 +35,7 @@ class DocumentController extends Controller
     public function __construct(
         private readonly DocumentService $documentService,
         private readonly DocumentAuthorization $documentAuthorization,
+        private readonly DocumentZipService $documentZipService,
     ) {}
 
     public function index(Request $request): AnonymousResourceCollection
@@ -283,6 +289,66 @@ class DocumentController extends Controller
         return Storage::disk($disk)->download(
             $path,
             $this->documentService->downloadName($document),
+        );
+    }
+
+    /**
+     * Stream a structured zip of the requested documents (usage ids in the
+     * body). Deny-all: every usage must pass the same single-file
+     * `DocumentAction::Download` check — one denial rejects the whole
+     * bundle, so a bundle is never partially granted.
+     */
+    public function zip(ZipDocumentsRequest $request): StreamedResponse
+    {
+        $actor = $request->user();
+
+        if ($actor === null) {
+            abort(401);
+        }
+
+        $ids = $request->validated('ids');
+
+        $usages = DocumentUsage::query()
+            ->with('document.category')
+            ->whereIn('id', $ids)
+            ->whereNull('document_usages.deleted_at')
+            ->orderBy('id')
+            ->get();
+
+        if ($usages->count() !== count($ids)) {
+            throw (new ModelNotFoundException)->setModel(DocumentUsage::class, $ids);
+        }
+
+        foreach ($usages as $usage) {
+            if (! $this->documentAuthorization->authorize(
+                $actor,
+                DocumentAction::Download,
+                DocumentAuthorizationContext::forUsage($usage),
+            )) {
+                abort(403, __('messages.permission_denied'));
+            }
+        }
+
+        $limit = (int) config('documents.zip.max_files');
+
+        if ($usages->count() > $limit) {
+            throw DocumentZipLimitExceeded::forLimit($limit);
+        }
+
+        $bundle = $this->documentZipService->build($usages);
+
+        event(new DocumentsZipped($usages->count(), array_map(intval(...), $ids)));
+
+        return response()->streamDownload(
+            function () use ($bundle): void {
+                try {
+                    readfile($bundle['path']);
+                } finally {
+                    @unlink($bundle['path']);
+                }
+            },
+            $bundle['filename'],
+            ['Content-Type' => 'application/zip'],
         );
     }
 

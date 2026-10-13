@@ -58,4 +58,15 @@ return [
         'max_height' => 300,
         'quality' => 80,
     ],
+
+    /**
+     * Structured zip download (POST /documents/zip). The archive is built on
+     * a temporary local file before the first byte leaves the process, so —
+     * like exports.sync_row_limit for PDF/Word renders — the count cap is
+     * the kernel's only protection against unbounded bundles until the
+     * queued-download path lands alongside the heavy exports.
+     */
+    'zip' => [
+        'max_files' => (int) env('DOCUMENTS_ZIP_MAX_FILES', 100),
+    ],
 ];

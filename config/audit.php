@@ -111,6 +111,9 @@ return [
         'document.placed' => ['category' => 'document', 'sensitivity' => 'medium'],
         'document.restored' => ['category' => 'document', 'sensitivity' => 'medium'],
         'document.uploaded' => ['category' => 'document', 'sensitivity' => 'medium'],
+        // One bundle download is many document leaves leaving at once — same
+        // weight class as the single-file `downloaded` event.
+        'document.zipped' => ['category' => 'document', 'sensitivity' => 'high'],
 
         // Employees
         'employee.created' => ['category' => 'employee', 'sensitivity' => 'medium'],
