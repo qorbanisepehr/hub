@@ -45,6 +45,7 @@ use App\Support\Exports\DocumentExportService;
 use App\Support\Exports\DocumentRendererRegistry;
 use App\Support\Exports\ExportService;
 use App\Support\Exports\Render\DocxRenderer;
+use App\Support\Exports\Render\MarkdownRenderer;
 use App\Support\Exports\Render\PdfRenderer;
 use App\Support\Exports\Writer\CsvWriter;
 use App\Support\Exports\Writer\JsonlWriter;
@@ -195,14 +196,15 @@ class AppServiceProvider extends ServiceProvider
         });
         $this->app->singleton(ExportService::class);
 
-        // Document renderers (PDF/Word): the in-memory half of the export
-        // kernel, registered as a sibling of the tabular WriterRegistry so
-        // a new document format is one line here, never an edit to the
+        // Document renderers (PDF/Word/Markdown): the in-memory half of the
+        // export kernel, registered as a sibling of the tabular WriterRegistry
+        // so a new document format is one line here, never an edit to the
         // services (same OCP as the writers).
         $this->app->singleton(DocumentRendererRegistry::class, function (): DocumentRendererRegistry {
             $registry = new DocumentRendererRegistry;
             $registry->register('pdf', new PdfRenderer);
             $registry->register('docx', new DocxRenderer);
+            $registry->register('md', new MarkdownRenderer);
 
             return $registry;
         });

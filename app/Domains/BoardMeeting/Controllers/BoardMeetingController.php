@@ -152,6 +152,13 @@ class BoardMeetingController
      * quietly contained a file the user may not download would be a way around
      * the permission rather than a use of it. One denial refuses the request.
      *
+     * Three renderings of the sheet ride along, and that is not redundancy. The
+     * PDF is what gets printed and filed; the Word file is what somebody opens
+     * when they mean to change something — an archive you cannot edit is only
+     * half an archive; the Markdown is what greps, diffs, pastes into an issue,
+     * or goes to an agent with no parser in between. One of the three forces
+     * somebody to reconvert into the other two.
+     *
      * Flat inside, and deliberately so. The document bundle groups by owner
      * because it can hold many entities; a single meeting has exactly one, so a
      * folder named after the meeting containing everything else would be a level
@@ -191,14 +198,23 @@ class BoardMeetingController
             throw DocumentZipLimitExceeded::forLimit($limit);
         }
 
-        // The sheet is the one file in here that is not a document, so it is
-        // the one entry this domain names itself. PDF only: a second editable
-        // copy of the same minutes inside a zip is a file nobody opens, and
-        // Word is already one button away on the page.
-        $entries = [BundleEntry::fromExport(
-            $exports->run(new BoardMeetingSheetExport, $meeting, 'pdf'),
-            $this->sheetName($meeting),
-        )];
+        // The sheet is the one thing in here that is not a document, so it is
+        // what this domain names itself — and it goes in three times, because the
+        // three formats answer three different readers and an archive that only
+        // holds one of them forces somebody to reconvert. The PDF is what gets
+        // printed and filed. The Word file is what somebody opens when they mean
+        // to change something — an archive you cannot edit is only half an
+        // archive. The Markdown is what greps, diffs, pastes into an issue, and
+        // can be handed to an agent with no parser in between. Clutter would be
+        // a fourth rendering nobody asked for, not three that each have a
+        // reader.
+        $sheet = new BoardMeetingSheetExport;
+
+        $entries = [
+            BundleEntry::fromExport($exports->run($sheet, $meeting, 'pdf'), $this->sheetName($meeting, 'pdf')),
+            BundleEntry::fromExport($exports->run($sheet, $meeting, 'docx'), $this->sheetName($meeting, 'docx')),
+            BundleEntry::fromExport($exports->run($sheet, $meeting, 'md'), $this->sheetName($meeting, 'md')),
+        ];
 
         foreach ($usages as $usage) {
             $document = $usage->document;
@@ -214,7 +230,9 @@ class BoardMeetingController
             filename: 'board-meeting-'.$meeting->getKey().'-'.now()->format('Y-m-d').'.zip',
             // One over the document cap: the cap counts documents, and the
             // sheet is not one of them.
-            maxEntries: $limit + 1,
+            // One over the document cap per sheet: the cap counts documents, and
+            // none of the three sheets is one of them.
+            maxEntries: $limit + 3,
             maxBytes: (int) config('documents.zip.max_bytes'),
         );
 
@@ -231,13 +249,13 @@ class BoardMeetingController
      * The sheet's name inside the archive: the registry sequence when the
      * meeting has one, since that is how the meeting itself is called.
      */
-    private function sheetName(BoardMeeting $meeting): string
+    private function sheetName(BoardMeeting $meeting, string $extension): string
     {
         $stem = $meeting->sequence !== null && $meeting->sequence > 0
             ? 'meeting-'.$meeting->sequence
             : 'meeting-'.$meeting->getKey();
 
-        return "{$stem}-summary.pdf";
+        return "{$stem}-summary.{$extension}";
     }
 
     /**
@@ -266,6 +284,22 @@ class BoardMeetingController
     public function exportDocx(BoardMeeting $meeting, DocumentExportService $documents): StreamedResponse
     {
         return $this->streamMeetingSheet($meeting, $documents, 'docx');
+    }
+
+    /**
+     * The same sheet as Markdown.
+     *
+     * The one format that is not a document at all: no font to embed, no
+     * pagination, no binary container. What it buys is that the meeting becomes
+     * a file you can diff, grep, paste into an issue, or hand to an agent
+     * without a parser — which in a hub that runs a summarizer is not a
+     * novelty. It costs the layout the other two give you, and says so in the
+     * renderer's own docblock rather than pretending a pipe table can be made
+     * to read right-to-left.
+     */
+    public function exportMarkdown(BoardMeeting $meeting, DocumentExportService $documents): StreamedResponse
+    {
+        return $this->streamMeetingSheet($meeting, $documents, 'md');
     }
 
     /**

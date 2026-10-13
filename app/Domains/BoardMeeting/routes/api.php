@@ -49,6 +49,13 @@ Route::middleware('auth:sanctum')->group(function () {
         ->name('board-meetings.export.zip')
         ->middleware('permission:board-meeting.export');
 
+    // The sheet as Markdown — diffable, greppable, and readable by an agent
+    // with no parser in between. Free in the kernel: a registered renderer and
+    // one line through the same streamMeetingSheet the other formats use.
+    Route::get('board-meetings/{meeting}/export/md', [BoardMeetingController::class, 'exportMarkdown'])
+        ->name('board-meetings.export.md')
+        ->middleware('permission:board-meeting.export');
+
     Route::get('board-meetings/{meeting}', [BoardMeetingController::class, 'show'])
         ->name('board-meetings.show')
         ->middleware('permission:board-meeting.view');

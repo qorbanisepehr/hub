@@ -87,9 +87,7 @@ function bm_store_scans(BoardMeeting $meeting): void
  */
 function bm_zip_names(string $bytes): array
 {
-    $path = tempnam(sys_get_temp_dir(), 'bundle-check-');
-    file_put_contents($path, $bytes);
-
+    $path = bm_zip_write($bytes);
     $zip = new ZipArchive;
     $zip->open($path);
 
@@ -103,6 +101,28 @@ function bm_zip_names(string $bytes): array
     @unlink($path);
 
     return $names;
+}
+
+/** One entry's bytes out of a zip carried by a streamed response. */
+function bm_zip_read(string $bytes, string $entry): string
+{
+    $path = bm_zip_write($bytes);
+    $zip = new ZipArchive;
+    $zip->open($path);
+    $contents = (string) $zip->getFromName($entry);
+    $zip->close();
+    @unlink($path);
+
+    return $contents;
+}
+
+/** ZipArchive needs a real file; a streamed response only ever had bytes. */
+function bm_zip_write(string $bytes): string
+{
+    $path = (string) tempnam(sys_get_temp_dir(), 'bundle-check-');
+    file_put_contents($path, $bytes);
+
+    return $path;
 }
 
 describe('board meeting detail sheet export', function () {
@@ -214,15 +234,38 @@ describe('board meeting detail sheet export', function () {
         // way to see what was in it is to open the bytes the response carried.
         $names = bm_zip_names($response->streamedContent());
 
-        expect($names[0])->toBe('meeting-4-summary.pdf')
-            ->and($names)->toHaveCount(3);
+        // Three renderings, not one: what gets filed, what gets edited, and
+        // what greps. An archive holding only the first two still forces a
+        // reconversion for the third.
+        expect(array_slice($names, 0, 3))->toBe([
+            'meeting-4-summary.pdf',
+            'meeting-4-summary.docx',
+            'meeting-4-summary.md',
+        ])->and($names)->toHaveCount(5);
 
         // Flat: the document bundle nests one folder per owner because it can
         // hold many entities. A single meeting has one, so every entry would sit
         // under a folder named after that same meeting.
-        foreach (array_slice($names, 1) as $entry) {
+        foreach (array_slice($names, 3) as $entry) {
             expect($entry)->not->toContain('/');
         }
+    });
+
+    it('carries a real Word file inside the bundle, not just the name of one', function () {
+        Storage::fake('local');
+
+        $meeting = BoardMeeting::factory()->withApprovalDocuments(1)->create(['sequence' => 4]);
+        bm_store_scans($meeting);
+
+        $response = $this->actingAs(createUserWithPermissions([
+            'board-meeting.export',
+            'board-meeting.documents.download',
+        ]))->get("/api/board-meetings/{$meeting->getKey()}/export/zip")
+            ->assertStatus(200);
+
+        // A .docx is itself a zip, so PK is the proof that Word's bytes are in
+        // there rather than an empty placeholder carrying the right filename.
+        expect(substr(bm_zip_read($response->streamedContent(), 'meeting-4-summary.docx'), 0, 2))->toBe('PK');
     });
 
     it('refuses the bundle without the sheet permission, even with document download', function () {
@@ -251,6 +294,35 @@ describe('board meeting detail sheet export', function () {
             ->get("/api/board-meetings/{$meeting->getKey()}/export/zip")
             ->assertStatus(200)
             ->assertHeader('Content-Type', 'application/zip');
+    });
+
+    it('serves the sheet as Markdown, readable without any renderer', function () {
+        $meeting = BoardMeeting::factory()->create([
+            'sequence' => 4,
+            'summary' => [
+                'status' => MeetingSummary::STATUS_OK,
+                'executive_summary' => 'بودجه تصویب شد',
+            ],
+        ]);
+
+        $response = $this->actingAs(createUserWithPermissions(['board-meeting.export']))
+            ->get("/api/board-meetings/{$meeting->getKey()}/export/md")
+            ->assertStatus(200)
+            ->assertHeader('Content-Type', 'text/markdown; charset=utf-8');
+
+        expect($response->headers->get('content-disposition'))
+            ->toContain('attachment')
+            ->toContain('board-meeting-session-4')
+            ->toContain('.md');
+
+        // The point of the format: headings and prose a grep or an agent can
+        // read, with no font and no parser in between.
+        $markdown = $response->streamedContent();
+
+        expect($markdown)
+            ->toContain('## حاضران')
+            ->toContain('## خلاصه')
+            ->toContain('بودجه تصویب شد');
     });
 
     it('prints the accepted summary, and says it is accepted', function () {
