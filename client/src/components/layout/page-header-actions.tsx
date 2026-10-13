@@ -7,11 +7,13 @@ import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
-    DropdownMenuLabel,
     DropdownMenuSeparator,
+    DropdownMenuSub,
+    DropdownMenuSubContent,
+    DropdownMenuSubTrigger,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { PermissionGuard } from "@/features/auth/components/permission-guard";
+import { useAuthorization } from "@/features/auth";
 
 /**
  * One choice inside a grouped action. Same vocabulary as an action, because a
@@ -26,8 +28,8 @@ export type PageHeaderSubAction = {
     permission?: string | string[];
     /**
      * "all" demands every listed permission; "any" (the default) demands one.
-     * Needed because a bundle can require two permissions at once, and
-     * "either" would then offer a download the server refuses.
+     * Needed because one choice can require two permissions at once, and
+     * "either" would then offer an action the server refuses.
      */
     permissionMode?: "any" | "all";
     /** A divider above this item, to set one kind of choice apart from another. */
@@ -47,7 +49,7 @@ export type PageHeaderAction = {
     /**
      * Greys the action out while it is working. Exists for the async ones: a
      * header button that fires a request must not offer itself twice before the
-     * first answer arrives, and a second click on a PDF export would queue a
+     * first answer arrives, and a second click on an export would queue a
      * second copy of a file the user already has downloading.
      */
     disabled?: boolean;
@@ -57,7 +59,7 @@ export type PageHeaderAction = {
      * For the actions a page offers in the same family — four ways to take a
      * copy of the same thing, say. Each is a real button somebody will want,
      * but four of them side by side turns the header into a wall of chrome and
-     * leaves «ویرایش» the only thing that still looks like the page's verb.
+     * leaves the page's actual verb looking like just another file format.
      *
      * The permission belongs on the ITEMS, not on the group: the trigger would
      * otherwise be hidden by the one permission its rarest item needs, taking
@@ -72,31 +74,48 @@ type PageHeaderActionsProps = {
 };
 
 /**
- * Header action buttons that render inline on desktop (md+) and condense into
- * a "…" DropdownMenu on mobile — the same Desktop/Mobile split RowActions
- * uses, but for page headers instead of table rows. Items may carry an
- * optional permission; icon-only actions only show a tooltip label (desktop)
- * and a labelled menu item (mobile).
+ * Header actions that render inline on desktop (md+) and condense into a "…"
+ * menu on mobile — the same Desktop/Mobile split RowActions uses, but for page
+ * headers instead of table rows.
  *
- * A grouped action flattens into the mobile menu under its own label rather
- * than opening a submenu: a nested menu inside a menu that is already one level
- * deep costs a second tap for no gain, and the mobile menu is where the user is
- * least disposed to tap twice.
+ * A grouped action keeps its shape on both: a button that opens a dropdown on
+ * desktop, a submenu inside the "…" menu on mobile. The mobile one nests rather
+ * than flattening, because "one action with several choices" has to look like
+ * the same thing wherever it is — a list of formats appearing out of nowhere,
+ * with nothing labelling which action opened them, reads as a different page.
+ *
+ * Permissions are resolved once, up here, instead of by wrapping each entry in
+ * a guard. That matters for the menus specifically: a guard leaves a wrapper
+ * element between the popup and its items, and a menu's items are supposed to
+ * be its direct children — arrow-key navigation and focus handling both assume
+ * it. Filtering is also how a submenu trigger can vanish without taking its
+ * parent menu's layout with it.
  */
 export function PageHeaderActions({ actions }: PageHeaderActionsProps) {
-    if (actions.length === 0) return null;
+    const { canAny, canAll } = useAuthorization();
+
+    const allowed = (permission?: string | string[], mode: "any" | "all" = "any"): boolean => {
+        if (!permission) return true;
+
+        const names = Array.isArray(permission) ? permission : [permission];
+
+        return mode === "all" ? canAll(names) : canAny(names);
+    };
+
+    const permitted = actions.filter((action) => allowed(action.permission));
+
+    if (permitted.length === 0) return null;
 
     return (
         <div className="flex items-center gap-2">
             <div className="hidden shrink-0 flex-wrap items-center gap-2 md:flex">
-                {actions.map((action, i) => {
-                    // oxlint-disable-next-line react/no-array-index-key -- static header action config; never reorders
-                    const el = <ActionNode key={i} action={action} />;
-
-                    return action.permission
-                        ? guard(action.permission, el, String(i))
-                        : el;
-                })}
+                {permitted.map((action) =>
+                    action.items?.length ? (
+                        <DesktopGroup key={action.label} action={action} items={action.items.filter((item) => allowed(item.permission, item.permissionMode))} />
+                    ) : (
+                        <DesktopAction key={action.label} action={action} />
+                    ),
+                )}
             </div>
             <div className="md:hidden">
                 <DropdownMenu>
@@ -106,23 +125,13 @@ export function PageHeaderActions({ actions }: PageHeaderActionsProps) {
                         <IconDotsVertical className="size-4" />
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" side="bottom">
-                        {actions.flatMap((action, i) => {
-                            const el = action.items ? (
-                                <GroupLabel action={action} />
+                        {permitted.map((action) =>
+                            action.items?.length ? (
+                                <MobileGroup key={action.label} action={action} items={action.items.filter((item) => allowed(item.permission, item.permissionMode))} />
                             ) : (
-                                <MenuItem action={action} />
-                            );
-
-                            if (action.permission) {
-                                return [guard(action.permission, el, String(i))];
-                            }
-
-                            // A Fragment takes the key without adding a node:
-                            // wrapping a menu item in an element of its own
-                            // would put a box between it and the menu's layout.
-                            // oxlint-disable-next-line react/no-array-index-key -- static header action config; never reorders
-                            return [<Fragment key={i}>{el}</Fragment>];
-                        })}
+                                <MenuItem key={action.label} action={action} />
+                            ),
+                        )}
                     </DropdownMenuContent>
                 </DropdownMenu>
             </div>
@@ -130,11 +139,8 @@ export function PageHeaderActions({ actions }: PageHeaderActionsProps) {
     );
 }
 
-/** Desktop: a group opens a menu; anything else is one button. */
-function ActionNode({ action }: { action: PageHeaderAction }) {
-    if (!action.items?.length) {
-        return <DesktopAction action={action} />;
-    }
+function DesktopGroup({ action, items }: { action: PageHeaderAction; items: PageHeaderSubAction[] }) {
+    if (items.length === 0) return null;
 
     return (
         <DropdownMenu>
@@ -144,7 +150,7 @@ function ActionNode({ action }: { action: PageHeaderAction }) {
                 <IconChevronDown className="size-3.5 opacity-60" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" side="bottom">
-                <ChoiceList items={action.items} />
+                <ChoiceList items={items} />
             </DropdownMenuContent>
         </DropdownMenu>
     );
@@ -193,61 +199,46 @@ function MenuItem({ action }: { action: PageHeaderAction }) {
     );
 }
 
-function GroupLabel({ action }: { action: PageHeaderAction }) {
+/**
+ * The same grouped action, one level down: a submenu inside the mobile "…"
+ * menu. The trigger is a direct child of the popup, which is what lets the
+ * menu's own keyboard navigation reach it.
+ */
+function MobileGroup({ action, items }: { action: PageHeaderAction; items: PageHeaderSubAction[] }) {
+    if (items.length === 0) return null;
+
     return (
-        <DropdownMenuLabel>
-            {action.icon}
-            {action.label}
-        </DropdownMenuLabel>
+        <DropdownMenuSub>
+            <DropdownMenuSubTrigger>
+                {action.icon}
+                {action.label}
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent>
+                <ChoiceList items={items} />
+            </DropdownMenuSubContent>
+        </DropdownMenuSub>
     );
 }
 
 /**
- * A group's choices, shared by the desktop menu and the flattened mobile one so
+ * A group's choices, shared by the desktop dropdown and the mobile submenu so
  * the two can never show a different set.
  */
 function ChoiceList({ items }: { items: PageHeaderSubAction[] }) {
-    return items.map((item, i) => {
-        // oxlint-disable-next-line react/no-array-index-key -- static menu config; never reorders
-        const el = (
-            <>
-                {item.separatorBefore && <DropdownMenuSeparator />}
-                <DropdownMenuItem
-                    disabled={item.disabled}
-                    onClick={item.onClick}
-                >
-                    {item.icon}
-                    {item.label}
-                </DropdownMenuItem>
-            </>
-        );
-
-        return item.permission
-            ? // oxlint-disable-next-line react/no-array-index-key -- static menu config; never reorders
-              guard(item.permission, el, String(i), item.permissionMode)
-            : // oxlint-disable-next-line react/no-array-index-key -- static menu config; never reorders
-              <Fragment key={i}>{el}</Fragment>;
-    });
-}
-
-/**
- * Wrap a node in a permission guard.
- *
- * The wrapper is a keyed `span` rather than the fragment itself because a
- * fragment cannot take a key, and a guard that could not be listed among its
- * siblings would make React warn about every item in a menu.
- */
-function guard(
-    permission: string | string[],
-    node: ReactNode,
-    key: string,
-    mode: "any" | "all" = "any",
-) {
-    return (
-        <span key={key}>
-            <PermissionGuard permission={permission} mode={mode}>
-                {node}
-            </PermissionGuard>
-        </span>
-    );
+    return items.map((item) => (
+        // A Fragment, so the divider is a SIBLING of the item rather than a
+        // child of it: nesting a separator inside a menu item puts a
+        // non-interactive element inside the thing keyboard navigation moves
+        // between, and the item's own hit area stops matching what it draws.
+        <Fragment key={item.label}>
+            {item.separatorBefore && <DropdownMenuSeparator />}
+            <DropdownMenuItem
+                disabled={item.disabled}
+                onClick={item.onClick}
+            >
+                {item.icon}
+                {item.label}
+            </DropdownMenuItem>
+        </Fragment>
+    ));
 }
