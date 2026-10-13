@@ -4,6 +4,7 @@ import { getRouteApi } from "@tanstack/react-router";
 import {
     IconFileDescription,
     IconFileText,
+    IconFileTypePdf,
     IconPencil,
     IconRobot,
     IconTag,
@@ -20,8 +21,14 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { toast } from "sonner";
 import { ErrorPage, PageHeader, PageLayout } from "@/components/layout";
 import { toPersianDate } from "@/lib/date-format";
+import {
+    EXPORT_MIME_TYPES,
+    exportDateStamp,
+    saveBlobResponse,
+} from "@/lib/download";
 import { PERMISSIONS } from "@/lib/permissions";
 import { MeetingDocumentsTab } from "../components/meeting-documents-tab";
 import { MeetingEditDialog } from "../components/meeting-edit-dialog";
@@ -34,6 +41,7 @@ import {
 
 import { MeetingSummarySection } from "../components/meeting-summary-section";
 import { MeetingTagChips } from "../components/meeting-tag-chips";
+import { exportBoardMeetingPdf } from "../api";
 import { hasContent, isRunInFlight } from "../summary-read";
 import {
     useAcceptMeetingSummary,
@@ -105,6 +113,7 @@ export function BoardMeetingDetailPage() {
     const navigate = route.useNavigate();
 
     const [isEditing, setIsEditing] = useState(false);
+    const [isExportingPdf, setIsExportingPdf] = useState(false);
 
     const { data: meeting, isLoading, isError } = useBoardMeeting(meetingId);
 
@@ -119,6 +128,31 @@ export function BoardMeetingDetailPage() {
     const accept = useAcceptMeetingSummary(meetingId);
     const dismiss = useDismissMeetingSummary(meetingId);
     const cancel = useCancelMeetingSummary(meetingId);
+
+    // The sheet is rendered by the server, so there is nothing to hold in the
+    // cache and nothing to refetch afterwards: the button's whole job is to ask
+    // for the file and hand it to the browser. A failed request is the one case
+    // worth saying out loud, because a download that silently does not happen
+    // looks to a user like the button is broken.
+    const handleExportPdf = async () => {
+        setIsExportingPdf(true);
+
+        try {
+            const response = await exportBoardMeetingPdf(meetingId);
+
+            saveBlobResponse(
+                response,
+                `board-meeting-${exportDateStamp()}.pdf`,
+                EXPORT_MIME_TYPES.pdf,
+            );
+        } catch {
+            toast.error("صدور PDF انجام نشد.", {
+                description: "لطفاً دوباره تلاش کنید.",
+            });
+        } finally {
+            setIsExportingPdf(false);
+        }
+    };
 
     // The live run states for every meeting this user has in flight, so the
     // summary tab can be told which run is *this* one. Tracked per subject
@@ -185,6 +219,15 @@ export function BoardMeetingDetailPage() {
                 description={meeting.title ?? meeting.registry_label}
                 backTo="/board-meetings"
                 actions={[
+                    {
+                        icon: <IconFileTypePdf />,
+                        label: "دانلود PDF",
+                        onClick: handleExportPdf,
+                        // Taking a copy away is the export permission's job,
+                        // not the reader's — same line the list page draws.
+                        permission: PERMISSIONS.BOARD_MEETING_EXPORT,
+                        disabled: isExportingPdf,
+                    },
                     {
                         icon: <IconPencil />,
                         label: "ویرایش",

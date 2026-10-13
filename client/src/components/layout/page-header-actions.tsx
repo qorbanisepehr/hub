@@ -21,6 +21,13 @@ export type PageHeaderAction = {
     /** Deep-link hash preserved when navigating (e.g. the active detail tab). Use `true` to keep the current hash. */
     hash?: string | true;
     permission?: string | string[];
+    /**
+     * Greys the action out while it is working. Exists for the async ones: a
+     * header button that fires a request must not offer itself twice before the
+     * first answer arrives, and a second click on a PDF export would queue a
+     * second copy of a file the user already has downloading.
+     */
+    disabled?: boolean;
 };
 
 type PageHeaderActionsProps = {
@@ -103,7 +110,7 @@ function DesktopAction({ action }: { action: PageHeaderAction }) {
         : { onClick: action.onClick };
 
     return (
-        <Button variant="outline" {...buttonProps}>
+        <Button variant="outline" disabled={action.disabled} {...buttonProps}>
             {action.icon}
             {action.label}
         </Button>
@@ -124,7 +131,7 @@ function MenuItem({ action }: { action: PageHeaderAction }) {
         : { onClick: action.onClick };
 
     return (
-        <DropdownMenuItem {...itemProps}>
+        <DropdownMenuItem disabled={action.disabled} {...itemProps}>
             {action.icon}
             {action.label}
         </DropdownMenuItem>

@@ -75,6 +75,20 @@ export function fetchBoardMeeting(id: number | string) {
     );
 }
 
+/**
+ * The printable form of ONE meeting — the detail page, on paper.
+ *
+ * Separate from `exportBoardMeetings` on purpose: that one is the registry as a
+ * table through the tabular kernel, and a single meeting is not a table of one
+ * row. This is the document kernel's path, and the route names its format
+ * instead of taking a `?format=` guess.
+ */
+export function exportBoardMeetingPdf(id: number | string) {
+    return api.get(`/board-meetings/${id}/export/pdf`, {
+        responseType: "blob",
+    });
+}
+
 /** Update the human-owned fields (title/minutes/attendees). */
 export function updateBoardMeeting(
     id: number | string,
