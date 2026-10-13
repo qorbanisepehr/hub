@@ -20,9 +20,11 @@ use App\Support\Exports\ValuePresenter;
  * Named for what it produces rather than for the kernel contract it answers:
  * `DocumentSource` is the kernel's word for "a document", and in this hub a
  * document is an uploaded file owned by the Document domain — an export that
- * borrowed that noun would read as a second way to spell attachments. The
- * naming is `BoardMeetingExporter` (the registry as a table) beside
- * `BoardMeetingPdfExport` (one meeting as paper).
+ * borrowed that noun would read as a second way to spell attachments. Nor is it
+ * named for a format: the same sheet answers to PDF and to Word, and a class
+ * called `...PdfExport` would be lying the moment a second renderer was added.
+ * So: `BoardMeetingExporter` is the registry as a table, `BoardMeetingSheetExport`
+ * is one meeting as paper.
  *
  * Everything below is presentation the API deliberately does not do: the
  * registry export hands the kernel raw values and lets it shape them, whereas a
@@ -39,7 +41,7 @@ use App\Support\Exports\ValuePresenter;
  * megabytes of other people's files into a print sheet would both duplicate
  * them and quietly widen who can read them.
  */
-final class BoardMeetingPdfExport implements DocumentSource
+final class BoardMeetingSheetExport implements DocumentSource
 {
     /**
      * The summary's value keys, in the order the reader should meet them, with

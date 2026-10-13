@@ -5,7 +5,7 @@ namespace App\Domains\BoardMeeting\Controllers;
 use App\Contracts\BoardMeeting\RegistrySync;
 use App\Domains\BoardMeeting\Events\BoardMeetingUpdated;
 use App\Domains\BoardMeeting\Exports\BoardMeetingExporter;
-use App\Domains\BoardMeeting\Exports\BoardMeetingPdfExport;
+use App\Domains\BoardMeeting\Exports\BoardMeetingSheetExport;
 use App\Domains\BoardMeeting\Models\BoardMeeting;
 use App\Domains\BoardMeeting\Requests\BoardMeetingListRequest;
 use App\Domains\BoardMeeting\Requests\UpdateBoardMeetingRequest;
@@ -114,10 +114,38 @@ class BoardMeetingController
      * putting meetings into a file — rather than on `view`. Reading a meeting
      * and taking a copy of it away are different acts, the registry export
      * already draws that line, and a sheet is a copy.
+     *
+     * One action per format rather than a `?format=` parameter, because the
+     * route is then self-describing and the client cannot ask for a format that
+     * does not exist. Both bodies are one line into {@see streamMeetingSheet}
+     * precisely so they cannot drift apart.
      */
     public function exportPdf(BoardMeeting $meeting, DocumentExportService $documents): StreamedResponse
     {
-        $file = $documents->run(new BoardMeetingPdfExport, $meeting, 'pdf');
+        return $this->streamMeetingSheet($meeting, $documents, 'pdf');
+    }
+
+    /**
+     * The same sheet as a Word file.
+     *
+     * Worth having separately and not as a flag on the PDF action: a .docx is
+     * editable, and "print this meeting" and "hand me something I can change"
+     * are different requests that happen to share a body. The renderer differs
+     * too — Word resolves its own fonts where mPDF embeds them — but none of
+     * that is the domain's business, which is the point of going through the
+     * document kernel.
+     */
+    public function exportDocx(BoardMeeting $meeting, DocumentExportService $documents): StreamedResponse
+    {
+        return $this->streamMeetingSheet($meeting, $documents, 'docx');
+    }
+
+    /**
+     * The one place a meeting is rendered to a file, whatever the file is.
+     */
+    private function streamMeetingSheet(BoardMeeting $meeting, DocumentExportService $documents, string $format): StreamedResponse
+    {
+        $file = $documents->run(new BoardMeetingSheetExport, $meeting, $format);
 
         return response()->streamDownload(function () use ($file): void {
             $stream = fopen('php://output', 'w');

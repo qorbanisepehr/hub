@@ -1,6 +1,6 @@
 <?php
 
-use App\Domains\BoardMeeting\Exports\BoardMeetingPdfExport;
+use App\Domains\BoardMeeting\Exports\BoardMeetingSheetExport;
 use App\Domains\BoardMeeting\Models\BoardMeeting;
 use App\Domains\BoardMeeting\Value\MeetingSummary;
 use App\Support\Exports\Value\Document\DocumentField;
@@ -8,11 +8,11 @@ use App\Support\Exports\Value\Document\DocumentSection;
 use App\Support\Exports\Value\Document\DocumentTable;
 
 /**
- * One meeting as paper.
+ * One meeting as paper — the same sheet as PDF and as Word.
  *
- * The endpoint is thin, so what is worth pinning down is the three things a
+ * The endpoints are thin, so what is worth pinning down is the three things a
  * reader could be misled about: the permission (a copy is not a read), the file
- * itself (a real PDF, streamed, named after the meeting), and above all WHICH
+ * itself (real bytes, streamed, named after the meeting), and above all WHICH
  * summary landed on the page — a meeting can hold two, and a sheet that printed
  * an undecided proposal as the record would be the worst bug this feature could
  * ship.
@@ -62,13 +62,13 @@ function bm_export_text(array $parts): string
 /** The printed meeting's summary section, flattened to searchable text. */
 function bm_summary_text(BoardMeeting $meeting): string
 {
-    $section = collect((new BoardMeetingPdfExport)->document($meeting)->sections)
+    $section = collect((new BoardMeetingSheetExport)->document($meeting)->sections)
         ->first(fn (DocumentSection $one): bool => $one->heading === __('board_meeting.print.sections.summary'));
 
     return bm_export_text([$section]);
 }
 
-describe('board meeting detail pdf export', function () {
+describe('board meeting detail sheet export', function () {
     beforeEach(function () {
         $this->app->setLocale('fa');
     });
@@ -109,6 +109,36 @@ describe('board meeting detail pdf export', function () {
         // A real PDF starts with %PDF-. A renderer that quietly emitted the
         // HTML template would still pass a status-code assertion.
         expect(substr($response->streamedContent(), 0, 5))->toBe('%PDF-');
+    });
+
+    it('serves the same sheet as an editable Word file', function () {
+        $meeting = BoardMeeting::factory()->create(['sequence' => 3]);
+
+        $response = $this->actingAs(createUserWithPermissions(['board-meeting.export']))
+            ->get("/api/board-meetings/{$meeting->getKey()}/export/docx")
+            ->assertStatus(200)
+            ->assertHeader(
+                'Content-Type',
+                'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            );
+
+        expect($response->headers->get('content-disposition'))
+            ->toContain('attachment')
+            ->toContain('board-meeting-session-3')
+            ->toContain('.docx');
+
+        // A .docx is a zip archive, so PK\x03\x04 — the same check as the PDF's
+        // %PDF-, and for the same reason: a 200 proves the route ran, not that
+        // the renderer produced a file.
+        expect(substr($response->streamedContent(), 0, 2))->toBe('PK');
+    });
+
+    it('refuses Word to a reader, on the same permission as PDF', function () {
+        $meeting = BoardMeeting::factory()->create();
+
+        $this->actingAs(createUserWithPermissions(['board-meeting.view']))
+            ->getJson("/api/board-meetings/{$meeting->getKey()}/export/docx")
+            ->assertStatus(403);
     });
 
     it('prints the accepted summary, and says it is accepted', function () {
@@ -186,7 +216,7 @@ describe('board meeting detail pdf export', function () {
             ],
         ]);
 
-        expect(bm_export_text((new BoardMeetingPdfExport)->document($meeting)->sections))
+        expect(bm_export_text((new BoardMeetingSheetExport)->document($meeting)->sections))
             ->toContain('زهرا احمدی')
             ->toContain('رئیس')
             ->toContain('مریم کاظمی')
@@ -197,7 +227,7 @@ describe('board meeting detail pdf export', function () {
     it('describes an attachment by its metadata columns only, never its bytes', function () {
         $meeting = BoardMeeting::factory()->create();
 
-        $section = collect((new BoardMeetingPdfExport)->document($meeting)->sections)
+        $section = collect((new BoardMeetingSheetExport)->document($meeting)->sections)
             ->first(fn (DocumentSection $one): bool => $one->heading === __('board_meeting.print.sections.attachments'));
 
         expect($section)->not->toBeNull()

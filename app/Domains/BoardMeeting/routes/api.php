@@ -33,6 +33,13 @@ Route::middleware('auth:sanctum')->group(function () {
         ->name('board-meetings.export.pdf')
         ->middleware('permission:board-meeting.export');
 
+    // The same sheet as Word. A separate action rather than a `?format=` on the
+    // PDF one: the route then says what it returns, and a .docx is editable —
+    // "print this" and "hand me something I can change" are different requests.
+    Route::get('board-meetings/{meeting}/export/docx', [BoardMeetingController::class, 'exportDocx'])
+        ->name('board-meetings.export.docx')
+        ->middleware('permission:board-meeting.export');
+
     Route::get('board-meetings/{meeting}', [BoardMeetingController::class, 'show'])
         ->name('board-meetings.show')
         ->middleware('permission:board-meeting.view');
