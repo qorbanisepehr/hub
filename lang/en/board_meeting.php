@@ -90,5 +90,13 @@ return [
             'pending' => 'This summary is an undecided proposal, not the record.',
             'none' => 'This meeting has no summary.',
         ],
+
+        // The archive's index — what is inside, and which meeting each file is
+        // for. Without it a zip of many meetings is a folder of unidentified
+        // files, and the reader has to open things to find out.
+        'bundle_manifest' => 'Bundle contents',
+        'bundle_items' => 'Meetings',
+        'bundle_files' => 'File',
+        'bundle_empty' => 'No meetings matched, so there was nothing to bundle.',
     ],
 ];

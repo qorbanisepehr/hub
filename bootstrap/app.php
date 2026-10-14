@@ -7,6 +7,7 @@ use App\Http\Middleware\VerifyGrantAccess;
 use App\Http\Middleware\VerifyServeGrant;
 use App\Integrations\Farzin\FarzinUnavailableException;
 use App\Integrations\Rahkaran\Exceptions\RahkaranException;
+use App\Support\Exports\BundleTooLarge;
 use App\Support\Exports\DocumentRowLimitExceeded;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Application;
@@ -72,6 +73,21 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->render(function (DocumentZipLimitExceeded $e, Request $request) {
             return response()->json([
                 'message' => __('document.zip_limit_exceeded'),
+            ], 422);
+        });
+
+        // The kernel's own size refusal. 422 with the actual and the limit in
+        // the message rather than a bare "too large": the caller can only fix
+        // this by asking for less, and "which limit, and by how much" is what
+        // tells them what to narrow.
+        $exceptions->render(function (BundleTooLarge $e, Request $request) {
+            return response()->json([
+                'message' => $e->unit === 'bytes'
+                    ? __('exports.bundle_too_large_bytes', ['size' => $e->actual, 'limit' => $e->limit])
+                    : __('exports.bundle_too_large_entries', ['count' => $e->actual, 'limit' => $e->limit]),
+                'actual' => $e->actual,
+                'limit' => $e->limit,
+                'unit' => $e->unit,
             ], 422);
         });
 

@@ -12,5 +12,6 @@ return [
         'report_date_format' => 'The date format is not recognized. Use YYYY/MM/DD (Jalali or Gregorian).',
         'report_date_order' => 'The end date cannot be before the start date.',
         'report_range_too_long' => 'The report window cannot exceed :days days.',
+        'unsupported_format' => 'That export format is not supported.',
     ],
 ];

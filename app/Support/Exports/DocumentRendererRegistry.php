@@ -25,6 +25,21 @@ final class DocumentRendererRegistry
         return isset($this->renderers[$format]);
     }
 
+    /**
+     * Every registered format name.
+     *
+     * For a validator to offer as the list of valid answers, so "which formats
+     * can I ask for" is answered by the registry that will actually be asked.
+     * A request validation list copied into a FormRequest would be a second
+     * place to forget an addition.
+     *
+     * @return list<string>
+     */
+    public function allFormats(): array
+    {
+        return array_keys($this->renderers);
+    }
+
     public function get(string $format): DocumentRenderer
     {
         return $this->renderers[$format]

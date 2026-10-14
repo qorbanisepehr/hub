@@ -63,6 +63,13 @@ Route::middleware('auth:sanctum')->group(function () {
         ->name('board-meetings.export.json')
         ->middleware('permission:board-meeting.export');
 
+    // Many meetings as one archive. POST rather than GET because the request
+    // carries a selection and a set of options, and both outgrow a query string
+    // comfortably — the same reason the document bundle is POST.
+    Route::post('board-meetings/export/bundle', [BoardMeetingController::class, 'exportBundleBulk'])
+        ->name('board-meetings.export.bundle')
+        ->middleware('permission:board-meeting.export');
+
     Route::get('board-meetings/{meeting}', [BoardMeetingController::class, 'show'])
         ->name('board-meetings.show')
         ->middleware('permission:board-meeting.view');

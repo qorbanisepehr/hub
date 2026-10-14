@@ -8,33 +8,35 @@ use App\Domains\BoardMeeting\Events\BoardMeetingUpdated;
 use App\Domains\BoardMeeting\Exports\BoardMeetingExporter;
 use App\Domains\BoardMeeting\Exports\BoardMeetingSheetExport;
 use App\Domains\BoardMeeting\Models\BoardMeeting;
+use App\Domains\BoardMeeting\Requests\BoardMeetingBundleRequest;
 use App\Domains\BoardMeeting\Requests\BoardMeetingListRequest;
 use App\Domains\BoardMeeting\Requests\UpdateBoardMeetingRequest;
 use App\Domains\BoardMeeting\Resources\BoardMeetingResource;
+use App\Domains\BoardMeeting\Services\BoardMeetingBundle;
 use App\Domains\BoardMeeting\Services\BoardMeetingListQuery;
 use App\Domains\BoardMeeting\Services\MeetingSummaryApplier;
 use App\Domains\BoardMeeting\Value\Attendee;
 use App\Domains\Document\Auth\DocumentAuthorizationContext;
 use App\Domains\Document\Enums\DocumentAction;
 use App\Domains\Document\Exceptions\DocumentZipLimitExceeded;
-use App\Domains\Document\Models\Document;
-use App\Domains\Document\Models\DocumentUsage;
-use App\Domains\Document\Services\DocumentService;
 use App\Support\Audit\AttributeDiff;
 use App\Support\Exports\BundleBuilder;
-use App\Support\Exports\BundleEntry;
+use App\Support\Exports\BundleFile;
+use App\Support\Exports\BundleRequest;
 use App\Support\Exports\Concerns\StreamsTabularExports;
 use App\Support\Exports\DocumentExportService;
+use App\Support\Exports\DocumentRendererRegistry;
 use App\Support\Exports\ExportService;
 use App\Support\Exports\Value\ExportColumn;
 use App\Support\Exports\Value\ExportOptions;
 use App\Support\Exports\Value\ExportRequest;
 use App\Support\ListQuery;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Collection;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
@@ -168,9 +170,9 @@ class BoardMeetingController
         BoardMeeting $meeting,
         Request $request,
         DocumentExportService $exports,
-        DocumentService $documentService,
         BundleBuilder $bundles,
         DocumentAuthorization $documentAuthorization,
+        BoardMeetingBundle $bundle,
     ): StreamedResponse {
         $actor = $request->user();
 
@@ -198,44 +200,147 @@ class BoardMeetingController
             throw DocumentZipLimitExceeded::forLimit($limit);
         }
 
-        // The sheet is the one thing in here that is not a document, so it is
-        // what this domain names itself — and it goes in three times, because the
-        // three formats answer three different readers and an archive that only
-        // holds one of them forces somebody to reconvert. The PDF is what gets
-        // printed and filed. The Word file is what somebody opens when they mean
-        // to change something — an archive you cannot edit is only half an
-        // archive. The Markdown is what greps, diffs, pastes into an issue, and
-        // can be handed to an agent with no parser in between. Clutter would be
-        // a fourth rendering nobody asked for, not three that each have a
-        // reader.
-        $sheet = new BoardMeetingSheetExport;
-
-        $entries = [
-            BundleEntry::fromExport($exports->run($sheet, $meeting, 'pdf'), $this->sheetName($meeting, 'pdf')),
-            BundleEntry::fromExport($exports->run($sheet, $meeting, 'docx'), $this->sheetName($meeting, 'docx')),
-            BundleEntry::fromExport($exports->run($sheet, $meeting, 'md'), $this->sheetName($meeting, 'md')),
-        ];
-
-        foreach ($usages as $usage) {
-            $document = $usage->document;
-
-            $entries[] = BundleEntry::fromFile(
-                path: Storage::disk($document->disk)->path($document->path),
-                entryName: $this->bundleEntryName($document, $documentService, $usage),
-            );
-        }
-
-        $bundle = $bundles->build(
-            $entries,
-            filename: 'board-meeting-'.$meeting->getKey().'-'.now()->format('Y-m-d').'.zip',
-            // One over the document cap: the cap counts documents, and the
-            // sheet is not one of them.
-            // One over the document cap per sheet: the cap counts documents, and
-            // none of the three sheets is one of them.
-            maxEntries: $limit + 3,
-            maxBytes: (int) config('documents.zip.max_bytes'),
+        // Three renderings of the sheet ride along, and that is not redundancy.
+        // The PDF is what gets printed and filed. The Word file is what somebody
+        // opens when they mean to change something — an archive you cannot edit
+        // is only half an archive. The Markdown is what greps, diffs, pastes into
+        // an issue, or goes to an agent with no parser in between. One of the
+        // three forces somebody to reconvert into the other two.
+        $request_ = BundleRequest::sheetsWithAttachments(
+            app(DocumentRendererRegistry::class),
+            ['pdf', 'docx', 'md'],
         );
 
+        $entries = $bundle->entries([$meeting], $request_);
+        $entries = [...$entries, ...$bundle->manifestEntries(
+            $bundle->manifest([$meeting], $entries, true),
+        )];
+
+        return $this->streamBundle(
+            $bundles->build(
+                $entries,
+                filename: 'board-meeting-'.$meeting->getKey().'-'.now()->format('Y-m-d').'.zip',
+                // Over the document cap by the sheets and the two manifest files
+                // that are not documents: the cap counts documents, and none of
+                // those is one.
+                maxEntries: $limit + 5,
+                maxBytes: (int) config('documents.zip.max_bytes'),
+            ),
+        );
+    }
+
+    /**
+     * Many meetings as one archive.
+     *
+     * "All" means **all the list endpoint can show**, under the same filters and
+     * the same route permission — not the whole table regardless of what the
+     * user is looking at. That is why the selection is resolved through
+     * `scopedQuery()` rather than a fresh unfiltered query: an export that
+     * showed more than the list would be an export nobody asked for.
+     *
+     * When the result is too large the cap refuses with a 422 rather than
+     * quietly raising a ceiling: "narrow your filter" is a better answer than a
+     * * bundle that succeeds until the day it does not.
+     *
+     * Permissions are the two-part rule the single-meeting bundle uses. Sheets
+     * are behind `board-meeting.export` (the route); attachments are behind
+     * `board-meeting.documents.download` (the request, because only it knows
+     * whether they were asked for) and then per usage, deny-all.
+     */
+    public function exportBundleBulk(
+        BoardMeetingBundleRequest $bundleRequest,
+        BoardMeetingListRequest $listRequest,
+        DocumentRendererRegistry $renderers,
+        BundleBuilder $bundles,
+        DocumentAuthorization $documentAuthorization,
+        BoardMeetingBundle $bundle,
+    ): StreamedResponse {
+        // From the form request rather than an injected Request: it is already
+        // the current request, and one fewer parameter is one fewer thing that
+        // can resolve to nothing at dispatch time.
+        $actor = $bundleRequest->user();
+
+        if ($actor === null) {
+            abort(401);
+        }
+
+        $meetings = $this->resolveBundleSelection($bundleRequest, $listRequest)
+            ->load('documentUsages.document.category');
+
+        if ($meetings->isEmpty()) {
+            abort(422, __('board_meeting.print.bundle_empty'));
+        }
+
+        $wants = $bundleRequest->wantsAttachments();
+
+        if ($wants) {
+            foreach ($meetings as $meeting) {
+                foreach ($meeting->documentUsages as $usage) {
+                    if (! $documentAuthorization->authorize(
+                        $actor,
+                        DocumentAction::Download,
+                        DocumentAuthorizationContext::forUsage($usage),
+                    )) {
+                        abort(403, __('messages.permission_denied'));
+                    }
+                }
+            }
+        }
+
+        $selection = $wants
+            ? BundleRequest::sheetsWithAttachments($renderers, $bundleRequest->bundleFormats())
+            : BundleRequest::sheets($renderers, $bundleRequest->bundleFormats());
+
+        $entries = $bundle->entries($meetings->all(), $selection);
+        $entries = [...$entries, ...$bundle->manifestEntries(
+            $bundle->manifest($meetings->all(), $entries, $wants),
+        )];
+
+        return $this->streamBundle($bundles->build(
+            $entries,
+            filename: 'board-meetings-'.now()->format('Y-m-d').'.zip',
+            maxEntries: (int) config('documents.zip.max_files'),
+            maxBytes: (int) config('documents.zip.max_bytes'),
+        ));
+    }
+
+    /**
+     * The meetings a bulk bundle covers: an explicit selection when one was given,
+     * otherwise everything the list endpoint would show under the current filters.
+     *
+     * @return Collection<int, BoardMeeting>
+     *
+     * @throws ModelNotFoundException when a named meeting does not exist, so a
+     *                                stale table cannot silently produce a bundle
+     *                                of fewer meetings than the dialog promised
+     */
+    private function resolveBundleSelection(
+        BoardMeetingBundleRequest $bundleRequest,
+        BoardMeetingListRequest $listRequest,
+    ): Collection {
+        $ids = $bundleRequest->selectedIds();
+
+        if ($ids === []) {
+            return $this->scopedQuery($listRequest)->get();
+        }
+
+        $meetings = BoardMeeting::query()
+            ->whereIn('id', $ids)
+            ->orderBy('id')
+            ->get();
+
+        if ($meetings->count() !== count($ids)) {
+            throw (new ModelNotFoundException)->setModel(BoardMeeting::class, $ids);
+        }
+
+        return $meetings;
+    }
+
+    /**
+     * Stream a finished archive, removing the temp file either way.
+     */
+    private function streamBundle(BundleFile $bundle): StreamedResponse
+    {
         return response()->streamDownload(function () use ($bundle): void {
             try {
                 readfile($bundle->path);
@@ -243,32 +348,6 @@ class BoardMeetingController
                 $bundle->delete();
             }
         }, $bundle->filename, ['Content-Type' => $bundle->mimeType]);
-    }
-
-    /**
-     * The sheet's name inside the archive: the registry sequence when the
-     * meeting has one, since that is how the meeting itself is called.
-     */
-    private function sheetName(BoardMeeting $meeting, string $extension): string
-    {
-        $stem = $meeting->sequence !== null && $meeting->sequence > 0
-            ? 'meeting-'.$meeting->sequence
-            : 'meeting-'.$meeting->getKey();
-
-        return "{$stem}-summary.{$extension}";
-    }
-
-    /**
-     * ASCII entry name from the same placement slug the document bundle uses,
-     * so one scan reads identically whichever archive it arrived in.
-     */
-    private function bundleEntryName(Document $document, DocumentService $documentService, DocumentUsage $usage): string
-    {
-        $slug = $documentService->structureNames($document, $usage)['slug'];
-
-        $extension = pathinfo($document->path, PATHINFO_EXTENSION);
-
-        return $extension !== '' ? "{$slug}.{$extension}" : $slug;
     }
 
     /**

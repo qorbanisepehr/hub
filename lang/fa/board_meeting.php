@@ -101,5 +101,13 @@ return [
             'pending' => 'این خلاصه پیشنهادیِ در انتظارِ تصمیم است و پذیرفته نشده.',
             'none' => 'برای این جلسه خلاصه‌ای وجود ندارد.',
         ],
+
+        // The archive's index — what is inside, and which meeting each file is
+        // for. Without it a zip of many meetings is a folder of unidentified
+        // files, and the reader has to open things to find out.
+        'bundle_manifest' => 'فهرست محتویات بسته',
+        'bundle_items' => 'تعداد جلسات',
+        'bundle_files' => 'فایل',
+        'bundle_empty' => 'جلسه‌ای برای بسته‌بندی پیدا نشد.',
     ],
 ];

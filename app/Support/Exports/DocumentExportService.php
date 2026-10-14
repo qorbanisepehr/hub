@@ -3,6 +3,7 @@
 namespace App\Support\Exports;
 
 use App\Support\Exports\Contract\DocumentSource;
+use App\Support\Exports\Value\Document\DocumentSpec;
 use App\Support\Exports\Value\ExportFile;
 use Illuminate\Support\Str;
 
@@ -31,6 +32,32 @@ final class DocumentExportService
 
         return new ExportFile(
             filename: ExportFilename::make($source->baseFilename(), $renderer->extension()),
+            mimeType: $renderer->contentType(),
+            stream: $stream,
+        );
+    }
+
+    /**
+     * Render a spec that is already built, rather than one that has to come
+     * from an entity.
+     *
+     * For the documents nobody owns: a bundle manifest, a cover sheet, an
+     * index. Wrapping a ready-made DocumentSpec in a DocumentSource just to get
+     * it through `run()` would mean inventing an entity for every such page,
+     * and the alternative — reaching for the renderer registry directly — would
+     * put the filename and stream handling in two places.
+     *
+     * @param  resource|null  $stream
+     */
+    public function render(DocumentSpec $spec, string $format, $stream = null): ExportFile
+    {
+        $renderer = $this->renderers->get($format);
+        $stream ??= fopen('php://temp', 'r+');
+
+        $renderer->render($spec, $stream);
+
+        return new ExportFile(
+            filename: ExportFilename::make('document', $renderer->extension()),
             mimeType: $renderer->contentType(),
             stream: $stream,
         );

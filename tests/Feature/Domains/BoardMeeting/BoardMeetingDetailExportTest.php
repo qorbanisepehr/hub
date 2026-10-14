@@ -241,7 +241,11 @@ describe('board meeting detail sheet export', function () {
             'meeting-4-summary.pdf',
             'meeting-4-summary.docx',
             'meeting-4-summary.md',
-        ])->and($names)->toHaveCount(5);
+        ])
+            // Flat: one meeting is one meeting, and a folder named after the
+            // only thing inside it teaches a reader nothing.
+            ->and($names)->toHaveCount(7)
+            ->and(array_slice($names, -2))->toBe(['manifest.md', 'manifest.json']);
 
         // Flat: the document bundle nests one folder per owner because it can
         // hold many entities. A single meeting has one, so every entry would sit
