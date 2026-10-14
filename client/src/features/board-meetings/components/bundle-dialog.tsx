@@ -88,16 +88,32 @@ export function BundleDialog({
         setIsExporting(true);
 
         try {
-            const response = await exportMeetingBundle({
+            const result = await exportMeetingBundle({
                 formats: chosen,
                 documents: withDocuments,
                 ...(ids ? { ids } : {}),
             });
 
+            if (result.kind === "queued") {
+                // Nothing to wait for here, so the dialog closes rather than
+                // holding a spinner the user cannot act on. The notification is
+                // what tells them it finished — which is why the message says
+                // where to look instead of implying it has already arrived.
+                toast.success("بسته در پس‌زمینه ساخته می‌شود.", {
+                    description: `${result.meetingCount.toLocaleString(
+                        "fa-IR",
+                    )} جلسه؛ پس از آماده شدن در اعلان‌ها خبر داده می‌شود.`,
+                });
+
+                onOpenChange(false);
+
+                return;
+            }
+
             // The shared helper, so the server's own Content-Disposition name
             // wins and every export button in the app behaves the same way.
             saveBlobResponse(
-                response,
+                result.response,
                 `board-meetings-${exportDateStamp()}.zip`,
                 EXPORT_MIME_TYPES.zip,
             );

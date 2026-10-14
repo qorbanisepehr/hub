@@ -9,10 +9,13 @@ import {
     IconTrash,
 } from "@tabler/icons-react";
 
+import { toast } from "sonner";
+
 import { DataTablePage } from "@/components/data-table";
 import { ListPageHeader } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { ResponsiveDialog } from "@/components/ui/responsive-dialog";
+import { downloadQueuedBundle } from "@/features/board-meetings/api";
 import { getNotificationColumns } from "@/features/notifications/columns";
 import { NOTIFICATION_STATUS_OPTIONS } from "@/features/notifications/constants";
 import {
@@ -24,6 +27,11 @@ import {
 import { notificationHref } from "@/features/notifications/notification-href";
 import type { AppNotification } from "@/features/notifications/types";
 import { useDataTable, useDataTableUrlState } from "@/hooks/use-data-table-page";
+import {
+    EXPORT_MIME_TYPES,
+    exportDateStamp,
+    saveBlobResponse,
+} from "@/lib/download";
 import { notificationKeys } from "@/lib/query-keys";
 
 const route = getRouteApi("/protected/notifications");
@@ -79,10 +87,44 @@ export function NotificationsPage() {
     const tableData = data?.data ?? [];
     const meta = data?.meta;
 
+    /**
+     * Fetch a bundle the queue built. Keyed by token rather than by row, so two
+     * bundle notifications on the same page each get their own spinner and a
+     * failure names the bundle that failed rather than "the download".
+     */
+    const [downloadingToken, setDownloadingToken] = useState<string | null>(
+        null,
+    );
+
+    const downloadBundle = async (token: string) => {
+        setDownloadingToken(token);
+
+        try {
+            const response = await downloadQueuedBundle(token);
+
+            saveBlobResponse(
+                response,
+                `board-meetings-${exportDateStamp()}.zip`,
+                EXPORT_MIME_TYPES.zip,
+            );
+        } catch {
+            // Almost always the 24-hour window having passed, which is the one
+            // expiry the reader can do something about — so the message says so
+            // instead of leaving them to wonder whether to try again.
+            toast.error("این بسته دیگر در دسترس نیست.", {
+                description: "بسته‌ها ۲۴ ساعت نگه‌داری می‌شوند؛ لطفاً دوباره بسازید.",
+            });
+        } finally {
+            setDownloadingToken(null);
+        }
+    };
+
     const columns = getNotificationColumns({
         onMarkRead: (id) => markRead.mutate(id),
         isMarkingRead: (id) => markRead.isPending && markRead.variables === id,
         onOpenNotification: openNotification,
+        onDownloadBundle: (token) => void downloadBundle(token),
+        isDownloadingBundle: (token) => downloadingToken === token,
     });
 
     const table = useDataTable({

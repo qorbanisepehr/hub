@@ -37,5 +37,39 @@ export function notificationHref(notification: AppNotification): string | null {
         return `/board-meetings/${resource.id}?tab=analysis`;
     }
 
+    // An export bundle has no destination page on purpose: it is a file, and a
+    // router cannot navigate to bytes. Both surfaces fall back to the
+    // notification centre, which is where its download button lives. Naming a
+    // route here would send the reader to a page with nothing on it.
+    return null;
+}
+
+/**
+ * The token of a finished export bundle, or null for any other notification.
+ *
+ * Read from the same `resource` reference the deep link is resolved from, so
+ * "what this notification points at" is answered in one place rather than by a
+ * notification-shaped guess made somewhere else.
+ *
+ * The `action` is checked because the reference is a general vocabulary: a
+ * bundle that was announced as failed carries no resource at all, and an
+ * `export-bundle` reference whose action is something else is not a download
+ * this client knows how to perform.
+ */
+export function notificationBundleToken(
+    notification: AppNotification,
+): string | null {
+    const resource = notification.data.resource as
+        | NotificationResource
+        | undefined;
+
+    if (
+        resource?.type === "export-bundle" &&
+        resource.action === "download" &&
+        typeof resource.id === "string"
+    ) {
+        return resource.id;
+    }
+
     return null;
 }

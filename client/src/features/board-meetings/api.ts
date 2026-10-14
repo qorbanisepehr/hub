@@ -1,3 +1,5 @@
+import type { AxiosResponse } from "axios";
+
 import { api, FORM_DATA_HEADERS } from "@/lib/api";
 import type { ExportPresentation } from "@/components/shared";
 import type {
@@ -135,19 +137,64 @@ export function fetchBundleFormats() {
 }
 
 /**
+ * How a bundle request ended: built now, or handed to the queue.
+ *
+ * Two outcomes rather than one response type, because the server genuinely has
+ * two. A small bundle is zipped and streamed inside the request and arrives as
+ * bytes; a large one is too big to hold a worker for, so it is built in the
+ * background and the caller gets a token plus a notification when it is ready.
+ * Folding this into a single "maybe a blob" would leave every caller guessing
+ * which of the two it got.
+ */
+export type BundleResult =
+    | { kind: "downloaded"; response: AxiosResponse<Blob> }
+    | { kind: "queued"; token: string; meetingCount: number };
+
+/**
  * Many meetings as one archive.
  *
  * With no `ids` the server covers everything the list endpoint can show under
  * the current filters, which is what the toolbar button means. Passing `ids`
  * narrows it to a selection, and the server refuses the whole request if any
  * named meeting has gone rather than quietly bundling fewer than were asked for.
+ *
+ * Resolved as a union rather than returned raw. The request asks for a blob, so
+ * a queued answer arrives as a JSON document inside one — reading it here means
+ * the dialog never has to know that a 202 comes back wearing a blob's clothes.
  */
-export function exportMeetingBundle(payload: {
+export async function exportMeetingBundle(payload: {
     formats: string[];
     documents?: boolean;
     ids?: number[];
-}) {
-    return api.post("/board-meetings/export/bundle", payload, {
+}): Promise<BundleResult> {
+    const response = await api.post("/board-meetings/export/bundle", payload, {
+        responseType: "blob",
+    });
+
+    if (response.status === 202) {
+        const queued = JSON.parse(await (response.data as Blob).text()) as {
+            data: { token: string; meeting_count: number };
+        };
+
+        return {
+            kind: "queued",
+            token: queued.data.token,
+            meetingCount: queued.data.meeting_count,
+        };
+    }
+
+    return { kind: "downloaded", response };
+}
+
+/**
+ * Fetch a bundle that was built in the background.
+ *
+ * By token rather than by meeting, because the token is what identifies one
+ * build: the meetings it covers were frozen when it was asked for, and a link
+ * built from them would name a different archive whenever the filter changed.
+ */
+export function downloadQueuedBundle(token: string) {
+    return api.get(`/board-meetings/export/bundle/${token}`, {
         responseType: "blob",
     });
 }

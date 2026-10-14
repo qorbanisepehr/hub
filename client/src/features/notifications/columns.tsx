@@ -1,12 +1,15 @@
 import { type ColumnDef, type StockFeatures } from "@tanstack/react-table";
-import { IconCheck } from "@tabler/icons-react";
+import { IconCheck, IconDownload, IconLoader2 } from "@tabler/icons-react";
 
 import { DataTableColumnHeader } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { toPersianDate } from "@/lib/date-format";
 import { cn } from "@/lib/utils";
-import { notificationHref } from "./notification-href";
+import {
+    notificationBundleToken,
+    notificationHref,
+} from "./notification-href";
 import type { AppNotification } from "./types";
 
 type NotificationColumnsOptions = {
@@ -14,6 +17,9 @@ type NotificationColumnsOptions = {
     isMarkingRead: (id: string) => boolean;
     /** Open a notification with a real destination (navigate + mark read). */
     onOpenNotification?: (notification: AppNotification) => void;
+    /** Fetch a finished export bundle by its token. */
+    onDownloadBundle?: (token: string) => void;
+    isDownloadingBundle?: (token: string) => boolean;
 };
 
 /**
@@ -26,6 +32,8 @@ export function getNotificationColumns({
     onMarkRead,
     isMarkingRead,
     onOpenNotification,
+    onDownloadBundle,
+    isDownloadingBundle,
 }: NotificationColumnsOptions): ColumnDef<StockFeatures, AppNotification>[] {
     return [
         {
@@ -115,6 +123,31 @@ export function getNotificationColumns({
             header: "عملیات",
             cell: ({ row }) => {
                 const notification = row.original;
+                const token = notificationBundleToken(notification);
+
+                // A download outlives the read state: the archive is on disk for
+                // a day whether or not the notification was opened, and someone
+                // who read it yesterday may still want it today. So the button
+                // shows for a read row too, where the mark-read button does not.
+                if (token !== null && onDownloadBundle !== undefined) {
+                    return (
+                        <div className="flex items-center justify-end">
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => onDownloadBundle(token)}
+                                disabled={isDownloadingBundle?.(token) ?? false}
+                            >
+                                {isDownloadingBundle?.(token) ? (
+                                    <IconLoader2 className="size-4 animate-spin" />
+                                ) : (
+                                    <IconDownload className="size-4" />
+                                )}
+                                دانلود بسته
+                            </Button>
+                        </div>
+                    );
+                }
 
                 if (notification.read_at !== null) {
                     return null;
