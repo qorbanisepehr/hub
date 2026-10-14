@@ -1,6 +1,8 @@
 <?php
 
 use App\Domains\Auth\Notifications\AuthLoginFailedNotification;
+use App\Domains\BoardMeeting\Notifications\BoardmeetingBundleFailedNotification;
+use App\Domains\BoardMeeting\Notifications\BoardmeetingBundleReadyNotification;
 use App\Domains\BoardMeeting\Notifications\BoardmeetingSummaryBatchFinishedNotification;
 use App\Domains\BoardMeeting\Notifications\BoardmeetingSummaryFailedNotification;
 use App\Domains\BoardMeeting\Notifications\BoardmeetingSummaryReadyNotification;
@@ -26,13 +28,15 @@ return [
 
     'types' => [
         AuthLoginFailedNotification::class,
-        // The lowercase `m` in these two is deliberate: the canonical type is
+        // The lowercase `m` in these is deliberate: the canonical type is
         // derived from the class name by splitting on the first underscore, and
         // the natural `BoardMeeting…` spelling would yield a `board.` domain
         // prefix disagreeing with every other board-meeting surface.
         BoardmeetingSummaryBatchFinishedNotification::class,
         BoardmeetingSummaryFailedNotification::class,
         BoardmeetingSummaryReadyNotification::class,
+        BoardmeetingBundleFailedNotification::class,
+        BoardmeetingBundleReadyNotification::class,
         QuestionnaireSubmittedNotification::class,
     ],
 

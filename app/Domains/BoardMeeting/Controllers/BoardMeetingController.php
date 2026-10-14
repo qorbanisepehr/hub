@@ -7,6 +7,7 @@ use App\Contracts\DocumentAuthorization;
 use App\Domains\BoardMeeting\Events\BoardMeetingUpdated;
 use App\Domains\BoardMeeting\Exports\BoardMeetingExporter;
 use App\Domains\BoardMeeting\Exports\BoardMeetingSheetExport;
+use App\Domains\BoardMeeting\Jobs\BuildBoardMeetingBundleJob;
 use App\Domains\BoardMeeting\Models\BoardMeeting;
 use App\Domains\BoardMeeting\Requests\BoardMeetingBundleRequest;
 use App\Domains\BoardMeeting\Requests\BoardMeetingListRequest;
@@ -23,10 +24,12 @@ use App\Support\Audit\AttributeDiff;
 use App\Support\Exports\BundleBuilder;
 use App\Support\Exports\BundleFile;
 use App\Support\Exports\BundleRequest;
+use App\Support\Exports\BundleTooLarge;
 use App\Support\Exports\Concerns\StreamsTabularExports;
 use App\Support\Exports\DocumentExportService;
 use App\Support\Exports\DocumentRendererRegistry;
 use App\Support\Exports\ExportService;
+use App\Support\Exports\Queued\ExportFileStore;
 use App\Support\Exports\Value\ExportColumn;
 use App\Support\Exports\Value\ExportOptions;
 use App\Support\Exports\Value\ExportRequest;
@@ -254,7 +257,8 @@ class BoardMeetingController
         BundleBuilder $bundles,
         DocumentAuthorization $documentAuthorization,
         BoardMeetingBundle $bundle,
-    ): StreamedResponse {
+        ExportFileStore $store,
+    ): StreamedResponse|JsonResponse {
         // From the form request rather than an injected Request: it is already
         // the current request, and one fewer parameter is one fewer thing that
         // can resolve to nothing at dispatch time.
@@ -272,6 +276,7 @@ class BoardMeetingController
         }
 
         $wants = $bundleRequest->wantsAttachments();
+        $formats = $bundleRequest->bundleFormats();
 
         if ($wants) {
             foreach ($meetings as $meeting) {
@@ -287,20 +292,60 @@ class BoardMeetingController
             }
         }
 
-        $selection = $wants
-            ? BundleRequest::sheetsWithAttachments($renderers, $bundleRequest->bundleFormats())
-            : BundleRequest::sheets($renderers, $bundleRequest->bundleFormats());
+        // COUNT THE WORK BEFORE RENDERING ANY OF IT. One sheet per meeting per
+        // format, the meeting's own files, and the two manifest pages — all
+        // knowable from the selection alone. Deciding after the first hundred
+        // PDF renders would mean building most of an archive before discovering
+        // it has to be thrown away.
+        $planned = $meetings->count() * count($formats)
+            + ($wants ? $meetings->sum(fn (BoardMeeting $meeting): int => $meeting->documentUsages->count()) : 0)
+            + 2;
 
-        $entries = $bundle->entries($meetings->all(), $selection);
-        $entries = [...$entries, ...$bundle->manifestEntries(
-            $bundle->manifest($meetings->all(), $entries, $wants),
+        // Over the hard cap, refused here rather than queued: a job that will be
+        // refused by the same cap an hour later has spent a worker to learn
+        // nothing.
+        if ($planned > (int) config('exports.bundle.max_entries')) {
+            throw BundleTooLarge::forEntries($planned, (int) config('exports.bundle.max_entries'));
+        }
+
+        if ($planned > (int) config('exports.queued.sync_entry_limit')) {
+            // The ids are frozen here, at request time, rather than the filters:
+            // a filter means something different after a deploy than it did when
+            // it was clicked, and a job that re-read it could build a different
+            // archive than the one that was asked for.
+            $token = $store->issueToken();
+
+            BuildBoardMeetingBundleJob::dispatch(
+                $token,
+                $meetings->modelKeys(),
+                $formats,
+                $wants,
+                $actor->getAuthIdentifier(),
+            );
+
+            return response()->json([
+                'message' => __('board_meeting.print.bundle_queued'),
+                'data' => [
+                    'token' => $token,
+                    'meeting_count' => $meetings->count(),
+                ],
+            ], 202);
+        }
+
+        $selection = $wants
+            ? BundleRequest::sheetsWithAttachments($renderers, $formats)
+            : BundleRequest::sheets($renderers, $formats);
+
+        $built = $bundle->entries($meetings->all(), $selection);
+        $built = [...$built, ...$bundle->manifestEntries(
+            $bundle->manifest($meetings->all(), $built, $wants),
         )];
 
         return $this->streamBundle($bundles->build(
-            $entries,
+            $built,
             filename: 'board-meetings-'.now()->format('Y-m-d').'.zip',
-            maxEntries: (int) config('documents.zip.max_files'),
-            maxBytes: (int) config('documents.zip.max_bytes'),
+            maxEntries: (int) config('exports.bundle.max_entries'),
+            maxBytes: (int) config('exports.bundle.max_bytes'),
         ));
     }
 
@@ -314,6 +359,40 @@ class BoardMeetingController
      * Asking the registry is also what keeps this and the "unsupported format"
      * validation from being two separate truths about the same thing.
      */
+    public function downloadBundle(string $token, ExportFileStore $store): StreamedResponse
+    {
+        $stored = $store->find($token);
+
+        if ($stored === null) {
+            abort(404, __('board_meeting.print.bundle_gone'));
+        }
+
+        return response()->streamDownload(function () use ($stored): void {
+            readfile($stored['path']);
+        }, $stored['filename'], [
+            'Content-Type' => 'application/zip',
+            'Cache-Control' => 'no-store',
+        ]);
+    }
+
+    /**
+     * Ask a queued bundle to stop.
+     *
+     * Cooperative, and answered the moment the request lands: the marker is
+     * written here and the job reads it at the next meeting boundary. What it
+     * cannot promise is that it stops *now* — the same limit the summary runs
+     * have, and the same reason: a PHP process mid-render is not interruptible
+     * from another request.
+     */
+    public function cancelBundle(string $token): JsonResponse
+    {
+        BuildBoardMeetingBundleJob::cancel($token);
+
+        return response()->json([
+            'message' => __('board_meeting.print.bundle_stop_requested'),
+        ]);
+    }
+
     public function bundleFormats(DocumentRendererRegistry $renderers): JsonResponse
     {
         return response()->json([

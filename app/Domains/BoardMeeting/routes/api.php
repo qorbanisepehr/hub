@@ -76,6 +76,17 @@ Route::middleware('auth:sanctum')->group(function () {
         ->name('board-meetings.export.bundle')
         ->middleware('permission:board-meeting.export');
 
+    // A queued bundle is downloaded with the same permission that queued it: the
+    // token is the primary key, so this is not a back door around the route
+    // above — it is the same gate reached by a different route.
+    Route::get('board-meetings/export/bundle/{token}', [BoardMeetingController::class, 'downloadBundle'])
+        ->name('board-meetings.export.bundle-download')
+        ->middleware('permission:board-meeting.export');
+
+    Route::post('board-meetings/export/bundle/{token}/cancel', [BoardMeetingController::class, 'cancelBundle'])
+        ->name('board-meetings.export.bundle-cancel')
+        ->middleware('permission:board-meeting.export');
+
     Route::get('board-meetings/{meeting}', [BoardMeetingController::class, 'show'])
         ->name('board-meetings.show')
         ->middleware('permission:board-meeting.view');

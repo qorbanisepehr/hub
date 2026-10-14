@@ -2,6 +2,7 @@
 
 use App\Domains\Notification\Contracts\InAppNotification;
 use App\Domains\Notification\Support\NotificationType;
+use BackedEnum;
 use Tests\TestCase;
 
 uses(TestCase::class);
@@ -45,17 +46,35 @@ function discoveredNotificationClasses(): array
 /**
  * Build an instance with type-appropriate sample constructor arguments, so the
  * contract can be inspected without knowing each type's own vocabulary.
+ *
+ * An enum parameter resolves to its first case rather than to the `sample`
+ * string, which is what a notification carrying a reason or an outcome needs:
+ * the alternatives are the wrong type and throw, so the boundary checks could
+ * not be run against that notification at all. First case, not a "best" case —
+ * these tests assert the contract holds for *any* instance, and a value that
+ * only works for one case would not prove that.
  */
 function sampleNotification(string $class): InAppNotification
 {
     $constructor = (new ReflectionClass($class))->getConstructor();
 
     $arguments = array_map(
-        fn (ReflectionParameter $parameter): mixed => match ((string) $parameter->getType()) {
-            'int' => 1,
-            'bool' => true,
-            'array' => [],
-            default => 'sample',
+        function (ReflectionParameter $parameter): mixed {
+            $type = $parameter->getType();
+
+            if ($type instanceof ReflectionNamedType && enum_exists($type->getName())) {
+                /** @var class-string<BackedEnum> $enum */
+                $enum = $type->getName();
+
+                return $enum::cases()[0];
+            }
+
+            return match ((string) $type) {
+                'int' => 1,
+                'bool' => true,
+                'array' => [],
+                default => 'sample',
+            };
         },
         $constructor?->getParameters() ?? [],
     );

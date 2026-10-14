@@ -60,11 +60,13 @@ return [
     ],
 
     /**
-     * Structured zip download (POST /documents/zip and a meeting's bundle).
+     * Structured zip download (POST /documents/zip), and the document half of a
+     * single meeting's own archive.
+     *
      * The archive is built on a temporary local file before the first byte
      * leaves the process, so — like exports.sync_row_limit for PDF/Word renders
-     * — these caps are the only protection against unbounded bundles until the
-     * queued-download path lands alongside the heavy exports.
+     * — these caps are the only protection against an unbounded build, and this
+     * one is still built in-request.
      *
      * Two caps because they bound different things. `max_files` bounds how much
      * work the archive is; `max_bytes` bounds what it costs to build and hold.
@@ -72,6 +74,10 @@ return [
      * and neither should satisfy the second. Sized for a board meeting's scans
      * rather than for a library: comfortably past any real meeting, and well
      * short of the temp disk filling up.
+     *
+     * Cross-record bundles are a different shape of work — many small rendered
+     * sheets rather than a few large scans — so they carry their own, larger
+     * caps in `exports.bundle` and are built by a job rather than by a request.
      */
     'zip' => [
         'max_files' => (int) env('DOCUMENTS_ZIP_MAX_FILES', 100),

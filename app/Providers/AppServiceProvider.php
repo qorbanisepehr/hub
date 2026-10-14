@@ -44,6 +44,7 @@ use App\Services\DocumentAuthorizationService;
 use App\Support\Exports\DocumentExportService;
 use App\Support\Exports\DocumentRendererRegistry;
 use App\Support\Exports\ExportService;
+use App\Support\Exports\Queued\ExportFileStore;
 use App\Support\Exports\Render\DocxRenderer;
 use App\Support\Exports\Render\JsonRenderer;
 use App\Support\Exports\Render\MarkdownRenderer;
@@ -215,6 +216,17 @@ class AppServiceProvider extends ServiceProvider
             return $registry;
         });
         $this->app->singleton(DocumentExportService::class);
+
+        // Where a queued archive waits for the person who asked. Its own
+        // settings rather than constructor arguments at the call site, because
+        // the disk, the directory and the window are one decision about where
+        // finished exports live — three call sites passing three arguments each
+        // would be three chances to spell them differently.
+        $this->app->singleton(ExportFileStore::class, fn (): ExportFileStore => new ExportFileStore(
+            disk: (string) config('exports.queued.disk'),
+            directory: (string) config('exports.queued.directory'),
+            ttlHours: (int) config('exports.queued.ttl_hours'),
+        ));
 
         // Import kernel: readers are registered here (OCP — a new format is
         // a registration, never an edit to ImportService). Mirrors the

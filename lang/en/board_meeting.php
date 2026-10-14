@@ -98,5 +98,8 @@ return [
         'bundle_items' => 'Meetings',
         'bundle_files' => 'File',
         'bundle_empty' => 'No meetings matched, so there was nothing to bundle.',
+        'bundle_queued' => 'That bundle is large; it is being built in the background and we will tell you when it is ready.',
+        'bundle_gone' => 'That bundle is no longer available; it expired or was removed.',
+        'bundle_stop_requested' => 'Stop requested; the build will stop at the next meeting boundary.',
     ],
 ];

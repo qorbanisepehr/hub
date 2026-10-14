@@ -27,4 +27,16 @@ return [
         'title' => 'The bulk summary run finished',
         'body' => 'The selected meetings were summarised; the ones that failed can be run again.',
     ],
+
+    'boardmeeting_bundle_ready' => [
+        'title' => 'The meetings bundle is ready',
+        'body' => 'The bundle you asked for has been built and is available to download for 24 hours.',
+        'email_action' => 'Download the bundle',
+        'email_salutation' => 'Kind regards,',
+    ],
+
+    'boardmeeting_bundle_failed' => [
+        'title' => 'The meetings bundle could not be built',
+        'body' => 'The bundle you asked for did not finish; if the selection was large, narrow it.',
+    ],
 ];

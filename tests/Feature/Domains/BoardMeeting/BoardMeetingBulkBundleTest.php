@@ -167,7 +167,7 @@ describe('bulk board meeting bundle', function () {
     });
 
     it('refuses rather than building an archive past the cap', function () {
-        config(['documents.zip.max_files' => 2]);
+        config(['exports.bundle.max_entries' => 2]);
 
         BoardMeeting::factory()->count(3)->create();
 
