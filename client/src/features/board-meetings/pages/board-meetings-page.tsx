@@ -127,6 +127,16 @@ export function BoardMeetingsPage() {
     );
 
     /**
+     * The bundle's scope. `undefined` is "everything under the current filter";
+     * an array is "these rows". Same shape and same meaning as `bulkPreset`
+     * above — the two dialogs answer the same question, so they are asked it
+     * the same way.
+     */
+    const [bundlePreset, setBundlePreset] = useState<number[] | undefined>(
+        undefined,
+    );
+
+    /**
      * Which scope the filter-driven summary dialog is open in: false writes a
      * first summary for meetings that have none, true replaces the summary of
      * a meeting that already has one. Set on every open, so it never carries
@@ -385,7 +395,16 @@ export function BoardMeetingsPage() {
                         id: "bundle",
                         label: "بستهٔ جلسات",
                         icon: IconFileZip,
-                        onClick: () => setIsBundleOpen(true),
+                        // No preset, so this stays "everything under the
+                        // current filter". The ticked-rows version lives in the
+                        // bulk bar, exactly as it does for the summary run:
+                        // two scopes, two buttons, each labelled for what it
+                        // covers — rather than one button whose meaning flips
+                        // with invisible state.
+                        onClick: () => {
+                            setBundlePreset(undefined);
+                            setIsBundleOpen(true);
+                        },
                         permission: PERMISSIONS.BOARD_MEETING_EXPORT,
                     },
                     {
@@ -455,6 +474,21 @@ export function BoardMeetingsPage() {
                         },
                         permission: PERMISSIONS.BOARD_MEETING_SYNC,
                     },
+                    {
+                        // The same dialog, pointed at the ticked rows. Packing a
+                        // registry's worth when the person asked for five is
+                        // exactly the surprise a selection exists to prevent, so
+                        // the scoped path gets its own button rather than a
+                        // second opinion about which scope was meant.
+                        id: "bundle-selected",
+                        label: "بستهٔ انتخاب‌شده‌ها",
+                        icon: IconFileZip,
+                        onClick: () => {
+                            setBundlePreset(selectedIds);
+                            setIsBundleOpen(true);
+                        },
+                        permission: PERMISSIONS.BOARD_MEETING_EXPORT,
+                    },
                 ]}
                 hidePagination={isCalendarView}
                 view={view}
@@ -520,7 +554,21 @@ export function BoardMeetingsPage() {
 
             <BundleDialog
                 open={isBundleOpen}
-                onOpenChange={setIsBundleOpen}
+                onOpenChange={(open) => {
+                    setIsBundleOpen(open);
+
+                    // Dropped on close, not just on submit: abandoning the
+                    // dialog means the next open must not silently inherit the
+                    // last scope the page happened to be in.
+                    if (!open) {
+                        setBundlePreset(undefined);
+                    }
+                }}
+                presetMeetingIds={bundlePreset}
+                // The rows have been acted on, so leaving them ticked would
+                // invite the same bundle twice. Cleared for a queued build too,
+                // since the selection has already done its job by then.
+                onComplete={() => setRowSelection({})}
                 canDownloadDocuments={canDownloadDocuments}
             />
 

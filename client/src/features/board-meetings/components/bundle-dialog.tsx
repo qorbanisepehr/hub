@@ -39,17 +39,22 @@ import type { BundleFormat } from "../types";
 export function BundleDialog({
     open,
     onOpenChange,
-    /** Restricts the bundle to these meetings; omitted means the current filter. */
-    ids,
-    /** How many meetings the bundle would cover, for the description line. */
-    meetingCount,
+    /**
+     * Restricts the bundle to these meetings; omitted means the current filter.
+     * Named to match the summary dialog's equivalent prop, because the two are
+     * opened from the same page for the same distinction and a page that spells
+     * one concept two ways is a page nobody can read quickly.
+     */
+    presetMeetingIds,
     canDownloadDocuments,
+    /** Called after a bundle was built or queued, so the caller can clear its selection. */
+    onComplete,
 }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    ids?: number[];
-    meetingCount?: number;
+    presetMeetingIds?: number[];
     canDownloadDocuments: boolean;
+    onComplete?: () => void;
 }) {
     const [formats, setFormats] = useState<BundleFormat[]>([]);
     const [chosen, setChosen] = useState<string[]>(["pdf"]);
@@ -82,6 +87,11 @@ export function BundleDialog({
                 : previous.filter((one) => one !== key),
         );
 
+    // Derived, never passed in. A separate count prop would be a second
+    // statement about the same selection that could disagree with the first,
+    // and the way it shows is a sentence promising a number of files.
+    const meetingCount = presetMeetingIds?.length;
+
     const canSubmit = chosen.length > 0 && !isExporting;
 
     const submit = async () => {
@@ -91,7 +101,7 @@ export function BundleDialog({
             const result = await exportMeetingBundle({
                 formats: chosen,
                 documents: withDocuments,
-                ...(ids ? { ids } : {}),
+                ...(presetMeetingIds ? { ids: presetMeetingIds } : {}),
             });
 
             if (result.kind === "queued") {
@@ -106,6 +116,7 @@ export function BundleDialog({
                 });
 
                 onOpenChange(false);
+                onComplete?.();
 
                 return;
             }
@@ -119,6 +130,7 @@ export function BundleDialog({
             );
 
             onOpenChange(false);
+            onComplete?.();
         } catch {
             toast.error("ساخت بسته انجام نشد.", {
                 description: "لطفاً انتخاب را محدودتر کنید یا دوباره تلاش کنید.",
@@ -136,7 +148,7 @@ export function BundleDialog({
             description={
                 meetingCount === undefined
                     ? "همهٔ جلساتی که در نمای فعلی می‌بینید در یک بسته قرار می‌گیرند."
-                    : `${meetingCount.toLocaleString("fa-IR")} جلسه در یک بسته قرار می‌گیرد.`
+                    : `${meetingCount.toLocaleString("fa-IR")} جلسهٔ انتخاب‌شده در یک بسته قرار می‌گیرد.`
             }
             footer={
                 <>
