@@ -124,6 +124,35 @@ describe('queued board meeting bundles', function () {
             ->assertStatus(202);
     });
 
+    it('queues only the selected meetings, not everything under the filter', function () {
+        // The bulk-bar button sends ids, and the job is handed those ids. If the
+        // queue re-read the filters it would quietly widen five ticked rows back
+        // into the whole registry — the exact surprise the selection was ticked
+        // to avoid, arriving after the dialog closed.
+        Queue::fake();
+
+        // One meeting over the sync threshold, so this is the queued path. The
+        // subject here is the scope, not the queueing, which other tests cover.
+        config(['exports.queued.sync_entry_limit' => 1]);
+
+        $wanted = BoardMeeting::factory()->create(['sequence' => 1]);
+        BoardMeeting::factory()->count(8)->create();
+
+        $this->actingAs(createUserWithPermissions(['board-meeting.export']))
+            ->postJson('/api/board-meetings/export/bundle', [
+                'formats' => ['md', 'json'],
+                'ids' => [$wanted->getKey()],
+            ])
+            ->assertStatus(202)
+            // Nine meetings exist and the filters would cover all of them, so a
+            // count of one is the scope. It counts the same collection whose
+            // keys were dispatched a line earlier, which is why this says
+            // something about the job's payload without reaching into it.
+            ->assertJsonPath('data.meeting_count', 1);
+
+        Queue::assertPushed(BuildBoardMeetingBundleJob::class);
+    });
+
     it('builds the archive, stores it, and tells the person who asked', function () {
         Notification::fake();
 
