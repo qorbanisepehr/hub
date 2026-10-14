@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getRouteApi } from "@tanstack/react-router";
+import { usePermission } from "@/features/auth/hooks/use-permission";
 import {
     IconCalendarMonth,
     IconCalendarStats,
     IconDownload,
+    IconFileZip,
     IconLayoutGrid,
     IconRefresh,
     IconRobot,
@@ -44,6 +46,7 @@ import { exportBoardMeetings, fetchBoardMeetingExportFields } from "../api";
 import type { RowSelectionState } from "@tanstack/react-table";
 
 import { boardMeetingColumns } from "../columns";
+import { BundleDialog } from "../components/bundle-dialog";
 import { BulkSummaryDialog } from "../components/bulk-summary-dialog";
 import { SummaryBatchBanner } from "../components/summary-batch-banner";
 import {
@@ -90,7 +93,16 @@ export function BoardMeetingsPage() {
     );
 
     const [isExportOpen, setIsExportOpen] = useState(false);
+    const [isBundleOpen, setIsBundleOpen] = useState(false);
     const [isBulkOpen, setIsBulkOpen] = useState(false);
+
+    // Whether the bundle may include the meetings' own files. The dialog uses it
+    // to disable that checkbox rather than offering it and letting the server
+    // refuse — a checkbox that always fails is worse than one that cannot be
+    // ticked.
+    const canDownloadDocuments = usePermission(
+        PERMISSIONS.BOARD_MEETING_DOCUMENTS_DOWNLOAD,
+    );
 
     /**
      * Row selection for the table's checkboxes (§15 steps 4–7). Id-keyed
@@ -365,6 +377,18 @@ export function BoardMeetingsPage() {
                         permission: PERMISSIONS.BOARD_MEETING_EXPORT,
                     },
                     {
+                        // A different thing from «خروجی» above, and named so:
+                        // that one flattens the registry into a table, this one
+                        // packs each meeting as its own sheet - plus its files.
+                        // Two export buttons that both said "export" would make
+                        // the difference something nobody could discover.
+                        id: "bundle",
+                        label: "بستهٔ جلسات",
+                        icon: IconFileZip,
+                        onClick: () => setIsBundleOpen(true),
+                        permission: PERMISSIONS.BOARD_MEETING_EXPORT,
+                    },
+                    {
                         id: "refresh",
                         label: "تازه‌سازی",
                         icon: IconRefresh,
@@ -492,6 +516,12 @@ export function BoardMeetingsPage() {
                 // A queued batch is the same state change the selection stood
                 // for, so the checkboxes empty with it.
                 onQueued={() => setRowSelection({})}
+            />
+
+            <BundleDialog
+                open={isBundleOpen}
+                onOpenChange={setIsBundleOpen}
+                canDownloadDocuments={canDownloadDocuments}
             />
 
             <ExportDialog

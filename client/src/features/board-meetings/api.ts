@@ -6,6 +6,7 @@ import type {
     BoardMeetingListParams,
     BoardMeetingListResponse,
     BoardMeetingSyncResult,
+    BundleFormat,
     BulkDocumentUploadReport,
     CancelSummaryBatchResponse,
     GenerateSummaryPayload,
@@ -118,6 +119,35 @@ export function exportBoardMeetingDocx(id: number | string) {
  */
 export function exportBoardMeetingMarkdown(id: number | string) {
     return api.get(`/board-meetings/${id}/export/md`, {
+        responseType: "blob",
+    });
+}
+
+/**
+ * The formats a bundle can be rendered in, with the server's labels.
+ *
+ * Fetched rather than listed here: a hardcoded list fails by omission, not by
+ * error — the dialog would simply stop offering a format the server is happy to
+ * produce, and nobody would notice until somebody looked for it.
+ */
+export function fetchBundleFormats() {
+    return api.get<{ data: BundleFormat[] }>("/board-meetings/export/bundle/formats");
+}
+
+/**
+ * Many meetings as one archive.
+ *
+ * With no `ids` the server covers everything the list endpoint can show under
+ * the current filters, which is what the toolbar button means. Passing `ids`
+ * narrows it to a selection, and the server refuses the whole request if any
+ * named meeting has gone rather than quietly bundling fewer than were asked for.
+ */
+export function exportMeetingBundle(payload: {
+    formats: string[];
+    documents?: boolean;
+    ids?: number[];
+}) {
+    return api.post("/board-meetings/export/bundle", payload, {
         responseType: "blob",
     });
 }

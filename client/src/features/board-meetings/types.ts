@@ -336,6 +336,17 @@ export interface CancelSummaryBatchResponse {
     message: string;
 }
 
+/**
+ * One format a bundle can be rendered in, as the server names it.
+ *
+ * The label arrives with it so adding a renderer does not mean editing this
+ * file: the dialog reads what the registry knows about.
+ */
+export interface BundleFormat {
+    key: string;
+    label: string;
+}
+
 /** What one registry sync actually moved. */
 export interface BoardMeetingSyncResult {
     records: { synced: number; failed: number };
