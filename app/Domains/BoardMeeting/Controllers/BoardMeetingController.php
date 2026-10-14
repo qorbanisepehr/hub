@@ -303,6 +303,20 @@ class BoardMeetingController
     }
 
     /**
+     * The same sheet as JSON — the format a system on the other end reads.
+     *
+     * Worth an endpoint with no button behind it: an interchange surface is
+     * legitimately API-first, and this is what makes a meeting legible to
+     * whatever the hub is eventually wired to. The one registration in the
+     * kernel gives the CV, the employee profile and the questionnaire their
+     * JSON too, without a line of work in those domains.
+     */
+    public function exportJson(BoardMeeting $meeting, DocumentExportService $documents): StreamedResponse
+    {
+        return $this->streamMeetingSheet($meeting, $documents, 'json');
+    }
+
+    /**
      * The one place a meeting is rendered to a file, whatever the file is.
      */
     private function streamMeetingSheet(BoardMeeting $meeting, DocumentExportService $documents, string $format): StreamedResponse

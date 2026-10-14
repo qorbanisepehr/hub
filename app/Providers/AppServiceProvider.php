@@ -45,6 +45,7 @@ use App\Support\Exports\DocumentExportService;
 use App\Support\Exports\DocumentRendererRegistry;
 use App\Support\Exports\ExportService;
 use App\Support\Exports\Render\DocxRenderer;
+use App\Support\Exports\Render\JsonRenderer;
 use App\Support\Exports\Render\MarkdownRenderer;
 use App\Support\Exports\Render\PdfRenderer;
 use App\Support\Exports\Writer\CsvWriter;
@@ -205,6 +206,11 @@ class AppServiceProvider extends ServiceProvider
             $registry->register('pdf', new PdfRenderer);
             $registry->register('docx', new DocxRenderer);
             $registry->register('md', new MarkdownRenderer);
+            // One line, four domains: every `DocumentSource` (board meeting,
+            // CV, employee profile, questionnaire) gains JSON the day this is
+            // registered, because the export service resolves the format per
+            // request and never asks the domain which formats it supports.
+            $registry->register('json', new JsonRenderer);
 
             return $registry;
         });

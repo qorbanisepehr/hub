@@ -175,11 +175,12 @@ describe('export bundle builder', function () {
     });
 
     it('reports how many entries landed, so a caller can log it', function () {
-        $file = bm_bundle_file();
-
+        // Two DISTINCT files: the builder now ships one file once however many
+        // entries name it, so pointing both entries at one file would be
+        // counting a duplicate rather than counting entries.
         $bundle = (new BundleBuilder)->build([
-            BundleEntry::fromFile($file, 'a.pdf'),
-            BundleEntry::fromFile($file, 'b.pdf'),
+            BundleEntry::fromFile(bm_bundle_file(), 'a.pdf'),
+            BundleEntry::fromFile(bm_bundle_file(), 'b.pdf'),
         ], 'bundle.zip');
 
         expect($bundle->entryCount)->toBe(2)

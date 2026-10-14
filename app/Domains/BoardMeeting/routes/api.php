@@ -56,6 +56,13 @@ Route::middleware('auth:sanctum')->group(function () {
         ->name('board-meetings.export.md')
         ->middleware('permission:board-meeting.export');
 
+    // The same sheet as JSON, for a system on the other end rather than for a
+    // person. No button on purpose: an interchange surface is API-first, and the
+    // hub's whole purpose is that another system can read what this one holds.
+    Route::get('board-meetings/{meeting}/export/json', [BoardMeetingController::class, 'exportJson'])
+        ->name('board-meetings.export.json')
+        ->middleware('permission:board-meeting.export');
+
     Route::get('board-meetings/{meeting}', [BoardMeetingController::class, 'show'])
         ->name('board-meetings.show')
         ->middleware('permission:board-meeting.view');

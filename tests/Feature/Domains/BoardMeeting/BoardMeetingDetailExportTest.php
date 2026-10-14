@@ -325,6 +325,32 @@ describe('board meeting detail sheet export', function () {
             ->toContain('بودجه تصویب شد');
     });
 
+    it('serves the sheet as json, for a system rather than a person', function () {
+        $meeting = BoardMeeting::factory()->create([
+            'sequence' => 4,
+            'summary' => [
+                'status' => MeetingSummary::STATUS_OK,
+                'executive_summary' => 'بودجه تصویب شد',
+            ],
+        ]);
+
+        $response = $this->actingAs(createUserWithPermissions(['board-meeting.export']))
+            ->getJson("/api/board-meetings/{$meeting->getKey()}/export/json")
+            ->assertStatus(200)
+            ->assertHeader('Content-Type', 'application/json');
+
+        expect($response->headers->get('content-disposition'))
+            ->toContain('board-meeting-session-4')
+            ->toContain('.json');
+
+        // The whole reason the format exists: a body another system can read,
+        // carrying the same document the PDF carries.
+        expect($response->json())
+            ->toHaveKey('sections')
+            ->and($response->json('sections'))
+            ->toBeArray();
+    });
+
     it('prints the accepted summary, and says it is accepted', function () {
         $meeting = BoardMeeting::factory()->create([
             'summary' => [

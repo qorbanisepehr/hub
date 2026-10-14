@@ -72,10 +72,34 @@ final class BundleBuilder
                 throw new RuntimeException('Unable to open the temporary bundle file.');
             }
 
+            // Local, not a property: the builder is shared, and state that survived
+            // between builds would let one archive's dedupe decide another's.
+            $addedSources = [];
+
             foreach ($entries as $entry) {
+                // One file, however many things reference it. A scan attached to
+                // two selected meetings is one document on disk, and shipping its
+                // bytes twice serves no reader — while the manifest still lists
+                // it under both, so nothing vanishes from the *listing*, only
+                // from the archive.
+                //
+                // Compared on the resolved real path rather than the string,
+                // because the same file can reach here through two different
+                // spellings and a string compare would not notice.
+                //
+                // Checked BEFORE the name is claimed: a skipped duplicate must
+                // not burn a name, or the entries after it would be suffixed
+                // around a file that is not there.
+                $resolved = realpath($entry->sourcePath) ?: $entry->sourcePath;
+
+                if (isset($addedSources[$resolved])) {
+                    continue;
+                }
+
                 $archivePath = $this->uniqueEntryName($entry->archivePath(), $written);
 
                 $written[] = $archivePath;
+                $addedSources[$resolved] = true;
 
                 if (! $zip->addFile($entry->sourcePath, $archivePath)) {
                     throw MissingBundleSource::forEntry($entry);
