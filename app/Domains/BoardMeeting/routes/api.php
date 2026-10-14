@@ -66,6 +66,12 @@ Route::middleware('auth:sanctum')->group(function () {
     // Many meetings as one archive. POST rather than GET because the request
     // carries a selection and a set of options, and both outgrow a query string
     // comfortably — the same reason the document bundle is POST.
+    // The formats a bundle can be rendered in. Read from the renderer registry so
+    // the dialog cannot offer a stale list — a hardcoded one fails by omission.
+    Route::get('board-meetings/export/bundle/formats', [BoardMeetingController::class, 'bundleFormats'])
+        ->name('board-meetings.export.bundle-formats')
+        ->middleware('permission:board-meeting.export');
+
     Route::post('board-meetings/export/bundle', [BoardMeetingController::class, 'exportBundleBulk'])
         ->name('board-meetings.export.bundle')
         ->middleware('permission:board-meeting.export');

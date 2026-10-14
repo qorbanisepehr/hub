@@ -305,8 +305,44 @@ class BoardMeetingController
     }
 
     /**
-     * The meetings a bulk bundle covers: an explicit selection when one was given,
-     * otherwise everything the list endpoint would show under the current filters.
+     * The formats a bundle can be rendered in, with their labels.
+     *
+     * Read from the renderer registry rather than hardcoded in the dialog,
+     * because a hardcoded list fails by omission rather than by error: the
+     * dialog would simply not offer a format the server is perfectly happy to
+     * produce, and nobody would find out until somebody noticed it missing.
+     * Asking the registry is also what keeps this and the "unsupported format"
+     * validation from being two separate truths about the same thing.
+     */
+    public function bundleFormats(DocumentRendererRegistry $renderers): JsonResponse
+    {
+        return response()->json([
+            'data' => array_map(
+                static fn (string $format): array => [
+                    'key' => $format,
+                    // Falls back to the key itself rather than to a blank row:
+                    // a renderer added without a label should show as `wibble`
+                    // in the dialog, which is visible, rather than as nothing,
+                    // which is not.
+                    'label' => self::formatLabel($format),
+                ],
+                $renderers->allFormats(),
+            ),
+        ]);
+    }
+
+    private static function formatLabel(string $format): string
+    {
+        $key = 'exports.formats.'.$format;
+        $label = (string) __($key);
+
+        return $label === $key ? $format : $label;
+    }
+
+    /**
+     * The meetings a bulk bundle covers: an explicit selection when one was
+     * given, otherwise everything the list endpoint would show under the
+     * current filters.
      *
      * @return Collection<int, BoardMeeting>
      *

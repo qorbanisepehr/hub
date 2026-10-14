@@ -329,6 +329,22 @@ describe('board meeting detail sheet export', function () {
             ->toContain('بودجه تصویب شد');
     });
 
+    it('publishes the bundle formats from the renderer registry', function () {
+        // The dialog reads this rather than carrying its own list, so a
+        // renderer added tomorrow is offered without a client change and
+        // without the silent omission a hardcoded list would cause.
+        $formats = $this->actingAs(createUserWithPermissions(['board-meeting.export']))
+            ->getJson('/api/board-meetings/export/bundle/formats')
+            ->assertStatus(200)
+            ->assertJsonStructure(['data' => [['key', 'label']]])
+            ->json('data');
+
+        $keys = array_column($formats, 'key');
+
+        expect($keys)->toContain('pdf', 'docx', 'md', 'json')
+            ->and(array_column($formats, 'label', 'key')['md'])->toBe('Markdown');
+    });
+
     it('serves the sheet as json, for a system rather than a person', function () {
         $meeting = BoardMeeting::factory()->create([
             'sequence' => 4,
