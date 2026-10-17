@@ -29,6 +29,10 @@ export function SettingsPage() {
         PERMISSIONS.AI_PROVIDER_VIEW,
         PERMISSIONS.AI_PROVIDER_MANAGE,
     ]);
+    const canWordTemplates = usePermission([
+        PERMISSIONS.EXPORT_TEMPLATE_VIEW,
+        PERMISSIONS.EXPORT_TEMPLATE_MANAGE,
+    ]);
 
     const activeTab = pathname.endsWith("/branding")
         ? "branding"
@@ -38,11 +42,13 @@ export function SettingsPage() {
             ? "form-options"
             : pathname.endsWith("/imports")
               ? "imports"
-              : pathname.endsWith("/tags")
-                ? "tags"
-                : pathname.endsWith("/ai")
-                  ? "ai"
-                  : "branding";
+              : pathname.endsWith("/word-templates")
+                ? "word-templates"
+                : pathname.endsWith("/tags")
+                  ? "tags"
+                  : pathname.endsWith("/ai")
+                    ? "ai"
+                    : "branding";
 
     return (
         <PageLayout>
@@ -77,6 +83,11 @@ export function SettingsPage() {
                         <TabsTrigger value="tags">برچسب‌ها</TabsTrigger>
                     )}
                     {canAi && <TabsTrigger value="ai">هوش مصنوعی</TabsTrigger>}
+                    {canWordTemplates && (
+                        <TabsTrigger value="word-templates">
+                            قالب خروجی
+                        </TabsTrigger>
+                    )}
                 </TabsList>
 
                 <Outlet />

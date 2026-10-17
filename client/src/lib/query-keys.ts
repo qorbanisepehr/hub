@@ -192,3 +192,16 @@ export const aiKeys = {
     /** The flat, cross-provider list a per-run model picker reads. */
     models: () => [...aiKeys.all, "models"] as const,
 };
+
+export const exportTemplateKeys = {
+    all: ["export-templates"] as const,
+    list: (domain: string) =>
+        [...exportTemplateKeys.all, "list", domain] as const,
+    /**
+     * The names a template may contain. A property of the DOMAIN, not of the
+     * current library, so it is keyed separately from the list — uploading a file
+     * must not make it look like the vocabulary changed.
+     */
+    fields: (domain: string) =>
+        [...exportTemplateKeys.all, "fields", domain] as const,
+};

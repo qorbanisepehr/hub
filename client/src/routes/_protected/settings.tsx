@@ -29,6 +29,8 @@ export const Route = createRoute({
         PERMISSIONS.TAG_MANAGE,
         PERMISSIONS.AI_PROVIDER_VIEW,
         PERMISSIONS.AI_PROVIDER_MANAGE,
+        PERMISSIONS.EXPORT_TEMPLATE_VIEW,
+        PERMISSIONS.EXPORT_TEMPLATE_MANAGE,
     ]),
     component: () => (
         <LazyRoute

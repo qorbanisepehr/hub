@@ -104,6 +104,13 @@ export const PERMISSIONS = {
     // AI
     AI_PROVIDER_VIEW: "ai.provider.view",
     AI_PROVIDER_MANAGE: "ai.provider.manage",
+
+    // Export templates: which sections a document contains, and which uploaded
+    // Word template it is built from. One pair for every domain rather than a
+    // pair per domain - "how does this document print" is the same question
+    // wherever the document lives.
+    EXPORT_TEMPLATE_VIEW: "export-template.view",
+    EXPORT_TEMPLATE_MANAGE: "export-template.manage",
 } as const;
 
 export type PermissionValue = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];

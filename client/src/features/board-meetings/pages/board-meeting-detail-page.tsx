@@ -36,6 +36,11 @@ import {
 import { PERMISSIONS } from "@/lib/permissions";
 import { MeetingDocumentsTab } from "../components/meeting-documents-tab";
 import { MeetingEditDialog } from "../components/meeting-edit-dialog";
+import { WordTemplatePickerDialog } from "../components/word-template-picker-dialog";
+import { useWordTemplates } from "../hooks/use-word-templates";
+import {
+    exportBoardMeetingDocx as exportDocxWithTemplate,
+} from "../word-templates-api";
 import { MeetingMinutesPreview } from "../components/meeting-minutes-preview";
 import { MeetingStats } from "../components/meeting-stats";
 import {
@@ -175,6 +180,33 @@ export function BoardMeetingDetailPage() {
         }
     };
 
+    // `docx` is the one format that may need a choice first: if this domain has
+    // more than one Word template the person has to say which, because the file
+    // decides what the document says and picking the wrong one gives them a
+    // document they did not ask for. With none or one, the click stays a click.
+    const { data: wordTemplates } = useWordTemplates();
+    const [wordPickerOpen, setWordPickerOpen] = useState(false);
+
+    const handleDocx = async (slug?: string) => {
+        setExportingFormat("docx");
+
+        try {
+            const response = await exportDocxWithTemplate(meetingId, slug);
+
+            saveBlobResponse(
+                response,
+                `board-meeting-${exportDateStamp()}.docx`,
+                EXPORT_MIME_TYPES.docx,
+            );
+        } catch {
+            toast.error("ساخت فایل انجام نشد.", {
+                description: "لطفاً دوباره تلاش کنید.",
+            });
+        } finally {
+            setExportingFormat(null);
+        }
+    };
+
     // The live run states for every meeting this user has in flight, so the
     // summary tab can be told which run is *this* one. Tracked per subject
     // rather than kept as a single "something is running" flag: the same user
@@ -261,7 +293,15 @@ export function BoardMeetingDetailPage() {
                             {
                                 icon: <IconFileTypeDoc />,
                                 label: "Word",
-                                onClick: () => handleExport("docx"),
+                                // The one format that may need a choice first:
+                                // with several templates the file decides what the
+                                // document says, so the wrong one is not a
+                                // cosmetic mistake. With none or one, this stays
+                                // a single click.
+                                onClick: () =>
+                                    wordTemplates && wordTemplates.length > 1
+                                        ? setWordPickerOpen(true)
+                                        : void handleDocx(),
                                 disabled: exportingFormat !== null,
                             },
                             {
@@ -474,6 +514,12 @@ export function BoardMeetingDetailPage() {
             </Tabs>
 
             <MeetingProvenance meeting={meeting} />
+
+            <WordTemplatePickerDialog
+                open={wordPickerOpen}
+                onOpenChange={setWordPickerOpen}
+                meetingId={meetingId}
+            />
 
             <MeetingEditDialog
                 open={isEditing}
