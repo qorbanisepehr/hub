@@ -5,8 +5,13 @@ import { PERMISSIONS } from "@/lib/permissions";
 
 /**
  * Order matters: it is the tab order, so `/settings` lands on the leftmost tab
- * the user may see. AI is last deliberately — an unconfigured AI registry is a
- * supported read-only state, so it must never be the only thing we redirect to.
+ * the user may see.
+ *
+ * The last two are last DELIBERATELY. An unconfigured AI registry and an empty
+ * template library are both supported read-only states — nothing breaks, there
+ * is simply nothing to show yet — so neither may be the only tab a user can
+ * reach, or a fresh install would redirect a first-time visitor into a screen
+ * with nothing on it.
  */
 const TABS = [
     {
@@ -32,6 +37,13 @@ const TABS = [
     {
         to: "/settings/ai",
         permissions: [PERMISSIONS.AI_PROVIDER_VIEW, PERMISSIONS.AI_PROVIDER_MANAGE],
+    },
+    {
+        to: "/settings/word-templates",
+        permissions: [
+            PERMISSIONS.EXPORT_TEMPLATE_VIEW,
+            PERMISSIONS.EXPORT_TEMPLATE_MANAGE,
+        ],
     },
 ] satisfies ReadonlyArray<{
     to: string;

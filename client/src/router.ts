@@ -27,6 +27,7 @@ import { Route as SettingsFormOptionsRoute } from "@/routes/_protected/settings/
 import { Route as SettingsImportsRoute } from "@/routes/_protected/settings/imports";
 import { Route as SettingsTagsRoute } from "@/routes/_protected/settings/tags";
 import { Route as SettingsAiRoute } from "@/routes/_protected/settings/ai";
+import { Route as SettingsWordTemplatesRoute } from "@/routes/_protected/settings/word-templates";
 import { Route as ProfileRoute } from "@/routes/_protected/profile";
 import { Route as ProfileEditRoute } from "@/routes/_protected/profile.edit";
 import { Route as UnauthorizedRoute } from "@/routes/_protected/unauthorized";
@@ -83,6 +84,7 @@ const routeTree = RootRoute.addChildren([
             SettingsImportsRoute,
             SettingsTagsRoute,
             SettingsAiRoute,
+            SettingsWordTemplatesRoute,
         ]),
         ProfileRoute,
         ProfileEditRoute,

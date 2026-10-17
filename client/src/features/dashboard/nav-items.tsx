@@ -5,6 +5,7 @@ import {
     IconDashboard,
     IconFileImport,
     IconFileCv,
+    IconFileText,
     IconHierarchy2,
     IconIdBadge2,
     IconInbox,
@@ -128,6 +129,18 @@ export const NAV_ITEMS: NavItem[] = [
                 url: "/settings/ai",
                 icon: <IconRobot />,
                 permission: [PERMISSIONS.AI_PROVIDER_VIEW, PERMISSIONS.AI_PROVIDER_MANAGE],
+            },
+            {
+                // Beside AI rather than under a document heading: this is a
+                // cross-domain setting like the AI registry, not part of the
+                // board-meeting feature it happens to be used by first.
+                title: "قالب خروجی",
+                url: "/settings/word-templates",
+                icon: <IconFileText />,
+                permission: [
+                    PERMISSIONS.EXPORT_TEMPLATE_VIEW,
+                    PERMISSIONS.EXPORT_TEMPLATE_MANAGE,
+                ],
             },
         ],
     },
