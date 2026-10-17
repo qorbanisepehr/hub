@@ -39,6 +39,32 @@ return [
     ],
 
     /*
+     * Where export artifacts live.
+     *
+     * One disk for both the archives a queued bundle leaves behind and the Word
+     * templates people upload, because they are the same kind of thing and the
+     * same kind of boundary: minutes-derived files that must not be reachable
+     * without going through the application. `public` is never the answer here.
+     *
+     * Separate from `documents`, whose attachments are business records with
+     * their own categories, retention and authorization rather than exports.
+     */
+    'disk' => env('EXPORTS_DISK', 'local'),
+
+    /*
+     * Uploaded Word templates.
+     *
+     * A `.docx` is a zip of XML and can carry anything a zip can: macros,
+     * embedded objects, external references. The size cap is here rather than
+     * left to PHP's upload limit because that limit is a whole-request number,
+     * and one generous multipart setting should not be the only thing standing
+     * between a person and a multi-gigabyte write.
+     */
+    'word' => [
+        'max_bytes' => (int) env('EXPORTS_WORD_MAX_BYTES', 10_485_760),
+    ],
+
+    /*
      * Archives too large to build inside a request.
      *
      * A bundle is rendered, zipped and streamed in one go, which holds a worker
@@ -54,12 +80,8 @@ return [
         'sync_entry_limit' => (int) env('EXPORTS_SYNC_ENTRY_LIMIT', 25),
 
         /*
-         * Finished archives live here until pruned. On the private disk, never
-         * `public`: an archive holds meeting minutes, and a private disk is
-         * also what the documents already use — so a bundle and its scans sit
-         * behind the same kind of boundary.
+         * Finished archives live here until pruned, under the export disk above.
          */
-        'disk' => env('EXPORTS_DISK', 'local'),
         'directory' => 'exports',
 
         /*

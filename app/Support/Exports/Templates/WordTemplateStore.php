@@ -26,7 +26,7 @@ final class WordTemplateStore
 {
     private function disk(): Filesystem
     {
-        return Storage::disk((string) config('exports.queued.disk'));
+        return Storage::disk((string) config('exports.disk'));
     }
 
     /** Absolute path, for the libraries that insist on one. */

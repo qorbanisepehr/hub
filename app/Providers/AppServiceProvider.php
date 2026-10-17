@@ -223,7 +223,7 @@ class AppServiceProvider extends ServiceProvider
         // finished exports live — three call sites passing three arguments each
         // would be three chances to spell them differently.
         $this->app->singleton(ExportFileStore::class, fn (): ExportFileStore => new ExportFileStore(
-            disk: (string) config('exports.queued.disk'),
+            disk: (string) config('exports.disk'),
             directory: (string) config('exports.queued.directory'),
             ttlHours: (int) config('exports.queued.ttl_hours'),
         ));
