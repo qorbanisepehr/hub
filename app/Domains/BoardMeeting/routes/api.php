@@ -4,6 +4,7 @@ use App\Domains\BoardMeeting\Controllers\BoardMeetingController;
 use App\Domains\BoardMeeting\Controllers\BoardMeetingDocumentController;
 use App\Domains\BoardMeeting\Controllers\BoardMeetingTemplateController;
 use App\Domains\BoardMeeting\Controllers\MeetingSummaryController;
+use App\Domains\BoardMeeting\Controllers\WordTemplateController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('auth:sanctum')->group(function () {
@@ -126,6 +127,39 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('{meeting}', [BoardMeetingTemplateController::class, 'destroyForMeeting'])
             ->name('board-meetings.templates.meeting-destroy')
             ->middleware('permission:export-template.manage');
+    });
+
+    /*
+     * Word templates a meeting can be exported with.
+     *
+     * Above `{meeting}` for the same reason the other literal paths are: a
+     * parameter declared first would capture `word-templates` as a meeting id.
+     */
+    Route::prefix('word-templates')->group(function (): void {
+        Route::get('/', [WordTemplateController::class, 'index'])
+            ->name('word-templates.index')
+            ->middleware('permission:export-template.view');
+
+        // The cheat sheet. A separate path from the library because it is the
+        // answer to a different question — what may a template contain — and the
+        // export button needs only the list.
+        Route::get('fields', [WordTemplateController::class, 'fields'])
+            ->name('word-templates.fields')
+            ->middleware('permission:export-template.view');
+
+        Route::post('/', [WordTemplateController::class, 'store'])
+            ->name('word-templates.store')
+            ->middleware('permission:export-template.manage');
+
+        Route::put('{slug}', [WordTemplateController::class, 'update'])
+            ->name('word-templates.update')
+            ->middleware('permission:export-template.manage')
+            ->where('slug', '[A-Za-z0-9][A-Za-z0-9._-]*');
+
+        Route::delete('{slug}', [WordTemplateController::class, 'destroy'])
+            ->name('word-templates.destroy')
+            ->middleware('permission:export-template.manage')
+            ->where('slug', '[A-Za-z0-9][A-Za-z0-9._-]*');
     });
 
     Route::get('board-meetings/{meeting}', [BoardMeetingController::class, 'show'])

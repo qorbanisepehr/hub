@@ -7,6 +7,7 @@ use App\Contracts\DocumentAuthorization;
 use App\Domains\BoardMeeting\Events\BoardMeetingUpdated;
 use App\Domains\BoardMeeting\Exports\BoardMeetingExporter;
 use App\Domains\BoardMeeting\Exports\BoardMeetingSheetExport;
+use App\Domains\BoardMeeting\Exports\BoardMeetingTemplateFields;
 use App\Domains\BoardMeeting\Jobs\BuildBoardMeetingBundleJob;
 use App\Domains\BoardMeeting\Models\BoardMeeting;
 use App\Domains\BoardMeeting\Requests\BoardMeetingBundleRequest;
@@ -30,7 +31,11 @@ use App\Support\Exports\DocumentExportService;
 use App\Support\Exports\DocumentRendererRegistry;
 use App\Support\Exports\ExportService;
 use App\Support\Exports\Queued\ExportFileStore;
+use App\Support\Exports\Templates\WordTemplate;
+use App\Support\Exports\Templates\WordTemplateLibrary;
+use App\Support\Exports\Templates\WordTemplateService;
 use App\Support\Exports\Value\ExportColumn;
+use App\Support\Exports\Value\ExportFile;
 use App\Support\Exports\Value\ExportOptions;
 use App\Support\Exports\Value\ExportRequest;
 use App\Support\ListQuery;
@@ -475,9 +480,73 @@ class BoardMeetingController
      * that is the domain's business, which is the point of going through the
      * document kernel.
      */
-    public function exportDocx(BoardMeeting $meeting, DocumentExportService $documents): StreamedResponse
+    public function exportDocx(
+        BoardMeeting $meeting,
+        WordTemplateService $word,
+        WordTemplateLibrary $library,
+        Request $request,
+    ): StreamedResponse {
+        // A template is optional and unnamed means the domain's default, so one
+        // click still works exactly as before while somebody who has configured
+        // something gets it without choosing.
+        $slug = $request->query('template');
+        $template = is_string($slug) && $slug !== ''
+            ? $library->find(BoardMeetingSheetExport::TEMPLATE_DOMAIN, $slug)
+            : $library->defaultFor(BoardMeetingSheetExport::TEMPLATE_DOMAIN);
+
+        // A slug nobody has, answered as "there is no such template" rather than
+        // quietly falling back to the default: a person who picked a template and
+        // silently got a different document has no way to notice.
+        if (is_string($slug) && $slug !== '' && $template === null) {
+            abort(404, __('board_meeting.template.not_found'));
+        }
+
+        return $this->streamWordSheet($meeting, $word, $template);
+    }
+
+    /**
+     * One place a meeting is rendered to a file, whatever the file is.
+     */
+    private function streamMeetingSheet(BoardMeeting $meeting, DocumentExportService $documents, string $format): StreamedResponse
     {
-        return $this->streamMeetingSheet($meeting, $documents, 'docx');
+        return $this->streamSheet(
+            $documents->run(app(BoardMeetingSheetExport::class), $meeting, $format),
+            $documents,
+        );
+    }
+
+    /**
+     * The same, with a Word template in play — see {@see WordTemplateService} for
+     * which of the three paths a given template takes.
+     */
+    private function streamWordSheet(
+        BoardMeeting $meeting,
+        WordTemplateService $word,
+        ?WordTemplate $template,
+    ): StreamedResponse {
+        return $this->streamSheet(
+            $word->render(
+                app(BoardMeetingSheetExport::class),
+                $meeting,
+                app(BoardMeetingTemplateFields::class),
+                $template,
+            ),
+            app(DocumentExportService::class),
+        );
+    }
+
+    /**
+     * @param  ExportFile  $file
+     */
+    private function streamSheet($file, DocumentExportService $documents): StreamedResponse
+    {
+        return response()->streamDownload(function () use ($file): void {
+            $stream = fopen('php://output', 'w');
+            $file->copyTo($stream);
+        }, $documents->dispositionFilename($file), [
+            'Content-Type' => $file->mimeType,
+            'Cache-Control' => 'no-store',
+        ]);
     }
 
     /**
@@ -508,22 +577,6 @@ class BoardMeetingController
     public function exportJson(BoardMeeting $meeting, DocumentExportService $documents): StreamedResponse
     {
         return $this->streamMeetingSheet($meeting, $documents, 'json');
-    }
-
-    /**
-     * The one place a meeting is rendered to a file, whatever the file is.
-     */
-    private function streamMeetingSheet(BoardMeeting $meeting, DocumentExportService $documents, string $format): StreamedResponse
-    {
-        $file = $documents->run(app(BoardMeetingSheetExport::class), $meeting, $format);
-
-        return response()->streamDownload(function () use ($file): void {
-            $stream = fopen('php://output', 'w');
-            $file->copyTo($stream);
-        }, $documents->dispositionFilename($file), [
-            'Content-Type' => $file->mimeType,
-            'Cache-Control' => 'no-store',
-        ]);
     }
 
     /**

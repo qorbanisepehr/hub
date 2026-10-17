@@ -1,0 +1,309 @@
+<?php
+
+use App\Domains\BoardMeeting\Exports\BoardMeetingSheetExport;
+use App\Domains\BoardMeeting\Models\BoardMeeting;
+use App\Support\Exports\Templates\WordTemplateLibrary;
+use App\Support\Exports\Templates\WordTemplateStore;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
+use PhpOffice\PhpWord\IOFactory;
+use PhpOffice\PhpWord\PhpWord;
+
+/**
+ * The Word template library over HTTP, and a template chosen at export time.
+ *
+ * The two halves are one feature seen from either end: a person uploads a file
+ * and later exports with it. What matters is that they agree — a template the
+ * picker offers must be one the export will actually use, and one the export
+ * refuses must not appear as if it would work.
+ */
+describe('the word template library endpoints', function () {
+    beforeEach(function () {
+        Storage::fake('local');
+
+        $this->library = app(WordTemplateLibrary::class);
+        $this->store = app(WordTemplateStore::class);
+    });
+
+    /** A real docx upload. */
+    $upload = function (string $filename, ?string $text = 'متن') {
+        $phpWord = new PhpWord;
+        $phpWord->addSection()->addText($text ?? 'متن');
+
+        $path = tempnam(sys_get_temp_dir(), 'api-').'.docx';
+        IOFactory::createWriter($phpWord, 'Word2007')->save($path);
+
+        return new UploadedFile($path, $filename, null, null, true);
+    };
+
+    $manager = fn () => createUserWithPermissions(['export-template.manage', 'export-template.view']);
+    $reader = fn () => createUserWithPermissions(['export-template.view']);
+
+    it('starts empty', function () use ($reader) {
+        $this->actingAs($reader())
+            ->getJson('/api/word-templates')
+            ->assertOk()
+            ->assertJsonPath('data.domain', BoardMeetingSheetExport::TEMPLATE_DOMAIN)
+            ->assertJsonPath('data.templates', []);
+    });
+
+    it('uploads a template and reports what kind it is', function () use ($manager, $upload) {
+        $this->actingAs($manager())
+            ->post('/api/word-templates', [
+                'file' => $upload('official.docx', '{{title}}'),
+                'name' => 'نامهٔ رسمی',
+                'domain' => BoardMeetingSheetExport::TEMPLATE_DOMAIN,
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.name', 'نامهٔ رسمی')
+            // Said as a word, because this is what tells a person whether their
+            // file needs placeholders to do anything at all.
+            ->assertJsonPath('data.kind', 'content');
+    });
+
+    it('calls a template with no placeholders a style one', function () use ($manager, $upload) {
+        $this->actingAs($manager())
+            ->post('/api/word-templates', [
+                'file' => $upload('house.docx', 'فقط سربرگ'),
+                'name' => 'سبک خانه',
+                'domain' => BoardMeetingSheetExport::TEMPLATE_DOMAIN,
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.kind', 'style');
+    });
+
+    it('answers 422 with the reason when the file is refused', function () use ($manager, $upload) {
+        config(['exports.word.max_bytes' => 8]);
+
+        $this->actingAs($manager())
+            ->post('/api/word-templates', [
+                'file' => $upload('big.docx'),
+                'name' => 'بزرگ',
+                'domain' => BoardMeetingSheetExport::TEMPLATE_DOMAIN,
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('file');
+    });
+
+    it('refuses a domain no template exists for', function () use ($manager, $upload) {
+        $this->actingAs($manager())
+            ->post('/api/word-templates', [
+                'file' => $upload('x.docx'),
+                'name' => 'x',
+                'domain' => 'not-a-domain',
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('domain');
+    });
+
+    it('lists what a template may contain, grouped so repeating rows are visible', function () use ($reader) {
+        // The grouping is the point: a flat list of 28 names cannot say which of
+        // them have to share a table row, and that is the one mistake that makes
+        // a list render as a single line.
+        $this->actingAs($reader())
+            ->getJson('/api/word-templates/fields')
+            ->assertOk()
+            ->assertJsonPath('data.syntax', ['open' => '{{', 'close' => '}}'])
+            ->assertJsonStructure([
+                'data' => [
+                    'inline' => [['key', 'label']],
+                    'rows' => [['group', 'columns' => [['key', 'label']]]],
+                ],
+            ]);
+
+        $groups = $this->actingAs($reader())
+            ->getJson('/api/word-templates/fields')
+            ->json('data.rows');
+
+        expect(collect($groups)->pluck('group')->all())
+            ->toContain('attendee', 'agenda', 'tag');
+    });
+
+    it('promotes a default, which is what the export button then uses', function () use ($manager, $upload) {
+        $this->actingAs($manager())
+            ->post('/api/word-templates', [
+                'file' => $upload('a.docx'),
+                'name' => 'الف',
+                'domain' => BoardMeetingSheetExport::TEMPLATE_DOMAIN,
+            ]);
+
+        $this->actingAs($manager())
+            ->post('/api/word-templates', [
+                'file' => $upload('b.docx'),
+                'name' => 'ب',
+                'domain' => BoardMeetingSheetExport::TEMPLATE_DOMAIN,
+            ])
+            ->assertCreated();
+
+        $this->actingAs($manager())
+            ->putJson('/api/word-templates/b', ['is_default' => true])
+            ->assertOk()
+            ->assertJsonPath('data.is_default', true);
+
+        $listed = $this->actingAs($manager())
+            ->getJson('/api/word-templates')
+            ->json('data.templates');
+
+        // Default first, so the list a person sees leads with the one the button
+        // would use.
+        expect($listed[0]['slug'])->toBe('b');
+    });
+
+    it('renames a template without touching its file', function () use ($manager, $upload) {
+        $template = $this->library->upload($upload('x.docx'), 'boardmeeting', 'قبلی');
+
+        $this->actingAs($manager())
+            ->putJson('/api/word-templates/'.$template->slug(), ['name' => 'بعدی'])
+            ->assertOk()
+            ->assertJsonPath('data.name', 'بعدی');
+
+        expect($this->store->has($template))->toBeTrue();
+    });
+
+    it('deletes a template and its file', function () use ($manager, $upload) {
+        $template = $this->library->upload($upload('gone.docx'), 'boardmeeting', 'موقتی');
+
+        $this->actingAs($manager())
+            ->deleteJson('/api/word-templates/'.$template->slug())
+            ->assertOk();
+
+        expect($this->store->has($template))->toBeFalse();
+    });
+
+    it('answers 404 for a template that is not there', function () use ($manager) {
+        $this->actingAs($manager())
+            ->deleteJson('/api/word-templates/nope')
+            ->assertNotFound();
+    });
+
+    it('keeps management out of a reader’s hands', function () use ($reader, $upload) {
+        $this->actingAs($reader())
+            ->post('/api/word-templates', [
+                'file' => $upload('x.docx'),
+                'name' => 'x',
+                'domain' => BoardMeetingSheetExport::TEMPLATE_DOMAIN,
+            ])
+            ->assertForbidden();
+
+        $this->actingAs($reader())
+            ->deleteJson('/api/word-templates/anything')
+            ->assertForbidden();
+    });
+});
+
+describe('exporting with a word template', function () {
+    beforeEach(function () {
+        Storage::fake('local');
+
+        $this->library = app(WordTemplateLibrary::class);
+        $this->store = app(WordTemplateStore::class);
+    });
+
+    /** A real docx upload carrying the given body. */
+    $upload = function (string $filename, string $text) {
+        $phpWord = new PhpWord;
+        $phpWord->addSection()->addText($text);
+
+        $path = tempnam(sys_get_temp_dir(), 'exp-').'.docx';
+        IOFactory::createWriter($phpWord, 'Word2007')->save($path);
+
+        return new UploadedFile($path, $filename, null, null, true);
+    };
+
+    it('generates the document when nobody has configured a template', function () {
+        $meeting = BoardMeeting::factory()->create(['title' => 'بودجه']);
+
+        $this->actingAs(createUserWithPermissions(['board-meeting.export']))
+            ->get("/api/board-meetings/{$meeting->getKey()}/export/docx")
+            ->assertOk()
+            ->assertHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    });
+
+    it('uses the default template without being asked for one', function () use ($upload) {
+        $this->library->upload($upload('house.docx', 'سربرگ هیئت مدیره'), 'boardmeeting', 'سبک خانه', isDefault: true);
+
+        $meeting = BoardMeeting::factory()->create(['title' => 'بودجه']);
+
+        $response = $this->actingAs(createUserWithPermissions(['board-meeting.export']))
+            ->get("/api/board-meetings/{$meeting->getKey()}/export/docx")
+            ->assertOk();
+
+        $out = tempnam(sys_get_temp_dir(), 'out-').'.docx';
+        file_put_contents($out, $response->streamedContent());
+
+        $zip = new ZipArchive;
+        $zip->open($out);
+        $text = (string) $zip->getFromName('word/document.xml');
+        $zip->close();
+
+        // The style template's own body survived, and the meeting is under it.
+        expect($text)->toContain('سربرگ هیئت مدیره')
+            ->and($text)->toContain('بودجه');
+
+        @unlink($out);
+    });
+
+    it('uses the template that was named, not the default', function () use ($upload) {
+        $this->library->upload($upload('house.docx', 'سبک پیش‌فرض'), 'boardmeeting', 'پیش‌فرض', isDefault: true);
+        $this->library->upload($upload('other.docx', 'سبک دیگر'), 'boardmeeting', 'دیگر');
+
+        $meeting = BoardMeeting::factory()->create();
+
+        $response = $this->actingAs(createUserWithPermissions(['board-meeting.export']))
+            ->get("/api/board-meetings/{$meeting->getKey()}/export/docx?template=other")
+            ->assertOk();
+
+        $out = tempnam(sys_get_temp_dir(), 'out-').'.docx';
+        file_put_contents($out, $response->streamedContent());
+
+        $zip = new ZipArchive;
+        $zip->open($out);
+        $text = (string) $zip->getFromName('word/document.xml');
+        $zip->close();
+
+        expect($text)->toContain('سبک دیگر')
+            ->and($text)->not->toContain('سبک پیش‌فرض');
+
+        @unlink($out);
+    });
+
+    it('answers 404 for a template nobody has, rather than quietly using the default', function () use ($upload) {
+        // Falling back here would hand somebody a different document than the one
+        // they asked for, with nothing to tell them so.
+        $this->library->upload($upload('house.docx', 'سبک'), 'boardmeeting', 'سبک', isDefault: true);
+
+        $meeting = BoardMeeting::factory()->create();
+
+        $this->actingAs(createUserWithPermissions(['board-meeting.export']))
+            ->get("/api/board-meetings/{$meeting->getKey()}/export/docx?template=nope")
+            ->assertNotFound();
+    });
+
+    it('fills a content template rather than generating over it', function () use ($upload) {
+        $this->library->upload(
+            $upload('letter.docx', 'صورتجلسه {{title}} به تاریخ {{held_on}}'),
+            'boardmeeting',
+            'نامه',
+            isDefault: true,
+        );
+
+        $meeting = BoardMeeting::factory()->create(['title' => 'بودجهٔ سالانه']);
+
+        $response = $this->actingAs(createUserWithPermissions(['board-meeting.export']))
+            ->get("/api/board-meetings/{$meeting->getKey()}/export/docx")
+            ->assertOk();
+
+        $out = tempnam(sys_get_temp_dir(), 'out-').'.docx';
+        file_put_contents($out, $response->streamedContent());
+
+        $zip = new ZipArchive;
+        $zip->open($out);
+        $text = (string) $zip->getFromName('word/document.xml');
+        $zip->close();
+
+        expect($text)->toContain('بودجهٔ سالانه')
+            ->and($text)->not->toContain('{{title}}');
+
+        @unlink($out);
+    });
+});

@@ -110,5 +110,13 @@ return [
         'cleared' => "This meeting's template was cleared and falls back to the domain's.",
         'unknown_section' => ':sections is not a section this document can print.',
         'duplicate_section' => 'A section can appear in a template only once.',
+
+        'library' => 'Word templates',
+        'fields' => 'Available names',
+        'deleted' => 'The template was deleted.',
+        'not_found' => 'No such template.',
+        'unknown_domain' => 'No templates exist for :domains.',
+        'file_required' => 'Choose a template file.',
+        'file_must_be_file' => 'That upload is not a readable file.',
     ],
 ];
