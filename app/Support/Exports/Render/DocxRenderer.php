@@ -2,7 +2,8 @@
 
 namespace App\Support\Exports\Render;
 
-use App\Support\Exports\Contract\DocumentRenderer;
+use App\Support\Exports\Contract\BaseDocumentRenderer;
+use App\Support\Exports\Templates\TemplateFiller;
 use App\Support\Exports\Value\Document\DocumentField;
 use App\Support\Exports\Value\Document\DocumentSection;
 use App\Support\Exports\Value\Document\DocumentSpec;
@@ -15,12 +16,22 @@ use PhpOffice\PhpWord\PhpWord;
  * Word renderer: the kernel DocumentSpec becomes a PHPWord document tree and
  * the Word2007 writer serializes it to docx bytes on the stream.
  *
- * Two deliberate deviations from the vault plan: (1) documents are BUILT via
- * the PHPWord API instead of a TemplateProcessor over a hand-designed .docx
- * template — structured profile output has no static placeholder layout, and
- * code-only generation keeps binary template assets out of the repo (the
- * TemplateProcessor path stays reserved for future official-letter forms);
- * (2) a docx only NAMES its font (the reader's Word resolves/falls back), so
+ * TWO STARTS, ONE BODY. `render()` builds a new document; `renderOnto()` loads
+ * one that already exists — a template with no placeholders, supplying fonts,
+ * page size, headers and a letterhead — and adds the spec to it. Everything
+ * between those two points is the same code, because the only thing a style
+ * template changes is where the document starts.
+ *
+ * The original plan avoided a hand-designed .docx in the repo because binary
+ * assets cannot be reviewed in a diff and structured output has no one static
+ * layout. That still holds for a template in version control — and it stops
+ * holding the moment the template is a file a person UPLOADS, where the bytes
+ * belong in storage rather than the repo. That path is
+ * {@see TemplateFiller}, and it is a separate
+ * class rather than a mode of this one because a content template never sees a
+ * DocumentSpec at all: the file decides what the document says.
+ *
+ * a docx only NAMES its font (the reader's Word resolves/falls back), so
  * unlike PDF no TTF embedding is needed — Tahoma ships Persian on every
  * Windows Office install.
  *
@@ -28,7 +39,7 @@ use PhpOffice\PhpWord\PhpWord;
  * paragraph) plus `rtl` on the font (w:rtl on the run). Word then shapes and
  * orders Persian text natively.
  */
-final class DocxRenderer implements DocumentRenderer
+final class DocxRenderer implements BaseDocumentRenderer
 {
     public function render(DocumentSpec $spec, $stream): void
     {
@@ -41,17 +52,64 @@ final class DocxRenderer implements DocumentRenderer
         $section = $phpWord->addSection(['marginLeft' => 850, 'marginRight' => 850]);
 
         $this->addTitle($section, $spec, $font);
+        $this->addMeta($section, $spec, $font);
+        $this->addSections($section, $spec, $font);
 
-        foreach ($spec->meta as $meta) {
-            $this->addLine($section, $meta, $font);
-        }
+        $this->emit($phpWord, $stream);
+    }
 
-        foreach ($spec->sections as $document) {
-            $this->addSection($section, $document, $font);
-        }
+    /**
+     * Add the spec to a document that already exists.
+     *
+     * Appended to the LAST section rather than put in a new one. A new section
+     * starts a new page, which would put the meeting on page two of every
+     * letterhead that already has a heading on page one — and "what is under
+     * this" is the whole meaning of a style template. The template's own page
+     * setup is left exactly as the file declares it.
+     */
+    public function renderOnto(DocumentSpec $spec, $stream, string $basePath): void
+    {
+        $phpWord = IOFactory::load($basePath);
 
-        // The writer wants a filesystem path; generate to a temp file and
-        // copy the finished bytes onto the kernel's stream.
+        $font = (string) config('exports.documents.docx_font');
+        $sections = $phpWord->getSections();
+
+        // A document with no section at all cannot be appended to, and Word
+        // would open the result as malformed. Given one rather than failing:
+        // the content is what the caller asked for, and the template had nothing
+        // to contribute anyway.
+        $section = $sections === []
+            ? $phpWord->addSection(['marginLeft' => 850, 'marginRight' => 850])
+            : $sections[count($sections) - 1];
+
+        $this->addTitle($section, $spec, $font);
+        $this->addMeta($section, $spec, $font);
+        $this->addSections($section, $spec, $font);
+
+        $this->emit($phpWord, $stream);
+    }
+
+    public function contentType(): string
+    {
+        return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+    }
+
+    public function extension(): string
+    {
+        return 'docx';
+    }
+
+    /**
+     * Serialise the document and copy it onto the caller's stream.
+     *
+     * Through a temporary file because the Word2007 writer insists on a path.
+     * Both starts go through here rather than repeating the write, so a change to
+     * output handling cannot land on one and miss the other.
+     *
+     * @param  resource  $stream
+     */
+    private function emit(PhpWord $phpWord, $stream): void
+    {
         $path = tempnam(sys_get_temp_dir(), 'hrh-docx-');
 
         try {
@@ -68,14 +126,18 @@ final class DocxRenderer implements DocumentRenderer
         }
     }
 
-    public function contentType(): string
+    private function addMeta(Section $section, DocumentSpec $spec, string $font): void
     {
-        return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+        foreach ($spec->meta as $meta) {
+            $this->addLine($section, $meta, $font);
+        }
     }
 
-    public function extension(): string
+    private function addSections(Section $section, DocumentSpec $spec, string $font): void
     {
-        return 'docx';
+        foreach ($spec->sections as $document) {
+            $this->addSection($section, $document, $font);
+        }
     }
 
     private function addTitle(Section $section, DocumentSpec $spec, string $font): void
