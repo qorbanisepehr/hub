@@ -17,6 +17,20 @@ return [
 
     'groups' => [
 
+        'export-template' => [
+            'name' => 'Export Templates',
+            // Deliberately one group for every domain rather than a
+            // `board-meeting.template` beside the rest: a template says which
+            // sections a printed document contains, and every domain with a
+            // `DocumentSource` has one. Per-domain permissions would make "who
+            // may change how minutes are printed" and "who may change how a CV
+            // is printed" the same question asked twice with two answers.
+            'permissions' => [
+                'export-template.view' => 'View which sections a document is rendered with',
+                'export-template.manage' => 'Change which sections a document is rendered with',
+            ],
+        ],
+
         'user' => [
             'name' => 'User Management',
             'permissions' => [

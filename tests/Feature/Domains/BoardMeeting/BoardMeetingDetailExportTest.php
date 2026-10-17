@@ -63,7 +63,7 @@ function bm_export_text(array $parts): string
 /** The printed meeting's summary section, flattened to searchable text. */
 function bm_summary_text(BoardMeeting $meeting): string
 {
-    $section = collect((new BoardMeetingSheetExport)->document($meeting)->sections)
+    $section = collect(app(BoardMeetingSheetExport::class)->document($meeting)->sections)
         ->first(fn (DocumentSection $one): bool => $one->heading === __('board_meeting.print.sections.summary'));
 
     return bm_export_text([$section]);
@@ -446,7 +446,7 @@ describe('board meeting detail sheet export', function () {
             ],
         ]);
 
-        expect(bm_export_text((new BoardMeetingSheetExport)->document($meeting)->sections))
+        expect(bm_export_text(app(BoardMeetingSheetExport::class)->document($meeting)->sections))
             ->toContain('زهرا احمدی')
             ->toContain('رئیس')
             ->toContain('مریم کاظمی')
@@ -457,7 +457,7 @@ describe('board meeting detail sheet export', function () {
     it('describes an attachment by its metadata columns only, never its bytes', function () {
         $meeting = BoardMeeting::factory()->create();
 
-        $section = collect((new BoardMeetingSheetExport)->document($meeting)->sections)
+        $section = collect(app(BoardMeetingSheetExport::class)->document($meeting)->sections)
             ->first(fn (DocumentSection $one): bool => $one->heading === __('board_meeting.print.sections.attachments'));
 
         expect($section)->not->toBeNull()

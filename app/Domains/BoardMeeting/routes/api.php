@@ -2,6 +2,7 @@
 
 use App\Domains\BoardMeeting\Controllers\BoardMeetingController;
 use App\Domains\BoardMeeting\Controllers\BoardMeetingDocumentController;
+use App\Domains\BoardMeeting\Controllers\BoardMeetingTemplateController;
 use App\Domains\BoardMeeting\Controllers\MeetingSummaryController;
 use Illuminate\Support\Facades\Route;
 
@@ -86,6 +87,46 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('board-meetings/export/bundle/{token}/cancel', [BoardMeetingController::class, 'cancelBundle'])
         ->name('board-meetings.export.bundle-cancel')
         ->middleware('permission:board-meeting.export');
+
+    /*
+     * Which sections a printed meeting contains.
+     *
+     * Declared BEFORE `board-meetings/{meeting}` below, and that is load-bearing
+     * rather than stylistic: a literal segment declared after a parameter is
+     * never reached, because `{meeting}` captures `templates` first and the
+     * request 404s on a meeting id of "templates". Every route above is a
+     * literal for the same reason and sits above it too.
+     *
+     * On the cross-domain `export-template.*` permissions rather than
+     * `board-meeting.*`, because what is being configured is how a document is
+     * rendered — the same question for every domain with a `DocumentSource`, and
+     * deliberately asked once rather than per domain.
+     *
+     * `view` reads, `manage` writes, including dropping an override: clearing one
+     * is not a lesser read, it hands the decision back to the domain's template
+     * and so changes what the meeting prints.
+     */
+    Route::prefix('board-meetings/templates')->group(function (): void {
+        Route::get('/', [BoardMeetingTemplateController::class, 'index'])
+            ->name('board-meetings.templates.index')
+            ->middleware('permission:export-template.view');
+
+        Route::put('/', [BoardMeetingTemplateController::class, 'update'])
+            ->name('board-meetings.templates.update')
+            ->middleware('permission:export-template.manage');
+
+        Route::get('{meeting}', [BoardMeetingTemplateController::class, 'show'])
+            ->name('board-meetings.templates.show')
+            ->middleware('permission:export-template.view');
+
+        Route::put('{meeting}', [BoardMeetingTemplateController::class, 'updateForMeeting'])
+            ->name('board-meetings.templates.meeting-update')
+            ->middleware('permission:export-template.manage');
+
+        Route::delete('{meeting}', [BoardMeetingTemplateController::class, 'destroyForMeeting'])
+            ->name('board-meetings.templates.meeting-destroy')
+            ->middleware('permission:export-template.manage');
+    });
 
     Route::get('board-meetings/{meeting}', [BoardMeetingController::class, 'show'])
         ->name('board-meetings.show')

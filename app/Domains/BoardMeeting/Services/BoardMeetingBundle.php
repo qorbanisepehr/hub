@@ -56,7 +56,7 @@ final class BoardMeetingBundle
         $entries = [];
 
         try {
-            $sheet = new BoardMeetingSheetExport;
+            $sheet = app(BoardMeetingSheetExport::class);
 
             // One meeting stays flat; two or more get a folder each. A folder
             // named after the only meeting inside it teaches a reader nothing,

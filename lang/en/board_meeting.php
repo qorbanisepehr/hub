@@ -102,4 +102,13 @@ return [
         'bundle_gone' => 'That bundle is no longer available; it expired or was removed.',
         'bundle_stop_requested' => 'Stop requested; the build will stop at the next meeting boundary.',
     ],
+
+    'template' => [
+        'index' => 'Export templates',
+        'read' => 'Meeting template',
+        'saved' => 'The template was saved.',
+        'cleared' => "This meeting's template was cleared and falls back to the domain's.",
+        'unknown_section' => ':sections is not a section this document can print.',
+        'duplicate_section' => 'A section can appear in a template only once.',
+    ],
 ];

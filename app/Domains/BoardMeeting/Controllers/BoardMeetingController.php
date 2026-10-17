@@ -515,7 +515,7 @@ class BoardMeetingController
      */
     private function streamMeetingSheet(BoardMeeting $meeting, DocumentExportService $documents, string $format): StreamedResponse
     {
-        $file = $documents->run(new BoardMeetingSheetExport, $meeting, $format);
+        $file = $documents->run(app(BoardMeetingSheetExport::class), $meeting, $format);
 
         return response()->streamDownload(function () use ($file): void {
             $stream = fopen('php://output', 'w');

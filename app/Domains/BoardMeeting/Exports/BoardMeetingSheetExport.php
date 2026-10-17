@@ -8,6 +8,7 @@ use App\Domains\BoardMeeting\Value\Attendee;
 use App\Domains\BoardMeeting\Value\MeetingSummary;
 use App\Domains\Document\Models\DocumentUsage;
 use App\Support\Exports\Contract\DocumentSource;
+use App\Support\Exports\Templates\TemplateResolver;
 use App\Support\Exports\Value\Document\DocumentField;
 use App\Support\Exports\Value\Document\DocumentSection;
 use App\Support\Exports\Value\Document\DocumentSpec;
@@ -44,6 +45,17 @@ use App\Support\Exports\ValuePresenter;
 final class BoardMeetingSheetExport implements DocumentSource
 {
     /**
+     * The templates group's domain name for this sheet. Where its overrides are
+     * addressed, not a display name - renaming the class or the sheet must not
+     * silently orphan every template an administrator has written.
+     */
+    public const TEMPLATE_DOMAIN = 'boardmeeting';
+
+    public function __construct(
+        private readonly TemplateResolver $templates,
+    ) {}
+
+    /**
      * The summary's value keys, in the order the reader should meet them, with
      * whether the model returns prose or a list. Read off the enum rather than
      * hardcoded: `MeetingSummaryField` is the contract for what a run may
@@ -63,6 +75,74 @@ final class BoardMeetingSheetExport implements DocumentSource
     /** The meeting this instance was asked about, kept so the filename can name it. */
     private ?BoardMeeting $meeting = null;
 
+    /**
+     * Every section name a template may use, in the order this sheet prints
+     * them by default.
+     *
+     * Public because it is a contract, not an implementation detail: the
+     * request that validates a submitted template and any settings screen both
+     * need to know what is legal, and a second hand-written list of these names
+     * would be a second place for them to go stale.
+     *
+     * @return list<string>
+     */
+    public function sectionNames(): array
+    {
+        return array_keys($this->sectionBuilders());
+    }
+
+    /**
+     * Every section this sheet can print, as a name to a builder.
+     *
+     * Named rather than positional because a name is what a template stores: a
+     * template that said "the third one" would be rewritten by every edit here,
+     * and one that said `summary` survives this class gaining a section. It is
+     * also the vocabulary {@see resolveSections()} filters templates against, so
+     * the set of printable sections and the set of legal template names are the
+     * same list and cannot drift apart.
+     *
+     * @return array<string, callable(BoardMeeting): DocumentSection>
+     */
+    private function sectionBuilders(): array
+    {
+        return [
+            'identity' => $this->identitySection(...),
+            'attendees' => $this->attendeesSection(...),
+            'agenda' => $this->agendaSection(...),
+            'minutes' => $this->minutesSection(...),
+            'summary' => $this->summarySection(...),
+            'approvals' => $this->approvalsSection(...),
+            'tags' => $this->tagsSection(...),
+            'attachments' => $this->attachmentsSection(...),
+        ];
+    }
+
+    /**
+     * Which of the above to actually build, in which order.
+     *
+     * The template decides; the built-in list is the fallback and also the
+     * vocabulary a stored template is filtered against. An entity's template
+     * beats its domain's, and a domain's beats this list — see
+     * {@see TemplateResolver} for why each answer is a whole template rather
+     * than a patch of one.
+     */
+    private function resolveSections(BoardMeeting $meeting): array
+    {
+        $default = array_keys($this->sectionBuilders());
+
+        $sections = $this->templates->sections(
+            self::TEMPLATE_DOMAIN,
+            'session/'.$meeting->getKey(),
+            $default,
+        );
+
+        // Nothing stored for the entity, and nothing for the domain either: the
+        // domain list, which is the section order this sheet has always printed
+        // in. Restated rather than assumed so that the built-in default is one
+        // list in this file instead of two that can disagree.
+        return $sections === [] ? $default : $sections;
+    }
+
     public function document(mixed $entity): DocumentSpec
     {
         $this->meeting = $entity instanceof BoardMeeting
@@ -70,6 +150,19 @@ final class BoardMeetingSheetExport implements DocumentSource
             : BoardMeeting::query()->findOrFail((int) $entity);
 
         $meeting = $this->meeting->loadMissing(['tags', 'documentUsages.document']);
+
+        $builders = $this->sectionBuilders();
+        $sections = [];
+
+        foreach ($this->resolveSections($meeting) as $name) {
+            // Built one at a time and only for the names the template asked
+            // for, so a template that hides the agenda table never assembles it.
+            $section = $builders[$name]($meeting);
+
+            if (! $section->isEmpty()) {
+                $sections[] = $section;
+            }
+        }
 
         return new DocumentSpec(
             title: $this->label('title'),
@@ -80,16 +173,7 @@ final class BoardMeetingSheetExport implements DocumentSource
                     ValuePresenter::generatedAtStamp(),
                 ),
             ])),
-            sections: array_values(array_filter([
-                $this->identitySection($meeting),
-                $this->attendeesSection($meeting),
-                $this->agendaSection($meeting),
-                $this->minutesSection($meeting),
-                $this->summarySection($meeting),
-                $this->approvalsSection($meeting),
-                $this->tagsSection($meeting),
-                $this->attachmentsSection($meeting),
-            ], fn (DocumentSection $section): bool => ! $section->isEmpty())),
+            sections: $sections,
         );
     }
 
