@@ -10,6 +10,7 @@ use App\Domains\Settings\Repositories\SystemSettingsRepositoryInterface;
 use App\Domains\Tagging\Services\TagService;
 use App\Support\Exports\Templates\ExportTemplate;
 use App\Support\Exports\Templates\TemplateResolver;
+use App\Support\Exports\Templates\WordTemplate;
 
 /**
  * Which sections a printed meeting contains, and who says so.
@@ -152,7 +153,7 @@ describe('board meeting export templates', function () {
         // point of a template.
         $this->expectException(InvalidSetting::class);
 
-        ExportTemplate::fromStored('boardmeeting', ['sections' => ['a' => 'identity']], null);
+        ExportTemplate::fromStored('sections/boardmeeting', ['sections' => ['a' => 'identity']], null);
     });
 
     it('refuses a row stored under one key claiming to be another domain', function () {
@@ -160,7 +161,7 @@ describe('board meeting export templates', function () {
         // disagreeing with it would apply a template to the wrong domain.
         $this->expectException(InvalidSetting::class);
 
-        ExportTemplate::fromStored('boardmeeting', ['domain' => 'cv', 'sections' => []], null);
+        ExportTemplate::fromStored('sections/boardmeeting', ['domain' => 'cv', 'sections' => []], null);
     });
 
     it('namespaces an entity key so one record cannot address another', function () {
@@ -171,15 +172,45 @@ describe('board meeting export templates', function () {
         // meeting's override is addressed as `session/{id}`, so it can never
         // collide with a CV numbered 42.
         expect(ExportTemplate::make('boardmeeting', 'session/42', ['identity'])->key())
-            ->toBe('boardmeeting/session/42')
+            ->toBe('sections/boardmeeting/session/42')
             ->and(ExportTemplate::make('boardmeeting', null, ['identity'])->key())
-            ->toBe('boardmeeting');
+            ->toBe('sections/boardmeeting');
 
         // And the shape checks that keep a malformed key out of the store.
-        expect(ExportTemplate::split('boardmeeting/session/42'))->toBe(['boardmeeting', 'session/42'])
-            ->and(ExportTemplate::split('boardmeeting/'))->toBeNull()
-            ->and(ExportTemplate::split('/session/42'))->toBeNull()
-            ->and(ExportTemplate::split('board meeting/42'))->toBeNull();
+        expect(ExportTemplate::split('sections/boardmeeting/session/42'))->toBe(['boardmeeting', 'session/42'])
+            ->and(ExportTemplate::split('sections/boardmeeting'))->toBe(['boardmeeting', null])
+            ->and(ExportTemplate::split('sections/boardmeeting/'))->toBeNull()
+            ->and(ExportTemplate::split('sections//session/42'))->toBeNull()
+            ->and(ExportTemplate::split('sections/board meeting/42'))->toBeNull();
+    });
+
+    it('refuses a key with no namespace at all', function () {
+        // A bare `boardmeeting` is exactly what the rename moved away from. If
+        // `handles()` still accepted one, nothing would claim it and a stored
+        // template would silently stop applying — a quiet revert to the
+        // built-in section list that nobody would notice.
+        expect(ExportTemplate::handles('boardmeeting'))->toBeFalse()
+            ->and(ExportTemplate::handles('boardmeeting/session/42'))->toBeFalse();
+    });
+
+    it('shares the group with Word templates without ever claiming their keys', function () {
+        // `handles()` is how the store decides which kind of setting owns a key,
+        // so the two classes overlapping here would make a listing return the
+        // other kind's rows and a delete match nothing.
+        $wordKeys = [
+            WordTemplate::make('boardmeeting', 'official', null, 'نامهٔ رسمی', 10, 'application/docx', true)->key(),
+            WordTemplate::make('boardmeeting', 'official', 'session/42', 'نامهٔ رسمی', 10, 'application/docx', true)->key(),
+        ];
+
+        foreach ($wordKeys as $key) {
+            expect(WordTemplate::handles($key))->toBeTrue()
+                ->and(ExportTemplate::handles($key))->toBeFalse();
+        }
+
+        $sectionKey = ExportTemplate::make('boardmeeting', null, ['identity'])->key();
+
+        expect(ExportTemplate::handles($sectionKey))->toBeTrue()
+            ->and(WordTemplate::handles($sectionKey))->toBeFalse();
     });
 });
 

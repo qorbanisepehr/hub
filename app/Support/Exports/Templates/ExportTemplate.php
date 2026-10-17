@@ -24,16 +24,28 @@ use App\Domains\Settings\Exceptions\InvalidSetting;
  * same split the Notification domain draws: the contract and the mechanism are
  * shared, the words are the domain's.
  *
- * KEYS ARE DOMAIN-FIRST. `boardmeeting` is the domain's default and
- * `boardmeeting/session/42` is one meeting's override, so the most specific
- * answer sorts last under any listing and the most general one is the shortest
- * key in its group. Entity keys nest rather than flatten because an entity id
- * is only meaningful under its own domain's namespace - a bare `42` would claim
- * meeting 42 and CV 42 at once.
+ * KEYS ARE PREFIXED AND DOMAIN-FIRST. `sections/boardmeeting` is the domain's
+ * default and `sections/boardmeeting/session/42` is one meeting's override, so
+ * the most specific answer sorts last under any listing and the most general one
+ * is the shortest key in its group. Entity keys nest rather than flatten because
+ * an entity id is only meaningful under its own domain's namespace - a bare `42`
+ * would claim meeting 42 and CV 42 at once.
+ *
+ * THE `sections/` PREFIX IS LOAD-BEARING, NOT COSMETIC. `handles()` is what the
+ * store uses to decide which kind of setting owns a key, and the `exports` group
+ * holds more than one kind - {@see WordTemplate} keeps its files under `word/`.
+ * Without a prefix on both sides, a key like `word/boardmeeting/official` parses
+ * as domain `word` with entity `boardmeeting/official` and BOTH classes claim it:
+ * a listing starts returning another kind's rows, and a delete quietly stops
+ * matching anything. Two namespaces that cannot overlap is the same discipline
+ * the AI registry applies to `providers/` and `agents/`.
  */
 final class ExportTemplate implements Setting
 {
     public const GROUP = 'exports';
+
+    /** The namespace these keys live under. See {@see handles()}. */
+    public const PREFIX = 'sections/';
 
     /** A key that scopes a template to one entity inside its domain. */
     private const ENTITY_SEPARATOR = '/';
@@ -51,10 +63,13 @@ final class ExportTemplate implements Setting
     }
 
     /**
-     * The whole group is templates, so anything shaped like a key is one. The
-     * shape check rather than a list of known domains is deliberate: the store
-     * must not need editing when a domain adds its first `DocumentSource`, or
-     * the kernel would be holding a registry of which domains exist.
+     * Whether the key is a SECTION template's.
+     *
+     * The prefix check, then the shape check. Both are needed: the prefix is what
+     * keeps this class and {@see WordTemplate} from claiming each other's keys,
+     * and the shape check is what keeps a malformed tail out of the store — a
+     * key with the right prefix but an illegal segment is caught here, on every
+     * read, rather than by trusting whoever wrote it.
      */
     public static function handles(string $key): bool
     {
@@ -62,15 +77,26 @@ final class ExportTemplate implements Setting
     }
 
     /**
-     * Null rather than the group name: the group holds nothing else, so
-     * narrowing the query would exclude nothing while implying it had.
+     * Narrows a listing to this kind, which is the whole point of having a
+     * prefix on both sides of a shared group.
      */
     public static function keyPrefix(): ?string
     {
-        return null;
+        return self::PREFIX;
     }
 
     public function key(): string
+    {
+        return self::PREFIX.$this->keyTail();
+    }
+
+    /**
+     * The key without its namespace: `{domain}` or `{domain}/{entity}`.
+     *
+     * Public because it is what the two setting classes are separated by, and
+     * {@see handles()} is the authority on both sides.
+     */
+    public function keyTail(): string
     {
         return $this->entity === null
             ? $this->domain
@@ -99,6 +125,20 @@ final class ExportTemplate implements Setting
     /**
      * @param  list<string>  $sections
      */
+    /**
+     * The store key for a domain and entity.
+     *
+     * Built here and nowhere else. The same pair is assembled in three places —
+     * read, write and delete — and a caller that spelled it out in only one of
+     * them produces a delete that silently matches nothing and a template that
+     * appears to be configured while no longer applying. One builder is the whole
+     * fix; a comment asking people to be careful is not.
+     */
+    public static function keyFor(string $domain, ?string $entity = null): string
+    {
+        return self::PREFIX.($entity === null ? $domain : $domain.self::ENTITY_SEPARATOR.$entity);
+    }
+
     public static function make(string $domain, ?string $entity, array $sections): self
     {
         $template = new self($domain, $entity, array_values($sections));
@@ -213,30 +253,36 @@ final class ExportTemplate implements Setting
      */
     public static function split(string $key): ?array
     {
-        if ($key === '' || str_starts_with($key, self::ENTITY_SEPARATOR) || str_ends_with($key, self::ENTITY_SEPARATOR)) {
+        if (! str_starts_with($key, self::PREFIX)) {
             return null;
         }
 
-        [$domain, $tail] = array_pad(explode(self::ENTITY_SEPARATOR, $key, 2), 2, null);
+        $tail = substr($key, strlen(self::PREFIX));
+
+        if ($tail === '' || str_ends_with($tail, self::ENTITY_SEPARATOR)) {
+            return null;
+        }
+
+        [$domain, $remainder] = array_pad(explode(self::ENTITY_SEPARATOR, $tail, 2), 2, null);
 
         if (! self::isLegalSegment($domain)) {
             return null;
         }
 
-        if ($tail === null) {
+        if ($remainder === null) {
             return [$domain, null];
         }
 
         // The tail nests: `session/42` names an entity kind and an id, and both
         // halves are checked because the whole key is what has to survive a URL
         // segment and a config lookup.
-        foreach (explode(self::ENTITY_SEPARATOR, $tail) as $segment) {
+        foreach (explode(self::ENTITY_SEPARATOR, $remainder) as $segment) {
             if (! self::isLegalSegment($segment)) {
                 return null;
             }
         }
 
-        return [$domain, $tail];
+        return [$domain, $remainder];
     }
 
     private static function isLegalSegment(string $segment): bool

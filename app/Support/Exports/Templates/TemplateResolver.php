@@ -40,11 +40,7 @@ final class TemplateResolver
      */
     public function sections(string $domain, ?string $entity, array $default): array
     {
-        $template = $entity !== null
-            ? $this->settings->get(ExportTemplate::class, $domain.'/'.$entity)
-            : null;
-
-        $template ??= $this->settings->get(ExportTemplate::class, $domain);
+        $template = $this->stored($domain, $entity) ?? $this->stored($domain);
 
         if ($template === null) {
             return $default;
@@ -77,10 +73,7 @@ final class TemplateResolver
      */
     public function forget(string $domain, ?string $entity = null): void
     {
-        $this->settings->forget(
-            ExportTemplate::class,
-            $entity === null ? $domain : $domain.'/'.$entity,
-        );
+        $this->settings->forget(ExportTemplate::class, ExportTemplate::keyFor($domain, $entity));
     }
 
     /**
@@ -92,10 +85,7 @@ final class TemplateResolver
      */
     public function stored(string $domain, ?string $entity = null): ?ExportTemplate
     {
-        $template = $this->settings->get(
-            ExportTemplate::class,
-            $entity === null ? $domain : $domain.'/'.$entity,
-        );
+        $template = $this->settings->get(ExportTemplate::class, ExportTemplate::keyFor($domain, $entity));
 
         return $template instanceof ExportTemplate ? $template : null;
     }
