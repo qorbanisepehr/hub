@@ -70,6 +70,11 @@ class BoardMeetingBundleRequest extends FormRequest
             // "export all I am looking at" means.
             'ids' => ['sometimes', 'array', 'max:'.self::MAX_SELECTION],
             'ids.*' => ['integer'],
+            // The template is a name to look up, not a path to read: an
+            // unresolvable slug is refused by the controller, because
+            // `sometimes` with an empty string has to mean "use the default"
+            // rather than "look up nothing".
+            'word_template' => ['sometimes', 'nullable', 'string', 'max:190'],
         ];
     }
 
@@ -100,6 +105,27 @@ class BoardMeetingBundleRequest extends FormRequest
     public function wantsAttachments(): bool
     {
         return $this->boolean('documents');
+    }
+
+    /**
+     * The Word template this bundle's sheets should use, if the caller named one.
+     *
+     * Null means "whatever this domain uses" rather than "no template": the
+     * domain default is a configuration answer, and a bundle that quietly
+     * dropped it would produce the wrong shape of Word file with nothing to
+     * say so.
+     */
+    public function wordTemplateSlug(): ?string
+    {
+        $slug = $this->input('word_template');
+
+        if (! is_string($slug)) {
+            return null;
+        }
+
+        $slug = trim($slug);
+
+        return $slug === '' ? null : $slug;
     }
 
     /**

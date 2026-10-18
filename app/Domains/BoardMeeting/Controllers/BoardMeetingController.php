@@ -263,6 +263,7 @@ class BoardMeetingController
         DocumentAuthorization $documentAuthorization,
         BoardMeetingBundle $bundle,
         ExportFileStore $store,
+        WordTemplateLibrary $library,
     ): StreamedResponse|JsonResponse {
         // From the form request rather than an injected Request: it is already
         // the current request, and one fewer parameter is one fewer thing that
@@ -297,6 +298,11 @@ class BoardMeetingController
             }
         }
 
+        // Resolved before the queue branch, because the queued path needs the slug
+        // too — it resolves the template when it runs rather than carrying a
+        // settings row across a serialization boundary.
+        $wordTemplate = $this->bundleWordTemplate($bundleRequest, $library);
+
         // COUNT THE WORK BEFORE RENDERING ANY OF IT. One sheet per meeting per
         // format, the meeting's own files, and the two manifest pages — all
         // knowable from the selection alone. Deciding after the first hundred
@@ -326,6 +332,11 @@ class BoardMeetingController
                 $formats,
                 $wants,
                 $actor->getAuthIdentifier(),
+                // The template's SLUG, not the template: a queued build resolves
+                // it when it runs rather than carrying a settings row across a
+                // serialization boundary, and a slug that has since been deleted
+                // answers itself by not being found.
+                $wordTemplate?->slug(),
             );
 
             return response()->json([
@@ -341,7 +352,7 @@ class BoardMeetingController
             ? BundleRequest::sheetsWithAttachments($renderers, $formats)
             : BundleRequest::sheets($renderers, $formats);
 
-        $built = $bundle->entries($meetings->all(), $selection);
+        $built = $bundle->entries($meetings->all(), $selection, $wordTemplate);
         $built = [...$built, ...$bundle->manifestEntries(
             $bundle->manifest($meetings->all(), $built, $wants),
         )];
@@ -502,6 +513,38 @@ class BoardMeetingController
         }
 
         return $this->streamWordSheet($meeting, $word, $template);
+    }
+
+    /**
+     * The Word template a bundle's `.docx` sheets should be built from.
+     *
+     * Named slug, else the domain's default, else none — the same precedence the
+     * single-meeting export uses, so "download this meeting" and "download every
+     * meeting" cannot produce differently-shaped Word files for one domain.
+     *
+     * A slug nobody has is a 404 rather than a fallback. Silently exporting the
+     * default would hand somebody an archive of the wrong kind of document with
+     * nothing to say so — and in a bundle that is fifty files, they have to open
+     * them before they notice.
+     */
+    private function bundleWordTemplate(
+        BoardMeetingBundleRequest $bundleRequest,
+        WordTemplateLibrary $library,
+    ): ?WordTemplate {
+        $domain = BoardMeetingSheetExport::TEMPLATE_DOMAIN;
+        $slug = $bundleRequest->wordTemplateSlug();
+
+        if ($slug === null) {
+            return $library->defaultFor($domain);
+        }
+
+        $template = $library->find($domain, $slug);
+
+        if ($template === null) {
+            abort(404, __('board_meeting.template.not_found'));
+        }
+
+        return $template;
     }
 
     /**

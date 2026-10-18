@@ -4,6 +4,7 @@ namespace App\Domains\BoardMeeting\Jobs;
 
 use App\Contracts\DocumentAuthorization;
 use App\Domains\BoardMeeting\Enums\BundleFailureReason;
+use App\Domains\BoardMeeting\Exports\BoardMeetingSheetExport;
 use App\Domains\BoardMeeting\Models\BoardMeeting;
 use App\Domains\BoardMeeting\Notifications\BoardmeetingBundleFailedNotification;
 use App\Domains\BoardMeeting\Notifications\BoardmeetingBundleReadyNotification;
@@ -16,6 +17,8 @@ use App\Support\Exports\BundleBuilder;
 use App\Support\Exports\BundleRequest;
 use App\Support\Exports\DocumentRendererRegistry;
 use App\Support\Exports\Queued\ExportFileStore;
+use App\Support\Exports\Templates\WordTemplate;
+use App\Support\Exports\Templates\WordTemplateLibrary;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -72,6 +75,7 @@ final class BuildBoardMeetingBundleJob implements ShouldQueue
         private readonly array $formats,
         private readonly bool $documents,
         private readonly ?int $requestedBy,
+        private readonly ?string $wordTemplateSlug = null,
     ) {}
 
     /**
@@ -100,6 +104,7 @@ final class BuildBoardMeetingBundleJob implements ShouldQueue
         BundleBuilder $bundles,
         ExportFileStore $store,
         DocumentAuthorization $documentAuthorization,
+        WordTemplateLibrary $library,
     ): void {
         $meetings = BoardMeeting::query()
             ->with('documentUsages.document.category')
@@ -123,7 +128,11 @@ final class BuildBoardMeetingBundleJob implements ShouldQueue
             ? BundleRequest::sheetsWithAttachments($renderers, $this->formats)
             : BundleRequest::sheets($renderers, $this->formats);
 
-        $entries = $bundle->entries($meetings->all(), $selection);
+        $entries = $bundle->entries(
+            $meetings->all(),
+            $selection,
+            $this->resolveTemplate($library),
+        );
         $entries = [...$entries, ...$bundle->manifestEntries(
             $bundle->manifest($meetings->all(), $entries, $this->documents),
         )];
@@ -184,6 +193,30 @@ final class BuildBoardMeetingBundleJob implements ShouldQueue
             $this->token,
             BundleFailureReason::classify($error),
         ));
+    }
+
+    /**
+     * The Word template this bundle's `.docx` sheets should use, if any.
+     *
+     * Resolved HERE rather than carried in the job's payload, and the difference
+     * matters: the request froze the ids precisely so that a queued build cannot
+     * mean something different from what was asked for. A template slug travels
+     * the same way — a slug nobody has now falls back to the domain default
+     * instead of failing a build that was queued minutes ago.
+     *
+     * A domain default is picked up here rather than at request time for the
+     * same reason: the person queued the build, and "whatever this domain uses"
+     * is what they meant.
+     */
+    private function resolveTemplate(WordTemplateLibrary $library): ?WordTemplate
+    {
+        $domain = BoardMeetingSheetExport::TEMPLATE_DOMAIN;
+
+        if ($this->wordTemplateSlug !== null) {
+            return $library->find($domain, $this->wordTemplateSlug);
+        }
+
+        return $library->defaultFor($domain);
     }
 
     /**

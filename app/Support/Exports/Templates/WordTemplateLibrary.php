@@ -56,9 +56,25 @@ final class WordTemplateLibrary
         return $templates;
     }
 
+    /**
+     * The template this domain filed under a slug, or null.
+     *
+     * A slug that could never be a key answers null WITHOUT asking the store.
+     * The settings repository throws on a key its setting class does not handle,
+     * which is right for a key from inside the app and wrong for one that came
+     * off a query string: "which template is `/etc/passwd`" is not an error, it
+     * is a template nobody has. Without this guard a caller who typed a Persian
+     * name instead of a slug got a 500 where a 404 was the honest answer.
+     */
     public function find(string $domain, string $slug, ?string $entity = null): ?WordTemplate
     {
-        $template = $this->settings->get(WordTemplate::class, $this->keyFor($domain, $slug, $entity));
+        $key = $this->keyFor($domain, $slug, $entity);
+
+        if (! WordTemplate::handles($key)) {
+            return null;
+        }
+
+        $template = $this->settings->get(WordTemplate::class, $key);
 
         return $template instanceof WordTemplate ? $template : null;
     }

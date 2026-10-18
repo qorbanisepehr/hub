@@ -307,3 +307,158 @@ describe('exporting with a word template', function () {
         @unlink($out);
     });
 });
+
+/**
+ * A bundle's Word sheets are built from the same template a single export uses.
+ *
+ * Separate from the single-export cases above because the failure it guards is
+ * the kind nobody sees: an archive of fifty files in the wrong shape is not a
+ * broken download, it is fifty documents somebody has to open to discover. And
+ * the queued path is separate again, because it resolves the template minutes
+ * later — a world in which the template may since have been deleted.
+ */
+describe('a board meeting bundle with a word template', function () {
+    beforeEach(function () {
+        Storage::fake('local');
+
+        $this->library = app(WordTemplateLibrary::class);
+    });
+
+    $upload = function (string $filename, string $text) {
+        $phpWord = new PhpWord;
+        $phpWord->addSection()->addText($text);
+
+        $path = tempnam(sys_get_temp_dir(), 'bnd-').'.docx';
+        IOFactory::createWriter($phpWord, 'Word2007')->save($path);
+
+        return new UploadedFile($path, $filename, null, null, true);
+    };
+
+    /**
+     * The document.xml of the first `.docx` in an archive.
+     *
+     * Self-contained on purpose: the equivalent helpers in the bulk-bundle tests
+     * are plain functions in that file, so they only exist once that file has
+     * run. A test borrowing them would pass alone and fail in a random order.
+     */
+    $firstDocx = function (string $archive): string {
+        $outer = tempnam(sys_get_temp_dir(), 'arc-').'.zip';
+        file_put_contents($outer, $archive);
+
+        $zip = new ZipArchive;
+        $zip->open($outer);
+
+        $inner = null;
+        for ($index = 0; $index < $zip->numFiles && $inner === null; $index++) {
+            $name = (string) $zip->getNameIndex($index);
+
+            if (str_ends_with($name, '.docx')) {
+                $inner = tempnam(sys_get_temp_dir(), 'in-').'.docx';
+                file_put_contents($inner, (string) $zip->getFromIndex($index));
+            }
+        }
+        $zip->close();
+        @unlink($outer);
+
+        expect($inner)->not->toBeNull('the archive held no Word document');
+
+        $docx = new ZipArchive;
+        $docx->open($inner);
+        $text = (string) $docx->getFromName('word/document.xml');
+        $docx->close();
+        @unlink($inner);
+
+        return $text;
+    };
+
+    it('uses the domain default when the caller names none', function () use ($upload, $firstDocx) {
+        $this->library->upload($upload('house.docx', 'سربرگ هیئت مدیره'), 'boardmeeting', 'سبک خانه', isDefault: true);
+
+        $meeting = BoardMeeting::factory()->create(['title' => 'بودجه']);
+
+        $archive = $this->actingAs(createUserWithPermissions(['board-meeting.export']))
+            ->postJson('/api/board-meetings/export/bundle', ['formats' => ['docx']])
+            ->assertOk()
+            ->streamedContent();
+
+        // The frame is there and the meeting is under it, which is what makes
+        // this different from generating a document and ignoring the template.
+        expect($firstDocx($archive))
+            ->toContain('سربرگ هیئت مدیره')
+            ->toContain('بودجه');
+    });
+
+    it('uses the template that was named, not the default', function () use ($upload, $firstDocx) {
+        $this->library->upload($upload('house.docx', 'سربرگ هیئت مدیره'), 'boardmeeting', 'پیش‌فرض', isDefault: true);
+        $this->library->upload($upload('other.docx', 'سربرگ شورایا'), 'boardmeeting', 'دیگر');
+
+        $meeting = BoardMeeting::factory()->create();
+
+        // The slug comes from the FILE name - `other.docx` - and is never the display
+        // name, which is what a person reading this test would reach for first.
+        $archive = $this->actingAs(createUserWithPermissions(['board-meeting.export']))
+            ->postJson('/api/board-meetings/export/bundle', [
+                'formats' => ['docx'],
+                'word_template' => 'other',
+            ])
+            ->assertOk()
+            ->streamedContent();
+
+        expect($firstDocx($archive))
+            ->toContain('سربرگ شورایا')
+            ->not->toContain('سربرگ هیئت مدیره');
+    });
+
+    it('answers 404 for a template nobody has rather than quietly using the default', function () use ($upload) {
+        $this->library->upload($upload('house.docx', 'سبک'), 'boardmeeting', 'پیش‌فرض', isDefault: true);
+
+        BoardMeeting::factory()->create();
+
+        $this->actingAs(createUserWithPermissions(['board-meeting.export']))
+            ->postJson('/api/board-meetings/export/bundle', [
+                'formats' => ['docx'],
+                'word_template' => 'nope',
+            ])
+            ->assertNotFound();
+    });
+
+    it('answers 404 for a slug that could never be a key, rather than falling over', function () use ($upload) {
+        // A person typing the template's Persian NAME into the slug field is the
+        // obvious mistake, and the store throws on a key it does not handle. The
+        // question "which template is دیگر" has an answer - none - and that
+        // answer is a 404, not a server error.
+        $this->library->upload($upload('other.docx', 'سبک دیگر'), 'boardmeeting', 'دیگر', isDefault: true);
+
+        BoardMeeting::factory()->create();
+
+        $this->actingAs(createUserWithPermissions(['board-meeting.export']))
+            ->postJson('/api/board-meetings/export/bundle', [
+                'formats' => ['docx'],
+                'word_template' => 'دیگر',
+            ])
+            ->assertNotFound();
+    });
+
+    it('refuses a template that is not a name', function () {
+        BoardMeeting::factory()->create();
+
+        $this->actingAs(createUserWithPermissions(['board-meeting.export']))
+            ->postJson('/api/board-meetings/export/bundle', [
+                'formats' => ['docx'],
+                'word_template' => ['../../etc/passwd'],
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('word_template');
+    });
+
+    it('generates plain documents when the domain has no template at all', function () use ($firstDocx) {
+        $meeting = BoardMeeting::factory()->create(['title' => 'بودجه']);
+
+        $archive = $this->actingAs(createUserWithPermissions(['board-meeting.export']))
+            ->postJson('/api/board-meetings/export/bundle', ['formats' => ['docx']])
+            ->assertOk()
+            ->streamedContent();
+
+        expect($firstDocx($archive))->toContain('بودجه');
+    });
+});
