@@ -4,6 +4,7 @@ import { getRouteApi } from "@tanstack/react-router";
 import {
     IconFileDescription,
     IconFileText,
+    IconAdjustments,
     IconFileTypeDoc,
     IconFileTypePdf,
     IconDownload,
@@ -37,6 +38,7 @@ import { PERMISSIONS } from "@/lib/permissions";
 import { MeetingDocumentsTab } from "../components/meeting-documents-tab";
 import { MeetingEditDialog } from "../components/meeting-edit-dialog";
 import { WordTemplatePickerDialog } from "../components/word-template-picker-dialog";
+import { MeetingSectionTemplateDialog } from "../components/meeting-section-template-dialog";
 import { useWordTemplates } from "../hooks/use-word-templates";
 import {
     exportBoardMeetingDocx as exportDocxWithTemplate,
@@ -186,6 +188,7 @@ export function BoardMeetingDetailPage() {
     // document they did not ask for. With none or one, the click stays a click.
     const { data: wordTemplates } = useWordTemplates();
     const [wordPickerOpen, setWordPickerOpen] = useState(false);
+    const [sectionTemplateOpen, setSectionTemplateOpen] = useState(false);
 
     const handleDocx = async (slug?: string) => {
         setExportingFormat("docx");
@@ -311,11 +314,21 @@ export function BoardMeetingDetailPage() {
                                 disabled: exportingFormat !== null,
                             },
                             {
+                                icon: <IconAdjustments />,
+                                label: "بخش‌های چاپی",
+                                onClick: () => setSectionTemplateOpen(true),
+                                disabled: exportingFormat !== null,
+                                separatorBefore: true,
+                                // Not an export itself: it changes WHAT the
+                                // exports above will contain, so it sits after
+                                // them and reads as a setting.
+                                permission: PERMISSIONS.EXPORT_TEMPLATE_VIEW,
+                            },
+                            {
                                 icon: <IconFileZip />,
                                 label: "بستهٔ کامل (همهٔ پیوست‌ها)",
                                 onClick: () => handleExport("zip"),
                                 disabled: exportingFormat !== null,
-                                separatorBefore: true,
                                 // Two permissions, not one: this archive
                                 // carries the attachments' actual bytes, so
                                 // the server demands document download too.
@@ -514,6 +527,12 @@ export function BoardMeetingDetailPage() {
             </Tabs>
 
             <MeetingProvenance meeting={meeting} />
+
+            <MeetingSectionTemplateDialog
+                open={sectionTemplateOpen}
+                onOpenChange={setSectionTemplateOpen}
+                meetingId={meetingId}
+            />
 
             <WordTemplatePickerDialog
                 open={wordPickerOpen}

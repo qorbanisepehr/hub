@@ -23,6 +23,7 @@ import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { ConfirmDeleteButton } from "@/components/ui/confirm-delete-button";
 import { ResponsiveDialog } from "@/components/ui/responsive-dialog";
+import { SectionTemplateSettingsCard } from "@/features/board-meetings/pages/section-template-settings-card";
 import { usePermission } from "@/features/auth/components/permission-guard";
 import {
     useDeleteWordTemplate,
@@ -59,6 +60,11 @@ export function WordTemplateSettingsSection() {
 
     return (
         <div className="grid gap-6">
+            {/* Sections first. A template that decides WHICH parts of a meeting
+                print is the more fundamental question than the file Word is built
+                from, and it is the one with no screen anywhere else. */}
+            <SectionTemplateSettingsCard />
+
             <Card>
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2">
