@@ -96,6 +96,7 @@ final class DocxTemplateFiller implements TemplateFiller
 
     public function __construct(
         private readonly DocumentComposer $composer,
+        private readonly TemplateValues $values,
     ) {}
 
     public function format(): string
@@ -336,8 +337,12 @@ final class DocxTemplateFiller implements TemplateFiller
     }
 
     /**
-     * The template's own macros are named without their braces, so a name is
-     * compared in the same shape rather than guessing at the author's braces.
+     * Inline values, escaped for XML on the way out.
+     *
+     * Which values a template wants is {@see TemplateValues}' decision and is
+     * shared with every other format; making them safe to sit inside Word's XML
+     * is this one's, because the same text is a cell in Word and prose in
+     * Markdown and only one of those needs `&` turned into `&amp;`.
      *
      * @param  list<TemplateField>  $fields
      * @param  array<string, mixed>  $values
@@ -346,24 +351,10 @@ final class DocxTemplateFiller implements TemplateFiller
      */
     private function inlineFields(array $fields, array $values, array $present): array
     {
-        $replacements = [];
-
-        foreach ($fields as $field) {
-            if ($field->isRow() || ! isset($present[$field->key])) {
-                continue;
-            }
-
-            $value = $values[$field->key] ?? null;
-
-            // An absent or empty value still replaces the macro, with nothing.
-            // Leaving `{{title}}` in a document whose title is unknown would read
-            // as a broken template rather than as a meeting with no title.
-            $replacements[$field->key] = is_scalar($value) || $value === null
-                ? $this->forXml((string) $value)
-                : '';
-        }
-
-        return $replacements;
+        return array_map(
+            fn (string $value): string => $this->forXml($value),
+            $this->values->inline($fields, $values, $present),
+        );
     }
 
     /**
@@ -389,18 +380,13 @@ final class DocxTemplateFiller implements TemplateFiller
     }
 
     /**
-     * Each group as [a macro in its row, the rows to fill].
+     * Each repeating group as [a macro to find it by, the rows to fill], with
+     * every value escaped for XML.
      *
-     * `cloneRowAndSetValues` needs one array per row keyed by MACRO NAME, not by
-     * the group's column name — the two differ by the group prefix, and handing
-     * it column keys would find nothing to replace. The registry resolves to
-     * column keys because that is what the entity has; the prefix is added here,
-     * once, in the one place that knows both vocabularies.
-     *
-     * A group is INCLUDED even when the entity has no records for it, with an
-     * empty row list: the caller needs to know the group was there in order to
-     * take the row out. A group the template uses none of is left out entirely —
-     * there is nothing in the file to act on.
+     * Finding the group is {@see TemplateValues}' work and is shared with every
+     * other format; escaping it is Word's. A table cell is XML text too, so a tag
+     * name typed into an attachment's file name would take the rest of the row
+     * with it.
      *
      * @param  list<TemplateField>  $fields
      * @param  array<string, mixed>  $values
@@ -409,55 +395,18 @@ final class DocxTemplateFiller implements TemplateFiller
      */
     private function rowGroups(array $fields, array $values, array $present): array
     {
-        $columns = [];
-
-        foreach ($fields as $field) {
-            if ($field->isRow()) {
-                $columns[$field->group][] = $field;
-            }
-        }
-
-        $out = [];
-
-        foreach ($columns as $group => $all) {
-            $usable = array_values(array_filter(
-                $all,
-                fn (TemplateField $field): bool => isset($present[$field->key]),
-            ));
-
-            if ($usable === []) {
-                continue;
-            }
-
-            // The first column the author actually used, which is what tells
-            // `cloneRow` which row to duplicate.
-            $search = $usable[0]->key;
-            $entries = $values[$group] ?? [];
-            $rows = [];
-
-            if (is_array($entries)) {
-                foreach (array_values($entries) as $entry) {
-                    if (! is_array($entry)) {
-                        continue;
-                    }
-
-                    $row = [];
-
-                    foreach ($usable as $field) {
-                        $column = $field->column();
-                        // Escaped for the same reason as an inline value: a
-                        // row cell is XML text too, and a tag name typed into an
-                        // attachment's file name would take the rest with it.
-                        $row[$field->key] = $this->forXml((string) ($entry[$column] ?? ''));
-                    }
-
-                    $rows[] = $row;
-                }
-            }
-
-            $out[] = [$search, $rows];
-        }
-
-        return $out;
+        return array_map(
+            fn (array $group): array => [
+                $group[0],
+                array_map(
+                    fn (array $row): array => array_map(
+                        fn (string $value): string => $this->forXml($value),
+                        $row,
+                    ),
+                    $group[1],
+                ),
+            ],
+            $this->values->groups($fields, $values, $present),
+        );
     }
 }

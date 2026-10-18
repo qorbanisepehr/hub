@@ -168,10 +168,13 @@ final class MarkdownRenderer implements DocumentRenderer
      * A backslash must go first or it would escape the backslashes added
      * afterwards. Values often contain neither, but a resolution title with a
      * pipe in it should not silently restructure the row around it.
+     *
+     * Delegated to {@see MarkdownText} so the template filler, which writes
+     * values into the same kind of tables, cannot disagree about how.
      */
     private function cell(string $value): string
     {
-        return str_replace(['\\', '|', "\r\n", "\n"], ['\\\\', '&#124;', '<br>', '<br>'], $value);
+        return MarkdownText::cell($value);
     }
 
     /**
@@ -180,6 +183,6 @@ final class MarkdownRenderer implements DocumentRenderer
      */
     private function inline(string $value): string
     {
-        return trim(str_replace(["\r\n", "\n"], ' ', $value));
+        return MarkdownText::inline($value);
     }
 }

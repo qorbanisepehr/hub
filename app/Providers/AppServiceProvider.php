@@ -51,6 +51,7 @@ use App\Support\Exports\Render\JsonRenderer;
 use App\Support\Exports\Render\MarkdownRenderer;
 use App\Support\Exports\Render\PdfRenderer;
 use App\Support\Exports\Templates\DocxTemplateFiller;
+use App\Support\Exports\Templates\MarkdownTemplateFiller;
 use App\Support\Exports\Templates\TemplateFillerRegistry;
 use App\Support\Exports\Writer\CsvWriter;
 use App\Support\Exports\Writer\JsonlWriter;
@@ -228,6 +229,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(TemplateFillerRegistry::class, function ($app): TemplateFillerRegistry {
             $registry = new TemplateFillerRegistry;
             $registry->register($app->make(DocxTemplateFiller::class));
+            $registry->register($app->make(MarkdownTemplateFiller::class));
 
             return $registry;
         });

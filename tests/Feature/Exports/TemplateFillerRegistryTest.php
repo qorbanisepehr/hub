@@ -31,7 +31,13 @@ describe('the template filler port', function () {
         // a missing filler is a wiring mistake. Naming the registered ones turns
         // a null that would surface four frames away into something found in a
         // second.
-        expect(fn () => app(TemplateFillerRegistry::class)->get('md'))
+        //
+        // `pdf` is the real case: it is a format the export kernel renders, and
+        // it cannot take a template because the output is not editable.
+        expect(fn () => app(TemplateFillerRegistry::class)->get('pdf'))
+            ->toThrow(InvalidArgumentException::class);
+
+        expect(fn () => app(TemplateFillerRegistry::class)->get('pdf'))
             ->toThrow(InvalidArgumentException::class, 'docx');
     });
 
