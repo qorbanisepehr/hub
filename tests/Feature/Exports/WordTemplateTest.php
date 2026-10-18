@@ -16,15 +16,15 @@ use App\Support\Exports\Templates\WordTemplate;
  */
 describe('word templates', function () {
     it('addresses a template by domain and slug', function () {
-        expect(WordTemplate::make('boardmeeting', 'official', null, 'نامهٔ رسمی', 10, 'application/docx', true)->key())
+        expect(WordTemplate::make('boardmeeting', 'official', null, 'نامهٔ رسمی', 10, 'application/docx')->key())
             ->toBe('word/boardmeeting/official')
-            ->and(WordTemplate::make('boardmeeting', 'official', 'session/42', 'ویژه', 10, 'application/docx', true)->key())
+            ->and(WordTemplate::make('boardmeeting', 'official', 'session/42', 'ویژه', 10, 'application/docx')->key())
             ->toBe('word/boardmeeting/official/session/42');
     });
 
     it('derives the file path from the key, so the two cannot disagree', function () {
-        $domain = WordTemplate::make('boardmeeting', 'official', null, 'نامهٔ رسمی', 10, 'application/docx', true);
-        $scoped = WordTemplate::make('boardmeeting', 'official', 'session/42', 'ویژه', 10, 'application/docx', true);
+        $domain = WordTemplate::make('boardmeeting', 'official', null, 'نامهٔ رسمی', 10, 'application/docx');
+        $scoped = WordTemplate::make('boardmeeting', 'official', 'session/42', 'ویژه', 10, 'application/docx');
 
         // Two rows with the same slug must not land on the same file, or the
         // second upload would silently overwrite the first — and nothing in
@@ -36,7 +36,7 @@ describe('word templates', function () {
     it('keeps the readable name out of the key', function () {
         // A Persian name cannot be a legal key segment, so the name lives in the
         // value and the slug is a machine handle nobody is shown.
-        $template = WordTemplate::make('boardmeeting', 'official', null, 'نامهٔ رسمی جلسه', 10, 'application/docx', true);
+        $template = WordTemplate::make('boardmeeting', 'official', null, 'نامهٔ رسمی جلسه', 10, 'application/docx');
 
         expect($template->key())->toBe('word/boardmeeting/official')
             ->and($template->name())->toBe('نامهٔ رسمی جلسه');
@@ -45,17 +45,17 @@ describe('word templates', function () {
     it('refuses a template with no name to recognise', function () {
         $this->expectException(InvalidSetting::class);
 
-        WordTemplate::make('boardmeeting', 'official', null, '   ', 10, 'application/docx', true);
+        WordTemplate::make('boardmeeting', 'official', null, '   ', 10, 'application/docx');
     });
 
     it('refuses a slug that cannot be a key segment', function () {
         $this->expectException(InvalidSetting::class);
 
-        WordTemplate::make('boardmeeting', 'نامه رسمی', null, 'نامه', 10, 'application/docx', true);
+        WordTemplate::make('boardmeeting', 'نامه رسمی', null, 'نامه', 10, 'application/docx');
     });
 
     it('reads back what it wrote', function () {
-        $template = WordTemplate::make('boardmeeting', 'official', 'session/42', 'نامهٔ رسمی', 2048, 'application/docx', true, true);
+        $template = WordTemplate::make('boardmeeting', 'official', 'session/42', 'نامهٔ رسمی', 2048, 'application/docx', isDefault: true);
 
         $restored = WordTemplate::fromStored($template->key(), $template->toValue(), null);
 
@@ -64,8 +64,11 @@ describe('word templates', function () {
             ->and($restored->entity())->toBe('session/42')
             ->and($restored->size())->toBe(2048)
             ->and($restored->isDefault())->toBeTrue()
-            ->and($restored->hasPlaceholders())->toBeTrue()
             ->and($restored->key())->toBe($template->key());
+
+        // No `kind` to round-trip: the value no longer says whether the file holds
+        // placeholders, because nothing branches on that any more.
+        expect($template->toValue())->not->toHaveKey('has_placeholders');
     });
 
     it('refuses a row whose payload disagrees with its key', function () {
@@ -94,14 +97,14 @@ describe('word templates', function () {
         // The file is on the private disk, not in the row. Storing it in the
         // encrypted column would mean decrypting every template to list their
         // names.
-        expect(WordTemplate::make('boardmeeting', 'official', null, 'نامه', 10, 'application/docx', true)->toSecrets())
+        expect(WordTemplate::make('boardmeeting', 'official', null, 'نامه', 10, 'application/docx')->toSecrets())
             ->toBeNull();
     });
 
     it('round-trips through the real store without touching the other kind', function () {
         $repo = app(SystemSettingsRepositoryInterface::class);
 
-        $word = WordTemplate::make('boardmeeting', 'official', null, 'نامهٔ رسمی', 10, 'application/docx', true, true);
+        $word = WordTemplate::make('boardmeeting', 'official', null, 'نامهٔ رسمی', 10, 'application/docx');
         $section = ExportTemplate::make('boardmeeting', null, ['identity']);
 
         $repo->put($word);

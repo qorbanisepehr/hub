@@ -20,11 +20,11 @@ use App\Domains\Settings\Exceptions\InvalidSetting;
  * second place for it to disagree with the row that owns it and no way for a row
  * to point at another template's file.
  *
- * A template with no placeholders is a STYLE template: it supplies fonts, page
- * size, header and footer, and the document's own content is generated into it.
- * One with at least one placeholder is a CONTENT template: the file decides what
- * the output says. `has_placeholders` is recorded at upload rather than read back
- * per export, so choosing which path to render is never a file read.
+ * A template is a FRAME, not a replacement. The document is always generated and
+ * added to the file, and every placeholder in the file is always filled — in the
+ * body, in the headers and in the footers. A file may therefore contain nothing
+ * but `{{title}}`, nothing but a crest, or both, and all three behave the same
+ * way; the only thing that changes the output is whether a template was chosen.
  *
  * KEYS ARE `word/{domain}/{slug}[/{entity}]`. The `word/` prefix is what keeps
  * this class from colliding with {@see ExportTemplate} over the shared `exports`
@@ -51,7 +51,6 @@ final class WordTemplate implements Setting
         private readonly int $size,
         private readonly string $mime,
         private readonly bool $isDefault,
-        private readonly bool $hasPlaceholders,
     ) {}
 
     public static function group(): string
@@ -134,24 +133,6 @@ final class WordTemplate implements Setting
     }
 
     /**
-     * Whether the file contains at least one placeholder.
-     *
-     * The whole difference between a template that decides the output and one
-     * that only styles it. Recorded at upload because the file it describes does
-     * not change without the upload being repeated.
-     */
-    public function hasPlaceholders(): bool
-    {
-        return $this->hasPlaceholders;
-    }
-
-    /** Whether this template styles generated content rather than replacing it. */
-    public function isStyleOnly(): bool
-    {
-        return ! $this->hasPlaceholders;
-    }
-
-    /**
      * Where the uploaded file lives, on the private disk.
      *
      * Derived, never taken from the request: the key segments are the only input,
@@ -169,10 +150,9 @@ final class WordTemplate implements Setting
         string $name,
         int $size,
         string $mime,
-        bool $hasPlaceholders,
         bool $isDefault = false,
     ): self {
-        $template = new self($domain, $slug, $entity, $name, $size, $mime, $isDefault, $hasPlaceholders);
+        $template = new self($domain, $slug, $entity, $name, $size, $mime, $isDefault);
 
         // Round-tripped through the key so an illegal slug or entity is refused
         // where the caller can still see which value was wrong, rather than at
@@ -212,7 +192,6 @@ final class WordTemplate implements Setting
             'size' => $this->size,
             'mime' => $this->mime,
             'is_default' => $this->isDefault,
-            'has_placeholders' => $this->hasPlaceholders,
         ];
     }
 
@@ -293,7 +272,6 @@ final class WordTemplate implements Setting
             (int) $size,
             is_string($value['mime'] ?? null) ? $value['mime'] : '',
             (bool) ($value['is_default'] ?? false),
-            (bool) ($value['has_placeholders'] ?? false),
         );
     }
 

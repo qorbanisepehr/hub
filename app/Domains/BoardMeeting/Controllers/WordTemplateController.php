@@ -152,9 +152,6 @@ final class WordTemplateController
             'name' => $template->name(),
             'size' => $template->size(),
             'is_default' => $template->isDefault(),
-            // Said as a word, not a boolean: this is what tells a person whether
-            // their file needs placeholders to do anything.
-            'kind' => $template->hasPlaceholders() ? 'content' : 'style',
         ];
     }
 

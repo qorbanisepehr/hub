@@ -2,28 +2,49 @@
 
 namespace App\Support\Exports\Templates;
 
+use App\Support\Exports\Contract\DocumentComposer;
 use App\Support\Exports\Contract\DocumentRenderer;
+use App\Support\Exports\Value\Document\DocumentSpec;
+use PhpOffice\PhpWord\Element\Text;
+use PhpOffice\PhpWord\IOFactory;
+use PhpOffice\PhpWord\PhpWord;
 use PhpOffice\PhpWord\TemplateProcessor;
 
 /**
- * Fills an uploaded Word template's placeholders and nothing else.
+ * Renders an export onto an uploaded Word template: the generated document goes
+ * in, then everything around it is filled in.
  *
- * Not a {@see DocumentRenderer} and not a mode of
- * one. A renderer turns a `DocumentSpec` into bytes, and a content template never
- * sees a spec: the file says what the document contains, and all this needs from
- * the domain is the values behind the names. Putting it in the renderer registry
- * would also have listed "docx" twice in a format picker.
+ * ONE PATH, AND THAT IS THE POINT. An earlier version classified the file at
+ * upload by scanning it for placeholders, and split into two: a file WITH
+ * placeholders replaced the document entirely, a file WITHOUT them supplied a
+ * frame the generated content was added to. The split was inferring an intent
+ * nobody had declared, and it failed in the one case that mattered — a letterhead
+ * carrying `{{date}}` in its footer was classified as a content template, so the
+ * meeting was never generated at all and the export produced a near-empty file
+ * with nothing to indicate anything was wrong.
+ *
+ * So a template is now only ever a template. The meeting is always added, and
+ * every placeholder is always filled — in the body, in the headers and in the
+ * footers, which is where a header/footer placeholder had been left untouched
+ * because the path that filled them was not the path that added content.
+ *
+ * Not a {@see DocumentRenderer}: a renderer turns a
+ * `DocumentSpec` into bytes for a format, and putting this in the renderer
+ * registry would list "docx" twice in a format picker.
  *
  * THE TEMPLATE OWNS ITS OWN FORMATTING. No font, alignment or RTL decision is
  * made here, because the person who wrote the template made them — that is the
- * whole point of a content template, and applying our defaults on top would undo
+ * whole point of a layout template, and applying our defaults on top would undo
  * the work the upload was for.
  *
- * ORDER MATTERS, AND IT IS NOT OBVIOUS. Inline values are substituted BEFORE rows
- * are cloned, because cloning rewrites every macro in the row it clones into
- * `{{name#1}}`, `{{name#2}}`… If a title macro sat in the same row, cloning
- * first would leave it as `{{title#1}}` for a substitution that has already
- * passed, and it would print as literal text in every row.
+ * ORDER MATTERS TWICE OVER, AND NEITHER IS OBVIOUS. The document is composed
+ * BEFORE the placeholder pass, because the placeholders live in the template and
+ * the content in the spec, and there is only one writer per save — a fill that
+ * ran first would write a file the composition could no longer reach. Within the
+ * fill, inline values are substituted BEFORE rows are cloned, because cloning
+ * rewrites every macro in the row it clones into `{{name#1}}`, `{{name#2}}`…; a
+ * title macro in the same row would be left as `{{title#1}}` for a substitution
+ * that has already passed, and would print as literal text in every row.
  *
  * A ROW-SHAPED MACRO OUTSIDE A TABLE ROW IS LEFT ALONE, not refused. `cloneRow`
  * throws when it cannot find the row, and the decision for this feature is to
@@ -50,19 +71,102 @@ final class TemplateFiller
     private const MACRO_CLOSE = '}}';
 
     /**
-     * Fill the template and write the result to the stream.
+     * Where the generated document goes.
+     *
+     * A marker rather than a second setting, because a file that says where its
+     * content goes is the only version nobody can get wrong. It MUST BE THE LAST
+     * THING IN THE BODY: PHPWord can only add elements to the end of a document,
+     * so a marker anywhere earlier would have content appended after the text
+     * that was supposed to follow it. A marker left in the middle is removed from
+     * wherever it is found and the meeting still goes at the end, so the mistake
+     * costs a document in a slightly odd order rather than an export that fails.
+     *
+     * Removing it also means the marker never reaches the placeholder pass, where
+     * it would otherwise have to be explained as a scalar with no value.
+     */
+    private const CONTENT_MACRO = 'content';
+
+    public function __construct(
+        private readonly DocumentComposer $composer,
+    ) {}
+
+    /**
+     * Compose the document onto the template, fill it, and write the result.
      *
      * @param  resource  $stream
      */
     public function render(
         string $templatePath,
+        DocumentSpec $spec,
         object $entity,
         TemplateFieldRegistry $registry,
         $stream,
     ): void {
-        // The processor takes the template's PATH and does its own copying into a
-        // working file, so loading it here first would hand it a PhpWord object it
-        // cannot read.
+        $prepared = $this->compose($templatePath, $spec);
+
+        try {
+            $this->fill($prepared, $entity, $registry, $stream);
+        } finally {
+            @unlink($prepared);
+        }
+    }
+
+    /**
+     * The template with the generated document added, written to a working file.
+     *
+     * A file rather than an in-memory document because {@see TemplateProcessor}
+     * takes a path and does its own copying — handing it a PhpWord object is not
+     * a thing it can read. So the composition is saved once here and read back
+     * for the fill, which is the cost of having one writer per save.
+     */
+    private function compose(string $templatePath, DocumentSpec $spec): string
+    {
+        $phpWord = IOFactory::load($templatePath);
+
+        $this->removeContentMarker($phpWord);
+
+        $this->composer->composeInto($phpWord, $spec);
+
+        $path = tempnam(sys_get_temp_dir(), 'hrh-composed-');
+
+        IOFactory::createWriter($phpWord, 'Word2007')->save($path);
+
+        return $path;
+    }
+
+    /**
+     * Take out the paragraphs that were only there to hold `{{content}}`.
+     *
+     * PHPWord has no paragraph class in this version: the body of a section holds
+     * `Text` elements, one per paragraph, so that is what is searched and what
+     * `removeElement` takes. A marker sharing a paragraph with other words is left
+     * in place, and the placeholder pass below empties it instead — the paragraph
+     * is not lost, because a paragraph that also said something is not a marker.
+     */
+    private function removeContentMarker(PhpWord $phpWord): void
+    {
+        $macro = self::MACRO_OPEN.self::CONTENT_MACRO.self::MACRO_CLOSE;
+
+        foreach ($phpWord->getSections() as $section) {
+            foreach ($section->getElements() as $element) {
+                if ($element instanceof Text && trim($element->getText()) === $macro) {
+                    $section->removeElement($element);
+                }
+            }
+        }
+    }
+
+    /**
+     * Substitute what the template asks for, and write the result to the stream.
+     *
+     * @param  resource  $stream
+     */
+    private function fill(
+        string $templatePath,
+        object $entity,
+        TemplateFieldRegistry $registry,
+        $stream,
+    ): void {
         $processor = new TemplateProcessor($templatePath);
         $processor->setMacroChars(self::MACRO_OPEN, self::MACRO_CLOSE);
 
@@ -73,6 +177,12 @@ final class TemplateFiller
         // its columns is really there. A row searched for by a macro the author
         // left out would throw for a template that is otherwise perfectly fine.
         $present = array_flip($processor->getVariables());
+
+        // A marker that shared a paragraph with other words survived the removal
+        // above, and has to resolve to nothing rather than print itself.
+        if (isset($present[self::CONTENT_MACRO])) {
+            $processor->setValue(self::CONTENT_MACRO, '');
+        }
 
         foreach ($this->inlineFields($fields, $values, $present) as $key => $value) {
             $processor->setValue($key, $value);

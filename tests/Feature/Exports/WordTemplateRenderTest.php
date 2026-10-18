@@ -30,7 +30,33 @@ describe('filling a word template', function () {
         $this->filler = app(TemplateFiller::class);
         $this->store = app(WordTemplateStore::class);
         $this->registry = new BoardMeetingTemplateFields;
+        $this->sheet = app(BoardMeetingSheetExport::class);
     });
+
+    /**
+     * Fill a template with a meeting, and return the path of what came out.
+     *
+     * Every case goes through this rather than calling the filler directly,
+     * because the filler now takes the generated document as well as the entity
+     * — the meeting is added to the file, then the file is filled. A test that
+     * passed only the entity would be testing the path this feature no longer
+     * has.
+     */
+    $fill = function (string $source, BoardMeeting $meeting): string {
+        app(TemplateFiller::class)->render(
+            $source,
+            app(BoardMeetingSheetExport::class)->document($meeting),
+            $meeting,
+            new BoardMeetingTemplateFields,
+            $stream = fopen('php://temp', 'r+'),
+        );
+
+        rewind($stream);
+        $out = tempnam(sys_get_temp_dir(), 'tpl-out-').'.docx';
+        file_put_contents($out, stream_get_contents($stream));
+
+        return $out;
+    };
 
     /**
      * A template file at a path, built the way a person would in Word: a
@@ -88,15 +114,12 @@ describe('filling a word template', function () {
         return trim((string) preg_replace('/\s+/u', ' ', strip_tags($xml)));
     };
 
-    it('substitutes an inline macro with the field value', function () use ($makeTemplate, $textOf) {
+    it('substitutes an inline macro with the field value', function () use ($makeTemplate, $textOf, $fill) {
         $source = $makeTemplate('جلسه {{title}} در تاریخ {{held_on}} برگزار شد.');
-        $filled = tempnam(sys_get_temp_dir(), 'tpl-out-').'.docx';
 
         $meeting = BoardMeeting::factory()->create(['title' => 'بودجهٔ سالانه']);
 
-        $this->filler->render($source, $meeting, $this->registry, $stream = fopen('php://temp', 'r+'));
-        rewind($stream);
-        file_put_contents($filled, stream_get_contents($stream));
+        $filled = $fill($source, $meeting);
 
         expect($textOf($filled))->toContain('بودجهٔ سالانه')
             ->and($textOf($filled))->not->toContain('{{title}}');
@@ -105,12 +128,11 @@ describe('filling a word template', function () {
         @unlink($filled);
     });
 
-    it('repeats a table row once per record', function () use ($makeTemplate, $textOf) {
+    it('repeats a table row once per record', function () use ($makeTemplate, $textOf, $fill) {
         // The whole feature rests on this: a table row holding {{attendee.name}}
         // becomes three rows for three attendees, with each clone getting its own
         // value rather than the row being copied verbatim.
         $source = $makeTemplate('حاضران', ['{{attendee.name}}', '{{attendee.role}}']);
-        $filled = tempnam(sys_get_temp_dir(), 'tpl-out-').'.docx';
 
         $meeting = BoardMeeting::factory()
             ->withAttendees(
@@ -120,9 +142,7 @@ describe('filling a word template', function () {
             )
             ->create();
 
-        $this->filler->render($source, $meeting, $this->registry, $stream = fopen('php://temp', 'r+'));
-        rewind($stream);
-        file_put_contents($filled, stream_get_contents($stream));
+        $filled = $fill($source, $meeting);
 
         $text = $textOf($filled);
 
@@ -135,20 +155,17 @@ describe('filling a word template', function () {
         @unlink($filled);
     });
 
-    it('leaves a row macro alone when it is not inside a table row', function () use ($makeTemplate, $textOf) {
+    it('leaves a row macro alone when it is not inside a table row', function () use ($makeTemplate, $textOf, $fill) {
         // The decision for this feature is to teach the convention rather than
         // enforce it, so a template that gets it wrong renders with its own text
         // visible instead of failing the export.
         $source = $makeTemplate('{{attendee.name}} در جلسه حاضر بود.');
-        $filled = tempnam(sys_get_temp_dir(), 'tpl-out-').'.docx';
 
         $meeting = BoardMeeting::factory()
             ->withAttendees(new Attendee('الف', AttendeeRole::Chair, true))
             ->create();
 
-        $this->filler->render($source, $meeting, $this->registry, $stream = fopen('php://temp', 'r+'));
-        rewind($stream);
-        file_put_contents($filled, stream_get_contents($stream));
+        $filled = $fill($source, $meeting);
 
         expect($textOf($filled))->toContain('{{attendee.name}}');
 
@@ -156,17 +173,14 @@ describe('filling a word template', function () {
         @unlink($filled);
     });
 
-    it('leaves a macro it has no field for exactly as the author typed it', function () use ($makeTemplate, $textOf) {
+    it('leaves a macro it has no field for exactly as the author typed it', function () use ($makeTemplate, $textOf, $fill) {
         // A typo has to be visible somewhere, and the document is the only place
         // the author will look.
         $source = $makeTemplate('{{attende}} و {{title}}');
-        $filled = tempnam(sys_get_temp_dir(), 'tpl-out-').'.docx';
 
         $meeting = BoardMeeting::factory()->create(['title' => 'صورتجلسه']);
 
-        $this->filler->render($source, $meeting, $this->registry, $stream = fopen('php://temp', 'r+'));
-        rewind($stream);
-        file_put_contents($filled, stream_get_contents($stream));
+        $filled = $fill($source, $meeting);
 
         expect($textOf($filled))->toContain('{{attende}}')
             ->and($textOf($filled))->toContain('صورتجلسه');
@@ -175,18 +189,10 @@ describe('filling a word template', function () {
         @unlink($filled);
     });
 
-    it('produces no row for a group the meeting has no records for', function () use ($makeTemplate, $textOf) {
+    it('produces no row for a group the meeting has no records for', function () use ($makeTemplate, $textOf, $fill) {
         $source = $makeTemplate('برچسب‌ها', ['{{tag.name}}']);
-        $filled = tempnam(sys_get_temp_dir(), 'tpl-out-').'.docx';
 
-        $this->filler->render(
-            $source,
-            BoardMeeting::factory()->create(),
-            $this->registry,
-            $stream = fopen('php://temp', 'r+'),
-        );
-        rewind($stream);
-        file_put_contents($filled, stream_get_contents($stream));
+        $filled = $fill($source, BoardMeeting::factory()->create());
 
         // A blank row would read as a tag whose name could not be read.
         expect($textOf($filled))->not->toContain('{{tag.name}}')
@@ -272,14 +278,19 @@ describe('choosing between a generated document and a template', function () {
         ))->toThrow(RuntimeException::class);
     });
 
-    it('treats a template with placeholders as a content template, not a style one', function () use ($textOf) {
+    it('adds the meeting to a template that also has placeholders, and fills both', function () use ($textOf) {
+        // THE REGRESSION THIS FEATURE WAS REBUILT FOR. This file used to be
+        // classified as a "content" template by its {{title}}, which meant the
+        // DocumentSpec was never built and the export was the letterhead alone —
+        // no meeting on it, and no error anywhere to say so. A real template is
+        // both things at once, so there is now nothing to classify.
         $phpWord = new PhpWord;
         $phpWord->addSection()->addText('{{title}}');
 
         $path = tempnam(sys_get_temp_dir(), 'content-').'.docx';
         IOFactory::createWriter($phpWord, 'Word2007')->save($path);
 
-        $template = WordTemplate::make('boardmeeting', 'official', null, 'نامهٔ رسمی', 10, '', true);
+        $template = WordTemplate::make('boardmeeting', 'official', null, 'نامهٔ رسمی', 10, '');
         $this->store->write($template, (string) file_get_contents($path));
 
         $meeting = BoardMeeting::factory()->create(['title' => 'صورتجلسه']);
@@ -290,13 +301,15 @@ describe('choosing between a generated document and a template', function () {
         rewind($file->stream);
         file_put_contents($out, stream_get_contents($file->stream));
 
-        // The template decided the output, so the document is exactly the
-        // template's own body with the title substituted - not the template plus
-        // a generated meeting underneath it.
         $text = $textOf($out);
 
-        expect($text)->toContain('صورتجلسه')
-            ->and($text)->not->toContain('{{title}}');
+        // The placeholder was filled AND the meeting is there. The first assertion
+        // alone would have passed against the old broken behaviour too; the
+        // meeting's own title appearing a second time, in the generated part, is
+        // what the old path could not produce.
+        expect($text)->not->toContain('{{title}}')
+            ->and($text)->toContain('صورتجلسه')
+            ->and(substr_count($text, 'صورتجلسه'))->toBeGreaterThan(1);
 
         @unlink($path);
         @unlink($out);

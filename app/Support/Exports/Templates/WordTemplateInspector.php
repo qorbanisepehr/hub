@@ -39,15 +39,6 @@ final class WordTemplateInspector
     private const MACRO_PART = 'word/vbaProject.bin';
 
     /**
-     * Parts whose text can hold a placeholder.
-     *
-     * Headers and footers are included because a template author puts the
-     * meeting's title in a header about as often as in the body, and a
-     * placeholder found there is one this application can fill.
-     */
-    private const TEXT_PARTS = '/^word\/(document|header\d*|footer\d*)\.xml$/';
-
-    /**
      * The size cap, read at inspection time.
      *
      * Deliberately not taken in the constructor. A singleton built from config
@@ -64,7 +55,13 @@ final class WordTemplateInspector
     /**
      * Check the file and report what it is.
      *
-     * @return array{has_placeholders: bool, size: int}
+     * Only the parts that can REFUSE an upload are reported. It used to also
+     * report whether the file held a placeholder, which decided whether the
+     * template replaced the generated document or merely framed it; that
+     * classification is gone, so scanning the XML for `{{` would be reading a
+     * file in order to store a fact nothing asks for any more.
+     *
+     * @return array{size: int}
      *
      * @throws InvalidWordTemplate
      */
@@ -108,41 +105,9 @@ final class WordTemplateInspector
                 );
             }
 
-            return [
-                'has_placeholders' => $this->containsPlaceholder($zip),
-                'size' => $size,
-            ];
+            return ['size' => $size];
         } finally {
             $zip->close();
         }
-    }
-
-    /**
-     * Whether the document asks to be filled.
-     *
-     * This one fact decides how the template is used for its whole life: with a
-     * placeholder it is a content template and the file decides what the output
-     * says; without one it is a style template and generated content is added to
-     * it. Recording it at upload is what lets an export choose without opening
-     * the file, and it cannot go stale because the file only changes when the
-     * upload is repeated.
-     */
-    private function containsPlaceholder(ZipArchive $zip): bool
-    {
-        for ($index = 0; $index < $zip->numFiles; $index++) {
-            $name = (string) $zip->getNameIndex($index);
-
-            if (preg_match(self::TEXT_PARTS, $name) !== 1) {
-                continue;
-            }
-
-            $xml = $zip->getFromIndex($index);
-
-            if ($xml !== false && str_contains($xml, '{{')) {
-                return true;
-            }
-        }
-
-        return false;
     }
 }

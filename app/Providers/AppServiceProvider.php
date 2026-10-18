@@ -41,6 +41,7 @@ use App\Integrations\Rahkaran\FakeRahkaranInboxGateway;
 use App\Integrations\Rahkaran\RahkaranAttendanceMapper;
 use App\Integrations\Rahkaran\RahkaranInboxMapper;
 use App\Services\DocumentAuthorizationService;
+use App\Support\Exports\Contract\DocumentComposer;
 use App\Support\Exports\DocumentExportService;
 use App\Support\Exports\DocumentRendererRegistry;
 use App\Support\Exports\ExportService;
@@ -216,6 +217,29 @@ class AppServiceProvider extends ServiceProvider
             return $registry;
         });
         $this->app->singleton(DocumentExportService::class);
+
+        // The Word composer, for the template path: {@see TemplateFiller} adds the
+        // generated document to an uploaded file and needs somebody who knows how
+        // to write a DocumentSpec into a PHPWord document. Taken from the SAME
+        // registry rather than a second `new DocxRenderer`, so a template export
+        // and a plain one cannot drift apart in configuration.
+        //
+        // Asked as a question rather than assumed, because the port is optional on
+        // the renderer: a docx format registered without it is a wiring mistake,
+        // and saying so here names the cause where a cast would not.
+        $this->app->singleton(DocumentComposer::class, function ($app): DocumentComposer {
+            $renderer = $app->make(DocumentRendererRegistry::class)->get('docx');
+
+            if (! $renderer instanceof DocumentComposer) {
+                throw new RuntimeException(sprintf(
+                    'The [docx] renderer [%s] cannot compose onto an existing document, '
+                    .'so a Word template cannot be used.',
+                    $renderer::class,
+                ));
+            }
+
+            return $renderer;
+        });
 
         // Where a queued archive waits for the person who asked. Its own
         // settings rather than constructor arguments at the call site, because

@@ -1,9 +1,13 @@
 <?php
 
+use App\Domains\BoardMeeting\Exports\BoardMeetingSheetExport;
+use App\Domains\BoardMeeting\Exports\BoardMeetingTemplateFields;
+use App\Domains\BoardMeeting\Models\BoardMeeting;
 use App\Domains\Settings\Exceptions\InvalidSetting;
 use App\Support\Exports\Exceptions\InvalidWordTemplate;
 use App\Support\Exports\Templates\WordTemplateInspector;
 use App\Support\Exports\Templates\WordTemplateLibrary;
+use App\Support\Exports\Templates\WordTemplateService;
 use App\Support\Exports\Templates\WordTemplateStore;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -31,27 +35,29 @@ describe('inspecting an uploaded word template', function () {
         return $path;
     };
 
-    it('accepts a plain document and reports it has no placeholders', function () use ($docx) {
+    it('accepts a plain document and reports its size', function () use ($docx) {
         $path = $docx('فقط متن');
 
         $result = app(WordTemplateInspector::class)
             ->inspect(new UploadedFile($path, 'plain.docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'));
 
-        expect($result['has_placeholders'])->toBeFalse()
-            ->and($result['size'])->toBeGreaterThan(0);
+        expect($result)->toBe(['size' => strlen((string) file_get_contents($path))]);
 
         @unlink($path);
     });
 
-    it('reports a document that asks to be filled', function () use ($docx) {
-        // This one fact decides how the template is used for its whole life, so
-        // it is worth being right about at upload rather than at export.
+    it('reports the same thing about a document that holds placeholders', function () use ($docx) {
+        // The inspector used to report whether the file held a placeholder, and
+        // that one fact decided whether the template replaced the generated
+        // document or merely framed it — so a letterhead with {{date}} in its
+        // footer was read as a replacement and the meeting was never added to it.
+        // There is nothing left to distinguish, so there is nothing to report.
         $path = $docx('جلسه {{title}}');
 
         $result = app(WordTemplateInspector::class)
             ->inspect(new UploadedFile($path, 'filled.docx', null, null, true));
 
-        expect($result['has_placeholders'])->toBeTrue();
+        expect($result)->toBe(['size' => strlen((string) file_get_contents($path))]);
 
         @unlink($path);
     });
@@ -113,7 +119,13 @@ describe('inspecting an uploaded word template', function () {
         @unlink($path);
     });
 
-    it('finds a placeholder in a header as readily as in the body', function () {
+    it('accepts a template whose only placeholder is in a header, and fills it', function () {
+        // This used to assert that the inspector FOUND the placeholder, because
+        // that decided whether the file replaced the generated document. It does
+        // not decide anything now — which is the point, since a letterhead with
+        // {{date}} in its header was read as a replacement and exported with no
+        // meeting on it. The claim worth keeping is the outcome: the file is
+        // accepted, and the header is filled like any other placeholder.
         $phpWord = new PhpWord;
         $section = $phpWord->addSection();
         $section->addText('متن');
@@ -126,10 +138,35 @@ describe('inspecting an uploaded word template', function () {
         $path = tempnam(sys_get_temp_dir(), 'hdr-').'.docx';
         IOFactory::createWriter($phpWord, 'Word2007')->save($path);
 
-        expect(app(WordTemplateInspector::class)->inspect(new UploadedFile($path, 'hdr.docx'))['has_placeholders'])
-            ->toBeTrue();
+        $template = app(WordTemplateLibrary::class)->upload(
+            new UploadedFile($path, 'hdr.docx', null, null, true),
+            'boardmeeting',
+            'سربرگ',
+        );
+
+        $meeting = BoardMeeting::factory()->create(['title' => 'بودجه']);
+
+        $file = app(WordTemplateService::class)->render(
+            app(BoardMeetingSheetExport::class),
+            $meeting,
+            new BoardMeetingTemplateFields,
+            $template,
+        );
+
+        $out = tempnam(sys_get_temp_dir(), 'hdr-out-').'.docx';
+        rewind($file->stream);
+        file_put_contents($out, stream_get_contents($file->stream));
+
+        $zip = new ZipArchive;
+        $zip->open($out);
+        $header = (string) $zip->getFromName('word/header1.xml');
+        $zip->close();
+
+        expect($header)->toContain('بودجه')
+            ->and($header)->not->toContain('{{title}}');
 
         @unlink($path);
+        @unlink($out);
     });
 });
 
@@ -160,7 +197,6 @@ describe('the word template library', function () {
         );
 
         expect($template->key())->toBe('word/boardmeeting/official-letter')
-            ->and($template->hasPlaceholders())->toBeTrue()
             ->and($this->store->has($template))->toBeTrue()
             ->and($this->library->find('boardmeeting', 'official-letter'))->not->toBeNull();
     });

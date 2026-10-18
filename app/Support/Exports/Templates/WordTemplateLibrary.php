@@ -116,7 +116,6 @@ final class WordTemplateLibrary
             name: trim($name),
             size: $inspected['size'],
             mime: (string) $file->getClientMimeType(),
-            hasPlaceholders: $inspected['has_placeholders'],
             isDefault: $isDefault,
         );
 
@@ -158,7 +157,6 @@ final class WordTemplateLibrary
             name: $template->name(),
             size: $template->size(),
             mime: $template->mime(),
-            hasPlaceholders: $template->hasPlaceholders(),
             isDefault: true,
         );
 
@@ -176,7 +174,6 @@ final class WordTemplateLibrary
             name: trim($name),
             size: $template->size(),
             mime: $template->mime(),
-            hasPlaceholders: $template->hasPlaceholders(),
             isDefault: $template->isDefault(),
         );
 
@@ -224,7 +221,6 @@ final class WordTemplateLibrary
                     name: $template->name(),
                     size: $template->size(),
                     mime: $template->mime(),
-                    hasPlaceholders: $template->hasPlaceholders(),
                     isDefault: false,
                 ));
             }

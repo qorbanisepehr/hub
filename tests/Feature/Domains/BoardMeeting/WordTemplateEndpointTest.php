@@ -47,7 +47,7 @@ describe('the word template library endpoints', function () {
             ->assertJsonPath('data.templates', []);
     });
 
-    it('uploads a template and reports what kind it is', function () use ($manager, $upload) {
+    it('uploads a template and reports it without a kind', function () use ($manager, $upload) {
         $this->actingAs($manager())
             ->post('/api/word-templates', [
                 'file' => $upload('official.docx', '{{title}}'),
@@ -56,12 +56,14 @@ describe('the word template library endpoints', function () {
             ])
             ->assertCreated()
             ->assertJsonPath('data.name', 'نامهٔ رسمی')
-            // Said as a word, because this is what tells a person whether their
-            // file needs placeholders to do anything at all.
-            ->assertJsonPath('data.kind', 'content');
+            // It used to say `kind: content` or `kind: style`, which is what told
+            // a person whether their file needed placeholders to do anything. It
+            // told them the wrong thing about a letterhead with a placeholder in
+            // its footer, so there is no kind to report.
+            ->assertJsonMissingPath('data.kind');
     });
 
-    it('calls a template with no placeholders a style one', function () use ($manager, $upload) {
+    it('reports a template with no placeholders the same way', function () use ($manager, $upload) {
         $this->actingAs($manager())
             ->post('/api/word-templates', [
                 'file' => $upload('house.docx', 'فقط سربرگ'),
@@ -69,7 +71,7 @@ describe('the word template library endpoints', function () {
                 'domain' => BoardMeetingSheetExport::TEMPLATE_DOMAIN,
             ])
             ->assertCreated()
-            ->assertJsonPath('data.kind', 'style');
+            ->assertJsonMissingPath('data.kind');
     });
 
     it('answers 422 with the reason when the file is refused', function () use ($manager, $upload) {
@@ -279,7 +281,12 @@ describe('exporting with a word template', function () {
             ->assertNotFound();
     });
 
-    it('fills a content template rather than generating over it', function () use ($upload) {
+    it('fills the template placeholders and still adds the meeting', function () use ($upload) {
+        // This used to be called "fills a content template rather than generating
+        // over it", and the choice between those two was the whole bug: the file
+        // was classified by whether it held a placeholder, and a letterhead with
+        // {{date}} in its footer was therefore treated as one that REPLACES the
+        // meeting. Both halves have to happen now, for every template.
         $this->library->upload(
             $upload('letter.docx', 'صورتجلسه {{title}} به تاریخ {{held_on}}'),
             'boardmeeting',
@@ -301,8 +308,11 @@ describe('exporting with a word template', function () {
         $text = (string) $zip->getFromName('word/document.xml');
         $zip->close();
 
-        expect($text)->toContain('بودجهٔ سالانه')
-            ->and($text)->not->toContain('{{title}}');
+        // Filled: the macro is gone and its value is in the document.
+        expect($text)->not->toContain('{{title}}')
+            ->not->toContain('{{held_on}}')
+            // AND the meeting was generated, not just substituted into the frame.
+            ->toContain(substr_count($text, 'بودجهٔ سالانه'))->toBeGreaterThan(1);
 
         @unlink($out);
     });

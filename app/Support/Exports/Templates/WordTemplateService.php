@@ -2,7 +2,6 @@
 
 namespace App\Support\Exports\Templates;
 
-use App\Support\Exports\Contract\BaseDocumentRenderer;
 use App\Support\Exports\Contract\DocumentSource;
 use App\Support\Exports\DocumentExportService;
 use App\Support\Exports\DocumentRendererRegistry;
@@ -13,17 +12,22 @@ use RuntimeException;
 /**
  * Produces a Word export, given an optional template.
  *
- * Three paths, one rule: WHAT THE TEMPLATE CONTAINS DECIDES WHAT IS DONE WITH
- * IT. At least one placeholder means the file decides what the document says, so
- * the domain's `DocumentSpec` is never built. No placeholders means it is a style
- * template — fonts, page size, letterhead — and the generated content is added
- * to it. No template at all is the generated document, exactly as before.
+ * TWO CASES: no template is the generated document, exactly as this feature
+ * began; a template is the document with the meeting added to it and every
+ * placeholder filled in.
  *
- * The middle case is the one worth defending: a style template carrying
- * placeholders is NOT the combination these two things are for, and quietly
- * ignoring the placeholders would produce a document with `{{title}}` typed on
- * it and no error anywhere. A template that says it has placeholders and cannot
- * have them is a bad upload, so it is refused rather than rendered.
+ * There was a third case here once, and removing it is the point of this class
+ * today. The file was classified at upload by scanning it for placeholders: with
+ * placeholders it became a content template and the `DocumentSpec` was never
+ * built, without them a style template and the content was generated into it. The
+ * classification was an inference about intent that nobody had stated, and it
+ * broke on the most ordinary file there is — a letterhead with `{{date}}` in its
+ * footer is a frame with a placeholder in it, it was read as a document that
+ * replaces the meeting, and the export produced a letterhead with no meeting on
+ * it. Nothing failed. The file was simply the wrong shape and nobody was told.
+ *
+ * A template now says what it wants by containing what it wants, and the only
+ * remaining choice is whether one was chosen at all.
  */
 final class WordTemplateService
 {
@@ -55,77 +59,23 @@ final class WordTemplateService
             ));
         }
 
-        if ($template->hasPlaceholders()) {
-            return $this->fromContentTemplate($source, $entity, $registry, $template, $stream);
-        }
-
-        return $this->ontoStyleTemplate($source, $entity, $template, $stream);
-    }
-
-    /**
-     * @param  resource|null  $stream
-     */
-    private function fromContentTemplate(
-        DocumentSource $source,
-        object $entity,
-        TemplateFieldRegistry $registry,
-        WordTemplate $template,
-        $stream,
-    ): ExportFile {
         $renderer = $this->renderers->get('docx');
-
         $stream ??= fopen('php://temp', 'r+');
 
         $this->filler->render(
             $this->store->path($template),
+            $source->document($entity),
             $entity,
             $registry,
             $stream,
         );
 
-        // The mime and extension still come from the renderer even though the
-        // renderer did not produce the bytes: a second copy of that MIME string
-        // here would be a second place for it to go wrong, and the format's
-        // identity belongs to the format.
+        // The mime and extension come from the renderer even though the renderer
+        // did not produce the bytes: a second copy of that MIME string here would
+        // be a second place for it to go wrong, and the format's identity belongs
+        // to the format.
         return new ExportFile(
             filename: ExportFilename::make($source->baseFilename(), $renderer->extension()),
-            mimeType: $renderer->contentType(),
-            stream: $stream,
-        );
-    }
-
-    /**
-     * @param  resource|null  $stream
-     */
-    private function ontoStyleTemplate(
-        DocumentSource $source,
-        object $entity,
-        WordTemplate $template,
-        $stream,
-    ): ExportFile {
-        $renderer = $this->renderers->get('docx');
-
-        // Asked as a question rather than assumed, because a style template only
-        // works with a renderer that can start from a file, and a silent cast
-        // here would be a fatal deep inside the renderer instead of a clear
-        // refusal here.
-        if (! $renderer instanceof BaseDocumentRenderer) {
-            throw new RuntimeException(sprintf(
-                'The [%s] renderer cannot render onto an existing document, so a style template cannot be used.',
-                $renderer::class,
-            ));
-        }
-
-        $stream ??= fopen('php://temp', 'r+');
-
-        $renderer->renderOnto(
-            $source->document($entity),
-            $stream,
-            $this->store->path($template),
-        );
-
-        return new ExportFile(
-            filename: ExportFilename::make($source->baseFilename(), 'docx'),
             mimeType: $renderer->contentType(),
             stream: $stream,
         );

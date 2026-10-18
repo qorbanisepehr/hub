@@ -2,7 +2,8 @@
 
 namespace App\Support\Exports\Render;
 
-use App\Support\Exports\Contract\BaseDocumentRenderer;
+use App\Support\Exports\Contract\DocumentComposer;
+use App\Support\Exports\Contract\DocumentRenderer;
 use App\Support\Exports\Templates\TemplateFiller;
 use App\Support\Exports\Value\Document\DocumentField;
 use App\Support\Exports\Value\Document\DocumentSection;
@@ -16,20 +17,18 @@ use PhpOffice\PhpWord\PhpWord;
  * Word renderer: the kernel DocumentSpec becomes a PHPWord document tree and
  * the Word2007 writer serializes it to docx bytes on the stream.
  *
- * TWO STARTS, ONE BODY. `render()` builds a new document; `renderOnto()` loads
- * one that already exists — a template with no placeholders, supplying fonts,
- * page size, headers and a letterhead — and adds the spec to it. Everything
- * between those two points is the same code, because the only thing a style
- * template changes is where the document starts.
+ * TWO STARTS, ONE BODY. `render()` builds a new document; `composeInto()` adds
+ * the same spec to one that already exists — a template supplying fonts, page
+ * size, headers and a letterhead. Everything between those two points is one
+ * code path, because the only thing a template changes is where the document
+ * starts.
  *
  * The original plan avoided a hand-designed .docx in the repo because binary
  * assets cannot be reviewed in a diff and structured output has no one static
  * layout. That still holds for a template in version control — and it stops
  * holding the moment the template is a file a person UPLOADS, where the bytes
- * belong in storage rather than the repo. That path is
- * {@see TemplateFiller}, and it is a separate
- * class rather than a mode of this one because a content template never sees a
- * DocumentSpec at all: the file decides what the document says.
+ * belong in storage rather than the repo. That path is {@see TemplateFiller},
+ * which composes the document with this class and then fills what is around it.
  *
  * a docx only NAMES its font (the reader's Word resolves/falls back), so
  * unlike PDF no TTF embedding is needed — Tahoma ships Persian on every
@@ -39,7 +38,7 @@ use PhpOffice\PhpWord\PhpWord;
  * paragraph) plus `rtl` on the font (w:rtl on the run). Word then shapes and
  * orders Persian text natively.
  */
-final class DocxRenderer implements BaseDocumentRenderer
+final class DocxRenderer implements DocumentComposer, DocumentRenderer
 {
     public function render(DocumentSpec $spec, $stream): void
     {
@@ -49,35 +48,30 @@ final class DocxRenderer implements BaseDocumentRenderer
         $phpWord->setDefaultFontName($font);
         $phpWord->setDefaultFontSize(11);
 
-        $section = $phpWord->addSection(['marginLeft' => 850, 'marginRight' => 850]);
+        $phpWord->addSection(['marginLeft' => 850, 'marginRight' => 850]);
 
-        $this->addTitle($section, $spec, $font);
-        $this->addMeta($section, $spec, $font);
-        $this->addSections($section, $spec, $font);
+        $this->composeInto($phpWord, $spec);
 
         $this->emit($phpWord, $stream);
     }
 
     /**
-     * Add the spec to a document that already exists.
+     * Add the spec to a document that is already open, and leave it open.
      *
      * Appended to the LAST section rather than put in a new one. A new section
      * starts a new page, which would put the meeting on page two of every
-     * letterhead that already has a heading on page one — and "what is under
-     * this" is the whole meaning of a style template. The template's own page
-     * setup is left exactly as the file declares it.
+     * letterhead with a heading on page one — and "what goes under this" is the
+     * whole meaning of a template. The template's own page setup is left exactly
+     * as the file declares it.
      */
-    public function renderOnto(DocumentSpec $spec, $stream, string $basePath): void
+    public function composeInto(PhpWord $phpWord, DocumentSpec $spec): void
     {
-        $phpWord = IOFactory::load($basePath);
-
         $font = (string) config('exports.documents.docx_font');
         $sections = $phpWord->getSections();
 
-        // A document with no section at all cannot be appended to, and Word
-        // would open the result as malformed. Given one rather than failing:
-        // the content is what the caller asked for, and the template had nothing
-        // to contribute anyway.
+        // A document with no section at all cannot be appended to, and Word would
+        // open the result as malformed. Given one rather than failing: the content
+        // is what the caller asked for, and the file had nothing to contribute.
         $section = $sections === []
             ? $phpWord->addSection(['marginLeft' => 850, 'marginRight' => 850])
             : $sections[count($sections) - 1];
@@ -85,8 +79,6 @@ final class DocxRenderer implements BaseDocumentRenderer
         $this->addTitle($section, $spec, $font);
         $this->addMeta($section, $spec, $font);
         $this->addSections($section, $spec, $font);
-
-        $this->emit($phpWord, $stream);
     }
 
     public function contentType(): string
