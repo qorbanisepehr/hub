@@ -87,6 +87,24 @@ final class FileTemplateLibrary
     }
 
     /**
+     * What a file is, before it is stored.
+     *
+     * Public because the answer is worth having at the moment of uploading rather
+     * than at the moment of exporting: whether the generated document is written
+     * into a template at all is {@see TemplateKind}'s decision and is read off the
+     * file, so the person who uploaded it is the only one who can find out, and
+     * the export is far too late to tell them.
+     *
+     * @return array{size: int, kind: string, placeholders: list<string>}
+     *
+     * @throws InvalidFileTemplate
+     */
+    public function inspect(UploadedFile $file, string $format): array
+    {
+        return $this->inspector->inspect($file, $format);
+    }
+
+    /**
      * Store an uploaded file as a new template.
      *
      * The name is what a person reads and the slug is what the store addresses,
@@ -107,6 +125,8 @@ final class FileTemplateLibrary
         bool $isDefault = false,
         ?int $uploadedBy = null,
     ): FileTemplate {
+        // Before anything is read from the file a second time, so a file refused
+        // for its size or for carrying macros never reaches the store.
         $inspected = $this->inspector->inspect($file, $format);
 
         $path = $file->getRealPath();

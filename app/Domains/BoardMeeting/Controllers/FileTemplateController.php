@@ -5,8 +5,8 @@ namespace App\Domains\BoardMeeting\Controllers;
 use App\Domains\BoardMeeting\Exports\BoardMeetingSheetExport;
 use App\Domains\BoardMeeting\Exports\BoardMeetingTemplateFields;
 use App\Domains\BoardMeeting\Requests\StoreFileTemplateRequest;
-use App\Support\Exports\Exceptions\InvalidFileTemplate;
 use App\Support\Exports\DocumentRendererRegistry;
+use App\Support\Exports\Exceptions\InvalidFileTemplate;
 use App\Support\Exports\Templates\FileTemplate;
 use App\Support\Exports\Templates\FileTemplateLibrary;
 use Illuminate\Http\JsonResponse;
@@ -105,6 +105,21 @@ final class FileTemplateController
         return response()->json([
             'message' => __('board_meeting.template.saved'),
             'data' => $this->present($template),
+            // What the file turned out to be, at the moment the person who
+            // uploaded it can still do something about it. Whether the generated
+            // meeting is written into a template is read off the file rather than
+            // chosen, so the answer arrives as a result instead of an intention —
+            // and the first place it would otherwise show up is an export somebody
+            // has to open to find out they got the other kind.
+            //
+            // The file is inspected a second time rather than carried out of
+            // `upload()`, which would mean returning two values from a method
+            // thirty call sites already use. The work is repeated; the LOGIC is
+            // not, which is the half that would drift.
+            'inspection' => $this->library->inspect(
+                $request->file('file'),
+                $this->format($request),
+            ),
         ], 201);
     }
 

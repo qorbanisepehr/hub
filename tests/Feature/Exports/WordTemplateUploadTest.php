@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Storage;
 use PhpOffice\PhpWord\Element\Header;
 use PhpOffice\PhpWord\IOFactory;
 use PhpOffice\PhpWord\PhpWord;
+use ZipArchive;
 
 /**
  * Uploading a Word template.
@@ -35,29 +36,92 @@ describe('inspecting an uploaded word template', function () {
         return $path;
     };
 
-    it('accepts a plain document and reports its size', function () use ($docx) {
+    it('accepts a plain document and reports its size and kind', function () use ($docx) {
         $path = $docx('فقط متن');
 
         $result = app(FileTemplateInspector::class)
             ->inspect(new UploadedFile($path, 'plain.docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'));
 
-        expect($result)->toBe(['size' => strlen((string) file_get_contents($path))]);
+        // A file mentioning nothing is a frame with the meeting appended. Reported
+        // rather than assumed, because this is the only moment a person can find
+        // out — the export is where it becomes visible, and by then it is a
+        // document somebody has to open.
+        expect($result)->toBe([
+            'size' => strlen((string) file_get_contents($path)),
+            'kind' => 'frame',
+            'placeholders' => [],
+        ]);
 
         @unlink($path);
     });
 
-    it('reports the same thing about a document that holds placeholders', function () use ($docx) {
-        // The inspector used to report whether the file held a placeholder, and
+    it('reports a document holding placeholders as a document, and says which', function () use ($docx) {
+        // The inspector used to report WHETHER the file held a placeholder, and
         // that one fact decided whether the template replaced the generated
         // document or merely framed it — so a letterhead with {{date}} in its
         // footer was read as a replacement and the meeting was never added to it.
-        // There is nothing left to distinguish, so there is nothing to report.
+        //
+        // What it reports now is the KIND, decided by `{{content}}` alone, plus the
+        // names themselves so a person can see what the file asks for before
+        // finding out from an export.
         $path = $docx('جلسه {{title}}');
 
         $result = app(FileTemplateInspector::class)
             ->inspect(new UploadedFile($path, 'filled.docx', null, null, true));
 
-        expect($result)->toBe(['size' => strlen((string) file_get_contents($path))]);
+        expect($result)->toMatchArray([
+            'kind' => 'detail',
+            'placeholders' => ['title'],
+        ]);
+
+        @unlink($path);
+    });
+
+    it('reads a document marker Word split across runs as a frame', function () use ($docx) {
+        // THE SAME BUG, ONE LAYER DOWN. A `{{content}}` that Word broke into
+        // `{{cont`, `ent`, `}}` is still one marker to whoever wrote the template.
+        // Counted from the raw XML it looks like a file holding no document
+        // marker at all, so a frame is read as a document somebody wrote by hand
+        // — and at export the meeting is then never generated and the file comes
+        // out nearly empty, with nothing reporting it. The letterhead failure,
+        // reproduced by the splitting rather than by the marker.
+        //
+        // Hand-built because PHPWord will not write a split macro on request, and
+        // the split is the entire thing being tested.
+        //
+        // The three separate `<w:r>` runs are what Word writes and what PHPWord
+        // merges back into one `TextRun` holding three `Text` children on load —
+        // so this is the shape the fold has to cope with, rather than a single run
+        // holding three `<w:t>`, which is a shape Word does not produce.
+        $path = $docx('{{content}}');
+
+        $zip = new ZipArchive;
+        $zip->open($path);
+
+        $xml = (string) $zip->getFromName('word/document.xml');
+
+        $split = str_replace(
+            '<w:r><w:rPr/><w:t xml:space="preserve">{{content}}</w:t></w:r>',
+            '<w:r><w:rPr/><w:t>{{cont</w:t></w:r>'
+                .'<w:r><w:rPr/><w:t>ent</w:t></w:r>'
+                .'<w:r><w:rPr/><w:t>}}</w:t></w:r>',
+            $xml,
+        );
+
+        // If the replacement did not land, the assertion below would be testing a
+        // document that was never broken and would pass for the wrong reason.
+        expect($split)->not->toBe($xml);
+
+        $zip->addFromString('word/document.xml', $split);
+        $zip->close();
+
+        $result = app(FileTemplateInspector::class)
+            ->inspect(new UploadedFile($path, 'split.docx', null, null, true));
+
+        expect($result)->toMatchArray([
+            'kind' => 'frame',
+            'placeholders' => ['content'],
+        ]);
 
         @unlink($path);
     });

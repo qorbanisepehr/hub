@@ -4,6 +4,7 @@ namespace App\Support\Exports\Templates;
 
 use App\Support\Exports\Exceptions\InvalidFileTemplate;
 use Illuminate\Http\UploadedFile;
+use PhpOffice\PhpWord\IOFactory;
 use ZipArchive;
 
 /**
@@ -38,6 +39,8 @@ final class FileTemplateInspector
     /** Macro storage. A `.docx` has none; a renamed `.docm` does. */
     private const MACRO_PART = 'word/vbaProject.bin';
 
+    public function __construct(private readonly DocxMacros $macros) {}
+
     /**
      * The size cap, read at inspection time.
      *
@@ -53,7 +56,7 @@ final class FileTemplateInspector
     }
 
     /**
-     * Check the file for the format it claims to be, and report its size.
+     * Check the file for the format it claims to be, and report what is in it.
      *
      * The format decides what "a file that is not what it says" even means. For
      * `.docx` that is a zip of XML with a `word/document.xml` inside, and it can
@@ -61,7 +64,15 @@ final class FileTemplateInspector
      * are nonsense, and the question is whether it parses at all. Doing the docx
      * checks on a Markdown file would refuse every one of them.
      *
-     * @return array{size: int}
+     * IT REPORTS THE KIND AND THE PLACEHOLDERS, and that is not a nicety. Whether
+     * the generated meeting is written into a template at all is
+     * {@see TemplateKind}'s decision, read off the file, so the person uploading
+     * one is the only one who can find out — the export is the first moment the
+     * answer becomes visible, and by then it is a document somebody has to open to
+     * find out they got the other kind. A rule that is applied silently is a rule
+     * that gets reported as a bug.
+     *
+     * @return array{size: int, kind: string, placeholders: list<string>}
      *
      * @throws InvalidFileTemplate
      */
@@ -93,7 +104,10 @@ final class FileTemplateInspector
                 throw InvalidFileTemplate::because('فایل متنی با کدگذاری UTF-8 نیست.');
             }
 
-            return ['size' => $size];
+            return [
+                'size' => $size,
+                ...$this->describe((string) file_get_contents($path)),
+            ];
         }
 
         $zip = new ZipArchive;
@@ -117,9 +131,83 @@ final class FileTemplateInspector
                 );
             }
 
-            return ['size' => $size];
+            return [
+                'size' => $size,
+                ...$this->describeDocx($path),
+            ];
         } finally {
             $zip->close();
         }
+    }
+
+    /**
+     * The kind and placeholders of a Word file.
+     *
+     * Loaded rather than scanned as XML, and that is the whole reason this class
+     * needs {@see DocxMacros}: Word splits one macro across several runs as a
+     * matter of routine, so a regex over the XML sees `{{cont`, `ent`, `}}` and
+     * reports a document with no placeholders in it. Reading the element tree
+     * after folding is what makes this answer the same one the filler will act on.
+     *
+     * @return array{kind: string, placeholders: list<string>}
+     */
+    private function describeDocx(string $path): array
+    {
+        try {
+            $phpWord = IOFactory::load($path);
+        } catch (\Throwable) {
+            // The archive has already been checked for the parts a document is
+            // made of, so this is not a shape the zip test should have caught —
+            // it is a parser refusing something structurally sound. There is
+            // nothing to report about the placeholders of a file that cannot be
+            // opened, but it is still not refused here: the export would fail on
+            // it with a message naming the template, and refusing it at upload on
+            // a guess is worse than letting a person upload and be told.
+            return ['kind' => TemplateKind::Frame->value, 'placeholders' => []];
+        }
+
+        $this->macros->fold($phpWord);
+
+        $names = $this->macros->names($phpWord);
+
+        return [
+            'kind' => TemplateKind::fromNames($names)->value,
+            'placeholders' => $names,
+        ];
+    }
+
+    /**
+     * The kind and placeholders of a plain-text file.
+     *
+     * @return array{kind: string, placeholders: list<string>}
+     */
+    private function describe(string $text): array
+    {
+        $names = $this->textMacros($text);
+
+        return [
+            'kind' => TemplateKind::fromNames($names)->value,
+            'placeholders' => $names,
+        ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function textMacros(string $text): array
+    {
+        preg_match_all('/\{\{(.+?)\}\}/s', $text, $matches);
+
+        $names = [];
+
+        foreach ($matches[1] ?? [] as $name) {
+            $name = trim($name);
+
+            if ($name !== '') {
+                $names[$name] = true;
+            }
+        }
+
+        return array_keys($names);
     }
 }
