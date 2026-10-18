@@ -3,8 +3,8 @@
 use App\Domains\BoardMeeting\Exports\BoardMeetingSheetExport;
 use App\Domains\BoardMeeting\Exports\BoardMeetingTemplateFields;
 use App\Domains\BoardMeeting\Models\BoardMeeting;
+use App\Support\Exports\Templates\DocxTemplateFiller;
 use App\Support\Exports\Templates\FileTemplateService;
-use App\Support\Exports\Templates\TemplateFiller;
 use Illuminate\Support\Facades\Storage;
 use PhpOffice\PhpWord\Element\TextRun;
 use PhpOffice\PhpWord\IOFactory;
@@ -58,7 +58,7 @@ describe('a word template that word itself split', function () {
         $source = tempnam(sys_get_temp_dir(), 'split-').'.docx';
         IOFactory::createWriter($phpWord, 'Word2007')->save($source);
 
-        app(TemplateFiller::class)->render(
+        app(DocxTemplateFiller::class)->fill(
             $source,
             app(BoardMeetingSheetExport::class)->document($meeting),
             $meeting,
@@ -165,7 +165,7 @@ describe('a value that looks like markup', function () {
         $source = tempnam(sys_get_temp_dir(), 'esc-').'.docx';
         IOFactory::createWriter($phpWord, 'Word2007')->save($source);
 
-        app(TemplateFiller::class)->render(
+        app(DocxTemplateFiller::class)->fill(
             $source,
             app(BoardMeetingSheetExport::class)->document($meeting),
             $meeting,

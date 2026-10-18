@@ -3,9 +3,9 @@
 use App\Domains\BoardMeeting\Exports\BoardMeetingSheetExport;
 use App\Domains\BoardMeeting\Exports\BoardMeetingTemplateFields;
 use App\Domains\BoardMeeting\Models\BoardMeeting;
+use App\Support\Exports\Templates\DocxTemplateFiller;
 use App\Support\Exports\Templates\FileTemplateLibrary;
 use App\Support\Exports\Templates\FileTemplateService;
-use App\Support\Exports\Templates\TemplateFiller;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use PhpOffice\PhpWord\IOFactory;
@@ -74,7 +74,7 @@ describe('a template keeps its header and footer', function () {
 
     /** Fill a template file with a meeting and return the path of the result. */
     $fill = function (string $source, BoardMeeting $meeting): string {
-        app(TemplateFiller::class)->render(
+        app(DocxTemplateFiller::class)->fill(
             $source,
             app(BoardMeetingSheetExport::class)->document($meeting),
             $meeting,

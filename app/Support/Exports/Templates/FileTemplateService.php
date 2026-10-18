@@ -10,11 +10,11 @@ use App\Support\Exports\Value\ExportFile;
 use RuntimeException;
 
 /**
- * Produces a Word export, given an optional template.
+ * Produces an export, given an optional template file.
  *
  * TWO CASES: no template is the generated document, exactly as this feature
- * began; a template is the document with the meeting added to it and every
- * placeholder filled in.
+ * began; a template is that document written into the file, with every
+ * placeholder filled.
  *
  * There was a third case here once, and removing it is the point of this class
  * today. The file was classified at upload by scanning it for placeholders: with
@@ -28,18 +28,26 @@ use RuntimeException;
  *
  * A template now says what it wants by containing what it wants, and the only
  * remaining choice is whether one was chosen at all.
+ *
+ * NOTHING HERE KNOWS WHAT A DOCX IS. The format comes from the template, the
+ * filler comes from the registry by that format, and the mime and extension come
+ * from the renderer for it — so adding Markdown is a filler and a registration
+ * rather than a branch here.
  */
 final class FileTemplateService
 {
     public function __construct(
         private readonly DocumentExportService $documents,
         private readonly DocumentRendererRegistry $renderers,
-        private readonly TemplateFiller $filler,
+        private readonly TemplateFillerRegistry $fillers,
         private readonly FileTemplateStore $store,
     ) {}
 
     /**
      * @param  resource|null  $stream
+     * @param  string|null  $format  for the untemplated export; a template's own
+     *                               format always wins, because the template IS
+     *                               the format the bytes will be in
      */
     public function render(
         DocumentSource $source,
@@ -47,22 +55,25 @@ final class FileTemplateService
         TemplateFieldRegistry $registry,
         ?FileTemplate $template = null,
         $stream = null,
+        ?string $format = null,
     ): ExportFile {
+        $format = $template?->format() ?? $format ?? FileTemplate::FORMAT_DOCX;
+
         if ($template === null) {
-            return $this->documents->run($source, $entity, 'docx', $stream);
+            return $this->documents->run($source, $entity, $format, $stream);
         }
 
         if (! $this->store->has($template)) {
             throw new RuntimeException(sprintf(
-                'The Word template [%s] has no file behind it.',
+                'The template [%s] has no file behind it.',
                 $template->name(),
             ));
         }
 
-        $renderer = $this->renderers->get('docx');
+        $renderer = $this->renderers->get($format);
         $stream ??= fopen('php://temp', 'r+');
 
-        $this->filler->render(
+        $this->fillers->get($format)->fill(
             $this->store->path($template),
             $source->document($entity),
             $entity,

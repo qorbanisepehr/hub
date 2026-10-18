@@ -5,10 +5,10 @@ use App\Domains\BoardMeeting\Exports\BoardMeetingSheetExport;
 use App\Domains\BoardMeeting\Exports\BoardMeetingTemplateFields;
 use App\Domains\BoardMeeting\Models\BoardMeeting;
 use App\Domains\BoardMeeting\Value\Attendee;
+use App\Support\Exports\Templates\DocxTemplateFiller;
 use App\Support\Exports\Templates\FileTemplate;
 use App\Support\Exports\Templates\FileTemplateService;
 use App\Support\Exports\Templates\FileTemplateStore;
-use App\Support\Exports\Templates\TemplateFiller;
 use Illuminate\Support\Facades\Storage;
 use PhpOffice\PhpWord\Element\Table;
 use PhpOffice\PhpWord\IOFactory;
@@ -27,7 +27,6 @@ describe('filling a word template', function () {
     beforeEach(function () {
         Storage::fake('local');
 
-        $this->filler = app(TemplateFiller::class);
         $this->store = app(FileTemplateStore::class);
         $this->registry = new BoardMeetingTemplateFields;
         $this->sheet = app(BoardMeetingSheetExport::class);
@@ -43,7 +42,7 @@ describe('filling a word template', function () {
      * has.
      */
     $fill = function (string $source, BoardMeeting $meeting): string {
-        app(TemplateFiller::class)->render(
+        app(DocxTemplateFiller::class)->fill(
             $source,
             app(BoardMeetingSheetExport::class)->document($meeting),
             $meeting,

@@ -50,6 +50,8 @@ use App\Support\Exports\Render\DocxRenderer;
 use App\Support\Exports\Render\JsonRenderer;
 use App\Support\Exports\Render\MarkdownRenderer;
 use App\Support\Exports\Render\PdfRenderer;
+use App\Support\Exports\Templates\DocxTemplateFiller;
+use App\Support\Exports\Templates\TemplateFillerRegistry;
 use App\Support\Exports\Writer\CsvWriter;
 use App\Support\Exports\Writer\JsonlWriter;
 use App\Support\Exports\Writer\TsvWriter;
@@ -217,6 +219,18 @@ class AppServiceProvider extends ServiceProvider
             return $registry;
         });
         $this->app->singleton(DocumentExportService::class);
+
+        // Template fillers, one per format a template may be written in. A
+        // sibling of the renderer registry above and registered the same way: a
+        // new format is a line here, never an edit to the service that fills.
+        // Only docx exists today, and md is one registration away rather than a
+        // redesign - which is the whole reason the port exists.
+        $this->app->singleton(TemplateFillerRegistry::class, function ($app): TemplateFillerRegistry {
+            $registry = new TemplateFillerRegistry;
+            $registry->register($app->make(DocxTemplateFiller::class));
+
+            return $registry;
+        });
 
         // The Word composer, for the template path: {@see TemplateFiller} adds the
         // generated document to an uploaded file and needs somebody who knows how
