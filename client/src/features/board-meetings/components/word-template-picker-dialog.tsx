@@ -66,7 +66,7 @@ export function WordTemplatePickerDialog({
             open={open}
             onOpenChange={onOpenChange}
             title="قالب Word"
-            description="قالبی که خروجی این جلسه از آن ساخته می‌شود."
+            description="صورتجلسه در انتهای این فایل افزوده می‌شود و جای‌نگهدارهای آن پر می‌شوند."
             footer={
                 <Button
                     type="button"
@@ -100,12 +100,6 @@ export function WordTemplatePickerDialog({
                                         </Badge>
                                     )}
                                 </div>
-
-                                <span className="text-xs text-muted-foreground">
-                                    {template.kind === "content"
-                                        ? "متنی — خودِ فایل تصمیم می‌گیرد چه چاپ شود."
-                                        : "ظاهر — فقط قلم و صفحه‌بندی را می‌دهد."}
-                                </span>
                             </div>
 
                             {pending === template.slug && (

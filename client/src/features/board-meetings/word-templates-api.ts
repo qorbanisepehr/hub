@@ -3,18 +3,18 @@ import { api, FORM_DATA_HEADERS } from "@/lib/api";
 /**
  * One uploaded Word template.
  *
- * `kind` is a word rather than a boolean on purpose. It is the single fact that
- * decides how the file behaves - `content` means the file decides what the
- * document says, `style` means it supplies the layout and the content is
- * generated into it - and a person picking a template needs to know which before
- * they pick it, not after the export.
+ * There is no `kind`, and that is the whole point: the file used to be labelled
+ * "content" or "style" by whether it held a placeholder, and the two were then
+ * rendered by different code. A letterhead with `{{date}}` in its footer is both
+ * of those things at once, so it was labelled one of them and the meeting was
+ * never generated onto it. Every template now behaves identically, so there is
+ * nothing left to report.
  */
 export type WordTemplateDto = {
     slug: string;
     name: string;
     size: number;
     is_default: boolean;
-    kind: "content" | "style";
 };
 
 export type WordTemplateListResponse = {

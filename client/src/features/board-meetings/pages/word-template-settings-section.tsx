@@ -181,18 +181,6 @@ function TemplateRow({
                             پیش‌فرض
                         </Badge>
                     )}
-
-                    {/* The fact that decides what the file is FOR, shown before
-                        anyone picks it rather than discovered at export time. */}
-                    <Badge
-                        variant={
-                            template.kind === "content" ? "secondary" : "outline"
-                        }
-                    >
-                        {template.kind === "content"
-                            ? "متنی"
-                            : "ظاهر"}
-                    </Badge>
                 </div>
 
                 <span className="text-xs text-muted-foreground">
