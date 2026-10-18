@@ -136,7 +136,7 @@ final class DocxRenderer implements DocumentComposer, DocumentRenderer
     {
         if ($spec->title !== '') {
             $section->addText(
-                $spec->title,
+                $this->xml($spec->title),
                 $this->font(['size' => 18, 'bold' => true], $font),
                 $this->paragraph(),
             );
@@ -144,7 +144,7 @@ final class DocxRenderer implements DocumentComposer, DocumentRenderer
 
         if ($spec->subtitle !== '') {
             $section->addText(
-                $spec->subtitle,
+                $this->xml($spec->subtitle),
                 $this->font(['size' => 12], $font),
                 $this->paragraph(),
             );
@@ -156,7 +156,7 @@ final class DocxRenderer implements DocumentComposer, DocumentRenderer
     private function addSection(Section $section, DocumentSection $document, string $font): void
     {
         $section->addText(
-            $document->heading,
+            $this->xml($document->heading),
             $this->font(['size' => 13, 'bold' => true], $font),
             $this->paragraph(['spaceBefore' => 160, 'spaceAfter' => 80]),
         );
@@ -175,10 +175,34 @@ final class DocxRenderer implements DocumentComposer, DocumentRenderer
     private function addLine(Section $section, DocumentField $field, string $font): void
     {
         $section->addText(
-            $field->label.': '.$field->value,
+            $this->xml($field->label.': '.$field->value),
             $this->font([], $font),
             $this->paragraph(),
         );
+    }
+
+    /**
+     * Make a value safe to sit inside the document XML.
+     *
+     * PHPWord writes a `Text` element's content into `<w:t>` **unescaped**, so
+     * anything in a value that reads as markup is read as markup: `<ب>` is
+     * parsed as a tag and disappears, taking whatever followed it. The document
+     * still builds and still opens — the text is simply shorter than the value,
+     * with nothing to say so.
+     *
+     * This is the ordinary generated export as well as the template one: meeting
+     * minutes are free text, frequently imported from scanned documents, where
+     * `<` and `&` are punctuation rather than markup. Losing a clause of the
+     * minutes to a stray bracket is not a cosmetic problem.
+     *
+     * Per-renderer on purpose. A `DocumentSpec` is also read by the Markdown and
+     * JSON renderers, where escaping for XML would put `&amp;` into a JSON
+     * payload and `&lt;` into a Markdown file. The value is plain text until
+     * something writes it into a format, and that something owns the escaping.
+     */
+    private function xml(string $value): string
+    {
+        return htmlspecialchars($value, ENT_QUOTES | ENT_XML1, 'UTF-8');
     }
 
     private function addTable(Section $section, DocumentTable $table, string $font): void
@@ -189,7 +213,7 @@ final class DocxRenderer implements DocumentComposer, DocumentRenderer
 
         if ($table->caption !== '') {
             $section->addText(
-                $table->caption,
+                $this->xml($table->caption),
                 $this->font(['bold' => true], $font),
                 $this->paragraph(['spaceBefore' => 80]),
             );
@@ -210,7 +234,7 @@ final class DocxRenderer implements DocumentComposer, DocumentRenderer
 
         foreach ($table->headers as $header) {
             $headerRow->addCell($cellWidth)->addText(
-                $header,
+                $this->xml($header),
                 $this->font(['bold' => true], $font),
                 $this->paragraph(['alignment' => 'center']),
             );
@@ -221,7 +245,7 @@ final class DocxRenderer implements DocumentComposer, DocumentRenderer
 
             foreach (array_keys($table->headers) as $index) {
                 $bodyRow->addCell($cellWidth)->addText(
-                    (string) ($row[$index] ?? ''),
+                    $this->xml((string) ($row[$index] ?? '')),
                     $this->font([], $font),
                     $this->paragraph(),
                 );

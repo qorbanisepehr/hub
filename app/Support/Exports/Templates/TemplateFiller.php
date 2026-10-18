@@ -5,7 +5,9 @@ namespace App\Support\Exports\Templates;
 use App\Support\Exports\Contract\DocumentComposer;
 use App\Support\Exports\Contract\DocumentRenderer;
 use App\Support\Exports\Value\Document\DocumentSpec;
+use PhpOffice\PhpWord\Element\AbstractContainer;
 use PhpOffice\PhpWord\Element\Text;
+use PhpOffice\PhpWord\Element\TextRun;
 use PhpOffice\PhpWord\IOFactory;
 use PhpOffice\PhpWord\PhpWord;
 use PhpOffice\PhpWord\TemplateProcessor;
@@ -123,6 +125,10 @@ final class TemplateFiller
     {
         $phpWord = IOFactory::load($templatePath);
 
+        // Before anything is added, so this only ever touches what the AUTHOR
+        // wrote. Content we generate is contiguous by construction.
+        $this->mergeSplitRuns($phpWord);
+
         $this->removeContentMarker($phpWord);
 
         $this->composer->composeInto($phpWord, $spec);
@@ -132,6 +138,97 @@ final class TemplateFiller
         IOFactory::createWriter($phpWord, 'Word2007')->save($path);
 
         return $path;
+    }
+
+    /**
+     * Put every macro back into one piece before anything looks for it.
+     *
+     * WORD SPLITS TEXT ROUTINALLY, and the splits are invisible. A right-click,
+     * a spell-check flag or a font change is enough for Word to write one word
+     * across several `<w:r>` runs — so a macro can arrive as `{{tag.`, `name`,
+     * `}}` in three separate elements. `TemplateProcessor` searches the XML with
+     * a plain string replace, which cannot match across those boundaries, so the
+     * macro is simply never found.
+     *
+     * THE FAILURE IS SILENT, WHICH IS WHAT MADE IT WORTH FINDING: the document
+     * builds, it opens, and the template's own text is all there — except one
+     * `{{tag.name}}` printed in the middle of it. Nothing anywhere reports a
+     * problem, so the export looks like it worked. It was found by exporting with
+     * a real template whose macro had been split and noticing that one macro of
+     * two came back filled.
+     *
+     * PHPWord keeps the split as several `Text` children inside one `TextRun`,
+     * so this needs no XML surgery: fold the text into the first child and drop
+     * the rest. Only a run whose children are ALL text is folded, because a run
+     * holding a break or an image between two texts would reorder its content.
+     *
+     * Note the shape this must NOT take: adding a fresh `Text` through
+     * `addElement`, which is protected and reaches the magic `__call` instead.
+     * That fails quietly and empties the run — the text disappears entirely,
+     * which is worse than the bug it was meant to fix.
+     */
+    private function mergeSplitRuns(PhpWord $phpWord): void
+    {
+        foreach ($phpWord->getSections() as $section) {
+            // Headers and footers too: a date macro in a footer is split just as
+            // easily as one in the body, and fails just as quietly.
+            $this->mergeIn($section);
+
+            foreach ($section->getHeaders() as $header) {
+                $this->mergeIn($header);
+            }
+
+            foreach ($section->getFooters() as $footer) {
+                $this->mergeIn($footer);
+            }
+        }
+    }
+
+    /**
+     * Fold the split runs of one container, descending into tables.
+     */
+    private function mergeIn(AbstractContainer $container): void
+    {
+        foreach ($container->getElements() as $element) {
+            if ($element instanceof TextRun) {
+                $this->mergeRun($element);
+
+                continue;
+            }
+
+            if ($element instanceof AbstractContainer) {
+                $this->mergeIn($element);
+            }
+        }
+    }
+
+    private function mergeRun(TextRun $run): void
+    {
+        $children = $run->getElements();
+
+        if (count($children) < 2) {
+            return;
+        }
+
+        foreach ($children as $child) {
+            if (! $child instanceof Text) {
+                // A break, an image or a field between two texts: folding them
+                // would move the text across it and change what the line says.
+                return;
+            }
+        }
+
+        $first = $children[0];
+
+        $first->setText(implode('', array_map(
+            static fn (Text $text): string => (string) $text->getText(),
+            $children,
+        )));
+
+        foreach (array_slice($children, 1) as $extra) {
+            // By element id, not array key, so a reindexed slice is fine.
+            $run->removeElement($extra);
+        }
     }
 
     /**
@@ -251,11 +348,33 @@ final class TemplateFiller
             // Leaving `{{title}}` in a document whose title is unknown would read
             // as a broken template rather than as a meeting with no title.
             $replacements[$field->key] = is_scalar($value) || $value === null
-                ? (string) $value
+                ? $this->forXml((string) $value)
                 : '';
         }
 
         return $replacements;
+    }
+
+    /**
+     * Make a value safe to sit inside the document XML.
+     *
+     * `TemplateProcessor` substitutes with a plain string replace, so the value
+     * lands in the middle of the XML **unescaped**. Anything that looks like
+     * markup is then read as markup: a value of `الف & بتا <ب>` comes out as
+     * `الف & بتا`, because `<ب>` is parsed as a tag and swallowed along with
+     * everything it contains.
+     *
+     * That is a silent loss of somebody's minutes, from a single `<` typed by an
+     * author, and it matters most for `{{minutes}}` — free text, imported from
+     * scanned documents, where angle brackets are ordinary punctuation.
+     *
+     * Escaping here rather than in the renderer because this is the only place
+     * the text becomes XML: the renderer builds a document through PHPWord's own
+     * API, which escapes for us, and this path bypasses it entirely.
+     */
+    private function forXml(string $value): string
+    {
+        return htmlspecialchars($value, ENT_QUOTES | ENT_XML1, 'UTF-8');
     }
 
     /**
@@ -315,7 +434,10 @@ final class TemplateFiller
 
                     foreach ($usable as $field) {
                         $column = $field->column();
-                        $row[$field->key] = (string) ($entry[$column] ?? '');
+                        // Escaped for the same reason as an inline value: a
+                        // row cell is XML text too, and a tag name typed into an
+                        // attachment's file name would take the rest with it.
+                        $row[$field->key] = $this->forXml((string) ($entry[$column] ?? ''));
                     }
 
                     $rows[] = $row;
