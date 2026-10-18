@@ -2,6 +2,7 @@
 
 namespace App\Support\Exports\Contract;
 
+use App\Support\Exports\Render\DocxBodyStyle;
 use App\Support\Exports\Value\Document\DocumentSpec;
 use PhpOffice\PhpWord\PhpWord;
 
@@ -33,6 +34,13 @@ interface DocumentComposer
      * letterhead with the board's name, crest and margins work; clearing it would
      * leave a template supplying only styles and none of the layout people
      * actually build templates for.
+     *
+     * WHICH IS WHY THE STYLE IS AN ARGUMENT. A document that exists only to hold
+     * this meeting needs a font and a type scale; a letterhead already has one and
+     * a second opinion written over it produces a document in two typefaces. The
+     * caller is the only one that knows which situation it is in — the document
+     * itself looks the same either way — so it is stated rather than guessed from
+     * whether the file happens to have any text in it.
      */
-    public function composeInto(PhpWord $phpWord, DocumentSpec $spec): void;
+    public function composeInto(PhpWord $phpWord, DocumentSpec $spec, DocxBodyStyle $style): void;
 }

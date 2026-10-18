@@ -4,8 +4,8 @@ namespace App\Support\Exports\Templates;
 
 use App\Support\Exports\Contract\DocumentComposer;
 use App\Support\Exports\Contract\DocumentRenderer;
+use App\Support\Exports\Render\DocxBodyStyle;
 use App\Support\Exports\Value\Document\DocumentSpec;
-use PhpOffice\PhpWord\Element\AbstractContainer;
 use PhpOffice\PhpWord\Element\Text;
 use PhpOffice\PhpWord\Element\TextRun;
 use PhpOffice\PhpWord\IOFactory;
@@ -22,19 +22,21 @@ use PhpOffice\PhpWord\TemplateProcessor;
  * shared with one. The port it implements is deliberately thin so that the parts
  * which DO generalise are visible rather than assumed.
  *
- * ONE PATH, AND THAT IS THE POINT. An earlier version classified the file at
- * upload by scanning it for placeholders, and split into two: a file WITH
- * placeholders replaced the document entirely, a file WITHOUT them supplied a
- * frame the generated content was added to. The split was inferring an intent
- * nobody had declared, and it failed in the one case that mattered — a letterhead
+ * ONE QUESTION ASKED OF THE FILE, AND THAT IS THE POINT. An earlier version
+ * classified uploads by scanning them for placeholders and split into two: a file
+ * WITH placeholders replaced the document entirely, a file WITHOUT them supplied
+ * a frame the generated content was added to. The split inferred an intent nobody
+ * had declared, and it failed in the one case that mattered — a letterhead
  * carrying `{{date}}` in its footer was classified as a content template, so the
  * meeting was never generated at all and the export produced a near-empty file
  * with nothing to indicate anything was wrong.
  *
- * So a template is now only ever a template. The meeting is always added, and
- * every placeholder is always filled — in the body, in the headers and in the
- * footers, which is where a header/footer placeholder had been left untouched
- * because the path that filled them was not the path that added content.
+ * So there is no split to get wrong. The file either asks for the document with
+ * `{{content}}` or it does not, and {@see TemplateKind} reads that one question
+ * off the file. Every placeholder is filled either way — in the body, in the
+ * headers and in the footers, which is where a header/footer placeholder used to
+ * be left untouched because the path that filled them was not the path that added
+ * content.
  *
  * Not a {@see DocumentRenderer}: a renderer turns a
  * `DocumentSpec` into bytes for a format, and putting this in the renderer
@@ -78,25 +80,10 @@ final class DocxTemplateFiller implements TemplateFiller
 
     private const MACRO_CLOSE = '}}';
 
-    /**
-     * Where the generated document goes.
-     *
-     * A marker rather than a second setting, because a file that says where its
-     * content goes is the only version nobody can get wrong. It MUST BE THE LAST
-     * THING IN THE BODY: PHPWord can only add elements to the end of a document,
-     * so a marker anywhere earlier would have content appended after the text
-     * that was supposed to follow it. A marker left in the middle is removed from
-     * wherever it is found and the meeting still goes at the end, so the mistake
-     * costs a document in a slightly odd order rather than an export that fails.
-     *
-     * Removing it also means the marker never reaches the placeholder pass, where
-     * it would otherwise have to be explained as a scalar with no value.
-     */
-    private const CONTENT_MACRO = 'content';
-
     public function __construct(
         private readonly DocumentComposer $composer,
         private readonly TemplateValues $values,
+        private readonly DocxMacros $macros,
     ) {}
 
     public function format(): string
@@ -120,20 +107,47 @@ final class DocxTemplateFiller implements TemplateFiller
         TemplateFieldRegistry $registry,
         $stream,
     ): void {
-        $names = $this->namesIn($templatePath);
+        $phpWord = IOFactory::load($templatePath);
+
+        // Before anything is read or added, so this only ever touches what the
+        // AUTHOR wrote. Content we generate is contiguous by construction.
+        $this->macros->fold($phpWord);
+
+        // READ FROM THE FOLDED DOCUMENT rather than off the file. Both questions
+        // are about what the author wrote, and a name Word split into three runs
+        // is still one name to them: read from the raw file, a frame whose
+        // `{{content}}` was split looks like a document somebody wrote, and the
+        // meeting is then never generated — the exact silent failure the
+        // distinction was introduced to stop, reappearing one layer down.
+        $kind = TemplateKind::fromNames($this->macros->names($phpWord));
 
         // A DETAIL TEMPLATE IS NOT COMPOSED. The author wrote the body and the
         // placeholders are the values they wanted in it; adding the generated
         // document as well is not a frame, it is the file they wrote with a
         // generated meeting stapled underneath it. This is the whole distinction,
         // and it is decided by the file rather than asked for.
-        if (TemplateKind::fromNames($names) === TemplateKind::Detail) {
-            $this->substitute($templatePath, $entity, $registry, $stream);
+        if ($kind === TemplateKind::Detail) {
+            $prepared = $this->save($phpWord, $this->working('hrh-detail-'));
+
+            try {
+                $this->substitute($prepared, $entity, $registry, $stream);
+            } finally {
+                @unlink($prepared);
+            }
 
             return;
         }
 
-        $prepared = $this->compose($templatePath, $spec);
+        $this->removeContentMarker($phpWord);
+
+        // INHERITED, and this is the whole point of writing the meeting into somebody's
+        // file rather than into an empty one. Imposing our own font and type scale
+        // over a letterhead produces a document in two typefaces, which reads as a
+        // broken template rather than as a generated body — and is the one thing
+        // the whole template path exists to avoid.
+        $this->composer->composeInto($phpWord, $spec, DocxBodyStyle::Inherited);
+
+        $prepared = $this->save($phpWord, $this->working('hrh-composed-'));
 
         try {
             $this->substitute($prepared, $entity, $registry, $stream);
@@ -143,159 +157,67 @@ final class DocxTemplateFiller implements TemplateFiller
     }
 
     /**
-     * Every macro name the file contains, without its braces.
+     * An empty working-file path of the right kind.
      *
-     * Asked of the FILE rather than of the entity, and twice over in this class:
-     * once to decide the kind, and again inside the fill for which values to
-     * substitute. Both questions are about what the author wrote.
-     *
-     * @return list<string>
+     * `tempnam` creates the file, so the name is taken immediately and the
+     * write happens where it is described — writing over a file another process
+     * could have named first is a race this does not need to take.
      */
-    private function namesIn(string $templatePath): array
+    private function working(string $prefix): string
     {
-        $processor = new TemplateProcessor($templatePath);
-        $processor->setMacroChars(self::MACRO_OPEN, self::MACRO_CLOSE);
-
-        return array_values(array_map(
-            static fn (string $name): string => trim($name),
-            $processor->getVariables(),
-        ));
+        return tempnam(sys_get_temp_dir(), $prefix);
     }
 
     /**
-     * The template with the generated document added, written to a working file.
+     * Write the document out, and hand back where it went.
      *
      * A file rather than an in-memory document because {@see TemplateProcessor}
      * takes a path and does its own copying — handing it a PhpWord object is not
-     * a thing it can read. So the composition is saved once here and read back
-     * for the fill, which is the cost of having one writer per save.
+     * a thing it can read. So the document is saved and read back for the fill,
+     * which is the cost of having one writer per save.
      */
-    private function compose(string $templatePath, DocumentSpec $spec): string
+    private function save(PhpWord $phpWord, string $path): string
     {
-        $phpWord = IOFactory::load($templatePath);
-
-        // Before anything is added, so this only ever touches what the AUTHOR
-        // wrote. Content we generate is contiguous by construction.
-        $this->mergeSplitRuns($phpWord);
-
-        $this->removeContentMarker($phpWord);
-
-        $this->composer->composeInto($phpWord, $spec);
-
-        $path = tempnam(sys_get_temp_dir(), 'hrh-composed-');
-
         IOFactory::createWriter($phpWord, 'Word2007')->save($path);
 
         return $path;
     }
 
     /**
-     * Put every macro back into one piece before anything looks for it.
-     *
-     * WORD SPLITS TEXT ROUTINALLY, and the splits are invisible. A right-click,
-     * a spell-check flag or a font change is enough for Word to write one word
-     * across several `<w:r>` runs — so a macro can arrive as `{{tag.`, `name`,
-     * `}}` in three separate elements. `TemplateProcessor` searches the XML with
-     * a plain string replace, which cannot match across those boundaries, so the
-     * macro is simply never found.
-     *
-     * THE FAILURE IS SILENT, WHICH IS WHAT MADE IT WORTH FINDING: the document
-     * builds, it opens, and the template's own text is all there — except one
-     * `{{tag.name}}` printed in the middle of it. Nothing anywhere reports a
-     * problem, so the export looks like it worked. It was found by exporting with
-     * a real template whose macro had been split and noticing that one macro of
-     * two came back filled.
-     *
-     * PHPWord keeps the split as several `Text` children inside one `TextRun`,
-     * so this needs no XML surgery: fold the text into the first child and drop
-     * the rest. Only a run whose children are ALL text is folded, because a run
-     * holding a break or an image between two texts would reorder its content.
-     *
-     * Note the shape this must NOT take: adding a fresh `Text` through
-     * `addElement`, which is protected and reaches the magic `__call` instead.
-     * That fails quietly and empties the run — the text disappears entirely,
-     * which is worse than the bug it was meant to fix.
-     */
-    private function mergeSplitRuns(PhpWord $phpWord): void
-    {
-        foreach ($phpWord->getSections() as $section) {
-            // Headers and footers too: a date macro in a footer is split just as
-            // easily as one in the body, and fails just as quietly.
-            $this->mergeIn($section);
-
-            foreach ($section->getHeaders() as $header) {
-                $this->mergeIn($header);
-            }
-
-            foreach ($section->getFooters() as $footer) {
-                $this->mergeIn($footer);
-            }
-        }
-    }
-
-    /**
-     * Fold the split runs of one container, descending into tables.
-     */
-    private function mergeIn(AbstractContainer $container): void
-    {
-        foreach ($container->getElements() as $element) {
-            if ($element instanceof TextRun) {
-                $this->mergeRun($element);
-
-                continue;
-            }
-
-            if ($element instanceof AbstractContainer) {
-                $this->mergeIn($element);
-            }
-        }
-    }
-
-    private function mergeRun(TextRun $run): void
-    {
-        $children = $run->getElements();
-
-        if (count($children) < 2) {
-            return;
-        }
-
-        foreach ($children as $child) {
-            if (! $child instanceof Text) {
-                // A break, an image or a field between two texts: folding them
-                // would move the text across it and change what the line says.
-                return;
-            }
-        }
-
-        $first = $children[0];
-
-        $first->setText(implode('', array_map(
-            static fn (Text $text): string => (string) $text->getText(),
-            $children,
-        )));
-
-        foreach (array_slice($children, 1) as $extra) {
-            // By element id, not array key, so a reindexed slice is fine.
-            $run->removeElement($extra);
-        }
-    }
-
-    /**
      * Take out the paragraphs that were only there to hold `{{content}}`.
      *
-     * PHPWord has no paragraph class in this version: the body of a section holds
-     * `Text` elements, one per paragraph, so that is what is searched and what
-     * `removeElement` takes. A marker sharing a paragraph with other words is left
-     * in place, and the placeholder pass below empties it instead — the paragraph
-     * is not lost, because a paragraph that also said something is not a marker.
+     * A MARKER RATHER THAN A SETTING, because a file that says where its content
+     * goes is the only version nobody can get wrong. It MUST BE THE LAST THING IN
+     * THE BODY: PHPWord can only add elements to the end of a document, so a
+     * marker anywhere earlier would have content appended after the text that was
+     * supposed to follow it. A marker left in the middle is removed from wherever
+     * it is found and the meeting still goes at the end, so the mistake costs a
+     * document in a slightly odd order rather than an export that fails.
+     *
+     * THE ELEMENT IS A RUN, NOT A PARAGRAPH, and this used to look for the wrong
+     * one. In this version the body of a section holds `TextRun` elements — a plain
+     * paragraph IS a run — so searching for `Text` matched nothing, ever. The
+     * marker was never taken out; the placeholder pass emptied it instead, and
+     * every frame carried a blank paragraph where its marker had been. Invisible
+     * in the XML, quite visible on the page, and in the middle of a letterhead.
+     *
+     * A marker SHARING A RUN with other words is left in place and emptied by the
+     * placeholder pass, because a run that also said something is not a marker.
      */
     private function removeContentMarker(PhpWord $phpWord): void
     {
-        $macro = self::MACRO_OPEN.self::CONTENT_MACRO.self::MACRO_CLOSE;
+        $macro = self::MACRO_OPEN.TemplateKind::CONTENT.self::MACRO_CLOSE;
 
         foreach ($phpWord->getSections() as $section) {
             foreach ($section->getElements() as $element) {
-                if ($element instanceof Text && trim($element->getText()) === $macro) {
+                // Checked as well as trimmed: a table sits in the body too and has
+                // no text to compare, so asking every element would throw on the
+                // very templates that use a marker together with a table.
+                if (! $element instanceof TextRun && ! $element instanceof Text) {
+                    continue;
+                }
+
+                if (trim((string) $element->getText()) === $macro) {
                     $section->removeElement($element);
                 }
             }
@@ -326,8 +248,8 @@ final class DocxTemplateFiller implements TemplateFiller
 
         // A marker that shared a paragraph with other words survived the removal
         // above, and has to resolve to nothing rather than print itself.
-        if (isset($present[self::CONTENT_MACRO])) {
-            $processor->setValue(self::CONTENT_MACRO, '');
+        if (isset($present[TemplateKind::CONTENT])) {
+            $processor->setValue(TemplateKind::CONTENT, '');
         }
 
         foreach ($this->inlineFields($fields, $values, $present) as $key => $value) {

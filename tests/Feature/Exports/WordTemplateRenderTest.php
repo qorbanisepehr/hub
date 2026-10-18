@@ -5,6 +5,7 @@ use App\Domains\BoardMeeting\Exports\BoardMeetingSheetExport;
 use App\Domains\BoardMeeting\Exports\BoardMeetingTemplateFields;
 use App\Domains\BoardMeeting\Models\BoardMeeting;
 use App\Domains\BoardMeeting\Value\Attendee;
+use App\Support\Exports\Render\DocxRenderer;
 use App\Support\Exports\Templates\DocxTemplateFiller;
 use App\Support\Exports\Templates\FileTemplate;
 use App\Support\Exports\Templates\FileTemplateService;
@@ -13,6 +14,7 @@ use Illuminate\Support\Facades\Storage;
 use PhpOffice\PhpWord\Element\Table;
 use PhpOffice\PhpWord\IOFactory;
 use PhpOffice\PhpWord\PhpWord;
+use ZipArchive;
 
 /**
  * Filling an uploaded Word template.
@@ -354,6 +356,150 @@ describe('choosing between a generated document and a template', function () {
             ->and($text)->not->toContain('{{content}}')
             ->and($text)->toContain('صورتجلسه')
             ->and(substr_count($text, 'صورتجلسه'))->toBeGreaterThan(1);
+
+        @unlink($path);
+        @unlink($out);
+    });
+});
+
+/**
+ * The generated body, written under somebody else's letterhead.
+ *
+ * A generated Word document needs a font and a type scale when it is the only
+ * document there is. Written into a letterhead it must not bring them, because a
+ * docx only NAMES its font: naming Tahoma over a template that says B Nazanin
+ * yields a document in two typefaces, which reads as a broken template rather than
+ * as a generated body.
+ *
+ * Read off the XML rather than off the rendered page, because this is the whole
+ * claim — what the writer emitted — and no test can open Word.
+ */
+describe('the style of a generated body under a template', function () {
+    beforeEach(function () {
+        Storage::fake('local');
+
+        $this->sheet = app(BoardMeetingSheetExport::class);
+    });
+
+    /** The document.xml of a docx, as a string. */
+    $xml = function (string $path): string {
+        $zip = new ZipArchive;
+        $zip->open($path);
+
+        $document = (string) $zip->getFromName('word/document.xml');
+
+        $zip->close();
+
+        return $document;
+    };
+
+    /** A frame template: a letterhead paragraph and the document marker. */
+    $frame = function (): string {
+        $phpWord = new PhpWord;
+        $section = $phpWord->addSection();
+        $section->addText('سربرگ هیئت مدیره');
+        $section->addText('{{content}}');
+
+        $path = tempnam(sys_get_temp_dir(), 'style-').'.docx';
+        IOFactory::createWriter($phpWord, 'Word2007')->save($path);
+
+        return $path;
+    };
+
+    it('names no font of its own, so the template decides', function () use ($frame, $xml) {
+        $path = $frame();
+
+        app(DocxTemplateFiller::class)->fill(
+            $path,
+            $this->sheet->document(BoardMeeting::factory()->create(['title' => 'بودجه'])),
+            BoardMeeting::factory()->create(['title' => 'بودجه']),
+            new BoardMeetingTemplateFields,
+            $stream = fopen('php://temp', 'r+'),
+        );
+
+        rewind($stream);
+        $out = tempnam(sys_get_temp_dir(), 'style-out-').'.docx';
+        file_put_contents($out, stream_get_contents($stream));
+
+        $document = $xml($out);
+
+        // The configured font, by name rather than by value, so changing the config
+        // does not quietly turn this test into one that asserts nothing.
+        $configured = (string) config('exports.documents.docx_font');
+
+        expect($configured)->not->toBe('')
+            ->and($document)->not->toContain($configured);
+
+        @unlink($path);
+        @unlink($out);
+    });
+
+    it('keeps right-to-left, because a template must not be able to break Persian', function () use ($frame, $xml) {
+        // The one thing inheriting does NOT give up. A letterhead that shapes
+        // Persian left-to-right is broken rather than plain, so this is not
+        // something a template is allowed to switch off — and it is the reason
+        // "inherit the style" cannot simply mean "set no properties at all".
+        $path = $frame();
+
+        app(DocxTemplateFiller::class)->fill(
+            $path,
+            $this->sheet->document(BoardMeeting::factory()->create(['title' => 'بودجه'])),
+            BoardMeeting::factory()->create(['title' => 'بودجه']),
+            new BoardMeetingTemplateFields,
+            $stream = fopen('php://temp', 'r+'),
+        );
+
+        rewind($stream);
+        $out = tempnam(sys_get_temp_dir(), 'style-out-').'.docx';
+        file_put_contents($out, stream_get_contents($stream));
+
+        expect($xml($out))->toContain('<w:rtl/>');
+
+        @unlink($path);
+        @unlink($out);
+    });
+
+    it('still names a font when there is no template, so the plain export is unchanged', function () use ($xml) {
+        // The other side of the same line. Inheriting everywhere would leave a
+        // document written from scratch with whatever PHPWord happens to default
+        // to, which is not a font anybody chose.
+        $stream = fopen('php://temp', 'r+');
+
+        app(DocxRenderer::class)->render(
+            $this->sheet->document(BoardMeeting::factory()->create(['title' => 'بودجه'])),
+            $stream,
+        );
+
+        rewind($stream);
+        $out = tempnam(sys_get_temp_dir(), 'plain-out-').'.docx';
+        file_put_contents($out, stream_get_contents($stream));
+
+        expect($xml($out))->toContain((string) config('exports.documents.docx_font'));
+
+        @unlink($out);
+    });
+
+    it('leaves no blank paragraph where the document marker was', function () use ($frame, $xml) {
+        // The marker used to be searched for as a `Text` element, and the body of a
+        // section holds `TextRun` elements in this version — so it was never
+        // removed. The placeholder pass emptied it instead, and every frame carried
+        // a blank paragraph where its marker had been. Invisible in the XML, plain
+        // on the page.
+        $path = $frame();
+
+        app(DocxTemplateFiller::class)->fill(
+            $path,
+            $this->sheet->document(BoardMeeting::factory()->create(['title' => 'بودجه'])),
+            BoardMeeting::factory()->create(['title' => 'بودجه']),
+            new BoardMeetingTemplateFields,
+            $stream = fopen('php://temp', 'r+'),
+        );
+
+        rewind($stream);
+        $out = tempnam(sys_get_temp_dir(), 'style-out-').'.docx';
+        file_put_contents($out, stream_get_contents($stream));
+
+        expect($xml($out))->not->toContain('<w:t xml:space="preserve"></w:t>');
 
         @unlink($path);
         @unlink($out);

@@ -50,7 +50,7 @@ final class DocxRenderer implements DocumentComposer, DocumentRenderer
 
         $phpWord->addSection(['marginLeft' => 850, 'marginRight' => 850]);
 
-        $this->composeInto($phpWord, $spec);
+        $this->composeInto($phpWord, $spec, DocxBodyStyle::Ours);
 
         $this->emit($phpWord, $stream);
     }
@@ -64,7 +64,7 @@ final class DocxRenderer implements DocumentComposer, DocumentRenderer
      * whole meaning of a template. The template's own page setup is left exactly
      * as the file declares it.
      */
-    public function composeInto(PhpWord $phpWord, DocumentSpec $spec): void
+    public function composeInto(PhpWord $phpWord, DocumentSpec $spec, DocxBodyStyle $style): void
     {
         $font = (string) config('exports.documents.docx_font');
         $sections = $phpWord->getSections();
@@ -76,9 +76,9 @@ final class DocxRenderer implements DocumentComposer, DocumentRenderer
             ? $phpWord->addSection(['marginLeft' => 850, 'marginRight' => 850])
             : $sections[count($sections) - 1];
 
-        $this->addTitle($section, $spec, $font);
-        $this->addMeta($section, $spec, $font);
-        $this->addSections($section, $spec, $font);
+        $this->addTitle($section, $spec, $font, $style);
+        $this->addMeta($section, $spec, $font, $style);
+        $this->addSections($section, $spec, $font, $style);
     }
 
     public function contentType(): string
@@ -118,26 +118,26 @@ final class DocxRenderer implements DocumentComposer, DocumentRenderer
         }
     }
 
-    private function addMeta(Section $section, DocumentSpec $spec, string $font): void
+    private function addMeta(Section $section, DocumentSpec $spec, string $font, DocxBodyStyle $style): void
     {
         foreach ($spec->meta as $meta) {
-            $this->addLine($section, $meta, $font);
+            $this->addLine($section, $meta, $font, $style);
         }
     }
 
-    private function addSections(Section $section, DocumentSpec $spec, string $font): void
+    private function addSections(Section $section, DocumentSpec $spec, string $font, DocxBodyStyle $style): void
     {
         foreach ($spec->sections as $document) {
-            $this->addSection($section, $document, $font);
+            $this->addSection($section, $document, $font, $style);
         }
     }
 
-    private function addTitle(Section $section, DocumentSpec $spec, string $font): void
+    private function addTitle(Section $section, DocumentSpec $spec, string $font, DocxBodyStyle $style): void
     {
         if ($spec->title !== '') {
             $section->addText(
                 $this->xml($spec->title),
-                $this->font(['size' => 18, 'bold' => true], $font),
+                $this->font(['size' => 18, 'bold' => true], $font, $style),
                 $this->paragraph(),
             );
         }
@@ -145,7 +145,7 @@ final class DocxRenderer implements DocumentComposer, DocumentRenderer
         if ($spec->subtitle !== '') {
             $section->addText(
                 $this->xml($spec->subtitle),
-                $this->font(['size' => 12], $font),
+                $this->font(['size' => 12], $font, $style),
                 $this->paragraph(),
             );
         }
@@ -153,30 +153,30 @@ final class DocxRenderer implements DocumentComposer, DocumentRenderer
         $section->addTextBreak();
     }
 
-    private function addSection(Section $section, DocumentSection $document, string $font): void
+    private function addSection(Section $section, DocumentSection $document, string $font, DocxBodyStyle $style): void
     {
         $section->addText(
             $this->xml($document->heading),
-            $this->font(['size' => 13, 'bold' => true], $font),
+            $this->font(['size' => 13, 'bold' => true], $font, $style),
             $this->paragraph(['spaceBefore' => 160, 'spaceAfter' => 80]),
         );
 
         foreach ($document->fields as $field) {
-            $this->addLine($section, $field, $font);
+            $this->addLine($section, $field, $font, $style);
         }
 
         foreach ($document->tables as $table) {
-            $this->addTable($section, $table, $font);
+            $this->addTable($section, $table, $font, $style);
         }
 
         $section->addTextBreak();
     }
 
-    private function addLine(Section $section, DocumentField $field, string $font): void
+    private function addLine(Section $section, DocumentField $field, string $font, DocxBodyStyle $style): void
     {
         $section->addText(
             $this->xml($field->label.': '.$field->value),
-            $this->font([], $font),
+            $this->font([], $font, $style),
             $this->paragraph(),
         );
     }
@@ -205,7 +205,7 @@ final class DocxRenderer implements DocumentComposer, DocumentRenderer
         return htmlspecialchars($value, ENT_QUOTES | ENT_XML1, 'UTF-8');
     }
 
-    private function addTable(Section $section, DocumentTable $table, string $font): void
+    private function addTable(Section $section, DocumentTable $table, string $font, DocxBodyStyle $style): void
     {
         if ($table->isEmpty()) {
             return;
@@ -214,7 +214,7 @@ final class DocxRenderer implements DocumentComposer, DocumentRenderer
         if ($table->caption !== '') {
             $section->addText(
                 $this->xml($table->caption),
-                $this->font(['bold' => true], $font),
+                $this->font(['bold' => true], $font, $style),
                 $this->paragraph(['spaceBefore' => 80]),
             );
         }
@@ -235,7 +235,7 @@ final class DocxRenderer implements DocumentComposer, DocumentRenderer
         foreach ($table->headers as $header) {
             $headerRow->addCell($cellWidth)->addText(
                 $this->xml($header),
-                $this->font(['bold' => true], $font),
+                $this->font(['bold' => true], $font, $style),
                 $this->paragraph(['alignment' => 'center']),
             );
         }
@@ -246,7 +246,7 @@ final class DocxRenderer implements DocumentComposer, DocumentRenderer
             foreach (array_keys($table->headers) as $index) {
                 $bodyRow->addCell($cellWidth)->addText(
                     $this->xml((string) ($row[$index] ?? '')),
-                    $this->font([], $font),
+                    $this->font([], $font, $style),
                     $this->paragraph(),
                 );
             }
@@ -256,11 +256,33 @@ final class DocxRenderer implements DocumentComposer, DocumentRenderer
     }
 
     /**
+     * The run's own appearance.
+     *
+     * `rtl` is the one thing neither mode gives up, and that is deliberate: a
+     * template that shapes Persian left-to-right is broken rather than plain, so
+     * this is not something a template is allowed to override. Everything else is
+     * about how the meeting LOOKS, which is exactly what somebody built a
+     * letterhead to decide.
+     *
+     * A docx only NAMES its font — the reader's Word resolves it — so naming
+     * Tahoma over a template that says B Nazanin does not produce B Nazanin. It
+     * produces a document with two typefaces in it, which is the visible half of
+     * "the style broke" and the reason {@see DocxBodyStyle} exists.
+     *
      * @param  array<string, mixed>  $extra
      * @return array<string, mixed>
      */
-    private function font(array $extra, string $font): array
+    private function font(array $extra, string $font, DocxBodyStyle $style): array
     {
+        if ($style === DocxBodyStyle::Inherited) {
+            // Size goes with the family. Leaving an 18pt title over 11pt body text
+            // in a file that never asked for either is the same mistake one level
+            // up: a type scale imposed on a document that has its own.
+            unset($extra['size'], $extra['name']);
+
+            return [...$extra, 'rtl' => true];
+        }
+
         return [...$extra, 'rtl' => true, 'name' => $font];
     }
 
