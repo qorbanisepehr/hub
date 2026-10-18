@@ -4,15 +4,16 @@ namespace App\Domains\BoardMeeting\Controllers;
 
 use App\Domains\BoardMeeting\Exports\BoardMeetingSheetExport;
 use App\Domains\BoardMeeting\Exports\BoardMeetingTemplateFields;
-use App\Domains\BoardMeeting\Requests\StoreWordTemplateRequest;
-use App\Support\Exports\Exceptions\InvalidWordTemplate;
-use App\Support\Exports\Templates\WordTemplate;
-use App\Support\Exports\Templates\WordTemplateLibrary;
+use App\Domains\BoardMeeting\Requests\StoreFileTemplateRequest;
+use App\Support\Exports\Exceptions\InvalidFileTemplate;
+use App\Support\Exports\DocumentRendererRegistry;
+use App\Support\Exports\Templates\FileTemplate;
+use App\Support\Exports\Templates\FileTemplateLibrary;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 /**
- * The library of Word templates a meeting can be exported with.
+ * The library of template files a meeting can be exported with.
  *
  * Two read-only views and three writes. The LIST is for the export picker, the
  * FIELDS are the cheat sheet that tells a person what a template may contain,
@@ -25,10 +26,10 @@ use Illuminate\Http\Request;
  * name is answering a question the picker will otherwise be asked again at export
  * time.
  */
-final class WordTemplateController
+final class FileTemplateController
 {
     public function __construct(
-        private readonly WordTemplateLibrary $library,
+        private readonly FileTemplateLibrary $library,
     ) {}
 
     /**
@@ -42,9 +43,12 @@ final class WordTemplateController
             'message' => __('board_meeting.template.library'),
             'data' => [
                 'domain' => $domain,
+                // The format the caller asked about, so a Word picker never
+                // offers a Markdown frame it could not export from.
+                'format' => $this->format($request),
                 'templates' => array_map(
-                    fn (WordTemplate $template): array => $this->present($template),
-                    $this->library->forDomain($domain, $this->entity($request)),
+                    fn (FileTemplate $template): array => $this->present($template),
+                    $this->library->forFormatDomain($this->format($request), $domain, $this->entity($request)),
                 ),
             ],
         ]);
@@ -76,18 +80,19 @@ final class WordTemplateController
         ]);
     }
 
-    public function store(StoreWordTemplateRequest $request): JsonResponse
+    public function store(StoreFileTemplateRequest $request): JsonResponse
     {
         try {
             $template = $this->library->upload(
                 file: $request->file('file'),
+                format: $this->format($request),
                 domain: $request->domain(),
                 name: $request->name(),
                 entity: null,
                 isDefault: $request->isDefault(),
                 uploadedBy: $this->actor($request),
             );
-        } catch (InvalidWordTemplate $rejected) {
+        } catch (InvalidFileTemplate $rejected) {
             // 422 rather than 500: the file was refused for something about
             // itself, which is the same class of answer as any other validation
             // failure and is shown to the person who uploaded it.
@@ -106,7 +111,7 @@ final class WordTemplateController
     public function update(Request $request, string $slug): JsonResponse
     {
         $domain = $this->domain($request);
-        $template = $this->library->find($domain, $slug);
+        $template = $this->library->find($this->format($request), $domain, $slug);
 
         if ($template === null) {
             abort(404, __('board_meeting.template.not_found'));
@@ -129,7 +134,7 @@ final class WordTemplateController
     public function destroy(Request $request, string $slug): JsonResponse
     {
         $domain = $this->domain($request);
-        $template = $this->library->find($domain, $slug);
+        $template = $this->library->find($this->format($request), $domain, $slug);
 
         if ($template === null) {
             abort(404, __('board_meeting.template.not_found'));
@@ -145,7 +150,7 @@ final class WordTemplateController
     /**
      * @return array<string, mixed>
      */
-    private function present(WordTemplate $template): array
+    private function present(FileTemplate $template): array
     {
         return [
             'slug' => $template->slug(),
@@ -180,6 +185,21 @@ final class WordTemplateController
     private function domain(Request $request): string
     {
         return (string) $request->input('domain', BoardMeetingSheetExport::TEMPLATE_DOMAIN);
+    }
+
+    /**
+     * The format whose templates this request is about.
+     *
+     * Read from the request so the library can grow without this controller
+     * gaining a branch per format, but constrained to a registered renderer:
+     * an unknown format would otherwise write a key no renderer can serve, and
+     * the template would sit in the library offering itself to nobody.
+     */
+    private function format(Request $request): string
+    {
+        $format = (string) $request->input('format', 'docx');
+
+        return app(DocumentRendererRegistry::class)->has($format) ? $format : 'docx';
     }
 
     private function entity(Request $request): ?string

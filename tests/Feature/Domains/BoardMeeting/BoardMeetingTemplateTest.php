@@ -9,8 +9,8 @@ use App\Domains\Settings\Exceptions\InvalidSetting;
 use App\Domains\Settings\Repositories\SystemSettingsRepositoryInterface;
 use App\Domains\Tagging\Services\TagService;
 use App\Support\Exports\Templates\ExportTemplate;
+use App\Support\Exports\Templates\FileTemplate;
 use App\Support\Exports\Templates\TemplateResolver;
-use App\Support\Exports\Templates\WordTemplate;
 
 /**
  * Which sections a printed meeting contains, and who says so.
@@ -198,19 +198,19 @@ describe('board meeting export templates', function () {
         // so the two classes overlapping here would make a listing return the
         // other kind's rows and a delete match nothing.
         $wordKeys = [
-            WordTemplate::make('boardmeeting', 'official', null, 'نامهٔ رسمی', 10, 'application/docx', true)->key(),
-            WordTemplate::make('boardmeeting', 'official', 'session/42', 'نامهٔ رسمی', 10, 'application/docx', true)->key(),
+            FileTemplate::make('docx', 'boardmeeting', 'official', null, 'نامهٔ رسمی', 10, 'application/docx', true)->key(),
+            FileTemplate::make('docx', 'boardmeeting', 'official', 'session/42', 'نامهٔ رسمی', 10, 'application/docx', true)->key(),
         ];
 
         foreach ($wordKeys as $key) {
-            expect(WordTemplate::handles($key))->toBeTrue()
+            expect(FileTemplate::handles($key))->toBeTrue()
                 ->and(ExportTemplate::handles($key))->toBeFalse();
         }
 
         $sectionKey = ExportTemplate::make('boardmeeting', null, ['identity'])->key();
 
         expect(ExportTemplate::handles($sectionKey))->toBeTrue()
-            ->and(WordTemplate::handles($sectionKey))->toBeFalse();
+            ->and(FileTemplate::handles($sectionKey))->toBeFalse();
     });
 });
 

@@ -29,13 +29,13 @@ use RuntimeException;
  * A template now says what it wants by containing what it wants, and the only
  * remaining choice is whether one was chosen at all.
  */
-final class WordTemplateService
+final class FileTemplateService
 {
     public function __construct(
         private readonly DocumentExportService $documents,
         private readonly DocumentRendererRegistry $renderers,
         private readonly TemplateFiller $filler,
-        private readonly WordTemplateStore $store,
+        private readonly FileTemplateStore $store,
     ) {}
 
     /**
@@ -45,7 +45,7 @@ final class WordTemplateService
         DocumentSource $source,
         object $entity,
         TemplateFieldRegistry $registry,
-        ?WordTemplate $template = null,
+        ?FileTemplate $template = null,
         $stream = null,
     ): ExportFile {
         if ($template === null) {

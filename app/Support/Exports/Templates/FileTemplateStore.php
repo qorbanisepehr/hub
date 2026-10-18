@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Storage;
 /**
  * Where a Word template's bytes live.
  *
- * The path is {@see WordTemplate::filePath()} — derived from the key — and this
+ * The path is {@see FileTemplate::filePath()} — derived from the key — and this
  * class is the only place that disk is named. Templates sit on the same private
  * disk as the export archives rather than in a second configured disk, because
  * they are the same kind of thing: minutes-derived output that must not be
@@ -22,7 +22,7 @@ use Illuminate\Support\Facades\Storage;
  * document, because an export that silently loses its layout is worse than one
  * that says which file it could not find.
  */
-final class WordTemplateStore
+final class FileTemplateStore
 {
     private function disk(): Filesystem
     {
@@ -30,12 +30,12 @@ final class WordTemplateStore
     }
 
     /** Absolute path, for the libraries that insist on one. */
-    public function path(WordTemplate $template): string
+    public function path(FileTemplate $template): string
     {
         return $this->disk()->path($template->filePath());
     }
 
-    public function has(WordTemplate $template): bool
+    public function has(FileTemplate $template): bool
     {
         return $this->disk()->exists($template->filePath());
     }
@@ -43,17 +43,17 @@ final class WordTemplateStore
     /**
      * @throws \RuntimeException when the file cannot be written
      */
-    public function write(WordTemplate $template, string $bytes): void
+    public function write(FileTemplate $template, string $bytes): void
     {
         if ($this->disk()->put($template->filePath(), $bytes) === false) {
             throw new \RuntimeException(sprintf(
-                'Could not write the Word template [%s].',
+                'Could not write the template [%s].',
                 $template->key(),
             ));
         }
     }
 
-    public function delete(WordTemplate $template): void
+    public function delete(FileTemplate $template): void
     {
         $this->disk()->delete($template->filePath());
     }

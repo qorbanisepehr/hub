@@ -3,8 +3,8 @@
 use App\Domains\BoardMeeting\Exports\BoardMeetingSheetExport;
 use App\Domains\BoardMeeting\Exports\BoardMeetingTemplateFields;
 use App\Domains\BoardMeeting\Models\BoardMeeting;
+use App\Support\Exports\Templates\FileTemplateService;
 use App\Support\Exports\Templates\TemplateFiller;
-use App\Support\Exports\Templates\WordTemplateService;
 use Illuminate\Support\Facades\Storage;
 use PhpOffice\PhpWord\Element\TextRun;
 use PhpOffice\PhpWord\IOFactory;
@@ -217,7 +217,7 @@ describe('a value that looks like markup', function () {
         // lost that text from every Word export, not only the templated ones.
         $meeting = BoardMeeting::factory()->create(['minutes' => 'الف و بتا و <ب> و ج']);
 
-        $file = app(WordTemplateService::class)->render(
+        $file = app(FileTemplateService::class)->render(
             app(BoardMeetingSheetExport::class),
             $meeting,
             new BoardMeetingTemplateFields,

@@ -3,9 +3,9 @@
 use App\Domains\BoardMeeting\Exports\BoardMeetingSheetExport;
 use App\Domains\BoardMeeting\Exports\BoardMeetingTemplateFields;
 use App\Domains\BoardMeeting\Models\BoardMeeting;
+use App\Support\Exports\Templates\FileTemplateLibrary;
+use App\Support\Exports\Templates\FileTemplateService;
 use App\Support\Exports\Templates\TemplateFiller;
-use App\Support\Exports\Templates\WordTemplateLibrary;
-use App\Support\Exports\Templates\WordTemplateService;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use PhpOffice\PhpWord\IOFactory;
@@ -35,7 +35,7 @@ use PhpOffice\PhpWord\PhpWord;
 describe('a template keeps its header and footer', function () {
     beforeEach(function () {
         Storage::fake('local');
-        $this->library = app(WordTemplateLibrary::class);
+        $this->library = app(FileTemplateLibrary::class);
     });
 
     $xml = function (string $path, string $part): string {
@@ -101,12 +101,13 @@ describe('a template keeps its header and footer', function () {
 
         $template = $this->library->upload(
             new UploadedFile($source, 'house.docx', null, null, true),
+            format: 'docx',
             domain: 'boardmeeting',
             name: 'سبک خانه',
             isDefault: true,
         );
 
-        $file = app(WordTemplateService::class)->render(
+        $file = app(FileTemplateService::class)->render(
             app(BoardMeetingSheetExport::class),
             BoardMeeting::factory()->create(),
             new BoardMeetingTemplateFields,

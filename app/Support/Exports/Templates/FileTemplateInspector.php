@@ -2,7 +2,7 @@
 
 namespace App\Support\Exports\Templates;
 
-use App\Support\Exports\Exceptions\InvalidWordTemplate;
+use App\Support\Exports\Exceptions\InvalidFileTemplate;
 use Illuminate\Http\UploadedFile;
 use ZipArchive;
 
@@ -30,7 +30,7 @@ use ZipArchive;
  * time, in a Word library, with an error nobody can act on — so it is refused
  * here where the message can name the file.
  */
-final class WordTemplateInspector
+final class FileTemplateInspector
 {
     /** The one part without which the file is not a document. */
     private const DOCUMENT_PART = 'word/document.xml';
@@ -53,54 +53,66 @@ final class WordTemplateInspector
     }
 
     /**
-     * Check the file and report what it is.
+     * Check the file for the format it claims to be, and report its size.
      *
-     * Only the parts that can REFUSE an upload are reported. It used to also
-     * report whether the file held a placeholder, which decided whether the
-     * template replaced the generated document or merely framed it; that
-     * classification is gone, so scanning the XML for `{{` would be reading a
-     * file in order to store a fact nothing asks for any more.
+     * The format decides what "a file that is not what it says" even means. For
+     * `.docx` that is a zip of XML with a `word/document.xml` inside, and it can
+     * carry macros; for Markdown and JSON the file is plain text, the zip checks
+     * are nonsense, and the question is whether it parses at all. Doing the docx
+     * checks on a Markdown file would refuse every one of them.
      *
      * @return array{size: int}
      *
-     * @throws InvalidWordTemplate
+     * @throws InvalidFileTemplate
      */
-    public function inspect(UploadedFile $file): array
+    public function inspect(UploadedFile $file, string $format = 'docx'): array
     {
         $size = (int) $file->getSize();
         $limit = $this->maxBytes();
 
         if ($size <= 0) {
-            throw InvalidWordTemplate::because('فایل خالی است.');
+            throw InvalidFileTemplate::because('فایل خالی است.');
         }
 
         if ($size > $limit) {
-            throw InvalidWordTemplate::tooLarge($size, $limit);
+            throw InvalidFileTemplate::tooLarge($size, $limit);
         }
 
         $path = $file->getRealPath();
 
         if ($path === false || ! is_readable($path)) {
-            throw InvalidWordTemplate::because('فایل بارگذاری‌شده خوانده نشد.');
+            throw InvalidFileTemplate::because('فایل بارگذاری‌شده خوانده نشد.');
+        }
+
+        if ($format !== 'docx') {
+            // Plain text. The only thing worth refusing is a file that is not
+            // text at all, which shows up as unreadable bytes rather than as a
+            // parse failure; anything stricter belongs to the format's own
+            // filler, which sees the file after it is stored.
+            if (! mb_check_encoding((string) file_get_contents($path), 'UTF-8')) {
+                throw InvalidFileTemplate::because('فایل متنی با کدگذاری UTF-8 نیست.');
+            }
+
+            return ['size' => $size];
         }
 
         $zip = new ZipArchive;
 
         if ($zip->open($path) !== true) {
-            throw InvalidWordTemplate::because('فایل یک آرشیو معتبر Word نیست.');
+            throw InvalidFileTemplate::because('فایل یک آرشیو معتبر Word نیست.');
         }
 
         try {
             if ($zip->locateName(self::MACRO_PART) !== false) {
                 // Named plainly: the person uploading needs to know the file is
                 // rejected for carrying macros, not that "something was wrong".
-                throw InvalidWordTemplate::because(
+                throw InvalidFileTemplate::because(
                     'این فایل ماکرو دارد و پذیرفته نمی‌شود؛ قالب باید یک سند Word بدون ماکرو باشد.',
                 );
             }
 
             if ($zip->locateName(self::DOCUMENT_PART) === false) {
-                throw InvalidWordTemplate::because(
+                throw InvalidFileTemplate::because(
                     'این فایل یک سند Word نیست؛ بخش اصلی آن یافت نشد.',
                 );
             }

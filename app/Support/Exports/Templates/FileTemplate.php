@@ -6,7 +6,8 @@ use App\Contracts\Settings\Setting;
 use App\Domains\Settings\Exceptions\InvalidSetting;
 
 /**
- * One uploaded `.docx` an export can be built from.
+ * One uploaded file an export can be built from — `.docx` today, and Markdown or
+ * JSON alongside it.
  *
  * Stored as a setting rather than in a table of its own. It has no relations,
  * no lifecycle beyond written-or-not, and nothing queries across templates, which
@@ -14,7 +15,7 @@ use App\Domains\Settings\Exceptions\InvalidSetting;
  * migration and an orphan-file problem for rows that are really just typed keys.
  *
  * THE FILE IS ON A DISK, NOT IN THE ROW. The private half of a setting is an
- * encrypted `string` map, which would have stored the .docx as base64 — and
+ * encrypted `string` map, which would have stored the file as base64 — and
  * listing twenty templates would then decrypt twenty files to read twenty names.
  * The file's path is DERIVED FROM THE KEY instead of stored, so there is no
  * second place for it to disagree with the row that owns it and no way for a row
@@ -26,24 +27,48 @@ use App\Domains\Settings\Exceptions\InvalidSetting;
  * but `{{title}}`, nothing but a crest, or both, and all three behave the same
  * way; the only thing that changes the output is whether a template was chosen.
  *
- * KEYS ARE `word/{domain}/{slug}[/{entity}]`. The `word/` prefix is what keeps
- * this class from colliding with {@see ExportTemplate} over the shared `exports`
- * group, and the slug is a machine handle the person never sees — the readable
- * name is in the value, so a Persian name needs no transliteration to be storable.
+ * KEYS ARE `template/{format}/{domain}/{slug}[/{entity}]`, AND THE FORMAT IS
+ * PART OF THE KEY rather than a value beside it. That is the whole point of the
+ * shape: a Word letterhead and a Markdown frame for the same domain are two
+ * different files for the same purpose, and a key that could not tell them apart
+ * would need a format column to keep them from colliding — which is a second
+ * place for the file extension and the row to disagree. The `template/` prefix is
+ * what keeps this class from claiming {@see ExportTemplate}'s keys over the
+ * shared `exports` group, and the slug is a machine handle the person never sees
+ * — the readable name is in the value, so a Persian name needs no transliteration.
+ *
+ * THE EXTENSION IS THE FORMAT, because for every format we accept they are the
+ * same word. That is a convenience rather than a law: `template/docx/….docx`,
+ * `template/md/….md`, `template/json/….json` all fall out of it, and the day a
+ * format is called something else on disk it needs one mapping here and nowhere
+ * else — a second place for that name to live is exactly what this class exists
+ * to avoid.
  */
-final class WordTemplate implements Setting
+final class FileTemplate implements Setting
 {
     public const GROUP = 'exports';
 
     /** The namespace these keys live under. See {@see handles()}. */
-    public const PREFIX = 'word/';
+    public const PREFIX = 'template/';
 
     /** Where uploaded files are written, relative to the private disk. */
-    public const FILE_DIRECTORY = 'word';
+    public const FILE_DIRECTORY = 'templates';
+
+    /**
+     * The one format in use today.
+     *
+     * Named rather than left as a bare `docx` at each call site, because the
+     * export path that reaches for a template is Word-specific for now and will
+     * stop being the moment Markdown templates arrive — and a reader finding
+     * `'docx'` spelled out in eight places has no way to tell which of them are
+     * "the Word feature" and which are "the format, which happens to be Word".
+     */
+    public const FORMAT_DOCX = 'docx';
 
     private const SEPARATOR = '/';
 
     private function __construct(
+        private readonly string $format,
         private readonly string $domain,
         private readonly string $slug,
         private readonly ?string $entity,
@@ -59,7 +84,7 @@ final class WordTemplate implements Setting
     }
 
     /**
-     * Whether the key is a Word template's.
+     * Whether the key is a file template's.
      *
      * Same two checks as {@see ExportTemplate::handles()}, and for the same
      * reasons: the prefix keeps the two kinds apart in a shared group, and the
@@ -85,14 +110,24 @@ final class WordTemplate implements Setting
      * The key without its namespace, and the file's path without its extension.
      *
      * Both come from the same place so they cannot drift: the file lives at
-     * `{FILE_DIRECTORY}/{keyTail}.docx`, which is why an entity-scoped template
-     * nests its own directory instead of overwriting a domain-wide one.
+     * `{FILE_DIRECTORY}/{keyTail}.{format}`, which is why an entity-scoped
+     * template nests its own directory instead of overwriting a domain-wide one,
+     * and why a Word file and a Markdown file for the same domain cannot collide
+     * with each other either.
      */
     public function keyTail(): string
     {
-        return $this->entity === null
+        $own = $this->entity === null
             ? $this->domain.self::SEPARATOR.$this->slug
             : $this->domain.self::SEPARATOR.$this->slug.self::SEPARATOR.$this->entity;
+
+        return $this->format.self::SEPARATOR.$own;
+    }
+
+    /** The format this file is a template FOR — `docx`, `md`, `json`. */
+    public function format(): string
+    {
+        return $this->format;
     }
 
     public function domain(): string
@@ -140,10 +175,11 @@ final class WordTemplate implements Setting
      */
     public function filePath(): string
     {
-        return self::FILE_DIRECTORY.self::SEPARATOR.$this->keyTail().'.docx';
+        return self::FILE_DIRECTORY.self::SEPARATOR.$this->keyTail().'.'.$this->format;
     }
 
     public static function make(
+        string $format,
         string $domain,
         string $slug,
         ?string $entity,
@@ -152,11 +188,11 @@ final class WordTemplate implements Setting
         string $mime,
         bool $isDefault = false,
     ): self {
-        $template = new self($domain, $slug, $entity, $name, $size, $mime, $isDefault);
+        $template = new self($format, $domain, $slug, $entity, $name, $size, $mime, $isDefault);
 
-        // Round-tripped through the key so an illegal slug or entity is refused
-        // where the caller can still see which value was wrong, rather than at
-        // the first read of the row it wrote.
+        // Round-tripped through the key so an illegal format, slug or entity is
+        // refused where the caller can still see which value was wrong, rather
+        // than at the first read of the row it wrote.
         if (self::split($template->key()) === null) {
             throw InvalidSetting::malformed(
                 self::class,
@@ -185,6 +221,7 @@ final class WordTemplate implements Setting
     public function toValue(): array
     {
         return [
+            'format' => $this->format,
             'domain' => $this->domain,
             'slug' => $this->slug,
             'entity' => $this->entity,
@@ -222,11 +259,19 @@ final class WordTemplate implements Setting
             throw InvalidSetting::malformed(
                 self::class,
                 $key,
-                'a template key reads word/{domain}/{slug}[/{entity}]. Given: '.$key.'.',
+                'a template key reads template/{format}/{domain}/{slug}[/{entity}]. Given: '.$key.'.',
             );
         }
 
-        [$domain, $slug, $entity] = $split;
+        [$format, $domain, $slug, $entity] = $split;
+
+        if (($value['format'] ?? $format) !== $format) {
+            throw InvalidSetting::malformed(
+                self::class,
+                $key,
+                sprintf('stored format [%s] disagrees with its key [%s].', (string) $value['format'], $format),
+            );
+        }
 
         if (($value['domain'] ?? $domain) !== $domain) {
             throw InvalidSetting::malformed(
@@ -265,6 +310,7 @@ final class WordTemplate implements Setting
         }
 
         return new self(
+            $format,
             $domain,
             $slug,
             $entity,
@@ -276,9 +322,10 @@ final class WordTemplate implements Setting
     }
 
     /**
-     * A key as [domain, slug, entity|null], or null when it is not shaped like one.
+     * A key as [format, domain, slug, entity|null], or null when it is not
+     * shaped like one.
      *
-     * @return array{0: string, 1: string, 2: string|null}|null
+     * @return array{0: string, 1: string, 2: string, 3: string|null}|null
      */
     public static function split(string $key): ?array
     {
@@ -294,8 +341,10 @@ final class WordTemplate implements Setting
 
         $segments = explode(self::SEPARATOR, $tail);
 
-        // A domain and a slug, and an entity that may itself nest (`session/42`).
-        if (count($segments) < 2) {
+        // A format, a domain and a slug, and an entity that may itself nest
+        // (`session/42`). Three before the entity is optional, because without a
+        // format there is nothing to say which kind of file this is.
+        if (count($segments) < 3) {
             return null;
         }
 
@@ -305,13 +354,13 @@ final class WordTemplate implements Setting
             }
         }
 
-        [$domain, $slug] = $segments;
+        [$format, $domain, $slug] = $segments;
 
-        $entity = count($segments) > 2
-            ? implode(self::SEPARATOR, array_slice($segments, 2))
+        $entity = count($segments) > 3
+            ? implode(self::SEPARATOR, array_slice($segments, 3))
             : null;
 
-        return [$domain, $slug, $entity];
+        return [$format, $domain, $slug, $entity];
     }
 
     private static function isLegalSegment(string $segment): bool

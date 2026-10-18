@@ -31,9 +31,9 @@ use App\Support\Exports\DocumentExportService;
 use App\Support\Exports\DocumentRendererRegistry;
 use App\Support\Exports\ExportService;
 use App\Support\Exports\Queued\ExportFileStore;
-use App\Support\Exports\Templates\WordTemplate;
-use App\Support\Exports\Templates\WordTemplateLibrary;
-use App\Support\Exports\Templates\WordTemplateService;
+use App\Support\Exports\Templates\FileTemplate;
+use App\Support\Exports\Templates\FileTemplateLibrary;
+use App\Support\Exports\Templates\FileTemplateService;
 use App\Support\Exports\Value\ExportColumn;
 use App\Support\Exports\Value\ExportFile;
 use App\Support\Exports\Value\ExportOptions;
@@ -263,7 +263,7 @@ class BoardMeetingController
         DocumentAuthorization $documentAuthorization,
         BoardMeetingBundle $bundle,
         ExportFileStore $store,
-        WordTemplateLibrary $library,
+        FileTemplateLibrary $library,
     ): StreamedResponse|JsonResponse {
         // From the form request rather than an injected Request: it is already
         // the current request, and one fewer parameter is one fewer thing that
@@ -301,7 +301,7 @@ class BoardMeetingController
         // Resolved before the queue branch, because the queued path needs the slug
         // too — it resolves the template when it runs rather than carrying a
         // settings row across a serialization boundary.
-        $wordTemplate = $this->bundleWordTemplate($bundleRequest, $library);
+        $FileTemplate = $this->bundleFileTemplate($bundleRequest, $library);
 
         // COUNT THE WORK BEFORE RENDERING ANY OF IT. One sheet per meeting per
         // format, the meeting's own files, and the two manifest pages — all
@@ -336,7 +336,7 @@ class BoardMeetingController
                 // it when it runs rather than carrying a settings row across a
                 // serialization boundary, and a slug that has since been deleted
                 // answers itself by not being found.
-                $wordTemplate?->slug(),
+                $FileTemplate?->slug(),
             );
 
             return response()->json([
@@ -352,7 +352,7 @@ class BoardMeetingController
             ? BundleRequest::sheetsWithAttachments($renderers, $formats)
             : BundleRequest::sheets($renderers, $formats);
 
-        $built = $bundle->entries($meetings->all(), $selection, $wordTemplate);
+        $built = $bundle->entries($meetings->all(), $selection, $FileTemplate);
         $built = [...$built, ...$bundle->manifestEntries(
             $bundle->manifest($meetings->all(), $built, $wants),
         )];
@@ -493,8 +493,8 @@ class BoardMeetingController
      */
     public function exportDocx(
         BoardMeeting $meeting,
-        WordTemplateService $word,
-        WordTemplateLibrary $library,
+        FileTemplateService $word,
+        FileTemplateLibrary $library,
         Request $request,
     ): StreamedResponse {
         // A template is optional and unnamed means the domain's default, so one
@@ -502,8 +502,8 @@ class BoardMeetingController
         // something gets it without choosing.
         $slug = $request->query('template');
         $template = is_string($slug) && $slug !== ''
-            ? $library->find(BoardMeetingSheetExport::TEMPLATE_DOMAIN, $slug)
-            : $library->defaultFor(BoardMeetingSheetExport::TEMPLATE_DOMAIN);
+            ? $library->find(FileTemplate::FORMAT_DOCX, BoardMeetingSheetExport::TEMPLATE_DOMAIN, $slug)
+            : $library->defaultFor(FileTemplate::FORMAT_DOCX, BoardMeetingSheetExport::TEMPLATE_DOMAIN);
 
         // A slug nobody has, answered as "there is no such template" rather than
         // quietly falling back to the default: a person who picked a template and
@@ -527,18 +527,18 @@ class BoardMeetingController
      * nothing to say so — and in a bundle that is fifty files, they have to open
      * them before they notice.
      */
-    private function bundleWordTemplate(
+    private function bundleFileTemplate(
         BoardMeetingBundleRequest $bundleRequest,
-        WordTemplateLibrary $library,
-    ): ?WordTemplate {
+        FileTemplateLibrary $library,
+    ): ?FileTemplate {
         $domain = BoardMeetingSheetExport::TEMPLATE_DOMAIN;
-        $slug = $bundleRequest->wordTemplateSlug();
+        $slug = $bundleRequest->FileTemplateSlug();
 
         if ($slug === null) {
-            return $library->defaultFor($domain);
+            return $library->defaultFor(FileTemplate::FORMAT_DOCX, $domain);
         }
 
-        $template = $library->find($domain, $slug);
+        $template = $library->find(FileTemplate::FORMAT_DOCX, $domain, $slug);
 
         if ($template === null) {
             abort(404, __('board_meeting.template.not_found'));
@@ -559,13 +559,13 @@ class BoardMeetingController
     }
 
     /**
-     * The same, with a Word template in play — see {@see WordTemplateService} for
+     * The same, with a Word template in play — see {@see FileTemplateService} for
      * which of the three paths a given template takes.
      */
     private function streamWordSheet(
         BoardMeeting $meeting,
-        WordTemplateService $word,
-        ?WordTemplate $template,
+        FileTemplateService $word,
+        ?FileTemplate $template,
     ): StreamedResponse {
         return $this->streamSheet(
             $word->render(

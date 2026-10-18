@@ -3,15 +3,15 @@
 namespace App\Domains\BoardMeeting\Requests;
 
 use App\Domains\BoardMeeting\Exports\BoardMeetingSheetExport;
-use App\Support\Exports\Templates\WordTemplateInspector;
+use App\Support\Exports\Templates\FileTemplateInspector;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 /**
- * Uploading a Word template for one domain.
+ * Uploading a template file for one domain.
  *
  * The file itself is not validated here — whether a zip carries a macro is a
- * question about the archive, and {@see WordTemplateInspector}
+ * question about the archive, and {@see FileTemplateInspector}
  * is the only thing that opens one. This request owns the fields a person filled
  * in, and the inspector owns what the file is.
  *
@@ -19,7 +19,7 @@ use Illuminate\Validation\Rule;
  * against a list kept here, because that list would be the second place
  * remembering which domains have documents and the first one to go stale.
  */
-class StoreWordTemplateRequest extends FormRequest
+class StoreFileTemplateRequest extends FormRequest
 {
     public function authorize(): bool
     {

@@ -17,8 +17,8 @@ use App\Support\Exports\BundleBuilder;
 use App\Support\Exports\BundleRequest;
 use App\Support\Exports\DocumentRendererRegistry;
 use App\Support\Exports\Queued\ExportFileStore;
-use App\Support\Exports\Templates\WordTemplate;
-use App\Support\Exports\Templates\WordTemplateLibrary;
+use App\Support\Exports\Templates\FileTemplate;
+use App\Support\Exports\Templates\FileTemplateLibrary;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -75,7 +75,7 @@ final class BuildBoardMeetingBundleJob implements ShouldQueue
         private readonly array $formats,
         private readonly bool $documents,
         private readonly ?int $requestedBy,
-        private readonly ?string $wordTemplateSlug = null,
+        private readonly ?string $FileTemplateSlug = null,
     ) {}
 
     /**
@@ -104,7 +104,7 @@ final class BuildBoardMeetingBundleJob implements ShouldQueue
         BundleBuilder $bundles,
         ExportFileStore $store,
         DocumentAuthorization $documentAuthorization,
-        WordTemplateLibrary $library,
+        FileTemplateLibrary $library,
     ): void {
         $meetings = BoardMeeting::query()
             ->with('documentUsages.document.category')
@@ -208,15 +208,15 @@ final class BuildBoardMeetingBundleJob implements ShouldQueue
      * same reason: the person queued the build, and "whatever this domain uses"
      * is what they meant.
      */
-    private function resolveTemplate(WordTemplateLibrary $library): ?WordTemplate
+    private function resolveTemplate(FileTemplateLibrary $library): ?FileTemplate
     {
         $domain = BoardMeetingSheetExport::TEMPLATE_DOMAIN;
 
-        if ($this->wordTemplateSlug !== null) {
-            return $library->find($domain, $this->wordTemplateSlug);
+        if ($this->FileTemplateSlug !== null) {
+            return $library->find(FileTemplate::FORMAT_DOCX, $domain, $this->FileTemplateSlug);
         }
 
-        return $library->defaultFor($domain);
+        return $library->defaultFor(FileTemplate::FORMAT_DOCX, $domain);
     }
 
     /**

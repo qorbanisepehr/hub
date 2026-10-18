@@ -13,7 +13,7 @@ use App\Support\Exports\BundleBuilder;
 use App\Support\Exports\BundleTooLarge;
 use App\Support\Exports\DocumentRendererRegistry;
 use App\Support\Exports\Queued\ExportFileStore;
-use App\Support\Exports\Templates\WordTemplateLibrary;
+use App\Support\Exports\Templates\FileTemplateLibrary;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\Lang;
 use Illuminate\Support\Facades\Notification;
@@ -168,7 +168,7 @@ describe('queued board meeting bundles', function () {
                 app(BundleBuilder::class),
                 app(ExportFileStore::class),
                 app(DocumentAuthorization::class),
-                app(WordTemplateLibrary::class),
+                app(FileTemplateLibrary::class),
             );
 
         Notification::assertSentTo(
@@ -259,7 +259,7 @@ describe('queued board meeting bundles', function () {
                 app(BundleBuilder::class),
                 app(ExportFileStore::class),
                 app(DocumentAuthorization::class),
-                app(WordTemplateLibrary::class),
+                app(FileTemplateLibrary::class),
             );
 
         // Stopped, so nothing was built and nothing was announced.
@@ -286,7 +286,7 @@ describe('queued board meeting bundles', function () {
             app(BundleBuilder::class),
             app(ExportFileStore::class),
             app(DocumentAuthorization::class),
-            app(WordTemplateLibrary::class),
+            app(FileTemplateLibrary::class),
         ))->toThrow(AuthorizationException::class);
 
         Notification::assertNothingSent();

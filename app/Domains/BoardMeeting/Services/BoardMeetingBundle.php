@@ -12,8 +12,8 @@ use App\Support\Exports\BundleEntry;
 use App\Support\Exports\BundleManifest;
 use App\Support\Exports\BundleRequest;
 use App\Support\Exports\DocumentExportService;
-use App\Support\Exports\Templates\WordTemplate;
-use App\Support\Exports\Templates\WordTemplateService;
+use App\Support\Exports\Templates\FileTemplate;
+use App\Support\Exports\Templates\FileTemplateService;
 use App\Support\Exports\Value\Document\DocumentSpec;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -49,20 +49,20 @@ final class BoardMeetingBundle
      * The archive's entries, in the order they should be added.
      *
      * @param  list<BoardMeeting>  $meetings
-     * @param  WordTemplate|null  $wordTemplate  applied to the `docx` sheets, and
+     * @param  FileTemplate|null  $FileTemplate  applied to the `docx` sheets, and
      *                                           only when one is chosen
      * @return list<BundleEntry>
      *
      * @throws Throwable when a sheet cannot be rendered; anything already
      *                   spilled to disk for this bundle is removed first
      */
-    public function entries(array $meetings, BundleRequest $request, ?WordTemplate $wordTemplate = null): array
+    public function entries(array $meetings, BundleRequest $request, ?FileTemplate $FileTemplate = null): array
     {
         $entries = [];
 
         try {
             $sheet = app(BoardMeetingSheetExport::class);
-            $word = app(WordTemplateService::class);
+            $word = app(FileTemplateService::class);
             $fields = app(BoardMeetingTemplateFields::class);
 
             // One meeting stays flat; two or more get a folder each. A folder
@@ -80,7 +80,7 @@ final class BoardMeetingBundle
                     // letting a pdf-only request silently acquire a docx-only
                     // meaning would be a coincidence nobody could rely on.
                     $file = $format === 'docx'
-                        ? $word->render($sheet, $meeting, $fields, $wordTemplate)
+                        ? $word->render($sheet, $meeting, $fields, $FileTemplate)
                         : $this->exports->run($sheet, $meeting, $format);
 
                     $entries[] = BundleEntry::fromExport(

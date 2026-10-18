@@ -4,7 +4,7 @@ namespace App\Support\Exports\Templates;
 
 use App\Contracts\Settings\Setting;
 use App\Domains\Settings\Repositories\SystemSettingsRepositoryInterface;
-use App\Support\Exports\Exceptions\InvalidWordTemplate;
+use App\Support\Exports\Exceptions\InvalidFileTemplate;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Str;
 
@@ -12,7 +12,7 @@ use Illuminate\Support\Str;
  * The library of Word templates a domain can export with.
  *
  * Management only — turning a template into a document is
- * {@see WordTemplateService}'s job, and the two are separate because their
+ * {@see FileTemplateService}'s job, and the two are separate because their
  * questions are: this one is "which templates exist and which is the default",
  * that one is "what should this export produce".
  *
@@ -22,24 +22,31 @@ use Illuminate\Support\Str;
  * only written once the bytes are there, so the failure a person can hit is "the
  * upload did not save" rather than a template that appears and then breaks.
  */
-final class WordTemplateLibrary
+final class FileTemplateLibrary
 {
     public function __construct(
         private readonly SystemSettingsRepositoryInterface $settings,
-        private readonly WordTemplateStore $store,
-        private readonly WordTemplateInspector $inspector,
+        private readonly FileTemplateStore $store,
+        private readonly FileTemplateInspector $inspector,
     ) {}
 
     /**
-     * Every template stored for a domain, newest first, with the default first.
+     * Every template stored for a domain AND A FORMAT, newest first, with the
+     * default first.
      *
-     * @return list<WordTemplate>
+     * The format is a filter rather than a detail of the key, and it is the
+     * filter a caller almost always wants: the Word picker must not offer a
+     * Markdown frame, because a Word export cannot be built from one and
+     * offering it would fail at the moment somebody chose it.
+     *
+     * @return list<FileTemplate>
      */
-    public function forDomain(string $domain, ?string $entity = null): array
+    public function forFormatDomain(string $format, string $domain, ?string $entity = null): array
     {
         $templates = array_values(array_filter(
-            $this->settings->all(WordTemplate::class),
-            fn (Setting $setting): bool => $setting instanceof WordTemplate
+            $this->settings->all(FileTemplate::class),
+            fn (Setting $setting): bool => $setting instanceof FileTemplate
+                && $setting->format() === $format
                 && $setting->domain() === $domain
                 && $setting->entity() === $entity,
         ));
@@ -50,14 +57,14 @@ final class WordTemplateLibrary
         // looking at the same library see the same list.
         usort(
             $templates,
-            fn (WordTemplate $a, WordTemplate $b): int => (int) $b->isDefault() <=> (int) $a->isDefault(),
+            fn (FileTemplate $a, FileTemplate $b): int => (int) $b->isDefault() <=> (int) $a->isDefault(),
         );
 
         return $templates;
     }
 
     /**
-     * The template this domain filed under a slug, or null.
+     * The template this domain and format filed under a slug, or null.
      *
      * A slug that could never be a key answers null WITHOUT asking the store.
      * The settings repository throws on a key its setting class does not handle,
@@ -66,17 +73,17 @@ final class WordTemplateLibrary
      * is a template nobody has. Without this guard a caller who typed a Persian
      * name instead of a slug got a 500 where a 404 was the honest answer.
      */
-    public function find(string $domain, string $slug, ?string $entity = null): ?WordTemplate
+    public function find(string $format, string $domain, string $slug, ?string $entity = null): ?FileTemplate
     {
-        $key = $this->keyFor($domain, $slug, $entity);
+        $key = $this->keyFor($format, $domain, $slug, $entity);
 
-        if (! WordTemplate::handles($key)) {
+        if (! FileTemplate::handles($key)) {
             return null;
         }
 
-        $template = $this->settings->get(WordTemplate::class, $key);
+        $template = $this->settings->get(FileTemplate::class, $key);
 
-        return $template instanceof WordTemplate ? $template : null;
+        return $template instanceof FileTemplate ? $template : null;
     }
 
     /**
@@ -89,27 +96,29 @@ final class WordTemplateLibrary
      * inventing a transliteration would produce a slug that looks machine-made in
      * a key somebody may read in a log.
      *
-     * @throws InvalidWordTemplate
+     * @throws InvalidFileTemplate
      */
     public function upload(
         UploadedFile $file,
+        string $format,
         string $domain,
         string $name,
         ?string $entity = null,
         bool $isDefault = false,
         ?int $uploadedBy = null,
-    ): WordTemplate {
-        $inspected = $this->inspector->inspect($file);
+    ): FileTemplate {
+        $inspected = $this->inspector->inspect($file, $format);
 
         $path = $file->getRealPath();
 
         if ($path === false) {
-            throw InvalidWordTemplate::because('فایل بارگذاری‌شده خوانده نشد.');
+            throw InvalidFileTemplate::because('فایل بارگذاری‌شده خوانده نشد.');
         }
 
-        $slug = $this->uniqueSlug($domain, $entity, (string) $file->getClientOriginalName());
+        $slug = $this->uniqueSlug($format, $domain, $entity, (string) $file->getClientOriginalName());
 
-        $template = WordTemplate::make(
+        $template = FileTemplate::make(
+            format: $format,
             domain: $domain,
             slug: $slug,
             entity: $entity,
@@ -122,7 +131,7 @@ final class WordTemplateLibrary
         $bytes = file_get_contents($path);
 
         if ($bytes === false) {
-            throw InvalidWordTemplate::because('فایل بارگذاری‌شده خوانده نشد.');
+            throw InvalidFileTemplate::because('فایل بارگذاری‌شده خوانده نشد.');
         }
 
         $this->store->write($template, $bytes);
@@ -146,36 +155,20 @@ final class WordTemplateLibrary
      * "which template does the button use"; promoting a second while the first
      * still claims to be it leaves the export picking one of two arbitrarily.
      */
-    public function promoteDefault(WordTemplate $template): WordTemplate
+    public function promoteDefault(FileTemplate $template): FileTemplate
     {
         $this->clearOtherDefaults($template);
 
-        $promoted = WordTemplate::make(
-            domain: $template->domain(),
-            slug: $template->slug(),
-            entity: $template->entity(),
-            name: $template->name(),
-            size: $template->size(),
-            mime: $template->mime(),
-            isDefault: true,
-        );
+        $promoted = $this->reissue($template, isDefault: true);
 
         $this->settings->put($promoted);
 
         return $promoted;
     }
 
-    public function rename(WordTemplate $template, string $name): WordTemplate
+    public function rename(FileTemplate $template, string $name): FileTemplate
     {
-        $renamed = WordTemplate::make(
-            domain: $template->domain(),
-            slug: $template->slug(),
-            entity: $template->entity(),
-            name: trim($name),
-            size: $template->size(),
-            mime: $template->mime(),
-            isDefault: $template->isDefault(),
-        );
+        $renamed = $this->reissue($template, name: $name);
 
         $this->settings->put($renamed);
 
@@ -189,9 +182,9 @@ final class WordTemplateLibrary
      * harmless; a row left behind points at a template that cannot be exported
      * and offers itself in a picker.
      */
-    public function delete(WordTemplate $template): void
+    public function delete(FileTemplate $template): void
     {
-        $this->settings->forget(WordTemplate::class, $template->key());
+        $this->settings->forget(FileTemplate::class, $template->key());
 
         $this->store->delete($template);
     }
@@ -199,9 +192,9 @@ final class WordTemplateLibrary
     /**
      * The default for a scope, or null when none has been chosen.
      */
-    public function defaultFor(string $domain, ?string $entity = null): ?WordTemplate
+    public function defaultFor(string $format, string $domain, ?string $entity = null): ?FileTemplate
     {
-        foreach ($this->forDomain($domain, $entity) as $template) {
+        foreach ($this->forFormatDomain($format, $domain, $entity) as $template) {
             if ($template->isDefault()) {
                 return $template;
             }
@@ -210,28 +203,45 @@ final class WordTemplateLibrary
         return null;
     }
 
-    private function clearOtherDefaults(WordTemplate $except): void
+    /**
+     * The same template rebuilt, with only the parts a caller may change.
+     *
+     * Three of the four places that rewrite a row listed all seven arguments
+     * between them, which is how a field gets left out of one of them - and a
+     * template whose row has no format is a template whose file path points at
+     * somewhere that does not exist.
+     */
+    private function reissue(
+        FileTemplate $template,
+        ?string $name = null,
+        ?bool $isDefault = null,
+    ): FileTemplate {
+        return FileTemplate::make(
+            format: $template->format(),
+            domain: $template->domain(),
+            slug: $template->slug(),
+            entity: $template->entity(),
+            name: trim($name ?? $template->name()),
+            size: $template->size(),
+            mime: $template->mime(),
+            isDefault: $isDefault ?? $template->isDefault(),
+        );
+    }
+
+    private function clearOtherDefaults(FileTemplate $except): void
     {
-        foreach ($this->forDomain($except->domain(), $except->entity()) as $template) {
+        foreach ($this->forFormatDomain($except->format(), $except->domain(), $except->entity()) as $template) {
             if ($template->isDefault() && $template->key() !== $except->key()) {
-                $this->settings->put(WordTemplate::make(
-                    domain: $template->domain(),
-                    slug: $template->slug(),
-                    entity: $template->entity(),
-                    name: $template->name(),
-                    size: $template->size(),
-                    mime: $template->mime(),
-                    isDefault: false,
-                ));
+                $this->settings->put($this->reissue($template, isDefault: false));
             }
         }
     }
 
-    private function keyFor(string $domain, string $slug, ?string $entity = null): string
+    private function keyFor(string $format, string $domain, string $slug, ?string $entity = null): string
     {
-        return $entity === null
-            ? WordTemplate::PREFIX.$domain.'/'.$slug
-            : WordTemplate::PREFIX.$domain.'/'.$slug.'/'.$entity;
+        $head = FileTemplate::PREFIX.$format.'/'.$domain.'/'.$slug;
+
+        return $entity === null ? $head : $head.'/'.$entity;
     }
 
     /**
@@ -241,18 +251,18 @@ final class WordTemplateLibrary
      * "official.docx" is ordinary and one of them being told to rename their file
      * is not help. The loop stops at a number nobody will reach.
      */
-    private function uniqueSlug(string $domain, ?string $entity, string $originalName): string
+    private function uniqueSlug(string $format, string $domain, ?string $entity, string $originalName): string
     {
         $base = $this->slugFrom($originalName);
 
-        if ($this->settings->exists(WordTemplate::class, $this->keyFor($domain, $base, $entity)) === false) {
+        if ($this->settings->exists(FileTemplate::class, $this->keyFor($format, $domain, $base, $entity)) === false) {
             return $base;
         }
 
         for ($suffix = 2; $suffix <= 50; $suffix++) {
             $candidate = $base.'-'.$suffix;
 
-            if ($this->settings->exists(WordTemplate::class, $this->keyFor($domain, $candidate, $entity)) === false) {
+            if ($this->settings->exists(FileTemplate::class, $this->keyFor($format, $domain, $candidate, $entity)) === false) {
                 return $candidate;
             }
         }

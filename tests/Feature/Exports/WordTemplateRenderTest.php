@@ -5,10 +5,10 @@ use App\Domains\BoardMeeting\Exports\BoardMeetingSheetExport;
 use App\Domains\BoardMeeting\Exports\BoardMeetingTemplateFields;
 use App\Domains\BoardMeeting\Models\BoardMeeting;
 use App\Domains\BoardMeeting\Value\Attendee;
+use App\Support\Exports\Templates\FileTemplate;
+use App\Support\Exports\Templates\FileTemplateService;
+use App\Support\Exports\Templates\FileTemplateStore;
 use App\Support\Exports\Templates\TemplateFiller;
-use App\Support\Exports\Templates\WordTemplate;
-use App\Support\Exports\Templates\WordTemplateService;
-use App\Support\Exports\Templates\WordTemplateStore;
 use Illuminate\Support\Facades\Storage;
 use PhpOffice\PhpWord\Element\Table;
 use PhpOffice\PhpWord\IOFactory;
@@ -28,7 +28,7 @@ describe('filling a word template', function () {
         Storage::fake('local');
 
         $this->filler = app(TemplateFiller::class);
-        $this->store = app(WordTemplateStore::class);
+        $this->store = app(FileTemplateStore::class);
         $this->registry = new BoardMeetingTemplateFields;
         $this->sheet = app(BoardMeetingSheetExport::class);
     });
@@ -207,8 +207,8 @@ describe('choosing between a generated document and a template', function () {
     beforeEach(function () {
         Storage::fake('local');
 
-        $this->store = app(WordTemplateStore::class);
-        $this->service = app(WordTemplateService::class);
+        $this->store = app(FileTemplateStore::class);
+        $this->service = app(FileTemplateService::class);
         $this->sheet = app(BoardMeetingSheetExport::class);
     });
 
@@ -247,7 +247,7 @@ describe('choosing between a generated document and a template', function () {
         // under this" is the whole meaning of the thing.
         $path = $base('سربرگ هیئت مدیره');
 
-        $template = WordTemplate::make('boardmeeting', 'house', null, 'سبک خانه', 10, '', false);
+        $template = FileTemplate::make('docx', 'boardmeeting', 'house', null, 'سبک خانه', 10, '', false);
         $this->store->write($template, (string) file_get_contents($path));
 
         $meeting = BoardMeeting::factory()->create(['title' => 'بودجه']);
@@ -268,7 +268,7 @@ describe('choosing between a generated document and a template', function () {
     });
 
     it('refuses a template whose file is gone, rather than rendering nothing', function () {
-        $template = WordTemplate::make('boardmeeting', 'missing', null, 'گمشده', 10, '', false);
+        $template = FileTemplate::make('docx', 'boardmeeting', 'missing', null, 'گمشده', 10, '', false);
 
         expect(fn () => $this->service->render(
             $this->sheet,
@@ -290,7 +290,7 @@ describe('choosing between a generated document and a template', function () {
         $path = tempnam(sys_get_temp_dir(), 'content-').'.docx';
         IOFactory::createWriter($phpWord, 'Word2007')->save($path);
 
-        $template = WordTemplate::make('boardmeeting', 'official', null, 'نامهٔ رسمی', 10, '');
+        $template = FileTemplate::make('docx', 'boardmeeting', 'official', null, 'نامهٔ رسمی', 10, '');
         $this->store->write($template, (string) file_get_contents($path));
 
         $meeting = BoardMeeting::factory()->create(['title' => 'صورتجلسه']);

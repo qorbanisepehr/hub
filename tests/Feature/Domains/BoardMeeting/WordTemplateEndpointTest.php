@@ -2,8 +2,8 @@
 
 use App\Domains\BoardMeeting\Exports\BoardMeetingSheetExport;
 use App\Domains\BoardMeeting\Models\BoardMeeting;
-use App\Support\Exports\Templates\WordTemplateLibrary;
-use App\Support\Exports\Templates\WordTemplateStore;
+use App\Support\Exports\Templates\FileTemplateLibrary;
+use App\Support\Exports\Templates\FileTemplateStore;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use PhpOffice\PhpWord\IOFactory;
@@ -21,8 +21,8 @@ describe('the word template library endpoints', function () {
     beforeEach(function () {
         Storage::fake('local');
 
-        $this->library = app(WordTemplateLibrary::class);
-        $this->store = app(WordTemplateStore::class);
+        $this->library = app(FileTemplateLibrary::class);
+        $this->store = app(FileTemplateStore::class);
     });
 
     /** A real docx upload. */
@@ -152,7 +152,7 @@ describe('the word template library endpoints', function () {
     });
 
     it('renames a template without touching its file', function () use ($manager, $upload) {
-        $template = $this->library->upload($upload('x.docx'), 'boardmeeting', 'قبلی');
+        $template = $this->library->upload($upload('x.docx'), 'docx', 'boardmeeting', 'قبلی');
 
         $this->actingAs($manager())
             ->putJson('/api/word-templates/'.$template->slug(), ['name' => 'بعدی'])
@@ -163,7 +163,7 @@ describe('the word template library endpoints', function () {
     });
 
     it('deletes a template and its file', function () use ($manager, $upload) {
-        $template = $this->library->upload($upload('gone.docx'), 'boardmeeting', 'موقتی');
+        $template = $this->library->upload($upload('gone.docx'), 'docx', 'boardmeeting', 'موقتی');
 
         $this->actingAs($manager())
             ->deleteJson('/api/word-templates/'.$template->slug())
@@ -197,8 +197,8 @@ describe('exporting with a word template', function () {
     beforeEach(function () {
         Storage::fake('local');
 
-        $this->library = app(WordTemplateLibrary::class);
-        $this->store = app(WordTemplateStore::class);
+        $this->library = app(FileTemplateLibrary::class);
+        $this->store = app(FileTemplateStore::class);
     });
 
     /** A real docx upload carrying the given body. */
@@ -222,7 +222,7 @@ describe('exporting with a word template', function () {
     });
 
     it('uses the default template without being asked for one', function () use ($upload) {
-        $this->library->upload($upload('house.docx', 'سربرگ هیئت مدیره'), 'boardmeeting', 'سبک خانه', isDefault: true);
+        $this->library->upload($upload('house.docx', 'سربرگ هیئت مدیره'), 'docx', 'boardmeeting', 'سبک خانه', isDefault: true);
 
         $meeting = BoardMeeting::factory()->create(['title' => 'بودجه']);
 
@@ -246,8 +246,8 @@ describe('exporting with a word template', function () {
     });
 
     it('uses the template that was named, not the default', function () use ($upload) {
-        $this->library->upload($upload('house.docx', 'سبک پیش‌فرض'), 'boardmeeting', 'پیش‌فرض', isDefault: true);
-        $this->library->upload($upload('other.docx', 'سبک دیگر'), 'boardmeeting', 'دیگر');
+        $this->library->upload($upload('house.docx', 'سبک پیش‌فرض'), 'docx', 'boardmeeting', 'پیش‌فرض', isDefault: true);
+        $this->library->upload($upload('other.docx', 'سبک دیگر'), 'docx', 'boardmeeting', 'دیگر');
 
         $meeting = BoardMeeting::factory()->create();
 
@@ -272,7 +272,7 @@ describe('exporting with a word template', function () {
     it('answers 404 for a template nobody has, rather than quietly using the default', function () use ($upload) {
         // Falling back here would hand somebody a different document than the one
         // they asked for, with nothing to tell them so.
-        $this->library->upload($upload('house.docx', 'سبک'), 'boardmeeting', 'سبک', isDefault: true);
+        $this->library->upload($upload('house.docx', 'سبک'), 'docx', 'boardmeeting', 'سبک', isDefault: true);
 
         $meeting = BoardMeeting::factory()->create();
 
@@ -289,6 +289,7 @@ describe('exporting with a word template', function () {
         // meeting. Both halves have to happen now, for every template.
         $this->library->upload(
             $upload('letter.docx', 'صورتجلسه {{title}} به تاریخ {{held_on}}'),
+            'docx',
             'boardmeeting',
             'نامه',
             isDefault: true,
@@ -331,7 +332,7 @@ describe('a board meeting bundle with a word template', function () {
     beforeEach(function () {
         Storage::fake('local');
 
-        $this->library = app(WordTemplateLibrary::class);
+        $this->library = app(FileTemplateLibrary::class);
     });
 
     $upload = function (string $filename, string $text) {
@@ -382,7 +383,7 @@ describe('a board meeting bundle with a word template', function () {
     };
 
     it('uses the domain default when the caller names none', function () use ($upload, $firstDocx) {
-        $this->library->upload($upload('house.docx', 'سربرگ هیئت مدیره'), 'boardmeeting', 'سبک خانه', isDefault: true);
+        $this->library->upload($upload('house.docx', 'سربرگ هیئت مدیره'), 'docx', 'boardmeeting', 'سبک خانه', isDefault: true);
 
         $meeting = BoardMeeting::factory()->create(['title' => 'بودجه']);
 
@@ -399,8 +400,8 @@ describe('a board meeting bundle with a word template', function () {
     });
 
     it('uses the template that was named, not the default', function () use ($upload, $firstDocx) {
-        $this->library->upload($upload('house.docx', 'سربرگ هیئت مدیره'), 'boardmeeting', 'پیش‌فرض', isDefault: true);
-        $this->library->upload($upload('other.docx', 'سربرگ شورایا'), 'boardmeeting', 'دیگر');
+        $this->library->upload($upload('house.docx', 'سربرگ هیئت مدیره'), 'docx', 'boardmeeting', 'پیش‌فرض', isDefault: true);
+        $this->library->upload($upload('other.docx', 'سربرگ شورایا'), 'docx', 'boardmeeting', 'دیگر');
 
         $meeting = BoardMeeting::factory()->create();
 
@@ -420,7 +421,7 @@ describe('a board meeting bundle with a word template', function () {
     });
 
     it('answers 404 for a template nobody has rather than quietly using the default', function () use ($upload) {
-        $this->library->upload($upload('house.docx', 'سبک'), 'boardmeeting', 'پیش‌فرض', isDefault: true);
+        $this->library->upload($upload('house.docx', 'سبک'), 'docx', 'boardmeeting', 'پیش‌فرض', isDefault: true);
 
         BoardMeeting::factory()->create();
 
@@ -437,7 +438,7 @@ describe('a board meeting bundle with a word template', function () {
         // obvious mistake, and the store throws on a key it does not handle. The
         // question "which template is دیگر" has an answer - none - and that
         // answer is a 404, not a server error.
-        $this->library->upload($upload('other.docx', 'سبک دیگر'), 'boardmeeting', 'دیگر', isDefault: true);
+        $this->library->upload($upload('other.docx', 'سبک دیگر'), 'docx', 'boardmeeting', 'دیگر', isDefault: true);
 
         BoardMeeting::factory()->create();
 

@@ -4,11 +4,11 @@ use App\Domains\BoardMeeting\Exports\BoardMeetingSheetExport;
 use App\Domains\BoardMeeting\Exports\BoardMeetingTemplateFields;
 use App\Domains\BoardMeeting\Models\BoardMeeting;
 use App\Domains\Settings\Exceptions\InvalidSetting;
-use App\Support\Exports\Exceptions\InvalidWordTemplate;
-use App\Support\Exports\Templates\WordTemplateInspector;
-use App\Support\Exports\Templates\WordTemplateLibrary;
-use App\Support\Exports\Templates\WordTemplateService;
-use App\Support\Exports\Templates\WordTemplateStore;
+use App\Support\Exports\Exceptions\InvalidFileTemplate;
+use App\Support\Exports\Templates\FileTemplateInspector;
+use App\Support\Exports\Templates\FileTemplateLibrary;
+use App\Support\Exports\Templates\FileTemplateService;
+use App\Support\Exports\Templates\FileTemplateStore;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use PhpOffice\PhpWord\Element\Header;
@@ -38,7 +38,7 @@ describe('inspecting an uploaded word template', function () {
     it('accepts a plain document and reports its size', function () use ($docx) {
         $path = $docx('فقط متن');
 
-        $result = app(WordTemplateInspector::class)
+        $result = app(FileTemplateInspector::class)
             ->inspect(new UploadedFile($path, 'plain.docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'));
 
         expect($result)->toBe(['size' => strlen((string) file_get_contents($path))]);
@@ -54,7 +54,7 @@ describe('inspecting an uploaded word template', function () {
         // There is nothing left to distinguish, so there is nothing to report.
         $path = $docx('جلسه {{title}}');
 
-        $result = app(WordTemplateInspector::class)
+        $result = app(FileTemplateInspector::class)
             ->inspect(new UploadedFile($path, 'filled.docx', null, null, true));
 
         expect($result)->toBe(['size' => strlen((string) file_get_contents($path))]);
@@ -66,8 +66,8 @@ describe('inspecting an uploaded word template', function () {
         $path = tempnam(sys_get_temp_dir(), 'notzip-');
         file_put_contents($path, 'this is plain text wearing a docx extension');
 
-        expect(fn () => app(WordTemplateInspector::class)->inspect(new UploadedFile($path, 'fake.docx')))
-            ->toThrow(InvalidWordTemplate::class);
+        expect(fn () => app(FileTemplateInspector::class)->inspect(new UploadedFile($path, 'fake.docx')))
+            ->toThrow(InvalidFileTemplate::class);
 
         @unlink($path);
     });
@@ -85,8 +85,8 @@ describe('inspecting an uploaded word template', function () {
         $zip->addFromString('word/vbaProject.bin', 'not really a macro, but the part is what matters');
         $zip->close();
 
-        expect(fn () => app(WordTemplateInspector::class)->inspect(new UploadedFile($withMacro, 'macro.docx')))
-            ->toThrow(InvalidWordTemplate::class);
+        expect(fn () => app(FileTemplateInspector::class)->inspect(new UploadedFile($withMacro, 'macro.docx')))
+            ->toThrow(InvalidFileTemplate::class);
 
         @unlink($source);
         @unlink($withMacro);
@@ -102,8 +102,8 @@ describe('inspecting an uploaded word template', function () {
 
         // Storing this happily and failing at export time — inside a Word
         // library, with an error nobody can act on — is what this prevents.
-        expect(fn () => app(WordTemplateInspector::class)->inspect(new UploadedFile($path, 'empty.docx')))
-            ->toThrow(InvalidWordTemplate::class);
+        expect(fn () => app(FileTemplateInspector::class)->inspect(new UploadedFile($path, 'empty.docx')))
+            ->toThrow(InvalidFileTemplate::class);
 
         @unlink($path);
     });
@@ -113,8 +113,8 @@ describe('inspecting an uploaded word template', function () {
 
         config(['exports.word.max_bytes' => 32]);
 
-        expect(fn () => app(WordTemplateInspector::class)->inspect(new UploadedFile($path, 'big.docx')))
-            ->toThrow(InvalidWordTemplate::class);
+        expect(fn () => app(FileTemplateInspector::class)->inspect(new UploadedFile($path, 'big.docx')))
+            ->toThrow(InvalidFileTemplate::class);
 
         @unlink($path);
     });
@@ -138,15 +138,16 @@ describe('inspecting an uploaded word template', function () {
         $path = tempnam(sys_get_temp_dir(), 'hdr-').'.docx';
         IOFactory::createWriter($phpWord, 'Word2007')->save($path);
 
-        $template = app(WordTemplateLibrary::class)->upload(
+        $template = app(FileTemplateLibrary::class)->upload(
             new UploadedFile($path, 'hdr.docx', null, null, true),
+            'docx',
             'boardmeeting',
             'سربرگ',
         );
 
         $meeting = BoardMeeting::factory()->create(['title' => 'بودجه']);
 
-        $file = app(WordTemplateService::class)->render(
+        $file = app(FileTemplateService::class)->render(
             app(BoardMeetingSheetExport::class),
             $meeting,
             new BoardMeetingTemplateFields,
@@ -174,8 +175,8 @@ describe('the word template library', function () {
     beforeEach(function () {
         Storage::fake('local');
 
-        $this->library = app(WordTemplateLibrary::class);
-        $this->store = app(WordTemplateStore::class);
+        $this->library = app(FileTemplateLibrary::class);
+        $this->store = app(FileTemplateStore::class);
     });
 
     /** A real docx upload with a given file name and optional body text. */
@@ -192,39 +193,41 @@ describe('the word template library', function () {
     it('stores an uploaded file with a row that points at it', function () use ($upload) {
         $template = $this->library->upload(
             $upload('official-letter.docx', '{{title}}'),
+            format: 'docx',
             domain: 'boardmeeting',
             name: 'نامهٔ رسمی',
         );
 
-        expect($template->key())->toBe('word/boardmeeting/official-letter')
+        expect($template->key())->toBe('template/docx/boardmeeting/official-letter')
             ->and($this->store->has($template))->toBeTrue()
-            ->and($this->library->find('boardmeeting', 'official-letter'))->not->toBeNull();
+            ->and($this->library->find('docx', 'boardmeeting', 'official-letter'))->not->toBeNull();
     });
 
     it('keeps a Persian name out of the key', function () use ($upload) {
         $template = $this->library->upload(
             $upload('nama.docx'),
+            format: 'docx',
             domain: 'boardmeeting',
             name: 'نامهٔ رسمی جلسه',
         );
 
         expect($template->name())->toBe('نامهٔ رسمی جلسه')
-            ->and($template->key())->toBe('word/boardmeeting/nama');
+            ->and($template->key())->toBe('template/docx/boardmeeting/nama');
     });
 
     it('suffixes a second file of the same name rather than refusing it', function () use ($upload) {
         // Two people uploading "official.docx" is ordinary; being told to rename
         // the file is not help.
-        $first = $this->library->upload($upload('official.docx'), 'boardmeeting', 'اول');
-        $second = $this->library->upload($upload('official.docx'), 'boardmeeting', 'دوم');
+        $first = $this->library->upload($upload('official.docx'), 'docx', 'boardmeeting', 'اول');
+        $second = $this->library->upload($upload('official.docx'), 'docx', 'boardmeeting', 'دوم');
 
         expect($first->slug())->toBe('official')
             ->and($second->slug())->toBe('official-2')
-            ->and($this->library->forDomain('boardmeeting'))->toHaveCount(2);
+            ->and($this->library->forFormatDomain('docx', 'boardmeeting'))->toHaveCount(2);
     });
 
     it('falls back to a handle when the file name has nothing usable in it', function () use ($upload) {
-        $template = $this->library->upload($upload('نامه رسمی.docx'), 'boardmeeting', 'نامه');
+        $template = $this->library->upload($upload('نامه رسمی.docx'), 'docx', 'boardmeeting', 'نامه');
 
         // Inventing a transliteration would put a machine-made slug in a key
         // somebody may read in a log.
@@ -235,40 +238,41 @@ describe('the word template library', function () {
         config(['exports.word.max_bytes' => 8]);
 
         try {
-            $this->library->upload($upload('too-big.docx'), 'boardmeeting', 'بزرگ');
-        } catch (InvalidWordTemplate) {
+            $this->library->upload($upload('too-big.docx'), 'docx', 'boardmeeting', 'بزرگ');
+        } catch (InvalidFileTemplate) {
             // Expected.
         }
 
         // A row pointing at a template that cannot be exported would offer itself
         // in the picker and fail on use; that failure has to happen at upload.
-        expect($this->library->forDomain('boardmeeting'))->toBeEmpty();
+        expect($this->library->forFormatDomain('docx', 'boardmeeting'))->toBeEmpty();
     });
 
     it('has one default per scope, and promoting another moves it', function () use ($upload) {
-        $first = $this->library->upload($upload('a.docx'), 'boardmeeting', 'الف', isDefault: true);
-        $second = $this->library->upload($upload('b.docx'), 'boardmeeting', 'ب');
+        $first = $this->library->upload($upload('a.docx'), 'docx', 'boardmeeting', 'الف', isDefault: true);
+        $second = $this->library->upload($upload('b.docx'), 'docx', 'boardmeeting', 'ب');
 
-        expect($this->library->defaultFor('boardmeeting')?->slug())->toBe('a');
+        expect($this->library->defaultFor('docx', 'boardmeeting')?->slug())->toBe('a');
 
         $this->library->promoteDefault($second);
 
-        expect($this->library->defaultFor('boardmeeting')?->slug())->toBe('b')
-            ->and($this->library->find('boardmeeting', 'a')?->isDefault())->toBeFalse();
+        expect($this->library->defaultFor('docx', 'boardmeeting')?->slug())->toBe('b')
+            ->and($this->library->find('docx', 'boardmeeting', 'a')?->isDefault())->toBeFalse();
     });
 
     it('keeps an entity-scoped template out of the domain list', function () use ($upload) {
-        $this->library->upload($upload('domain.docx'), 'boardmeeting', 'دامنه');
-        $this->library->upload($upload('meeting.docx'), 'boardmeeting', 'این جلسه', entity: 'session/42');
+        $this->library->upload($upload('domain.docx'), 'docx', 'boardmeeting', 'دامنه');
+        $this->library->upload($upload('meeting.docx'), 'docx', 'boardmeeting', 'این جلسه', entity: 'session/42');
 
-        expect($this->library->forDomain('boardmeeting'))->toHaveCount(1)
-            ->and($this->library->forDomain('boardmeeting', 'session/42'))->toHaveCount(1);
+        expect($this->library->forFormatDomain('docx', 'boardmeeting'))->toHaveCount(1)
+            ->and($this->library->forFormatDomain('docx', 'boardmeeting', 'session/42'))->toHaveCount(1);
     });
 
     it('gives the two scopes separate defaults', function () use ($upload) {
-        $this->library->upload($upload('d.docx'), 'boardmeeting', 'دامنه', isDefault: true);
+        $this->library->upload($upload('d.docx'), 'docx', 'boardmeeting', 'دامنه', isDefault: true);
         $this->library->upload(
             $upload('m.docx'),
+            'docx',
             'boardmeeting',
             'جلسه',
             entity: 'session/42',
@@ -276,33 +280,33 @@ describe('the word template library', function () {
         );
 
         // One meeting having its own default must not silently take the domain's.
-        expect($this->library->defaultFor('boardmeeting')?->slug())->toBe('d')
-            ->and($this->library->defaultFor('boardmeeting', 'session/42')?->slug())->toBe('m');
+        expect($this->library->defaultFor('docx', 'boardmeeting')?->slug())->toBe('d')
+            ->and($this->library->defaultFor('docx', 'boardmeeting', 'session/42')?->slug())->toBe('m');
     });
 
     it('removes the file as well as the row', function () use ($upload) {
-        $template = $this->library->upload($upload('gone.docx'), 'boardmeeting', 'موقتی');
+        $template = $this->library->upload($upload('gone.docx'), 'docx', 'boardmeeting', 'موقتی');
 
         expect($this->store->has($template))->toBeTrue();
 
         $this->library->delete($template);
 
         expect($this->store->has($template))->toBeFalse()
-            ->and($this->library->find('boardmeeting', 'gone'))->toBeNull();
+            ->and($this->library->find('docx', 'boardmeeting', 'gone'))->toBeNull();
     });
 
     it('lists the default first', function () use ($upload) {
-        $this->library->upload($upload('a.docx'), 'boardmeeting', 'الف');
-        $this->library->upload($upload('z.docx'), 'boardmeeting', 'ز', isDefault: true);
+        $this->library->upload($upload('a.docx'), 'docx', 'boardmeeting', 'الف');
+        $this->library->upload($upload('z.docx'), 'docx', 'boardmeeting', 'ز', isDefault: true);
 
-        expect($this->library->forDomain('boardmeeting')[0]->slug())->toBe('z');
+        expect($this->library->forFormatDomain('docx', 'boardmeeting')[0]->slug())->toBe('z');
     });
 
     it('refuses a template with no name to recognise', function () use ($upload) {
         // A blank name is refused by the VALUE, not by the upload check: it is a
         // field the request validates, and the store's own strictness is what
         // stops a nameless row ever being written.
-        expect(fn () => $this->library->upload($upload('x.docx'), 'boardmeeting', '   '))
+        expect(fn () => $this->library->upload($upload('x.docx'), 'docx', 'boardmeeting', '   '))
             ->toThrow(InvalidSetting::class);
     });
 });

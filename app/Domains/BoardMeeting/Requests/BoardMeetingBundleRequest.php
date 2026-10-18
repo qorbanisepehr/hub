@@ -115,7 +115,7 @@ class BoardMeetingBundleRequest extends FormRequest
      * dropped it would produce the wrong shape of Word file with nothing to
      * say so.
      */
-    public function wordTemplateSlug(): ?string
+    public function FileTemplateSlug(): ?string
     {
         $slug = $this->input('word_template');
 

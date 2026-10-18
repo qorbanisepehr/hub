@@ -33,7 +33,7 @@ use App\Domains\Settings\Exceptions\InvalidSetting;
  *
  * THE `sections/` PREFIX IS LOAD-BEARING, NOT COSMETIC. `handles()` is what the
  * store uses to decide which kind of setting owns a key, and the `exports` group
- * holds more than one kind - {@see WordTemplate} keeps its files under `word/`.
+ * holds more than one kind - {@see FileTemplate} keeps its files under `word/`.
  * Without a prefix on both sides, a key like `word/boardmeeting/official` parses
  * as domain `word` with entity `boardmeeting/official` and BOTH classes claim it:
  * a listing starts returning another kind's rows, and a delete quietly stops
@@ -66,7 +66,7 @@ final class ExportTemplate implements Setting
      * Whether the key is a SECTION template's.
      *
      * The prefix check, then the shape check. Both are needed: the prefix is what
-     * keeps this class and {@see WordTemplate} from claiming each other's keys,
+     * keeps this class and {@see FileTemplate} from claiming each other's keys,
      * and the shape check is what keeps a malformed tail out of the store — a
      * key with the right prefix but an illegal segment is caught here, on every
      * read, rather than by trusting whoever wrote it.

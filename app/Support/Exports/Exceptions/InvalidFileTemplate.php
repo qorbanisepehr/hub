@@ -15,7 +15,7 @@ use RuntimeException;
  * Messages are for the person who uploaded the file, so they say what was wrong
  * with the FILE rather than what went wrong internally.
  */
-final class InvalidWordTemplate extends RuntimeException
+final class InvalidFileTemplate extends RuntimeException
 {
     public static function because(string $reason): self
     {
