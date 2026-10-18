@@ -144,4 +144,72 @@ final class TemplateValues
 
         return $dot === false ? $searchKey : substr($searchKey, 0, $dot);
     }
+
+    /**
+     * A whole group's column as one string, joined by the macro's own separator.
+     *
+     * Null when the macro names nothing real, which is the caller's signal to leave
+     * it exactly as the author typed it. That is the same rule every unknown
+     * placeholder follows: a typo has to be visible in the output, because the
+     * document is the only place the author of the template will look.
+     *
+     * THE COLUMN HAS TO BE A REAL COLUMN OF THAT GROUP, and saying so is the point.
+     * `{{attendee.nmae}}` is not a thing with no records behind it — it is a thing
+     * that does not exist, and joining it would produce an empty string where the
+     * author meant a list of names. So the key is checked against the registry
+     * rather than being split and trusted.
+     *
+     * An empty list joins to an empty string, exactly as an empty inline value does.
+     * A meeting with no attendees should read as having none, not as a broken macro.
+     *
+     * @param  list<TemplateField>  $fields
+     * @param  array<string, mixed>  $values
+     */
+    public function aggregate(AggregateMacro $macro, array $fields, array $values): ?string
+    {
+        $dot = strpos($macro->key, '.');
+
+        if ($dot === false) {
+            return null;
+        }
+
+        $group = substr($macro->key, 0, $dot);
+        $column = substr($macro->key, $dot + 1);
+
+        $known = false;
+
+        foreach ($fields as $field) {
+            if ($field->isRow() && $field->group === $group && $field->column() === $column) {
+                $known = true;
+
+                break;
+            }
+        }
+
+        if (! $known) {
+            return null;
+        }
+
+        $entries = $values[$group] ?? [];
+
+        if (! is_array($entries)) {
+            return null;
+        }
+
+        $parts = [];
+
+        foreach ($entries as $entry) {
+            if (! is_array($entry)) {
+                continue;
+            }
+
+            $value = $entry[$column] ?? null;
+
+            if (is_scalar($value) || $value === null) {
+                $parts[] = (string) $value;
+            }
+        }
+
+        return implode($macro->separator, $parts);
+    }
 }

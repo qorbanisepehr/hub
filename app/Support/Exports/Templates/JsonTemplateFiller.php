@@ -80,10 +80,34 @@ final class JsonTemplateFiller implements TemplateFiller
         // for it, and looking one up anyway would expand a range nobody wrote.
         $present = array_flip($this->namesIn($text));
 
-        $text = $this->substituteInline($text, $fields, $values, $present, $spec);
+        $text = $this->substituteInline($text, $fields, $values, $present, $spec, $this->aggregatesIn($text, $fields, $values));
         $text = $this->expandRanges($text, $fields, $values, $present);
 
         fwrite($stream, $text);
+    }
+
+    /**
+     * Every whole-list macro the file contains, keyed by how it was written.
+     *
+     * Asked of the FILE, like everything else here.
+     *
+     * @param  list<TemplateField>  $fields
+     * @param  array<string, mixed>  $values
+     * @return array<string, string>
+     */
+    private function aggregatesIn(string $text, array $fields, array $values): array
+    {
+        $joined = [];
+
+        foreach (AggregateMacro::in($text) as $raw => $macro) {
+            $value = $this->values->aggregate($macro, $fields, $values);
+
+            if ($value !== null) {
+                $joined[$raw] = $value;
+            }
+        }
+
+        return $joined;
     }
 
     /**
@@ -92,6 +116,9 @@ final class JsonTemplateFiller implements TemplateFiller
      * @param  list<TemplateField>  $fields
      * @param  array<string, mixed>  $values
      * @param  array<string, int>  $present
+     * @param  array<string, string>  $aggregates  whole-list values, keyed by the
+     *                                             macro exactly as the author wrote
+     *                                             it, separator and all
      */
     private function substituteInline(
         string $text,
@@ -99,6 +126,7 @@ final class JsonTemplateFiller implements TemplateFiller
         array $values,
         array $present,
         DocumentSpec $spec,
+        array $aggregates,
     ): string {
         $replacements = [];
 
@@ -112,14 +140,32 @@ final class JsonTemplateFiller implements TemplateFiller
             $replacements[TemplateKind::CONTENT] = $this->rendered($spec);
         }
 
+        // Escaped here rather than at substitution, because the value is a whole list
+        // and the author's own quotes must close around all of it.
+        foreach ($aggregates as $raw => $value) {
+            $replacements[$raw] = JsonText::content($value);
+        }
+
         // One callback rather than a search-and-replace per name, so a value that
         // happens to contain `{{` is never filled by a later pass. The range markers
         // are not in the replacements, so they survive to be expanded below.
+        //
+        // The RAW text is tried first and the trimmed one second. An aggregate has to be
+        // found by its raw text, because everything after its pipe is its separator
+        // and trimming would turn the author's `; ` into `;`. Every other field is
+        // found by its trimmed name, because `{{ title }}` and `{{title}}` are the
+        // same placeholder and an author who typed the spaces means them.
         return (string) preg_replace_callback(
             $this->macroPattern(),
-            static fn (array $match): string => array_key_exists(trim($match[1]), $replacements)
-                ? $replacements[trim($match[1])]
-                : $match[0],
+            static function (array $match) use ($replacements): string {
+                foreach ([$match[1], trim($match[1])] as $key) {
+                    if (array_key_exists($key, $replacements)) {
+                        return $replacements[$key];
+                    }
+                }
+
+                return $match[0];
+            },
             $text,
         );
     }

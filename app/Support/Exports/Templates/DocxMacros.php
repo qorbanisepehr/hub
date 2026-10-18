@@ -144,10 +144,16 @@ final class DocxMacros
 
         $names = [];
 
-        foreach ($matches[1] ?? [] as $name) {
-            $name = trim($name);
+        foreach ($matches[1] ?? [] as $raw) {
+            // NOT TRIMMED WHEN THERE IS A PIPE. Everything after it is the separator
+            // an {@see AggregateMacro} joins the list with, and the space in front of
+            // the closing braces is part of that separator. Trimming would report
+            // `attendee.name|;` for a file that says `{{attendee.name|; }}` — and the
+            // upload screen, which shows what the file contains, would then tell the
+            // author to write the separator without its space.
+            $name = str_contains($raw, '|') ? $raw : trim($raw);
 
-            if ($name !== '') {
+            if (trim($name) !== '') {
                 $names[$name] = true;
             }
         }

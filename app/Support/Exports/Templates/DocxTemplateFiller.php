@@ -179,6 +179,15 @@ final class DocxTemplateFiller implements TemplateFiller
             $processor->setValue($key, $value);
         }
 
+        foreach ($this->aggregateFields($templatePath, $fields, $values) as $written => $value) {
+            // Keyed by the macro AS WRITTEN. `TemplateProcessor::setValue` rebuilds
+            // `{{` + key + `}}`, so the key has to be the original text including the
+            // space before the closing braces — passing a normalised spelling would
+            // search for something the file does not contain, and match nothing
+            // without error.
+            $processor->setValue($written, $value);
+        }
+
         foreach ($this->rowGroups($fields, $values, $present) as [$search, $rows]) {
             try {
                 if ($rows === []) {
@@ -236,6 +245,42 @@ final class DocxTemplateFiller implements TemplateFiller
             fn (string $value): string => $this->forXml($value),
             $this->values->inline($fields, $values, $present),
         );
+    }
+
+    /**
+     * Whole-list values, keyed by the macro exactly as the file spells it.
+     *
+     * Read off the XML rather than off a parsed document, and that is not a
+     * shortcut. `setValue` substitutes with a plain string replace over the XML, so a
+     * macro Word split across runs cannot be replaced here either — finding it in a
+     * parsed document and handing it over would produce a substitution that silently
+     * does nothing. What is found here is exactly what can be filled.
+     *
+     * @param  list<TemplateField>  $fields
+     * @param  array<string, mixed>  $values
+     * @return array<string, string>
+     */
+    private function aggregateFields(string $templatePath, array $fields, array $values): array
+    {
+        $joined = [];
+
+        foreach ($this->splice->parts($templatePath) as $xml) {
+            foreach (AggregateMacro::in($xml) as $written => $macro) {
+                // First one wins: the same macro in a header and in the body is one
+                // placeholder, and both resolve to the same string anyway.
+                if (array_key_exists($written, $joined)) {
+                    continue;
+                }
+
+                $value = $this->values->aggregate($macro, $fields, $values);
+
+                if ($value !== null) {
+                    $joined[$written] = $this->forXml($value);
+                }
+            }
+        }
+
+        return $joined;
     }
 
     /**

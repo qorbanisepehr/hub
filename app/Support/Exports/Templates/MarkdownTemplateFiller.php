@@ -82,16 +82,46 @@ final class MarkdownTemplateFiller implements TemplateFiller
             $text = rtrim($text)."\n\n".$this->rendered($spec);
         }
 
+        // Resolved BEFORE the inline pass and keyed by the macro AS WRITTEN, because an
+        // aggregate's separator lives in the text after its pipe and a trimmed name
+        // would throw it away. Three of these resolve the same way.
+        $aggregates = $this->aggregatesIn($text, $fields, $values);
+
         // INLINE FIRST, THEN ROWS, and the order is the whole trick. A value can
         // contain `{{` — a title quoted from a resolution, say — and whichever
         // pass ran last would be the one to fill it. Doing the inline values and
         // the document first means a macro that arrived inside a value is never
         // scanned again, because nothing scans the text a second time.
-        $text = $this->substituteInline($text, $fields, $values, $present, $spec);
+        $text = $this->substituteInline($text, $fields, $values, $present, $spec, $aggregates);
 
         $text = $this->repeatRows($text, $fields, $values, $present);
 
         fwrite($stream, $text);
+    }
+
+    /**
+     * Every whole-list macro the file contains, keyed by how it was written.
+     *
+     * Asked of the FILE, like everything else here: a template that does not ask
+     * for a joined list does not get one built for it.
+     *
+     * @param  list<TemplateField>  $fields
+     * @param  array<string, mixed>  $values
+     * @return array<string, string>
+     */
+    private function aggregatesIn(string $text, array $fields, array $values): array
+    {
+        $joined = [];
+
+        foreach (AggregateMacro::in($text) as $raw => $macro) {
+            $value = $this->values->aggregate($macro, $fields, $values);
+
+            if ($value !== null) {
+                $joined[$raw] = $value;
+            }
+        }
+
+        return $joined;
     }
 
     /**
@@ -213,6 +243,9 @@ final class MarkdownTemplateFiller implements TemplateFiller
      * @param  array<string, int>  $present
      * @param  DocumentSpec|null  $spec  null for a detail template, which has no
      *                                   `{{content}}` to fill and nothing to append
+     * @param  array<string, string>  $aggregates  whole-list values, keyed by the
+     *                                             macro exactly as the author wrote
+     *                                             it, separator and all
      */
     private function substituteInline(
         string $text,
@@ -220,6 +253,7 @@ final class MarkdownTemplateFiller implements TemplateFiller
         array $values,
         array $present,
         ?DocumentSpec $spec,
+        array $aggregates,
     ): string {
         $replacements = [];
 
@@ -248,7 +282,16 @@ final class MarkdownTemplateFiller implements TemplateFiller
 
             $out[] = (string) preg_replace_callback(
                 $this->macroPattern(),
-                function (array $match) use ($replacements, $cell): string {
+                function (array $match) use ($replacements, $cell, $aggregates): string {
+                    // BEFORE the trim, and matched on the raw text. Everything after
+                    // an aggregate's pipe is its separator, so trimming would turn the
+                    // author's `; ` into `;` and join the list with no space in it.
+                    if (array_key_exists($match[1], $aggregates)) {
+                        return $cell
+                            ? MarkdownText::cell($aggregates[$match[1]])
+                            : MarkdownText::inline($aggregates[$match[1]]);
+                    }
+
                     $name = $this->nameOf($match[1]);
 
                     // An unknown name is LEFT ALONE rather than emptied. A typo has
