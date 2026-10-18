@@ -123,4 +123,25 @@ final class TemplateValues
 
         return $out;
     }
+
+    /**
+     * The group a repeating row belongs to, given the macro it is found by.
+     *
+     * `groups()` reports the FIRST column the author used — `attendee.name` — which
+     * is what tells a filler which row to clone. A filler that duplicates a RANGE
+     * instead, rather than a row, has to name the range, and the range is the part
+     * before the dot.
+     *
+     * Here rather than in that filler because `{group}.{column}` is this class's
+     * contract, not JSON's: {@see TemplateField::row()} refuses any key that does
+     * not read that way, so splitting on the first dot is exact rather than a guess.
+     * A key with no dot belongs to no group and is returned whole, which can only
+     * happen for a field the registry never produced.
+     */
+    public function groupOf(string $searchKey): string
+    {
+        $dot = strpos($searchKey, '.');
+
+        return $dot === false ? $searchKey : substr($searchKey, 0, $dot);
+    }
 }
