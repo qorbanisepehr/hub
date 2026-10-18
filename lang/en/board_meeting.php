@@ -16,6 +16,12 @@ return [
         'batch_cancelled' => 'Stopped :count runs that were still queued or under way.',
     ],
 
+    /*
+     * The placeholders every template may use, whatever domain it belongs to. Their
+     * own group rather than entries in `print.fields`, because they are not about a
+     * board meeting: a template that says `{{domain_label}}` is asking what kind of
+     * document it is making.
+     */
     'print' => [
         'title' => 'Board meeting minutes',
         'yes' => 'Yes',
@@ -104,6 +110,17 @@ return [
     ],
 
     'template' => [
+        // The placeholders every template may use, whatever domain it belongs
+        // to. Not part of `print.fields`: these are not about a board meeting,
+        // they are what a GENERAL template needs in order to work on a domain
+        // it was not written for.
+        'general' => [
+            'export_date' => 'Export date',
+            'created_date' => 'Record created',
+            'domain_label' => 'Domain label',
+            'entity_label' => 'Record label',
+        ],
+
         'index' => 'Export templates',
         'read' => 'Meeting template',
         'saved' => 'The template was saved.',

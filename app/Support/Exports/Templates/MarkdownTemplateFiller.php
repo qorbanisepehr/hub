@@ -38,6 +38,7 @@ final class MarkdownTemplateFiller implements TemplateFiller
 
     public function __construct(
         private readonly TemplateValues $values,
+        private readonly GeneralValues $general,
         private readonly MarkdownRenderer $markdown,
     ) {}
 
@@ -92,11 +93,36 @@ final class MarkdownTemplateFiller implements TemplateFiller
         // pass ran last would be the one to fill it. Doing the inline values and
         // the document first means a macro that arrived inside a value is never
         // scanned again, because nothing scans the text a second time.
-        $text = $this->substituteInline($text, $fields, $values, $present, $spec, $aggregates);
+        $general = $this->generalIn($text, $entity, $registry, $present);
+
+        $text = $this->substituteInline($text, $fields, $values, $present, $spec, $aggregates, $general);
 
         $text = $this->repeatRows($text, $fields, $values, $present);
 
         fwrite($stream, $text);
+    }
+
+    /**
+     * The general placeholders this file contains.
+     *
+     * Asked of the FILE and gated on what it mentions, because a value a template
+     * never asks for is a value nobody asked for — and a general value is the easiest
+     * kind to resolve needlessly, since three of the four are always available.
+     *
+     * @param  array<string, int>  $present
+     * @return array<string, string>
+     */
+    private function generalIn(string $text, object $entity, TemplateFieldRegistry $registry, array $present): array
+    {
+        $out = [];
+
+        foreach ($this->general->resolve($entity, $registry) as $key => $value) {
+            if (isset($present[$key])) {
+                $out[$key] = $value;
+            }
+        }
+
+        return $out;
     }
 
     /**
@@ -254,12 +280,15 @@ final class MarkdownTemplateFiller implements TemplateFiller
         array $present,
         ?DocumentSpec $spec,
         array $aggregates,
+        array $general,
     ): string {
         $replacements = [];
 
         foreach ($this->values->inline($fields, $values, $present) as $key => $value) {
             $replacements[$key] = $value;
         }
+
+        $replacements += $general;
 
         if ($spec !== null) {
             $replacements[TemplateKind::CONTENT] = $this->rendered($spec);

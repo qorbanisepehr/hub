@@ -9,6 +9,7 @@ use App\Support\Exports\DocumentRendererRegistry;
 use App\Support\Exports\Exceptions\InvalidFileTemplate;
 use App\Support\Exports\Templates\FileTemplate;
 use App\Support\Exports\Templates\FileTemplateLibrary;
+use App\Support\Exports\Templates\GeneralValues;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -71,6 +72,14 @@ final class FileTemplateController
             'data' => [
                 'domain' => $registry->domain(),
                 'syntax' => ['open' => '{{', 'close' => '}}'],
+                // Listed with the domain's own fields rather than as an afterthought,
+                // because a placeholder nobody is shown is a placeholder nobody uses —
+                // and these four are the ones a GENERAL template needs in order to
+                // work on a domain it was not written for.
+                'general' => array_map(
+                    fn (string $key): array => ['key' => $key, 'label' => __('board_meeting.template.general.'.$key)],
+                    GeneralValues::names(),
+                ),
                 'inline' => array_values(array_map(
                     fn ($field): array => ['key' => $field->key, 'label' => $field->label],
                     array_filter($registry->fields(), fn ($field): bool => ! $field->isRow()),

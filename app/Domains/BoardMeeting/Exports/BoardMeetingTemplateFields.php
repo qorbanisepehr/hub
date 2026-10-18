@@ -6,6 +6,7 @@ use App\Domains\BoardMeeting\Models\BoardMeeting;
 use App\Domains\BoardMeeting\Value\AgendaItem;
 use App\Domains\BoardMeeting\Value\Attendee;
 use App\Domains\Document\Models\DocumentUsage;
+use App\Support\Exports\Contract\ProvidesTemplateLabels;
 use App\Support\Exports\Templates\TemplateField;
 use App\Support\Exports\Templates\TemplateFieldRegistry;
 use App\Support\Exports\ValuePresenter;
@@ -32,7 +33,7 @@ use App\Support\Exports\ValuePresenter;
  * attachments — where the count is not known in advance and each entry deserves
  * its own line.
  */
-final class BoardMeetingTemplateFields implements TemplateFieldRegistry
+final class BoardMeetingTemplateFields implements ProvidesTemplateLabels, TemplateFieldRegistry
 {
     /**
      * The summary's own lists, joined for a template that wants them in prose.
@@ -49,6 +50,31 @@ final class BoardMeetingTemplateFields implements TemplateFieldRegistry
     public function domain(): string
     {
         return BoardMeetingSheetExport::TEMPLATE_DOMAIN;
+    }
+
+    /**
+     * The two words a general template needs and cannot work out for itself.
+     *
+     * Both reuse wording this domain already prints. The title is the one the
+     * meeting's own document carries, and the record's identity is the registry label
+     * the model already builds for filenames and the document archive — so a template
+     * that says "about {{domain_label}}, record {{entity_label}}" says the same thing
+     * the same way as everything else about this meeting, rather than introducing a
+     * fourth spelling of what a board meeting is.
+     */
+    public function domainLabel(): string
+    {
+        return __('board_meeting.print.title');
+    }
+
+    /**
+     * The registry identity — the Jalali date plus the sequence — and never the row
+     * id, because an id printed on a certificate is a number nobody can check
+     * anything against.
+     */
+    public function entityLabel(object $entity): string
+    {
+        return $entity instanceof BoardMeeting ? $entity->registryLabel() : '';
     }
 
     /**

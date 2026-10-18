@@ -27,6 +27,14 @@ return [
      * or merely proposed), which is a distinction the API expresses structurally
      * and paper can only express in words.
      */
+    /*
+     * The placeholders every template may use, whatever domain it belongs to.
+     *
+     * Their own group rather than entries in `print.fields`, because they are not
+     * about a board meeting: a template that says `{{domain_label}}` is asking what
+     * kind of document it is making, and the answer belongs to whoever is reading the
+     * cheat sheet rather than to this domain's field list.
+     */
     'print' => [
         'title' => 'صورتجلسهٔ هیئت مدیره',
         'yes' => 'بله',
@@ -122,6 +130,17 @@ return [
      * نمی‌کند.
      */
     'template' => [
+        // The placeholders every template may use, whatever domain it belongs
+        // to. Not part of `print.fields`: these are not about a board meeting,
+        // they are what a GENERAL template needs in order to work on a domain
+        // it was not written for.
+        'general' => [
+            'export_date' => 'تاریخ تهیهٔ خروجی',
+            'created_date' => 'تاریخ ایجاد رکورد',
+            'domain_label' => 'عنوان این حوزه',
+            'entity_label' => 'عنوان این رکورد',
+        ],
+
         'index' => 'قالب‌های خروجی',
         'read' => 'قالب جلسه',
         'saved' => 'قالب ذخیره شد.',

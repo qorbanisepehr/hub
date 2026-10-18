@@ -90,6 +90,7 @@ final class DocxTemplateFiller implements TemplateFiller
     public function __construct(
         private readonly DocumentComposer $composer,
         private readonly TemplateValues $values,
+        private readonly GeneralValues $general,
         private readonly DocxMacros $macros,
         private readonly DocxBodySplice $splice,
     ) {}
@@ -176,6 +177,13 @@ final class DocxTemplateFiller implements TemplateFiller
         }
 
         foreach ($this->inlineFields($fields, $values, $present) as $key => $value) {
+            $processor->setValue($key, $value);
+        }
+
+        // General placeholders, gated on the file containing them like every other
+        // value. setValue reaches headers and footers as well as the body, which is what
+        // lets a template put the export date in a page footer.
+        foreach ($this->generalFields($entity, $registry, $present) as $key => $value) {
             $processor->setValue($key, $value);
         }
 
@@ -281,6 +289,30 @@ final class DocxTemplateFiller implements TemplateFiller
         }
 
         return $joined;
+    }
+
+    /**
+     * The general placeholders this file contains, escaped for XML.
+     *
+     * Asked of the FILE, like every other value here. `setValue` on a name the
+     * document does not contain is a no-op, so this costs nothing either way — but a
+     * list built from everything the domain can produce would hand the same four
+     * keys over on every export whether the template wanted them or not.
+     *
+     * @param  array<string, int>  $present
+     * @return array<string, string>
+     */
+    private function generalFields(object $entity, TemplateFieldRegistry $registry, array $present): array
+    {
+        $out = [];
+
+        foreach ($this->general->resolve($entity, $registry) as $key => $value) {
+            if (isset($present[$key])) {
+                $out[$key] = $this->forXml($value);
+            }
+        }
+
+        return $out;
     }
 
     /**

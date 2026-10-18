@@ -56,6 +56,7 @@ final class JsonTemplateFiller implements TemplateFiller
 
     public function __construct(
         private readonly TemplateValues $values,
+        private readonly GeneralValues $general,
         private readonly JsonRenderer $json,
     ) {}
 
@@ -80,10 +81,41 @@ final class JsonTemplateFiller implements TemplateFiller
         // for it, and looking one up anyway would expand a range nobody wrote.
         $present = array_flip($this->namesIn($text));
 
-        $text = $this->substituteInline($text, $fields, $values, $present, $spec, $this->aggregatesIn($text, $fields, $values));
+        $text = $this->substituteInline(
+            $text,
+            $fields,
+            $values,
+            $present,
+            $spec,
+            $this->aggregatesIn($text, $fields, $values),
+            $this->generalIn($text, $entity, $registry, $present),
+        );
         $text = $this->expandRanges($text, $fields, $values, $present);
 
         fwrite($stream, $text);
+    }
+
+    /**
+     * The general placeholders this file contains, escaped as string content.
+     *
+     * Asked of the FILE and gated on what it mentions, because a value a template
+     * never asks for is a value nobody asked for — and a general value is the easiest
+     * kind to resolve needlessly, since three of the four are always available.
+     *
+     * @param  array<string, int>  $present
+     * @return array<string, string>
+     */
+    private function generalIn(string $text, object $entity, TemplateFieldRegistry $registry, array $present): array
+    {
+        $out = [];
+
+        foreach ($this->general->resolve($entity, $registry) as $key => $value) {
+            if (isset($present[$key])) {
+                $out[$key] = $value;
+            }
+        }
+
+        return $out;
     }
 
     /**
@@ -127,10 +159,18 @@ final class JsonTemplateFiller implements TemplateFiller
         array $present,
         DocumentSpec $spec,
         array $aggregates,
+        array $general,
     ): string {
         $replacements = [];
 
         foreach ($this->values->inline($fields, $values, $present) as $key => $value) {
+            $replacements[$key] = JsonText::content($value);
+        }
+
+        // General placeholders, already escaped by the caller. {{content}} excepted,
+        // a placeholder is text inside a string, and that is not a kind it can decide
+        // on its own.
+        foreach ($general as $key => $value) {
             $replacements[$key] = JsonText::content($value);
         }
 
