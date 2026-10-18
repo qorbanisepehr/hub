@@ -140,6 +140,57 @@ describe('a markdown template', function () {
             ->and($text)->not->toContain('{{content}}');
     });
 
+    it('generates nothing onto a document the author wrote by hand', function () use ($filled) {
+        // The same distinction Word makes, and the same reported bug: a template
+        // holding {{title}} and no {{content}} is a page somebody wrote, and
+        // putting the generated meeting underneath it stapled a second,
+        // differently-formatted copy of the meeting below their own text.
+        //
+        // Asserted by COUNT rather than by presence, because a presence assertion
+        // passes against the broken behaviour too — which is how it survived.
+        $text = $filled(
+            "عنوان: {{title}}\n\nمشخصات",
+            BoardMeeting::factory()->create(['title' => 'صورتجلسه']),
+        );
+
+        expect($text)->not->toContain('{{title}}')
+            ->and($text)->toContain('مشخصات')
+            ->and(substr_count($text, 'صورتجلسه'))->toBe(1);
+    });
+
+    it('keeps repeating a group on a document template, which is not the same as generating it', function () use ($filled) {
+        // The part of the rule that is easy to get wrong in the other direction.
+        // What makes a template a document is that the author wrote the BODY —
+        // not that they gave up tables. A document template with an attendee table
+        // is one of the more ordinary files there is, so skipping the group pass
+        // for it would trade one bug for another.
+        $meeting = BoardMeeting::factory()->withAttendees(
+            new Attendee('الف', AttendeeRole::Chair, true),
+            new Attendee('ب', AttendeeRole::Member, true),
+        )->create();
+
+        $text = $filled("عنوان: {{title}}\n- {{attendee.name}}\n\nپایان", $meeting);
+
+        expect($text)->toContain('- الف')
+            ->and($text)->toContain('- ب')
+            ->and($text)->not->toContain('{{attendee.name}}');
+    });
+
+    it('puts the generated document at the end of a file that asks for nothing', function () use ($filled) {
+        // A letterhead with no placeholders in its body plainly wants something
+        // under it, and refusing would produce a blank page. Word and Markdown get
+        // there differently — Word appends to the document, this concatenates —
+        // but the answer is the same, and it is the one an author expects.
+        $text = $filled(
+            'سربرگ هیئت مدیره',
+            BoardMeeting::factory()->create(['title' => 'صورتجلسه']),
+        );
+
+        expect($text)->toContain('سربرگ هیئت مدیره')
+            ->and($text)->toContain('صورتجلسه')
+            ->and(strpos($text, 'سربرگ'))->toBeLessThan(strpos($text, 'صورتجلسه'));
+    });
+
     it('keeps a value with a pipe in it from splitting the row', function () use ($filled) {
         // The other shape a value can break, and the one {@see MarkdownText}
         // exists for: the renderer and the filler must agree, or a template would

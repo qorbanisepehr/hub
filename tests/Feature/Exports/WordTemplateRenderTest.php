@@ -277,19 +277,67 @@ describe('choosing between a generated document and a template', function () {
         ))->toThrow(RuntimeException::class);
     });
 
-    it('adds the meeting to a template that also has placeholders, and fills both', function () use ($textOf) {
-        // THE REGRESSION THIS FEATURE WAS REBUILT FOR. This file used to be
-        // classified as a "content" template by its {{title}}, which meant the
-        // DocumentSpec was never built and the export was the letterhead alone —
-        // no meeting on it, and no error anywhere to say so. A real template is
-        // both things at once, so there is now nothing to classify.
+    it('leaves a document the author wrote alone, generating nothing onto it', function () use ($textOf) {
+        // THE REPORTED BUG. A template holding {{title}} and no {{content}} is a
+        // document somebody wrote by hand: they wanted the title in it. Appending
+        // the generated meeting underneath meant every such file came out as the
+        // author's page with a second, differently-formatted copy of the meeting
+        // stapled below it — which is what was reported.
+        //
+        // Decided by the file rather than by a stored flag, so the author's own
+        // `{{title}}` is the only evidence needed. See {@see TemplateKind}.
         $phpWord = new PhpWord;
         $phpWord->addSection()->addText('{{title}}');
 
-        $path = tempnam(sys_get_temp_dir(), 'content-').'.docx';
+        $path = tempnam(sys_get_temp_dir(), 'detail-').'.docx';
         IOFactory::createWriter($phpWord, 'Word2007')->save($path);
 
         $template = FileTemplate::make('docx', 'boardmeeting', 'official', null, 'نامهٔ رسمی', 10, '');
+        $this->store->write($template, (string) file_get_contents($path));
+
+        $file = $this->service->render(
+            $this->sheet,
+            BoardMeeting::factory()->create(['title' => 'صورتجلسه']),
+            new BoardMeetingTemplateFields,
+            $template,
+        );
+
+        $out = tempnam(sys_get_temp_dir(), 'out-').'.docx';
+        rewind($file->stream);
+        file_put_contents($out, stream_get_contents($file->stream));
+
+        $text = $textOf($out);
+
+        expect($text)->not->toContain('{{title}}')
+            ->and($text)->toContain('صورتجلسه');
+
+        // Once, not twice. `toContain` on its own would pass against the old
+        // behaviour too, which is precisely why it was allowed to stand; the
+        // count is the assertion that pins the bug shut.
+        expect(substr_count($text, 'صورتجلسه'))->toBe(1);
+
+        @unlink($path);
+        @unlink($out);
+    });
+
+    it('adds the meeting to a frame that also has placeholders, and fills both', function () use ($textOf) {
+        // THE OTHER HALF, AND THE REGRESSION THIS FEATURE WAS REBUILT FOR. The
+        // earlier version classified uploads by whether they held ANY placeholder,
+        // so a letterhead carrying {{date}} in its footer was read as a template
+        // that replaces the meeting — the export came out with no meeting on it
+        // and nothing anywhere to say so.
+        //
+        // The fix is that only {{content}} decides. A footer date no longer
+        // changes the answer, which is what this file exists to prove: it holds
+        // both, and the meeting is still generated.
+        $phpWord = new PhpWord;
+        $phpWord->addSection()->addText('{{title}}');
+        $phpWord->addSection()->addText('{{content}}');
+
+        $path = tempnam(sys_get_temp_dir(), 'frame-').'.docx';
+        IOFactory::createWriter($phpWord, 'Word2007')->save($path);
+
+        $template = FileTemplate::make('docx', 'boardmeeting', 'framed', null, 'قالب', 10, '');
         $this->store->write($template, (string) file_get_contents($path));
 
         $meeting = BoardMeeting::factory()->create(['title' => 'صورتجلسه']);
@@ -302,11 +350,8 @@ describe('choosing between a generated document and a template', function () {
 
         $text = $textOf($out);
 
-        // The placeholder was filled AND the meeting is there. The first assertion
-        // alone would have passed against the old broken behaviour too; the
-        // meeting's own title appearing a second time, in the generated part, is
-        // what the old path could not produce.
         expect($text)->not->toContain('{{title}}')
+            ->and($text)->not->toContain('{{content}}')
             ->and($text)->toContain('صورتجلسه')
             ->and(substr_count($text, 'صورتجلسه'))->toBeGreaterThan(1);
 

@@ -105,7 +105,11 @@ final class DocxTemplateFiller implements TemplateFiller
     }
 
     /**
-     * Compose the document onto the template, fill it, and write the result.
+     * Fill the template, and write the result.
+     *
+     * Whether the generated document is written INTO the file at all is
+     * {@see TemplateKind}' decision, and it is made here rather than by the
+     * caller because only this class can see what the file asks for.
      *
      * @param  resource  $stream
      */
@@ -116,6 +120,19 @@ final class DocxTemplateFiller implements TemplateFiller
         TemplateFieldRegistry $registry,
         $stream,
     ): void {
+        $names = $this->namesIn($templatePath);
+
+        // A DETAIL TEMPLATE IS NOT COMPOSED. The author wrote the body and the
+        // placeholders are the values they wanted in it; adding the generated
+        // document as well is not a frame, it is the file they wrote with a
+        // generated meeting stapled underneath it. This is the whole distinction,
+        // and it is decided by the file rather than asked for.
+        if (TemplateKind::fromNames($names) === TemplateKind::Detail) {
+            $this->substitute($templatePath, $entity, $registry, $stream);
+
+            return;
+        }
+
         $prepared = $this->compose($templatePath, $spec);
 
         try {
@@ -123,6 +140,26 @@ final class DocxTemplateFiller implements TemplateFiller
         } finally {
             @unlink($prepared);
         }
+    }
+
+    /**
+     * Every macro name the file contains, without its braces.
+     *
+     * Asked of the FILE rather than of the entity, and twice over in this class:
+     * once to decide the kind, and again inside the fill for which values to
+     * substitute. Both questions are about what the author wrote.
+     *
+     * @return list<string>
+     */
+    private function namesIn(string $templatePath): array
+    {
+        $processor = new TemplateProcessor($templatePath);
+        $processor->setMacroChars(self::MACRO_OPEN, self::MACRO_CLOSE);
+
+        return array_values(array_map(
+            static fn (string $name): string => trim($name),
+            $processor->getVariables(),
+        ));
     }
 
     /**

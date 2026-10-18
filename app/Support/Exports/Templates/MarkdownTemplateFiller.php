@@ -36,9 +36,6 @@ final class MarkdownTemplateFiller implements TemplateFiller
 
     private const MACRO_CLOSE = '}}';
 
-    /** Where the generated document goes. See {@see DocxTemplateFiller}. */
-    private const CONTENT_MACRO = 'content';
-
     public function __construct(
         private readonly TemplateValues $values,
         private readonly MarkdownRenderer $markdown,
@@ -65,6 +62,25 @@ final class MarkdownTemplateFiller implements TemplateFiller
         // mention a group is not asking for it, and looking one up anyway would
         // copy a line the author never wrote.
         $present = array_flip($this->namesIn($text));
+
+        if (TemplateKind::fromNames(array_keys($present)) === TemplateKind::Detail) {
+            // A DETAIL TEMPLATE GETS NO DOCUMENT, the same as in Word, and passing
+            // null is how that is said: the document is not in the replacements,
+            // so there is nothing to put where a `{{content}}` would be.
+            //
+            // It still gets its group rows repeated, which is the part worth being
+            // careful about. What makes a template a detail is that the author
+            // wrote the body — not that the author gave up tables. A detail
+            // template with an attendee table is one of the more ordinary files
+            // there is, and it has to keep working.
+            $spec = null;
+        } elseif (! isset($present[TemplateKind::CONTENT])) {
+            // A frame with no marker has the document put at the end, which is what
+            // a letterhead with nothing in its body plainly wants. Here it is a
+            // plain concatenation rather than the rule Word has to carry, because
+            // text can be replaced in place but Word can only add to the end.
+            $text = rtrim($text)."\n\n".$this->rendered($spec);
+        }
 
         // INLINE FIRST, THEN ROWS, and the order is the whole trick. A value can
         // contain `{{` — a title quoted from a resolution, say — and whichever
@@ -186,22 +202,24 @@ final class MarkdownTemplateFiller implements TemplateFiller
     }
 
     /**
-     * Inline values and the generated document, in one pass.
+     * Inline values, and the document where the template asked for it.
      *
-     * One callback rather than a search-and-replace per name, so a value that
-     * happens to contain `{{` is never picked up by a later replacement and the
-     * order of the loop never decides what a person saw.
+     * One callback per line rather than a search-and-replace per name, so a value
+     * that happens to contain `{{` is never picked up by a later replacement and
+     * the order of the loop never decides what a person saw.
      *
      * @param  list<TemplateField>  $fields
      * @param  array<string, mixed>  $values
      * @param  array<string, int>  $present
+     * @param  DocumentSpec|null  $spec  null for a detail template, which has no
+     *                                   `{{content}}` to fill and nothing to append
      */
     private function substituteInline(
         string $text,
         array $fields,
         array $values,
         array $present,
-        DocumentSpec $spec,
+        ?DocumentSpec $spec,
     ): string {
         $replacements = [];
 
@@ -209,7 +227,9 @@ final class MarkdownTemplateFiller implements TemplateFiller
             $replacements[$key] = $value;
         }
 
-        $replacements[self::CONTENT_MACRO] = $this->rendered($spec);
+        if ($spec !== null) {
+            $replacements[TemplateKind::CONTENT] = $this->rendered($spec);
+        }
 
         // LINE BY LINE, because whether a value needs its pipes escaped depends on
         // where it lands. A `{{title}}` in a paragraph is prose; the same macro in
