@@ -4,7 +4,6 @@ namespace App\Support\Exports\Templates;
 
 use App\Support\Exports\Exceptions\InvalidFileTemplate;
 use Illuminate\Http\UploadedFile;
-use PhpOffice\PhpWord\IOFactory;
 use ZipArchive;
 
 /**
@@ -39,7 +38,10 @@ final class FileTemplateInspector
     /** Macro storage. A `.docx` has none; a renamed `.docm` does. */
     private const MACRO_PART = 'word/vbaProject.bin';
 
-    public function __construct(private readonly DocxMacros $macros) {}
+    public function __construct(
+        private readonly DocxMacros $macros,
+        private readonly DocxBodySplice $splice,
+    ) {}
 
     /**
      * The size cap, read at inspection time.
@@ -143,32 +145,18 @@ final class FileTemplateInspector
     /**
      * The kind and placeholders of a Word file.
      *
-     * Loaded rather than scanned as XML, and that is the whole reason this class
-     * needs {@see DocxMacros}: Word splits one macro across several runs as a
-     * matter of routine, so a regex over the XML sees `{{cont`, `ent`, `}}` and
-     * reports a document with no placeholders in it. Reading the element tree
-     * after folding is what makes this answer the same one the filler will act on.
+     * Read from the zip rather than by loading the document, because loading is
+     * only half of it: a reader that saves what it loaded would rewrite the
+     * template, and there is nothing to be gained by going near the writer on a path
+     * whose whole job is to describe a file. {@see DocxMacros} joins a macro Word
+     * split across runs by concatenating the text of each paragraph, which is the
+     * same repair `TemplateProcessor` makes on its own.
      *
      * @return array{kind: string, placeholders: list<string>}
      */
     private function describeDocx(string $path): array
     {
-        try {
-            $phpWord = IOFactory::load($path);
-        } catch (\Throwable) {
-            // The archive has already been checked for the parts a document is
-            // made of, so this is not a shape the zip test should have caught —
-            // it is a parser refusing something structurally sound. There is
-            // nothing to report about the placeholders of a file that cannot be
-            // opened, but it is still not refused here: the export would fail on
-            // it with a message naming the template, and refusing it at upload on
-            // a guess is worse than letting a person upload and be told.
-            return ['kind' => TemplateKind::Frame->value, 'placeholders' => []];
-        }
-
-        $this->macros->fold($phpWord);
-
-        $names = $this->macros->names($phpWord);
+        $names = $this->macros->names(...array_values($this->splice->parts($path)));
 
         return [
             'kind' => TemplateKind::fromNames($names)->value,

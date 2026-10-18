@@ -2,70 +2,60 @@
 
 namespace App\Support\Exports\Templates;
 
-use PhpOffice\PhpWord\Element\AbstractContainer;
-use PhpOffice\PhpWord\Element\Text;
-use PhpOffice\PhpWord\Element\TextRun;
-use PhpOffice\PhpWord\PhpWord;
+use DOMDocument;
+use DOMElement;
+use DOMXPath;
 
 /**
- * The placeholders a `.docx` actually contains, once Word has been taken into
- * account.
+ * The placeholders a `.docx` actually contains.
  *
- * EXISTS BECAUSE READING A DOCX AND FILLING IT ARE NOT THE SAME QUESTION, and
- * getting them to disagree is silent either way. `TemplateProcessor` finds a
- * macro with a plain string replace over the XML, and Word splits one macro
- * across several `<w:r>` runs as a matter of routine — so a file can hold
- * `{{content}}` as `{{cont`, `ent`, `}}` and no string replace in the world will
- * find it.
+ * Works on the XML PARTS rather than on a loaded PhpWord, and that is the whole
+ * reason it exists. PHPWord's Word2007 writer does not round-trip a document: it
+ * regenerates the package, and a letterhead that goes through it comes back with
+ * 81% of its `styles.xml` gone, its theme fonts replaced by hardcoded Arial, and
+ * every image in its header and footer dropped. So nothing on the template path may
+ * ask PHPWord to save one. Reading is free of that, but reading through PHPWord
+ * would still mean loading a document this class's callers cannot afford to have
+ * written back, and the plain zip is the smaller thing to depend on.
  *
- * That matters twice over, and the second time is the one that got past a
- * rewrite. It matters when FILLING, where the split means the macro is left
- * printed in the middle of an otherwise correct document. It also matters when
- * DECIDING WHAT THE FILE IS: a frame whose `{{content}}` was split reads as a
- * file with no document marker, and a frame is then treated as a document
- * somebody wrote by hand — the meeting is never generated and the export comes
- * out nearly empty, with nothing reporting it. A reader that does not fold
- * first makes the classification wrong in exactly the way the classification
- * was introduced to stop.
- *
- * SO READING FOLDS. It is the same defect from two directions, and a caller who
- * remembers to fold is a caller who will eventually forget. Folding only ever
- * merges a run whose children are all text, so a document that was already whole
- * comes out of this unchanged.
- *
- * The text is read off the element tree rather than off the XML, which is why
- * this works without a file at all — no save, no round trip, and the caller can
- * classify a template it has only just loaded.
+ * A PLACEHOLDER IS TEXT, AND TEXT IS SPLIT. Word breaks one macro across several
+ * runs as a matter of routine, so `{{tag.name}}` can arrive as `{{tag.`, `name`,
+ * `}}`. The text of a paragraph is therefore concatenated across every `<w:t>` in
+ * it before the name is looked for — which is what makes a split macro one name
+ * again, and is the same repair `TemplateProcessor` performs on its own when it
+ * loads a part.
  */
 final class DocxMacros
 {
+    /** The macro that asks for the generated document. */
+    public const CONTENT = 'content';
+
     private const MACRO_OPEN = '{{';
 
     private const MACRO_CLOSE = '}}';
 
+    private const WORD_NS = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+
     /**
-     * Every placeholder name in the document, headers and footers included,
-     * without its braces and trimmed.
+     * Every placeholder name across the given parts, headers and footers included.
      *
-     * Trimmed because the fillers accept whatever spacing a person actually
-     * types, so `{{ title }}` and `{{title}}` are the same placeholder. Callers
-     * that need to match the file byte for byte — `cloneRow` searching for a
-     * literal `{{attendee.name}}` — must NOT use this; they need what
-     * `TemplateProcessor` reports, which preserves the author's spacing.
+     * Deduped and order-preserving: a header and a footer both asking for
+     * `{{export_date}}` is one placeholder used twice, and reporting it twice would
+     * make a reader of the list think there were two.
      *
-     * Deduplicated and order-preserving: a header and a footer that both ask for
-     * `{{export_date}}` is one placeholder used twice, and reporting it twice
-     * would make a reader of the list think there were two.
-     *
+     * @param  string  ...$parts  the raw XML of `word/document.xml` and each header
+     *                            and footer, which is where a placeholder can live
      * @return list<string>
      */
-    public function names(PhpWord $phpWord): array
+    public function names(string ...$parts): array
     {
         $found = [];
 
-        foreach ($this->textOf($phpWord) as $text) {
-            foreach ($this->find($text) as $name) {
-                $found[$name] = true;
+        foreach ($parts as $xml) {
+            foreach ($this->paragraphs($xml) as $text) {
+                foreach ($this->find($text) as $name) {
+                    $found[$name] = true;
+                }
             }
         }
 
@@ -73,127 +63,74 @@ final class DocxMacros
     }
 
     /**
-     * Put every macro back into one piece before anything looks for it.
+     * The text of every paragraph in a part, split runs joined back together.
      *
-     * A right-click, a spell-check flag or a font change is enough for Word to
-     * write one word across several runs, so this runs before the file is saved
-     * for filling as well as before its placeholders are counted.
-     *
-     * PHPWord keeps the split as several `Text` children inside one `TextRun`,
-     * so no XML surgery is needed: fold the text into the first child and drop
-     * the rest. Only a run whose children are ALL text is folded, because a run
-     * holding a break or an image between two texts would reorder its content.
-     *
-     * Note the shape this must NOT take: adding a fresh `Text` through
-     * `addElement`, which is protected and reaches the magic `__call` instead.
-     * That fails quietly and empties the run — the text disappears entirely,
-     * which is worse than the bug it was meant to fix.
-     */
-    public function fold(PhpWord $phpWord): void
-    {
-        foreach ($phpWord->getSections() as $section) {
-            // Headers and footers too: a date macro in a footer is split just as
-            // easily as one in the body, and fails just as quietly.
-            $this->foldIn($section);
-
-            foreach ($section->getHeaders() as $header) {
-                $this->foldIn($header);
-            }
-
-            foreach ($section->getFooters() as $footer) {
-                $this->foldIn($footer);
-            }
-        }
-    }
-
-    /**
-     * Every text block in the document, in reading order.
-     *
-     * A `TextRun` is terminal and a `Text` reached directly is a paragraph, so
-     * neither is visited twice — descending into a run would report each of its
-     * fragments separately, which is the split this class exists to undo.
+     * A paragraph rather than the whole part, because a macro cannot span two of
+     * them and joining across the whole document would invent one that does.
      *
      * @return list<string>
      */
-    private function textOf(PhpWord $phpWord): array
+    private function paragraphs(string $xml): array
     {
+        $xpath = $this->xpath($xml);
+
+        if ($xpath === null) {
+            return [];
+        }
+
         $texts = [];
 
-        foreach ($phpWord->getSections() as $section) {
-            $this->collectIn($section, $texts);
-
-            foreach ($section->getHeaders() as $header) {
-                $this->collectIn($header, $texts);
-            }
-
-            foreach ($section->getFooters() as $footer) {
-                $this->collectIn($footer, $texts);
-            }
+        foreach ($xpath->query('//w:p') ?: [] as $paragraph) {
+            $texts[] = $this->textOf($xpath, $paragraph);
         }
 
         return $texts;
     }
 
     /**
-     * @param  list<string>  $texts
+     * A namespace-aware XPath over one part, or null when the part will not parse.
+     *
+     * Returning nothing rather than throwing is deliberate for a read: a part that
+     * is not XML is a template whose export will fail with a message naming the
+     * file, and refusing to describe it here does not make that go away — it only
+     * moves the failure somewhere less informative.
      */
-    private function collectIn(AbstractContainer $container, array &$texts): void
+    private function xpath(string $xml): ?DOMXPath
     {
-        foreach ($container->getElements() as $element) {
-            if ($element instanceof TextRun || $element instanceof Text) {
-                $texts[] = (string) $element->getText();
-
-                continue;
-            }
-
-            if ($element instanceof AbstractContainer) {
-                $this->collectIn($element, $texts);
-            }
+        if (trim($xml) === '') {
+            return null;
         }
+
+        $dom = new DOMDocument;
+
+        $previous = libxml_use_internal_errors(true);
+
+        try {
+            $loaded = $dom->loadXML($xml);
+        } finally {
+            libxml_clear_errors();
+            libxml_use_internal_errors($previous);
+        }
+
+        if (! $loaded) {
+            return null;
+        }
+
+        $xpath = new DOMXPath($dom);
+        $xpath->registerNamespace('w', self::WORD_NS);
+
+        return $xpath;
     }
 
-    private function foldIn(AbstractContainer $container): void
+    private function textOf(DOMXPath $xpath, \DOMNode $paragraph): string
     {
-        foreach ($container->getElements() as $element) {
-            if ($element instanceof TextRun) {
-                $this->foldRun($element);
+        $text = '';
 
-                continue;
-            }
-
-            if ($element instanceof AbstractContainer) {
-                $this->foldIn($element);
-            }
-        }
-    }
-
-    private function foldRun(TextRun $run): void
-    {
-        $children = $run->getElements();
-
-        if (count($children) < 2) {
-            return;
+        foreach ($xpath->query('.//w:t', $paragraph) ?: [] as $node) {
+            $text .= $node->textContent;
         }
 
-        foreach ($children as $child) {
-            if (! $child instanceof Text) {
-                // A break, an image or a field between two texts: folding them
-                // would move the text across it and change what the line says.
-                return;
-            }
-        }
-
-        $first = $children[0];
-
-        $first->setText(implode('', array_map(
-            static fn (Text $text): string => (string) $text->getText(),
-            $children,
-        )));
-
-        foreach (array_slice($children, 1) as $extra) {
-            // By element id, not array key, so a reindexed slice is fine.
-            $run->removeElement($extra);
-        }
+        return $text;
     }
 
     /**
@@ -205,9 +142,37 @@ final class DocxMacros
 
         preg_match_all($pattern, $text, $matches);
 
-        return array_values(array_filter(array_map(
-            static fn (string $name): string => trim($name),
-            $matches[1] ?? [],
-        ), static fn (string $name): bool => $name !== ''));
+        $names = [];
+
+        foreach ($matches[1] ?? [] as $name) {
+            $name = trim($name);
+
+            if ($name !== '') {
+                $names[$name] = true;
+            }
+        }
+
+        return array_keys($names);
+    }
+
+    /**
+     * The one paragraph that exists only to say where the meeting goes.
+     *
+     * Returned rather than removed, because the caller has to know whether it
+     * FOUND one: a frame that names the position and a frame that does not are put
+     * together differently, and treating them the same is how a marker silently
+     * becomes a blank paragraph.
+     */
+    public function contentMarker(DOMXPath $xpath, DOMElement $body): ?\DOMNode
+    {
+        $macro = self::MACRO_OPEN.self::CONTENT.self::MACRO_CLOSE;
+
+        foreach ($xpath->query('.//w:p', $body) ?: [] as $paragraph) {
+            if (trim($this->textOf($xpath, $paragraph)) === $macro) {
+                return $paragraph;
+            }
+        }
+
+        return null;
     }
 }
