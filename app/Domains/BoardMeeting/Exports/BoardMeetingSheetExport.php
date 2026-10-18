@@ -92,6 +92,27 @@ final class BoardMeetingSheetExport implements DocumentSource
     }
 
     /**
+     * Every section with the label a person sees, for a picker or a cheat sheet.
+     *
+     * The label travels with the key rather than being looked up in the client.
+     * A client-side map of these names would be a second copy of the domain's
+     * vocabulary: it would fall behind this class silently, and the fallback
+     * would be a raw key shown where a person expects a word.
+     *
+     * @return list<array{key: string, label: string}>
+     */
+    public function sectionDefinitions(): array
+    {
+        return array_values(array_map(
+            fn (string $key): array => [
+                'key' => $key,
+                'label' => $this->label('sections.'.$key, $key),
+            ],
+            $this->sectionNames(),
+        ));
+    }
+
+    /**
      * Every section this sheet can print, as a name to a builder.
      *
      * Named rather than positional because a name is what a template stores: a

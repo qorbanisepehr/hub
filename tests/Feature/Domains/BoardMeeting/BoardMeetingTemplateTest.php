@@ -219,11 +219,33 @@ describe('board meeting template endpoints', function () {
         $this->repo = app(SystemSettingsRepositoryInterface::class);
     });
 
-    it('names every section a template may use', function () {
-        $this->actingAs(createUserWithPermissions(['export-template.view']))
+    it('names every section a template may use, with its label', function () {
+        // Keys alone would force the client to keep its own copy of the domain's
+        // vocabulary, and the fallback for a name it has not heard of would be a
+        // raw key shown where a person expects a word.
+        $available = $this->actingAs(createUserWithPermissions(['export-template.view']))
             ->getJson('/api/board-meetings/templates')
             ->assertOk()
-            ->assertJsonPath('data.available', app(BoardMeetingSheetExport::class)->sectionNames());
+            ->json('data.available');
+
+        expect($available)->toBe(app(BoardMeetingSheetExport::class)->sectionDefinitions())
+            ->and(collect($available)->pluck('key')->all())
+            ->toBe(app(BoardMeetingSheetExport::class)->sectionNames());
+
+        foreach ($available as $section) {
+            expect($section['label'])->not->toBe($section['key']);
+        }
+
+        // Nothing stored yet, so `effective` is the built-in list. Asserting it
+        // here is what catches a default of the WRONG SHAPE: the resolver drops
+        // names it does not recognise rather than failing, so passing the
+        // definitions array where keys were expected returns an empty document
+        // and nothing else complains.
+        expect(
+            $this->actingAs(createUserWithPermissions(['export-template.view']))
+                ->getJson('/api/board-meetings/templates')
+                ->json('data.effective'),
+        )->toBe(collect($available)->pluck('key')->all());
     });
 
     it('stores the domain template and reports it as effective', function () {

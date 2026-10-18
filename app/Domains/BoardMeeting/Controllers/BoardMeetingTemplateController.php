@@ -38,14 +38,18 @@ final class BoardMeetingTemplateController
      */
     public function index(): JsonResponse
     {
-        $available = $this->sheet->sectionNames();
+        $available = $this->sheet->sectionDefinitions();
 
         return response()->json([
             'message' => __('board_meeting.template.index'),
             'data' => [
                 'available' => $available,
                 'stored' => $this->resolver->stored($this->domain())?->sections(),
-                'effective' => $this->resolver->sections($this->domain(), null, $available),
+                'effective' => $this->resolver->sections(
+                    $this->domain(),
+                    null,
+                    array_column($available, 'key'),
+                ),
                 'overrides' => array_values(array_map(
                     fn (ExportTemplate $template): array => [
                         'entity' => $template->entity(),
@@ -69,7 +73,7 @@ final class BoardMeetingTemplateController
     public function show(int $meeting): JsonResponse
     {
         $entity = $this->entityKey($meeting);
-        $available = $this->sheet->sectionNames();
+        $available = $this->sheet->sectionDefinitions();
 
         return response()->json([
             'message' => __('board_meeting.template.read'),
@@ -77,7 +81,11 @@ final class BoardMeetingTemplateController
                 'available' => $available,
                 'entity' => $entity,
                 'stored' => $this->resolver->stored($this->domain(), $entity)?->sections(),
-                'effective' => $this->resolver->sections($this->domain(), $entity, $available),
+                'effective' => $this->resolver->sections(
+                    $this->domain(),
+                    $entity,
+                    array_column($available, 'key'),
+                ),
             ],
         ]);
     }
