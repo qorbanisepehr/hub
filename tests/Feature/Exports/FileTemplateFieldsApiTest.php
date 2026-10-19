@@ -110,6 +110,26 @@ describe('GET /api/word-templates/fields', function () {
         }
     });
 
+    it('reports the names that hold a date, so the Jalali variant is discoverable', function () {
+        // The VARIANT WORKS FOR ANY PARSABLE VALUE, so it is not enough that it fills:
+        // a name nobody is told about is one nobody uses, which is the same defect as
+        // the block range and the separator were before they were reported here.
+        $data = actingAs($this->user)
+            ->getJson('/api/word-templates/fields?domain=boardmeeting')
+            ->assertOk()
+            ->json('data');
+
+        expect($data['dates'])->toContain('held_on');
+
+        // And every reported date must be a name the template can actually write.
+        $writable = array_merge(
+            array_column($data['general'], 'key'),
+            array_column($data['inline'], 'key'),
+        );
+
+        expect($data['dates'])->each->toBeIn($writable);
+    });
+
     it('reports only names a template can actually write', function () {
         $data = actingAs($this->user)
             ->getJson('/api/word-templates/fields?domain=boardmeeting')

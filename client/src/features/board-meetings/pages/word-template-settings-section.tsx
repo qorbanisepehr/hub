@@ -23,7 +23,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { ConfirmDeleteButton } from "@/components/ui/confirm-delete-button";
 import { ResponsiveDialog } from "@/components/ui/responsive-dialog";
 import { SectionTemplateSettingsCard } from "@/features/board-meetings/pages/section-template-settings-card";
-import { TemplateShapeCheatSheet } from "@/features/board-meetings/components/template-shape-cheat-sheet";
+import { TemplateAuthoringGuide } from "@/features/board-meetings/components/template-authoring-guide";
 import { usePermission } from "@/features/auth/components/permission-guard";
 import {
     useDeleteWordTemplate,
@@ -148,7 +148,7 @@ export function WordTemplateSettingsSection() {
                 </CardContent>
             </Card>
 
-            <TemplateShapeCheatSheet />
+            <TemplateAuthoringGuide />
 
             <UploadWordTemplateDialog
                 open={uploadOpen}

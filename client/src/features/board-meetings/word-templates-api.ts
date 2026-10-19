@@ -129,6 +129,14 @@ export type WordTemplateFieldsResponse = {
          * read before any meeting exists, so there is nothing to infer it from.
          */
         listable: string[];
+        /**
+         * The names that hold a date, and so also answer to `{{name@jalali}}`.
+         *
+         * Reported rather than generated: the cheat sheet is read before any record
+         * exists, so there is no value to inspect and only the domain knows which of
+         * its names are dates.
+         */
+        dates: string[];
     };
 };
 
