@@ -76,9 +76,8 @@ describe('a word template that word itself split', function () {
     };
 
     it('fills a macro that Word broke across three runs', function () use ($fill, $textOf) {
-        // What Word writes after a right-click or a font change: the same word,
-        // in three pieces, in three elements. Nothing about it is malformed and
-        // nothing about it announces a problem.
+        // ONE run holding three text elements. PHPWord will write this on request,
+        // and it is the shape the reader sees after loading such a file.
         $phpWord = new PhpWord;
         $run = $phpWord->addSection()->addTextRun();
         $run->addText('T ');
@@ -91,6 +90,65 @@ describe('a word template that word itself split', function () {
             ->not->toContain('{{title');
 
         @unlink($filled);
+    });
+
+    it('fills a macro that Word broke into three separate runs', function () use ($textOf) {
+        // THE SHAPE A REAL TEMPLATE HAS, and the one the repair above missed.
+        //
+        // Word writes a split macro as three ADJACENT `<w:r>` elements, not as one
+        // run with three `<w:t>` children:
+        //
+        //     <w:r><w:t>{{</w:t></w:r><w:r><w:t>summary.bullet_points</w:t></w:r><w:r><w:t>}}</w:t></w:r>
+        //
+        // This is taken from a real uploaded letterhead, where it printed on the
+        // page as three fragments. A repair that only joins the texts inside one run
+        // touches none of it — which is exactly what a passing test for the other
+        // shape hid.
+        $phpWord = new PhpWord;
+        $phpWord->addSection()->addText('placeholder');
+
+        $source = tempnam(sys_get_temp_dir(), 'split-runs-').'.docx';
+        IOFactory::createWriter($phpWord, 'Word2007')->save($source);
+
+        $zip = new ZipArchive;
+        $zip->open($source);
+        $xml = (string) $zip->getFromName('word/document.xml');
+
+        $split = str_replace(
+            '<w:r><w:rPr/><w:t xml:space="preserve">placeholder</w:t></w:r>',
+            '<w:r><w:rPr/><w:t xml:space="preserve">{{</w:t></w:r>'
+                .'<w:r w:rsidR="001310EE"><w:rPr/><w:t xml:space="preserve">title</w:t></w:r>'
+                .'<w:r><w:rPr/><w:t xml:space="preserve">}}</w:t></w:r>',
+            $xml,
+        );
+
+        // If the replacement did not land, the assertion below would be testing a
+        // document that was never broken and would pass for the wrong reason.
+        expect($split)->not->toBe($xml);
+
+        $zip->addFromString('word/document.xml', $split);
+        $zip->close();
+
+        $meeting = BoardMeeting::factory()->create(['title' => 'بودجه']);
+
+        app(DocxTemplateFiller::class)->fill(
+            $source,
+            app(BoardMeetingSheetExport::class)->document($meeting),
+            $meeting,
+            new BoardMeetingTemplateFields,
+            $stream = fopen('php://temp', 'r+'),
+        );
+
+        rewind($stream);
+        $out = tempnam(sys_get_temp_dir(), 'split-runs-out-').'.docx';
+        file_put_contents($out, stream_get_contents($stream));
+
+        expect($textOf($out))->toContain('بودجه')
+            ->not->toContain('{{')
+            ->not->toContain('title');
+
+        @unlink($source);
+        @unlink($out);
     });
 
     it('reads the pieces back as one name once they are folded', function () {

@@ -3,6 +3,7 @@
 namespace App\Support\Exports\Templates;
 
 use App\Support\Exports\Exceptions\InvalidFileTemplate;
+use App\Support\Exports\Render\DocxPackage;
 use Illuminate\Http\UploadedFile;
 use ZipArchive;
 
@@ -37,11 +38,6 @@ final class FileTemplateInspector
 
     /** Macro storage. A `.docx` has none; a renamed `.docm` does. */
     private const MACRO_PART = 'word/vbaProject.bin';
-
-    public function __construct(
-        private readonly DocxMacros $macros,
-        private readonly DocxBodySplice $splice,
-    ) {}
 
     /**
      * The size cap, read at inspection time.
@@ -148,7 +144,7 @@ final class FileTemplateInspector
      * Read from the zip rather than by loading the document, because loading is
      * only half of it: a reader that saves what it loaded would rewrite the
      * template, and there is nothing to be gained by going near the writer on a path
-     * whose whole job is to describe a file. {@see DocxMacros} joins a macro Word
+     * whose whole job is to describe a file. {@see DocxPackage} joins a macro Word
      * split across runs by concatenating the text of each paragraph, which is the
      * same repair `TemplateProcessor` makes on its own.
      *
@@ -156,7 +152,7 @@ final class FileTemplateInspector
      */
     private function describeDocx(string $path): array
     {
-        $names = $this->macros->names(...array_values($this->splice->parts($path)));
+        $names = DocxPackage::at($path)->names();
 
         return [
             'kind' => TemplateKind::fromNames($names)->value,

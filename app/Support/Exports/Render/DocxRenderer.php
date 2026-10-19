@@ -41,7 +41,7 @@ use PhpOffice\PhpWord\PhpWord;
 final class DocxRenderer implements DocumentComposer, DocumentRenderer
 {
     public function __construct(
-        private readonly DocxSectionDirection $sectionDirection = new DocxSectionDirection,
+        private readonly DocxRtl $rtl = new DocxRtl,
     ) {}
 
     public function render(DocumentSpec $spec, $stream): void
@@ -54,9 +54,13 @@ final class DocxRenderer implements DocumentComposer, DocumentRenderer
 
         $phpWord->addSection(['marginLeft' => 850, 'marginRight' => 850]);
 
-        $this->composeInto($phpWord, $spec, DocxBodyStyle::Ours);
+        // PHPWord's own RTL default, set for the duration and put back afterwards:
+        // see DocxRtl for why it is a static and why it must not be left set.
+        $this->rtl->with(function () use ($phpWord, $spec, $stream): void {
+            $this->composeInto($phpWord, $spec, DocxBodyStyle::Ours);
 
-        $this->emit($phpWord, $stream);
+            $this->emit($phpWord, $stream);
+        });
     }
 
     /**
@@ -114,7 +118,7 @@ final class DocxRenderer implements DocumentComposer, DocumentRenderer
             // PHPWord cannot express a right-to-left section, so it is written
             // afterwards. See {@see DocxSectionDirection} for why every paragraph
             // saying right is not the same as the document being right.
-            $this->sectionDirection->makeRtl($path);
+            DocxPackage::at($path)->makeSectionRtl();
 
             $bytes = file_get_contents($path);
 
@@ -229,13 +233,12 @@ final class DocxRenderer implements DocumentComposer, DocumentRenderer
             );
         }
 
-        $element = $section->addTable([
+        $element = $section->addTable($this->rtl->table([
             'borderSize' => 4,
             'borderColor' => '999999',
             'unit' => 'pct',
             'width' => 100,
-            'bidiVisual' => true,
-        ]);
+        ]));
 
         $columnCount = max(1, count($table->headers));
         $cellWidth = (int) floor(5000 / $columnCount);
@@ -268,16 +271,14 @@ final class DocxRenderer implements DocumentComposer, DocumentRenderer
     /**
      * The run's own appearance.
      *
-     * `rtl` is the one thing neither mode gives up, and that is deliberate: a
-     * template that shapes Persian left-to-right is broken rather than plain, so
-     * this is not something a template is allowed to override. Everything else is
-     * about how the meeting LOOKS, which is exactly what somebody built a
-     * letterhead to decide.
+     * Everything here that is not about direction is the caller's decision, and the
+     * direction itself is {@see DocxRtl}'s — including why it is not simply
+     * `alignment: right`.
      *
-     * A docx only NAMES its font — the reader's Word resolves it — so naming
-     * Tahoma over a template that says B Nazanin does not produce B Nazanin. It
-     * produces a document with two typefaces in it, which is the visible half of
-     * "the style broke" and the reason {@see DocxBodyStyle} exists.
+     * A docx only NAMES its font — the reader's Word resolves it — so naming Tahoma
+     * over a template that says B Nazanin does not produce B Nazanin. It produces a
+     * document with two typefaces in it, which is the visible half of "the style
+     * broke" and the reason {@see DocxBodyStyle} exists.
      *
      * @param  array<string, mixed>  $extra
      * @return array<string, mixed>
@@ -288,20 +289,23 @@ final class DocxRenderer implements DocumentComposer, DocumentRenderer
             // Size goes with the family. Leaving an 18pt title over 11pt body text
             // in a file that never asked for either is the same mistake one level
             // up: a type scale imposed on a document that has its own.
-            unset($extra['size'], $extra['name']);
+            unset($extra['size']);
+            unset($extra['name']);
 
-            return [...$extra, 'rtl' => true];
+            return $this->rtl->run($extra);
         }
 
-        return [...$extra, 'rtl' => true, 'name' => $font];
+        return $this->rtl->run($extra, $font);
     }
 
     /**
+     * The paragraph's direction and alignment, which are {@see DocxRtl}'s.
+     *
      * @param  array<string, mixed>  $extra
      * @return array<string, mixed>
      */
     private function paragraph(array $extra = []): array
     {
-        return [...['bidi' => true, 'alignment' => 'right'], ...$extra];
+        return $this->rtl->paragraph($extra);
     }
 }

@@ -3,7 +3,7 @@
 use App\Domains\BoardMeeting\Exports\BoardMeetingSheetExport;
 use App\Domains\BoardMeeting\Exports\BoardMeetingTemplateFields;
 use App\Domains\BoardMeeting\Models\BoardMeeting;
-use App\Support\Exports\Render\DocxSectionDirection;
+use App\Support\Exports\Render\DocxPackage;
 use App\Support\Exports\Templates\DocxTemplateFiller;
 use Illuminate\Support\Facades\Storage;
 use PhpOffice\PhpWord\IOFactory;
@@ -221,9 +221,7 @@ describe('what a word template keeps', function () {
 
         IOFactory::createWriter($phpWord, 'Word2007')->save($path);
 
-        $direction = app(DocxSectionDirection::class);
-
-        $direction->makeRtl($path);
+        DocxPackage::at($path)->makeSectionRtl();
 
         $read = function () use ($path): string {
             $zip = new ZipArchive;
@@ -235,7 +233,7 @@ describe('what a word template keeps', function () {
         };
 
         $once = $read();
-        $direction->makeRtl($path);
+        DocxPackage::at($path)->makeSectionRtl();
 
         expect($read())->toBe($once)
             ->and(substr_count($once, '<w:bidi/>'))->toBe(1);
