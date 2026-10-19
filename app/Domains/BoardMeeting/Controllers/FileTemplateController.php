@@ -195,6 +195,11 @@ final class FileTemplateController
         return [
             'slug' => $template->slug(),
             'name' => $template->name(),
+            // The format is part of what the row IS, not metadata about the file:
+            // a .md template and a .docx template are different templates that
+            // happen to be listed together, and a library that cannot say which is
+            // which is a list of names with extensions hidden.
+            'format' => $template->format(),
             'size' => $template->size(),
             'is_default' => $template->isDefault(),
         ];

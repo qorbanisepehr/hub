@@ -127,7 +127,11 @@ final class BoardMeetingTemplateFields implements ProvidesTemplateLabels, Templa
             'attendee' => array_map(
                 fn (Attendee $attendee): array => [
                     'name' => $attendee->name,
-                    'role' => $attendee->role->value,
+                    // The PERSIAN label rather than the enum value. A template puts this in
+                    // prose in someone's document, and chair sitting in the middle of a
+                    // Persian sentence is a value that leaked out of the database into
+                    // somewhere a person reads it.
+                    'role' => __('board_meeting.print.columns.roles.'.$attendee->role->value),
                     // Persian yes/no rather than a boolean, because the token sits
                     // in prose in someone's Word template and `1` there would be
                     // read as an attendance count.

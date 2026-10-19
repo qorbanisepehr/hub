@@ -129,6 +129,29 @@ describe('board meeting template fields', function () {
         ]);
     });
 
+    it('names a role in persian, not with the enum value', function () {
+        // The same argument as `present`, one level up. A template puts this token in
+        // prose inside somebody's own document, and `chair` sitting in the middle of
+        // a Persian sentence is a value that leaked out of the database into a place
+        // a person reads it — which is also what the JSON export was carrying.
+        $meeting = BoardMeeting::factory()
+            ->withAttendees(
+                new Attendee('الف', AttendeeRole::Chair, true),
+                new Attendee('ب', AttendeeRole::Observer, false),
+            )
+            ->create();
+
+        $roles = array_column($this->registry->values($meeting)['attendee'], 'role');
+
+        expect($roles)->toBe([
+            __('board_meeting.print.columns.roles.chair'),
+            __('board_meeting.print.columns.roles.observer'),
+        ])
+            // Named rather than asserted loosely: the point is that the enum's own
+            // value is NOT what a reader gets.
+            ->and($roles[0])->not->toBe(AttendeeRole::Chair->value);
+    });
+
     it('joins a short summary list into prose instead of giving it rows', function () {
         $meeting = BoardMeeting::factory()->create([
             'summary' => [
