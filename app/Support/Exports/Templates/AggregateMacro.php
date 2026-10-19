@@ -49,6 +49,20 @@ final class AggregateMacro
     ) {}
 
     /**
+     * A macro built from parts rather than parsed.
+     *
+     * FOR THE SHAPES THAT CARRY A SEPARATOR WITHOUT BEING WRITTEN AS ONE. A private
+     * constructor keeps `from()` the only way a macro is born out of text it READ;
+     * this is the other side of that, for a caller that already holds the two parts.
+     * Reassembling a string to re-parse it would be a way to disagree with the parser
+     * about what a separator is, which is not a risk worth taking for tidiness.
+     */
+    public static function between(string $key, string $separator): self
+    {
+        return new self(trim($key), $separator);
+    }
+
+    /**
      * Read a macro as an aggregate, or null when it is not one.
      *
      * @param  string  $raw  the text between the braces, exactly as written

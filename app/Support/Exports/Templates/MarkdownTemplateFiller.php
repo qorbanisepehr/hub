@@ -97,6 +97,8 @@ final class MarkdownTemplateFiller implements TemplateFiller
 
         $text = $this->substituteInline($text, $fields, $values, $present, $spec, $aggregates, $general);
 
+        $text = $this->adaptiveLists($text, $fields, $values);
+
         [$text, $unterminated] = $this->expandRanges($text, $fields, $values, $present);
 
         $text = $this->repeatRows($text, $fields, $values, $present, $unterminated);
@@ -192,6 +194,34 @@ final class MarkdownTemplateFiller implements TemplateFiller
      *                                           was left unterminated and must therefore
      *                                           not be repeated as ordinary lines
      */
+
+    /**
+     * Lists written with a start, joined in place.
+     *
+     * THE SAME SHAPE THE WORD FILLER FILLS, and the same rules about what a real
+     * column is. A template that moves between formats moves its list with it, which
+     * is the argument for one syntax rather than a Markdown dialect of its own.
+     *
+     * @param  list<TemplateField>  $fields
+     * @param  array<string, mixed>  $values
+     */
+    private function adaptiveLists(string $text, array $fields, array $values): string
+    {
+        foreach (AdaptiveListMacro::in($text) as $written => $macro) {
+            $joined = $this->values->adaptive($macro, $fields, $values);
+
+            if ($joined !== null) {
+                $text = str_replace(
+                    self::MACRO_OPEN.$written.self::MACRO_CLOSE,
+                    MarkdownText::inline($joined),
+                    $text,
+                );
+            }
+        }
+
+        return $text;
+    }
+
     private function expandRanges(string $text, array $fields, array $values, array $present): array
     {
         $unterminated = [];

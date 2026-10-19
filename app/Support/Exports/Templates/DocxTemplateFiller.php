@@ -213,6 +213,10 @@ final class DocxTemplateFiller implements TemplateFiller
             $processor->setValue($key, $value);
         }
 
+        foreach ($this->adaptiveLists($templatePath, $fields, $values) as $written => $value) {
+            $processor->setValue($written, $value);
+        }
+
         foreach ($this->aggregateFields($templatePath, $fields, $values) as $written => $value) {
             // Keyed by the macro AS WRITTEN: `setValue` rebuilds `{{` + key + `}}`, so
             // a normalised spelling searches for something the file does not contain
@@ -313,6 +317,39 @@ final class DocxTemplateFiller implements TemplateFiller
                 }
 
                 $value = $this->values->aggregate($macro, $fields, $values);
+
+                if ($value !== null) {
+                    $joined[$written] = $this->forXml($value);
+                }
+            }
+        }
+
+        return $joined;
+    }
+
+    /**
+     * Lists written with a start, keyed by the macro exactly as the file spells it.
+     *
+     * Read off the XML for the same reason the aggregates are: setValue is a plain
+     * string replace, so a macro Word split across runs cannot be replaced here
+     * either, and finding one that cannot be filled would hand over a substitution
+     * that silently does nothing.
+     *
+     * @param  list<TemplateField>  $fields
+     * @param  array<string, mixed>  $values
+     * @return array<string, string>
+     */
+    private function adaptiveLists(string $templatePath, array $fields, array $values): array
+    {
+        $joined = [];
+
+        foreach (DocxPackage::at($templatePath)->parts() as $xml) {
+            foreach (AdaptiveListMacro::in($xml) as $written => $macro) {
+                if (array_key_exists($written, $joined)) {
+                    continue;
+                }
+
+                $value = $this->values->adaptive($macro, $fields, $values);
 
                 if ($value !== null) {
                     $joined[$written] = $this->forXml($value);

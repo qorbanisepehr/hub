@@ -135,6 +135,91 @@ final class TemplateValues
     }
 
     /**
+     * A list with something printed before it.
+     *
+     * THE START IS NOT PART OF THE NAME, which is the whole point of the shape:
+     * `{{#برچسب‌ها: |tag.name|, }}` collects `tag.name` and prints `برچسب‌ها: ` in
+     * front of it, which neither of the two spellings it replaces could do. An
+     * aggregate joins items and nothing else; a block repeats a region and prints
+     * nothing around it.
+     *
+     * THE ITEMS COME FROM {@see aggregate()}, so the rules about what is a real
+     * column, and about what an empty group produces, are the same rules. Adding a
+     * way to print a list is not a reason to add a second definition of what a list
+     * is, and two definitions would drift.
+     *
+     * Null when the name is not real, which leaves the macro exactly as typed —
+     * INCLUDING ITS PREFIX, because a caption with nothing under it is worse than a
+     * visible macro.
+     *
+     * @param  list<TemplateField>  $fields
+     * @param  array<string, mixed>  $values
+     */
+    public function adaptive(AdaptiveListMacro $macro, array $fields, array $values): ?string
+    {
+        $items = $this->itemsFor($macro->key, $fields, $values);
+
+        if ($items === null) {
+            return null;
+        }
+
+        // AN EMPTY LIST PRINTS NOTHING AT ALL — not even the before or the after.
+        // Two marks wrapped around nothing reads as finished punctuation, and a
+        // reader of the minutes cannot tell it from content that means something.
+        if ($items === []) {
+            return '';
+        }
+
+        // EVERY ITEM IS WRAPPED, not the list: `{{@|tag.name|& }}` over aaa, bbb is
+        // `@aaa& @bbb&`, which is what makes it usable for quoting a list and for
+        // bracketing each entry without writing the brackets anywhere else.
+        return implode($macro->between, array_map(
+            static fn (string $item): string => $macro->before.$item.$macro->after,
+            $items,
+        ));
+    }
+
+    /**
+     * The raw items of a list, or null when the name is not a real one.
+     *
+     * Split out of {@see aggregate()} because this shape needs them SEPARATELY — it
+     * wraps each one, and joining first would leave it wrapping a single string with
+     * a separator inside it.
+     *
+     * @param  list<TemplateField>  $fields
+     * @param  array<string, mixed>  $values
+     * @return list<string>|null
+     */
+    private function itemsFor(string $key, array $fields, array $values): ?array
+    {
+        $dot = strpos($key, '.');
+
+        if ($dot === false) {
+            return null;
+        }
+
+        $group = substr($key, 0, $dot);
+        $column = substr($key, $dot + 1);
+
+        $entries = $values[$group] ?? [];
+
+        if (! is_array($entries)) {
+            return null;
+        }
+
+        if (! $this->hasColumn($fields, $group, $column)) {
+            $list = $values[$key.self::LIST_SUFFIX] ?? null;
+
+            return is_array($list) ? array_map(strval(...), $list) : null;
+        }
+
+        return array_map(
+            static fn (mixed $entry): string => is_array($entry) ? (string) ($entry[$column] ?? '') : '',
+            array_values($entries),
+        );
+    }
+
+    /**
      * Every name the file contains, keyed by the name with its spaces taken off.
      *
      * WHY THE SPELLING HAS TO BE KEPT. The reader hands back the macro exactly as
