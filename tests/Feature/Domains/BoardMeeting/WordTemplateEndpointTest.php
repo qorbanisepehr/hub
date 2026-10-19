@@ -41,7 +41,7 @@ describe('the word template library endpoints', function () {
 
     it('starts empty', function () use ($reader) {
         $this->actingAs($reader())
-            ->getJson('/api/word-templates')
+            ->getJson('/api/templates')
             ->assertOk()
             ->assertJsonPath('data.domain', BoardMeetingSheetExport::TEMPLATE_DOMAIN)
             ->assertJsonPath('data.templates', []);
@@ -49,7 +49,7 @@ describe('the word template library endpoints', function () {
 
     it('uploads a template and reports it without a kind', function () use ($manager, $upload) {
         $this->actingAs($manager())
-            ->post('/api/word-templates', [
+            ->post('/api/templates', [
                 'file' => $upload('official.docx', '{{title}}'),
                 'name' => 'نامهٔ رسمی',
                 'domain' => BoardMeetingSheetExport::TEMPLATE_DOMAIN,
@@ -65,7 +65,7 @@ describe('the word template library endpoints', function () {
 
     it('reports a template with no placeholders the same way', function () use ($manager, $upload) {
         $this->actingAs($manager())
-            ->post('/api/word-templates', [
+            ->post('/api/templates', [
                 'file' => $upload('house.docx', 'فقط سربرگ'),
                 'name' => 'سبک خانه',
                 'domain' => BoardMeetingSheetExport::TEMPLATE_DOMAIN,
@@ -78,7 +78,7 @@ describe('the word template library endpoints', function () {
         config(['exports.word.max_bytes' => 8]);
 
         $this->actingAs($manager())
-            ->post('/api/word-templates', [
+            ->post('/api/templates', [
                 'file' => $upload('big.docx'),
                 'name' => 'بزرگ',
                 'domain' => BoardMeetingSheetExport::TEMPLATE_DOMAIN,
@@ -89,7 +89,7 @@ describe('the word template library endpoints', function () {
 
     it('refuses a domain no template exists for', function () use ($manager, $upload) {
         $this->actingAs($manager())
-            ->post('/api/word-templates', [
+            ->post('/api/templates', [
                 'file' => $upload('x.docx'),
                 'name' => 'x',
                 'domain' => 'not-a-domain',
@@ -103,7 +103,7 @@ describe('the word template library endpoints', function () {
         // them have to share a table row, and that is the one mistake that makes
         // a list render as a single line.
         $this->actingAs($reader())
-            ->getJson('/api/word-templates/fields')
+            ->getJson('/api/templates/fields')
             ->assertOk()
             ->assertJsonPath('data.syntax', ['open' => '{{', 'close' => '}}'])
             ->assertJsonStructure([
@@ -114,7 +114,7 @@ describe('the word template library endpoints', function () {
             ]);
 
         $groups = $this->actingAs($reader())
-            ->getJson('/api/word-templates/fields')
+            ->getJson('/api/templates/fields')
             ->json('data.rows');
 
         expect(collect($groups)->pluck('group')->all())
@@ -127,7 +127,7 @@ describe('the word template library endpoints', function () {
         // missing key here would show up as an empty panel on the screen and nothing
         // anywhere else. Asserted on the wire for that reason.
         $data = $this->actingAs($reader())
-            ->getJson('/api/word-templates/fields')
+            ->getJson('/api/templates/fields')
             ->assertOk()
             ->json('data');
 
@@ -155,14 +155,14 @@ describe('the word template library endpoints', function () {
 
     it('promotes a default, which is what the export button then uses', function () use ($manager, $upload) {
         $this->actingAs($manager())
-            ->post('/api/word-templates', [
+            ->post('/api/templates', [
                 'file' => $upload('a.docx'),
                 'name' => 'الف',
                 'domain' => BoardMeetingSheetExport::TEMPLATE_DOMAIN,
             ]);
 
         $this->actingAs($manager())
-            ->post('/api/word-templates', [
+            ->post('/api/templates', [
                 'file' => $upload('b.docx'),
                 'name' => 'ب',
                 'domain' => BoardMeetingSheetExport::TEMPLATE_DOMAIN,
@@ -170,12 +170,12 @@ describe('the word template library endpoints', function () {
             ->assertCreated();
 
         $this->actingAs($manager())
-            ->putJson('/api/word-templates/b', ['is_default' => true])
+            ->putJson('/api/templates/b', ['is_default' => true])
             ->assertOk()
             ->assertJsonPath('data.is_default', true);
 
         $listed = $this->actingAs($manager())
-            ->getJson('/api/word-templates')
+            ->getJson('/api/templates')
             ->json('data.templates');
 
         // Default first, so the list a person sees leads with the one the button
@@ -187,7 +187,7 @@ describe('the word template library endpoints', function () {
         $template = $this->library->upload($upload('x.docx'), 'docx', 'boardmeeting', 'قبلی');
 
         $this->actingAs($manager())
-            ->putJson('/api/word-templates/'.$template->slug(), ['name' => 'بعدی'])
+            ->putJson('/api/templates/'.$template->slug(), ['name' => 'بعدی'])
             ->assertOk()
             ->assertJsonPath('data.name', 'بعدی');
 
@@ -198,7 +198,7 @@ describe('the word template library endpoints', function () {
         $template = $this->library->upload($upload('gone.docx'), 'docx', 'boardmeeting', 'موقتی');
 
         $this->actingAs($manager())
-            ->deleteJson('/api/word-templates/'.$template->slug())
+            ->deleteJson('/api/templates/'.$template->slug())
             ->assertOk();
 
         expect($this->store->has($template))->toBeFalse();
@@ -206,13 +206,13 @@ describe('the word template library endpoints', function () {
 
     it('answers 404 for a template that is not there', function () use ($manager) {
         $this->actingAs($manager())
-            ->deleteJson('/api/word-templates/nope')
+            ->deleteJson('/api/templates/nope')
             ->assertNotFound();
     });
 
     it('keeps management out of a reader’s hands', function () use ($reader, $upload) {
         $this->actingAs($reader())
-            ->post('/api/word-templates', [
+            ->post('/api/templates', [
                 'file' => $upload('x.docx'),
                 'name' => 'x',
                 'domain' => BoardMeetingSheetExport::TEMPLATE_DOMAIN,
@@ -220,7 +220,7 @@ describe('the word template library endpoints', function () {
             ->assertForbidden();
 
         $this->actingAs($reader())
-            ->deleteJson('/api/word-templates/anything')
+            ->deleteJson('/api/templates/anything')
             ->assertForbidden();
     });
 });

@@ -33,12 +33,13 @@ use App\Domains\Settings\Exceptions\InvalidSetting;
  *
  * THE `sections/` PREFIX IS LOAD-BEARING, NOT COSMETIC. `handles()` is what the
  * store uses to decide which kind of setting owns a key, and the `exports` group
- * holds more than one kind - {@see FileTemplate} keeps its files under `word/`.
- * Without a prefix on both sides, a key like `word/boardmeeting/official` parses
- * as domain `word` with entity `boardmeeting/official` and BOTH classes claim it:
- * a listing starts returning another kind's rows, and a delete quietly stops
- * matching anything. Two namespaces that cannot overlap is the same discipline
- * the AI registry applies to `providers/` and `agents/`.
+ * holds more than one kind — {@see FileTemplate} keeps its uploaded files under
+ * `template/`. Without a prefix on both sides, a key like
+ * `template/boardmeeting/official` parses as domain `template` with entity
+ * `boardmeeting/official` and BOTH classes could claim it: a listing starts
+ * returning another kind's rows, and a delete quietly stops matching anything.
+ * Two namespaces that cannot overlap is the same discipline the AI registry
+ * applies to `providers/` and `agents/`.
  */
 final class ExportTemplate implements Setting
 {

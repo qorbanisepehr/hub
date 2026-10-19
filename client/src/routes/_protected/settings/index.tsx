@@ -39,7 +39,7 @@ const TABS = [
         permissions: [PERMISSIONS.AI_PROVIDER_VIEW, PERMISSIONS.AI_PROVIDER_MANAGE],
     },
     {
-        to: "/settings/word-templates",
+        to: "/settings/templates",
         permissions: [
             PERMISSIONS.EXPORT_TEMPLATE_VIEW,
             PERMISSIONS.EXPORT_TEMPLATE_MANAGE,

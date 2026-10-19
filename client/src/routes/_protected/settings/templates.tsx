@@ -8,7 +8,7 @@ import {
 import { requirePermission } from "@/features/auth/guards";
 import { PERMISSIONS } from "@/lib/permissions";
 
-const WordTemplateSettingsSection = lazy(() =>
+const TemplateSettingsSection = lazy(() =>
     import("@/features/board-meetings/pages/word-template-settings-section").then(
         (m) => ({ default: m.WordTemplateSettingsSection }),
     ),
@@ -16,14 +16,14 @@ const WordTemplateSettingsSection = lazy(() =>
 
 export const Route = createRoute({
     getParentRoute: () => SettingsRoute,
-    path: "word-templates",
+    path: "templates",
     beforeLoad: requirePermission([
         PERMISSIONS.EXPORT_TEMPLATE_VIEW,
         PERMISSIONS.EXPORT_TEMPLATE_MANAGE,
     ]),
     component: () => (
         <LazyRoute
-            component={WordTemplateSettingsSection}
+            component={TemplateSettingsSection}
             fallback={<RouteLoadingFallback />}
         />
     ),

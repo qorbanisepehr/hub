@@ -263,7 +263,7 @@ describe('the general placeholders in the cheat sheet', function () {
     it('lists all four, each with a label of its own', function () {
         $this->actingAs(createUserWithPermissions(['export-template.view']));
 
-        $response = $this->getJson('/api/word-templates/fields');
+        $response = $this->getJson('/api/templates/fields');
 
         $response->assertOk();
 

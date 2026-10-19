@@ -36,7 +36,7 @@ describe('uploading a template in a non-word format', function () {
 
     it('stores a markdown template as markdown, and reports what it holds', function () use ($manager, $text) {
         $response = $this->actingAs($manager())
-            ->post('/api/word-templates', [
+            ->post('/api/templates', [
                 'file' => $text('md', "# سربرگ\n\nعنوان: {{title}}\n\n{{content}}\n"),
                 'name' => 'قالب متنی',
                 'domain' => 'boardmeeting',
@@ -52,7 +52,7 @@ describe('uploading a template in a non-word format', function () {
 
     it('stores a json template as json', function () use ($manager, $text) {
         $response = $this->actingAs($manager())
-            ->post('/api/word-templates', [
+            ->post('/api/templates', [
                 'file' => $text('json', '{"title": "{{title}}", "meeting": {{content}}}'),
                 'name' => 'قالب json',
                 'domain' => 'boardmeeting',
@@ -65,7 +65,7 @@ describe('uploading a template in a non-word format', function () {
 
     it('stores a document template as a document, with no document generated', function () use ($manager, $text) {
         $response = $this->actingAs($manager())
-            ->post('/api/word-templates', [
+            ->post('/api/templates', [
                 'file' => $text('md', 'عنوان: {{title}}'),
                 'name' => 'نامه',
                 'domain' => 'boardmeeting',
@@ -77,14 +77,14 @@ describe('uploading a template in a non-word format', function () {
     it('lists a stored markdown template under markdown, not under word', function () use ($manager, $text) {
         // The other half of the same bug: stored correctly and then invisible,
         // because the library was asked for by a format the template was not.
-        $this->actingAs($manager())->post('/api/word-templates', [
+        $this->actingAs($manager())->post('/api/templates', [
             'file' => $text('md', '# سربرگ'),
             'name' => 'قالب متنی',
             'domain' => 'boardmeeting',
         ])->assertCreated();
 
         $this->actingAs($manager())
-            ->getJson('/api/word-templates?format=md&domain=boardmeeting')
+            ->getJson('/api/templates?format=md&domain=boardmeeting')
             ->assertOk()
             ->assertJsonPath('data.templates.0.format', 'md');
     });
@@ -93,7 +93,7 @@ describe('uploading a template in a non-word format', function () {
         // A PDF is the real case: the export kernel renders one and it cannot take a
         // template, because the output is not editable. The message names the three
         // rather than saying "upload failed", because the person has to pick one.
-        $response = $this->actingAs($manager())->post('/api/word-templates', [
+        $response = $this->actingAs($manager())->post('/api/templates', [
             'file' => $text('pdf', '%PDF-1.4'),
             'name' => 'پی دی اف',
             'domain' => 'boardmeeting',
@@ -116,7 +116,7 @@ describe('uploading a template in a non-word format', function () {
         IOFactory::createWriter($phpWord, 'Word2007')->save($path);
 
         $this->actingAs($manager())
-            ->post('/api/word-templates', [
+            ->post('/api/templates', [
                 'file' => new UploadedFile($path, 'letter.docx', null, null, true),
                 'name' => 'نامه',
                 'domain' => 'boardmeeting',

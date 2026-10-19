@@ -135,7 +135,7 @@ export const NAV_ITEMS: NavItem[] = [
                 // cross-domain setting like the AI registry, not part of the
                 // board-meeting feature it happens to be used by first.
                 title: "قالب خروجی",
-                url: "/settings/word-templates",
+                url: "/settings/templates",
                 icon: <IconFileText />,
                 permission: [
                     PERMISSIONS.EXPORT_TEMPLATE_VIEW,

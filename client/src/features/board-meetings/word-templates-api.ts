@@ -141,7 +141,7 @@ export type WordTemplateFieldsResponse = {
 };
 
 export function fetchWordTemplates(domain = "boardmeeting") {
-    return api.get<WordTemplateListResponse>("/word-templates", {
+    return api.get<WordTemplateListResponse>("/templates", {
         params: { domain },
     });
 }
@@ -154,7 +154,7 @@ export function fetchWordTemplates(domain = "boardmeeting") {
  * uploads a file and should not be refetched beside it.
  */
 export function fetchWordTemplateFields(domain = "boardmeeting") {
-    return api.get<WordTemplateFieldsResponse>("/word-templates/fields", {
+    return api.get<WordTemplateFieldsResponse>("/templates/fields", {
         params: { domain },
     });
 }
@@ -174,7 +174,7 @@ export function uploadWordTemplate(payload: {
         form.append("is_default", "1");
     }
 
-    return api.post<WordTemplateUploadResponse>("/word-templates", form, {
+    return api.post<WordTemplateUploadResponse>("/templates", form, {
         headers: FORM_DATA_HEADERS,
     });
 }
@@ -183,11 +183,11 @@ export function updateWordTemplate(
     slug: string,
     payload: { name?: string; is_default?: boolean },
 ) {
-    return api.put(`/word-templates/${slug}`, payload);
+    return api.put(`/templates/${slug}`, payload);
 }
 
 export function deleteWordTemplate(slug: string) {
-    return api.delete(`/word-templates/${slug}`);
+    return api.delete(`/templates/${slug}`);
 }
 
 /*

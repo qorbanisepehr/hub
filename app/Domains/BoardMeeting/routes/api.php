@@ -130,34 +130,34 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     /*
-     * Word templates a meeting can be exported with.
+     * TEMPLATE FILES a meeting can be exported with.
      *
      * Above `{meeting}` for the same reason the other literal paths are: a
      * parameter declared first would capture `word-templates` as a meeting id.
      */
-    Route::prefix('word-templates')->group(function (): void {
+    Route::prefix('templates')->group(function (): void {
         Route::get('/', [FileTemplateController::class, 'index'])
-            ->name('word-templates.index')
+            ->name('templates.index')
             ->middleware('permission:export-template.view');
 
         // The cheat sheet. A separate path from the library because it is the
         // answer to a different question — what may a template contain — and the
         // export button needs only the list.
         Route::get('fields', [FileTemplateController::class, 'fields'])
-            ->name('word-templates.fields')
+            ->name('templates.fields')
             ->middleware('permission:export-template.view');
 
         Route::post('/', [FileTemplateController::class, 'store'])
-            ->name('word-templates.store')
+            ->name('templates.store')
             ->middleware('permission:export-template.manage');
 
         Route::put('{slug}', [FileTemplateController::class, 'update'])
-            ->name('word-templates.update')
+            ->name('templates.update')
             ->middleware('permission:export-template.manage')
             ->where('slug', '[A-Za-z0-9][A-Za-z0-9._-]*');
 
         Route::delete('{slug}', [FileTemplateController::class, 'destroy'])
-            ->name('word-templates.destroy')
+            ->name('templates.destroy')
             ->middleware('permission:export-template.manage')
             ->where('slug', '[A-Za-z0-9][A-Za-z0-9._-]*');
     });

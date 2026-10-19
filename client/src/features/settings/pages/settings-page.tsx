@@ -42,8 +42,8 @@ export function SettingsPage() {
             ? "form-options"
             : pathname.endsWith("/imports")
               ? "imports"
-              : pathname.endsWith("/word-templates")
-                ? "word-templates"
+              : pathname.endsWith("/templates")
+                ? "templates"
                 : pathname.endsWith("/tags")
                   ? "tags"
                   : pathname.endsWith("/ai")
@@ -84,7 +84,7 @@ export function SettingsPage() {
                     )}
                     {canAi && <TabsTrigger value="ai">هوش مصنوعی</TabsTrigger>}
                     {canWordTemplates && (
-                        <TabsTrigger value="word-templates">
+                        <TabsTrigger value="templates">
                             قالب خروجی
                         </TabsTrigger>
                     )}
