@@ -5,11 +5,8 @@ import {
     IconFileDescription,
     IconFileText,
     IconAdjustments,
-    IconFileTypeDoc,
-    IconFileTypePdf,
     IconDownload,
     IconFileZip,
-    IconMarkdown,
     IconPencil,
     IconRobot,
     IconTag,
@@ -37,12 +34,7 @@ import {
 import { PERMISSIONS } from "@/lib/permissions";
 import { MeetingDocumentsTab } from "../components/meeting-documents-tab";
 import { MeetingEditDialog } from "../components/meeting-edit-dialog";
-import { WordTemplatePickerDialog } from "../components/word-template-picker-dialog";
-import { MeetingSectionTemplateDialog } from "../components/meeting-section-template-dialog";
-import { useWordTemplates } from "../hooks/use-word-templates";
-import {
-    exportBoardMeetingDocx as exportDocxWithTemplate,
-} from "../word-templates-api";
+import { MeetingExportDialog } from "../components/meeting-export-dialog";
 import { MeetingMinutesPreview } from "../components/meeting-minutes-preview";
 import { MeetingStats } from "../components/meeting-stats";
 import {
@@ -52,12 +44,7 @@ import {
 
 import { MeetingSummarySection } from "../components/meeting-summary-section";
 import { MeetingTagChips } from "../components/meeting-tag-chips";
-import {
-    exportBoardMeetingBundle,
-    exportBoardMeetingDocx,
-    exportBoardMeetingMarkdown,
-    exportBoardMeetingPdf,
-} from "../api";
+import { exportBoardMeetingBundle } from "../api";
 import { hasContent, isRunInFlight } from "../summary-read";
 import {
     useAcceptMeetingSummary,
@@ -153,53 +140,30 @@ export function BoardMeetingDetailPage() {
     // worth saying out loud, because a download that silently does not happen
     // looks to a user like the button is broken.
     //
-    // One handler for both formats rather than two, and the format is the
-    // argument: the two requests differ only in which renderer runs, and a
-    // second copy of this block could drift into showing the wrong label or the
-    // wrong fallback name.
-    const handleExport = async (format: "pdf" | "docx" | "md" | "zip") => {
-        setExportingFormat(format);
+    // THE SHEET EXPORT IS ONE DIALOG NOW, so this page exports exactly two things and
+    // both are single clicks: the bundle, and opening the dialog.
+    //
+    // It used to be three format buttons plus a fourth for the section list, with
+    // two of them dialogs that could answer only half the question — so picking a
+    // Word template AND dropping the agenda took two round trips, and neither could
+    // do both. Format, template and sections are halves of one decision and the
+    // dialog now asks it once.
+    const [exportDialogOpen, setExportDialogOpen] = useState(false);
+
+    // The bundle is NOT a sheet export. It carries the attachments' actual bytes and
+    // needs a second permission, so it stays its own button rather than becoming a
+    // fifth format in the dialog — a choice inside that dialog would have to be
+    // refused for a user who may not download some of what it would have contained.
+    const handleBundle = async () => {
+        setExportingFormat("zip");
 
         try {
-            const response = await {
-                pdf: exportBoardMeetingPdf,
-                docx: exportBoardMeetingDocx,
-                md: exportBoardMeetingMarkdown,
-                zip: exportBoardMeetingBundle,
-            }[format](meetingId);
+            const response = await exportBoardMeetingBundle(meetingId);
 
             saveBlobResponse(
                 response,
-                `board-meeting-${exportDateStamp()}.${format}`,
-                EXPORT_MIME_TYPES[format],
-            );
-        } catch {
-            toast.error("ساخت فایل انجام نشد.", {
-                description: "لطفاً دوباره تلاش کنید.",
-            });
-        } finally {
-            setExportingFormat(null);
-        }
-    };
-
-    // `docx` is the one format that may need a choice first: if this domain has
-    // more than one Word template the person has to say which, because the file
-    // decides what the document says and picking the wrong one gives them a
-    // document they did not ask for. With none or one, the click stays a click.
-    const { data: wordTemplates } = useWordTemplates();
-    const [wordPickerOpen, setWordPickerOpen] = useState(false);
-    const [sectionTemplateOpen, setSectionTemplateOpen] = useState(false);
-
-    const handleDocx = async (slug?: string) => {
-        setExportingFormat("docx");
-
-        try {
-            const response = await exportDocxWithTemplate(meetingId, slug);
-
-            saveBlobResponse(
-                response,
-                `board-meeting-${exportDateStamp()}.docx`,
-                EXPORT_MIME_TYPES.docx,
+                `board-meeting-${exportDateStamp()}.zip`,
+                EXPORT_MIME_TYPES.zip,
             );
         } catch {
             toast.error("ساخت فایل انجام نشد.", {
@@ -288,46 +252,27 @@ export function BoardMeetingDetailPage() {
                         permission: PERMISSIONS.BOARD_MEETING_EXPORT,
                         items: [
                             {
-                                icon: <IconFileTypePdf />,
-                                label: "PDF",
-                                onClick: () => handleExport("pdf"),
-                                disabled: exportingFormat !== null,
-                            },
-                            {
-                                icon: <IconFileTypeDoc />,
-                                label: "Word",
-                                // The one format that may need a choice first:
-                                // with several templates the file decides what the
-                                // document says, so the wrong one is not a
-                                // cosmetic mistake. With none or one, this stays
-                                // a single click.
-                                onClick: () =>
-                                    wordTemplates && wordTemplates.length > 1
-                                        ? setWordPickerOpen(true)
-                                        : void handleDocx(),
-                                disabled: exportingFormat !== null,
-                            },
-                            {
-                                icon: <IconMarkdown />,
-                                label: "Markdown",
-                                onClick: () => handleExport("md"),
-                                disabled: exportingFormat !== null,
-                            },
-                            {
                                 icon: <IconAdjustments />,
-                                label: "بخش‌های چاپی",
-                                onClick: () => setSectionTemplateOpen(true),
+                                label: "انتخاب فرمت، قالب و بخش‌ها",
+                                // ONE ENTRY FOR THE WHOLE SHEET. It was four: three
+                                // formats each exporting on their own, and a
+                                // "بخش‌های چاپی" that changed what all three would
+                                // contain. So picking a Word template AND dropping
+                                // the agenda took two dialogs, and neither could do
+                                // both at once.
+                                onClick: () => setExportDialogOpen(true),
                                 disabled: exportingFormat !== null,
-                                separatorBefore: true,
-                                // Not an export itself: it changes WHAT the
-                                // exports above will contain, so it sits after
-                                // them and reads as a setting.
-                                permission: PERMISSIONS.EXPORT_TEMPLATE_VIEW,
+                                // The section list used to be gated behind its own
+                                // permission because it SAVED. This does not save —
+                                // it changes one request — so the export permission
+                                // the trigger already carries is the whole gate, and
+                                // a second one would hide the dialog from people who
+                                // may perfectly well export.
                             },
                             {
                                 icon: <IconFileZip />,
                                 label: "بستهٔ کامل (همهٔ پیوست‌ها)",
-                                onClick: () => handleExport("zip"),
+                                onClick: () => void handleBundle(),
                                 disabled: exportingFormat !== null,
                                 // Two permissions, not one: this archive
                                 // carries the attachments' actual bytes, so
@@ -528,15 +473,9 @@ export function BoardMeetingDetailPage() {
 
             <MeetingProvenance meeting={meeting} />
 
-            <MeetingSectionTemplateDialog
-                open={sectionTemplateOpen}
-                onOpenChange={setSectionTemplateOpen}
-                meetingId={meetingId}
-            />
-
-            <WordTemplatePickerDialog
-                open={wordPickerOpen}
-                onOpenChange={setWordPickerOpen}
+            <MeetingExportDialog
+                open={exportDialogOpen}
+                onOpenChange={setExportDialogOpen}
                 meetingId={meetingId}
             />
 

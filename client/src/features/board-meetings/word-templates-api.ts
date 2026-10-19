@@ -190,16 +190,14 @@ export function deleteWordTemplate(slug: string) {
     return api.delete(`/word-templates/${slug}`);
 }
 
-/**
- * The Word export, with a template chosen.
+/*
+ * The Word export used to live here as well as in `api.ts`, with a different
+ * signature - this one took a template. An import that reached for the wrong copy
+ * compiled, type-checked and silently dropped the template, which is the worst way
+ * for a duplicate to announce itself.
  *
- * `template` is the slug, and omitting it means "whatever the domain's default
- * is" - which is what keeps a single click working for an application where
- * nobody has configured anything.
+ * There is now ONE sheet-export call, in `api.ts`, and it takes the template and
+ * the sections together - because they are two halves of the same choice, and a
+ * dialog that could set one without the other would be a dialog asking the same
+ * question twice.
  */
-export function exportBoardMeetingDocx(id: number | string, template?: string) {
-    return api.get(`/board-meetings/${id}/export/docx`, {
-        responseType: "blob",
-        params: template ? { template } : undefined,
-    });
-}

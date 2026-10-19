@@ -86,42 +86,45 @@ export function fetchBoardMeeting(id: number | string) {
  * row. This is the document kernel's path, and the route names its format
  * instead of taking a `?format=` guess.
  */
-export function exportBoardMeetingPdf(id: number | string) {
-    return api.get(`/board-meetings/${id}/export/pdf`, {
-        responseType: "blob",
-    });
-}
-
 /**
- * The same sheet as an editable Word file. Not a `format` argument on the PDF
- * call: a .docx is something you can change, so it is a different request from
- * "print this", and the URL says which one was made.
- */
-export function exportBoardMeetingDocx(id: number | string) {
-    return api.get(`/board-meetings/${id}/export/docx`, {
-        responseType: "blob",
-    });
-}
-
-/**
- * The whole meeting in one archive: the printable sheet plus every scan filed
- * under it.
+ * ONE call for the whole printable sheet, in whatever format, with whichever
+ * template and whichever sections.
  *
- * Wider than the other two on purpose — it carries the attachments' actual
- * bytes, so the server demands `board-meeting.documents.download` as well and
- * refuses export-only users with a 403. The button hides behind both
- * permissions so nobody is offered a download the server will refuse.
- */
-/**
- * The same sheet as Markdown — the one format that is not a document at all.
+ * THIS REPLACES THREE NEAR-IDENTICAL FUNCTIONS, and the duplication had already
+ * cost something: `exportBoardMeetingDocx` existed in BOTH this file and
+ * `word-templates-api.ts`, with different signatures — one taking a template, one
+ * not. An import that picked the wrong one compiled, type-checked and silently
+ * dropped the template, which is the worst way for a duplicate to announce itself.
  *
- * Worth its own call rather than a format argument: it costs the layout the
- * other two give you and buys a file that greps, diffs, pastes into an issue,
- * or goes to an agent with no parser in between.
+ * The route still NAMES its format rather than taking a `?format=` guess: a `.docx`
+ * is a file somebody can change and a `.pdf` is a thing they print, and the URL is
+ * where that distinction is legible.
+ *
+ * `sections` and `template` are BOTH optional and BOTH per-request. Neither is
+ * saved: "print this one differently, once" and "from now on" are different asks,
+ * and only the first is answerable without a settings screen.
  */
-export function exportBoardMeetingMarkdown(id: number | string) {
-    return api.get(`/board-meetings/${id}/export/md`, {
+export type BoardMeetingSheetFormat = "pdf" | "docx" | "md" | "json";
+
+export function exportBoardMeetingSheet(
+    id: number | string,
+    options: {
+        format: BoardMeetingSheetFormat;
+        template?: string;
+        sections?: string[];
+    },
+) {
+    const { format, template, sections } = options;
+
+    return api.get(`/board-meetings/${id}/export/${format}`, {
         responseType: "blob",
+        params: {
+            ...(template ? { template } : {}),
+            // Sent only when the person actually chose, because an absent parameter
+            // means "the usual sections" and an empty one means "print nothing" —
+            // two different answers, and always both worth being explicit about.
+            ...(sections ? { sections } : {}),
+        },
     });
 }
 
