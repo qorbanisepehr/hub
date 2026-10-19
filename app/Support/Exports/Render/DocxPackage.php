@@ -2,6 +2,7 @@
 
 namespace App\Support\Exports\Render;
 
+use App\Support\Exports\Templates\RangeMacro;
 use App\Support\Exports\Templates\TemplateKind;
 use App\Support\Exports\Value\Document\DocumentSpec;
 use DOMDocument;
@@ -414,6 +415,125 @@ final class DocxPackage
         $section->appendChild($bidi);
 
         $this->flush();
+    }
+
+    /**
+     * Repeat a marked block once per record, each copy its own paragraphs.
+     *
+     * WHAT THIS IS FOR. A separator joins a list into one sentence; a bullet list is
+     * one PARAGRAPH per record, and nothing could do that outside a table before.
+     * A "bullet" made from a separator wraps into a single line, which is not a list.
+     *
+     * THE MARKERS ARE READ AS WHOLE PARAGRAPHS. `{{#attendee}}` on a line of its own
+     * opens a range and `{{/attendee}}` closes it; a marker sharing a paragraph with
+     * other words is left alone, because expanding half of it would delete a block the
+     * author can no longer see. That is the same trade every other convention here
+     * makes — teach it, do not enforce it.
+     *
+     * Empty gives nothing at all rather than one empty paragraph, because a bullet
+     * list with a blank bullet in it is worse than no list.
+     *
+     * @param  array<string, string>[]  $rows  keyed by macro name
+     * @param  callable(string): string  $escape
+     */
+    public function expandRange(string $group, array $rows, callable $escape): void
+    {
+        $xpath = $this->namespaced($this->dom());
+        $body = $this->body();
+
+        $elements = iterator_to_array($body->childNodes);
+
+        $open = $this->markerAt($xpath, $elements, RangeMacro::open($group));
+        $close = $this->markerAt($xpath, $elements, RangeMacro::close($group));
+
+        if ($open === null || $close === null || $open >= $close) {
+            return;
+        }
+
+        $block = array_slice($elements, $open + 1, $close - $open - 1);
+
+        // Insert the copies BEFORE removing the range. Removing first would detach
+        // the very node they are inserted against, and every insert after it throws
+        // "Not Found" — the kind of failure that reads like a DOM problem and is
+        // really an ordering one.
+        if ($rows !== []) {
+            $anchor = $elements[$open];
+
+            foreach ($rows as $row) {
+                foreach ($block as $element) {
+                    $copy = $element->cloneNode(true);
+
+                    $this->fillCopy($xpath, $copy, $row, $escape);
+
+                    $body->insertBefore($copy, $anchor);
+                }
+            }
+        }
+
+        foreach ($elements as $index => $element) {
+            if ($index < $open || $index > $close) {
+                continue;
+            }
+
+            $body->removeChild($element);
+        }
+
+        $this->flush();
+    }
+
+    /**
+     * Fill one copied element with one record's values.
+     *
+     * Only the column macros this group declares are replaced, so a value that
+     * happens to contain braces is never mistaken for something to fill, and a macro
+     * for another group inside the block is left visible rather than guessed at.
+     *
+     * @param  array<string, string>  $row
+     * @param  callable(string): string  $escape
+     */
+    private function fillCopy(DOMXPath $xpath, DOMNode $copy, array $row, callable $escape): void
+    {
+        foreach ($xpath->query('.//w:t', $copy) ?: [] as $text) {
+            $value = $text->textContent;
+
+            if (! str_contains($value, self::MACRO_OPEN)) {
+                continue;
+            }
+
+            $replaced = preg_replace_callback(
+                '/'.preg_quote(self::MACRO_OPEN, '/').'([^{}]+?)'.preg_quote(self::MACRO_CLOSE, '/').'/',
+                static function (array $match) use ($row, $escape): string {
+                    $name = trim($match[1]);
+
+                    return array_key_exists($name, $row) ? $escape($row[$name]) : $match[0];
+                },
+                $value,
+            );
+
+            if (is_string($replaced)) {
+                $text->textContent = $replaced;
+            }
+        }
+    }
+
+    /**
+     * The index of the paragraph that is nothing but this marker.
+     *
+     * @param  list<DOMNode>  $elements
+     */
+    private function markerAt(DOMXPath $xpath, array $elements, string $macro): ?int
+    {
+        foreach ($elements as $index => $element) {
+            if (! $element instanceof DOMElement) {
+                continue;
+            }
+
+            if (trim($this->textOf($xpath, $element)) === $macro) {
+                return $index;
+            }
+        }
+
+        return null;
     }
 
     /** The paragraph that exists only to say where the meeting goes, if there is one. */

@@ -97,7 +97,9 @@ final class MarkdownTemplateFiller implements TemplateFiller
 
         $text = $this->substituteInline($text, $fields, $values, $present, $spec, $aggregates, $general);
 
-        $text = $this->repeatRows($text, $fields, $values, $present);
+        [$text, $unterminated] = $this->expandRanges($text, $fields, $values, $present);
+
+        $text = $this->repeatRows($text, $fields, $values, $present, $unterminated);
 
         fwrite($stream, $text);
     }
@@ -170,6 +172,99 @@ final class MarkdownTemplateFiller implements TemplateFiller
     }
 
     /**
+     * Repeat each `{{#group}}…{{/group}}` block once per record, as its own lines.
+     *
+     * The bullet list. In Markdown a record is one LINE, so this is the natural cost
+     * of a bullet — unlike Word, where each record is a paragraph and the block has to
+     * be duplicated as structure rather than as text.
+     *
+     * Commas are put BETWEEN copies and nowhere else, for the same reason JSON does
+     * it: the author cannot write them without a trailing one on the last item, and a
+     * trailing comma is what makes the value wrong.
+     *
+     * A group with no records takes its whole block out, leaving nothing — a list
+     * with a blank bullet in it is worse than no list.
+     *
+     * @param  list<TemplateField>  $fields
+     * @param  array<string, mixed>  $values
+     * @param  array<string, int>  $present
+     * @return array{0: string, 1: list<string>} the text, and the groups whose range
+     *                                           was left unterminated and must therefore
+     *                                           not be repeated as ordinary lines
+     */
+    private function expandRanges(string $text, array $fields, array $values, array $present): array
+    {
+        $unterminated = [];
+        foreach ($this->values->groups($fields, $values, $present) as [$search, $rows]) {
+            $group = $this->values->groupOf($search);
+
+            $lines = explode("\n", $text);
+            $out = [];
+            $inside = false;
+            $block = [];
+
+            foreach ($lines as $line) {
+                if (! $inside && trim($line) === RangeMacro::open($group)) {
+                    $inside = true;
+
+                    continue;
+                }
+
+                if ($inside && trim($line) === RangeMacro::close($group)) {
+                    foreach ($rows as $row) {
+                        foreach ($block as $piece) {
+                            $out[] = $this->fillRangeLine($piece, $row);
+                        }
+                    }
+
+                    $inside = false;
+                    $block = [];
+
+                    continue;
+                }
+
+                if ($inside) {
+                    $block[] = $line;
+
+                    continue;
+                }
+
+                $out[] = $line;
+            }
+
+            // An unterminated range is a typo. Everything from the marker onwards is
+            // left as the author wrote it rather than silently deleted — and the group
+            // is reported, because the line-repeating pass below would otherwise treat
+            // the restored lines as an ordinary repeated row and expand them anyway,
+            // which is the opposite of leaving them alone.
+            if ($inside) {
+                $out = [...$out, RangeMacro::open($group), ...$block];
+                $unterminated[] = $group;
+            }
+
+            $text = implode("\n", $out);
+        }
+
+        return [$text, $unterminated];
+    }
+
+    /**
+     * One line of a range, with that record's values in it.
+     *
+     * @param  array<string, string>  $row
+     */
+    private function fillRangeLine(string $line, array $row): string
+    {
+        return (string) preg_replace_callback(
+            $this->macroPattern(),
+            fn (array $match): string => array_key_exists($this->nameOf($match[1]), $row)
+                ? MarkdownText::inline($row[$this->nameOf($match[1])])
+                : $match[0],
+            $line,
+        );
+    }
+
+    /**
      * Copy the line carrying a group's macro, once per record, filled in.
      *
      * A group with no records has its line REMOVED rather than left holding its
@@ -189,9 +284,13 @@ final class MarkdownTemplateFiller implements TemplateFiller
      * @param  array<string, mixed>  $values
      * @param  array<string, int>  $present
      */
-    private function repeatRows(string $text, array $fields, array $values, array $present): string
+    private function repeatRows(string $text, array $fields, array $values, array $present, array $skip = []): string
     {
         foreach ($this->values->groups($fields, $values, $present) as [$macro, $rows]) {
+            if (in_array($this->values->groupOf($macro), $skip, true)) {
+                continue;
+            }
+
             $out = [];
 
             foreach (explode("\n", $text) as $line) {

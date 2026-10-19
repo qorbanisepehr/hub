@@ -123,6 +123,31 @@ final class DocxTemplateFiller implements TemplateFiller
                 ));
             }
 
+            // A MARKED BLOCK, ONCE PER RECORD — the bullet list, and the one shape a
+            // separator cannot express. Done here, before the package is closed, and
+            // after the meeting is in place so a range can sit under `{{content}}`.
+            //
+            // The values are resolved here rather than carried up from the
+            // substitution below, because that happens on a closed file. Resolving
+            // twice costs one collection read and keeps the two passes independent:
+            // a range must not depend on a substitution that may replace nothing.
+            $present = array_flip($package->names());
+
+            foreach ($this->values->groups(
+                $registry->fields(),
+                $registry->values($entity),
+                $present,
+            ) as [$group, $copies]) {
+                $package->expandRange(
+                    $this->values->groupOf($group),
+                    array_map(
+                        fn (array $row): array => array_map($this->forXml(...), $row),
+                        $copies,
+                    ),
+                    $this->forXml(...),
+                );
+            }
+
             // Every paragraph can be right-aligned and the document still read the
             // wrong way round, because alignment is measured against the section.
             $package->makeSectionRtl();
