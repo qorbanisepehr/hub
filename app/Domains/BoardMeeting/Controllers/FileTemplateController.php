@@ -11,6 +11,7 @@ use App\Support\Exports\Exceptions\InvalidFileTemplate;
 use App\Support\Exports\Templates\FileTemplate;
 use App\Support\Exports\Templates\FileTemplateLibrary;
 use App\Support\Exports\Templates\GeneralValues;
+use App\Support\Exports\Templates\RangeMacro;
 use App\Support\Exports\Templates\TemplateFillerRegistry;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -87,6 +88,19 @@ final class FileTemplateController
                     array_filter($registry->fields(), fn ($field): bool => ! $field->isRow()),
                 )),
                 'rows' => $this->rowGroups($registry),
+
+                // THE BULLET LIST, reported as its own list because it is a
+                // shape nothing else in this payload describes: a row repeats a
+                // TABLE ROW, and a range repeats a BLOCK of paragraphs, which is
+                // the only way to get one item per paragraph outside a table.
+                // Without this an author would have to guess the marker, and a
+                // marker nobody can guess is not a feature.
+                'blocks' => $this->blockRanges($registry),
+
+                // The names that accept a separator of the author's own. Nearly
+                // every repeating name is a row and takes its shape from the
+                // table; these four are prose that happens to be a list.
+                'listable' => $registry->listableKeys(),
 
                 // Which section each value appears in, which is the question a person
                 // laying out a template is actually asking. It had no answer while the
@@ -225,6 +239,27 @@ final class FileTemplateController
         }
 
         return array_values($groups);
+    }
+
+    /**
+     * The groups that may be written as a repeated BLOCK rather than a repeated row.
+     *
+     * Every row group can, and the markers are PHPWord's own `cloneBlock` shape — an
+     * author who has written a Word template has already met `{{name}} … {{/name}}`,
+     * so this is a spelling they half know rather than one they must be taught.
+     *
+     * @return list<array{group: string, open: string, close: string}>
+     */
+    private function blockRanges(BoardMeetingTemplateFields $registry): array
+    {
+        return array_map(
+            static fn (array $group): array => [
+                'group' => $group['group'],
+                'open' => RangeMacro::open($group['group']),
+                'close' => RangeMacro::close($group['group']),
+            ],
+            $this->rowGroups($registry),
+        );
     }
 
     private function domain(Request $request): string

@@ -98,6 +98,28 @@ final class BoardMeetingTemplateFields implements ProvidesTemplateLabels, Templa
     }
 
     /**
+     * The names that hold a LIST, and so accept a separator of the author's own.
+     *
+     * THE OTHER KIND OF REPEATING VALUE, and the reason it needs saying. Almost every
+     * repeating name in a template is a ROW, and a row takes its shape from the table
+     * it sits in. These four are different: the summary is prose that happens to be a
+     * list, so the document prints it inline and a template that wants it as a bullet
+     * list has to ask for one — with `{{summary.topics|; }}` picking the separator.
+     *
+     * Declared rather than inferred from the values, because the cheat sheet is
+     * asked before any meeting exists: there is nothing to inspect.
+     *
+     * @return list<string>
+     */
+    public function listableKeys(): array
+    {
+        return array_map(
+            static fn (string $key): string => 'summary.'.$key,
+            self::SUMMARY_LISTS,
+        );
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public function values(object $entity): array

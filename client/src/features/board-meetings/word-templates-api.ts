@@ -81,6 +81,23 @@ export type WordTemplateSectionDto = {
     fields: string[];
 };
 
+/**
+ * A group that may be written as a repeated BLOCK rather than a repeated row.
+ *
+ * The fourth shape, and the only one that produces a real list: a row repeats a table
+ * ROW, a range repeats a BLOCK of paragraphs, so in Word each record becomes its own
+ * paragraph — a bullet. A separator cannot do this, because a separator joins a list
+ * into a sentence and several items in one paragraph wrap into one line.
+ *
+ * The markers are PHPWord's own `cloneBlock` shape, carried from the server rather than
+ * written here so the two ends cannot drift apart.
+ */
+export type WordTemplateBlockGroupDto = {
+    group: string;
+    open: string;
+    close: string;
+};
+
 export type WordTemplateFieldsResponse = {
     data: {
         domain: string;
@@ -89,6 +106,13 @@ export type WordTemplateFieldsResponse = {
         sections: WordTemplateSectionDto[];
         inline: WordTemplateFieldDto[];
         rows: WordTemplateRowGroupDto[];
+        blocks: WordTemplateBlockGroupDto[];
+        /**
+         * The names holding a LIST, which therefore accept a separator of the
+         * author's own — `{{summary.topics|؛ }}`. Reported because the cheat sheet is
+         * read before any meeting exists, so there is nothing to infer it from.
+         */
+        listable: string[];
     };
 };
 
