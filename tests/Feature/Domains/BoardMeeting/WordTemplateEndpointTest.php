@@ -121,6 +121,38 @@ describe('the word template library endpoints', function () {
             ->toContain('attendee', 'agenda', 'tag');
     });
 
+    it('lists the general names and says which section each meeting name appears in', function () use ($reader) {
+        // The cheat sheet grew these, and the client reads them defensively — an
+        // older server gets an empty group rather than a crash — which means a
+        // missing key here would show up as an empty panel on the screen and nothing
+        // anywhere else. Asserted on the wire for that reason.
+        $data = $this->actingAs($reader())
+            ->getJson('/api/word-templates/fields')
+            ->assertOk()
+            ->json('data');
+
+        expect(collect($data['general'])->pluck('key')->all())
+            ->toBe(['export_date', 'created_date', 'domain_label', 'entity_label']);
+
+        // Every label has to be a WORD. An untranslated key still renders as a
+        // string, so the cheat sheet would look populated while saying nothing.
+        foreach ($data['general'] as $field) {
+            expect($field['label'])->toBeString()->not->toBe($field['key']);
+        }
+
+        $sections = collect($data['sections']);
+
+        expect($sections->pluck('key')->all())
+            ->toBe(app(BoardMeetingSheetExport::class)->sectionNames());
+
+        // The question the profile exists to answer: a name has to be findable from
+        // where it appears, not only listed.
+        $attendees = $sections->firstWhere('key', 'attendees');
+
+        expect($attendees['fields'])->toContain('attendee.name', 'attendee.role')
+            ->and($attendees['label'])->toBeString()->not->toBe('');
+    });
+
     it('promotes a default, which is what the export button then uses', function () use ($manager, $upload) {
         $this->actingAs($manager())
             ->post('/api/word-templates', [
