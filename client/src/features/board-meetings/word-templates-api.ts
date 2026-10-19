@@ -1,18 +1,25 @@
 import { api, FORM_DATA_HEADERS } from "@/lib/api";
 
 /**
- * One uploaded Word template.
+ * One uploaded export template.
  *
- * There is no `kind`, and that is the whole point: the file used to be labelled
+ * `format` is part of what the row IS rather than metadata about the file: a `.md`
+ * template and a `.docx` template are different templates that happen to be listed
+ * together, and a library that cannot say which is which is a list of names with the
+ * extensions hidden.
+ *
+ * There is no `kind` here, and that is deliberate. A template used to be labelled
  * "content" or "style" by whether it held a placeholder, and the two were then
- * rendered by different code. A letterhead with `{{date}}` in its footer is both
- * of those things at once, so it was labelled one of them and the meeting was
- * never generated onto it. Every template now behaves identically, so there is
- * nothing left to report.
+ * rendered by different code — so a letterhead with `{{date}}` in its footer was
+ * labelled one of them and the meeting was never generated onto it. The kind is now
+ * READ OFF THE FILE, and it is reported at the moment of upload rather than stored:
+ * a file that says `{{content}}` wants the document, one that does not is a document
+ * somebody wrote. Nothing to choose, and nothing to get wrong.
  */
 export type WordTemplateDto = {
     slug: string;
     name: string;
+    format: string;
     size: number;
     is_default: boolean;
 };
@@ -22,6 +29,25 @@ export type WordTemplateListResponse = {
         domain: string;
         templates: WordTemplateDto[];
     };
+};
+
+/**
+ * What an uploaded file turned out to be.
+ *
+ * Reported once, on the upload response, because that is the only moment anybody can
+ * do anything about it: the export is where the answer becomes visible otherwise, and
+ * by then it is a document somebody has to open to find out they got the other kind.
+ */
+export type WordTemplateInspectionDto = {
+    kind: "frame" | "detail";
+    placeholders: string[];
+    size: number;
+};
+
+export type WordTemplateUploadResponse = {
+    message: string;
+    data: WordTemplateDto;
+    inspection: WordTemplateInspectionDto;
 };
 
 /** One name a template may refer to, as the cheat sheet reports it. */
@@ -34,19 +60,33 @@ export type WordTemplateFieldDto = {
  * Row fields, grouped by the table row they share.
  *
  * The grouping is not cosmetic: `cloneRow` duplicates a ROW, so the columns of a
- * group must sit in one row together or a list renders as a single line. A flat
- * list of field names cannot express that, which is why the server sends it this
- * way.
+ * group must sit in one row together or a list renders as a single line. A flat list
+ * of field names cannot express that, which is why the server sends it this way.
  */
 export type WordTemplateRowGroupDto = {
     group: string;
     columns: WordTemplateFieldDto[];
 };
 
+/**
+ * One printable section, and the values that appear in it.
+ *
+ * The question a person laying out a template is actually asking is not only "which
+ * names may I write" but "where does each one appear", and a flat list of twenty-two
+ * keys does not say that `attendee.role` lives under the attendees heading.
+ */
+export type WordTemplateSectionDto = {
+    key: string;
+    label: string;
+    fields: string[];
+};
+
 export type WordTemplateFieldsResponse = {
     data: {
         domain: string;
         syntax: { open: string; close: string };
+        general: WordTemplateFieldDto[];
+        sections: WordTemplateSectionDto[];
         inline: WordTemplateFieldDto[];
         rows: WordTemplateRowGroupDto[];
     };
@@ -86,7 +126,7 @@ export function uploadWordTemplate(payload: {
         form.append("is_default", "1");
     }
 
-    return api.post("/word-templates", form, {
+    return api.post<WordTemplateUploadResponse>("/word-templates", form, {
         headers: FORM_DATA_HEADERS,
     });
 }

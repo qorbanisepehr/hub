@@ -12,17 +12,20 @@ import { useWordTemplates } from "../hooks/use-word-templates";
 import type { WordTemplateDto } from "../word-templates-api";
 
 /**
- * Which Word template this meeting is exported with.
+ * Which template this meeting is exported with.
  *
  * Opens only when the domain has more than one template. With none, or exactly
  * one, the export button is a single click — the alternative is a dialog whose
  * only content is one row and a confirm button, which is a cost paid on the
  * common path to make a rare choice possible.
  *
- * EACH TEMPLATE SAYS WHICH KIND IT IS. A `content` template decides what the
- * document says and a `style` template only supplies the layout, so a person
- * picking between two files whose names both say "official" otherwise has no way
- * to tell which of them will actually use the meeting's data.
+ * The format is on each row, not the kind. The kind is READ OFF THE FILE at upload
+ * and told to the person then, because it is not a choice — a file with
+ * `{{content}}` in it wants the meeting and one without it does not — so asking
+ * again here would be asking a question whose answer the uploader already has.
+ * What genuinely varies between two files both called "official" is what they
+ * are: a letterhead and a Markdown payload are not interchangeable, and the
+ * picker cannot pretend otherwise.
  */
 export function WordTemplatePickerDialog({
     open,
@@ -92,6 +95,14 @@ export function WordTemplatePickerDialog({
                                     <span className="truncate text-sm font-medium">
                                         {template.name}
                                     </span>
+
+                                    {/* What the file IS, not decoration on it: two
+                                        templates both named "official" can be a
+                                        letterhead and a Markdown payload, and this
+                                        is the only thing on the row that says so. */}
+                                    <Badge variant="outline" dir="ltr">
+                                        {template.format}
+                                    </Badge>
 
                                     {template.is_default && (
                                         <Badge variant="info">

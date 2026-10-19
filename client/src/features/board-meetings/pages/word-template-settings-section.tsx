@@ -35,7 +35,7 @@ import {
 import type { WordTemplateDto } from "@/features/board-meetings/word-templates-api";
 
 /**
- * The Word templates a meeting can be exported with, and the names one may use.
+ * The export templates a meeting can be produced with, and the names one may use.
  *
  * TWO THINGS, ONE TAB. The library is what an administrator maintains; the
  * cheat sheet is what makes the library usable, because a person cannot write
@@ -46,6 +46,10 @@ import type { WordTemplateDto } from "@/features/board-meetings/word-templates-a
  * exists. Repeating names are filled by duplicating a TABLE ROW, so the columns
  * of a group have to sit in one row together — a flat list of names would teach
  * the one mistake that makes an attendance list render as a single line.
+ *
+ * IT ALSO SAYS WHERE EACH NAME APPEARS. Somebody laying out a template is
+ * deciding what goes where, and a flat list of twenty-two keys does not tell
+ * them that `attendee.role` lives under the attendees heading.
  */
 export function WordTemplateSettingsSection() {
     const canManage = usePermission(["export-template.manage"]);
@@ -69,15 +73,16 @@ export function WordTemplateSettingsSection() {
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                         <IconFileText className="size-5" />
-                        قالب‌های Word
+                        قالب‌های خروجی
                     </CardTitle>
                     <CardDescription>
-                        فایلی که خروجی Word از آن ساخته می‌شود. قالبی که
-                        <span className="mx-1 font-medium">متنی</span> باشد خودش
-                        تصمیم می‌گیرد چه چاپ شود؛ قالبی که فقط{" "}
-                        <span className="mx-1 font-medium">ظاهر</span> باشد
-                        سربرگ و قلم و اندازهٔ صفحه را می‌دهد و محتوا زیر آن ساخته
-                        می‌شود.
+                        فایلی که خروجی از آن ساخته می‌شود — Word، Markdown یا
+                        JSON. خودِ فایل تصمیم می‌گیرد چه چاپ شود: اگر{" "}
+                        <span className="mx-1 font-medium" dir="ltr">
+                            {"{{content}}"}
+                        </span>{" "}
+                        داشته باشد سند تولیدی همان‌جا نوشته می‌شود، و اگر نداشته
+                        باشد خودِ فایل سند است و فقط نام‌های داخلش پر می‌شوند.
                     </CardDescription>
                 </CardHeader>
 
@@ -137,7 +142,7 @@ export function WordTemplateSettingsSection() {
                         </ul>
                     ) : (
                         <p className="py-8 text-center text-sm text-muted-foreground">
-                            هنوز قالبی بارگذاری نشده است. بدون قالب، خروجی Word
+                            هنوز قالبی بارگذاری نشده است. بدون قالب، خروجی
                             همان سند تولیدی همیشگی است.
                         </p>
                     )}
@@ -174,6 +179,14 @@ function TemplateRow({
                     <span className="truncate font-medium text-sm">
                         {template.name}
                     </span>
+
+                    {/* The format is what the file IS, not decoration on it. Two
+                        templates called "official" can be a letterhead and a
+                        Markdown payload, and without this they are two identical
+                        rows that a person has to open each of to tell apart. */}
+                    <Badge variant="outline" dir="ltr">
+                        {template.format}
+                    </Badge>
 
                     {template.is_default && (
                         <Badge variant="info">
@@ -218,7 +231,12 @@ function TemplateRow({
 }
 
 /**
- * Every name a template may refer to, and the two shapes they come in.
+ * Every name a template may refer to, and the shapes they come in.
+ *
+ * FOUR LISTS, because a template has four ways of asking and a cheat sheet that
+ * shows one teaches three of them by omission: the general names every domain has,
+ * the meeting's own names grouped by the section they appear in, the repeating rows,
+ * and the joined form for prose.
  */
 function PlaceholderCheatSheet() {
     const { data: fields } = useWordTemplateFields();
@@ -249,6 +267,63 @@ function PlaceholderCheatSheet() {
             </CardHeader>
 
             <CardContent className="grid gap-5">
+                {/* The general names first, because they are the ones that work on
+                    every domain: a template written once should not stop being
+                    correct when it is pointed at something else. */}
+                <div className="grid gap-2">
+                    <h3 className="text-sm font-medium">
+                        نام‌های عمومی — در همهٔ حوزه‌ها کار می‌کنند
+                    </h3>
+
+                    <NameList items={fields.general ?? []} />
+
+                    <p className="text-xs text-muted-foreground">
+                        نشانگر{" "}
+                        <span dir="ltr" className="font-medium">
+                            {"{{content}}"}
+                        </span>{" "}
+                        تنها نامی است که سند تولیدی را در خود جای می‌دهد؛ بدون آن،
+                        فایل خودش سند است.
+                    </p>
+                </div>
+
+                {/* Grouped by section, because laying a template out is deciding
+                    what goes where, and a flat list of twenty-two keys does not
+                    answer that. */}
+                <div className="grid gap-3">
+                    <h3 className="text-sm font-medium">
+                        نام‌های جلسه — بر پایهٔ بخشی که در آن می‌آیند
+                    </h3>
+
+                    <ul className="grid gap-3">
+                        {(fields.sections ?? []).map((section) => (
+                            <li key={section.key} className="rounded-lg border p-3">
+                                <div className="mb-2 flex items-center justify-between gap-2">
+                                    <span className="text-sm font-medium">
+                                        {section.label}
+                                    </span>
+                                    <span
+                                        dir="ltr"
+                                        className="text-xs text-muted-foreground"
+                                    >
+                                        {section.key}
+                                    </span>
+                                </div>
+
+                                <NameList
+                                    items={section.fields.map((key) => ({
+                                        key,
+                                        label:
+                                            fields.inline.find(
+                                                (field) => field.key === key,
+                                            )?.label ?? "",
+                                    }))}
+                                />
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+
                 <div className="grid gap-2">
                     <h3 className="text-sm font-medium">نام‌های متنی</h3>
                     <NameList items={fields.inline} />
@@ -284,6 +359,19 @@ function PlaceholderCheatSheet() {
                                 </div>
 
                                 <NameList items={group.columns} />
+
+                                {/* The third shape, and the one a table cannot
+                                    produce: a whole list inside a sentence. */}
+                                <p className="mt-3 text-xs text-muted-foreground">
+                                    برای نوشتنِ کلِ فهرست در یک جمله، جداکننده را
+                                    بعد از خط عمودی بگذارید؛ فاصله‌ها بخشی از آن
+                                    است:{" "}
+                                    <span dir="ltr" className="font-medium">
+                                        {"{{attendee.name|؛ }}"}
+                                    </span>{" "}
+                                    ← «الف؛ ب؛ ج». بدون جداکننده، ویرگول فارسی
+                                    به کار می‌رود.
+                                </p>
                             </li>
                         ))}
                     </ul>
@@ -357,8 +445,8 @@ function UploadWordTemplateDialog({
         <ResponsiveDialog
             open={open}
             onOpenChange={onOpenChange}
-            title="بارگذاری قالب Word"
-            description="یک فایل .docx بدون ماکرو. اگر در آن نامی بنویسید، خودِ فایل تصمیم می‌گیرد چه چاپ شود؛ اگر نگویسید، فقط ظاهر و صفحه‌بندی را می‌دهد."
+            title="بارگذاری قالب"
+            description="فایل docx بدون ماکرو، یا Markdown و JSON. اگر در آن content بنویسید، سند تولیدی همان‌جا نوشته می‌شود؛ اگر نگویید، خودِ فایل سند است و فقط نام‌های داخلش پر می‌شوند."
             footer={
                 <>
                     <Button
@@ -390,7 +478,7 @@ function UploadWordTemplateDialog({
                         id="word-template-file"
                         type="file"
                         ref={input}
-                        accept=".docx"
+                        accept=".docx,.md,.json"
                     />
                 </div>
 
