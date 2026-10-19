@@ -2,6 +2,8 @@
 
 namespace App\Support\Exports\Templates;
 
+use App\Support\External\PersianDateTime;
+
 /**
  * Which values a template asks for, resolved from the entity — but not yet
  * escaped for anything.
@@ -57,7 +59,79 @@ final class TemplateValues
             }
         }
 
-        return $replacements;
+        return [...$replacements, ...$this->variants($fields, $values, $spellings)];
+    }
+
+    /**
+     * The `@jalali` form of every date the file asked for.
+     *
+     * A SEPARATE PASS, and it has to be. `{{held_on@jalali}}` arrives from the
+     * reader as the name `held_on@jalali` — a name of its own, not a spelling of
+     * `held_on` — so it cannot be found by looking for spellings of a declared
+     * field. Filling it inside the loop over fields would have found nothing and
+     * looked like it worked.
+     *
+     * A VALUE THAT DOES NOT PARSE AS A DATE LEAVES THE MACRO PRINTED, which is the
+     * rule every missing value already follows and is worth keeping: printing an
+     * empty string where a date belongs produces a document that looks finished and
+     * says nothing, and nobody reading it can tell that from one with no date.
+     *
+     * @param  list<TemplateField>  $fields
+     * @param  array<string, mixed>  $values
+     * @param  array<string, list<string>>  $spellings
+     * @return array<string, string>
+     */
+    private function variants(array $fields, array $values, array $spellings): array
+    {
+        $declared = [];
+
+        foreach ($fields as $field) {
+            $declared[$field->key] = true;
+        }
+
+        $out = [];
+        $suffix = '@'.self::JALALI;
+
+        foreach ($spellings as $name => $writtens) {
+            if (! str_ends_with($name, $suffix)) {
+                continue;
+            }
+
+            $key = substr($name, 0, -strlen($suffix));
+
+            if (! isset($declared[$key])) {
+                continue;
+            }
+
+            $value = $values[$key] ?? null;
+
+            // `parse` THROWS on a shape it does not recognise, which is right for a
+            // caller that passes a date and wrong here: this pass walks every name
+            // the file wrote, most of which hold no date at all, and a template
+            // asking for `{{title@jalali}}` must leave that macro printed rather than
+            // take the whole export down with it.
+            try {
+                $date = PersianDateTime::parse(is_scalar($value) ? (string) $value : null);
+            } catch (\InvalidArgumentException) {
+                continue;
+            }
+
+            if ($date === null) {
+                continue;
+            }
+
+            $jalali = PersianDateTime::toJalaliDate($date);
+
+            if ($jalali === null) {
+                continue;
+            }
+
+            foreach ($writtens as $written) {
+                $out[$written] = $jalali;
+            }
+        }
+
+        return $out;
     }
 
     /**
@@ -255,6 +329,16 @@ final class TemplateValues
      * string, so `{{summary.topics}}` keeps working exactly as it did.
      */
     public const LIST_SUFFIX = '@list';
+
+    /**
+     * The variant suffix that asks for a date in the other calendar.
+     *
+     * A VALUE IN A SECOND FORM BESIDE THE FIRST, which is what the @ convention
+     * means throughout: held_on and held_on@jalali are the same date in two
+     * calendars, not two dates. One name and two spellings beats two names, because a
+     * domain that never declares the second still gets the first working.
+     */
+    public const JALALI = 'jalali';
 
     /**
      * Whether the registry declares this column of this group as a repeating row.

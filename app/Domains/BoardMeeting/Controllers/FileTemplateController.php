@@ -12,6 +12,7 @@ use App\Support\Exports\Templates\FileTemplate;
 use App\Support\Exports\Templates\FileTemplateLibrary;
 use App\Support\Exports\Templates\GeneralValues;
 use App\Support\Exports\Templates\RangeMacro;
+use App\Support\Exports\Templates\TemplateField;
 use App\Support\Exports\Templates\TemplateFillerRegistry;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -101,6 +102,15 @@ final class FileTemplateController
                 // every repeating name is a row and takes its shape from the
                 // table; these four are prose that happens to be a list.
                 'listable' => $registry->listableKeys(),
+
+                // The names that hold a date, and so also answer to
+                // `{{name@jalali}}`. REPORTED rather than generated: the cheat sheet
+                // is read before any record exists, so there is no value to inspect
+                // and only the domain knows which of its names are dates.
+                'dates' => array_values(array_map(
+                    static fn (TemplateField $field): string => $field->key,
+                    array_filter($registry->fields(), static fn (TemplateField $field): bool => $field->isDate),
+                )),
 
                 // Which section each value appears in, which is the question a person
                 // laying out a template is actually asking. It had no answer while the

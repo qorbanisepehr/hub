@@ -51,7 +51,10 @@ final class BoardMeetingProfile
                 label: __('board_meeting.print.sections.identity'),
                 fields: [
                     TemplateField::inline('title', __('board_meeting.print.fields.title')),
-                    TemplateField::inline('held_on', __('board_meeting.print.fields.held_on')),
+                    // A DATE, so it answers to `{{held_on@jalali}}` as well as `{{held_on}}`.
+                    // Every other date a person reads in this application is Jalali, and a template
+                    // that mixes the two calendars on one page is a page nobody trusts.
+                    TemplateField::inline('held_on', __('board_meeting.print.fields.held_on'), isDate: true),
                     TemplateField::inline('sequence', __('board_meeting.print.fields.sequence')),
                     TemplateField::inline('origin', __('board_meeting.print.fields.origin')),
                 ],

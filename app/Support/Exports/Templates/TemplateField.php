@@ -29,6 +29,19 @@ final class TemplateField
         public readonly TemplateFieldShape $shape,
         /** Null for inline fields; the repeating row's name for row fields. */
         public readonly ?string $group,
+        /**
+         * Whether this field holds a date, and therefore answers to @jalali.
+         *
+         * DECLARED RATHER THAN GUESSED, because the cheat sheet has to say WHICH names
+         * have a Jalali form and it is asked before any record exists. A guess from the
+         * value would be right at export time and unavailable at exactly the moment the
+         * author needs to know.
+         *
+         * Declaring it is not what makes the variant WORK — the filler offers
+         * key@jalali for any value it can parse — so a domain that forgets loses a line
+         * of help rather than a feature.
+         */
+        public readonly bool $isDate = false,
     ) {}
 
     /**
@@ -39,9 +52,9 @@ final class TemplateField
      * it does not know, and a list of bare keys would leave the template author
      * guessing what `held_on` holds.
      */
-    public static function inline(string $key, string $label): self
+    public static function inline(string $key, string $label, bool $isDate = false): self
     {
-        return new self($key, $label, TemplateFieldShape::Inline, null);
+        return new self($key, $label, TemplateFieldShape::Inline, null, $isDate);
     }
 
     /**
