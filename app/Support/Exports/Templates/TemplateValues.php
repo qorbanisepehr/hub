@@ -90,6 +90,65 @@ final class TemplateValues
     }
 
     /**
+     * Every group a block range may repeat, keyed by the name between the markers.
+     *
+     * ONE CALL FOR BOTH KINDS, because there is one way to say "once per record" and
+     * it has to reach everything a record can be. `attendee` repeats a table row;
+     * `summary.topics` repeats a list item. Both are written `{{#name}} … {{/name}}`,
+     * and the OUTPUT SHAPE falls out of the block rather than the marker — put the
+     * block in a table row and the row repeats, put a bulleted paragraph in it and
+     * the paragraph repeats. That is the whole argument for one construct.
+     *
+     * WHICH IS THE POINT, BECAUSE THE GAP WAS ALREADY THERE ONCE. A listable list was
+     * reachable by a separator and not by a range: the separator was opened to
+     * listable groups, and then the range was built against row groups only, so the
+     * one group somebody actually wanted as bullets was the one group that could not
+     * be. Anything reachable one way and not the other is a shape somebody will guess
+     * wrong.
+     *
+     * A listable list becomes one record per item, keyed by the field's own name, so
+     * `{{summary.topics}}` inside the block fills with the current topic.
+     *
+     * @param  list<TemplateField>  $fields
+     * @param  array<string, mixed>  $values
+     * @param  array<string, int>  $present
+     * @return array<string, list<array<string, string>>>
+     */
+    public function records(array $fields, array $values, array $present): array
+    {
+        $out = [];
+        $spellings = $this->spellings($present);
+
+        foreach ($this->groups($fields, $values, $present) as [$search, $rows]) {
+            $out[$this->groupOf($search)] = $rows;
+        }
+
+        $suffix = self::LIST_SUFFIX;
+
+        foreach ($values as $key => $list) {
+            if (! is_string($key) || ! str_ends_with($key, $suffix) || ! is_array($list)) {
+                continue;
+            }
+
+            $name = substr($key, 0, -strlen($suffix));
+
+            // Only a list the template actually WROTE. A `@list` value exists for
+            // every listable field whether or not the file mentions it, and building
+            // ranges nobody asked for means substituting macros nobody wrote.
+            if (! isset($spellings[$name])) {
+                continue;
+            }
+
+            $out[$name] = array_map(
+                static fn (mixed $item): array => [$name => (string) $item],
+                array_values($list),
+            );
+        }
+
+        return $out;
+    }
+
+    /**
      * Each repeating group as [a macro to find it by, the rows to fill].
      *
      * The rows are keyed by MACRO NAME, not by the group's column name: the two

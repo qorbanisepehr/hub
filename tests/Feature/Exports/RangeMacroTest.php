@@ -112,6 +112,62 @@ describe('a repeated block', function () {
         return $texts[1];
     };
 
+    /**
+     * Fill a Word template, and return one string per TABLE ROW.
+     *
+     * Separate from `$word` because the two answer different questions. Flattened
+     * text cannot tell three rows from one row of three — and for a repeating group
+     * that difference is the entire feature, so a test written against the flattened
+     * form would pass on a document that had done nothing.
+     */
+    $wordRows = function (callable $build, BoardMeeting $meeting): array {
+        $phpWord = new PhpWord;
+        $build($phpWord->addSection());
+
+        $path = tempnam(sys_get_temp_dir(), 'range-rows-').'.docx';
+        IOFactory::createWriter($phpWord, 'Word2007')->save($path);
+
+        app(DocxTemplateFiller::class)->fill(
+            $path,
+            app(BoardMeetingSheetExport::class)->document($meeting),
+            $meeting,
+            new BoardMeetingTemplateFields,
+            $stream = fopen('php://temp', 'r+'),
+        );
+
+        rewind($stream);
+        $out = tempnam(sys_get_temp_dir(), 'range-rows-out-').'.docx';
+        file_put_contents($out, stream_get_contents($stream));
+
+        @unlink($path);
+
+        $zip = new ZipArchive;
+        $zip->open($out);
+        $doc = new DOMDocument;
+        $doc->loadXML((string) $zip->getFromName('word/document.xml'));
+        $zip->close();
+        @unlink($out);
+
+        $xpath = new DOMXPath($doc);
+        $xpath->registerNamespace('w', 'http://schemas.openxmlformats.org/wordprocessingml/2006/main');
+
+        $rows = [];
+
+        foreach ($xpath->query('//w:tr') as $row) {
+            $text = '';
+
+            foreach ($xpath->query('.//w:t', $row) as $node) {
+                $text .= $node->textContent;
+            }
+
+            if (trim($text) !== '') {
+                $rows[] = $text;
+            }
+        }
+
+        return $rows;
+    };
+
     it('gives every record its own line in markdown', function () use ($markdown, $meeting) {
         $text = $markdown(
             "حاضران:\n{{#attendee}}\n- {{attendee.name}}\n{{/attendee}}\nپایان",
@@ -195,6 +251,76 @@ describe('a repeated block', function () {
 
         expect($text)->toContain('{{#attendee}}')
             ->not->toContain('- الف');
+    });
+
+    it('repeats a summary list, which is the shape a separator cannot give', function () use ($word) {
+        // THE GAP, TWICE. A listable list was reachable by `{{summary.topics|; }}`
+        // and not by a range: the separator was opened to listable groups, then the
+        // range was built against row groups only — so the one group somebody
+        // actually wanted as bullets was the one group that could not be. Anything
+        // reachable one way and not the other is a shape somebody will guess wrong.
+        $meeting = BoardMeeting::factory()->create();
+
+        $meeting->forceFill([
+            'summary' => ['status' => 'completed', 'topics' => ['الف', 'ب', 'ج']],
+        ])->save();
+
+        $texts = $word(function ($section): void {
+            $section->addText('{{#summary.topics}}');
+            $section->addText('• {{summary.topics}}');
+            $section->addText('{{/summary.topics}}');
+        }, $meeting->refresh());
+
+        $bullets = array_values(array_filter(
+            $texts,
+            static fn (string $text): bool => str_starts_with($text, '•'),
+        ));
+
+        expect($bullets)->toBe(['• الف', '• ب', '• ج'])
+            ->not->toContain('{{#summary.topics}}')
+            ->not->toContain('{{/summary.topics}}');
+    });
+
+    it('takes a summary list out entirely when the meeting has none', function () use ($word) {
+        // The same rule as every other empty list: no blank bullet left behind.
+        $meeting = BoardMeeting::factory()->create();
+
+        $meeting->forceFill(['summary' => ['status' => 'completed']])->save();
+
+        $texts = $word(function ($section): void {
+            $section->addText('پیش از فهرست');
+            $section->addText('{{#summary.topics}}');
+            $section->addText('• {{summary.topics}}');
+            $section->addText('{{/summary.topics}}');
+            $section->addText('پس از فهرست');
+        }, $meeting->refresh());
+
+        expect($texts)->not->toContain('•')
+            ->toContain('پیش از فهرست')
+            ->toContain('پس از فهرست');
+    });
+
+    it('repeats a table row when the markers sit inside it', function () use ($wordRows, $meeting) {
+        // Markers were read as children of the body only, so a range written in a
+        // table row — the commonest place to want one — was invisible. They are now
+        // found wherever they are, and spliced among their own siblings.
+        $rows = $wordRows(function ($section): void {
+            $row = $section->addTable()->addRow();
+            $row->addCell()->addText('{{#attendee}}');
+            $row->addCell()->addText('{{attendee.name}}');
+            $row->addCell()->addText('{{/attendee}}');
+        }, $meeting());
+
+        // Asserted on ROWS rather than on the flattened text: three names in the
+        // document could equally mean three rows or one row of three, and the whole
+        // point is that it is three rows.
+        expect($rows)->toHaveCount(3)
+            ->and($rows[0])->toContain('الف')
+            ->and($rows[1])->toContain('ب | ج')
+            ->and($rows[2])->toContain('د')
+            // The markers were consumed, not copied into every row.
+            ->and(implode("\n", $rows))->not->toContain('{{#')
+            ->not->toContain('{{/');
     });
 
     it('leaves a template with no range markers exactly as it was written', function () use ($markdown, $meeting) {

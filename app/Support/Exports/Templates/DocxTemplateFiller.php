@@ -133,13 +133,27 @@ final class DocxTemplateFiller implements TemplateFiller
             // a range must not depend on a substitution that may replace nothing.
             $present = array_flip($package->names());
 
-            foreach ($this->values->groups(
+            // The groups this range handles, handed to the substitution below so it
+            // does not repeat them a second time. Both paths expand the same records,
+            // and running both does not produce a list twice — it produces one copy
+            // per record per record, each copy still wearing its markers.
+            $expanded = [];
+
+            foreach ($this->values->records(
                 $registry->fields(),
                 $registry->values($entity),
                 $present,
-            ) as [$group, $copies]) {
+            ) as $group => $copies) {
+                // ONLY A GROUP THE TEMPLATE MARKED is handed on as expanded. `records()`
+                // reports every repeating group the file mentions, marked or not, and
+                // claiming all of them would suppress the row-cloning pass for
+                // templates that never asked for a range at all.
+                if (isset($present['#'.$group], $present['/'.$group])) {
+                    $expanded[] = $group;
+                }
+
                 $package->expandRange(
-                    $this->values->groupOf($group),
+                    $group,
                     array_map(
                         fn (array $row): array => array_map($this->forXml(...), $row),
                         $copies,
@@ -154,7 +168,7 @@ final class DocxTemplateFiller implements TemplateFiller
 
             $package->close();
 
-            $this->substitute($package->path(), $entity, $registry, $stream);
+            $this->substitute($package->path(), $entity, $registry, $stream, $expanded);
         } finally {
             $package->destroy();
         }
@@ -176,6 +190,7 @@ final class DocxTemplateFiller implements TemplateFiller
         object $entity,
         TemplateFieldRegistry $registry,
         $stream,
+        array $expanded = [],
     ): void {
         $processor = new TemplateProcessor($templatePath);
         $processor->setMacroChars(self::MACRO_OPEN, self::MACRO_CLOSE);
@@ -206,6 +221,14 @@ final class DocxTemplateFiller implements TemplateFiller
         }
 
         foreach ($this->values->groups($fields, $values, $present) as [$search, $rows]) {
+            // A group the RANGE already repeated must not be repeated again here.
+            // Both paths expand the same records, and running both does not produce
+            // a list twice — it produces one copy per record per record, each still
+            // wearing its markers.
+            if (in_array($this->values->groupOf($search), $expanded, true)) {
+                continue;
+            }
+
             try {
                 if ($rows === []) {
                     // The template asked for this list and the entity has none. The row

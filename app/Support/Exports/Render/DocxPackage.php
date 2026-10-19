@@ -472,14 +472,45 @@ final class DocxPackage
     public function expandRange(string $group, array $rows, callable $escape): void
     {
         $xpath = $this->namespaced($this->dom());
-        $body = $this->body();
 
-        $elements = iterator_to_array($body->childNodes);
+        // The markers are found wherever they are, not assumed to be at body level.
+        // A range is how a repeating group is written, and the commonest place to
+        // want one is inside a table row — so an implementation that only looked at
+        // the body's own children would have been invisible in exactly the case that
+        // matters most.
+        [$openNode, $closeNode] = $this->rangeMarkers($xpath, $group);
 
-        $open = $this->markerAt($xpath, $elements, RangeMacro::open($group));
-        $close = $this->markerAt($xpath, $elements, RangeMacro::close($group));
+        if ($openNode === null || $closeNode === null) {
+            return;
+        }
 
-        if ($open === null || $close === null || $open >= $close) {
+        // MARKERS INSIDE THE SAME TABLE ROW MEAN "REPEAT THIS ROW". Written that way
+        // they are the obvious thing an author does, and it is the only reading under
+        // which a table gains ROWS — splicing between two cells duplicates the cells
+        // between them, so a three-record table would come out as one row of three.
+        $row = $this->ancestorRow($openNode);
+
+        if ($row !== null && $row === $this->ancestorRow($closeNode)) {
+            $this->repeatRow($xpath, $row, $group, $rows, $escape);
+            $this->flush();
+
+            return;
+        }
+
+        $parent = $openNode->parentNode;
+
+        // Two markers under different parents cannot be a range. That happens when
+        // the author put one inside a table and one outside it, and half of a range
+        // is a typo: deleting either end would remove a block they can no longer see.
+        if ($parent === null || $closeNode->parentNode !== $parent) {
+            return;
+        }
+
+        $elements = iterator_to_array($parent->childNodes);
+        $open = array_search($openNode, $elements, true);
+        $close = array_search($closeNode, $elements, true);
+
+        if ($open === false || $close === false || $open >= $close) {
             return;
         }
 
@@ -498,7 +529,7 @@ final class DocxPackage
 
                     $this->fillCopy($xpath, $copy, $row, $escape);
 
-                    $body->insertBefore($copy, $anchor);
+                    $parent->insertBefore($copy, $anchor);
                 }
             }
         }
@@ -508,10 +539,130 @@ final class DocxPackage
                 continue;
             }
 
-            $body->removeChild($element);
+            $parent->removeChild($element);
         }
 
         $this->flush();
+    }
+
+    /**
+     * Repeat one table row per record, and drop the markers from each copy.
+     *
+     * THE CELL A MARKER SAT IN IS REMOVED WHEN IT IS LEFT EMPTY. Otherwise the row
+     * that existed only to carry the markers leaves a blank leading and trailing
+     * column behind in every copy — three records would print as five columns, two
+     * of them empty, which is worse than the problem it solves.
+     *
+     * @param  list<array<string, string>>  $rows
+     * @param  callable(string): string  $escape
+     */
+    private function repeatRow(DOMXPath $xpath, DOMElement $row, string $group, array $rows, callable $escape): void
+    {
+        $parent = $row->parentNode;
+
+        if ($parent === null) {
+            return;
+        }
+
+        foreach ($rows as $record) {
+            $copy = $row->cloneNode(true);
+
+            $this->stripMarkers($xpath, $copy, $group);
+            $this->fillCopy($xpath, $copy, $record, $escape);
+            $this->dropEmptiedCells($xpath, $copy);
+
+            $parent->insertBefore($copy, $row);
+        }
+
+        $parent->removeChild($row);
+    }
+
+    /**
+     * Take the range markers out of a copy, and any cell they emptied.
+     */
+    private function stripMarkers(DOMXPath $xpath, DOMNode $copy, string $group): void
+    {
+        foreach ([RangeMacro::open($group), RangeMacro::close($group)] as $marker) {
+            foreach ($xpath->query('.//w:t', $copy) ?: [] as $text) {
+                if (str_contains($text->textContent, $marker)) {
+                    $text->textContent = str_replace($marker, '', $text->textContent);
+                }
+            }
+        }
+    }
+
+    /**
+     * Remove the cells a stripped marker left with nothing in them.
+     *
+     * Only cells that held nothing ELSE are removed — a cell that said `نام:` before
+     * the marker keeps its label, because the author wrote that on purpose.
+     */
+    private function dropEmptiedCells(DOMXPath $xpath, DOMNode $copy): void
+    {
+        foreach (iterator_to_array($xpath->query('.//w:tc', $copy) ?: []) as $cell) {
+            $text = trim($this->textOf($xpath, $cell));
+
+            if ($text !== '') {
+                continue;
+            }
+
+            // A cell holding a drawing or a break is not empty, it just has no text.
+            if ($xpath->query('.//w:drawing | .//w:br | .//w:pict', $cell)->length > 0) {
+                continue;
+            }
+
+            $cell->parentNode?->removeChild($cell);
+        }
+    }
+
+    /**
+     * The table row this node sits in, if it sits in one.
+     */
+    private function ancestorRow(DOMNode $node): ?DOMElement
+    {
+        for ($current = $node->parentNode; $current !== null; $current = $current->parentNode) {
+            if ($current instanceof DOMElement && $current->localName === 'tr') {
+                return $current;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * The two paragraphs that open and close this group's range, if both are here.
+     *
+     * A marker is a WHOLE PARAGRAPH, and one that shares a paragraph with other words
+     * is ignored: expanding half a range would delete a block the author can no
+     * longer see, so the only recoverable answer is to change nothing.
+     *
+     * Both or neither. One marker alone is a typo, and acting on it would consume
+     * everything to the end of its parent.
+     *
+     * @return array{0: ?DOMElement, 1: ?DOMElement}
+     */
+    private function rangeMarkers(DOMXPath $xpath, string $group): array
+    {
+        $open = null;
+        $close = null;
+
+        foreach ($xpath->query('//w:p') ?: [] as $paragraph) {
+            $text = trim($this->textOf($xpath, $paragraph));
+
+            if ($open === null && $text === RangeMacro::open($group)) {
+                $open = $paragraph;
+
+                continue;
+            }
+
+            if ($text === RangeMacro::close($group)) {
+                $close = $paragraph;
+
+                break;
+            }
+        }
+
+        return [$open, $close];
     }
 
     /**
@@ -547,26 +698,6 @@ final class DocxPackage
                 $text->textContent = $replaced;
             }
         }
-    }
-
-    /**
-     * The index of the paragraph that is nothing but this marker.
-     *
-     * @param  list<DOMNode>  $elements
-     */
-    private function markerAt(DOMXPath $xpath, array $elements, string $macro): ?int
-    {
-        foreach ($elements as $index => $element) {
-            if (! $element instanceof DOMElement) {
-                continue;
-            }
-
-            if (trim($this->textOf($xpath, $element)) === $macro) {
-                return $index;
-            }
-        }
-
-        return null;
     }
 
     /** The paragraph that exists only to say where the meeting goes, if there is one. */
