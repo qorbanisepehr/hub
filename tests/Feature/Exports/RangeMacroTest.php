@@ -10,6 +10,7 @@ use App\Support\Exports\Templates\JsonTemplateFiller;
 use App\Support\Exports\Templates\MarkdownTemplateFiller;
 use PhpOffice\PhpWord\IOFactory;
 use PhpOffice\PhpWord\PhpWord;
+use PhpOffice\PhpWord\Style\ListItem;
 use ZipArchive;
 
 /**
@@ -251,6 +252,145 @@ describe('a repeated block', function () {
 
         expect($text)->toContain('{{#attendee}}')
             ->not->toContain('- الف');
+    });
+
+    /**
+     * Fill a Word template, and return BOTH the paragraph texts and the package's
+     * part names.
+     *
+     * A bulleted or numbered paragraph carries its numbering as `<w:numPr>` on the
+     * paragraph, and that `numId` points into `word/numbering.xml`. So proving a list
+     * works needs two things: the copies kept their `numPr`, and the part it points
+     * at is still in the package. A paragraph list that lost its numbering part would
+     * *open* perfectly and print nothing, which is why this returns the names too.
+     *
+     * @return array{0: list<string>, 1: list<string>}
+     */
+    $wordParts = function (callable $build, BoardMeeting $meeting): array {
+        $phpWord = new PhpWord;
+        $build($phpWord->addSection());
+
+        $path = tempnam(sys_get_temp_dir(), 'lst-').'.docx';
+        IOFactory::createWriter($phpWord, 'Word2007')->save($path);
+
+        app(DocxTemplateFiller::class)->fill(
+            $path,
+            app(BoardMeetingSheetExport::class)->document($meeting),
+            $meeting,
+            new BoardMeetingTemplateFields,
+            $stream = fopen('php://temp', 'r+'),
+        );
+
+        rewind($stream);
+        $out = tempnam(sys_get_temp_dir(), 'lst-out-').'.docx';
+        file_put_contents($out, stream_get_contents($stream));
+
+        @unlink($path);
+
+        $zip = new ZipArchive;
+        $zip->open($out);
+
+        $parts = [];
+
+        for ($i = 0; $i < $zip->numFiles; $i++) {
+            $parts[] = (string) $zip->getNameIndex($i);
+        }
+
+        $xml = (string) $zip->getFromName('word/document.xml');
+        $zip->close();
+        @unlink($out);
+
+        $doc = new DOMDocument;
+        $doc->loadXML($xml);
+        $xpath = new DOMXPath($doc);
+        $xpath->registerNamespace('w', 'http://schemas.openxmlformats.org/wordprocessingml/2006/main');
+
+        $paragraphs = [];
+
+        foreach ($xpath->query('//w:body/w:p') as $paragraph) {
+            $text = '';
+            $numbering = null;
+
+            foreach ($xpath->query('.//w:t', $paragraph) as $node) {
+                $text .= $node->textContent;
+            }
+
+            $ids = $xpath->query('.//w:numPr/w:numId', $paragraph);
+
+            if ($ids->length > 0) {
+                $numbering = $ids->item(0)?->getAttribute('w:val');
+            }
+
+            if (trim($text) !== '' || $numbering !== null) {
+                $paragraphs[] = $numbering === null ? $text : $text.'#num='.$numbering;
+            }
+        }
+
+        return [$paragraphs, $parts];
+    };
+
+    it('repeats a bullet list, keeping each item a real Word list item', function () use ($wordParts, $meeting) {
+        // A MARKER IS NOT A BULLET CHARACTER, AND THE DIFFERENCE IS THE WHOLE POINT.
+        // A bullet typed as `• ` is a glyph in a run: no hanging indent, no tab
+        // stop, no alignment, and it will not line up with a wrapped second line.
+        // A real Word list paragraph carries `<w:numPr>` and Word draws the bullet —
+        // so duplicating the paragraph is enough, and the author writes no bullet at
+        // all.
+        [$paragraphs, $parts] = $wordParts(function ($section): void {
+            $section->addText('{{#attendee}}');
+            $section->addListItem('{{attendee.name}}', 0, null, ['listType' => ListItem::TYPE_BULLET_FILLED]);
+            $section->addText('{{/attendee}}');
+        }, $meeting());
+
+        $items = array_values(array_filter(
+            $paragraphs,
+            static fn (string $p): bool => str_contains($p, '#num='),
+        ));
+
+        expect($items)->toHaveCount(3)
+            // Every copy is still a LIST ITEM, not a copy that merely looks like one.
+            ->and(array_unique(array_map(
+                static fn (string $p): string => substr($p, strpos($p, '#num=')),
+                $items,
+            )))->toHaveCount(1)
+            ->and($items[0])->toContain('الف')
+            ->and($items[1])->toContain('ب | ج')
+            ->and($items[2])->toContain('د')
+            // The part the numbering points at survived, so the list is not a
+            // paragraph that opens cleanly and prints nothing.
+            ->and($parts)->toContain('word/numbering.xml');
+    });
+
+    it('repeats a numbered list, so Word does the numbering', function () use ($wordParts) {
+        // No index placeholder is needed, and that is the reason for choosing Word's
+        // own lists: an index we substituted would be a number WE invented, which
+        // would restart per export, drift from the surrounding text, and disagree
+        // with the document's own numbering the moment an item were removed.
+        $withAgenda = BoardMeeting::factory()->create();
+
+        $withAgenda->forceFill([
+            'agenda' => [
+                ['title' => 'بند اول', 'duration' => 15],
+                ['title' => 'بند دوم', 'duration' => 20],
+            ],
+        ])->save();
+
+        [$paragraphs] = $wordParts(function ($section): void {
+            $section->addText('{{#agenda}}');
+            $section->addListItem('{{agenda.title}}', 0, null, ['listType' => ListItem::TYPE_NUMBER]);
+            $section->addText('{{/agenda}}');
+        }, $withAgenda->refresh());
+
+        $items = array_values(array_filter(
+            $paragraphs,
+            static fn (string $p): bool => str_contains($p, '#num='),
+        ));
+
+        // No digits in the source: the numbers come from the numbering definition.
+        expect($items)->toHaveCount(2)
+            ->and($items[0])->toContain('بند اول')
+            ->and($items[1])->toContain('بند دوم')
+            ->and(implode("\n", $items))->not->toMatch('/\b1\./');
     });
 
     it('repeats a summary list, which is the shape a separator cannot give', function () use ($word) {
