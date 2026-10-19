@@ -9,6 +9,7 @@ use App\Domains\Document\Models\DocumentUsage;
 use App\Support\Exports\Contract\ProvidesTemplateLabels;
 use App\Support\Exports\Templates\TemplateField;
 use App\Support\Exports\Templates\TemplateFieldRegistry;
+use App\Support\Exports\Templates\TemplateValues;
 use App\Support\Exports\ValuePresenter;
 
 /**
@@ -124,6 +125,14 @@ final class BoardMeetingTemplateFields implements ProvidesTemplateLabels, Templa
             'summary.key_decisions' => $this->joinSummaryList($summary, 'key_decisions'),
             'summary.suggested_tags' => $this->joinSummaryList($summary, 'suggested_tags'),
 
+            // The same four lists AGAIN, under the @list convention, so a template can
+            // join them with its own separator. {{summary.topics}} is unchanged and
+            // still uses the default above.
+            'summary.topics'.TemplateValues::LIST_SUFFIX => $this->summaryList($summary, 'topics'),
+            'summary.bullet_points'.TemplateValues::LIST_SUFFIX => $this->summaryList($summary, 'bullet_points'),
+            'summary.key_decisions'.TemplateValues::LIST_SUFFIX => $this->summaryList($summary, 'key_decisions'),
+            'summary.suggested_tags'.TemplateValues::LIST_SUFFIX => $this->summaryList($summary, 'suggested_tags'),
+
             'attendee' => array_map(
                 fn (Attendee $attendee): array => [
                     'name' => $attendee->name,
@@ -198,19 +207,36 @@ final class BoardMeetingTemplateFields implements ProvidesTemplateLabels, Templa
      */
     private function joinSummaryList(array $summary, string $key): string
     {
+        return implode('، ', $this->summaryList($summary, $key));
+    }
+
+    /**
+     * One summary list as plain strings, joined by nothing.
+     *
+     * Split out of {@see joinSummaryList()} because the list is wanted twice: once
+     * joined with this domain's wording for the printed sheet, and once raw so a
+     * template can join it with its own separator. Keeping one implementation of
+     * "what is in this list" is the point — two would be two answers to the same
+     * question, and the tags-are-objects case is exactly the sort of thing that
+     * would be right in one and wrong in the other.
+     *
+     * @return list<string>
+     */
+    private function summaryList(array $summary, string $key): array
+    {
         $value = $summary[$key] ?? null;
 
         if (! is_array($value)) {
-            return (string) ($value ?? '');
+            return [(string) ($value ?? '')];
         }
 
-        return implode('، ', array_map(
+        return array_map(
             // Tags arrive as `{name, slug}` objects and everything else as
             // strings; a slug is not something a printed sheet needs.
             fn (mixed $entry): string => is_array($entry)
                 ? (string) ($entry['name'] ?? '')
                 : (string) $entry,
             array_values($value),
-        ));
+        );
     }
 }

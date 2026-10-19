@@ -138,6 +138,33 @@ final class TemplateValues
      * A key with no dot belongs to no group and is returned whole, which can only
      * happen for a field the registry never produced.
      */
+    /**
+     * The suffix under which a domain may publish a column as a LIST even though it
+     * is printed inline.
+     *
+     * The same `@` convention the export kernel already uses for a variant of a
+     * value — `held_on@jalali` is the same date in another calendar — so a reader
+     * meeting either sees a familiar shape. The plain key still carries the joined
+     * string, so `{{summary.topics}}` keeps working exactly as it did.
+     */
+    public const LIST_SUFFIX = '@list';
+
+    /**
+     * Whether the registry declares this column of this group as a repeating row.
+     *
+     * @param  list<TemplateField>  $fields
+     */
+    private function hasColumn(array $fields, string $group, string $column): bool
+    {
+        foreach ($fields as $field) {
+            if ($field->isRow() && $field->group === $group && $field->column() === $column) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public function groupOf(string $searchKey): string
     {
         $dot = strpos($searchKey, '.');
@@ -176,24 +203,25 @@ final class TemplateValues
         $group = substr($macro->key, 0, $dot);
         $column = substr($macro->key, $dot + 1);
 
-        $known = false;
-
-        foreach ($fields as $field) {
-            if ($field->isRow() && $field->group === $group && $field->column() === $column) {
-                $known = true;
-
-                break;
-            }
-        }
-
-        if (! $known) {
-            return null;
-        }
-
         $entries = $values[$group] ?? [];
 
         if (! is_array($entries)) {
             return null;
+        }
+
+        // NOT A ROW GROUP, but the registry still publishes this column as a list. The
+        // summary's four fields are exactly this: prose that happens to be a list,
+        // which the document prints inline and a template may want to join its own way.
+        //
+        // Without this, {{summary.topics|; }} was refused because a row field was
+        // required — so a separator the author could see in the cheat sheet silently did
+        // nothing, which is the worst of the three outcomes: it looks supported.
+        if (! $this->hasColumn($fields, $group, $column)) {
+            $list = $values[$macro->key.self::LIST_SUFFIX] ?? null;
+
+            return is_array($list)
+                ? implode($macro->separator, array_map(strval(...), $list))
+                : null;
         }
 
         $parts = [];

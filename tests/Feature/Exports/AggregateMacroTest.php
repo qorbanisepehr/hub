@@ -267,6 +267,38 @@ describe('a whole list in one placeholder', function () {
         expect($word('{{attendee.name|; }}', $meeting))->toContain('الف &amp; بتا');
     });
 
+    it('joins a summary list with the separator the author chose', function () use ($word) {
+        // The summary's four fields are prose that happens to be a list: the document
+        // prints them inline, so they are not a repeating group. The aggregate used to
+        // require a row group and refused them, which is the worst of the three
+        // outcomes — a separator shown in the cheat sheet that silently does nothing.
+        $meeting = BoardMeeting::factory()->create();
+
+        $meeting->forceFill([
+            'summary' => [
+                'status' => 'completed',
+                'topics' => ['الف', 'ب', 'ج'],
+            ],
+        ])->save();
+
+        $xml = $word('موضوعات: {{summary.topics|؛ }}', $meeting->refresh());
+
+        expect($xml)->toContain('الف؛ ب؛ ج');
+    });
+
+    it('keeps the plain summary field joined the way the domain words it', function () use ($word) {
+        // The comma-joined form is unchanged: the `@list` value is additional, not a
+        // replacement, so nothing an existing template wrote can behave differently.
+        $meeting = BoardMeeting::factory()->create();
+
+        $meeting->forceFill([
+            'summary' => ['status' => 'completed', 'topics' => ['الف', 'ب']],
+        ])->save();
+
+        expect($word('موضوعات: {{summary.topics}}', $meeting->refresh()))
+            ->toContain('الف، ب');
+    });
+
     it('reports the separator the file used, so the cheat sheet can be honest', function () {
         // Otherwise the upload screen says the placeholder is available and cannot
         // show what to type.
