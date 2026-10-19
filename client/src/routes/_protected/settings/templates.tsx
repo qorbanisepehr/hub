@@ -9,8 +9,8 @@ import { requirePermission } from "@/features/auth/guards";
 import { PERMISSIONS } from "@/lib/permissions";
 
 const TemplateSettingsSection = lazy(() =>
-    import("@/features/board-meetings/pages/word-template-settings-section").then(
-        (m) => ({ default: m.WordTemplateSettingsSection }),
+    import("@/features/board-meetings/pages/template-settings-section").then(
+        (m) => ({ default: m.TemplateSettingsSection }),
     ),
 );
 

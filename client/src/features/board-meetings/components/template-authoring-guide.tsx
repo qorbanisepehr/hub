@@ -20,7 +20,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { useWordTemplateFields } from "@/features/board-meetings/hooks/use-word-templates";
+import { useTemplateFields } from "@/features/board-meetings/hooks/use-templates";
 import {
     validateTemplate,
     type TemplateIssue,
@@ -48,7 +48,7 @@ import {
  * paragraph explaining separators.
  */
 export function TemplateAuthoringGuide() {
-    const { data: fields } = useWordTemplateFields();
+    const { data: fields } = useTemplateFields();
 
     if (!fields) {
         return null;

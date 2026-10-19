@@ -30,7 +30,7 @@ use ZipArchive;
  * So the assertions here are about parts and bytes, not about appearance — nobody can
  * open Word, and appearance is a consequence of these anyway.
  */
-describe('what a word template keeps', function () {
+describe('what a template keeps', function () {
     beforeEach(function () {
         Storage::fake('local');
     });

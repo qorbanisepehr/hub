@@ -92,7 +92,7 @@ export function fetchBoardMeeting(id: number | string) {
  *
  * THIS REPLACES THREE NEAR-IDENTICAL FUNCTIONS, and the duplication had already
  * cost something: `exportBoardMeetingDocx` existed in BOTH this file and
- * `word-templates-api.ts`, with different signatures — one taking a template, one
+ * `templates-api.ts`, with different signatures — one taking a template, one
  * not. An import that picked the wrong one compiled, type-checked and silently
  * dropped the template, which is the worst way for a duplicate to announce itself.
  *

@@ -25,7 +25,7 @@ use ZipArchive;
  * substitution runs in actually matters. A mock would agree with every one of
  * those assumptions.
  */
-describe('filling a word template', function () {
+describe('filling a template', function () {
     beforeEach(function () {
         Storage::fake('local');
 

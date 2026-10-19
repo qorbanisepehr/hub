@@ -4,12 +4,12 @@ import { toast } from "sonner";
 import { exportTemplateKeys } from "@/lib/query-keys";
 import { getApiError } from "@/lib/error-utils";
 import {
-    deleteWordTemplate,
-    fetchWordTemplateFields,
-    fetchWordTemplates,
-    updateWordTemplate,
-    uploadWordTemplate,
-} from "../word-templates-api";
+    deleteTemplate,
+    fetchTemplateFields,
+    fetchTemplates,
+    updateTemplate,
+    uploadTemplate,
+} from "../templates-api";
 
 /**
  * The uploaded Word templates a domain can export with.
@@ -17,13 +17,13 @@ import {
  * Long-lived: the library changes when an administrator changes it, not from one
  * render to the next, and a picker that refetches on every render flickers.
  */
-export function useWordTemplates(domain = "boardmeeting") {
+export function useTemplates(domain = "boardmeeting") {
     return useQuery({
         queryKey: exportTemplateKeys.list(domain),
         // The envelope's `data` is unwrapped here so no caller has to know the
         // API's response shape; only the domain comes back alongside it, and the
         // library already knows which domain it asked for.
-        queryFn: async () => (await fetchWordTemplates(domain)).data.data
+        queryFn: async () => (await fetchTemplates(domain)).data.data
             .templates,
         // Nothing here is secret enough to be worth a spinner on every visit,
         // but a library is small and rarely changes.
@@ -38,19 +38,19 @@ export function useWordTemplates(domain = "boardmeeting") {
  * different question and is read by a different screen - the person authoring a
  * file needs the names, the person exporting needs the list.
  */
-export function useWordTemplateFields(domain = "boardmeeting") {
+export function useTemplateFields(domain = "boardmeeting") {
     return useQuery({
         queryKey: exportTemplateKeys.fields(domain),
-        queryFn: async () => (await fetchWordTemplateFields(domain)).data.data,
+        queryFn: async () => (await fetchTemplateFields(domain)).data.data,
         staleTime: 5 * 60_000,
     });
 }
 
-export function useUploadWordTemplate(domain = "boardmeeting") {
+export function useUploadTemplate(domain = "boardmeeting") {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: uploadWordTemplate,
+        mutationFn: uploadTemplate,
         // The upload response carries WHAT THE FILE TURNED OUT TO BE, and this is
         // the only moment anybody can do anything about it. The export is where the
         // answer becomes visible otherwise — a template with `{{content}}` receives
@@ -79,7 +79,7 @@ export function useUploadWordTemplate(domain = "boardmeeting") {
     });
 }
 
-export function useUpdateWordTemplate(domain = "boardmeeting") {
+export function useUpdateTemplate(domain = "boardmeeting") {
     const queryClient = useQueryClient();
 
     return useMutation({
@@ -87,7 +87,7 @@ export function useUpdateWordTemplate(domain = "boardmeeting") {
             slug,
             ...payload
         }: { slug: string; name?: string; is_default?: boolean }) =>
-            updateWordTemplate(slug, payload),
+            updateTemplate(slug, payload),
         onSuccess: () => {
             void queryClient.invalidateQueries({
                 queryKey: exportTemplateKeys.list(domain),
@@ -99,11 +99,11 @@ export function useUpdateWordTemplate(domain = "boardmeeting") {
     });
 }
 
-export function useDeleteWordTemplate(domain = "boardmeeting") {
+export function useDeleteTemplate(domain = "boardmeeting") {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: deleteWordTemplate,
+        mutationFn: deleteTemplate,
         onSuccess: () => {
             void queryClient.invalidateQueries({
                 queryKey: exportTemplateKeys.list(domain),

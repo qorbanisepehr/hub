@@ -26,12 +26,12 @@ import { SectionTemplateSettingsCard } from "@/features/board-meetings/pages/sec
 import { TemplateAuthoringGuide } from "@/features/board-meetings/components/template-authoring-guide";
 import { usePermission } from "@/features/auth/components/permission-guard";
 import {
-    useDeleteWordTemplate,
-    useUpdateWordTemplate,
-    useUploadWordTemplate,
-    useWordTemplates,
-} from "@/features/board-meetings/hooks/use-word-templates";
-import type { WordTemplateDto } from "@/features/board-meetings/word-templates-api";
+    useDeleteTemplate,
+    useUpdateTemplate,
+    useUploadTemplate,
+    useTemplates,
+} from "@/features/board-meetings/hooks/use-templates";
+import type { TemplateDto } from "@/features/board-meetings/templates-api";
 
 /**
  * The export templates a meeting can be produced with, and the names one may use.
@@ -50,14 +50,14 @@ import type { WordTemplateDto } from "@/features/board-meetings/word-templates-a
  * deciding what goes where, and a flat list of twenty-two keys does not tell
  * them that `attendee.role` lives under the attendees heading.
  */
-export function WordTemplateSettingsSection() {
+export function TemplateSettingsSection() {
     const canManage = usePermission(["export-template.manage"]);
 
     const { data: templates, isLoading, isFetching, refetch } =
-        useWordTemplates();
+        useTemplates();
 
-    const update = useUpdateWordTemplate();
-    const remove = useDeleteWordTemplate();
+    const update = useUpdateTemplate();
+    const remove = useDeleteTemplate();
 
     const [uploadOpen, setUploadOpen] = useState(false);
 
@@ -150,7 +150,7 @@ export function WordTemplateSettingsSection() {
 
             <TemplateAuthoringGuide />
 
-            <UploadWordTemplateDialog
+            <UploadTemplateDialog
                 open={uploadOpen}
                 onOpenChange={setUploadOpen}
             />
@@ -165,7 +165,7 @@ function TemplateRow({
     onMakeDefault,
     onDelete,
 }: {
-    template: WordTemplateDto;
+    template: TemplateDto;
     canManage: boolean;
     isPending: boolean;
     onMakeDefault: () => void;
@@ -229,14 +229,14 @@ function TemplateRow({
     );
 }
 
-function UploadWordTemplateDialog({
+function UploadTemplateDialog({
     open,
     onOpenChange,
 }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
 }) {
-    const upload = useUploadWordTemplate();
+    const upload = useUploadTemplate();
     const input = useRef<HTMLInputElement>(null);
 
     const [name, setName] = useState("");
@@ -299,9 +299,9 @@ function UploadWordTemplateDialog({
         >
             <div className="grid gap-4">
                 <div className="grid gap-2">
-                    <Label htmlFor="word-template-file">فایل</Label>
+                    <Label htmlFor="template-file">فایل</Label>
                     <Input
-                        id="word-template-file"
+                        id="template-file"
                         type="file"
                         ref={input}
                         accept=".docx,.md,.json"
@@ -309,9 +309,9 @@ function UploadWordTemplateDialog({
                 </div>
 
                 <div className="grid gap-2">
-                    <Label htmlFor="word-template-name">نام قالب</Label>
+                    <Label htmlFor="template-name">نام قالب</Label>
                     <Input
-                        id="word-template-name"
+                        id="template-name"
                         value={name}
                         onChange={(event) => setName(event.target.value)}
                         placeholder={file ? file.name : "مثلاً نامهٔ رسمی جلسه"}
@@ -320,13 +320,13 @@ function UploadWordTemplateDialog({
 
                 <div className="flex items-center gap-2">
                     <Checkbox
-                        id="word-template-default"
+                        id="template-default"
                         checked={isDefault}
                         onCheckedChange={(checked) =>
                             setIsDefault(checked === true)
                         }
                     />
-                    <Label htmlFor="word-template-default">
+                    <Label htmlFor="template-default">
                         پیش‌فرضِ دامنه باشد
                     </Label>
                 </div>

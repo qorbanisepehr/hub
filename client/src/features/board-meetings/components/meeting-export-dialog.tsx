@@ -24,9 +24,9 @@ import {
     type BoardMeetingSheetFormat,
 } from "../api";
 import {
-    useWordTemplateFields,
-    useWordTemplates,
-} from "../hooks/use-word-templates";
+    useTemplateFields,
+    useTemplates,
+} from "../hooks/use-templates";
 
 /**
  * What this one export should be: which format, which template, which sections.
@@ -59,8 +59,8 @@ export function MeetingExportDialog({
     onOpenChange: (open: boolean) => void;
     meetingId: number | string;
 }) {
-    const { data: templates } = useWordTemplates();
-    const { data: fields } = useWordTemplateFields();
+    const { data: templates } = useTemplates();
+    const { data: fields } = useTemplateFields();
 
     const sections = useMemo(() => fields?.sections ?? [], [fields]);
     const [format, setFormat] = useState<BoardMeetingSheetFormat>("docx");

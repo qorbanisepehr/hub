@@ -16,7 +16,7 @@ import { api, FORM_DATA_HEADERS } from "@/lib/api";
  * a file that says `{{content}}` wants the document, one that does not is a document
  * somebody wrote. Nothing to choose, and nothing to get wrong.
  */
-export type WordTemplateDto = {
+export type TemplateDto = {
     slug: string;
     name: string;
     format: string;
@@ -24,10 +24,10 @@ export type WordTemplateDto = {
     is_default: boolean;
 };
 
-export type WordTemplateListResponse = {
+export type TemplateListResponse = {
     data: {
         domain: string;
-        templates: WordTemplateDto[];
+        templates: TemplateDto[];
     };
 };
 
@@ -38,20 +38,20 @@ export type WordTemplateListResponse = {
  * do anything about it: the export is where the answer becomes visible otherwise, and
  * by then it is a document somebody has to open to find out they got the other kind.
  */
-export type WordTemplateInspectionDto = {
+export type TemplateInspectionDto = {
     kind: "frame" | "detail";
     placeholders: string[];
     size: number;
 };
 
-export type WordTemplateUploadResponse = {
+export type TemplateUploadResponse = {
     message: string;
-    data: WordTemplateDto;
-    inspection: WordTemplateInspectionDto;
+    data: TemplateDto;
+    inspection: TemplateInspectionDto;
 };
 
 /** One name a template may refer to, as the cheat sheet reports it. */
-export type WordTemplateFieldDto = {
+export type TemplateFieldDto = {
     key: string;
     label: string;
 };
@@ -63,7 +63,7 @@ export type WordTemplateFieldDto = {
  * group must sit in one row together or a list renders as a single line. A flat list
  * of field names cannot express that, which is why the server sends it this way.
  */
-export type WordTemplateRowGroupDto = {
+export type TemplateRowGroupDto = {
     group: string;
     /**
      * The section's own Persian name for this group, borrowed rather than
@@ -71,7 +71,7 @@ export type WordTemplateRowGroupDto = {
      * one is how the values repeat, the other is where they appear on the page.
      */
     label: string;
-    columns: WordTemplateFieldDto[];
+    columns: TemplateFieldDto[];
 };
 
 /**
@@ -81,7 +81,7 @@ export type WordTemplateRowGroupDto = {
  * names may I write" but "where does each one appear", and a flat list of twenty-two
  * keys does not say that `attendee.role` lives under the attendees heading.
  */
-export type WordTemplateSectionDto = {
+export type TemplateSectionDto = {
     key: string;
     label: string;
     fields: string[];
@@ -98,20 +98,20 @@ export type WordTemplateSectionDto = {
  * The markers are PHPWord's own `cloneBlock` shape, carried from the server rather than
  * written here so the two ends cannot drift apart.
  */
-export type WordTemplateBlockGroupDto = {
+export type TemplateBlockGroupDto = {
     group: string;
     open: string;
     close: string;
 };
 
-export type WordTemplateFieldsResponse = {
+export type TemplateFieldsResponse = {
     data: {
         domain: string;
         syntax: { open: string; close: string };
-        general: WordTemplateFieldDto[];
-        inline: WordTemplateFieldDto[];
-        rows: WordTemplateRowGroupDto[];
-        blocks: WordTemplateBlockGroupDto[];
+        general: TemplateFieldDto[];
+        inline: TemplateFieldDto[];
+        rows: TemplateRowGroupDto[];
+        blocks: TemplateBlockGroupDto[];
         /**
          * Every printable section and the names that appear in it.
          *
@@ -122,7 +122,7 @@ export type WordTemplateFieldsResponse = {
          * screen was rebuilt to remove. Each single value carries its section as a
          * badge instead.
          */
-        sections: WordTemplateSectionDto[];
+        sections: TemplateSectionDto[];
         /**
          * The names holding a LIST, which therefore accept a separator of the
          * author's own — `{{summary.topics|؛ }}`. Reported because the cheat sheet is
@@ -140,8 +140,8 @@ export type WordTemplateFieldsResponse = {
     };
 };
 
-export function fetchWordTemplates(domain = "boardmeeting") {
-    return api.get<WordTemplateListResponse>("/templates", {
+export function fetchTemplates(domain = "boardmeeting") {
+    return api.get<TemplateListResponse>("/templates", {
         params: { domain },
     });
 }
@@ -153,13 +153,13 @@ export function fetchWordTemplates(domain = "boardmeeting") {
  * the domain, not of the current library, so they do not change when somebody
  * uploads a file and should not be refetched beside it.
  */
-export function fetchWordTemplateFields(domain = "boardmeeting") {
-    return api.get<WordTemplateFieldsResponse>("/templates/fields", {
+export function fetchTemplateFields(domain = "boardmeeting") {
+    return api.get<TemplateFieldsResponse>("/templates/fields", {
         params: { domain },
     });
 }
 
-export function uploadWordTemplate(payload: {
+export function uploadTemplate(payload: {
     file: File;
     name: string;
     domain?: string;
@@ -174,19 +174,19 @@ export function uploadWordTemplate(payload: {
         form.append("is_default", "1");
     }
 
-    return api.post<WordTemplateUploadResponse>("/templates", form, {
+    return api.post<TemplateUploadResponse>("/templates", form, {
         headers: FORM_DATA_HEADERS,
     });
 }
 
-export function updateWordTemplate(
+export function updateTemplate(
     slug: string,
     payload: { name?: string; is_default?: boolean },
 ) {
     return api.put(`/templates/${slug}`, payload);
 }
 
-export function deleteWordTemplate(slug: string) {
+export function deleteTemplate(slug: string) {
     return api.delete(`/templates/${slug}`);
 }
 

@@ -14,7 +14,7 @@ use App\Support\Exports\Templates\SectionTemplate;
  * of setting in one group from claiming each other; and the rename is a real,
  * re-runnable move rather than an assumption that the store was empty.
  */
-describe('word templates', function () {
+describe('templates', function () {
     it('addresses a template by format, domain and slug', function () {
         expect(FileTemplate::make('docx', 'boardmeeting', 'official', null, 'نامهٔ رسمی', 10, 'application/docx')->key())
             ->toBe('template/docx/boardmeeting/official')

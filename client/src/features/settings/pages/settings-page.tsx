@@ -29,7 +29,7 @@ export function SettingsPage() {
         PERMISSIONS.AI_PROVIDER_VIEW,
         PERMISSIONS.AI_PROVIDER_MANAGE,
     ]);
-    const canWordTemplates = usePermission([
+    const canTemplates = usePermission([
         PERMISSIONS.EXPORT_TEMPLATE_VIEW,
         PERMISSIONS.EXPORT_TEMPLATE_MANAGE,
     ]);
@@ -83,7 +83,7 @@ export function SettingsPage() {
                         <TabsTrigger value="tags">برچسب‌ها</TabsTrigger>
                     )}
                     {canAi && <TabsTrigger value="ai">هوش مصنوعی</TabsTrigger>}
-                    {canWordTemplates && (
+                    {canTemplates && (
                         <TabsTrigger value="templates">
                             قالب خروجی
                         </TabsTrigger>

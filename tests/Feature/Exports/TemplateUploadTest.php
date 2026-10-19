@@ -24,7 +24,7 @@ use ZipArchive;
  * rewrites whatever is stored — an unexamined upload turns every export into a
  * re-run of what the person uploaded.
  */
-describe('inspecting an uploaded word template', function () {
+describe('inspecting an uploaded template', function () {
     /** A real docx, optionally carrying tokens. */
     $docx = function (?string $text = null): string {
         $phpWord = new PhpWord;
@@ -235,7 +235,7 @@ describe('inspecting an uploaded word template', function () {
     });
 });
 
-describe('the word template library', function () {
+describe('the template library', function () {
     beforeEach(function () {
         Storage::fake('local');
 
