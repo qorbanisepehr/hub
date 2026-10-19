@@ -2,6 +2,8 @@
 
 namespace App\Domains\BoardMeeting\Controllers;
 
+use App\Domains\BoardMeeting\Exports\BoardMeetingProfile;
+use App\Domains\BoardMeeting\Exports\BoardMeetingSection;
 use App\Domains\BoardMeeting\Exports\BoardMeetingSheetExport;
 use App\Domains\BoardMeeting\Exports\BoardMeetingTemplateFields;
 use App\Domains\BoardMeeting\Requests\StoreFileTemplateRequest;
@@ -85,6 +87,20 @@ final class FileTemplateController
                     array_filter($registry->fields(), fn ($field): bool => ! $field->isRow()),
                 )),
                 'rows' => $this->rowGroups($registry),
+
+                // Which section each value appears in, which is the question a person
+                // laying out a template is actually asking. It had no answer while the
+                // sections and the values were two separate lists, and a flat list of
+                // twenty-two keys does not say that ttendee.role lives under the
+                // attendees heading.
+                'sections' => array_map(
+                    static fn (BoardMeetingSection $section): array => [
+                        'key' => $section->key,
+                        'label' => $section->label,
+                        'fields' => $section->fieldKeys(),
+                    ],
+                    (new BoardMeetingProfile)->sections(),
+                ),
             ],
         ]);
     }

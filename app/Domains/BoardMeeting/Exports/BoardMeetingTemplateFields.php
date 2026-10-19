@@ -35,6 +35,8 @@ use App\Support\Exports\ValuePresenter;
  */
 final class BoardMeetingTemplateFields implements ProvidesTemplateLabels, TemplateFieldRegistry
 {
+    public function __construct(private readonly BoardMeetingProfile $profile = new BoardMeetingProfile) {}
+
     /**
      * The summary's own lists, joined for a template that wants them in prose.
      *
@@ -78,42 +80,20 @@ final class BoardMeetingTemplateFields implements ProvidesTemplateLabels, Templa
     }
 
     /**
+     * Every value a template may address, in the order the meeting prints them.
+     *
+     * READ FROM THE PROFILE rather than declared here, which is the point of the
+     * profile existing: this class answers "what does a template have available" and
+     * {@see BoardMeetingSheetExport} answers "what does the sheet print", and when
+     * they each carried their own list a value could be declared that no section ever
+     * printed — or a section could exist whose values no template could reach —
+     * with nothing anywhere to notice.
+     *
      * @return list<TemplateField>
      */
     public function fields(): array
     {
-        return [
-            TemplateField::inline('title', __('board_meeting.print.fields.title')),
-            TemplateField::inline('held_on', __('board_meeting.print.fields.held_on')),
-            TemplateField::inline('sequence', __('board_meeting.print.fields.sequence')),
-            TemplateField::inline('origin', __('board_meeting.print.fields.origin')),
-            TemplateField::inline('minutes', __('board_meeting.print.sections.minutes')),
-
-            TemplateField::inline('summary.status', __('board_meeting.print.fields.status')),
-            TemplateField::inline('summary.error', __('board_meeting.print.fields.error')),
-            TemplateField::inline('summary.executive_summary', __('board_meeting.print.fields.executive_summary')),
-            TemplateField::inline('summary.topics', __('board_meeting.print.fields.topics')),
-            TemplateField::inline('summary.bullet_points', __('board_meeting.print.fields.bullet_points')),
-            TemplateField::inline('summary.key_decisions', __('board_meeting.print.fields.key_decisions')),
-            TemplateField::inline('summary.suggested_tags', __('board_meeting.print.fields.suggested_tags')),
-
-            TemplateField::row('attendee.name', __('board_meeting.print.columns.name'), 'attendee'),
-            TemplateField::row('attendee.role', __('board_meeting.print.columns.role'), 'attendee'),
-            TemplateField::row('attendee.present', __('board_meeting.print.columns.present'), 'attendee'),
-
-            TemplateField::row('agenda.position', __('board_meeting.print.columns.position'), 'agenda'),
-            TemplateField::row('agenda.title', __('board_meeting.print.columns.agenda_title'), 'agenda'),
-
-            TemplateField::row('tag.name', __('board_meeting.print.columns.tag'), 'tag'),
-
-            TemplateField::row('approval.registry_number', __('board_meeting.print.columns.registry_number'), 'approval'),
-            TemplateField::row('approval.document_title', __('board_meeting.print.columns.document_title'), 'approval'),
-
-            TemplateField::row('attachment.file_name', __('board_meeting.print.columns.file_name'), 'attachment'),
-            TemplateField::row('attachment.size', __('board_meeting.print.columns.size'), 'attachment'),
-            TemplateField::row('attachment.mime', __('board_meeting.print.columns.mime'), 'attachment'),
-            TemplateField::row('attachment.uploaded_at', __('board_meeting.print.columns.uploaded_at'), 'attachment'),
-        ];
+        return $this->profile->fields();
     }
 
     /**

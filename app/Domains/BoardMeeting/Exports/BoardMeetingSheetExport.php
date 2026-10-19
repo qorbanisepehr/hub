@@ -53,6 +53,7 @@ final class BoardMeetingSheetExport implements DocumentSource
 
     public function __construct(
         private readonly TemplateResolver $templates,
+        private readonly BoardMeetingProfile $profile = new BoardMeetingProfile,
     ) {}
 
     /**
@@ -88,7 +89,7 @@ final class BoardMeetingSheetExport implements DocumentSource
      */
     public function sectionNames(): array
     {
-        return array_keys($this->sectionBuilders());
+        return $this->profile->sectionKeys();
     }
 
     /**
@@ -103,13 +104,13 @@ final class BoardMeetingSheetExport implements DocumentSource
      */
     public function sectionDefinitions(): array
     {
-        return array_values(array_map(
-            fn (string $key): array => [
-                'key' => $key,
-                'label' => $this->label('sections.'.$key, $key),
+        return array_map(
+            static fn (BoardMeetingSection $section): array => [
+                'key' => $section->key,
+                'label' => $section->label,
             ],
-            $this->sectionNames(),
-        ));
+            $this->profile->sections(),
+        );
     }
 
     /**
@@ -121,6 +122,11 @@ final class BoardMeetingSheetExport implements DocumentSource
      * also the vocabulary {@see resolveSections()} filters templates against, so
      * the set of printable sections and the set of legal template names are the
      * same list and cannot drift apart.
+     *
+     * THE KEYS MUST MATCH {@see BoardMeetingProfile}, and nothing in the types
+     * enforces it — a builder for a section the profile does not declare would
+     * print, and a profile section with no builder would resolve to nothing.
+     * `BoardMeetingProfileTest` is where that is caught.
      *
      * @return array<string, callable(BoardMeeting): DocumentSection>
      */
