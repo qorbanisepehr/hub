@@ -3,29 +3,36 @@
 namespace App\Support\Exports\Templates;
 
 /**
- * `{{#start|name|separator}}` — a list, with something before it and something between.
+ * `{{start|name|end}}` — a list, with something before each item and something after.
  *
- * THE THIRD SPELLING OF A REPEATING VALUE, and it exists because the first two could
- * not say "برچسب‌ها: الف، ب، ج". An aggregate joins the items and nothing else; a
- * block repeats a region and prints nothing around it. Both are right and neither
- * fits a sentence with a word in front of it, which is most of a letterhead.
+ * THE ONE RULE FOR PRINTING A LIST, and the thing the `@` in earlier drafts of this
+ * file was never for. `@` and `&` were SAMPLE separators, not markers: the shape is
  *
- *     {{#|tag.name|,}}                →  الف، ب، ج
- *     {{#برچسب‌ها: |tag.name|, }}     →  برچسب‌ها: الف، ب، ج
+ *     {{«|tag.name|» }}     →  «الف» «ب» «ج»
+ *     {{ |tag.name|، }}     →  الف، ب، ج
+ *     {{«|tag.name|»، }}   →  «الف»، «ب»، «ج»
  *
- * THE `#` SAYS "THIS IS A LIST", the first `|` ends what comes before it and the
- * second ends the name. Both sides may be empty, which is why the empty start is
- * written `{{#|...` rather than being inferred: without it there is no way to tell
- * `{{#tag.name|,}}` — a name called `tag.name` — from a prefix of `tag.name`.
+ * and any text at all is allowed in either outer part, because a start separator that
+ * can only be one character cannot open a quotation, a bracket or a prefix. The
+ * SECOND example is the plain separator with nothing added around it, which is the
+ * point: joining and decorating are one operation, differing only in whether the
+ * outer two are empty. They were two code paths here and are one.
  *
- * A `|` IMMEDIATELY AFTER THE `#` IS WHAT MAKES IT A LIST AND NOT A RANGE.
- * `{{#attendee}}` and `{{/attendee}}` open and close a block, and they carry no
- * separator, so the two forms cannot be confused. Requiring the bar keeps a
- * half-remembered `{{#tag.name}}` meaning what it says.
+ * A FOURTH PART SAYS WHAT GOES BETWEEN THE ITEMS, for the common case where the end
+ * separator does not already end in a space. Without one, nothing is inserted when
+ * the end separator trails a space — because `» ` is a finish that leaves its own
+ * gap, and adding a second would give «الف»  «ب».
  *
- * THE VALUE IS AN AGGREGATE'S, not a new one — the same columns, the same rules
- * about a name that is not real. Adding a way to print a list is not a reason to add
- * a second definition of what a list is.
+ * HOW A LIST IS TOLD FROM A BLOCK, since both use braces: THE BAR MUST COME BEFORE
+ * THE FIRST DOT. `|tag.name|»` is a list; `tag.name|،` is a plain value carrying a
+ * separator; `#attendee` has no bar at all and opens a block. Checking for one
+ * particular opening character instead would tie the syntax to that character, and
+ * every list written with a different one would fall through to the joining path and
+ * print something plausible and wrong.
+ *
+ * THE ITEMS THEMSELVES ARE AN AGGREGATE'S — the same columns, the same rules about a
+ * name that is not real. Adding a way to print a list is not a reason to add a second
+ * definition of what a list is.
  */
 final class AdaptiveListMacro
 {

@@ -118,7 +118,7 @@ function TemplateTester({
                     dir="ltr"
                     rows={7}
                     className="font-mono text-xs"
-                    placeholder={`مثلا:\n${open}held_on${close}  /  ${open}held_on@jalali${close}\n${open}#attendee${close}\n${open}attendee.name${close}\n${open}/attendee${close}\n${open}@|tag.name|& ${close}`}
+                    placeholder={`مثلا:\n${open}held_on${close}  /  ${open}held_on@jalali${close}\n${open}#attendee${close}\n${open}attendee.name${close}\n${open}/attendee${close}\n${open}«|tag.name|» ${close}`}
                 />
 
                 {text.trim() === "" ? (
@@ -241,8 +241,8 @@ function SyntaxGuide({ syntax }: { syntax: { open: string; close: string } }) {
                 <Shape
                     icon={<IconBraces className="size-4" />}
                     title="با نشانه‌گذاری دور هر مورد"
-                    note="جداکننده میانِ موارد می‌نشیند و نمی‌تواند بگوید یک مورد کجا تمام شد — این شکل هر مورد را جدا می‌کند."
-                    lines={[`${open}@|tag.name|& ${close}   →   @بودجه& @مالی&`]}
+                    note="جداکننده میانِ موارد می‌نشیند و نمی‌تواند بگوید یک مورد کجا تمام شد — این شکل هر مورد را جدا می‌کند. دو بخش بیرونی هرچه می‌خواهید بنویسید؛ اگر خالی باشند همان جداکنندهٔ ساده است."
+                    lines={[`${open}«|tag.name|» ${close}   →   «بودجه» «مالی»`]}
                 />
             </CardContent>
         </Card>

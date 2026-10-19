@@ -98,34 +98,34 @@ describe('a list with each item wrapped', function () {
         // NOT `@aaa& bbb& ccc&`. The before and the after belong to the ITEM, and a
         // separator cannot mark where one item ends — which is the whole reason this
         // shape exists.
-        expect($word('{{@|tag.name|~ }}', $meeting()))
-            ->toContain('@aaa~ @bbb~ @ccc~');
+        expect($word('{{«|tag.name|» }}', $meeting()))
+            ->toContain('«aaa» «bbb» «ccc»');
     });
 
     it('joins with a single space when there is no fourth part', function () use ($word, $meeting) {
-        expect($word('{{|tag.name|, }}', $meeting()))->toContain('aaa, bbb, ccc,');
+        expect($word('{{|tag.name|، }}', $meeting()))->toContain('aaa، bbb، ccc،');
     });
 
     it('joins with the fourth part when there is one', function () use ($word, $meeting) {
-        expect($word('{{@|tag.name|~|; }}', $meeting()))->toContain('@aaa~; @bbb~; @ccc~');
+        expect($word('{{«|tag.name|»، }}', $meeting()))->toContain('«aaa»، «bbb»، «ccc»');
     });
 
     it('leaves an empty side empty rather than printing a space', function () use ($word, $meeting) {
-        expect($word('{{|tag.name|~ }}', $meeting()))->toContain('aaa~ bbb~ ccc~');
+        expect($word('{{|tag.name|، }}', $meeting()))->toContain('aaa، bbb، ccc،');
     });
 
     it('prints nothing at all when the list is empty', function () use ($word) {
         // Not `@&` — two marks wrapped around nothing reads as finished punctuation,
         // and a reader of the minutes cannot tell it from real content.
-        expect($word('{{@|tag.name|~ }}', BoardMeeting::factory()->create()))
-            ->not->toContain('@~')
+        expect($word('{{«|tag.name|» }}', BoardMeeting::factory()->create()))
+            ->not->toContain('«»')
             ->not->toContain('{{');
     });
 
     it('leaves the whole macro printed when the name is not real', function () use ($word, $meeting) {
         // INCLUDING the marks, for the same reason: a stray `@` next to a visible
         // macro is a clue; a tidy `@` next to nothing is not.
-        expect($word('{{@|tag.nmae|~ }}', $meeting()))->toContain('{{@|tag.nmae|~ }}');
+        expect($word('{{«|tag.nmae|» }}', $meeting()))->toContain('{{«|tag.nmae|» }}');
     });
 
     it('does not mistake a range marker for a wrapped list', function () {
@@ -135,19 +135,19 @@ describe('a list with each item wrapped', function () {
         // as.
         expect(AdaptiveListMacro::from('#attendee'))->toBeNull()
             ->and(AdaptiveListMacro::from('/attendee'))->toBeNull()
-            ->and(AdaptiveListMacro::from('@|tag.name|& '))->not->toBeNull();
+            ->and(AdaptiveListMacro::from('«|tag.name|» '))->not->toBeNull();
     });
 
     it('reads adjacent bars as an empty before, not as part of the name', function () {
         // With an empty before the two bars are adjacent. Reading the FIRST as the
         // one closing the name would make the name `& ` and the before `tag.name` —
         // which fills nothing and looks exactly like a working feature.
-        $macro = AdaptiveListMacro::from('@|tag.name|& ');
+        $macro = AdaptiveListMacro::from('«|tag.name|» ');
 
         expect($macro)->not->toBeNull()
             ->and($macro->key)->toBe('tag.name')
-            ->and($macro->before)->toBe('@')
-            ->and($macro->after)->toBe('& ')
+            ->and($macro->before)->toBe('«')
+            ->and($macro->after)->toBe('» ')
             // The after already trails a space, so nothing is inserted between items:
             // adding a second gap would give @aaa&  @bbb&, which the author would
             // read as a bug in the macro rather than a rule about their own spacing.
@@ -158,7 +158,7 @@ describe('a list with each item wrapped', function () {
         $m = $meeting();
 
         $path = tempnam(sys_get_temp_dir(), 'wrapm-').'.md';
-        file_put_contents($path, '{{@|tag.name|~ }}');
+        file_put_contents($path, '{{«|tag.name|» }}');
 
         app(MarkdownTemplateFiller::class)->fill(
             $path,
@@ -173,6 +173,6 @@ describe('a list with each item wrapped', function () {
         fclose($stream);
         @unlink($path);
 
-        expect($text)->toContain('@aaa~ @bbb~ @ccc~');
+        expect($text)->toContain('«aaa» «bbb» «ccc»');
     });
 });
