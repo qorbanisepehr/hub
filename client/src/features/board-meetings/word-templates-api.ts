@@ -65,6 +65,12 @@ export type WordTemplateFieldDto = {
  */
 export type WordTemplateRowGroupDto = {
     group: string;
+    /**
+     * The section's own Persian name for this group, borrowed rather than
+     * re-translated: a group and a section are the same thing seen from two ends —
+     * one is how the values repeat, the other is where they appear on the page.
+     */
+    label: string;
     columns: WordTemplateFieldDto[];
 };
 
@@ -103,10 +109,20 @@ export type WordTemplateFieldsResponse = {
         domain: string;
         syntax: { open: string; close: string };
         general: WordTemplateFieldDto[];
-        sections: WordTemplateSectionDto[];
         inline: WordTemplateFieldDto[];
         rows: WordTemplateRowGroupDto[];
         blocks: WordTemplateBlockGroupDto[];
+        /**
+         * Every printable section and the names that appear in it.
+         *
+         * Kept because "where does this name show up" is a question a person laying
+         * a template out actually asks, and a flat list of names does not answer it.
+         * It is NOT used to list the names again — the group cards below already show
+         * every repeating name, and showing them in two places was the repetition this
+         * screen was rebuilt to remove. Each single value carries its section as a
+         * badge instead.
+         */
+        sections: WordTemplateSectionDto[];
         /**
          * The names holding a LIST, which therefore accept a separator of the
          * author's own — `{{summary.topics|؛ }}`. Reported because the cheat sheet is

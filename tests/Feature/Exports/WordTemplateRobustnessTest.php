@@ -75,6 +75,86 @@ describe('a word template that word itself split', function () {
         return $out;
     };
 
+    it('fills a macro that Word broke apart AND interleaved with spell-check markers', function () {
+        // THE DEFECT THAT LEFT A REAL LETTERHEAD FILLING NOTHING AT ALL.
+        //
+        // Word does not merely split a macro across runs — it interleaves
+        // `<w:proofErr>` BETWEEN them, one for every fragment the checker complained
+        // about. Folding groups ADJACENT runs, so those were never adjacent, every
+        // group was a single run, and nothing was ever merged.
+        //
+        // The consequence was not one unfilled macro. The macro never became
+        // contiguous, and `TemplateProcessor` finds variables with a single regex over
+        // the whole part — so it reported NO VARIABLES IN THE DOCUMENT AT ALL, and not
+        // one placeholder in the file was filled. Everything else in that template was
+        // working perfectly and was being thrown away by the same one line.
+        $phpWord = new PhpWord;
+        $phpWord->addSection()->addText('placeholder');
+
+        $source = tempnam(sys_get_temp_dir(), 'proof-err-').'.docx';
+        IOFactory::createWriter($phpWord, 'Word2007')->save($source);
+
+        $zip = new ZipArchive;
+        $zip->open($source);
+        $xml = (string) $zip->getFromName('word/document.xml');
+
+        $split = str_replace(
+            '<w:r><w:rPr/><w:t xml:space="preserve">placeholder</w:t></w:r>',
+            '<w:proofErr w:type="gramStart"/>'
+                .'<w:r><w:rPr/><w:t xml:space="preserve">{{ </w:t></w:r>'
+                .'<w:proofErr w:type="spellStart"/>'
+                .'<w:r><w:rPr/><w:t>title</w:t></w:r>'
+                .'<w:proofErr w:type="gramEnd"/>'
+                .'<w:r><w:rPr/><w:t xml:space="preserve">}}</w:t></w:r>',
+            $xml,
+        );
+
+        expect($split)->not->toBe($xml);
+
+        $zip->addFromString('word/document.xml', $split);
+        $zip->close();
+
+        $meeting = BoardMeeting::factory()->create(['title' => 'بودجه']);
+
+        app(DocxTemplateFiller::class)->fill(
+            $source,
+            app(BoardMeetingSheetExport::class)->document($meeting),
+            $meeting,
+            new BoardMeetingTemplateFields,
+            $stream = fopen('php://temp', 'r+'),
+        );
+
+        rewind($stream);
+        $filled = (string) stream_get_contents($stream);
+        fclose($stream);
+        @unlink($source);
+
+        $out = tempnam(sys_get_temp_dir(), 'proof-err-out-').'.docx';
+        file_put_contents($out, $filled);
+
+        $zip = new ZipArchive;
+        $zip->open($out);
+        $doc = new DOMDocument;
+        $doc->loadXML((string) $zip->getFromName('word/document.xml'));
+        $zip->close();
+        @unlink($out);
+
+        $xpath = new DOMXPath($doc);
+        $xpath->registerNamespace('w', 'http://schemas.openxmlformats.org/wordprocessingml/2006/main');
+
+        $text = '';
+
+        foreach ($xpath->query('//w:t') as $node) {
+            $text .= $node->textContent;
+        }
+
+        // Filled, and the annotations are gone — they carry no content and Word
+        // rebuilds them on the next spell check.
+        expect($text)->toContain('بودجه')
+            ->not->toContain('{{')
+            ->and($xpath->query('//w:proofErr')->length)->toBe(0);
+    });
+
     it('fills a macro that Word broke across three runs', function () use ($fill, $textOf) {
         // ONE run holding three text elements. PHPWord will write this on request,
         // and it is the shape the reader sees after loading such a file.

@@ -84,6 +84,32 @@ describe('GET /api/word-templates/fields', function () {
             ->toContain('summary.suggested_tags');
     });
 
+    it('names every group with the section that owns its fields', function () {
+        // The card per group needs a Persian name, and there is exactly one place
+        // those names live: the sections. Borrowing them rather than declaring a
+        // second set is not a shortcut — a group and a section are the same thing
+        // seen from two ends, one being how the values repeat and the other where
+        // they appear. Two translations would drift.
+        $data = actingAs($this->user)
+            ->getJson('/api/word-templates/fields?domain=boardmeeting')
+            ->assertOk()
+            ->json('data');
+
+        $sectionOf = [];
+
+        foreach ($data['sections'] as $section) {
+            foreach ($section['fields'] as $key) {
+                $sectionOf[$key] ??= $section['label'];
+            }
+        }
+
+        foreach ($data['rows'] as $group) {
+            expect($group['label'])
+                ->not->toBe('')
+                ->toBe($sectionOf[$group['columns'][0]['key']] ?? $group['label']);
+        }
+    });
+
     it('reports only names a template can actually write', function () {
         $data = actingAs($this->user)
             ->getJson('/api/word-templates/fields?domain=boardmeeting')

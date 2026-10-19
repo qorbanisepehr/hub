@@ -222,7 +222,7 @@ final class DocxPackage
      */
     private function foldParagraph(DOMElement $paragraph): bool
     {
-        $changed = false;
+        $changed = $this->dropProofErrors($paragraph);
         $group = [];
 
         foreach (iterator_to_array($paragraph->childNodes) as $child) {
@@ -627,6 +627,49 @@ final class DocxPackage
         }
 
         return null;
+    }
+
+    /**
+     * Remove the spell-checker's annotations from a paragraph.
+     *
+     * THIS IS WHY A REAL TEMPLATE FILLED NOTHING AT ALL. Word does not merely split a
+     * macro across runs — it interleaves `<w:proofErr>` BETWEEN them:
+     *
+     *     <w:proofErr w:type="gramStart"/><w:r><w:t>{{ </w:t></w:r>
+     *     <w:proofErr w:type="spellStart"/><w:r><w:t>summary</w:t></w:r>
+     *     <w:proofErr w:type="gramEnd"/><w:r><w:t>.bullet_points</w:t></w:r>
+     *
+     * Folding groups ADJACENT runs, and these are not adjacent, so every group was a
+     * single run and nothing was ever merged. The macro therefore never became
+     * contiguous in the XML, and `TemplateProcessor` — which finds variables with one
+     * regex over the whole part — reported NO VARIABLES IN THE DOCUMENT. Not one
+     * macro unfilled: every single one.
+     *
+     * Safe to drop because they carry no content. `w:proofErr` is a bookmark-shaped
+     * annotation that says "the checker was here", and Word rebuilds it on the next
+     * spell check. Nothing is lost that a reader could ever see.
+     *
+     * ONLY `w:proofErr`. A `w:bookmarkStart` also sits between runs often enough to
+     * break a group, but it names something, and dropping a bookmark would be a real
+     * loss where dropping a squiggle is not.
+     */
+    private function dropProofErrors(DOMElement $paragraph): bool
+    {
+        $dropped = false;
+        $owner = $paragraph->ownerDocument;
+
+        if ($owner === null) {
+            return false;
+        }
+
+        $xpath = $this->namespaced($owner);
+
+        foreach (iterator_to_array($xpath->query('.//w:proofErr', $paragraph) ?: []) as $proof) {
+            $proof->parentNode?->removeChild($proof);
+            $dropped = true;
+        }
+
+        return $dropped;
     }
 
     /**

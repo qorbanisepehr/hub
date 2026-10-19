@@ -226,16 +226,32 @@ final class FileTemplateController
      */
     private function rowGroups(BoardMeetingTemplateFields $registry): array
     {
+        // Which label each field's section calls it, so a GROUP can be shown with the
+        // same Persian name the document uses rather than a second translation of it
+        // kept here. A group and a section are genuinely the same thing seen from two
+        // ends — one is how the values repeat, the other is where they appear on the
+        // page — so borrowing the label is not a shortcut, it is the same answer.
+        $labels = [];
+
+        foreach ((new BoardMeetingProfile)->sections() as $section) {
+            foreach ($section->fieldKeys() as $key) {
+                $labels[$key] ??= $section->label;
+            }
+        }
+
         $groups = [];
 
         foreach ($registry->fields() as $field) {
-            if ($field->isRow()) {
-                $groups[$field->group]['group'] = $field->group;
-                $groups[$field->group]['columns'][] = [
-                    'key' => $field->key,
-                    'label' => $field->label,
-                ];
+            if (! $field->isRow()) {
+                continue;
             }
+
+            $groups[$field->group]['group'] = $field->group;
+            $groups[$field->group]['label'] ??= $labels[$field->key] ?? $field->group;
+            $groups[$field->group]['columns'][] = [
+                'key' => $field->key,
+                'label' => $field->label,
+            ];
         }
 
         return array_values($groups);
