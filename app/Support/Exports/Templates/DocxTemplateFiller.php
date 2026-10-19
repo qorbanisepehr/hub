@@ -253,10 +253,14 @@ final class DocxTemplateFiller implements TemplateFiller
     private function generalFields(object $entity, TemplateFieldRegistry $registry, array $present): array
     {
         $out = [];
+        $spellings = $this->values->spellings($present);
 
         foreach ($this->general->resolve($entity, $registry) as $key => $value) {
-            if (isset($present[$key])) {
-                $out[$key] = $this->forXml($value);
+            // Keyed by the spelling, for the same reason the inline fields are: the
+            // replacement is an exact string match, so `{{ now }}` has to be
+            // replaced as `{{ now }}`.
+            foreach ($spellings[$key] ?? [] as $written) {
+                $out[$written] = $this->forXml($value);
             }
         }
 

@@ -39,20 +39,54 @@ final class TemplateValues
     public function inline(array $fields, array $values, array $present): array
     {
         $replacements = [];
+        $spellings = $this->spellings($present);
 
         foreach ($fields as $field) {
-            if ($field->isRow() || ! isset($present[$field->key])) {
+            if ($field->isRow()) {
                 continue;
             }
 
             $value = $values[$field->key] ?? null;
+            $text = is_scalar($value) || $value === null ? (string) $value : '';
 
-            $replacements[$field->key] = is_scalar($value) || $value === null
-                ? (string) $value
-                : '';
+            // Keyed by the SPELLING, not by the declared name: the filler replaces
+            // by the exact text the file contains, so `{{ title}}` has to be replaced
+            // as `{{ title}}` even though the name it means is `title`.
+            foreach ($spellings[$field->key] ?? [] as $written) {
+                $replacements[$written] = $text;
+            }
         }
 
         return $replacements;
+    }
+
+    /**
+     * Every name the file contains, keyed by the name with its spaces taken off.
+     *
+     * WHY THE SPELLING HAS TO BE KEPT. The reader hands back the macro exactly as
+     * written — `{{ title}}` arrives as ` title` — and every filler replaces by an
+     * exact string match. So the name is used to decide WHAT the macro means, and the
+     * spelling is used to decide WHAT TO REPLACE. Losing the second turns a macro that
+     * means something into one that means nothing.
+     *
+     * A LIST rather than one spelling, because a template may write the same name
+     * both ways in one file and both have to fill.
+     *
+     * A NAMESPACE, because `{{attendee.name|؛ }}` trims to `attendee.name|؛`, which
+     * is not a declared name and so cannot be mistaken for one.
+     *
+     * @param  array<string, int>  $present
+     * @return array<string, list<string>>
+     */
+    public function spellings(array $present): array
+    {
+        $spellings = [];
+
+        foreach (array_keys($present) as $written) {
+            $spellings[trim($written)][] = $written;
+        }
+
+        return $spellings;
     }
 
     /**
@@ -85,11 +119,12 @@ final class TemplateValues
         }
 
         $out = [];
+        $spellings = $this->spellings($present);
 
         foreach ($columns as $group => $all) {
             $usable = array_values(array_filter(
                 $all,
-                fn (TemplateField $field): bool => isset($present[$field->key]),
+                fn (TemplateField $field): bool => isset($spellings[$field->key]),
             ));
 
             if ($usable === []) {
@@ -97,10 +132,23 @@ final class TemplateValues
             }
 
             // The first column the author actually used, which is what tells a
-            // filler which row or line to duplicate.
-            $search = $usable[0]->key;
+            // filler which row or line to duplicate. The SPELLING rather than the
+            // declared name, because that is the text the filler searches the file
+            // for — `{{ attendee.name}}` has to be found as that, not as the tidier
+            // spelling nobody typed.
+            $search = $spellings[$usable[0]->key][0];
             $entries = $values[$group] ?? [];
             $rows = [];
+
+            // Which spelling each column is written as in THIS file, because a row
+            // is filled by exact match too. A column the author wrote both ways
+            // fills under the first; the second is left visible rather than
+            // silently half-filled, which is the rule every unknown macro follows.
+            $written = [];
+
+            foreach ($usable as $field) {
+                $written[$field->key] = $spellings[$field->key][0];
+            }
 
             if (is_array($entries)) {
                 foreach (array_values($entries) as $entry) {
@@ -111,7 +159,7 @@ final class TemplateValues
                     $row = [];
 
                     foreach ($usable as $field) {
-                        $row[$field->key] = (string) ($entry[$field->column()] ?? '');
+                        $row[$written[$field->key]] = (string) ($entry[$field->column()] ?? '');
                     }
 
                     $rows[] = $row;
@@ -194,14 +242,20 @@ final class TemplateValues
      */
     public function aggregate(AggregateMacro $macro, array $fields, array $values): ?string
     {
-        $dot = strpos($macro->key, '.');
+        // The name is trimmed before it is read, because a person types a space
+        // after the brace and before it and neither is part of the name. The
+        // SEPARATOR is untouched — it is everything after the pipe, where a
+        // trailing space is a character the author chose and one they can see.
+        $key = trim($macro->key);
+
+        $dot = strpos($key, '.');
 
         if ($dot === false) {
             return null;
         }
 
-        $group = substr($macro->key, 0, $dot);
-        $column = substr($macro->key, $dot + 1);
+        $group = substr($key, 0, $dot);
+        $column = substr($key, $dot + 1);
 
         $entries = $values[$group] ?? [];
 
@@ -217,7 +271,7 @@ final class TemplateValues
         // required — so a separator the author could see in the cheat sheet silently did
         // nothing, which is the worst of the three outcomes: it looks supported.
         if (! $this->hasColumn($fields, $group, $column)) {
-            $list = $values[$macro->key.self::LIST_SUFFIX] ?? null;
+            $list = $values[$key.self::LIST_SUFFIX] ?? null;
 
             return is_array($list)
                 ? implode($macro->separator, array_map(strval(...), $list))

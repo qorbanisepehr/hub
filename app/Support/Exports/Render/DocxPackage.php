@@ -302,9 +302,42 @@ final class DocxPackage
         }
 
         $merged = '';
+        $insideMacro = false;
+        $pastSeparator = false;
 
         foreach ($texts as $text) {
-            $merged .= $text->textContent;
+            $content = $text->textContent;
+
+            // A RUN THAT IS ONLY WHITESPACE, INSIDE A MACRO, BEFORE ITS SEPARATOR,
+            // is dropped rather than merged. Word writes these — a lone space with
+            // its own run properties, splitting `approval.registry_number` into
+            // `approval.` + ` ` + `registry_number` — and merging faithfully
+            // preserved it, so the key came out as `approval. registry_number`,
+            // which matches no field and leaves the macro printed in the minutes.
+            //
+            // Only before the pipe, because after it the whitespace IS the author's:
+            // `|؛ ` ends in a space that is part of the separator, and a bullet's
+            // indent after `|- ` is deliberate. Only inside, because a whitespace
+            // run in ordinary prose is ordinary prose.
+            if ($insideMacro && ! $pastSeparator && trim($content) === '') {
+                continue;
+            }
+
+            $merged .= $content;
+
+            if (str_contains($content, self::MACRO_OPEN)) {
+                $insideMacro = true;
+                $pastSeparator = false;
+            }
+
+            if ($insideMacro && str_contains($content, '|')) {
+                $pastSeparator = true;
+            }
+
+            if ($insideMacro && str_contains($content, self::MACRO_CLOSE)) {
+                $insideMacro = false;
+                $pastSeparator = false;
+            }
         }
 
         // Remove everything the group contributed, then put one text element back.
