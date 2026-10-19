@@ -22,7 +22,7 @@ use App\Domains\Settings\Repositories\SystemSettingsRepositoryInterface;
  * class knowing about specificity and nothing else.
  *
  * A TEMPLATE IS NOT AN ERROR. A malformed row is refused at read time by
- * {@see ExportTemplate::fromStored()}, but a row naming a section this version
+ * {@see SectionTemplate::fromStored()}, but a row naming a section this version
  * does not have is dropped and the rest honoured: a template written on a newer
  * deploy has to survive a rollback, and refusing the read would break rendering
  * altogether over one name. A section that quietly stops appearing is the
@@ -73,7 +73,7 @@ final class TemplateResolver
      */
     public function forget(string $domain, ?string $entity = null): void
     {
-        $this->settings->forget(ExportTemplate::class, ExportTemplate::keyFor($domain, $entity));
+        $this->settings->forget(SectionTemplate::class, SectionTemplate::keyFor($domain, $entity));
     }
 
     /**
@@ -83,23 +83,23 @@ final class TemplateResolver
      * from "inherited", which is the difference between showing an editor full
      * of values the administrator did not choose and showing it empty.
      */
-    public function stored(string $domain, ?string $entity = null): ?ExportTemplate
+    public function stored(string $domain, ?string $entity = null): ?SectionTemplate
     {
-        $template = $this->settings->get(ExportTemplate::class, ExportTemplate::keyFor($domain, $entity));
+        $template = $this->settings->get(SectionTemplate::class, SectionTemplate::keyFor($domain, $entity));
 
-        return $template instanceof ExportTemplate ? $template : null;
+        return $template instanceof SectionTemplate ? $template : null;
     }
 
     /**
      * Every template stored for a domain, entity overrides included.
      *
-     * @return list<ExportTemplate>
+     * @return list<SectionTemplate>
      */
     public function forDomain(string $domain): array
     {
         return array_values(array_filter(
-            $this->settings->all(ExportTemplate::class),
-            fn (Setting $setting): bool => $setting instanceof ExportTemplate
+            $this->settings->all(SectionTemplate::class),
+            fn (Setting $setting): bool => $setting instanceof SectionTemplate
                 && $setting->domain() === $domain,
         ));
     }

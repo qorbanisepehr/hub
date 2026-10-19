@@ -8,6 +8,11 @@ use App\Domains\Settings\Exceptions\InvalidSetting;
 /**
  * Which sections a rendered document contains, and in what order.
  *
+ * NAMED FOR WHAT IT HOLDS, BECAUSE IT SITS BESIDE A `FileTemplate`. Two classes in
+ * one settings group, and the old name — `ExportTemplate` — said neither what this
+ * one held nor how it differed from the other. A reader arriving at the pair had no
+ * way to tell that one is a template FILE and this one is a list of SECTION NAMES.
+ *
  * The printed form of a record is a decision, not a fact: a board secretariat
  * files the accepted minutes with the attendance sheet and does not care about
  * tags, while a governance reviewer wants the registry numbers and neither.
@@ -41,7 +46,7 @@ use App\Domains\Settings\Exceptions\InvalidSetting;
  * Two namespaces that cannot overlap is the same discipline the AI registry
  * applies to `providers/` and `agents/`.
  */
-final class ExportTemplate implements Setting
+final class SectionTemplate implements Setting
 {
     public const GROUP = 'exports';
 

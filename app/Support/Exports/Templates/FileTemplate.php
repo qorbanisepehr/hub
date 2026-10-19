@@ -33,7 +33,7 @@ use App\Domains\Settings\Exceptions\InvalidSetting;
  * different files for the same purpose, and a key that could not tell them apart
  * would need a format column to keep them from colliding — which is a second
  * place for the file extension and the row to disagree. The `template/` prefix is
- * what keeps this class from claiming {@see ExportTemplate}'s keys over the
+ * what keeps this class from claiming {@see SectionTemplate}'s keys over the
  * shared `exports` group, and the slug is a machine handle the person never sees
  * — the readable name is in the value, so a Persian name needs no transliteration.
  *
@@ -86,7 +86,7 @@ final class FileTemplate implements Setting
     /**
      * Whether the key is a file template's.
      *
-     * Same two checks as {@see ExportTemplate::handles()}, and for the same
+     * Same two checks as {@see SectionTemplate::handles()}, and for the same
      * reasons: the prefix keeps the two kinds apart in a shared group, and the
      * shape check refuses a malformed tail where it would be read rather than
      * trusting whoever wrote it.

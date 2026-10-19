@@ -5,7 +5,7 @@ namespace App\Domains\BoardMeeting\Controllers;
 use App\Domains\BoardMeeting\Exports\BoardMeetingSheetExport;
 use App\Domains\BoardMeeting\Requests\BoardMeetingTemplateRequest;
 use App\Domains\Settings\Repositories\SystemSettingsRepositoryInterface;
-use App\Support\Exports\Templates\ExportTemplate;
+use App\Support\Exports\Templates\SectionTemplate;
 use App\Support\Exports\Templates\TemplateResolver;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -51,7 +51,7 @@ final class BoardMeetingTemplateController
                     array_column($available, 'key'),
                 ),
                 'overrides' => array_values(array_map(
-                    fn (ExportTemplate $template): array => [
+                    fn (SectionTemplate $template): array => [
                         'entity' => $template->entity(),
                         'sections' => $template->sections(),
                     ],
@@ -60,7 +60,7 @@ final class BoardMeetingTemplateController
                     // of something.
                     array_filter(
                         $this->resolver->forDomain($this->domain()),
-                        fn (ExportTemplate $template): bool => $template->entity() !== null,
+                        fn (SectionTemplate $template): bool => $template->entity() !== null,
                     ),
                 )),
             ],
@@ -98,7 +98,7 @@ final class BoardMeetingTemplateController
         $sections = $request->sections();
 
         $this->settings->put(
-            ExportTemplate::make($this->domain(), null, $sections),
+            SectionTemplate::make($this->domain(), null, $sections),
             $this->updatedBy($request),
         );
 
@@ -119,7 +119,7 @@ final class BoardMeetingTemplateController
         $sections = $request->sections();
 
         $this->settings->put(
-            ExportTemplate::make($this->domain(), $entity, $sections),
+            SectionTemplate::make($this->domain(), $entity, $sections),
             $this->updatedBy($request),
         );
 

@@ -3,8 +3,8 @@
 use App\Contracts\Settings\Setting;
 use App\Domains\Settings\Exceptions\InvalidSetting;
 use App\Domains\Settings\Repositories\SystemSettingsRepositoryInterface;
-use App\Support\Exports\Templates\ExportTemplate;
 use App\Support\Exports\Templates\FileTemplate;
+use App\Support\Exports\Templates\SectionTemplate;
 
 /**
  * Word templates in the settings store.
@@ -128,18 +128,18 @@ describe('word templates', function () {
         $repo = app(SystemSettingsRepositoryInterface::class);
 
         $word = FileTemplate::make('docx', 'boardmeeting', 'official', null, 'نامهٔ رسمی', 10, 'application/docx');
-        $section = ExportTemplate::make('boardmeeting', null, ['identity']);
+        $section = SectionTemplate::make('boardmeeting', null, ['identity']);
 
         $repo->put($word);
         $repo->put($section);
 
         expect($repo->get(FileTemplate::class, $word->key()))->toBeInstanceOf(FileTemplate::class)
-            ->and($repo->get(ExportTemplate::class, $section->key()))->toBeInstanceOf(ExportTemplate::class);
+            ->and($repo->get(SectionTemplate::class, $section->key()))->toBeInstanceOf(SectionTemplate::class);
 
         // And each listing sees only its own kind, which is the whole reason the
         // namespaces exist.
         $words = array_filter($repo->all(FileTemplate::class), fn (Setting $s): bool => $s instanceof FileTemplate);
-        $sections = array_filter($repo->all(ExportTemplate::class), fn (Setting $s): bool => $s instanceof ExportTemplate);
+        $sections = array_filter($repo->all(SectionTemplate::class), fn (Setting $s): bool => $s instanceof SectionTemplate);
 
         expect($words)->toHaveCount(1)
             ->and($sections)->toHaveCount(1);
