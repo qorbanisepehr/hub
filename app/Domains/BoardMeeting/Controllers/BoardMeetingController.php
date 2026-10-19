@@ -12,6 +12,7 @@ use App\Domains\BoardMeeting\Jobs\BuildBoardMeetingBundleJob;
 use App\Domains\BoardMeeting\Models\BoardMeeting;
 use App\Domains\BoardMeeting\Requests\BoardMeetingBundleRequest;
 use App\Domains\BoardMeeting\Requests\BoardMeetingListRequest;
+use App\Domains\BoardMeeting\Requests\ExportMeetingSheetRequest;
 use App\Domains\BoardMeeting\Requests\UpdateBoardMeetingRequest;
 use App\Domains\BoardMeeting\Resources\BoardMeetingResource;
 use App\Domains\BoardMeeting\Services\BoardMeetingBundle;
@@ -141,9 +142,9 @@ class BoardMeetingController
      * does not exist. Both bodies are one line into {@see streamMeetingSheet}
      * precisely so they cannot drift apart.
      */
-    public function exportPdf(BoardMeeting $meeting, DocumentExportService $documents): StreamedResponse
+    public function exportPdf(BoardMeeting $meeting, DocumentExportService $documents, ExportMeetingSheetRequest $request): StreamedResponse
     {
-        return $this->streamMeetingSheet($meeting, $documents, 'pdf');
+        return $this->streamMeetingSheet($meeting, $documents, 'pdf', $request->sections());
     }
 
     /**
@@ -495,7 +496,7 @@ class BoardMeetingController
         BoardMeeting $meeting,
         FileTemplateService $word,
         FileTemplateLibrary $library,
-        Request $request,
+        ExportMeetingSheetRequest $request,
     ): StreamedResponse {
         // A template is optional and unnamed means the domain's default, so one
         // click still works exactly as before while somebody who has configured
@@ -512,7 +513,7 @@ class BoardMeetingController
             abort(404, __('board_meeting.template.not_found'));
         }
 
-        return $this->streamWordSheet($meeting, $word, $template);
+        return $this->streamWordSheet($meeting, $word, $template, $request->sections());
     }
 
     /**
@@ -549,11 +550,26 @@ class BoardMeetingController
 
     /**
      * One place a meeting is rendered to a file, whatever the file is.
+     *
+     * `$sections` is threaded all the way down because an export dialog has to be
+     * able to say what this one export contains. It reaches `document()` as an
+     * argument and is never stored — see {@see ExportMeetingSheetRequest} for why
+     * that distinction is the feature rather than an implementation detail.
      */
-    private function streamMeetingSheet(BoardMeeting $meeting, DocumentExportService $documents, string $format): StreamedResponse
-    {
+    private function streamMeetingSheet(
+        BoardMeeting $meeting,
+        DocumentExportService $documents,
+        string $format,
+        ?array $sections = null,
+    ): StreamedResponse {
         return $this->streamSheet(
-            $documents->run(app(BoardMeetingSheetExport::class), $meeting, $format),
+            $documents->run(
+                app(BoardMeetingSheetExport::class),
+                $meeting,
+                $format,
+                null,
+                $sections,
+            ),
             $documents,
         );
     }
@@ -566,6 +582,7 @@ class BoardMeetingController
         BoardMeeting $meeting,
         FileTemplateService $word,
         ?FileTemplate $template,
+        ?array $sections = null,
     ): StreamedResponse {
         return $this->streamSheet(
             $word->render(
@@ -573,6 +590,9 @@ class BoardMeetingController
                 $meeting,
                 app(BoardMeetingTemplateFields::class),
                 $template,
+                null,
+                null,
+                $sections,
             ),
             app(DocumentExportService::class),
         );
@@ -603,9 +623,9 @@ class BoardMeetingController
      * renderer's own docblock rather than pretending a pipe table can be made
      * to read right-to-left.
      */
-    public function exportMarkdown(BoardMeeting $meeting, DocumentExportService $documents): StreamedResponse
+    public function exportMarkdown(BoardMeeting $meeting, DocumentExportService $documents, ExportMeetingSheetRequest $request): StreamedResponse
     {
-        return $this->streamMeetingSheet($meeting, $documents, 'md');
+        return $this->streamMeetingSheet($meeting, $documents, 'md', $request->sections());
     }
 
     /**
@@ -617,9 +637,9 @@ class BoardMeetingController
      * kernel gives the CV, the employee profile and the questionnaire their
      * JSON too, without a line of work in those domains.
      */
-    public function exportJson(BoardMeeting $meeting, DocumentExportService $documents): StreamedResponse
+    public function exportJson(BoardMeeting $meeting, DocumentExportService $documents, ExportMeetingSheetRequest $request): StreamedResponse
     {
-        return $this->streamMeetingSheet($meeting, $documents, 'json');
+        return $this->streamMeetingSheet($meeting, $documents, 'json', $request->sections());
     }
 
     /**

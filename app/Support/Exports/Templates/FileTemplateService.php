@@ -70,7 +70,12 @@ final class FileTemplateService
         $format = $template?->format() ?? $format ?? FileTemplate::FORMAT_DOCX;
 
         if ($template === null) {
-            return $this->documents->run($source, $entity, $format, $stream);
+            // WITH `$sections` PASSED ON. This path is the common one — no template
+            // configured, so there is nothing to fill and the generated document IS
+            // the export — and dropping the argument here would mean the section list
+            // worked on every export except the one most people actually make. A test
+            // written against a configured template would never see it.
+            return $this->documents->run($source, $entity, $format, $stream, $sections);
         }
 
         if (! $this->store->has($template)) {

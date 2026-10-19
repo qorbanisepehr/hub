@@ -22,13 +22,23 @@ final class DocumentExportService
 
     /**
      * @param  resource|null  $stream
+     * @param  list<string>|null  $sections  the parts to print, for THIS export
+     *                                       only. Null asks the source for its own
+     *                                       default; an empty list asks for nothing,
+     *                                       which is a request and not an absence
+     *                                       of one.
      */
-    public function run(DocumentSource $source, mixed $entity, string $format, $stream = null): ExportFile
-    {
+    public function run(
+        DocumentSource $source,
+        mixed $entity,
+        string $format,
+        $stream = null,
+        ?array $sections = null,
+    ): ExportFile {
         $renderer = $this->renderers->get($format);
         $stream ??= fopen('php://temp', 'r+');
 
-        $renderer->render($source->document($entity), $stream);
+        $renderer->render($source->document($entity, $sections), $stream);
 
         return new ExportFile(
             filename: ExportFilename::make($source->baseFilename(), $renderer->extension()),
