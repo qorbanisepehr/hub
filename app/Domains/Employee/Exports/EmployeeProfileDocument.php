@@ -49,7 +49,7 @@ final class EmployeeProfileDocument implements DocumentSource
         private readonly ?Authenticatable $actor,
     ) {}
 
-    public function document(mixed $entity): DocumentSpec
+    public function document(mixed $entity, ?array $sections = null): DocumentSpec
     {
         /** @var Employee $entity */
         $visible = $this->visibleSections($entity);

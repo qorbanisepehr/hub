@@ -153,9 +153,26 @@ final class BoardMeetingSheetExport implements DocumentSource
      * {@see TemplateResolver} for why each answer is a whole template rather
      * than a patch of one.
      */
-    private function resolveSections(BoardMeeting $meeting): array
+    private function resolveSections(BoardMeeting $meeting, ?array $requested = null): array
     {
         $default = array_keys($this->sectionBuilders());
+
+        // WHAT THE CALLER ASKED FOR WINS, for this one export and without being
+        // stored. An export dialog that offers a section list has to be able to
+        // print something other than what is remembered for this meeting — otherwise
+        // "change it for this export" means "save it, and change it for every export
+        // from now on", which is not what anybody means by "just this once".
+        //
+        // Filtered against the builders, because a name that cannot be built is a
+        // request the sheet cannot honour and must not fail the whole export on.
+        if ($requested !== null) {
+            $builders = $this->sectionBuilders();
+
+            return array_values(array_filter(
+                $requested,
+                static fn (mixed $name): bool => is_string($name) && isset($builders[$name]),
+            ));
+        }
 
         $sections = $this->templates->sections(
             self::TEMPLATE_DOMAIN,
@@ -170,7 +187,17 @@ final class BoardMeetingSheetExport implements DocumentSource
         return $sections === [] ? $default : $sections;
     }
 
-    public function document(mixed $entity): DocumentSpec
+    /**
+     * @param  list<string>|null  $requested  the parts to print, for this export
+     *                                        only. NAMED
+equested rather than
+     *                                    sections because the method already has a
+     *                                    local accumulator of that name two lines
+     *                                    below, and a parameter shadowed by a local is
+     *                                    the kind of bug that passes review because
+     *                                    every individual line is correct.
+     */
+    public function document(mixed $entity, ?array $requested = null): DocumentSpec
     {
         $this->meeting = $entity instanceof BoardMeeting
             ? $entity
@@ -181,7 +208,7 @@ final class BoardMeetingSheetExport implements DocumentSource
         $builders = $this->sectionBuilders();
         $sections = [];
 
-        foreach ($this->resolveSections($meeting) as $name) {
+        foreach ($this->resolveSections($meeting, $requested) as $name) {
             // Built one at a time and only for the names the template asked
             // for, so a template that hides the agenda table never assembles it.
             $section = $builders[$name]($meeting);

@@ -56,6 +56,16 @@ final class FileTemplateService
         ?FileTemplate $template = null,
         $stream = null,
         ?string $format = null,
+        /**
+         * The parts to print, for THIS export only.
+         *
+         * Carried here rather than read from stored state, so an export dialog can offer
+         * a list and honour it without persisting anything. Null means "whatever this
+         * entity is usually exported with".
+         *
+         * @param  list<string>|null  $sections
+         */
+        ?array $sections = null,
     ): ExportFile {
         $format = $template?->format() ?? $format ?? FileTemplate::FORMAT_DOCX;
 
@@ -75,7 +85,7 @@ final class FileTemplateService
 
         $this->fillers->get($format)->fill(
             $this->store->path($template),
-            $source->document($entity),
+            $source->document($entity, $sections),
             $entity,
             $registry,
             $stream,

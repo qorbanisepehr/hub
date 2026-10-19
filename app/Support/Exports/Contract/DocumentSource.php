@@ -16,7 +16,17 @@ interface DocumentSource
      * The document content for this entity, already presented for human
      * readers (localized labels, Jalali dates, Persian digits).
      */
-    public function document(mixed $entity): DocumentSpec;
+    /**
+     * @param  list<string>|null  $sections  the parts to include, IN ORDER, or null to
+     *                                       use whatever this source would choose on its
+     *                                       own. Optional rather than required because
+     *                                       most sources have one sensible answer and
+     *                                       widening it lets an export dialog offer a
+     *                                       different one for a single request without
+     *                                       every source having to grow a second method
+     *                                       for a feature only some of them have.
+     */
+    public function document(mixed $entity, ?array $sections = null): DocumentSpec;
 
     /**
      * Filename base, e.g. 'employee-profile'; the kernel composes

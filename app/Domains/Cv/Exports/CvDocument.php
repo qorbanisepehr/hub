@@ -24,7 +24,7 @@ final class CvDocument implements DocumentSource
         private readonly FormOptionService $formOptions,
     ) {}
 
-    public function document(mixed $entity): DocumentSpec
+    public function document(mixed $entity, ?array $sections = null): DocumentSpec
     {
         /** @var Cv $entity */
         $builder = new SectionDocumentBuilder(
