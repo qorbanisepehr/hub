@@ -4,6 +4,7 @@ namespace App\Support\Exports\Templates;
 
 use App\Support\Exports\Contract\DocumentComposer;
 use App\Support\Exports\Contract\DocumentRenderer;
+use App\Support\Exports\Render\DocxSectionDirection;
 use App\Support\Exports\Value\Document\DocumentSpec;
 use PhpOffice\PhpWord\TemplateProcessor;
 
@@ -93,6 +94,7 @@ final class DocxTemplateFiller implements TemplateFiller
         private readonly GeneralValues $general,
         private readonly DocxMacros $macros,
         private readonly DocxBodySplice $splice,
+        private readonly DocxSectionDirection $sectionDirection = new DocxSectionDirection,
     ) {}
 
     public function format(): string
@@ -222,6 +224,13 @@ final class DocxTemplateFiller implements TemplateFiller
 
         try {
             $processor->saveAs($path);
+
+            // The template's SECTION is still declared left-to-right unless it says
+            // otherwise, and every paragraph being right-aligned does not make the
+            // document right. Same call as keeping rtl on a run while inheriting
+            // everything else about the file. See {@see DocxSectionDirection}.
+            $this->sectionDirection->makeRtl($path);
+
             $bytes = file_get_contents($path);
 
             if ($bytes === false || $bytes === '') {

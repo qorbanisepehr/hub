@@ -3,6 +3,7 @@
 use App\Domains\BoardMeeting\Exports\BoardMeetingSheetExport;
 use App\Domains\BoardMeeting\Exports\BoardMeetingTemplateFields;
 use App\Domains\BoardMeeting\Models\BoardMeeting;
+use App\Support\Exports\Render\DocxSectionDirection;
 use App\Support\Exports\Templates\DocxTemplateFiller;
 use Illuminate\Support\Facades\Storage;
 use PhpOffice\PhpWord\IOFactory;
@@ -160,17 +161,86 @@ describe('what a word template keeps', function () {
 
         expect($parts($out))->toHaveKey('word/theme/theme1.xml');
 
+        $before = $parts($path)['word/document.xml'];
+        $after = $parts($out)['word/document.xml'];
+
+        preg_match('/<w:sectPr.*?<\/w:sectPr>/s', $before, $was);
+        preg_match('/<w:sectPr.*?<\/w:sectPr>/s', $after, $now);
+
         // The section properties carry the page size, the margins and the reference
         // to the header — and the header reference is a relationship id, so replacing
         // the section properties would leave the header pointing at nothing.
-        preg_match('/<w:sectPr.*?<\/w:sectPr>/s', $parts($path)['word/document.xml'], $before);
-        preg_match('/<w:sectPr.*?<\/w:sectPr>/s', $parts($out)['word/document.xml'], $after);
+        //
+        // Asserted PIECE BY PIECE rather than as one string, because one thing IS
+        // added: `w:bidi`, so the section declares right-to-left. Page size, margins
+        // and the header reference are the template's own and must arrive untouched.
+        foreach (['<w:pgSz', '<w:pgMar', '<w:cols'] as $owned) {
+            expect($now[0])->toContain($owned);
 
-        expect($after)->toHaveCount(1)
-            ->and($after[0])->toBe($before[0]);
+            preg_match('/'.preg_quote($owned, '/').'[^>]*\/?>/', $was[0] ?? '', $a);
+            preg_match('/'.preg_quote($owned, '/').'[^>]*\/?>/', $now[0] ?? '', $b);
+
+            expect($b[0] ?? null)->toBe($a[0] ?? null);
+        }
 
         @unlink($path);
         @unlink($out);
+    });
+
+    it('declares the section right-to-left, in a template and without one', function () use ($letterhead, $fill, $parts) {
+        // Every paragraph can carry w:jc="right" and the document still read
+        // left-to-right, because alignment is measured against the section and a
+        // section that does not declare its direction is assumed to be
+        // left-to-right. That is the whole of this change, and it is invisible in any
+        // paragraph-level check.
+        $path = $letterhead();
+        $out = $fill($path);
+
+        preg_match('/<w:sectPr.*?<\/w:sectPr>/s', $parts($out)['word/document.xml'], $section);
+
+        expect($section[0] ?? '')->toContain('<w:bidi/>');
+
+        // Placed where the schema says, not simply appended: w:bidi follows w:cols
+        // and precedes w:docGrid, and a file Word happens to open is not the same as
+        // a file that validates.
+        expect(strpos($section[0] ?? '', '<w:bidi/>'))
+            ->toBeGreaterThan(strpos($section[0] ?? '', '<w:cols') ?: -1);
+
+        @unlink($path);
+        @unlink($out);
+    });
+
+    it('leaves a file that already declares itself right-to-left untouched', function () {
+        // This runs on EVERY export, so it must be idempotent: a second pass that
+        // appended a second element, or rewrote the part for no reason, would make
+        // every export produce a different file from the same input.
+        $path = tempnam(sys_get_temp_dir(), 'rtl-').'.docx';
+
+        $phpWord = new PhpWord;
+        $phpWord->addSection()->addText('متن');
+
+        IOFactory::createWriter($phpWord, 'Word2007')->save($path);
+
+        $direction = app(DocxSectionDirection::class);
+
+        $direction->makeRtl($path);
+
+        $read = function () use ($path): string {
+            $zip = new ZipArchive;
+            $zip->open($path);
+            $xml = (string) $zip->getFromName('word/document.xml');
+            $zip->close();
+
+            return $xml;
+        };
+
+        $once = $read();
+        $direction->makeRtl($path);
+
+        expect($read())->toBe($once)
+            ->and(substr_count($once, '<w:bidi/>'))->toBe(1);
+
+        @unlink($path);
     });
 
     it('puts the meeting in the body and nowhere else', function () use ($letterhead, $fill, $parts) {

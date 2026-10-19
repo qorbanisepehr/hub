@@ -40,6 +40,10 @@ use PhpOffice\PhpWord\PhpWord;
  */
 final class DocxRenderer implements DocumentComposer, DocumentRenderer
 {
+    public function __construct(
+        private readonly DocxSectionDirection $sectionDirection = new DocxSectionDirection,
+    ) {}
+
     public function render(DocumentSpec $spec, $stream): void
     {
         $font = (string) config('exports.documents.docx_font');
@@ -106,6 +110,12 @@ final class DocxRenderer implements DocumentComposer, DocumentRenderer
 
         try {
             IOFactory::createWriter($phpWord, 'Word2007')->save($path);
+
+            // PHPWord cannot express a right-to-left section, so it is written
+            // afterwards. See {@see DocxSectionDirection} for why every paragraph
+            // saying right is not the same as the document being right.
+            $this->sectionDirection->makeRtl($path);
+
             $bytes = file_get_contents($path);
 
             if ($bytes === false || $bytes === '') {
