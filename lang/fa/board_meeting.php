@@ -151,6 +151,16 @@ return [
         // کلیدواژه‌های کتابخانهٔ قالب Word — جدا از بخش‌های چاپی، چون این‌ها
         // دربارهٔ فایلی است که آپلود می‌شود نه دربارهٔ بخش‌های سند.
         'library' => 'قالب‌های Word',
+        /*
+         * The format of an uploaded template, and where it comes from.
+         *
+         * `unknown_extension` is the one that actually matters: the form accepts
+         * three formats and somebody is going to hand it a `.pdf`, and the honest
+         * answer names the three rather than saying "upload failed".
+         */
+        'unknown_format' => 'قالب با این فرمت پشتیبانی نمی‌شود. فرمت‌های معتبر: :formats',
+        'unknown_extension' => 'پسوندِ فایل باید یکی از این‌ها باشد: :formats',
+
         'fields' => 'نام‌های در دسترس',
         'deleted' => 'قالب حذف شد.',
         'not_found' => 'چنین قالبی یافت نشد.',

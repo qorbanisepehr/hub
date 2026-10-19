@@ -7,11 +7,11 @@ use App\Domains\BoardMeeting\Exports\BoardMeetingSection;
 use App\Domains\BoardMeeting\Exports\BoardMeetingSheetExport;
 use App\Domains\BoardMeeting\Exports\BoardMeetingTemplateFields;
 use App\Domains\BoardMeeting\Requests\StoreFileTemplateRequest;
-use App\Support\Exports\DocumentRendererRegistry;
 use App\Support\Exports\Exceptions\InvalidFileTemplate;
 use App\Support\Exports\Templates\FileTemplate;
 use App\Support\Exports\Templates\FileTemplateLibrary;
 use App\Support\Exports\Templates\GeneralValues;
+use App\Support\Exports\Templates\TemplateFillerRegistry;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -110,7 +110,7 @@ final class FileTemplateController
         try {
             $template = $this->library->upload(
                 file: $request->file('file'),
-                format: $this->format($request),
+                format: $request->templateFormat(),
                 domain: $request->domain(),
                 name: $request->name(),
                 entity: null,
@@ -143,7 +143,7 @@ final class FileTemplateController
             // not, which is the half that would drift.
             'inspection' => $this->library->inspect(
                 $request->file('file'),
-                $this->format($request),
+                $request->templateFormat(),
             ),
         ], 201);
     }
@@ -240,11 +240,22 @@ final class FileTemplateController
      * an unknown format would otherwise write a key no renderer can serve, and
      * the template would sit in the library offering itself to nobody.
      */
+    /**
+     * The format a READ is about, from the query string.
+     *
+     * Deliberately different from the upload path, which derives the format from the
+     * file and refuses one it cannot place. Here nothing is being stored, so an
+     * unknown format falls back to Word rather than refusing a listing — and it is
+     * validated against the FILLER registry rather than the renderer one, because a
+     * format nobody can fill is a format whose templates could never be exported.
+     */
     private function format(Request $request): string
     {
-        $format = (string) $request->input('format', 'docx');
+        $format = (string) $request->input('format', FileTemplate::FORMAT_DOCX);
 
-        return app(DocumentRendererRegistry::class)->has($format) ? $format : 'docx';
+        return app(TemplateFillerRegistry::class)->has($format)
+            ? $format
+            : FileTemplate::FORMAT_DOCX;
     }
 
     private function entity(Request $request): ?string
