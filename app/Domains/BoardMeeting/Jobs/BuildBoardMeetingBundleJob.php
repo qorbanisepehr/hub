@@ -75,7 +75,7 @@ final class BuildBoardMeetingBundleJob implements ShouldQueue
         private readonly array $formats,
         private readonly bool $documents,
         private readonly ?int $requestedBy,
-        private readonly ?string $FileTemplateSlug = null,
+        private readonly ?string $fileTemplateSlug = null,
     ) {}
 
     /**
@@ -212,8 +212,8 @@ final class BuildBoardMeetingBundleJob implements ShouldQueue
     {
         $domain = BoardMeetingSheetExport::TEMPLATE_DOMAIN;
 
-        if ($this->FileTemplateSlug !== null) {
-            return $library->find(FileTemplate::FORMAT_DOCX, $domain, $this->FileTemplateSlug);
+        if ($this->fileTemplateSlug !== null) {
+            return $library->find(FileTemplate::FORMAT_DOCX, $domain, $this->fileTemplateSlug);
         }
 
         return $library->defaultFor(FileTemplate::FORMAT_DOCX, $domain);

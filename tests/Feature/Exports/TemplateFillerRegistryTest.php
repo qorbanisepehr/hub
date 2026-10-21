@@ -1,5 +1,7 @@
 <?php
 
+use App\Support\Exports\Contract\DocumentComposer;
+use App\Support\Exports\DocumentRendererRegistry;
 use App\Support\Exports\Templates\DocxTemplateFiller;
 use App\Support\Exports\Templates\TemplateFiller;
 use App\Support\Exports\Templates\TemplateFillerRegistry;
@@ -46,5 +48,24 @@ describe('the template filler port', function () {
         $registry->register(app(DocxTemplateFiller::class));
 
         expect($registry->formats())->toBe(['docx']);
+    });
+
+    it('has a renderer for every format a template can be uploaded in', function () {
+        // BOTH LISTS ARE WRITTEN IN THE PROVIDER, so nothing in either registry's own
+        // tests notices when one gains a format and the other does not. The failure is
+        // a 500 on somebody's export, long after the wiring edit — this is the cheapest
+        // place to say so instead.
+        $renderers = app(DocumentRendererRegistry::class);
+
+        foreach (app(TemplateFillerRegistry::class)->formats() as $format) {
+            expect($renderers->has($format))->toBeTrue();
+        }
+    });
+
+    it('can compose a frame onto the docx renderer it registered', function () {
+        // A frame template needs a renderer that is also a composer; the provider
+        // throws when it is not, but only on the first export that uses one.
+        expect(app(DocumentRendererRegistry::class)->get('docx'))
+            ->toBeInstanceOf(DocumentComposer::class);
     });
 });

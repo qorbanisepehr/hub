@@ -302,7 +302,7 @@ class BoardMeetingController
         // Resolved before the queue branch, because the queued path needs the slug
         // too — it resolves the template when it runs rather than carrying a
         // settings row across a serialization boundary.
-        $FileTemplate = $this->bundleFileTemplate($bundleRequest, $library);
+        $fileTemplate = $this->resolveTemplate($library, $bundleRequest->fileTemplateSlug());
 
         // COUNT THE WORK BEFORE RENDERING ANY OF IT. One sheet per meeting per
         // format, the meeting's own files, and the two manifest pages — all
@@ -337,7 +337,7 @@ class BoardMeetingController
                 // it when it runs rather than carrying a settings row across a
                 // serialization boundary, and a slug that has since been deleted
                 // answers itself by not being found.
-                $FileTemplate?->slug(),
+                $fileTemplate?->slug(),
             );
 
             return response()->json([
@@ -353,7 +353,7 @@ class BoardMeetingController
             ? BundleRequest::sheetsWithAttachments($renderers, $formats)
             : BundleRequest::sheets($renderers, $formats);
 
-        $built = $bundle->entries($meetings->all(), $selection, $FileTemplate);
+        $built = $bundle->entries($meetings->all(), $selection, $fileTemplate);
         $built = [...$built, ...$bundle->manifestEntries(
             $bundle->manifest($meetings->all(), $built, $wants),
         )];
@@ -502,40 +502,27 @@ class BoardMeetingController
         // click still works exactly as before while somebody who has configured
         // something gets it without choosing.
         $slug = $request->query('template');
-        $template = is_string($slug) && $slug !== ''
-            ? $library->find(FileTemplate::FORMAT_DOCX, BoardMeetingSheetExport::TEMPLATE_DOMAIN, $slug)
-            : $library->defaultFor(FileTemplate::FORMAT_DOCX, BoardMeetingSheetExport::TEMPLATE_DOMAIN);
-
-        // A slug nobody has, answered as "there is no such template" rather than
-        // quietly falling back to the default: a person who picked a template and
-        // silently got a different document has no way to notice.
-        if (is_string($slug) && $slug !== '' && $template === null) {
-            abort(404, __('board_meeting.template.not_found'));
-        }
+        $template = $this->resolveTemplate($library, is_string($slug) ? $slug : null);
 
         return $this->streamWordSheet($meeting, $word, $template, $request->sections());
     }
 
     /**
-     * The Word template a bundle's `.docx` sheets should be built from.
+     * The Word template a request asked for: the named slug, else the domain default.
      *
-     * Named slug, else the domain's default, else none — the same precedence the
-     * single-meeting export uses, so "download this meeting" and "download every
-     * meeting" cannot produce differently-shaped Word files for one domain.
+     * ONE ANSWER FOR BOTH CALLS. "Download this meeting" and "download every meeting"
+     * must not produce differently-shaped Word files for one domain, so the precedence
+     * — and the refusal below — live in one place.
      *
-     * A slug nobody has is a 404 rather than a fallback. Silently exporting the
-     * default would hand somebody an archive of the wrong kind of document with
-     * nothing to say so — and in a bundle that is fifty files, they have to open
-     * them before they notice.
+     * A slug nobody has is a 404 rather than a fallback. Silently exporting the default
+     * would hand somebody the wrong kind of document with nothing to say so, and in a
+     * bundle that is fifty files they have to open them before they notice.
      */
-    private function bundleFileTemplate(
-        BoardMeetingBundleRequest $bundleRequest,
-        FileTemplateLibrary $library,
-    ): ?FileTemplate {
+    private function resolveTemplate(FileTemplateLibrary $library, ?string $slug): ?FileTemplate
+    {
         $domain = BoardMeetingSheetExport::TEMPLATE_DOMAIN;
-        $slug = $bundleRequest->FileTemplateSlug();
 
-        if ($slug === null) {
+        if ($slug === null || $slug === '') {
             return $library->defaultFor(FileTemplate::FORMAT_DOCX, $domain);
         }
 

@@ -49,14 +49,14 @@ final class BoardMeetingBundle
      * The archive's entries, in the order they should be added.
      *
      * @param  list<BoardMeeting>  $meetings
-     * @param  FileTemplate|null  $FileTemplate  applied to the `docx` sheets, and
+     * @param  FileTemplate|null  $fileTemplate  applied to the `docx` sheets, and
      *                                           only when one is chosen
      * @return list<BundleEntry>
      *
      * @throws Throwable when a sheet cannot be rendered; anything already
      *                   spilled to disk for this bundle is removed first
      */
-    public function entries(array $meetings, BundleRequest $request, ?FileTemplate $FileTemplate = null): array
+    public function entries(array $meetings, BundleRequest $request, ?FileTemplate $fileTemplate = null): array
     {
         $entries = [];
 
@@ -80,7 +80,7 @@ final class BoardMeetingBundle
                     // letting a pdf-only request silently acquire a docx-only
                     // meaning would be a coincidence nobody could rely on.
                     $file = $format === 'docx'
-                        ? $word->render($sheet, $meeting, $fields, $FileTemplate)
+                        ? $word->render($sheet, $meeting, $fields, $fileTemplate)
                         : $this->exports->run($sheet, $meeting, $format);
 
                     $entries[] = BundleEntry::fromExport(
