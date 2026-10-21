@@ -98,13 +98,15 @@ final class FileTemplateInspector
             // text at all, which shows up as unreadable bytes rather than as a
             // parse failure; anything stricter belongs to the format's own
             // filler, which sees the file after it is stored.
-            if (! mb_check_encoding((string) file_get_contents($path), 'UTF-8')) {
+            $text = (string) file_get_contents($path);
+
+            if (! mb_check_encoding($text, 'UTF-8')) {
                 throw InvalidFileTemplate::because('فایل متنی با کدگذاری UTF-8 نیست.');
             }
 
             return [
                 'size' => $size,
-                ...$this->describe((string) file_get_contents($path)),
+                ...$this->describe($text),
             ];
         }
 

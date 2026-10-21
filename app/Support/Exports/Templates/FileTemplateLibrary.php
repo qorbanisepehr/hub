@@ -175,22 +175,22 @@ final class FileTemplateLibrary
      * "which template does the button use"; promoting a second while the first
      * still claims to be it leaves the export picking one of two arbitrarily.
      */
-    public function promoteDefault(FileTemplate $template): FileTemplate
+    public function promoteDefault(FileTemplate $template, ?int $updatedBy = null): FileTemplate
     {
-        $this->clearOtherDefaults($template);
+        $this->clearOtherDefaults($template, $updatedBy);
 
         $promoted = $this->reissue($template, isDefault: true);
 
-        $this->settings->put($promoted);
+        $this->settings->put($promoted, $updatedBy);
 
         return $promoted;
     }
 
-    public function rename(FileTemplate $template, string $name): FileTemplate
+    public function rename(FileTemplate $template, string $name, ?int $updatedBy = null): FileTemplate
     {
         $renamed = $this->reissue($template, name: $name);
 
-        $this->settings->put($renamed);
+        $this->settings->put($renamed, $updatedBy);
 
         return $renamed;
     }
@@ -248,11 +248,11 @@ final class FileTemplateLibrary
         );
     }
 
-    private function clearOtherDefaults(FileTemplate $except): void
+    private function clearOtherDefaults(FileTemplate $except, ?int $updatedBy = null): void
     {
         foreach ($this->forFormatDomain($except->format(), $except->domain(), $except->entity()) as $template) {
             if ($template->isDefault() && $template->key() !== $except->key()) {
-                $this->settings->put($this->reissue($template, isDefault: false));
+                $this->settings->put($this->reissue($template, isDefault: false), $updatedBy);
             }
         }
     }

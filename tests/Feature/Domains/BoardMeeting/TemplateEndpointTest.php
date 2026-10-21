@@ -2,9 +2,11 @@
 
 use App\Domains\BoardMeeting\Exports\BoardMeetingSheetExport;
 use App\Domains\BoardMeeting\Models\BoardMeeting;
+use App\Support\Exports\Templates\FileTemplate;
 use App\Support\Exports\Templates\FileTemplateLibrary;
 use App\Support\Exports\Templates\FileTemplateStore;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use PhpOffice\PhpWord\IOFactory;
 use PhpOffice\PhpWord\PhpWord;
@@ -192,6 +194,46 @@ describe('the template library endpoints', function () {
             ->assertJsonPath('data.name', 'بعدی');
 
         expect($this->store->has($template))->toBeTrue();
+    });
+
+    it('keeps who last changed a template, through rename and promote', function () use ($manager, $upload) {
+        // The stamp is the only attribution a template write has (F2: no audit events
+        // yet), and all three of these rewrite the row. They used to write
+        // `updated_by = null` — losing the uploader on the operations that most
+        // deserve a name.
+        $stampOf = fn (FileTemplate $template): mixed => DB::table('system_settings')
+            ->where('group', FileTemplate::group())
+            ->where('key', $template->key())
+            ->value('updated_by');
+
+        $author = $manager();
+        $editor = $manager();
+
+        $first = $this->library->upload(
+            $upload('a.docx'), 'docx', 'boardmeeting', 'الف',
+            isDefault: true, uploadedBy: $author->getKey(),
+        );
+
+        $second = $this->library->upload(
+            $upload('b.docx'), 'docx', 'boardmeeting', 'ب',
+            uploadedBy: $author->getKey(),
+        );
+
+        $this->actingAs($editor)
+            ->putJson('/api/templates/'.$first->slug(), ['name' => 'الف ویرایش‌شده'])
+            ->assertOk();
+
+        expect($stampOf($first))->toBe($editor->getKey());
+
+        $this->actingAs($editor)
+            ->putJson('/api/templates/'.$second->slug(), ['is_default' => true])
+            ->assertOk();
+
+        // Promoting clears the other default, and that rewrite is a change to the
+        // first template too — attributed to whoever cleared it, not to nobody.
+        expect($stampOf($second))->toBe($editor->getKey())
+            ->and($stampOf($first))->toBe($editor->getKey())
+            ->and($stampOf($first))->not->toBeNull();
     });
 
     it('deletes a template and its file', function () use ($manager, $upload) {

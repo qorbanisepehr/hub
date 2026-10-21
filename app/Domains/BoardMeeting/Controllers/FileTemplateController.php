@@ -182,11 +182,11 @@ final class FileTemplateController
         }
 
         if ($request->filled('name')) {
-            $template = $this->library->rename($template, (string) $request->input('name'));
+            $template = $this->library->rename($template, (string) $request->input('name'), $this->actor($request));
         }
 
         if ($request->boolean('is_default')) {
-            $template = $this->library->promoteDefault($template);
+            $template = $this->library->promoteDefault($template, $this->actor($request));
         }
 
         return response()->json([
