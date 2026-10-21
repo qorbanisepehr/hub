@@ -392,6 +392,26 @@ describe('the key space', function () {
     });
 });
 
+describe('claiming a free key', function () {
+    it('writes the row when the key is free', function () {
+        expect(settingsStore()->claim(aProvider()))->toBeTrue();
+
+        expect(settingsStore()->get(AiProvider::class, 'providers/local')?->apiKey())
+            ->toBe(STORED_CREDENTIAL);
+    });
+
+    it('refuses a taken key and leaves the first writer untouched', function () {
+        settingsStore()->put(aProvider());
+
+        $second = aProvider()->withApiKey('sk-second-not-stored');
+
+        expect(settingsStore()->claim($second))->toBeFalse();
+
+        expect(settingsStore()->get(AiProvider::class, 'providers/local')?->apiKey())
+            ->toBe(STORED_CREDENTIAL);
+    });
+});
+
 describe('a page of settings', function () {
     it('returns only the rows of the kind asked for, ordered by key', function () {
         settingsStore()->put(aProvider('zed'));

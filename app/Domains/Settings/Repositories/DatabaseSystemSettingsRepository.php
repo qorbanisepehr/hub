@@ -64,6 +64,33 @@ final class DatabaseSystemSettingsRepository implements SystemSettingsRepository
     {
         $this->assertHandled($setting::class, $setting->key());
 
+        SystemSetting::query()->getQuery()->upsert(
+            [$this->attributes($setting, $updatedBy)],
+            ['group', 'key'],
+            ['value', 'secrets', 'updated_at', 'updated_by'],
+        );
+    }
+
+    public function claim(Setting $setting, ?int $updatedBy = null): bool
+    {
+        $this->assertHandled($setting::class, $setting->key());
+
+        return SystemSetting::query()->getQuery()->insertOrIgnore(
+            [$this->attributes($setting, $updatedBy)],
+        ) === 1;
+    }
+
+    /**
+     * One row's columns, with the model's casts already applied.
+     *
+     * The instance is never saved; it exists so `value` and `secrets` go through
+     * the same casts here as they do on every other write, rather than a second
+     * hand-encoding of the JSON and encryption rules.
+     *
+     * @return array<string, mixed>
+     */
+    private function attributes(Setting $setting, ?int $updatedBy): array
+    {
         $row = new SystemSetting;
         $row->forceFill([
             'group' => $setting::group(),
@@ -74,16 +101,12 @@ final class DatabaseSystemSettingsRepository implements SystemSettingsRepository
 
         $now = Carbon::now();
 
-        SystemSetting::query()->getQuery()->upsert(
-            [[
-                ...$row->getAttributes(),
-                'created_at' => $now,
-                'updated_at' => $now,
-                'updated_by' => $updatedBy,
-            ]],
-            ['group', 'key'],
-            ['value', 'secrets', 'updated_at', 'updated_by'],
-        );
+        return [
+            ...$row->getAttributes(),
+            'created_at' => $now,
+            'updated_at' => $now,
+            'updated_by' => $updatedBy,
+        ];
     }
 
     /**

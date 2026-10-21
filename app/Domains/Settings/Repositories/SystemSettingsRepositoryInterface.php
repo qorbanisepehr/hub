@@ -75,6 +75,19 @@ interface SystemSettingsRepositoryInterface
      */
     public function put(Setting $setting, ?int $updatedBy = null): void;
 
+    /**
+     * Write the setting only if its key is still free; false means it was not.
+     *
+     * `put()` overwrites, which is right for a key a person chose from a list.
+     * A key derived from whatever they typed — a filename, a name — is a
+     * different question: two requests can compute the same key at once, and an
+     * overwrite would lose the first one's value silently. This is an insert
+     * against the primary key, so exactly one caller wins.
+     *
+     * @param  class-string<TSetting>  $setting
+     */
+    public function claim(Setting $setting, ?int $updatedBy = null): bool;
+
     /** Drop whatever is stored under the given key. A no-op when nothing is. */
     public function forget(string $setting, string $key): void;
 

@@ -6,6 +6,7 @@ use App\Contracts\Settings\Setting;
 use App\Domains\Settings\Repositories\SystemSettingsRepositoryInterface;
 use App\Support\Exports\Exceptions\InvalidFileTemplate;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 /**
@@ -16,11 +17,12 @@ use Illuminate\Support\Str;
  * questions are: this one is "which templates exist and which is the default",
  * that one is "what should this export produce".
  *
- * A ROW AND A FILE, KEPT IN STEP. Writing the setting before the file would
- * leave a template that lists in the picker and fails at export; writing the file
- * first would leave bytes nothing points at. The file goes first and the row is
- * only written once the bytes are there, so the failure a person can hit is "the
- * upload did not save" rather than a template that appears and then breaks.
+ * A ROW AND A FILE, KEPT IN STEP. Writing the row before the file would leave a
+ * template that lists in the picker and fails at export; writing the file first
+ * would leave bytes nothing points at. The row is claimed and the file written in
+ * one transaction, so neither is visible without the other: a failed write rolls
+ * the claim back, and the failure a person can hit is "the upload did not save"
+ * rather than a template that appears and then breaks.
  */
 final class FileTemplateLibrary
 {
@@ -135,37 +137,67 @@ final class FileTemplateLibrary
             throw InvalidFileTemplate::because('فایل بارگذاری‌شده خوانده نشد.');
         }
 
-        $slug = $this->uniqueSlug($format, $domain, $entity, (string) $file->getClientOriginalName());
-
-        $template = FileTemplate::make(
-            format: $format,
-            domain: $domain,
-            slug: $slug,
-            entity: $entity,
-            name: trim($name),
-            size: $inspected['size'],
-            mime: (string) $file->getClientMimeType(),
-            isDefault: $isDefault,
-        );
-
         $bytes = file_get_contents($path);
 
         if ($bytes === false) {
             throw InvalidFileTemplate::because('فایل بارگذاری‌شده خوانده نشد.');
         }
 
-        $this->store->write($template, $bytes);
+        // The slug is claimed before any bytes are written, and both happen in one
+        // transaction so a row is never visible without its file. `put()` would let
+        // a second upload of `official.docx` silently replace the first one's row
+        // and bytes; a claim is an insert against the primary key, so exactly one
+        // wins and the loser moves to the next free slug.
+        return DB::transaction(function () use ($file, $inspected, $format, $domain, $entity, $name, $isDefault, $uploadedBy, $bytes): FileTemplate {
+            $template = $this->claimSlug($file, $inspected['size'], $format, $domain, $entity, $name, $isDefault, $uploadedBy);
 
-        // Only now is there a row worth writing: the bytes are already there, so a
-        // failure from here leaves an unreferenced file rather than a template
-        // that will fail on every export.
-        $this->settings->put($template, $uploadedBy);
+            $this->store->write($template, $bytes);
 
-        if ($isDefault) {
-            $this->clearOtherDefaults($template);
+            if ($isDefault) {
+                $this->clearOtherDefaults($template, $uploadedBy);
+            }
+
+            return $template;
+        });
+    }
+
+    /**
+     * The first free slug for this upload, written as a row.
+     *
+     * The loop exists because the store is the only thing that can answer "who
+     * claimed it first" — `uniqueSlug()` reads, and a read can be stale by the time
+     * the insert lands.
+     *
+     * @throws InvalidFileTemplate
+     */
+    private function claimSlug(
+        UploadedFile $file,
+        int $size,
+        string $format,
+        string $domain,
+        ?string $entity,
+        string $name,
+        bool $isDefault,
+        ?int $uploadedBy,
+    ): FileTemplate {
+        for ($attempt = 0; $attempt < 5; $attempt++) {
+            $template = FileTemplate::make(
+                format: $format,
+                domain: $domain,
+                slug: $this->uniqueSlug($format, $domain, $entity, (string) $file->getClientOriginalName()),
+                entity: $entity,
+                name: trim($name),
+                size: $size,
+                mime: (string) $file->getClientMimeType(),
+                isDefault: $isDefault,
+            );
+
+            if ($this->settings->claim($template, $uploadedBy)) {
+                return $template;
+            }
         }
 
-        return $template;
+        throw InvalidFileTemplate::because('نامِ این قالب همین حالا گرفته شد؛ دوباره تلاش کنید.');
     }
 
     /**
