@@ -27,6 +27,7 @@ export type TemplateDto = {
 export type TemplateListResponse = {
     data: {
         domain: string;
+        format: string;
         templates: TemplateDto[];
     };
 };
@@ -107,7 +108,11 @@ export type TemplateBlockGroupDto = {
 export type TemplateFieldsResponse = {
     data: {
         domain: string;
-        syntax: { open: string; close: string };
+        syntax: {
+            open: string;
+            close: string;
+            marker: string;
+        };
         general: TemplateFieldDto[];
         inline: TemplateFieldDto[];
         rows: TemplateRowGroupDto[];

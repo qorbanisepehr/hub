@@ -148,7 +148,7 @@ describe('the template library endpoints', function () {
         $this->actingAs($reader())
             ->getJson('/api/templates/fields')
             ->assertOk()
-            ->assertJsonPath('data.syntax', ['open' => '{{', 'close' => '}}'])
+            ->assertJsonPath('data.syntax', ['open' => '{{', 'close' => '}}', 'marker' => 'content'])
             ->assertJsonStructure([
                 'data' => [
                     'inline' => [['key', 'label']],

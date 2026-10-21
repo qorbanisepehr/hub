@@ -28,7 +28,7 @@ export type TemplateIssue = {
 };
 
 export type TemplatePayload = {
-    syntax: { open: string; close: string };
+    syntax: { open: string; close: string; marker: string };
     general: { key: string; label: string }[];
     inline: { key: string; label: string }[];
     rows: { group: string; columns: { key: string; label: string }[] }[];
@@ -41,7 +41,7 @@ export function validateTemplate(
     text: string,
     fields: TemplatePayload,
 ): TemplateIssue[] {
-    const { open, close } = fields.syntax;
+    const { open, close, marker } = fields.syntax;
 
     const groups = new Set(
         [...fields.rows.map((r) => r.group), ...fields.blocks.map((b) => b.group)],
@@ -54,7 +54,7 @@ export function validateTemplate(
     const singles = new Set([
         ...fields.inline.map((f) => f.key),
         ...fields.general.map((f) => f.key),
-        "content",
+        marker,
     ]);
 
     // Every name a macro may legitimately mean, for the "did you mean" line.

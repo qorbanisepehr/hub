@@ -32,7 +32,7 @@ describe('GET /api/templates/fields', function () {
             ->assertJsonStructure([
                 'data' => [
                     'domain',
-                    'syntax' => ['open', 'close'],
+                    'syntax' => ['open', 'close', 'marker'],
                     'general',
                     'inline',
                     'rows' => [['group', 'columns']],

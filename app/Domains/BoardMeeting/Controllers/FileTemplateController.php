@@ -17,6 +17,7 @@ use App\Support\Exports\Templates\GeneralValues;
 use App\Support\Exports\Templates\RangeMacro;
 use App\Support\Exports\Templates\TemplateField;
 use App\Support\Exports\Templates\TemplateFillerRegistry;
+use App\Support\Exports\Templates\TemplateKind;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -78,7 +79,15 @@ final class FileTemplateController
             'message' => __('board_meeting.template.fields'),
             'data' => [
                 'domain' => $registry->domain(),
-                'syntax' => ['open' => '{{', 'close' => '}}'],
+                'syntax' => [
+                    'open' => '{{',
+                    'close' => '}}',
+                    // The one name the server never lists as a field because it
+                    // is not a value: it is the document itself. Shipped rather
+                    // than left for the client to spell, so the marker a template
+                    // is recognised by has one definition.
+                    'marker' => TemplateKind::CONTENT,
+                ],
                 // Listed with the domain's own fields rather than as an afterthought,
                 // because a placeholder nobody is shown is a placeholder nobody uses —
                 // and these four are the ones a GENERAL template needs in order to
