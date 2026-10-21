@@ -2,6 +2,8 @@
 
 namespace App\Support\Exports\Templates;
 
+use App\Support\Exports\MacroSyntax;
+
 /**
  * A placeholder that asks for a whole list in one go: `{{attendee.name|; }}`.
  *
@@ -36,10 +38,6 @@ namespace App\Support\Exports\Templates;
  */
 final class AggregateMacro
 {
-    private const MACRO_OPEN = '{{';
-
-    private const MACRO_CLOSE = '}}';
-
     /** Used when the author writes the pipe and stops. */
     public const DEFAULT_SEPARATOR = '، ';
 
@@ -100,7 +98,7 @@ final class AggregateMacro
      */
     public static function in(string $text): array
     {
-        $pattern = '/'.preg_quote(self::MACRO_OPEN, '/').'([^{}]+?)'.preg_quote(self::MACRO_CLOSE, '/').'/';
+        $pattern = MacroSyntax::pattern();
 
         preg_match_all($pattern, $text, $matches);
 

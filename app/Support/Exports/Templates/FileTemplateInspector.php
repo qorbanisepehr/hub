@@ -3,6 +3,7 @@
 namespace App\Support\Exports\Templates;
 
 use App\Support\Exports\Exceptions\InvalidFileTemplate;
+use App\Support\Exports\MacroSyntax;
 use App\Support\Exports\Render\DocxPackage;
 use Illuminate\Http\UploadedFile;
 use ZipArchive;
@@ -182,7 +183,7 @@ final class FileTemplateInspector
      */
     private function textMacros(string $text): array
     {
-        preg_match_all('/\{\{(.+?)\}\}/s', $text, $matches);
+        preg_match_all('/'.preg_quote(MacroSyntax::OPEN, '/').'(.+?)'.preg_quote(MacroSyntax::CLOSE, '/').'/s', $text, $matches);
 
         $names = [];
 

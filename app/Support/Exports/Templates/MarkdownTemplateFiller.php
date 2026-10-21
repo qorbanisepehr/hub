@@ -2,6 +2,7 @@
 
 namespace App\Support\Exports\Templates;
 
+use App\Support\Exports\MacroSyntax;
 use App\Support\Exports\Render\MarkdownRenderer;
 use App\Support\Exports\Render\MarkdownText;
 use App\Support\Exports\Value\Document\DocumentSpec;
@@ -32,10 +33,6 @@ use App\Support\Exports\Value\Document\DocumentSpec;
  */
 final class MarkdownTemplateFiller implements TemplateFiller
 {
-    private const MACRO_OPEN = '{{';
-
-    private const MACRO_CLOSE = '}}';
-
     public function __construct(
         private readonly TemplateValues $values,
         private readonly GeneralValues $general,
@@ -212,7 +209,7 @@ final class MarkdownTemplateFiller implements TemplateFiller
 
             if ($joined !== null) {
                 $text = str_replace(
-                    self::MACRO_OPEN.$written.self::MACRO_CLOSE,
+                    MacroSyntax::wrap($written),
                     MarkdownText::inline($joined),
                     $text,
                 );
@@ -379,9 +376,9 @@ final class MarkdownTemplateFiller implements TemplateFiller
      */
     private function holds(string $line, string $macro): bool
     {
-        $pattern = '/'.preg_quote(self::MACRO_OPEN, '/')
+        $pattern = '/'.preg_quote(MacroSyntax::OPEN, '/')
             .'\s*'.preg_quote($macro, '/')
-            .'\s*'.preg_quote(self::MACRO_CLOSE, '/').'/';
+            .'\s*'.preg_quote(MacroSyntax::CLOSE, '/').'/';
 
         return preg_match($pattern, $line) === 1;
     }
@@ -511,7 +508,7 @@ final class MarkdownTemplateFiller implements TemplateFiller
      */
     private function macroPattern(): string
     {
-        return '/'.preg_quote(self::MACRO_OPEN, '/').'([^{}]+?)'.preg_quote(self::MACRO_CLOSE, '/').'/';
+        return MacroSyntax::pattern();
     }
 
     /** The name inside a match, without its braces or the author's spacing. */

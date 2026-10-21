@@ -2,6 +2,8 @@
 
 namespace App\Support\Exports\Templates;
 
+use App\Support\Exports\MacroSyntax;
+
 /**
  * A block that is repeated once per record: `{{#attendee}} … {{/attendee}}`.
  *
@@ -26,20 +28,16 @@ namespace App\Support\Exports\Templates;
  */
 final class RangeMacro
 {
-    private const MACRO_OPEN = '{{';
-
-    private const MACRO_CLOSE = '}}';
-
     private function __construct(public readonly string $group) {}
 
     public static function open(string $group): string
     {
-        return self::MACRO_OPEN.'#'.trim($group).self::MACRO_CLOSE;
+        return MacroSyntax::wrap('#'.trim($group));
     }
 
     public static function close(string $group): string
     {
-        return self::MACRO_OPEN.'/'.trim($group).self::MACRO_CLOSE;
+        return MacroSyntax::wrap('/'.trim($group));
     }
 
     public static function isOpen(string $raw, string $group): bool
@@ -63,7 +61,7 @@ final class RangeMacro
     public static function groupsIn(string $text): array
     {
         preg_match_all(
-            '/'.preg_quote(self::MACRO_OPEN, '/').'\s*(#|\/)\s*([^{}]+?)\s*'.preg_quote(self::MACRO_CLOSE, '/').'/',
+            '/'.preg_quote(MacroSyntax::OPEN, '/').'\s*(#|\/)\s*([^{}]+?)\s*'.preg_quote(MacroSyntax::CLOSE, '/').'/',
             $text,
             $matches,
             PREG_SET_ORDER,

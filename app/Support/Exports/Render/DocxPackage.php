@@ -2,6 +2,7 @@
 
 namespace App\Support\Exports\Render;
 
+use App\Support\Exports\MacroSyntax;
 use App\Support\Exports\Templates\RangeMacro;
 use App\Support\Exports\Templates\TemplateKind;
 use App\Support\Exports\Value\Document\DocumentSpec;
@@ -48,10 +49,6 @@ final class DocxPackage
 {
     /** The one part a macro can be read from or written to. */
     private const MAIN = 'word/document.xml';
-
-    private const MACRO_OPEN = '{{';
-
-    private const MACRO_CLOSE = '}}';
 
     private const WORD_NS = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
 
@@ -339,7 +336,7 @@ final class DocxPackage
 
             $merged .= $content;
 
-            if (str_contains($content, self::MACRO_OPEN)) {
+            if (str_contains($content, MacroSyntax::OPEN)) {
                 $insideMacro = true;
                 $pastSeparator = false;
             }
@@ -348,7 +345,7 @@ final class DocxPackage
                 $pastSeparator = true;
             }
 
-            if ($insideMacro && str_contains($content, self::MACRO_CLOSE)) {
+            if ($insideMacro && str_contains($content, MacroSyntax::CLOSE)) {
                 $insideMacro = false;
                 $pastSeparator = false;
             }
@@ -1083,12 +1080,12 @@ final class DocxPackage
         foreach ($xpath->query('.//w:t', $copy) ?: [] as $text) {
             $value = $text->textContent;
 
-            if (! str_contains($value, self::MACRO_OPEN)) {
+            if (! str_contains($value, MacroSyntax::OPEN)) {
                 continue;
             }
 
             $replaced = preg_replace_callback(
-                '/'.preg_quote(self::MACRO_OPEN, '/').'([^{}]+?)'.preg_quote(self::MACRO_CLOSE, '/').'/',
+                MacroSyntax::pattern(),
                 static function (array $match) use ($row, $escape): string {
                     $name = trim($match[1]);
 
@@ -1106,7 +1103,7 @@ final class DocxPackage
     /** The paragraph that exists only to say where the meeting goes, if there is one. */
     private function markerParagraph(DOMXPath $xpath, DOMElement $body): ?DOMNode
     {
-        $macro = self::MACRO_OPEN.TemplateKind::CONTENT.self::MACRO_CLOSE;
+        $macro = MacroSyntax::wrap(TemplateKind::CONTENT);
 
         foreach ($xpath->query('.//w:p', $body) ?: [] as $paragraph) {
             if (trim($this->textOf($xpath, $paragraph)) === $macro) {
@@ -1191,7 +1188,7 @@ final class DocxPackage
      */
     private function macrosIn(string $text): array
     {
-        $pattern = '/'.preg_quote(self::MACRO_OPEN, '/').'(.+?)'.preg_quote(self::MACRO_CLOSE, '/').'/s';
+        $pattern = '/'.preg_quote(MacroSyntax::OPEN, '/').'(.+?)'.preg_quote(MacroSyntax::CLOSE, '/').'/s';
 
         preg_match_all($pattern, $text, $matches);
 

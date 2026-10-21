@@ -3,6 +3,7 @@
 namespace App\Support\Exports\Templates;
 
 use App\Support\Exports\Contract\DocumentComposer;
+use App\Support\Exports\MacroSyntax;
 use App\Support\Exports\Render\DocxPackage;
 use App\Support\Exports\Render\DocxRtl;
 use App\Support\Exports\Value\Document\DocumentSpec;
@@ -71,10 +72,6 @@ final class DocxTemplateFiller implements TemplateFiller
      * export with every macro still typed on it. Setting it once, here, makes the
      * syntax a decision of ours rather than a version-dependent inheritance.
      */
-    private const MACRO_OPEN = '{{';
-
-    private const MACRO_CLOSE = '}}';
-
     public function __construct(
         private readonly DocumentComposer $composer,
         private readonly TemplateValues $values,
@@ -207,7 +204,7 @@ final class DocxTemplateFiller implements TemplateFiller
         array $expanded = [],
     ): void {
         $processor = new TemplateProcessor($templatePath);
-        $processor->setMacroChars(self::MACRO_OPEN, self::MACRO_CLOSE);
+        $processor->setMacroChars(MacroSyntax::OPEN, MacroSyntax::CLOSE);
 
         $values = $registry->values($entity);
         $fields = $registry->fields();

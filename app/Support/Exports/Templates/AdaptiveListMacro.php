@@ -2,6 +2,8 @@
 
 namespace App\Support\Exports\Templates;
 
+use App\Support\Exports\MacroSyntax;
+
 /**
  * `{{start|name|end}}` — a list, with something before each item and something after.
  *
@@ -36,10 +38,6 @@ namespace App\Support\Exports\Templates;
  */
 final class AdaptiveListMacro
 {
-    private const MACRO_OPEN = '{{';
-
-    private const MACRO_CLOSE = '}}';
-
     private function __construct(
         public readonly string $key,
         /** Printed before EVERY item, not once around the list. */
@@ -145,9 +143,9 @@ final class AdaptiveListMacro
         $found = [];
 
         $pattern = '/'
-            .preg_quote(self::MACRO_OPEN, '/')
+            .preg_quote(MacroSyntax::OPEN, '/')
             .'([^^{}]*\|[^{}]*?)'
-            .preg_quote(self::MACRO_CLOSE, '/')
+            .preg_quote(MacroSyntax::CLOSE, '/')
             .'/s';
 
         preg_match_all($pattern, $text, $matches);

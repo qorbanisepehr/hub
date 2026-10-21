@@ -2,6 +2,7 @@
 
 namespace App\Support\Exports\Templates;
 
+use App\Support\Exports\MacroSyntax;
 use App\Support\Exports\Render\JsonRenderer;
 use App\Support\Exports\Render\JsonText;
 use App\Support\Exports\Value\Document\DocumentSpec;
@@ -50,10 +51,6 @@ use App\Support\Exports\Value\Document\DocumentSpec;
  */
 final class JsonTemplateFiller implements TemplateFiller
 {
-    private const MACRO_OPEN = '{{';
-
-    private const MACRO_CLOSE = '}}';
-
     public function __construct(
         private readonly TemplateValues $values,
         private readonly GeneralValues $general,
@@ -245,9 +242,9 @@ final class JsonTemplateFiller implements TemplateFiller
         // One delimiter, at the ends. Opening it again in the middle ends the pattern
         // there, and everything after it is treated as flags — which silently leaves
         // a pattern that matches the opening marker and nothing else.
-        $pattern = '/'.preg_quote(self::MACRO_OPEN, '/').'\s*#\s*'.$quoted.'\s*'.preg_quote(self::MACRO_CLOSE, '/')
+        $pattern = '/'.preg_quote(MacroSyntax::OPEN, '/').'\s*#\s*'.$quoted.'\s*'.preg_quote(MacroSyntax::CLOSE, '/')
             .'(?<inner>.*?)'
-            .preg_quote(self::MACRO_OPEN, '/').'\s*\/\s*'.$quoted.'\s*'.preg_quote(self::MACRO_CLOSE, '/').'/s';
+            .preg_quote(MacroSyntax::OPEN, '/').'\s*\/\s*'.$quoted.'\s*'.preg_quote(MacroSyntax::CLOSE, '/').'/s';
 
         $copies = [];
 
@@ -343,6 +340,6 @@ final class JsonTemplateFiller implements TemplateFiller
      */
     private function macroPattern(): string
     {
-        return '/'.preg_quote(self::MACRO_OPEN, '/').'([^{}]+?)'.preg_quote(self::MACRO_CLOSE, '/').'/';
+        return MacroSyntax::pattern();
     }
 }
