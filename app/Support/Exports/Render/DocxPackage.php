@@ -62,6 +62,20 @@ final class DocxPackage
      */
     private const AFTER_BIDI = ['rtlGutter', 'docGrid', 'printerSettings', 'sectPrChange'];
 
+    /**
+     * Children of `w:pPr` that must FOLLOW `w:bidi`.
+     *
+     * @var list<string>
+     */
+    private const PPR_AFTER_BIDI = ['adjustRightInd', 'snapToGrid', 'spacing', 'ind', 'contextualSpacing', 'mirrorIndents', 'suppressOverlap', 'jc', 'textDirection', 'textAlignment', 'textboxTightWrap', 'outlineLvl', 'divId', 'cnfStyle', 'rPr', 'sectPr', 'pPrChange'];
+
+    /**
+     * Children of `w:rPr` that must FOLLOW `w:rtl`.
+     *
+     * @var list<string>
+     */
+    private const RPR_AFTER_RTL = ['cs', 'em', 'lang', 'eastAsianLayout', 'specVanish', 'oMath', 'rPrChange'];
+
     private ?ZipArchive $zip = null;
 
     private ?DOMDocument $document = null;
@@ -431,23 +445,184 @@ final class DocxPackage
             return;
         }
 
-        $bidi = $this->dom()->createElementNS(self::WORD_NS, 'w:bidi');
+        $this->insertBeforeFirst($xpath, $section, $this->dom()->createElementNS(self::WORD_NS, 'w:bidi'), self::AFTER_BIDI);
 
-        foreach (self::AFTER_BIDI as $name) {
-            $anchor = $xpath->query('./w:'.$name, $section)->item(0);
+        $this->flush();
+    }
+
+    /**
+     * Declare the CONTENT right-to-left, paragraph by paragraph and run by run, in
+     * every part a reader opens.
+     *
+     * {@see makeSectionRtl} is one of the places Word keeps a direction, and it
+     * decides none of the text. PHPWord's own practice is the rest of it:
+     *
+     *   samples/Sample_36_RTL.php   `['rtl' => true]` on every run of Persian
+     *   samples/Sample_43_RTLDefault.php   `Settings::setDefaultRtl(true)`
+     *   Writer/HTML/Style/Paragraph.php   a bidi paragraph aligns START to the right
+     *
+     * A section that says `w:bidi` lays its columns and gutters out right to left —
+     * and decides NOTHING about a paragraph. Each paragraph carries its own `w:bidi`
+     * in `w:pPr`, and each run `w:rtl` in `w:rPr`; without them a Persian value put
+     * into a template written left to right ships flush against the left edge with
+     * its punctuation mirrored, because every neutral character — the comma, the
+     * slash of a date, the brackets the author typed — is resolved against the
+     * PARAGRAPH's direction, and the paragraph said LTR.
+     *
+     * ABSENCE IS READ AS RIGHT-TO-LEFT, and a declaration is never second-guessed.
+     * `w:bidi w:val="0"` is an author's explicit `this line reads left to right` —
+     * the English desk of Sample_43 — and it keeps itself untouched, runs included.
+     * A paragraph with no declaration at all defaults to left to right under the
+     * schema, and here that default is the defect this pass repairs.
+     *
+     * TABLES ARE DELIBERATELY NOT TOUCHED. `w:bidiVisual` reverses the cells on the
+     * page, and a template author ordered their cells for what they wanted to SEE;
+     * claiming the table for RTL would print a correct template mirrored. A table
+     * for this feature's own generated body is composed with `w:bidiVisual` already
+     * — see {@see DocxRtl::table()} — so nothing of ours is lost by leaving the
+     * template's own alone.
+     */
+    public function makeContentRtl(): void
+    {
+        foreach ($this->parts() as $name => $xml) {
+            // THE MAIN PART IS THE DOCUMENT THIS PACKAGE ALREADY HOLDS OPEN, so it
+            // is edited through that one DOM and written out with everything else —
+            // the same division {@see removeEmptyGroup} draws.
+            $dom = $name === self::MAIN ? $this->dom() : $this->documentOf($xml);
+
+            if ($dom === null) {
+                continue;
+            }
+
+            $xpath = $this->namespaced($dom);
+            $changed = false;
+
+            foreach ($xpath->query('//w:p') ?: [] as $paragraph) {
+                if ($paragraph instanceof DOMElement) {
+                    $changed = $this->rtlParagraph($xpath, $paragraph) || $changed;
+                }
+            }
+
+            if (! $changed) {
+                continue;
+            }
+
+            if ($name === self::MAIN) {
+                $this->flush();
+            } else {
+                $this->write($name, (string) $dom->saveXML());
+            }
+        }
+    }
+
+    /**
+     * Declare one paragraph right-to-left, and every run in it.
+     *
+     * ABSENCE IS THE ONLY THING REPAIRED. A paragraph that already says `w:bidi` keeps
+     * its position and its value; `w:bidi w:val="0"` is an author's explicit "this line
+     * reads left to right" and takes its runs with it, untouched.
+     *
+     * @return bool whether anything was added
+     */
+    private function rtlParagraph(DOMXPath $xpath, DOMElement $paragraph): bool
+    {
+        $properties = $xpath->query('./w:pPr', $paragraph)->item(0);
+
+        if ($properties instanceof DOMElement) {
+            $bidi = $xpath->query('./w:bidi', $properties)->item(0);
+
+            if ($bidi instanceof DOMElement) {
+                return $this->isOff($bidi) ? false : $this->rtlRuns($xpath, $paragraph);
+            }
+        }
+
+        $owner = $paragraph->ownerDocument;
+
+        if ($owner === null) {
+            return false;
+        }
+
+        if (! $properties instanceof DOMElement) {
+            $properties = $owner->createElementNS(self::WORD_NS, 'w:pPr');
+            $paragraph->insertBefore($properties, $paragraph->firstChild);
+        }
+
+        $this->insertBeforeFirst($xpath, $properties, $owner->createElementNS(self::WORD_NS, 'w:bidi'), self::PPR_AFTER_BIDI);
+
+        // Runs are declared for the paragraph's direction to be honoured: a bidi
+        // paragraph whose runs say nothing resolves its neutrals left to right, which is
+        // where a mirrored comma comes from.
+        $this->rtlRuns($xpath, $paragraph);
+
+        return true;
+    }
+
+    /**
+     * Give every run under this paragraph its own `w:rtl`.
+     */
+    private function rtlRuns(DOMXPath $xpath, DOMElement $paragraph): bool
+    {
+        $changed = false;
+
+        foreach ($xpath->query('.//w:r', $paragraph) ?: [] as $run) {
+            if (! $run instanceof DOMElement) {
+                continue;
+            }
+
+            $owner = $run->ownerDocument;
+
+            if ($owner === null) {
+                continue;
+            }
+
+            $properties = $xpath->query('./w:rPr', $run)->item(0);
+
+            if ($properties instanceof DOMElement && $xpath->query('./w:rtl', $properties)->length > 0) {
+                continue;
+            }
+
+            if (! $properties instanceof DOMElement) {
+                $properties = $owner->createElementNS(self::WORD_NS, 'w:rPr');
+                $run->insertBefore($properties, $run->firstChild);
+            }
+
+            $this->insertBeforeFirst($xpath, $properties, $owner->createElementNS(self::WORD_NS, 'w:rtl'), self::RPR_AFTER_RTL);
+
+            $changed = true;
+        }
+
+        return $changed;
+    }
+
+    /**
+     * Put an element before the first child the schema says must follow it.
+     *
+     * Appending instead leaves a declaration after the things it governs, which Word
+     * happens to open and a validator does not.
+     *
+     * @param  list<string>  $after
+     */
+    private function insertBeforeFirst(DOMXPath $xpath, DOMElement $parent, DOMElement $element, array $after): void
+    {
+        foreach ($after as $name) {
+            $anchor = $xpath->query('./w:'.$name, $parent)->item(0);
 
             if ($anchor !== null) {
-                $section->insertBefore($bidi, $anchor);
-
-                $this->flush();
+                $parent->insertBefore($element, $anchor);
 
                 return;
             }
         }
 
-        $section->appendChild($bidi);
+        $parent->appendChild($element);
+    }
 
-        $this->flush();
+    /**
+     * Whether a direction element explicitly turns itself off.
+     */
+    private function isOff(DOMElement $element): bool
+    {
+        return in_array(strtolower($element->getAttributeNS(self::WORD_NS, 'val')), ['0', 'false', 'off'], true);
     }
 
     /**

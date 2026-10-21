@@ -241,6 +241,101 @@ describe('what a template keeps', function () {
         @unlink($path);
     });
 
+    it('declares the content right-to-left, not only the section', function () use ($letterhead, $fill, $parts) {
+        // THE SECTION DECIDES LAYOUT, NOT TEXT. Without `w:bidi` on the paragraph and
+        // `w:rtl` on its runs, a Persian value lands against the left edge with its
+        // punctuation mirrored — and a template written in Word routinely has neither,
+        // because Word leaves direction to whichever keyboard the author typed with.
+        $path = $letterhead();
+        $out = $fill($path);
+
+        $dom = new DOMDocument;
+        $dom->loadXML($parts($out)['word/document.xml']);
+
+        $xpath = new DOMXPath($dom);
+        $xpath->registerNamespace('w', 'http://schemas.openxmlformats.org/wordprocessingml/2006/main');
+
+        $paragraphs = $xpath->query('//w:p');
+
+        expect($paragraphs->length)->toBeGreaterThan(0);
+
+        foreach ($paragraphs as $paragraph) {
+            expect($xpath->query('./w:pPr/w:bidi', $paragraph)->length)->toBe(1);
+        }
+
+        foreach ($xpath->query('//w:r[w:t]') as $run) {
+            expect($xpath->query('./w:rPr/w:rtl', $run)->length)->toBe(1);
+        }
+
+        @unlink($path);
+        @unlink($out);
+    });
+
+    it('adds the content declaration where the schema puts it, once', function () {
+        // This runs on EVERY export, so it must be idempotent and must not put `w:bidi`
+        // after the things it governs: Word happens to open that, a validator does not.
+        $path = tempnam(sys_get_temp_dir(), 'rtl-').'.docx';
+
+        $phpWord = new PhpWord;
+        $phpWord->addSection()->addText('متن', null, ['alignment' => 'center']);
+
+        IOFactory::createWriter($phpWord, 'Word2007')->save($path);
+
+        $read = function () use ($path): string {
+            $zip = new ZipArchive;
+            $zip->open($path);
+            $xml = (string) $zip->getFromName('word/document.xml');
+            $zip->close();
+
+            return $xml;
+        };
+
+        DocxPackage::at($path)->makeContentRtl();
+
+        $once = $read();
+
+        expect($once)->toContain('<w:bidi/>')
+            ->and($once)->toContain('<w:rtl/>')
+            // `w:jc` must FOLLOW `w:bidi` in `w:pPr`.
+            ->and(strpos($once, '<w:bidi/>'))->toBeLessThan(strpos($once, '<w:jc'));
+
+        DocxPackage::at($path)->makeContentRtl();
+
+        expect($read())->toBe($once)
+            ->and(substr_count($once, '<w:rtl/>'))->toBe(1);
+
+        @unlink($path);
+    });
+
+    it('keeps a paragraph that says it reads left to right', function () {
+        // `w:bidi w:val="0"` is the author's explicit direction, not a missing one — the
+        // English desk of a bilingual letter. It keeps itself, runs included.
+        $path = tempnam(sys_get_temp_dir(), 'ltr-').'.docx';
+
+        $phpWord = new PhpWord;
+        $phpWord->addSection()->addText('English line');
+
+        IOFactory::createWriter($phpWord, 'Word2007')->save($path);
+
+        $zip = new ZipArchive;
+        $zip->open($path);
+
+        $xml = (string) $zip->getFromName('word/document.xml');
+        $zip->addFromString('word/document.xml', preg_replace('/<w:p>/', '<w:p><w:pPr><w:bidi w:val="0"/></w:pPr>', $xml, 1));
+        $zip->close();
+
+        DocxPackage::at($path)->makeContentRtl();
+
+        $zip->open($path);
+        $after = (string) $zip->getFromName('word/document.xml');
+        $zip->close();
+
+        expect($after)->toContain('<w:bidi w:val="0"/>')
+            ->and($after)->not->toContain('<w:rtl/>');
+
+        @unlink($path);
+    });
+
     it('puts the meeting in the body and nowhere else', function () use ($letterhead, $fill, $parts) {
         $path = $letterhead();
         $out = $fill($path);

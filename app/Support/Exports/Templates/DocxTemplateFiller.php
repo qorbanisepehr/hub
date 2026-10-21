@@ -175,6 +175,11 @@ final class DocxTemplateFiller implements TemplateFiller
             // wrong way round, because alignment is measured against the section.
             $package->makeSectionRtl();
 
+            // And the section decides nothing about the text: each paragraph needs
+            // `w:bidi` and each run `w:rtl`, or a Persian value lands flush left with its
+            // punctuation mirrored. Uploaded templates routinely leave them out.
+            $package->makeContentRtl();
+
             $package->close();
 
             $this->substitute($package->path(), $entity, $registry, $stream, $expanded);

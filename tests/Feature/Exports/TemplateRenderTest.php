@@ -479,6 +479,41 @@ describe('the style of a generated body under a template', function () {
         @unlink($out);
     });
 
+    it('declares the content right-to-left when there is no template either', function () use ($xml) {
+        // The plain export is what a user means by "the Word export". A section that
+        // says `w:bidi` lays the page out right to left and decides nothing about the
+        // text, so every paragraph and run has to say it too — including the ones
+        // PHPWord writes with no style at all, such as a text break.
+        $stream = fopen('php://temp', 'r+');
+
+        app(DocxRenderer::class)->render(
+            $this->sheet->document(BoardMeeting::factory()->create(['title' => 'بودجه'])),
+            $stream,
+        );
+
+        rewind($stream);
+        $out = tempnam(sys_get_temp_dir(), 'plain-rtl-').'.docx';
+        file_put_contents($out, stream_get_contents($stream));
+
+        $dom = new DOMDocument;
+        $dom->loadXML($xml($out));
+
+        $xpath = new DOMXPath($dom);
+        $xpath->registerNamespace('w', 'http://schemas.openxmlformats.org/wordprocessingml/2006/main');
+
+        $paragraphs = $xpath->query('//w:p');
+
+        expect($paragraphs->length)->toBeGreaterThan(0);
+
+        foreach ($paragraphs as $paragraph) {
+            expect($xpath->query('./w:pPr/w:bidi', $paragraph)->length)->toBe(1);
+        }
+
+        expect(substr_count($xml($out), '<w:rtl/>'))->toBeGreaterThan(0);
+
+        @unlink($out);
+    });
+
     it('leaves no blank paragraph where the document marker was', function () use ($frame, $xml) {
         // The marker used to be searched for as a `Text` element, and the body of a
         // section holds `TextRun` elements in this version — so it was never

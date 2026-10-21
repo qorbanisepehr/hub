@@ -116,9 +116,12 @@ final class DocxRenderer implements DocumentComposer, DocumentRenderer
             IOFactory::createWriter($phpWord, 'Word2007')->save($path);
 
             // PHPWord cannot express a right-to-left section, so it is written
-            // afterwards. See {@see DocxSectionDirection} for why every paragraph
-            // saying right is not the same as the document being right.
-            DocxPackage::at($path)->makeSectionRtl();
+            // afterwards — and the section alone decides nothing about the text, so the
+            // paragraphs and runs are declared too. See {@see DocxRtl}.
+            $package = DocxPackage::at($path);
+            $package->makeSectionRtl();
+            $package->makeContentRtl();
+            $package->close();
 
             $bytes = file_get_contents($path);
 
