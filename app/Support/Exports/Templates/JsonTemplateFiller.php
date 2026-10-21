@@ -6,6 +6,7 @@ use App\Support\Exports\MacroSyntax;
 use App\Support\Exports\Render\JsonRenderer;
 use App\Support\Exports\Render\JsonText;
 use App\Support\Exports\Value\Document\DocumentSpec;
+use RuntimeException;
 
 /**
  * The JSON implementation of {@see TemplateFiller}.
@@ -89,7 +90,34 @@ final class JsonTemplateFiller implements TemplateFiller
         );
         $text = $this->expandRanges($text, $fields, $values, $present);
 
+        $this->assertParses($text);
+
         fwrite($stream, $text);
+    }
+
+    /**
+     * Refuse to hand back a file that is not JSON.
+     *
+     * Every other mistake here is visible in the document somebody opens; this one
+     * is not. A macro the author left unquoted, or a frame that was never JSON to
+     * begin with, produced bytes that left the app with a 200 and failed in whatever
+     * read them next — with no way to tell which template wrote them. The commas a
+     * range needs are the filler's; anything left is the frame's.
+     *
+     * There is no byte offset to report: PHP names the kind of syntax error and not
+     * where. The template's name is in the export request and the log line, which is
+     * what somebody needs to find the file.
+     */
+    private function assertParses(string $text): void
+    {
+        if (json_validate($text)) {
+            return;
+        }
+
+        throw new RuntimeException(sprintf(
+            'The JSON template did not produce JSON: %s.',
+            json_last_error_msg(),
+        ));
     }
 
     /**

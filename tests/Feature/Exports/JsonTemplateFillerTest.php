@@ -99,6 +99,15 @@ describe('a json template', function () {
             ->toBe('او گفت: "بله"\\ و رفت');
     });
 
+    it('refuses to return a file that is not json', function () use ($filled, $meeting) {
+        // An unquoted macro is the ordinary version of this: the value is string
+        // CONTENT, so the author's missing quotes leave a bare Persian title where
+        // JSON expects a value. Before this check the export succeeded and the file
+        // failed in whatever read it next, with nothing pointing at the template.
+        expect(fn () => $filled('{"title": {{title}}}', $meeting()))
+            ->toThrow(RuntimeException::class, 'did not produce JSON');
+    });
+
     it('expands a range into one object per record, with the commas', function () use ($filled, $meeting) {
         // THE REASON A RANGE EXISTS. An array needs a comma between its elements, so
         // copying a line without adding commas yields a file that is not JSON at all
