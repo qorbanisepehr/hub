@@ -1,5 +1,6 @@
 <?php
 
+use App\Domains\Audit\Models\AuditLog;
 use App\Domains\BoardMeeting\Exports\BoardMeetingSheetExport;
 use App\Domains\BoardMeeting\Models\BoardMeeting;
 use App\Support\Exports\Templates\FileTemplate;
@@ -40,6 +41,46 @@ describe('the template library endpoints', function () {
 
     $manager = fn () => createUserWithPermissions(['export-template.manage', 'export-template.view']);
     $reader = fn () => createUserWithPermissions(['export-template.view']);
+
+    it('audits upload, change and delete of a template', function () use ($manager, $upload) {
+        // F2: a template carries the board's letterhead, so "who put this file
+        // here" and "who took it away" are the questions the log exists for. The
+        // actors differ on purpose: one person uploading and another promoting is
+        // the shape that proves the event follows the request, not the row.
+        $author = $manager();
+        $editor = $manager();
+
+        $this->actingAs($author)
+            ->post('/api/templates', [
+                'file' => $upload('letterhead.docx'),
+                'name' => 'سربرگ',
+                'domain' => BoardMeetingSheetExport::TEMPLATE_DOMAIN,
+            ])
+            ->assertCreated();
+
+        $this->actingAs($editor)
+            ->putJson('/api/templates/letterhead', ['name' => 'سربرگ رسمی', 'is_default' => true])
+            ->assertOk();
+
+        $this->actingAs($editor)
+            ->deleteJson('/api/templates/letterhead')
+            ->assertOk();
+
+        $log = AuditLog::query()->orderBy('id')->get();
+
+        expect($log->pluck('event')->all())->toBe([
+            'boardmeeting.file_template.uploaded',
+            'boardmeeting.file_template.updated',
+            'boardmeeting.file_template.deleted',
+        ])
+            ->and($log->pluck('actor_id')->all())->toBe([$author->id, $editor->id, $editor->id])
+            ->and($log->last()->subject_type)->toBe('file-template');
+
+        // One PATCH that changes two things stays one event: two rows a
+        // millisecond apart would read as two separate actions.
+        expect($log[1]->old_values)->toBe(['name' => 'سربرگ', 'is_default' => false])
+            ->and($log[1]->new_values)->toBe(['name' => 'سربرگ رسمی', 'is_default' => true]);
+    });
 
     it('starts empty', function () use ($reader) {
         $this->actingAs($reader())

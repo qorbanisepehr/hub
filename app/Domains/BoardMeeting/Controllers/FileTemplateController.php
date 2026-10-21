@@ -2,6 +2,9 @@
 
 namespace App\Domains\BoardMeeting\Controllers;
 
+use App\Domains\BoardMeeting\Events\FileTemplateDeleted;
+use App\Domains\BoardMeeting\Events\FileTemplateUpdated;
+use App\Domains\BoardMeeting\Events\FileTemplateUploaded;
 use App\Domains\BoardMeeting\Exports\BoardMeetingProfile;
 use App\Domains\BoardMeeting\Exports\BoardMeetingSection;
 use App\Domains\BoardMeeting\Exports\BoardMeetingSheetExport;
@@ -151,6 +154,8 @@ final class FileTemplateController
             ], 422);
         }
 
+        event(new FileTemplateUploaded($template));
+
         return response()->json([
             'message' => __('board_meeting.template.saved'),
             'data' => $this->present($template),
@@ -181,12 +186,21 @@ final class FileTemplateController
             abort(404, __('board_meeting.template.not_found'));
         }
 
+        $before = $template;
+
         if ($request->filled('name')) {
             $template = $this->library->rename($template, (string) $request->input('name'), $this->actor($request));
         }
 
         if ($request->boolean('is_default')) {
             $template = $this->library->promoteDefault($template, $this->actor($request));
+        }
+
+        // One event for the one PATCH, and none for a request that changed
+        // nothing: an audit row saying "updated" with no diff is noise that makes
+        // the rows which matter harder to find.
+        if ($before->name() !== $template->name() || $before->isDefault() !== $template->isDefault()) {
+            event(new FileTemplateUpdated($before, $template));
         }
 
         return response()->json([
@@ -205,6 +219,8 @@ final class FileTemplateController
         }
 
         $this->library->delete($template);
+
+        event(new FileTemplateDeleted($template));
 
         return response()->json([
             'message' => __('board_meeting.template.deleted'),

@@ -137,6 +137,12 @@ return [
         // tags, one fewer open question - so it is not an `updated`-weight event
         // the way accepting one is.
         'boardmeeting.summary_dismissed' => ['category' => 'boardmeeting', 'sensitivity' => 'low'],
+        // Export templates carry the board's letterhead. Replacing, retitling or
+        // deleting one is a person changing the document every export is made
+        // from, which is exactly what the log is for.
+        'boardmeeting.file_template.uploaded' => ['category' => 'boardmeeting', 'sensitivity' => 'medium'],
+        'boardmeeting.file_template.updated' => ['category' => 'boardmeeting', 'sensitivity' => 'medium'],
+        'boardmeeting.file_template.deleted' => ['category' => 'boardmeeting', 'sensitivity' => 'medium'],
 
         // Tagging — a merge is a person collapsing vocabulary rows, content
         // change with a diff, same weight class as the other content events.
