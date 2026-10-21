@@ -189,13 +189,13 @@ final class BoardMeetingSheetExport implements DocumentSource
 
     /**
      * @param  list<string>|null  $requested  the parts to print, for this export
-     *                                        only. NAMED
-equested rather than
-     *                                    sections because the method already has a
-     *                                    local accumulator of that name two lines
-     *                                    below, and a parameter shadowed by a local is
-     *                                    the kind of bug that passes review because
-     *                                    every individual line is correct.
+     *                                        only. NAMED `requested` rather than
+     *                                        `sections` because the method already
+     *                                        has a local accumulator of that name two
+     *                                        lines below, and a parameter shadowed by
+     *                                        a local is the kind of bug that passes
+     *                                        review because every individual line is
+     *                                        correct.
      */
     public function document(mixed $entity, ?array $requested = null): DocumentSpec
     {
