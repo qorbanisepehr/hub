@@ -162,7 +162,7 @@ final class BoardMeetingTemplateFields implements ProvidesTemplateLabels, Templa
                     // prose in someone's document, and chair sitting in the middle of a
                     // Persian sentence is a value that leaked out of the database into
                     // somewhere a person reads it.
-                    'role' => __('board_meeting.print.columns.roles.'.$attendee->role->value),
+                    'role' => __('board_meeting.print.roles.'.$attendee->role->value),
                     // Persian yes/no rather than a boolean, because the token sits
                     // in prose in someone's Word template and `1` there would be
                     // read as an attendance count.
@@ -188,9 +188,12 @@ final class BoardMeetingTemplateFields implements ProvidesTemplateLabels, Templa
 
             // A trashed usage is a document the meeting no longer carries, so it
             // must not appear in a template that prints one — the same rule the
-            // sheet's own attachment sections apply.
+            // sheet's own attachment sections apply. A usage with no registry
+            // number is an attachment, not an approval; the sheet's approvals
+            // table drops it and this group must print the same rows.
             'approval' => $meeting->documentUsages
-                ->filter(fn (DocumentUsage $usage): bool => ! $usage->trashed())
+                ->filter(fn (DocumentUsage $usage): bool => ! $usage->trashed()
+                    && isset($usage->metadata['registry_number']))
                 ->map(fn (DocumentUsage $usage): array => [
                     'registry_number' => ValuePresenter::persianDigits(
                         (string) ($usage->metadata['registry_number'] ?? ''),

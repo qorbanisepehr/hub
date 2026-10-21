@@ -143,13 +143,7 @@ describe('board meeting template fields', function () {
 
         $roles = array_column($this->registry->values($meeting)['attendee'], 'role');
 
-        expect($roles)->toBe([
-            __('board_meeting.print.columns.roles.chair'),
-            __('board_meeting.print.columns.roles.observer'),
-        ])
-            // Named rather than asserted loosely: the point is that the enum's own
-            // value is NOT what a reader gets.
-            ->and($roles[0])->not->toBe(AttendeeRole::Chair->value);
+        expect($roles)->toBe(['رئیس', 'ناظر']);
     });
 
     it('joins a short summary list into prose instead of giving it rows', function () {
@@ -208,5 +202,63 @@ describe('board meeting template fields', function () {
         expect(TemplateFieldShape::Inline->accepts(''))->toBeFalse()
             ->and(TemplateFieldShape::Inline->accepts(null))->toBeFalse()
             ->and(TemplateFieldShape::Inline->accepts('متن'))->toBeTrue();
+    });
+
+    it('prints the same rows in a template as on the sheet', function () {
+        // THE TRANSFORMATIONS, NOT THE KEYS. The Profile already keeps the field
+        // names in step; what nothing else can catch is one path labelling or
+        // filtering a row differently from the other, which a reader experiences
+        // as "the Word file and the PDF disagree about the same meeting" (F4).
+        $meeting = BoardMeeting::factory()
+            ->withAttendees(
+                new Attendee('الف', AttendeeRole::Chair, true),
+                new Attendee('ب', AttendeeRole::Member, false),
+            )
+            ->withAgenda(
+                new AgendaItem(1, 'بودجه'),
+                new AgendaItem(2, 'گزارش'),
+            )
+            ->withApprovalDocuments(2)
+            ->create();
+
+        app(TagService::class)->syncTags($meeting->fresh(), ['راهبری', 'مالی']);
+
+        // A document the meeting carries but has not resolved: it belongs in the
+        // attachment table, and not in the approvals one.
+        $meeting->documentUsages->first()->forceFill(['metadata' => ['title' => 'پیوست']])->save();
+
+        $meeting = $meeting->fresh(['tags', 'documentUsages.document']);
+        $values = $this->registry->values($meeting);
+
+        $spec = app(BoardMeetingSheetExport::class)
+            ->document($meeting, ['attendees', 'agenda', 'approvals', 'tags', 'attachments']);
+
+        $section = static fn (string $key): ?object => collect($spec->sections)
+            ->firstWhere('heading', __('board_meeting.print.sections.'.$key));
+
+        expect($section('attendees')->tables[0]->rows)->toBe(array_map(
+            static fn (array $row): array => [$row['name'], $row['role'], $row['present']],
+            $values['attendee'],
+        ))
+            ->and($section('agenda')->tables[0]->rows)->toBe(array_map(
+                static fn (array $row): array => [$row['position'], $row['title']],
+                $values['agenda'],
+            ))
+            ->and($section('approvals')->tables[0]->rows)->toBe(array_map(
+                static fn (array $row): array => [$row['registry_number'], $row['document_title']],
+                $values['approval'],
+            ))
+            ->and($section('tags')->tables[0]->rows)->toBe(array_map(
+                static fn (array $row): array => [$row['name']],
+                $values['tag'],
+            ))
+            ->and($section('attachments')->tables[0]->rows)->toBe(array_map(
+                static fn (array $row): array => [$row['file_name'], $row['size'], $row['mime'], $row['uploaded_at']],
+                $values['attachment'],
+            ))
+            // The fixture must exercise the divergence, or this test would pass
+            // on two identical lists that were both empty.
+            ->and($values['approval'])->toHaveCount(1)
+            ->and($values['attachment'])->toHaveCount(2);
     });
 });
