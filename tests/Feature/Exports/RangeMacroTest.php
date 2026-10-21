@@ -169,6 +169,64 @@ describe('a repeated block', function () {
         return $rows;
     };
 
+    /**
+     * Fill a Word template, and return the document part as XML.
+     *
+     * A third view because this is a question about the SHAPE of the XML rather than
+     * about any text in it: a character left between two elements is invisible to a
+     * text scrape and to a row scrape alike.
+     *
+     * `$prepare` may rewrite the template before it is filled, which is how a shape
+     * PHPWord never writes — a row authored in Word — is put in front of the filler.
+     */
+    $wordXml = function (callable $build, BoardMeeting $meeting, ?callable $prepare = null): string {
+        $phpWord = new PhpWord;
+        $build($phpWord->addSection());
+
+        $path = tempnam(sys_get_temp_dir(), 'range-xml-').'.docx';
+        IOFactory::createWriter($phpWord, 'Word2007')->save($path);
+
+        if ($prepare !== null) {
+            $prepare($path);
+        }
+
+        app(DocxTemplateFiller::class)->fill(
+            $path,
+            app(BoardMeetingSheetExport::class)->document($meeting),
+            $meeting,
+            new BoardMeetingTemplateFields,
+            $stream = fopen('php://temp', 'r+'),
+        );
+
+        rewind($stream);
+        $out = tempnam(sys_get_temp_dir(), 'range-xml-out-').'.docx';
+        file_put_contents($out, stream_get_contents($stream));
+
+        @unlink($path);
+
+        $zip = new ZipArchive;
+        $zip->open($out);
+        $xml = (string) $zip->getFromName('word/document.xml');
+        $zip->close();
+
+        @unlink($out);
+
+        return $xml;
+    };
+
+    /**
+     * Rewrite one part of a `.docx` in place.
+     *
+     * How a test hands the filler a shape PHPWord does not write — a row authored in
+     * Word rather than generated — without hand-building a package.
+     */
+    $wordRewrite = function (string $path, string $part, callable $edit): void {
+        $zip = new ZipArchive;
+        $zip->open($path);
+        $zip->addFromString($part, $edit((string) $zip->getFromName($part)));
+        $zip->close();
+    };
+
     it('gives every record its own line in markdown', function () use ($markdown, $meeting) {
         $text = $markdown(
             "حاضران:\n{{#attendee}}\n- {{attendee.name}}\n{{/attendee}}\nپایان",
@@ -461,6 +519,93 @@ describe('a repeated block', function () {
             // The markers were consumed, not copied into every row.
             ->and(implode("\n", $rows))->not->toContain('{{#')
             ->not->toContain('{{/');
+    });
+
+    it('takes a one-row table out without leaving a stray character behind', function () use ($wordXml, $wordRewrite) {
+        // A ROW AS WORD WRITES ONE. PHPWord always emits `<w:trPr/>`, and that is the
+        // one thing `deleteRow`'s one-row test trips over: `<w:trPr` CONTAINS `<w:tr`,
+        // so the count comes to two and a one-row table is treated as one of several.
+        // Removing the row properties restores the shape that took the other branch —
+        // the one that deleted the whole table and left the closing `>` behind as loose
+        // text in `w:body`, where nothing reported it because the part still parsed.
+        $xml = $wordXml(
+            function ($section): void {
+                $section->addText('پیش از جدول');
+
+                $row = $section->addTable()->addRow();
+                $row->addCell()->addText('{{tag.name}}');
+
+                $section->addText('پس از جدول');
+            },
+            BoardMeeting::factory()->create(),
+            fn (string $path) => $wordRewrite($path, 'word/document.xml', fn (string $part): string => str_replace('<w:trPr/>', '', $part)),
+        );
+
+        expect($xml)->not->toContain('{{tag.name}}')
+            ->toContain('پیش از جدول')
+            ->toContain('پس از جدول')
+            // The bullet line went whole; the shell it used to leave behind does not
+            // count as a table.
+            ->not->toContain('<w:tbl');
+
+        $doc = new DOMDocument;
+
+        expect($doc->loadXML($xml))->toBeTrue();
+
+        $xpath = new DOMXPath($doc);
+        $xpath->registerNamespace('w', 'http://schemas.openxmlformats.org/wordprocessingml/2006/main');
+
+        // NOTHING SITS DIRECTLY IN `w:body` BUT BLOCKS. The schema allows a body to hold
+        // paragraphs, tables and a section — a text node there is the residue of a slice
+        // and never something an author wrote.
+        $stray = [];
+
+        foreach ($xpath->query('//w:body/node()') ?: [] as $node) {
+            if ($node instanceof DOMText && trim($node->textContent) !== '') {
+                $stray[] = $node->textContent;
+            }
+        }
+
+        expect($stray)->toBeEmpty();
+    });
+
+    it('keeps a layout table and takes only the macro out of it', function () use ($wordXml) {
+        // THE OTHER SHAPE A ONE-ROW TABLE HAS. A table is not always a bullet line; it
+        // is also the commonest way to lay a heading beside its value. Deleting the box
+        // because one group came back empty takes the author's own label off the page
+        // with it — and a one-row table cut down to no rows at all is not a table either.
+        $xml = $wordXml(function ($section): void {
+            $row = $section->addTable()->addRow();
+            $row->addCell()->addText('برچسب:');
+            $row->addCell()->addText('{{tag.name}}');
+        }, BoardMeeting::factory()->create());
+
+        expect($xml)->not->toContain('{{tag.name}}')
+            ->toContain('برچسب:');
+
+        $doc = new DOMDocument;
+        $doc->loadXML($xml);
+
+        $xpath = new DOMXPath($doc);
+        $xpath->registerNamespace('w', 'http://schemas.openxmlformats.org/wordprocessingml/2006/main');
+
+        // The box outlives the line it could not fill: a table, still holding a row.
+        expect($xpath->query('//w:tbl')->length)->toBe(1)
+            ->and($xpath->query('//w:tr')->length)->toBe(1);
+    });
+
+    it('leaves no table with no rows in it when the macro is on every row', function () use ($wordXml) {
+        // Each row is a record row and each is taken. The last one cannot leave the
+        // table standing as a shell: `w:tbl` asks the schema for at least one `w:tr`,
+        // and Word answers a shell with a repair prompt.
+        $xml = $wordXml(function ($section): void {
+            $table = $section->addTable();
+            $table->addRow()->addCell()->addText('{{tag.name}}');
+            $table->addRow()->addCell()->addText('{{tag.name}}');
+        }, BoardMeeting::factory()->create());
+
+        expect($xml)->not->toContain('{{tag.name}}')
+            ->not->toContain('<w:tbl');
     });
 
     it('leaves a template with no range markers exactly as it was written', function () use ($markdown, $meeting) {

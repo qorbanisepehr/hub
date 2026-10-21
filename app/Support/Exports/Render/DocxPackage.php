@@ -620,13 +620,198 @@ final class DocxPackage
      */
     private function ancestorRow(DOMNode $node): ?DOMElement
     {
+        return $this->ancestor($node, 'tr');
+    }
+
+    /**
+     * The nearest ancestor with this local name, if there is one.
+     */
+    private function ancestor(DOMNode $node, string $localName): ?DOMElement
+    {
         for ($current = $node->parentNode; $current !== null; $current = $current->parentNode) {
-            if ($current instanceof DOMElement && $current->localName === 'tr') {
+            if ($current instanceof DOMElement && $current->localName === $localName) {
                 return $current;
             }
         }
 
         return null;
+    }
+
+    /**
+     * Take out the line a repeating group sat on, for a group with no records.
+     *
+     * THE LINE IS REMOVED RATHER THAN LEFT HOLDING ITS MACRO: a document that prints
+     * `{{tag.name}}` where a meeting simply had no tags reads as a broken template, and
+     * a reader of the minutes has no way to tell that from a real failure.
+     *
+     * ON THE TREE, NOT BY SLICING THE PART. This was `TemplateProcessor::deleteRow`, and
+     * that method cannot decide correctly what to delete. Its one-row test is
+     * `substr_count($xmlTable, '<w:tr') === 1`, which ALSO COUNTS `<w:trPr` — so a row
+     * carrying row properties (every row Word writes has them) is not recognised as a
+     * one-row table at all, and the row is cut out of a table that is left with no rows
+     * in it: `<w:tbl><w:tblGrid/></w:tbl>`, a table shell with nothing in it. A row
+     * WITHOUT properties does take that branch, and then `findTableEnd` returns
+     * `strpos('</w:tbl>') + 7` for a tag that is eight characters long, so the closing
+     * `>` is left behind as loose text directly inside `w:body`. Neither is reported:
+     * the part still parses, so the export succeeds, and the file is only found to be
+     * malformed when Word opens it.
+     *
+     * Removing nodes cannot leave a character behind, so the decision is made on the
+     * tree, beside {@see expandRange}. A macro the range already took out is simply not
+     * found here, which is why the caller does not have to keep the two passes apart.
+     */
+    public function removeEmptyGroup(string $search): void
+    {
+        $name = trim($search);
+
+        foreach ($this->parts() as $part => $xml) {
+            // THE MAIN PART IS THE DOCUMENT THIS PACKAGE ALREADY HOLDS OPEN, so it is
+            // edited through that one DOM and written out with everything else. Loading
+            // a second copy of it here would be discarded by the next `flush()`, which
+            // writes `$this->document` back over the part.
+            $dom = $part === self::MAIN ? $this->dom() : $this->documentOf($xml);
+
+            if ($dom === null) {
+                continue;
+            }
+
+            $xpath = $this->namespaced($dom);
+            $changed = false;
+
+            foreach ($xpath->query('//w:p') ?: [] as $paragraph) {
+                if (! in_array($name, $this->macrosIn($this->textOf($xpath, $paragraph)), true)) {
+                    continue;
+                }
+
+                $changed = $this->dropLine($xpath, $paragraph, $name) || $changed;
+            }
+
+            if (! $changed) {
+                continue;
+            }
+
+            if ($part === self::MAIN) {
+                $this->flush();
+            } else {
+                $this->write($part, (string) $dom->saveXML());
+            }
+        }
+    }
+
+    /**
+     * Remove the line this macro's paragraph is, and say whether anything went.
+     *
+     * A ROW THAT NAMED NOTHING BUT MACROS WAS A RECORD ROW, and it goes whole: the row
+     * if the table has others to keep, the whole table if it was that table's only
+     * line — which is what a bullet drawn as a one-cell table is.
+     *
+     * A BOX THAT SAID SOMETHING ELSE IS NOT THE MACRO'S TO DELETE. A one-row table is
+     * also the commonest way to lay a heading beside its value, and taking the box out
+     * because one group came back empty would remove the author's own label with it.
+     * So the macro's text goes and the cell, the row and the box all stay — which also
+     * keeps every `w:tc` holding the `w:p` the schema requires of it.
+     *
+     * A MACRO WITH NO TABLE AROUND IT IS LEFT ALONE, which is the fate the filler
+     * documents for a row-shaped macro outside a row: the template renders with its own
+     * text still visible, and that is how the author finds out.
+     */
+    private function dropLine(DOMXPath $xpath, DOMElement $paragraph, string $name): bool
+    {
+        $row = $this->ancestorRow($paragraph);
+
+        if ($row === null) {
+            return false;
+        }
+
+        $table = $this->ancestor($row, 'tbl');
+
+        if ($table === null) {
+            return false;
+        }
+
+        if ($this->holdsOnlyMacros($xpath, $row)) {
+            $rows = $xpath->query('./w:tr', $table);
+
+            if ($rows !== false && $rows->length > 1) {
+                $row->parentNode?->removeChild($row);
+                $this->dropRowlessTable($xpath, $table);
+
+                return true;
+            }
+
+            $table->parentNode?->removeChild($table);
+
+            return true;
+        }
+
+        return $this->blankMacro($xpath, $row, $name);
+    }
+
+    /**
+     * Remove a table the last removal left with no rows in it.
+     *
+     * A TABLE WITH NO ROWS IS NOT A TABLE. The schema asks `w:tbl` for at least one
+     * `w:tr`, and Word answers a shell with a repair prompt — which is the outcome this
+     * whole method exists to avoid. It happens when a template wrote the same macro on
+     * more than one row: each row is a record row and each is taken, and the table has
+     * to go with the last of them.
+     */
+    private function dropRowlessTable(DOMXPath $xpath, DOMElement $table): void
+    {
+        $remaining = $xpath->query('./w:tr', $table);
+
+        if ($remaining !== false && $remaining->length === 0) {
+            $table->parentNode?->removeChild($table);
+        }
+    }
+
+    /**
+     * Whether a row says nothing but macros.
+     *
+     * WHAT IS LEFT ONCE EVERY MACRO IS TAKEN OUT is the test, rather than which macro
+     * it was asked about — a record row names its whole record, and every column of it
+     * has to go when the record does or the rest of them print as literal text.
+     *
+     * A drawing or a break is content even when it carries no text, so a box holding a
+     * logo and a macro is a box, not a record row.
+     */
+    private function holdsOnlyMacros(DOMXPath $xpath, DOMElement $row): bool
+    {
+        $rest = preg_replace('/\{\{.+?\}\}/s', '', $this->textOf($xpath, $row));
+
+        if ($rest === null || trim($rest) !== '') {
+            return false;
+        }
+
+        return $xpath->query('.//w:drawing | .//w:br | .//w:pict', $row)->length === 0;
+    }
+
+    /**
+     * Take this macro's text out and leave everything around it standing.
+     *
+     * The spelling is compared TRIMMED, because the file may say `{{ tag.name }}` and
+     * the name read off it has no spaces — the same latitude the substitution gives.
+     */
+    private function blankMacro(DOMXPath $xpath, DOMElement $row, string $name): bool
+    {
+        $blanked = false;
+
+        foreach ($xpath->query('.//w:t', $row) ?: [] as $text) {
+            $replaced = preg_replace_callback(
+                '/\{\{(.+?)\}\}/s',
+                static fn (array $match): string => trim($match[1]) === $name ? '' : $match[0],
+                $text->textContent,
+            );
+
+            if ($replaced === null || $replaced === $text->textContent) {
+                continue;
+            }
+
+            $text->textContent = $replaced;
+            $blanked = true;
+        }
+
+        return $blanked;
     }
 
     /**

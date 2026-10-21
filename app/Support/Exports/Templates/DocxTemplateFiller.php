@@ -132,6 +132,8 @@ final class DocxTemplateFiller implements TemplateFiller
             // twice costs one collection read and keeps the two passes independent:
             // a range must not depend on a substitution that may replace nothing.
             $present = array_flip($package->names());
+            $fields = $registry->fields();
+            $values = $registry->values($entity);
 
             // The groups this range handles, handed to the substitution below so it
             // does not repeat them a second time. Both paths expand the same records,
@@ -139,11 +141,7 @@ final class DocxTemplateFiller implements TemplateFiller
             // per record per record, each copy still wearing its markers.
             $expanded = [];
 
-            foreach ($this->values->records(
-                $registry->fields(),
-                $registry->values($entity),
-                $present,
-            ) as $group => $copies) {
+            foreach ($this->values->records($fields, $values, $present) as $group => $copies) {
                 // ONLY A GROUP THE TEMPLATE MARKED is handed on as expanded. `records()`
                 // reports every repeating group the file mentions, marked or not, and
                 // claiming all of them would suppress the row-cloning pass for
@@ -160,6 +158,17 @@ final class DocxTemplateFiller implements TemplateFiller
                     ),
                     $this->forXml(...),
                 );
+            }
+
+            // A GROUP WITH NO RECORDS LOSES ITS LINE — here, on the tree, rather than in
+            // the substitution below, which runs on a closed file through PHPWord whose
+            // `deleteRow` cannot tell a one-row table from a row of one: it leaves the
+            // table with no rows in it, or a stray `>` in `w:body`. See
+            // {@see DocxPackage::removeEmptyGroup()}.
+            foreach ($this->values->groups($fields, $values, $present) as [$search, $rows]) {
+                if ($rows === []) {
+                    $package->removeEmptyGroup($search);
+                }
             }
 
             // Every paragraph can be right-aligned and the document still read the
@@ -234,14 +243,12 @@ final class DocxTemplateFiller implements TemplateFiller
             }
 
             try {
+                // THE EMPTY CASE NEVER REACHES HERE: `fill()` took the line out on the
+                // tree before the file was closed, and the macro is no longer in the
+                // part for `groups()` to find. It is left guarded rather than removed
+                // because a group can withhold only some of its columns, and a group
+                // with no rows has nothing for `cloneRowAndSetValues` to do either way.
                 if ($rows === []) {
-                    // The template asked for this list and the entity has none. The row
-                    // is REMOVED rather than left holding its macro: a document that
-                    // prints `{{tag.name}}` where a meeting simply had no tags reads as
-                    // a broken template, and a reader of the minutes has no way to tell
-                    // that from a real failure.
-                    $processor->deleteRow($search);
-
                     continue;
                 }
 
