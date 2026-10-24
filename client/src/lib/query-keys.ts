@@ -195,7 +195,10 @@ export const aiKeys = {
 
 export const exportTemplateKeys = {
     all: ["export-templates"] as const,
-    list: (domain: string) =>
+    list: (domain: string, format: string) =>
+        [...exportTemplateKeys.all, "list", domain, format] as const,
+    /** Every format's library for a domain, as an invalidation prefix. */
+    lists: (domain: string) =>
         [...exportTemplateKeys.all, "list", domain] as const,
     /**
      * The names a template may contain. A property of the DOMAIN, not of the

@@ -145,9 +145,9 @@ export type TemplateFieldsResponse = {
     };
 };
 
-export function fetchTemplates(domain = "boardmeeting") {
+export function fetchTemplates(domain = "boardmeeting", format = "docx") {
     return api.get<TemplateListResponse>("/templates", {
-        params: { domain },
+        params: { domain, format },
     });
 }
 

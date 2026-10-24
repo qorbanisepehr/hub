@@ -14,6 +14,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
 import { ResponsiveDialog } from "@/components/ui/responsive-dialog";
+import { getApiError } from "@/lib/error-utils";
 import {
     EXPORT_MIME_TYPES,
     exportDateStamp,
@@ -28,6 +29,13 @@ import {
     useTemplates,
 } from "../hooks/use-templates";
 
+const FORMATS = [
+    { key: "docx", label: "Word", icon: IconFileTypeDoc },
+    { key: "pdf", label: "PDF", icon: IconFileTypePdf },
+    { key: "md", label: "Markdown", icon: IconFileTypeTxt },
+    { key: "json", label: "JSON", icon: IconBraces },
+] as const;
+
 /**
  * What this one export should be: which format, which template, which sections.
  *
@@ -41,9 +49,16 @@ import {
  * question asked twice, and letting a dialog set one without the other produces the
  * state nobody meant: a letterhead with a section list that does not match it.
  *
+ * THE LIBRARY IS ASKED FOR BY FORMAT. The server scopes templates by format, so a
+ * client that fetched once and filtered locally would see only Word templates — which
+ * is how the Markdown and JSON libraries stayed invisible. The format is part of the
+ * question, and changing it asks again.
+ *
  * IT STARTS FROM THE DEFAULTS AND CHANGES EVERY TIME. Nothing here is saved, which
  * is the difference between "print this one differently" and "from now on" — and
  * the server takes the whole list per request precisely so the first is possible.
+ * "No template" is a real third choice, not the absence of an answer: the server
+ * distinguishes a missing name (use the default) from the opt-out flag.
  *
  * IT REUSES THE TWO EXISTING QUERIES rather than adding a third endpoint for its
  * own seed: the template library and the field catalogue already say what this
@@ -59,34 +74,59 @@ export function MeetingExportDialog({
     onOpenChange: (open: boolean) => void;
     meetingId: number | string;
 }) {
-    const { data: templates } = useTemplates();
-    const { data: fields } = useTemplateFields();
-
-    const sections = useMemo(() => fields?.sections ?? [], [fields]);
     const [format, setFormat] = useState<BoardMeetingSheetFormat>("docx");
-    const [template, setTemplate] = useState<string | null>(null);
-    const [picked, setPicked] = useState<string[]>([]);
+    // undefined follows the format's default; null is the explicit "no template";
+    // a string is the template the person picked. Keeping the three apart is what
+    // lets "just this once, without the letterhead" be expressible.
+    const [template, setTemplate] = useState<string | null | undefined>(
+        undefined,
+    );
+    const [picked, setPicked] = useState<string[] | null>(null);
     const [isExporting, setIsExporting] = useState(false);
 
-    // The domain's own order is the default, so the dialog opens on what the export
-    // button alone would have produced and the person changes it only if they mean to.
-    const chosen = picked.length > 0 ? picked : sections.map((s) => s.key);
+    const { data: fields, isLoading: fieldsLoading } = useTemplateFields();
+    const { data: templates, isLoading: templatesLoading } = useTemplates(
+        format,
+        "boardmeeting",
+        format !== "pdf",
+    );
 
-    // Only the templates this format can actually use. A Markdown template offered
-    // beside a Word button is a template that silently does not apply.
-    const usable = (templates ?? []).filter((t) => t.format === format);
+    const sections = useMemo(() => fields?.sections ?? [], [fields]);
+    const allKeys = useMemo(() => sections.map((s) => s.key), [sections]);
 
-    // WHENEVER THE FORMAT CHANGES, THE TEMPLATE DOES TOO. Keeping the previous
-    // format's slug would send a template the server cannot use for this route, and
-    // the refusal would arrive as a download that did not happen.
+    // null is "all sections", the domain's own order; an array is an explicit
+    // choice, including an empty one. Without the distinction, unchecking the last
+    // box silently meant "print everything" while the screen showed nothing checked.
+    const chosen = picked ?? allKeys;
+
+    const defaultTemplate = templates?.find((t) => t.is_default) ?? null;
+    const selected =
+        template === undefined ? (defaultTemplate?.slug ?? null) : template;
+
+    const ActiveIcon =
+        FORMATS.find((option) => option.key === format)?.icon ?? IconFileTypePdf;
+
+    // The template list and the section list are the dialog's two inputs; exporting
+    // before either arrives would send "no template" and "no sections" by accident.
+    const isPreparing =
+        fieldsLoading || (format !== "pdf" && templatesLoading);
+
+    // Whenever the format changes, follow the new format's default rather than
+    // carrying a slug the server cannot use for this route.
     const chooseFormat = (next: BoardMeetingSheetFormat) => {
         setFormat(next);
+        setTemplate(undefined);
+    };
 
-        const stillUsable = (templates ?? []).find(
-            (t) => t.slug === template && t.format === next,
-        );
+    // Section choices are for one export, so reopening starts from the domain's
+    // list again. (An empty `picked` now means "print nothing", so leaving it
+    // behind would reopen the dialog on a warning nobody asked for.)
+    const close = (next: boolean) => {
+        if (!next) {
+            setPicked(null);
+        }
 
-        setTemplate(stillUsable ? stillUsable.slug : null);
+        onOpenChange(next);
     };
 
     const submit = async () => {
@@ -95,7 +135,9 @@ export function MeetingExportDialog({
         try {
             const response = await exportBoardMeetingSheet(meetingId, {
                 format,
-                template: template ?? undefined,
+                ...(selected === null
+                    ? { withoutTemplate: true }
+                    : { template: selected }),
                 sections: chosen,
             });
 
@@ -105,11 +147,12 @@ export function MeetingExportDialog({
                 EXPORT_MIME_TYPES[format],
             );
 
-            onOpenChange(false);
-        } catch {
-            toast.error("ساخت فایل انجام نشد.", {
-                description: "لطفاً دوباره تلاش کنید.",
-            });
+            close(false);
+        } catch (error) {
+            // The server's own sentence, verbatim: a JSON template that does not
+            // parse comes back as a 422 that names the thing to fix, and replacing
+            // it with "export failed" would throw that away.
+            toast.error(getApiError(error));
         } finally {
             setIsExporting(false);
         }
@@ -118,7 +161,7 @@ export function MeetingExportDialog({
     return (
         <ResponsiveDialog
             open={open}
-            onOpenChange={onOpenChange}
+            onOpenChange={close}
             title="خروجی گرفتن"
             description="این انتخاب‌ها فقط برای همین یک خروجی است و جایی ذخیره نمی‌شود."
             footer={
@@ -126,7 +169,7 @@ export function MeetingExportDialog({
                     <Button
                         type="button"
                         variant="outline"
-                        onClick={() => onOpenChange(false)}
+                        onClick={() => close(false)}
                         disabled={isExporting}
                     >
                         انصراف
@@ -134,12 +177,12 @@ export function MeetingExportDialog({
                     <Button
                         type="button"
                         onClick={() => void submit()}
-                        disabled={isExporting}
+                        disabled={isExporting || isPreparing}
                     >
                         {isExporting ? (
                             <Spinner className="size-4" />
                         ) : (
-                            <IconFileTypePdf className="size-4" />
+                            <ActiveIcon className="size-4" />
                         )}
                         دریافت فایل
                     </Button>
@@ -148,17 +191,12 @@ export function MeetingExportDialog({
         >
             <div className="grid gap-5">
                 <fieldset className="grid gap-2">
-                    <legend className="text-sm font-medium">قالب فایل</legend>
+                    <legend className="text-sm font-medium">
+                        فرمت خروجی
+                    </legend>
 
                     <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                        {(
-                            [
-                                ["docx", "Word", IconFileTypeDoc],
-                                ["pdf", "PDF", IconFileTypePdf],
-                                ["md", "Markdown", IconFileTypeTxt],
-                                ["json", "JSON", IconBraces],
-                            ] as const
-                        ).map(([key, label, Icon]) => (
+                        {FORMATS.map(({ key, label, icon: Icon }) => (
                             <button
                                 key={key}
                                 type="button"
@@ -177,58 +215,31 @@ export function MeetingExportDialog({
                     </div>
                 </fieldset>
 
-                {/* THE TEMPLATE IS OPTIONAL AND SAYS SO. With none configured this is
-                    one line of text rather than an empty list, because "there is
-                    nothing to choose" and "here is nothing to choose from" are
-                    different messages and only one of them is true. */}
                 <fieldset className="grid gap-2">
                     <legend className="text-sm font-medium">قالب سند</legend>
 
-                    {usable.length === 0 ? (
+                    {format === "pdf" ? (
                         <p className="text-xs text-muted-foreground">
-                            برای این فرمت قالبی ثبت نشده؛ سند تولیدی استفاده
-                            می‌شود.
+                            PDF همیشه از سند تولیدی ساخته می‌شود و قالب فایل
+                            نمی‌گیرد.
                         </p>
-                    ) : (
-                        <ul className="grid gap-1.5">
-                            <li>
-                                <label
-                                    className={`flex cursor-pointer items-center justify-between gap-2 rounded-lg border px-3 py-2 text-xs ${
-                                        template === null
-                                            ? "border-primary bg-primary/10"
-                                            : "border-border"
-                                    }`}
-                                >
-                                    <input
-                                        type="radio"
-                                        name="export-template"
-                                        className="sr-only"
-                                        checked={template === null}
-                                        onChange={() => setTemplate(null)}
-                                    />
+                    ) : templatesLoading ? (
+                        <div className="flex justify-center py-3">
+                            <Spinner className="size-4" />
+                        </div>
+                    ) : templates && templates.length > 0 ? (
+                        <>
+                            <p className="text-xs text-muted-foreground">
+                                {defaultTemplate
+                                    ? `قالب پیش‌فرضِ این فرمت «${defaultTemplate.name}» است؛ برای همین خروجی می‌توانید عوضش کنید.`
+                                    : "برای این فرمت پیش‌فرضی تعیین نشده؛ سند تولیدی انتخاب شده است."}
+                            </p>
 
-                                    {/* SAYS WHICH OF THE TWO THIS IS. "پیش‌فرض" on
-                                        this row would claim the server falls back to
-                                        no template, which is the opposite of what
-                                        a configured default means. */}
-                                    <span>
-                                        بدون قالب — سند تولیدی
-                                    </span>
-
-                                    {usable.length > 0 && (
-                                        <span className="text-[10px] text-muted-foreground">
-                                            بدون انتخاب، قالب پیش‌فرضِ
-                                            همین فرمت به کار می‌رود
-                                        </span>
-                                    )}
-                                </label>
-                            </li>
-
-                            {usable.map((option) => (
-                                <li key={option.slug}>
+                            <ul className="grid gap-1.5">
+                                <li>
                                     <label
                                         className={`flex cursor-pointer items-center justify-between gap-2 rounded-lg border px-3 py-2 text-xs ${
-                                            template === option.slug
+                                            selected === null
                                                 ? "border-primary bg-primary/10"
                                                 : "border-border"
                                         }`}
@@ -237,26 +248,57 @@ export function MeetingExportDialog({
                                             type="radio"
                                             name="export-template"
                                             className="sr-only"
-                                            checked={template === option.slug}
-                                            onChange={() =>
-                                                setTemplate(option.slug)
-                                            }
+                                            checked={selected === null}
+                                            onChange={() => setTemplate(null)}
                                         />
 
-                                        <span className="truncate">
-                                            {option.name}
+                                        <span>
+                                            بدون قالب — سند تولیدی
                                         </span>
-
-                                        {option.is_default && (
-                                            <Badge variant="info">
-                                                <IconStar className="size-3" />
-                                                پیش‌فرض
-                                            </Badge>
-                                        )}
                                     </label>
                                 </li>
-                            ))}
-                        </ul>
+
+                                {templates.map((option) => (
+                                    <li key={option.slug}>
+                                        <label
+                                            className={`flex cursor-pointer items-center justify-between gap-2 rounded-lg border px-3 py-2 text-xs ${
+                                                selected === option.slug
+                                                    ? "border-primary bg-primary/10"
+                                                    : "border-border"
+                                            }`}
+                                        >
+                                            <input
+                                                type="radio"
+                                                name="export-template"
+                                                className="sr-only"
+                                                checked={
+                                                    selected === option.slug
+                                                }
+                                                onChange={() =>
+                                                    setTemplate(option.slug)
+                                                }
+                                            />
+
+                                            <span className="truncate">
+                                                {option.name}
+                                            </span>
+
+                                            {option.is_default && (
+                                                <Badge variant="info">
+                                                    <IconStar className="size-3" />
+                                                    پیش‌فرض
+                                                </Badge>
+                                            )}
+                                        </label>
+                                    </li>
+                                ))}
+                            </ul>
+                        </>
+                    ) : (
+                        <p className="text-xs text-muted-foreground">
+                            برای این فرمت قالبی ثبت نشده؛ سند تولیدی استفاده
+                            می‌شود.
+                        </p>
                     )}
                 </fieldset>
 
@@ -276,16 +318,30 @@ export function MeetingExportDialog({
                             >
                                 <Checkbox
                                     id={`section-${section.key}`}
-                                    checked={picked.includes(section.key)}
+                                    checked={
+                                        picked === null ||
+                                        picked.includes(section.key)
+                                    }
                                     onCheckedChange={(checked) =>
-                                        setPicked((current) =>
-                                            checked === true
-                                                ? [...current, section.key]
-                                                : current.filter(
-                                                      (key) =>
-                                                          key !== section.key,
-                                                  ),
-                                        )
+                                        setPicked((current) => {
+                                            const base = current ?? allKeys;
+
+                                            const next =
+                                                checked === true
+                                                    ? [...base, section.key]
+                                                    : base.filter(
+                                                          (key) =>
+                                                              key !==
+                                                              section.key,
+                                                      );
+
+                                            // The server prints in the order it is
+                                            // given, so re-checking a box must not
+                                            // move that section to the end.
+                                            return allKeys.filter((key) =>
+                                                next.includes(key),
+                                            );
+                                        })
                                     }
                                 />
 
@@ -299,13 +355,20 @@ export function MeetingExportDialog({
                         ))}
                     </ul>
 
-                    {picked.length > 0 && (
+                    {chosen.length === 0 && (
+                        <p className="text-xs text-amber-700">
+                            هیچ بخشی انتخاب نشده — فایل فقط عنوان و سربرگ را
+                            خواهد داشت.
+                        </p>
+                    )}
+
+                    {picked !== null && (
                         <Button
                             type="button"
                             variant="ghost"
                             size="sm"
                             className="justify-self-start"
-                            onClick={() => setPicked([])}
+                            onClick={() => setPicked(null)}
                         >
                             برگرداندن به همه
                         </Button>

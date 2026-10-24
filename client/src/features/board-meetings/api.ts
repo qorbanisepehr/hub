@@ -111,15 +111,21 @@ export function exportBoardMeetingSheet(
     options: {
         format: BoardMeetingSheetFormat;
         template?: string;
+        withoutTemplate?: boolean;
         sections?: string[];
     },
 ) {
-    const { format, template, sections } = options;
+    const { format, template, withoutTemplate, sections } = options;
 
     return api.get(`/board-meetings/${id}/export/${format}`, {
         responseType: "blob",
         params: {
             ...(template ? { template } : {}),
+            // A real third state, not an empty template name: absent means "use
+            // the format's default", and this flag means "generate the sheet even
+            // though a default exists". The server normalizes empty input to null,
+            // so an empty `template` could not carry that answer.
+            ...(withoutTemplate ? { without_template: 1 } : {}),
             // Sent only when the person actually chose, because an absent parameter
             // means "the usual sections" and an empty one means "print nothing" —
             // two different answers, and always both worth being explicit about.

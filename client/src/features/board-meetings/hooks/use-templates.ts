@@ -12,22 +12,31 @@ import {
 } from "../templates-api";
 
 /**
- * The uploaded Word templates a domain can export with.
+ * The uploaded templates of ONE format.
  *
- * Long-lived: the library changes when an administrator changes it, not from one
- * render to the next, and a picker that refetches on every render flickers.
+ * The server scopes the library by format, because a Word picker must not offer a
+ * Markdown frame. That makes the format part of the question, not a filter applied
+ * afterwards: a client that asks once and filters locally sees only Word templates,
+ * which is exactly how the Markdown and JSON libraries stayed invisible.
  */
-export function useTemplates(domain = "boardmeeting") {
+export function useTemplates(
+    format = "docx",
+    domain = "boardmeeting",
+    enabled = true,
+) {
     return useQuery({
-        queryKey: exportTemplateKeys.list(domain),
+        queryKey: exportTemplateKeys.list(domain, format),
         // The envelope's `data` is unwrapped here so no caller has to know the
         // API's response shape; only the domain comes back alongside it, and the
         // library already knows which domain it asked for.
-        queryFn: async () => (await fetchTemplates(domain)).data.data
+        queryFn: async () => (await fetchTemplates(domain, format)).data.data
             .templates,
         // Nothing here is secret enough to be worth a spinner on every visit,
         // but a library is small and rarely changes.
         staleTime: 30_000,
+        // PDF is the one format that takes no template, so the dialog asks for
+        // nothing there instead of fetching a Word library it would never show.
+        enabled,
     });
 }
 
@@ -61,7 +70,7 @@ export function useUploadTemplate(domain = "boardmeeting") {
         // letterhead expecting their minutes under it finds out here, not in Word.
         onSuccess: (response) => {
             void queryClient.invalidateQueries({
-                queryKey: exportTemplateKeys.list(domain),
+                queryKey: exportTemplateKeys.lists(domain),
             });
 
             const inspection = response.data.inspection;
@@ -90,7 +99,7 @@ export function useUpdateTemplate(domain = "boardmeeting") {
             updateTemplate(slug, payload),
         onSuccess: () => {
             void queryClient.invalidateQueries({
-                queryKey: exportTemplateKeys.list(domain),
+                queryKey: exportTemplateKeys.lists(domain),
             });
 
             toast.success("قالب به‌روزرسانی شد.");
@@ -106,7 +115,7 @@ export function useDeleteTemplate(domain = "boardmeeting") {
         mutationFn: deleteTemplate,
         onSuccess: () => {
             void queryClient.invalidateQueries({
-                queryKey: exportTemplateKeys.list(domain),
+                queryKey: exportTemplateKeys.lists(domain),
             });
 
             toast.success("قالب حذف شد.");
