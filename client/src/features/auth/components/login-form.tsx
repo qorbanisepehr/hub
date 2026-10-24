@@ -6,6 +6,7 @@ import { useStore } from "@tanstack/react-store";
 import * as React from "react";
 import { z } from "zod";
 
+import { Logo, LogoType } from "@/components/navigation";
 import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
 import {
@@ -22,16 +23,10 @@ import { CodeField } from "@/features/auth/components/code-field";
 import { IdentifierField } from "@/features/auth/components/identifier-field";
 import { PasswordField } from "@/features/auth/components/password-field";
 import type { LoginChannel, LoginMode } from "@/features/auth/types";
-import { useBranding } from "@/features/settings/hooks/use-branding";
 import { useOtpVerification } from "@/hooks/use-otp-verification";
-import { COMPANY_NAME } from "@/lib/brand";
 import { getApiError } from "@/lib/error-utils";
 import { cn } from "@/lib/utils";
-import {
-    IconLoader2,
-    IconMail,
-    IconPhone,
-} from "@tabler/icons-react";
+import { IconLoader2, IconMail, IconPhone } from "@tabler/icons-react";
 
 const identifierSchema = z.string().min(1, "این فیلد الزامی است");
 const codeSchema = z.string().length(6, "لطفا کد تایید را وارد کنید");
@@ -44,7 +39,6 @@ export function LoginForm({
 }: React.ComponentProps<"div"> & { redirectTo?: string }) {
     const { loginOtp, loginPassword, verifyOtp } = useAuth();
     const navigate = useNavigate();
-    const { data: branding } = useBranding();
     const [mode, setMode] = React.useState<LoginMode>("otp");
     const [otpChannel, setOtpChannel] = React.useState<LoginChannel>("email");
     const [otpSent, setOtpSent] = React.useState(false);
@@ -141,11 +135,25 @@ export function LoginForm({
         <div className={cn("flex flex-col gap-6", className)} {...props}>
             <Card>
                 <CardHeader className="text-center">
-                    <CardTitle>{branding?.name ?? COMPANY_NAME}</CardTitle>
+                    <CardTitle>
+                        <div className="flex mx-auto gap-1 w-full justify-center">
+                            <LogoType className="w-18 self-end" />
+                            <Logo className="size-12" />
+                        </div>
+                    </CardTitle>
                     <CardDescription>
-                        {otpSent
-                            ? `کد تایید به ${otpDestination} ارسال شد`
-                            : "ورود به حساب کاربری"}
+                        <div className="relative my-4">
+                            <div className="absolute inset-0 flex items-center">
+                                <span className="w-full border-t" />
+                            </div>
+                            <div className="relative flex justify-center text-xs uppercase">
+                                <span className="bg-card px-2 text-muted-foreground">
+                                    {otpSent
+                                        ? `کد تایید به ${otpDestination} ارسال شد`
+                                        : "ورود به حساب کاربری"}
+                                </span>
+                            </div>
+                        </div>
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
