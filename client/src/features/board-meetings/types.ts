@@ -43,6 +43,7 @@ export interface BoardMeetingDto {
     source_locked_at: string | null;
     /** A person has edited this row; a later sync will not overwrite it. */
     source_locked: boolean;
+    has_summary: boolean;
 }
 
 export type BoardMeetingListResponse = PaginatedResponse<BoardMeetingDto>;
@@ -132,7 +133,11 @@ export interface MeetingSummaryFieldState {
  * accepted nothing, which is neither a failure nor a run still in flight.
  */
 export type MeetingSummaryStatus =
-    "pending" | "none" | "ok" | "partial" | "failed";
+    | "pending"
+    | "none"
+    | "ok"
+    | "partial"
+    | "failed";
 
 /** Why a run could not fill a field, or the row at all. Stable keys. */
 export type MeetingSummaryReason =

@@ -1,11 +1,16 @@
-import { type ColumnDef, type StockFeatures } from "@tanstack/react-table";
-import { Link } from "@tanstack/react-router";
-import { IconEye } from "@tabler/icons-react";
 import { DataTableColumnHeader } from "@/components/data-table";
 import { RowActions } from "@/components/shared/row-actions";
-import { toPersianDate } from "@/lib/date-format";
-import type { BoardMeetingDto } from "./types";
 import { Badge } from "@/components/ui/badge";
+import { toPersianDate } from "@/lib/date-format";
+import {
+    IconCancel,
+    IconCheck,
+    IconEye,
+    IconMessage2Ai,
+} from "@tabler/icons-react";
+import { Link } from "@tanstack/react-router";
+import { type ColumnDef, type StockFeatures } from "@tanstack/react-table";
+import type { BoardMeetingDto } from "./types";
 
 /**
  * «—» for an empty count, the same way the rest of the app renders a zero.
@@ -95,6 +100,25 @@ export const boardMeetingColumns: ColumnDef<StockFeatures, BoardMeetingDto>[] =
                 );
             },
             meta: { displayName: "برچسب‌ها" },
+        },
+        {
+            accessorKey: "has_summary",
+            enableSorting: false,
+            header: () => (
+                <div>
+                    <IconMessage2Ai className="size-5 mx-auto" />
+                </div>
+            ),
+            cell: ({ row }) => (
+                <div>
+                    {row.original.has_summary ? (
+                        <IconCheck className="size-5 mx-auto bg-primary text-primary-foreground p-0.5 rounded" />
+                    ) : (
+                        <IconCancel className="size-5 mx-auto bg-primary text-primary-foreground p-0.5 rounded" />
+                    )}
+                </div>
+            ),
+            meta: { displayName: "خلاصه هوشمند" },
         },
         {
             id: "actions",
