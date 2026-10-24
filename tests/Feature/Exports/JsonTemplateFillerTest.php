@@ -5,6 +5,7 @@ use App\Domains\BoardMeeting\Exports\BoardMeetingSheetExport;
 use App\Domains\BoardMeeting\Exports\BoardMeetingTemplateFields;
 use App\Domains\BoardMeeting\Models\BoardMeeting;
 use App\Domains\BoardMeeting\Value\Attendee;
+use App\Support\Exports\Templates\InvalidJsonTemplateOutput;
 use App\Support\Exports\Templates\JsonTemplateFiller;
 use App\Support\Exports\Templates\TemplateFillerRegistry;
 
@@ -105,7 +106,7 @@ describe('a json template', function () {
         // JSON expects a value. Before this check the export succeeded and the file
         // failed in whatever read it next, with nothing pointing at the template.
         expect(fn () => $filled('{"title": {{title}}}', $meeting()))
-            ->toThrow(RuntimeException::class, 'did not produce JSON');
+            ->toThrow(InvalidJsonTemplateOutput::class, 'did not produce JSON');
     });
 
     it('expands a range into one object per record, with the commas', function () use ($filled, $meeting) {

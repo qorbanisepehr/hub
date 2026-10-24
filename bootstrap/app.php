@@ -9,6 +9,7 @@ use App\Integrations\Farzin\FarzinUnavailableException;
 use App\Integrations\Rahkaran\Exceptions\RahkaranException;
 use App\Support\Exports\BundleTooLarge;
 use App\Support\Exports\DocumentRowLimitExceeded;
+use App\Support\Exports\Templates\InvalidJsonTemplateOutput;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -64,6 +65,15 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->render(function (DocumentRowLimitExceeded $e, Request $request) {
             return response()->json([
                 'message' => __('exports.row_limit_exceeded'),
+            ], 422);
+        });
+
+        // The JSON template surface exists now, so a filled frame that does not
+        // parse is a request the author can fix — 422, not a 500. Without the
+        // handler the filler's refusal reached the client as a generic failure.
+        $exceptions->render(function (InvalidJsonTemplateOutput $e, Request $request) {
+            return response()->json([
+                'message' => __('exports.template_invalid_json'),
             ], 422);
         });
 

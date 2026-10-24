@@ -6,7 +6,6 @@ use App\Support\Exports\MacroSyntax;
 use App\Support\Exports\Render\JsonRenderer;
 use App\Support\Exports\Render\JsonText;
 use App\Support\Exports\Value\Document\DocumentSpec;
-use RuntimeException;
 
 /**
  * The JSON implementation of {@see TemplateFiller}.
@@ -114,10 +113,7 @@ final class JsonTemplateFiller implements TemplateFiller
             return;
         }
 
-        throw new RuntimeException(sprintf(
-            'The JSON template did not produce JSON: %s.',
-            json_last_error_msg(),
-        ));
+        throw InvalidJsonTemplateOutput::fromSyntax(json_last_error_msg());
     }
 
     /**

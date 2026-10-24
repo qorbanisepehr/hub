@@ -13,6 +13,7 @@ use App\Support\Exports\BundleManifest;
 use App\Support\Exports\BundleRequest;
 use App\Support\Exports\DocumentExportService;
 use App\Support\Exports\Templates\FileTemplate;
+use App\Support\Exports\Templates\FileTemplateLibrary;
 use App\Support\Exports\Templates\FileTemplateService;
 use App\Support\Exports\Value\Document\DocumentSpec;
 use Illuminate\Support\Facades\Storage;
@@ -49,8 +50,10 @@ final class BoardMeetingBundle
      * The archive's entries, in the order they should be added.
      *
      * @param  list<BoardMeeting>  $meetings
-     * @param  FileTemplate|null  $fileTemplate  applied to the `docx` sheets, and
-     *                                           only when one is chosen
+     * @param  FileTemplate|null  $fileTemplate  the `docx` sheet's override; a
+     *                                           format with no override uses its
+     *                                           own domain default, so a bundle
+     *                                           and a single export agree
      * @return list<BundleEntry>
      *
      * @throws Throwable when a sheet cannot be rendered; anything already
@@ -64,6 +67,7 @@ final class BoardMeetingBundle
             $sheet = app(BoardMeetingSheetExport::class);
             $word = app(FileTemplateService::class);
             $fields = app(BoardMeetingTemplateFields::class);
+            $library = app(FileTemplateLibrary::class);
 
             // One meeting stays flat; two or more get a folder each. A folder
             // named after the only meeting inside it teaches a reader nothing,
@@ -79,9 +83,18 @@ final class BoardMeetingBundle
                     // about. Handing it to the PDF path would do nothing, and
                     // letting a pdf-only request silently acquire a docx-only
                     // meaning would be a coincidence nobody could rely on.
-                    $file = $format === 'docx'
-                        ? $word->render($sheet, $meeting, $fields, $fileTemplate)
-                        : $this->exports->run($sheet, $meeting, $format);
+                    //
+                    // WITH NO OVERRIDE, THE FORMAT'S DEFAULT APPLIES — the same
+                    // precedence a single export uses. Falling through to the
+                    // generated sheet here would make "download this meeting" and
+                    // "download every meeting" disagree about a configured frame.
+                    $template = $fileTemplate?->format() === $format
+                        ? $fileTemplate
+                        : $library->defaultFor($format, BoardMeetingSheetExport::TEMPLATE_DOMAIN);
+
+                    $file = $format === 'pdf'
+                        ? $this->exports->run($sheet, $meeting, $format)
+                        : $word->render($sheet, $meeting, $fields, $template, format: $format);
 
                     $entries[] = BundleEntry::fromExport(
                         $file,

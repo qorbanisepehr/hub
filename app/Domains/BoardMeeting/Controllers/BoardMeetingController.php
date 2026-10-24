@@ -302,7 +302,7 @@ class BoardMeetingController
         // Resolved before the queue branch, because the queued path needs the slug
         // too — it resolves the template when it runs rather than carrying a
         // settings row across a serialization boundary.
-        $fileTemplate = $this->resolveTemplate($library, $bundleRequest->fileTemplateSlug());
+        $fileTemplate = $this->resolveTemplate($library, $bundleRequest->fileTemplateSlug(), FileTemplate::FORMAT_DOCX);
 
         // COUNT THE WORK BEFORE RENDERING ANY OF IT. One sheet per meeting per
         // format, the meeting's own files, and the two manifest pages — all
@@ -498,41 +498,69 @@ class BoardMeetingController
         FileTemplateLibrary $library,
         ExportMeetingSheetRequest $request,
     ): StreamedResponse {
-        // A template is optional and unnamed means the domain's default, so one
-        // click still works exactly as before while somebody who has configured
-        // something gets it without choosing.
-        $slug = $request->query('template');
-        $template = $this->resolveTemplate($library, is_string($slug) ? $slug : null);
-
-        return $this->streamWordSheet($meeting, $word, $template, $request->sections());
+        return $this->streamSheetWithTemplate(
+            $meeting,
+            $word,
+            $library,
+            FileTemplate::FORMAT_DOCX,
+            $request,
+        );
     }
 
     /**
-     * The Word template a request asked for: the named slug, else the domain default.
+     * The template a request asked for: the named slug, else the format's domain default.
      *
-     * ONE ANSWER FOR BOTH CALLS. "Download this meeting" and "download every meeting"
-     * must not produce differently-shaped Word files for one domain, so the precedence
-     * — and the refusal below — live in one place.
+     * ONE ANSWER FOR EVERY FORMAT AND BOTH CALLS. "Download this meeting" and
+     * "download every meeting" must not produce differently-shaped files for one
+     * domain, so the precedence — and the refusal below — live in one place. The
+     * format is part of the lookup: naming a Word template on the Markdown route is
+     * a name that does not exist there, not a Word file wearing a `.md` extension.
      *
      * A slug nobody has is a 404 rather than a fallback. Silently exporting the default
      * would hand somebody the wrong kind of document with nothing to say so, and in a
      * bundle that is fifty files they have to open them before they notice.
      */
-    private function resolveTemplate(FileTemplateLibrary $library, ?string $slug): ?FileTemplate
+    private function resolveTemplate(FileTemplateLibrary $library, ?string $slug, string $format): ?FileTemplate
     {
         $domain = BoardMeetingSheetExport::TEMPLATE_DOMAIN;
 
         if ($slug === null || $slug === '') {
-            return $library->defaultFor(FileTemplate::FORMAT_DOCX, $domain);
+            return $library->defaultFor($format, $domain);
         }
 
-        $template = $library->find(FileTemplate::FORMAT_DOCX, $domain, $slug);
+        $template = $library->find($format, $domain, $slug);
 
         if ($template === null) {
             abort(404, __('board_meeting.template.not_found'));
         }
 
         return $template;
+    }
+
+    /**
+     * Resolve this request's template and render one sheet with it.
+     *
+     * The three format actions differ only in the format string, so the slug
+     * handling lives here once: an endpoint that forgot to read `?template=` would
+     * still return a file, which is the kind of drift nobody notices until the
+     * template they chose is ignored.
+     */
+    private function streamSheetWithTemplate(
+        BoardMeeting $meeting,
+        FileTemplateService $files,
+        FileTemplateLibrary $library,
+        string $format,
+        ExportMeetingSheetRequest $request,
+    ): StreamedResponse {
+        $slug = $request->query('template');
+
+        return $this->streamTemplatedSheet(
+            $meeting,
+            $files,
+            $format,
+            $this->resolveTemplate($library, is_string($slug) ? $slug : null, $format),
+            $request->sections(),
+        );
     }
 
     /**
@@ -562,23 +590,26 @@ class BoardMeetingController
     }
 
     /**
-     * The same, with a Word template in play — see {@see FileTemplateService} for
-     * which of the three paths a given template takes.
+     * The same, with a file template in play — see {@see FileTemplateService} for
+     * which of the three paths a given template takes. Without a template, the
+     * format is still threaded through: `render()` defaults to Word otherwise, and
+     * a Markdown request would come back as a `.docx`.
      */
-    private function streamWordSheet(
+    private function streamTemplatedSheet(
         BoardMeeting $meeting,
-        FileTemplateService $word,
+        FileTemplateService $files,
+        string $format,
         ?FileTemplate $template,
         ?array $sections = null,
     ): StreamedResponse {
         return $this->streamSheet(
-            $word->render(
+            $files->render(
                 app(BoardMeetingSheetExport::class),
                 $meeting,
                 app(BoardMeetingTemplateFields::class),
                 $template,
                 null,
-                null,
+                $format,
                 $sections,
             ),
             app(DocumentExportService::class),
@@ -609,10 +640,19 @@ class BoardMeetingController
      * novelty. It costs the layout the other two give you, and says so in the
      * renderer's own docblock rather than pretending a pipe table can be made
      * to read right-to-left.
+     *
+     * A `.md` template of this domain is used when named with `?template=` or set
+     * as the format's default; without one the sheet is generated. The client has
+     * offered the template choice since the dialog was written — this is the
+     * server honouring it.
      */
-    public function exportMarkdown(BoardMeeting $meeting, DocumentExportService $documents, ExportMeetingSheetRequest $request): StreamedResponse
-    {
-        return $this->streamMeetingSheet($meeting, $documents, 'md', $request->sections());
+    public function exportMarkdown(
+        BoardMeeting $meeting,
+        FileTemplateService $files,
+        FileTemplateLibrary $library,
+        ExportMeetingSheetRequest $request,
+    ): StreamedResponse {
+        return $this->streamSheetWithTemplate($meeting, $files, $library, 'md', $request);
     }
 
     /**
@@ -623,10 +663,18 @@ class BoardMeetingController
      * whatever the hub is eventually wired to. The one registration in the
      * kernel gives the CV, the employee profile and the questionnaire their
      * JSON too, without a line of work in those domains.
+     *
+     * A `.json` template, named or default, is filled instead. A frame that does
+     * not produce valid JSON is a 422 rather than a 200 with bytes the next
+     * reader cannot parse: the JSON filler validates its own output.
      */
-    public function exportJson(BoardMeeting $meeting, DocumentExportService $documents, ExportMeetingSheetRequest $request): StreamedResponse
-    {
-        return $this->streamMeetingSheet($meeting, $documents, 'json', $request->sections());
+    public function exportJson(
+        BoardMeeting $meeting,
+        FileTemplateService $files,
+        FileTemplateLibrary $library,
+        ExportMeetingSheetRequest $request,
+    ): StreamedResponse {
+        return $this->streamSheetWithTemplate($meeting, $files, $library, 'json', $request);
     }
 
     /**

@@ -327,6 +327,14 @@ describe('exporting with a template', function () {
         return new UploadedFile($path, $filename, null, null, true);
     };
 
+    /** A plain-text upload; the library argument decides which format it is. */
+    $text = function (string $filename, string $content): UploadedFile {
+        $path = tempnam(sys_get_temp_dir(), 'txt-').'-'.$filename;
+        file_put_contents($path, $content);
+
+        return new UploadedFile($path, $filename, null, null, true);
+    };
+
     it('generates the document when nobody has configured a template', function () {
         $meeting = BoardMeeting::factory()->create(['title' => 'بودجه']);
 
@@ -431,6 +439,85 @@ describe('exporting with a template', function () {
             ->toContain(substr_count($text, 'بودجهٔ سالانه'))->toBeGreaterThan(1);
 
         @unlink($out);
+    });
+
+    it('fills a markdown template, defaulting to it like Word does', function () use ($text) {
+        // The dialog has offered Markdown templates since it was written; the
+        // export route ignored `?template=` and always generated the sheet. A
+        // default here is the same promise the Word route keeps: unnamed means
+        // the domain's chosen frame, not "no frame".
+        $this->library->upload(
+            $text('frame.md', "چارچوب\n\n# {{title}}\n\n{{content}}\n"),
+            'md',
+            'boardmeeting',
+            'فریم مارک‌داون',
+            isDefault: true,
+        );
+
+        $meeting = BoardMeeting::factory()->create(['title' => 'بودجهٔ سالانه']);
+
+        $response = $this->actingAs(createUserWithPermissions(['board-meeting.export']))
+            ->get("/api/board-meetings/{$meeting->getKey()}/export/md")
+            ->assertOk()
+            ->assertHeader('Content-Type', 'text/markdown; charset=utf-8');
+
+        $body = $response->streamedContent();
+
+        expect($body)->toContain('چارچوب')
+            ->and($body)->toContain('# بودجهٔ سالانه')
+            ->and($body)->not->toContain('{{');
+    });
+
+    it('fills a json template that was named', function () use ($text) {
+        $template = $this->library->upload(
+            $text('frame.json', '{"frame": "چارچوب", "title": "{{title}}", "sheet": {{content}}}'),
+            'json',
+            'boardmeeting',
+            'فریم جیسون',
+        );
+
+        $meeting = BoardMeeting::factory()->create(['title' => 'بودجهٔ سالانه']);
+
+        $response = $this->actingAs(createUserWithPermissions(['board-meeting.export']))
+            ->get("/api/board-meetings/{$meeting->getKey()}/export/json?template={$template->slug()}")
+            ->assertOk()
+            ->assertHeader('Content-Type', 'application/json');
+
+        $decoded = json_decode($response->streamedContent(), true, 512, JSON_THROW_ON_ERROR);
+
+        expect($decoded['frame'])->toBe('چارچوب')
+            ->and($decoded['title'])->toBe('بودجهٔ سالانه')
+            ->and($decoded['sheet'])->toBeArray();
+    });
+
+    it('refuses a Word template on the markdown route', function () use ($upload) {
+        // The format is part of the lookup. Falling back to "fill it anyway"
+        // would return Word bytes under a `.md` name.
+        $template = $this->library->upload($upload('letter.docx', 'سربرگ'), 'docx', 'boardmeeting', 'سربرگ');
+
+        $meeting = BoardMeeting::factory()->create();
+
+        $this->actingAs(createUserWithPermissions(['board-meeting.export']))
+            ->get("/api/board-meetings/{$meeting->getKey()}/export/md?template={$template->slug()}")
+            ->assertNotFound();
+    });
+
+    it('answers 422 when a json template does not produce json', function () use ($text) {
+        // The refusal used to be a 500 from a bare RuntimeException; an author
+        // needs a 422 that says the template is the thing to fix.
+        $template = $this->library->upload(
+            $text('broken.json', '{"title": {{title}}}'),
+            'json',
+            'boardmeeting',
+            'فریم شکسته',
+        );
+
+        $meeting = BoardMeeting::factory()->create(['title' => 'بودجه']);
+
+        $this->actingAs(createUserWithPermissions(['board-meeting.export']))
+            ->get("/api/board-meetings/{$meeting->getKey()}/export/json?template={$template->slug()}")
+            ->assertStatus(422)
+            ->assertJsonPath('message', __('exports.template_invalid_json'));
     });
 });
 
@@ -575,6 +662,53 @@ describe('a board meeting bundle with a template', function () {
             ])
             ->assertStatus(422)
             ->assertJsonValidationErrors('word_template');
+    });
+
+    it('uses a markdown default inside the archive, like a single export', function () {
+        // Before this, a bundle's Markdown sheet was always generated: the
+        // template library could hold a `.md` default that no archive honoured.
+        // A configured frame has to mean the same thing on both surfaces, or the
+        // person who set it has no way to know which file will be shaped how.
+        $path = tempnam(sys_get_temp_dir(), 'md-').'-frame.md';
+        file_put_contents($path, "چارچوب\n\n# {{title}}\n\n{{content}}\n");
+
+        $this->library->upload(
+            new UploadedFile($path, 'frame.md', null, null, true),
+            'md',
+            'boardmeeting',
+            'فریم مارک‌داون',
+            isDefault: true,
+        );
+
+        BoardMeeting::factory()->create(['title' => 'بودجه']);
+
+        $archive = $this->actingAs(createUserWithPermissions(['board-meeting.export']))
+            ->postJson('/api/board-meetings/export/bundle', ['formats' => ['md']])
+            ->assertOk()
+            ->streamedContent();
+
+        $outer = tempnam(sys_get_temp_dir(), 'arc-').'.zip';
+        file_put_contents($outer, $archive);
+
+        $zip = new ZipArchive;
+        $zip->open($outer);
+
+        $markdown = '';
+
+        for ($index = 0; $index < $zip->numFiles; $index++) {
+            $name = (string) $zip->getNameIndex($index);
+
+            if ($name !== 'manifest.md' && str_ends_with($name, '.md')) {
+                $markdown = (string) $zip->getFromName($name);
+            }
+        }
+
+        $zip->close();
+        @unlink($outer);
+
+        expect($markdown)->toContain('چارچوب')
+            ->toContain('# بودجه')
+            ->not->toContain('{{');
     });
 
     it('generates plain documents when the domain has no template at all', function () use ($firstDocx) {
