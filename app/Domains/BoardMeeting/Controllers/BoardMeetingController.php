@@ -544,6 +544,12 @@ class BoardMeetingController
      * handling lives here once: an endpoint that forgot to read `?template=` would
      * still return a file, which is the kind of drift nobody notices until the
      * template they chose is ignored.
+     *
+     * `without_template=1` IS THE THIRD STATE, and it is a flag rather than an empty
+     * `template` because empty input is normalized to null before the controller sees
+     * it — `?template=` and no parameter would be the same request. Asking for the
+     * generated sheet while a default exists is the dialog's "just this once" promise,
+     * so it needs a name the wire can carry.
      */
     private function streamSheetWithTemplate(
         BoardMeeting $meeting,
@@ -558,7 +564,9 @@ class BoardMeetingController
             $meeting,
             $files,
             $format,
-            $this->resolveTemplate($library, is_string($slug) ? $slug : null, $format),
+            $request->boolean('without_template')
+                ? null
+                : $this->resolveTemplate($library, is_string($slug) ? $slug : null, $format),
             $request->sections(),
         );
     }

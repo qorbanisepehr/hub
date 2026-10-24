@@ -468,6 +468,29 @@ describe('exporting with a template', function () {
             ->and($body)->not->toContain('{{');
     });
 
+    it('lets one export opt out of the default with without_template', function () use ($text) {
+        // Absent means the default; the flag means the generated sheet. The dialog
+        // needs both, and conflating them was the row that claimed "no template"
+        // while the server quietly applied one.
+        $this->library->upload(
+            $text('frame.md', "چارچوب\n\n{{content}}\n"),
+            'md',
+            'boardmeeting',
+            'فریم',
+            isDefault: true,
+        );
+
+        $meeting = BoardMeeting::factory()->create(['title' => 'بودجهٔ سالانه']);
+
+        $body = $this->actingAs(createUserWithPermissions(['board-meeting.export']))
+            ->get("/api/board-meetings/{$meeting->getKey()}/export/md?without_template=1")
+            ->assertOk()
+            ->streamedContent();
+
+        expect($body)->not->toContain('چارچوب')
+            ->and($body)->toContain('صورتجلسهٔ هیئت مدیره');
+    });
+
     it('fills a json template that was named', function () use ($text) {
         $template = $this->library->upload(
             $text('frame.json', '{"frame": "چارچوب", "title": "{{title}}", "sheet": {{content}}}'),
