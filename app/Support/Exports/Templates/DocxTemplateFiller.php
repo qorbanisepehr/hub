@@ -168,13 +168,16 @@ final class DocxTemplateFiller implements TemplateFiller
                 }
             }
 
-            // Every paragraph can be right-aligned and the document still read the
-            // wrong way round, because alignment is measured against the section.
+            // Word keeps a direction in THREE places and the template said none of
+            // them. The SECTION first, because it decides the columns and the
+            // gutter and no paragraph-level check would ever have found it — then
+            // THE CONTENT, every paragraph's `w:bidi` and every text run's `w:rtl`
+            // in the body, the headers and the footers. That content pass is a
+            // Persian value substituted into a left-to-right template: without it
+            // the value lands flush left with its neutral punctuation mirrored,
+            // because every comma and every bracket is resolved against the
+            // PARAGRAPH's direction, and the paragraph said nothing.
             $package->makeSectionRtl();
-
-            // And the section decides nothing about the text: each paragraph needs
-            // `w:bidi` and each run `w:rtl`, or a Persian value lands flush left with its
-            // punctuation mirrored. Uploaded templates routinely leave them out.
             $package->makeContentRtl();
 
             $package->close();

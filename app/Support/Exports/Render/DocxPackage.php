@@ -478,6 +478,12 @@ final class DocxPackage
      * for this feature's own generated body is composed with `w:bidiVisual` already
      * — see {@see DocxRtl::table()} — so nothing of ours is lost by leaving the
      * template's own alone.
+     *
+     * THE PART LIST IS SUBSTITUTION PARITY, not every part in the package. A
+     * footnote or an endnote is left alone because PHPWord's `TemplateProcessor`
+     * cannot fill one either — widening {@see parts()} would report a footnote macro in
+     * the upload cheat sheet and let the author believe it works, when nothing
+     * ever would replace it. If footnotes ever carry values, both widen together.
      */
     public function makeContentRtl(): void
     {
@@ -555,7 +561,12 @@ final class DocxPackage
     }
 
     /**
-     * Give every run under this paragraph its own `w:rtl`.
+     * Give every run of this paragraph's text its own `w:rtl`.
+     *
+     * ONLY RUNS THAT CARRY TEXT. A drawing, a tab, a field character has no shape
+     * to declare, and marking one writes `rtl` into properties blocks a reader opens
+     * for nothing; field instruction runs (`w:instrText`) are also text-free and
+     * stay clear of a direction they do not render.
      */
     private function rtlRuns(DOMXPath $xpath, DOMElement $paragraph): bool
     {
@@ -568,7 +579,7 @@ final class DocxPackage
 
             $owner = $run->ownerDocument;
 
-            if ($owner === null) {
+            if ($owner === null || $xpath->query('./w:t', $run)->length === 0) {
                 continue;
             }
 

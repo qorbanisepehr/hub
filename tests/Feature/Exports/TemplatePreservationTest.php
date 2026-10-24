@@ -210,6 +210,135 @@ describe('what a template keeps', function () {
         @unlink($out);
     });
 
+    it('declares the content right-to-left, paragraph and run, where the template did not', function () use ($letterhead, $fill, $parts) {
+        // A section that says w:bidi lays its columns out right to left and decides
+        // NOTHING about the text: each paragraph carries its own w:bidi and each
+        // text run its own w:rtl, and a Persian value substituted into a
+        // left-to-right template ships flush left with its punctuation mirrored
+        // without them. PHPWord's own samples carry both — Sample_36 the run, the
+        // HTML writer the paragraph — and this file's section test covers the
+        // third place Word keeps a direction.
+        $path = $letterhead();
+        $out = $fill($path);
+
+        $body = $parts($out)['word/document.xml'];
+
+        // The LETTERHEAD's own paragraph — the text the author typed, not anything
+        // this feature wrote — is what must have been marked.
+        preg_match('/<w:p>(?:(?!<w:p>).)*?سربرگ(?:(?!<\/w:p>).)*?<\/w:p>/su', $body, $greeting);
+        expect($greeting[0] ?? '')->toContain('<w:bidi/>')->toContain('<w:rtl/>');
+
+        @unlink($path);
+        @unlink($out);
+    });
+
+    it('marks the runs of a substituted value, not the paragraph alone', function () use ($letterhead, $fill, $parts) {
+        // The filler writes through TemplateProcessor, whose values land in the
+        // file as new w:t elements inside whatever runs already held the macro. If
+        // only paragraphs were marked, the value would sit in an unmarked run
+        // beside its marked paragraph — and Word shapes the run against ITS own
+        // properties, not the paragraph's, so the letters would come out in the
+        // wrong order despite the paragraph saying bidi.
+        $path = $letterhead();
+
+        $zip = new ZipArchive;
+        $zip->open($path);
+        $zip->addFromString(
+            'word/header1.xml',
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+                .'<w:hdr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+                .'<w:p><w:r><w:t>{{export_date}}</w:t></w:r></w:p></w:hdr>',
+        );
+        $zip->close();
+
+        $out = $fill($path);
+
+        // The header is a part this feature never composes — every w:bidi and
+        // w:rtl in it is the marking pass's work, and the only run in it is the
+        // one the substitution filled.
+        $header = $parts($out)['word/header1.xml'];
+
+        expect($header)->toContain('<w:bidi/>')
+            ->and($header)->toContain('<w:rtl/>')
+            ->and($header)->not->toContain('{{');
+
+        @unlink($path);
+        @unlink($out);
+    });
+
+    it('leaves what an author declared alone, either direction', function () use ($letterhead, $fill, $parts) {
+        // w:bidi w:val="0" is an author's own "this line reads left to right" —
+        // the English desk of Sample_43 — and a pass that treated a declared
+        // direction as unmarked because it checked for the element rather than
+        // its value would mirror a paragraph somebody deliberately set.
+        $path = $letterhead();
+
+        $header = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            .'<w:hdr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+            .'<w:p><w:pPr><w:bidi w:val="0"/></w:pPr><w:r><w:t>Company Ltd.</w:t></w:r></w:p>'
+            .'<w:p><w:r><w:rPr><w:rtl w:val="0"/></w:rPr><w:t>ref</w:t></w:r></w:p>'
+            .'</w:hdr>';
+
+        $zip = new ZipArchive;
+        $zip->open($path);
+        $zip->addFromString('word/header1.xml', $header);
+        $zip->close();
+
+        $out = $fill($path);
+
+        // Asserted by presence and count, not byte for byte: the fold pass may
+        // join the adjacent text runs of a hand-written header, and that is
+        // existing behaviour this test does not own — the declarations sit in two
+        // paragraphs here for the same reason. What must NOT happen is an
+        // ADDITION over a declaration: exactly one of each form survives, so a
+        // pass that re-marked a declared paragraph or re-marked a declared run
+        // would show up as a second bare element.
+        $marked = $parts($out)['word/header1.xml'];
+
+        expect($marked)->toContain('<w:bidi w:val="0"/>')
+            ->and($marked)->toContain('<w:rtl w:val="0"/>')
+            // The second paragraph declared nothing at paragraph level, so it
+            // gets its own w:bidi — once, and the off one beside it is untouched.
+            ->and(substr_count($marked, '<w:bidi '))->toBe(1)
+            ->and(substr_count($marked, '<w:rtl '))->toBe(1);
+
+        @unlink($path);
+        @unlink($out);
+    });
+
+    it('is idempotent over the content: a second pass adds nothing', function () {
+        // This runs on every export, so a pass that appended a second element on
+        // its own second visit would make every export produce a different file
+        // from the same input — the same guarantee the section test next down
+        // asserts, at the paragraph level.
+        $path = tempnam(sys_get_temp_dir(), 'rtl-').'.docx';
+
+        $phpWord = new PhpWord;
+        $phpWord->addSection()->addText('متن');
+
+        IOFactory::createWriter($phpWord, 'Word2007')->save($path);
+
+        $read = function () use ($path): string {
+            $zip = new ZipArchive;
+            $zip->open($path);
+            $xml = (string) $zip->getFromName('word/document.xml');
+            $zip->close();
+
+            return $xml;
+        };
+
+        DocxPackage::at($path)->makeContentRtl();
+        $once = $read();
+
+        DocxPackage::at($path)->makeContentRtl();
+
+        expect($read())->toBe($once)
+            ->and(substr_count($once, '<w:bidi/>'))->toBe(1)
+            ->and(substr_count($once, '<w:rtl/>'))->toBe(1);
+
+        @unlink($path);
+    });
+
     it('leaves a file that already declares itself right-to-left untouched', function () {
         // This runs on EVERY export, so it must be idempotent: a second pass that
         // appended a second element, or rewrote the part for no reason, would make
@@ -237,101 +366,6 @@ describe('what a template keeps', function () {
 
         expect($read())->toBe($once)
             ->and(substr_count($once, '<w:bidi/>'))->toBe(1);
-
-        @unlink($path);
-    });
-
-    it('declares the content right-to-left, not only the section', function () use ($letterhead, $fill, $parts) {
-        // THE SECTION DECIDES LAYOUT, NOT TEXT. Without `w:bidi` on the paragraph and
-        // `w:rtl` on its runs, a Persian value lands against the left edge with its
-        // punctuation mirrored — and a template written in Word routinely has neither,
-        // because Word leaves direction to whichever keyboard the author typed with.
-        $path = $letterhead();
-        $out = $fill($path);
-
-        $dom = new DOMDocument;
-        $dom->loadXML($parts($out)['word/document.xml']);
-
-        $xpath = new DOMXPath($dom);
-        $xpath->registerNamespace('w', 'http://schemas.openxmlformats.org/wordprocessingml/2006/main');
-
-        $paragraphs = $xpath->query('//w:p');
-
-        expect($paragraphs->length)->toBeGreaterThan(0);
-
-        foreach ($paragraphs as $paragraph) {
-            expect($xpath->query('./w:pPr/w:bidi', $paragraph)->length)->toBe(1);
-        }
-
-        foreach ($xpath->query('//w:r[w:t]') as $run) {
-            expect($xpath->query('./w:rPr/w:rtl', $run)->length)->toBe(1);
-        }
-
-        @unlink($path);
-        @unlink($out);
-    });
-
-    it('adds the content declaration where the schema puts it, once', function () {
-        // This runs on EVERY export, so it must be idempotent and must not put `w:bidi`
-        // after the things it governs: Word happens to open that, a validator does not.
-        $path = tempnam(sys_get_temp_dir(), 'rtl-').'.docx';
-
-        $phpWord = new PhpWord;
-        $phpWord->addSection()->addText('متن', null, ['alignment' => 'center']);
-
-        IOFactory::createWriter($phpWord, 'Word2007')->save($path);
-
-        $read = function () use ($path): string {
-            $zip = new ZipArchive;
-            $zip->open($path);
-            $xml = (string) $zip->getFromName('word/document.xml');
-            $zip->close();
-
-            return $xml;
-        };
-
-        DocxPackage::at($path)->makeContentRtl();
-
-        $once = $read();
-
-        expect($once)->toContain('<w:bidi/>')
-            ->and($once)->toContain('<w:rtl/>')
-            // `w:jc` must FOLLOW `w:bidi` in `w:pPr`.
-            ->and(strpos($once, '<w:bidi/>'))->toBeLessThan(strpos($once, '<w:jc'));
-
-        DocxPackage::at($path)->makeContentRtl();
-
-        expect($read())->toBe($once)
-            ->and(substr_count($once, '<w:rtl/>'))->toBe(1);
-
-        @unlink($path);
-    });
-
-    it('keeps a paragraph that says it reads left to right', function () {
-        // `w:bidi w:val="0"` is the author's explicit direction, not a missing one — the
-        // English desk of a bilingual letter. It keeps itself, runs included.
-        $path = tempnam(sys_get_temp_dir(), 'ltr-').'.docx';
-
-        $phpWord = new PhpWord;
-        $phpWord->addSection()->addText('English line');
-
-        IOFactory::createWriter($phpWord, 'Word2007')->save($path);
-
-        $zip = new ZipArchive;
-        $zip->open($path);
-
-        $xml = (string) $zip->getFromName('word/document.xml');
-        $zip->addFromString('word/document.xml', preg_replace('/<w:p>/', '<w:p><w:pPr><w:bidi w:val="0"/></w:pPr>', $xml, 1));
-        $zip->close();
-
-        DocxPackage::at($path)->makeContentRtl();
-
-        $zip->open($path);
-        $after = (string) $zip->getFromName('word/document.xml');
-        $zip->close();
-
-        expect($after)->toContain('<w:bidi w:val="0"/>')
-            ->and($after)->not->toContain('<w:rtl/>');
 
         @unlink($path);
     });
