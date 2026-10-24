@@ -571,7 +571,7 @@ function YearMonth({
             <button
                 type="button"
                 onClick={() => onOpenMonth({ year, month: monthNumber })}
-                className="mb-1 w-full rounded-md bg-accent py-1 text-center text-sm font-bold text-accent-foreground transition-colors hover:bg-accent/70"
+                className="mb-1 w-full rounded-md bg-primary py-1 text-center text-sm font-bold text-primary-foreground transition-colors hover:bg-accent/70"
             >
                 {name}
             </button>
@@ -580,7 +580,7 @@ function YearMonth({
                 {JALALI_WEEKDAYS_SHORT.map((weekday) => (
                     <div
                         key={weekday}
-                        className="pb-1 text-center text-[0.7rem] font-normal text-muted-foreground"
+                        className="pb-1 text-center text-[0.7rem] font-semibold text-muted-foreground"
                     >
                         {weekday}
                     </div>
