@@ -38,6 +38,7 @@ describe('GET /api/board-meetings', function () {
                     'id', 'held_on', 'held_on_jalali', 'registry_label', 'sequence',
                     'title', 'attendee_count',
                     'tags', 'origin', 'imported_at', 'source_locked_at', 'source_locked',
+                    'has_summary',
                 ],
             ],
             'meta' => ['current_page', 'last_page', 'per_page', 'total'],
@@ -47,6 +48,38 @@ describe('GET /api/board-meetings', function () {
 
         expect($dates)->toBe(['2025-09-06', '2025-07-23'])
             ->and($response->json('meta.total'))->toBe(2);
+    });
+
+    it('reports whether the meeting has an accepted summary, not merely a status', function () {
+        // `none` and `failed` are statuses a meeting carries after a run that
+        // accepted nothing; a truthy check on the status string would call
+        // those a summary.
+        $withSummary = BoardMeeting::factory()->create([
+            'summary' => ['status' => MeetingSummary::STATUS_OK, 'fields' => []],
+        ]);
+        $partlyFilled = BoardMeeting::factory()->create([
+            'summary' => ['status' => MeetingSummary::STATUS_PARTIAL, 'fields' => []],
+        ]);
+        $dismissed = BoardMeeting::factory()->create([
+            'summary' => ['status' => MeetingSummary::STATUS_NONE],
+        ]);
+        $failed = BoardMeeting::factory()->create([
+            'summary' => ['status' => MeetingSummary::STATUS_FAILED],
+        ]);
+        $nothing = BoardMeeting::factory()->create();
+
+        $rows = actingAs(createUserWithPermissions(['board-meeting.view']))
+            ->getJson('/api/board-meetings')
+            ->assertOk()
+            ->json('data');
+
+        $byId = collect($rows)->keyBy('id');
+
+        expect($byId[$withSummary->id]['has_summary'])->toBeTrue()
+            ->and($byId[$partlyFilled->id]['has_summary'])->toBeTrue()
+            ->and($byId[$dismissed->id]['has_summary'])->toBeFalse()
+            ->and($byId[$failed->id]['has_summary'])->toBeFalse()
+            ->and($byId[$nothing->id]['has_summary'])->toBeFalse();
     });
 
     it('serves the date window and pagination', function () {

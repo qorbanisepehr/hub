@@ -5,6 +5,7 @@ namespace App\Domains\BoardMeeting\Resources;
 use App\Domains\BoardMeeting\Models\BoardMeeting;
 use App\Domains\BoardMeeting\Value\AgendaItem;
 use App\Domains\BoardMeeting\Value\Attendee;
+use App\Domains\BoardMeeting\Value\MeetingSummary;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -47,6 +48,11 @@ class BoardMeetingResource extends JsonResource
             'imported_at' => $this->resource->imported_at?->toIso8601String(),
             'source_locked_at' => $this->resource->source_locked_at?->toIso8601String(),
             'source_locked' => $this->resource->isSourceLocked(),
+            'has_summary' => in_array(
+                data_get($this->resource, 'summary.status'),
+                [MeetingSummary::STATUS_OK, MeetingSummary::STATUS_PARTIAL],
+                true,
+            ),
         ];
 
         if ($detail) {
