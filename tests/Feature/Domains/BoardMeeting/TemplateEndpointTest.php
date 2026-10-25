@@ -335,6 +335,11 @@ describe('exporting with a template', function () {
         return new UploadedFile($path, $filename, null, null, true);
     };
 
+    $previewer = fn () => createUserWithPermissions([
+        'export-template.manage',
+        'board-meeting.export',
+    ]);
+
     it('generates the document when nobody has configured a template', function () {
         $meeting = BoardMeeting::factory()->create(['title' => 'بودجه']);
 
@@ -466,6 +471,75 @@ describe('exporting with a template', function () {
         expect($body)->toContain('چارچوب')
             ->and($body)->toContain('# بودجهٔ سالانه')
             ->and($body)->not->toContain('{{');
+    });
+
+    it('previews a template with the newest meeting', function () use ($text, $previewer) {
+        $this->library->upload(
+            $text('frame.md', "# {{title}}\n\n{{content}}\n"),
+            'md',
+            'boardmeeting',
+            'پیش‌نمایش',
+        );
+
+        BoardMeeting::factory()->create([
+            'title' => 'جلسهٔ قدیمی',
+            'held_on' => now()->subDay(),
+        ]);
+        BoardMeeting::factory()->create([
+            'title' => 'جلسهٔ جدید',
+            'held_on' => now(),
+        ]);
+
+        $response = $this->actingAs($previewer())
+            ->post('/api/templates/frame/preview?format=md')
+            ->assertOk()
+            ->assertHeader('Content-Type', 'text/markdown; charset=utf-8');
+
+        $body = $response->streamedContent();
+
+        expect($body)->toContain('# جلسهٔ جدید')
+            ->and($body)->not->toContain('جلسهٔ قدیمی');
+    });
+
+    it('refuses a preview when there is no meeting yet', function () use ($text, $previewer) {
+        $this->library->upload(
+            $text('frame.md', "{{content}}\n"),
+            'md',
+            'boardmeeting',
+            'پیش‌نمایش',
+        );
+
+        $this->actingAs($previewer())
+            ->postJson('/api/templates/frame/preview?format=md')
+            ->assertStatus(422)
+            ->assertJsonPath('message', __('board_meeting.template.preview_no_meeting'));
+    });
+
+    it('needs both template management and meeting export to preview', function () use ($text) {
+        $this->library->upload(
+            $text('frame.md', "{{content}}\n"),
+            'md',
+            'boardmeeting',
+            'پیش‌نمایش',
+        );
+
+        BoardMeeting::factory()->create(['title' => 'جلسه']);
+
+        $this->actingAs(createUserWithPermissions(['export-template.manage']))
+            ->post('/api/templates/frame/preview?format=md')
+            ->assertForbidden();
+
+        $this->actingAs(createUserWithPermissions(['board-meeting.export']))
+            ->post('/api/templates/frame/preview?format=md')
+            ->assertForbidden();
+    });
+
+    it('answers 404 for a preview of a template that is not there', function () use ($previewer) {
+        BoardMeeting::factory()->create(['title' => 'جلسه']);
+
+        $this->actingAs($previewer())
+            ->post('/api/templates/missing/preview?format=md')
+            ->assertNotFound();
     });
 
     it('lets one export opt out of the default with without_template', function () use ($text) {

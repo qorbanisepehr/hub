@@ -132,6 +132,7 @@ return [
         'fields' => 'Available names',
         'deleted' => 'The template was deleted.',
         'not_found' => 'No such template.',
+        'preview_no_meeting' => 'There is no meeting to preview this template with yet.',
         'unknown_domain' => 'No templates exist for :domains.',
         'file_required' => 'Choose a template file.',
         'file_must_be_file' => 'That upload is not a readable file.',

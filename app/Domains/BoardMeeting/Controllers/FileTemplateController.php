@@ -9,10 +9,12 @@ use App\Domains\BoardMeeting\Exports\BoardMeetingProfile;
 use App\Domains\BoardMeeting\Exports\BoardMeetingSection;
 use App\Domains\BoardMeeting\Exports\BoardMeetingSheetExport;
 use App\Domains\BoardMeeting\Exports\BoardMeetingTemplateFields;
+use App\Domains\BoardMeeting\Models\BoardMeeting;
 use App\Domains\BoardMeeting\Requests\StoreFileTemplateRequest;
 use App\Support\Exports\Exceptions\InvalidFileTemplate;
 use App\Support\Exports\Templates\FileTemplate;
 use App\Support\Exports\Templates\FileTemplateLibrary;
+use App\Support\Exports\Templates\FileTemplateService;
 use App\Support\Exports\Templates\GeneralValues;
 use App\Support\Exports\Templates\RangeMacro;
 use App\Support\Exports\Templates\TemplateField;
@@ -20,15 +22,18 @@ use App\Support\Exports\Templates\TemplateFillerRegistry;
 use App\Support\Exports\Templates\TemplateKind;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * The library of template files a meeting can be exported with.
  *
- * Two read-only views and three writes. The LIST is for the export picker, the
- * FIELDS are the cheat sheet that tells a person what a template may contain,
- * and both are needed together: a picker without the cheat sheet asks somebody
- * to guess names, and a cheat sheet without the picker is a document nobody can
- * apply.
+ * Two read-only views, a preview, and three writes. The LIST is for the export
+ * picker, the FIELDS are the cheat sheet that tells a person what a template may
+ * contain, and both are needed together: a picker without the cheat sheet asks
+ * somebody to guess names, and a cheat sheet without the picker is a document
+ * nobody can apply. The PREVIEW is the loop between them: it fills the stored
+ * template with a real meeting so the author sees the layout instead of guessing
+ * from the syntax.
  *
  * Each template is reported with the one fact that decides how it behaves — does
  * it have placeholders — because a caller showing "content" or "style" beside the
@@ -39,6 +44,7 @@ final class FileTemplateController
 {
     public function __construct(
         private readonly FileTemplateLibrary $library,
+        private readonly FileTemplateService $files,
     ) {}
 
     /**
@@ -138,6 +144,67 @@ final class FileTemplateController
                     (new BoardMeetingProfile)->sections(),
                 ),
             ],
+        ]);
+    }
+
+    /**
+     * The stored template filled with the newest meeting, as a file to open.
+     *
+     * THE AUTHORING GUIDE CAN CHECK SYNTAX; ONLY THIS CAN SHOW THE LAYOUT. A typo
+     * is caught before upload, but "does the attendee table fit the page" is a
+     * question about the produced document, and until now the only way to ask it
+     * was to run a real export.
+     *
+     * IT USES THE NEWEST MEETING because a preview needs some record and a meeting
+     * picker is a second feature; the newest is the one an author is most likely
+     * to recognise. Nothing is stored, and the bytes are in the template's own
+     * format.
+     *
+     * TEMPLATE MANAGEMENT ALONE IS NOT ENOUGH. The file contains a real meeting,
+     * so the route also asks for `board-meeting.export`; the same permission that
+     * lets somebody take a copy of a meeting away.
+     */
+    public function preview(Request $request, string $slug): StreamedResponse
+    {
+        $domain = $this->domain($request);
+
+        // This controller is still the board-meeting one (F6); another domain's
+        // template cannot be filled with a board meeting, so it is not a template
+        // this endpoint can preview.
+        if ($domain !== BoardMeetingSheetExport::TEMPLATE_DOMAIN) {
+            abort(404, __('board_meeting.template.unknown_domain', ['domains' => $domain]));
+        }
+
+        $template = $this->library->find($this->format($request), $domain, $slug);
+
+        if ($template === null) {
+            abort(404, __('board_meeting.template.not_found'));
+        }
+
+        $meeting = BoardMeeting::query()
+            ->orderByDesc('held_on')
+            ->orderByDesc('id')
+            ->first();
+
+        if ($meeting === null) {
+            abort(422, __('board_meeting.template.preview_no_meeting'));
+        }
+
+        $file = $this->files->render(
+            app(BoardMeetingSheetExport::class),
+            $meeting,
+            app(BoardMeetingTemplateFields::class),
+            $template,
+            null,
+            $template->format(),
+        );
+
+        return response()->streamDownload(function () use ($file): void {
+            $stream = fopen('php://output', 'w');
+            $file->copyTo($stream);
+        }, 'preview-'.$template->slug().'.'.pathinfo($file->filename, PATHINFO_EXTENSION), [
+            'Content-Type' => $file->mimeType,
+            'Cache-Control' => 'no-store',
         ]);
     }
 

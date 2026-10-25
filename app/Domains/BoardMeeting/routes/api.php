@@ -151,6 +151,17 @@ Route::middleware('auth:sanctum')->group(function () {
             ->name('templates.store')
             ->middleware('permission:export-template.manage');
 
+        // The authoring loop: fill the stored template with the newest meeting
+        // so a person can see the layout instead of guessing from the syntax
+        // checker. It reads a real meeting, so it needs both permissions.
+        Route::post('{slug}/preview', [FileTemplateController::class, 'preview'])
+            ->name('templates.preview')
+            ->middleware([
+                'permission:export-template.manage',
+                'permission:board-meeting.export',
+            ])
+            ->where('slug', '[A-Za-z0-9][A-Za-z0-9._-]*');
+
         Route::put('{slug}', [FileTemplateController::class, 'update'])
             ->name('templates.update')
             ->middleware('permission:export-template.manage')
