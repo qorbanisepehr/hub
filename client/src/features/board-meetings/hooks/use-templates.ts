@@ -8,6 +8,7 @@ import {
     fetchTemplateFields,
     fetchTemplates,
     previewTemplate,
+    replaceTemplateFile,
     updateTemplate,
     uploadTemplate,
 } from "../templates-api";
@@ -104,7 +105,10 @@ export function useUploadTemplate(domain = "boardmeeting") {
     });
 }
 
-export function useUpdateTemplate(domain = "boardmeeting") {
+export function useUpdateTemplate(
+    format = "docx",
+    domain = "boardmeeting",
+) {
     const queryClient = useQueryClient();
 
     return useMutation({
@@ -112,7 +116,7 @@ export function useUpdateTemplate(domain = "boardmeeting") {
             slug,
             ...payload
         }: { slug: string; name?: string; is_default?: boolean }) =>
-            updateTemplate(slug, payload),
+            updateTemplate(slug, payload, format, domain),
         onSuccess: () => {
             void queryClient.invalidateQueries({
                 queryKey: exportTemplateKeys.lists(domain),
@@ -124,17 +128,57 @@ export function useUpdateTemplate(domain = "boardmeeting") {
     });
 }
 
-export function useDeleteTemplate(domain = "boardmeeting") {
+export function useDeleteTemplate(
+    format = "docx",
+    domain = "boardmeeting",
+) {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: deleteTemplate,
+        mutationFn: (slug: string) => deleteTemplate(slug, format, domain),
         onSuccess: () => {
             void queryClient.invalidateQueries({
                 queryKey: exportTemplateKeys.lists(domain),
             });
 
             toast.success("قالب حذف شد.");
+        },
+        onError: (error) => toast.error(getApiError(error)),
+    });
+}
+
+/**
+ * Replace a template's file without changing its identity.
+ *
+ * A separate mutation from {@see useUpdateTemplate} because the request is a
+ * different content type and the interesting failure is different: the server
+ * refuses a file whose extension does not match the template's format.
+ */
+export function useReplaceTemplate(
+    format = "docx",
+    domain = "boardmeeting",
+) {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: ({ slug, file }: { slug: string; file: File }) =>
+            replaceTemplateFile(slug, file, format, domain),
+        onSuccess: (response) => {
+            void queryClient.invalidateQueries({
+                queryKey: exportTemplateKeys.lists(domain),
+            });
+
+            // What the NEW file turned out to be, said out loud for the same
+            // reason the upload says it: a letterhead replaced by a file
+            // without the {{content}} marker changes what an export produces,
+            // and this toast is the only moment anybody hears about it.
+            const inspection = response.data.inspection;
+
+            toast.success(
+                inspection?.kind === "frame"
+                    ? "فایل قالب جایگزین شد — سند تولیدی در جای نشان‌داده‌شده نوشته می‌شود."
+                    : "فایل قالب جایگزین شد — فقط نام‌های داخل آن پر می‌شوند و سندی ساخته نمی‌شود.",
+            );
         },
         onError: (error) => toast.error(getApiError(error)),
     });

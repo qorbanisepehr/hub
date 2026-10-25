@@ -7,6 +7,7 @@ import {
     IconFileTypeTxt,
     IconInfoCircle,
     IconRefresh,
+    IconReplace,
     IconStar,
     IconUpload,
 } from "@tabler/icons-react";
@@ -37,6 +38,7 @@ import { usePermission } from "@/features/auth/components/permission-guard";
 import {
     useDeleteTemplate,
     usePreviewTemplate,
+    useReplaceTemplate,
     useUpdateTemplate,
     useUploadTemplate,
     useTemplates,
@@ -104,11 +106,12 @@ export function TemplateSettingsSection() {
     const { data: templates, isLoading, isFetching, refetch } =
         useTemplates(format);
 
-    const update = useUpdateTemplate();
-    const remove = useDeleteTemplate();
+    const update = useUpdateTemplate(format);
+    const remove = useDeleteTemplate(format);
     const preview = usePreviewTemplate();
 
     const [uploadOpen, setUploadOpen] = useState(false);
+    const [replacing, setReplacing] = useState<TemplateDto | null>(null);
 
     const current = FORMATS.find((option) => option.key === format)!;
 
@@ -248,6 +251,9 @@ export function TemplateSettingsSection() {
                                     onPreview={() =>
                                         downloadPreview(template)
                                     }
+                                    onReplace={() =>
+                                        setReplacing(template)
+                                    }
                                     onMakeDefault={() =>
                                         update.mutate({
                                             slug: template.slug,
@@ -283,6 +289,15 @@ export function TemplateSettingsSection() {
 
                     if (match) {
                         setFormat(match.key);
+                    }
+                }}
+            />
+
+            <ReplaceTemplateDialog
+                template={replacing}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setReplacing(null);
                     }
                 }}
             />
@@ -395,6 +410,7 @@ function TemplateRow({
     isPending,
     isPreviewing,
     onPreview,
+    onReplace,
     onMakeDefault,
     onDelete,
 }: {
@@ -404,6 +420,7 @@ function TemplateRow({
     isPending: boolean;
     isPreviewing: boolean;
     onPreview: () => void;
+    onReplace: () => void;
     onMakeDefault: () => void;
     onDelete: () => void;
 }) {
@@ -475,6 +492,17 @@ function TemplateRow({
                             <IconStar className="size-4" />
                         </Button>
                     )}
+
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        title="جایگزینی فایل"
+                        onClick={onReplace}
+                        disabled={isPending}
+                    >
+                        <IconReplace className="size-4" />
+                    </Button>
 
                     <ConfirmDeleteButton
                         iconOnly
@@ -624,6 +652,114 @@ function UploadTemplateDialog({
                     نام فایلی که انتخاب می‌کنید در کلیدِ ذخیره‌سازی می‌آید و
                     هرگز تغییر نمی‌کند؛ نامی که اینجا می‌نویسید فقط برای نمایش
                     است.
+                </p>
+            </div>
+        </ResponsiveDialog>
+    );
+}
+
+/**
+ * Replace the bytes of an existing template.
+ *
+ * A dialog of its own rather than a mode on the upload one: the upload asks for
+ * a name and a default flag because it is creating a template, while this only
+ * changes the file behind one that already has both. The warning matters — the
+ * old bytes are overwritten and there is no version to go back to.
+ */
+function ReplaceTemplateDialog({
+    template,
+    onOpenChange,
+}: {
+    template: TemplateDto | null;
+    onOpenChange: (open: boolean) => void;
+}) {
+    const activeFormat = template?.format ?? "docx";
+    const replace = useReplaceTemplate(activeFormat);
+    const current =
+        FORMATS.find((option) => option.key === activeFormat) ?? FORMATS[0];
+
+    const [file, setFile] = useState<File | null>(null);
+
+    const close = (next: boolean) => {
+        if (!next) {
+            setFile(null);
+        }
+
+        onOpenChange(next);
+    };
+
+    const submit = () => {
+        if (!template || !file) return;
+
+        replace.mutate(
+            { slug: template.slug, file },
+            { onSuccess: () => close(false) },
+        );
+    };
+
+    return (
+        <ResponsiveDialog
+            open={template !== null}
+            onOpenChange={close}
+            title="جایگزینی فایل قالب"
+            description={
+                template
+                    ? `فایل جدید جایگزین «${template.name}» می‌شود؛ نام، پیش‌فرض و آدرس قالب عوض نمی‌شوند.`
+                    : undefined
+            }
+            footer={
+                <>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => close(false)}
+                    >
+                        انصراف
+                    </Button>
+                    <Button
+                        type="button"
+                        disabled={!file || replace.isPending}
+                        onClick={submit}
+                    >
+                        {replace.isPending ? (
+                            <Spinner className="size-4" />
+                        ) : (
+                            <IconReplace className="size-4" />
+                        )}
+                        جایگزینی
+                    </Button>
+                </>
+            }
+        >
+            <div className="grid gap-4">
+                <FileUpload
+                    // Remount per template so a file picked for one row never
+                    // reappears when the dialog is opened for another.
+                    key={template?.slug ?? "closed"}
+                    accept={current.accept}
+                    acceptedFileTypes={[
+                        { label: current.label, icon: current.icon },
+                    ]}
+                    multiple={false}
+                    title={`فایل ${current.label} تازه را اینجا رها کنید`}
+                    description={`فقط ${current.accept} — فایل فعلی بازنویسی می‌شود.`}
+                    browseLabel="انتخاب فایل"
+                    onFilesAccepted={(files) =>
+                        setFile(files[0] ?? null)
+                    }
+                    onFilesChange={(items) => {
+                        if (items.length === 0) {
+                            setFile(null);
+                        }
+                    }}
+                />
+
+                {activeFormat === "json" && <JsonTemplateHint />}
+
+                <p className="text-xs text-muted-foreground">
+                    فایل فعلی بازنویسی می‌شود و بازگشتی ندارد. اگر می‌خواهید
+                    نسخهٔ قبلی بماند، به‌جای جایگزینی یک قالب تازه بارگذاری
+                    کنید.
                 </p>
             </div>
         </ResponsiveDialog>

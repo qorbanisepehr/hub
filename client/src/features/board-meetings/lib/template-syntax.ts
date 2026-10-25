@@ -78,9 +78,9 @@ export function validateTemplate(
 
         // A block range: `{{#group}}` / `{{/group}}`. Checked first because a name
         // that is only a group is the mistake that looks most like a field.
-        const marker = raw[0] === "#" || raw[0] === "/" ? raw[0] : null;
+        const rangeMarker = raw[0] === "#" || raw[0] === "/" ? raw[0] : null;
 
-        if (marker !== null) {
+        if (rangeMarker !== null) {
             const group = raw.slice(1).trim();
 
             if (!groups.has(group)) {
@@ -89,7 +89,7 @@ export function validateTemplate(
                     problem: `there is no group called “${group}”`,
                     suggestion: nearest(group, known),
                 });
-            } else if (marker === "#") {
+            } else if (rangeMarker === "#") {
                 opened.add(group);
             } else {
                 closed.add(group);

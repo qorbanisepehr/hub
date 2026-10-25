@@ -51,6 +51,19 @@ export type TemplateUploadResponse = {
     inspection: TemplateInspectionDto;
 };
 
+/**
+ * A template write that changes the row.
+ *
+ * `inspection` rides along only on a replacement, for the same reason it rides
+ * on an upload: the kind is read off the NEW file, and the person who replaced
+ * the bytes is the only one who can still act on what it turned out to be.
+ */
+export type TemplateResponse = {
+    message: string;
+    data: TemplateDto;
+    inspection?: TemplateInspectionDto;
+};
+
 /** One name a template may refer to, as the cheat sheet reports it. */
 export type TemplateFieldDto = {
     key: string;
@@ -205,12 +218,48 @@ export function uploadTemplate(payload: {
 export function updateTemplate(
     slug: string,
     payload: { name?: string; is_default?: boolean },
+    format = "docx",
+    domain = "boardmeeting",
 ) {
-    return api.put(`/templates/${slug}`, payload);
+    // The format is part of the address, not a filter: `official` in Word and
+    // `official` in Markdown are two different templates, and a request without
+    // it can only ever find the Word one.
+    return api.put<TemplateResponse>(`/templates/${slug}`, payload, {
+        params: { domain, format },
+    });
 }
 
-export function deleteTemplate(slug: string) {
-    return api.delete(`/templates/${slug}`);
+export function deleteTemplate(
+    slug: string,
+    format = "docx",
+    domain = "boardmeeting",
+) {
+    return api.delete(`/templates/${slug}`, {
+        params: { domain, format },
+    });
+}
+
+/**
+ * Replace the bytes behind an existing template.
+ *
+ * The slug, name, format and default flag stay. The server checks the new file's
+ * extension against the template's format before overwriting anything, so a
+ * wrong-format pick is refused rather than turning a Word template into a
+ * Markdown one under the same key.
+ */
+export function replaceTemplateFile(
+    slug: string,
+    file: File,
+    format = "docx",
+    domain = "boardmeeting",
+) {
+    const form = new FormData();
+    form.append("file", file);
+
+    return api.post<TemplateResponse>(`/templates/${slug}/file`, form, {
+        params: { domain, format },
+        headers: FORM_DATA_HEADERS,
+    });
 }
 
 /*
