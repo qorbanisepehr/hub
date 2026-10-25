@@ -168,5 +168,7 @@ return [
         'unknown_domain' => 'دامنهٔ :domains قالبی ندارد.',
         'file_required' => 'فایل قالب را انتخاب کنید.',
         'file_must_be_file' => 'فایل ارسالی یک فایل معتبر نیست.',
+        'format_mismatch' => 'این قالب فقط فایل .:format را می‌پذیرد.',
+        'replaced' => 'فایل قالب جایگزین شد.',
     ],
 ];

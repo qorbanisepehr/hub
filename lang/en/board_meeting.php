@@ -136,5 +136,7 @@ return [
         'unknown_domain' => 'No templates exist for :domains.',
         'file_required' => 'Choose a template file.',
         'file_must_be_file' => 'That upload is not a readable file.',
+        'format_mismatch' => 'This template only accepts .:format files.',
+        'replaced' => 'The template file was replaced.',
     ],
 ];

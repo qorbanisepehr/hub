@@ -39,6 +39,14 @@ describe('the template library endpoints', function () {
         return new UploadedFile($path, $filename, null, null, true);
     };
 
+    /** A plain-text upload; its format comes from the file name. */
+    $text = function (string $filename, string $content): UploadedFile {
+        $path = tempnam(sys_get_temp_dir(), 'api-').'-'.$filename;
+        file_put_contents($path, $content);
+
+        return new UploadedFile($path, $filename, null, null, true);
+    };
+
     $manager = fn () => createUserWithPermissions(['export-template.manage', 'export-template.view']);
     $reader = fn () => createUserWithPermissions(['export-template.view']);
 
@@ -237,6 +245,105 @@ describe('the template library endpoints', function () {
         expect($this->store->has($template))->toBeTrue();
     });
 
+    it('replaces a template file without changing its identity', function () use ($manager, $upload) {
+        $author = $manager();
+        $template = $this->library->upload(
+            $upload('letterhead.docx', 'نسخهٔ قبلی'),
+            'docx',
+            'boardmeeting',
+            'سربرگ',
+            isDefault: true,
+            uploadedBy: $author->getKey(),
+        );
+
+        $oldBytes = (string) file_get_contents($this->store->path($template));
+
+        // The replacement carries a placeholder the original did not, so the
+        // response's kind can only have been read off the NEW file.
+        $replacement = $upload('letterhead-new.docx', 'نسخهٔ تازه {{title}}');
+        $newBytes = (string) file_get_contents($replacement->getRealPath());
+
+        $this->actingAs($author)
+            ->post('/api/templates/'.$template->slug().'/file?format=docx', [
+                'file' => $replacement,
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.slug', $template->slug())
+            ->assertJsonPath('data.name', 'سربرگ')
+            ->assertJsonPath('data.format', 'docx')
+            ->assertJsonPath('data.is_default', true)
+            ->assertJsonPath('data.size', strlen($newBytes))
+            ->assertJsonPath('inspection.kind', 'detail')
+            ->assertJsonPath('inspection.placeholders', ['title']);
+
+        $stored = $this->library->find('docx', 'boardmeeting', $template->slug());
+
+        expect($stored)->not->toBeNull()
+            ->and((string) file_get_contents($this->store->path($stored)))->toBe($newBytes)
+            ->and((string) file_get_contents($this->store->path($stored)))->not->toBe($oldBytes)
+            ->and($stored->size())->toBe(strlen($newBytes));
+
+        $log = AuditLog::query()->latest('id')->first();
+
+        expect($log->event)->toBe('boardmeeting.file_template.uploaded')
+            ->and($log->metadata['replaced'])->toBeTrue()
+            ->and($log->actor_id)->toBe($author->id);
+    });
+
+    it('refuses a replacement whose format does not match the template', function () use ($manager, $upload, $text) {
+        $author = $manager();
+        $template = $this->library->upload(
+            $upload('letterhead.docx', 'نسخهٔ قبلی'),
+            'docx',
+            'boardmeeting',
+            'سربرگ',
+        );
+
+        $oldBytes = (string) file_get_contents($this->store->path($template));
+
+        $this->actingAs($author)
+            ->post('/api/templates/'.$template->slug().'/file?format=docx', [
+                'file' => $text('replacement.md', '# not a Word file'),
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('file')
+            ->assertJsonPath(
+                'errors.file.0',
+                __('board_meeting.template.format_mismatch', ['format' => 'docx']),
+            );
+
+        // A refused replacement must leave the stored file exactly as it was.
+        expect((string) file_get_contents($this->store->path($template)))->toBe($oldBytes);
+    });
+
+    it('renames and deletes a markdown template by format', function () use ($manager, $text) {
+        // The format is part of the address: `notes` in Markdown is not the
+        // Word template with the same slug. A request that omits it can only
+        // ever find Word, which is how the client's rename and delete actions
+        // silently 404'd for the other two libraries.
+        $editor = $manager();
+
+        $this->actingAs($editor)
+            ->post('/api/templates', [
+                'file' => $text('notes.md', '# {{title}}'),
+                'name' => 'مارک‌داون',
+                'domain' => BoardMeetingSheetExport::TEMPLATE_DOMAIN,
+            ])
+            ->assertCreated();
+
+        $this->actingAs($editor)
+            ->putJson('/api/templates/notes?format=md', ['name' => 'مارک‌داون تازه'])
+            ->assertOk()
+            ->assertJsonPath('data.name', 'مارک‌داون تازه')
+            ->assertJsonPath('data.format', 'md');
+
+        $this->actingAs($editor)
+            ->deleteJson('/api/templates/notes?format=md')
+            ->assertOk();
+
+        expect($this->library->find('md', 'boardmeeting', 'notes'))->toBeNull();
+    });
+
     it('keeps who last changed a template, through rename and promote', function () use ($manager, $upload) {
         // The stamp is the only attribution a template write has (F2: no audit events
         // yet), and all three of these rewrite the row. They used to write
@@ -304,6 +411,10 @@ describe('the template library endpoints', function () {
 
         $this->actingAs($reader())
             ->deleteJson('/api/templates/anything')
+            ->assertForbidden();
+
+        $this->actingAs($reader())
+            ->post('/api/templates/anything/file', ['file' => $upload('x.docx')])
             ->assertForbidden();
     });
 });

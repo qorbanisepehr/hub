@@ -131,17 +131,7 @@ final class FileTemplateLibrary
         // for its size or for carrying macros never reaches the store.
         $inspected = $this->inspector->inspect($file, $format);
 
-        $path = $file->getRealPath();
-
-        if ($path === false) {
-            throw InvalidFileTemplate::because('فایل بارگذاری‌شده خوانده نشد.');
-        }
-
-        $bytes = file_get_contents($path);
-
-        if ($bytes === false) {
-            throw InvalidFileTemplate::because('فایل بارگذاری‌شده خوانده نشد.');
-        }
+        $bytes = $this->bytesOf($file);
 
         // The slug is claimed before any bytes are written, and both happen in one
         // transaction so a row is never visible without its file. `put()` would let
@@ -159,6 +149,77 @@ final class FileTemplateLibrary
 
             return $template;
         });
+    }
+
+    /**
+     * Replace the bytes behind an existing template, keeping its identity.
+     *
+     * The slug, name, format and default flag ARE the template: a replacement is
+     * the same template with a new file, not a second template. The extension
+     * has to match that identity — a Word template cannot become a Markdown one
+     * without changing its key — and the new file is inspected before the old
+     * bytes are overwritten, so a refused file leaves the stored template
+     * untouched.
+     *
+     * @throws InvalidFileTemplate
+     */
+    public function replace(FileTemplate $template, UploadedFile $file, ?int $updatedBy = null): FileTemplate
+    {
+        $extension = strtolower(pathinfo($file->getClientOriginalName(), PATHINFO_EXTENSION));
+
+        if ($extension !== $template->format()) {
+            throw InvalidFileTemplate::because(__('board_meeting.template.format_mismatch', [
+                'format' => $template->format(),
+            ]));
+        }
+
+        $inspected = $this->inspector->inspect($file, $template->format());
+        $bytes = $this->bytesOf($file);
+
+        $replacement = FileTemplate::make(
+            format: $template->format(),
+            domain: $template->domain(),
+            slug: $template->slug(),
+            entity: $template->entity(),
+            name: $template->name(),
+            size: $inspected['size'],
+            mime: (string) $file->getClientMimeType(),
+            isDefault: $template->isDefault(),
+        );
+
+        // Bytes before the row: a failed byte write changes nothing, and a failed
+        // row write leaves only stale size/mime metadata beside the new bytes —
+        // smaller than the reverse order's risk of a half-written file under a
+        // row that already claims it. The key is unchanged, so there is no claim
+        // to make.
+        DB::transaction(function () use ($replacement, $bytes, $updatedBy): void {
+            $this->store->write($replacement, $bytes);
+            $this->settings->put($replacement, $updatedBy);
+        });
+
+        return $replacement;
+    }
+
+    /**
+     * The uploaded bytes, or a refusal the uploader can understand.
+     *
+     * @throws InvalidFileTemplate
+     */
+    private function bytesOf(UploadedFile $file): string
+    {
+        $path = $file->getRealPath();
+
+        if ($path === false) {
+            throw InvalidFileTemplate::because('فایل بارگذاری‌شده خوانده نشد.');
+        }
+
+        $bytes = file_get_contents($path);
+
+        if ($bytes === false) {
+            throw InvalidFileTemplate::because('فایل بارگذاری‌شده خوانده نشد.');
+        }
+
+        return $bytes;
     }
 
     /**

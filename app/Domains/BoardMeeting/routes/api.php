@@ -162,6 +162,16 @@ Route::middleware('auth:sanctum')->group(function () {
             ])
             ->where('slug', '[A-Za-z0-9][A-Za-z0-9._-]*');
 
+        // The replacement of a template's FILE. A POST rather than the PUT the
+        // review suggested: PHP does not populate `$_FILES` for a PUT multipart
+        // request, and a replacement that works only in tests is worse than no
+        // endpoint. The slug, name, format and default flag stay; only the bytes
+        // and the size/mime that describe them change.
+        Route::post('{slug}/file', [FileTemplateController::class, 'replace'])
+            ->name('templates.replace')
+            ->middleware('permission:export-template.manage')
+            ->where('slug', '[A-Za-z0-9][A-Za-z0-9._-]*');
+
         Route::put('{slug}', [FileTemplateController::class, 'update'])
             ->name('templates.update')
             ->middleware('permission:export-template.manage')

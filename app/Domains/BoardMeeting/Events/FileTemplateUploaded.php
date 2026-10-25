@@ -20,6 +20,7 @@ class FileTemplateUploaded extends BaseAuditEvent
 {
     public function __construct(
         private readonly FileTemplate $template,
+        private readonly bool $replaced = false,
     ) {}
 
     public function eventName(): string
@@ -44,7 +45,7 @@ class FileTemplateUploaded extends BaseAuditEvent
 
     public function description(): ?string
     {
-        return "Export template {$this->template->name()} uploaded";
+        return "Export template {$this->template->name()} ".($this->replaced ? 'replaced' : 'uploaded');
     }
 
     public function metadata(): ?array
@@ -56,6 +57,9 @@ class FileTemplateUploaded extends BaseAuditEvent
             'domain' => $this->template->domain(),
             'is_default' => $this->template->isDefault(),
             'size' => $this->template->size(),
+            // A replacement is the same event because it is the same write — new
+            // bytes for a template — but the log has to say which one happened.
+            'replaced' => $this->replaced,
         ];
     }
 }

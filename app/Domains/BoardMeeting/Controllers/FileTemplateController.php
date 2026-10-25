@@ -10,6 +10,7 @@ use App\Domains\BoardMeeting\Exports\BoardMeetingSection;
 use App\Domains\BoardMeeting\Exports\BoardMeetingSheetExport;
 use App\Domains\BoardMeeting\Exports\BoardMeetingTemplateFields;
 use App\Domains\BoardMeeting\Models\BoardMeeting;
+use App\Domains\BoardMeeting\Requests\ReplaceFileTemplateRequest;
 use App\Domains\BoardMeeting\Requests\StoreFileTemplateRequest;
 use App\Support\Exports\Exceptions\InvalidFileTemplate;
 use App\Support\Exports\Templates\FileTemplate;
@@ -27,7 +28,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 /**
  * The library of template files a meeting can be exported with.
  *
- * Two read-only views, a preview, and three writes. The LIST is for the export
+ * Two read-only views, a preview, and four writes. The LIST is for the export
  * picker, the FIELDS are the cheat sheet that tells a person what a template may
  * contain, and both are needed together: a picker without the cheat sheet asks
  * somebody to guess names, and a cheat sheet without the picker is a document
@@ -282,6 +283,52 @@ final class FileTemplateController
         return response()->json([
             'message' => __('board_meeting.template.saved'),
             'data' => $this->present($template),
+        ]);
+    }
+
+    /**
+     * Replace the file behind an existing template.
+     *
+     * Same slug, same name, same format, same default flag: only the bytes and
+     * the size/mime that describe them change. A POST rather than the PUT the
+     * review suggested, because PHP does not populate `$_FILES` for a PUT
+     * multipart request; this is the operation, not the verb.
+     */
+    public function replace(ReplaceFileTemplateRequest $request, string $slug): JsonResponse
+    {
+        $domain = $this->domain($request);
+        $template = $this->library->find($this->format($request), $domain, $slug);
+
+        if ($template === null) {
+            abort(404, __('board_meeting.template.not_found'));
+        }
+
+        try {
+            $replacement = $this->library->replace(
+                $template,
+                $request->file('file'),
+                $this->actor($request),
+            );
+        } catch (InvalidFileTemplate $rejected) {
+            return response()->json([
+                'message' => $rejected->getMessage(),
+                'errors' => ['file' => [$rejected->getMessage()]],
+            ], 422);
+        }
+
+        event(new FileTemplateUploaded($replacement, replaced: true));
+
+        return response()->json([
+            'message' => __('board_meeting.template.replaced'),
+            'data' => $this->present($replacement),
+            // The same rule the upload response follows: the kind is read off
+            // the FILE, and the person who replaced it is the only one who can
+            // still act on it — the export is the first place a Frame turned
+            // Detail would otherwise show up.
+            'inspection' => $this->library->inspect(
+                $request->file('file'),
+                $replacement->format(),
+            ),
         ]);
     }
 
