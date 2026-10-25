@@ -7,6 +7,7 @@ import {
     deleteTemplate,
     fetchTemplateFields,
     fetchTemplates,
+    previewTemplate,
     updateTemplate,
     uploadTemplate,
 } from "../templates-api";
@@ -52,6 +53,21 @@ export function useTemplateFields(domain = "boardmeeting") {
         queryKey: exportTemplateKeys.fields(domain),
         queryFn: async () => (await fetchTemplateFields(domain)).data.data,
         staleTime: 5 * 60_000,
+    });
+}
+
+/**
+ * The template filled with the newest meeting, as a downloadable file.
+ *
+ * A mutation rather than a query because the answer is a file, not state to
+ * cache: the preview changes when the template does, and a stale cached
+ * document would be worse than a fresh request.
+ */
+export function usePreviewTemplate(domain = "boardmeeting") {
+    return useMutation({
+        mutationFn: ({ slug, format }: { slug: string; format: string }) =>
+            previewTemplate(slug, domain, format),
+        onError: (error) => toast.error(getApiError(error)),
     });
 }
 

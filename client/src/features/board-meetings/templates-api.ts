@@ -152,6 +152,24 @@ export function fetchTemplates(domain = "boardmeeting", format = "docx") {
 }
 
 /**
+ * The template filled with the newest meeting, as a file.
+ *
+ * The authoring guide checks syntax; this is the only way to see the layout.
+ * The response is a file in the template's own format, so the caller saves it
+ * the same way an export is saved.
+ */
+export function previewTemplate(
+    slug: string,
+    domain = "boardmeeting",
+    format = "docx",
+) {
+    return api.post(`/templates/${slug}/preview`, null, {
+        params: { domain, format },
+        responseType: "blob",
+    });
+}
+
+/**
  * The names a template may contain.
  *
  * A separate call from the list, and long-lived: the fields are a property of

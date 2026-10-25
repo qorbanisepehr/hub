@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import {
     IconBraces,
+    IconEye,
     IconFileText,
     IconFileTypeDoc,
     IconFileTypeTxt,
@@ -25,11 +26,13 @@ import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { ConfirmDeleteButton } from "@/components/ui/confirm-delete-button";
 import { ResponsiveDialog } from "@/components/ui/responsive-dialog";
+import { EXPORT_MIME_TYPES, saveBlobResponse } from "@/lib/download";
 import { SectionTemplateSettingsCard } from "@/features/board-meetings/pages/section-template-settings-card";
 import { TemplateAuthoringGuide } from "@/features/board-meetings/components/template-authoring-guide";
 import { usePermission } from "@/features/auth/components/permission-guard";
 import {
     useDeleteTemplate,
+    usePreviewTemplate,
     useUpdateTemplate,
     useUploadTemplate,
     useTemplates,
@@ -69,6 +72,10 @@ type TemplateFormat = (typeof FORMATS)[number]["key"];
  */
 export function TemplateSettingsSection() {
     const canManage = usePermission(["export-template.manage"]);
+    // A preview contains a real meeting, so it needs the permission that lets
+    // somebody take a copy of one as well as the one that manages templates.
+    const canExportMeetings = usePermission(["board-meeting.export"]);
+    const canPreview = canManage && canExportMeetings;
 
     const [format, setFormat] = useState<TemplateFormat>("docx");
 
@@ -77,10 +84,27 @@ export function TemplateSettingsSection() {
 
     const update = useUpdateTemplate();
     const remove = useDeleteTemplate();
+    const preview = usePreviewTemplate();
 
     const [uploadOpen, setUploadOpen] = useState(false);
 
     const current = FORMATS.find((option) => option.key === format)!;
+
+    const downloadPreview = (template: TemplateDto) => {
+        preview.mutate(
+            { slug: template.slug, format: template.format },
+            {
+                onSuccess: (response) => {
+                    saveBlobResponse(
+                        response,
+                        `preview-${template.slug}.${template.format}`,
+                        EXPORT_MIME_TYPES[template.format] ??
+                            "application/octet-stream",
+                    );
+                },
+            },
+        );
+    };
 
     return (
         <div className="grid gap-6">
@@ -169,9 +193,18 @@ export function TemplateSettingsSection() {
                                     key={template.slug}
                                     template={template}
                                     canManage={canManage}
+                                    canPreview={canPreview}
                                     isPending={
                                         update.isPending ||
                                         remove.isPending
+                                    }
+                                    isPreviewing={
+                                        preview.isPending &&
+                                        preview.variables?.slug ===
+                                            template.slug
+                                    }
+                                    onPreview={() =>
+                                        downloadPreview(template)
                                     }
                                     onMakeDefault={() =>
                                         update.mutate({
@@ -217,13 +250,19 @@ export function TemplateSettingsSection() {
 function TemplateRow({
     template,
     canManage,
+    canPreview,
     isPending,
+    isPreviewing,
+    onPreview,
     onMakeDefault,
     onDelete,
 }: {
     template: TemplateDto;
     canManage: boolean;
+    canPreview: boolean;
     isPending: boolean;
+    isPreviewing: boolean;
+    onPreview: () => void;
     onMakeDefault: () => void;
     onDelete: () => void;
 }) {
@@ -253,6 +292,23 @@ function TemplateRow({
 
             {canManage && (
                 <div className="flex items-center gap-1">
+                    {canPreview && (
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon-sm"
+                            title="پیش‌نمایش با جدیدترین جلسه"
+                            onClick={onPreview}
+                            disabled={isPending || isPreviewing}
+                        >
+                            {isPreviewing ? (
+                                <Spinner className="size-4" />
+                            ) : (
+                                <IconEye className="size-4" />
+                            )}
+                        </Button>
+                    )}
+
                     {!template.is_default && (
                         <Button
                             type="button"
