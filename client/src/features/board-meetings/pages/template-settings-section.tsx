@@ -1,11 +1,11 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
 import {
     IconBraces,
     IconEye,
     IconFileText,
     IconFileTypeDoc,
     IconFileTypeTxt,
-    IconPlus,
+    IconInfoCircle,
     IconRefresh,
     IconStar,
     IconUpload,
@@ -21,12 +21,16 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { FileUpload } from "@/components/ui/file-upload";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ConfirmDeleteButton } from "@/components/ui/confirm-delete-button";
 import { ResponsiveDialog } from "@/components/ui/responsive-dialog";
 import { EXPORT_MIME_TYPES, saveBlobResponse } from "@/lib/download";
+import { cn } from "@/lib/utils";
 import { SectionTemplateSettingsCard } from "@/features/board-meetings/pages/section-template-settings-card";
 import { TemplateAuthoringGuide } from "@/features/board-meetings/components/template-authoring-guide";
 import { usePermission } from "@/features/auth/components/permission-guard";
@@ -40,9 +44,27 @@ import {
 import type { TemplateDto } from "@/features/board-meetings/templates-api";
 
 const FORMATS = [
-    { key: "docx", label: "Word", icon: IconFileTypeDoc, accept: ".docx" },
-    { key: "md", label: "Markdown", icon: IconFileTypeTxt, accept: ".md" },
-    { key: "json", label: "JSON", icon: IconBraces, accept: ".json" },
+    {
+        key: "docx",
+        label: "Word",
+        icon: IconFileTypeDoc,
+        accept: ".docx",
+        tone: "border-sky-500/20 bg-sky-500/10 text-sky-600 dark:text-sky-400",
+    },
+    {
+        key: "md",
+        label: "Markdown",
+        icon: IconFileTypeTxt,
+        accept: ".md",
+        tone: "border-violet-500/20 bg-violet-500/10 text-violet-600 dark:text-violet-400",
+    },
+    {
+        key: "json",
+        label: "JSON",
+        icon: IconBraces,
+        accept: ".json",
+        tone: "border-amber-500/20 bg-amber-500/10 text-amber-600 dark:text-amber-400",
+    },
 ] as const;
 
 type TemplateFormat = (typeof FORMATS)[number]["key"];
@@ -113,52 +135,41 @@ export function TemplateSettingsSection() {
                 from, and it is the one with no screen anywhere else. */}
             <SectionTemplateSettingsCard />
 
-            <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                        <IconFileText className="size-5" />
-                        قالب‌های خروجی
-                    </CardTitle>
-                    <CardDescription>
-                        هر فرمت کتابخانهٔ خودش را دارد — Word، Markdown یا JSON.
-                        خودِ فایل تصمیم می‌گیرد چه چاپ شود: اگر{" "}
-                        <span className="mx-1 font-medium" dir="ltr">
-                            {"{{content}}"}
-                        </span>{" "}
-                        داشته باشد سند تولیدی همان‌جا نوشته می‌شود، و اگر نداشته
-                        باشد خودِ فایل سند است و فقط نام‌های داخلش پر می‌شوند.
-                    </CardDescription>
-                </CardHeader>
+            <Card className="gap-0 overflow-hidden py-0">
+                <CardHeader className="gap-4 border-b bg-muted/30 p-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div className="flex min-w-0 items-start gap-3">
+                            <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
+                                <IconFileText className="size-5" />
+                            </div>
 
-                <CardContent className="grid gap-3">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                        <div
-                            role="group"
-                            aria-label="فرمت قالب"
-                            className="flex flex-wrap gap-1.5"
-                        >
-                            {FORMATS.map(({ key, label, icon: Icon }) => (
-                                <button
-                                    key={key}
-                                    type="button"
-                                    aria-pressed={format === key}
-                                    onClick={() => setFormat(key)}
-                                    className={`inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm transition-colors ${
-                                        format === key
-                                            ? "border-primary bg-primary/10 font-medium"
-                                            : "border-border hover:bg-muted"
-                                    }`}
-                                >
-                                    <Icon className="size-4" />
-                                    {label}
-                                </button>
-                            ))}
+                            <div className="grid gap-1">
+                                <CardTitle className="text-base">
+                                    کتابخانهٔ قالب‌ها
+                                </CardTitle>
+                                <CardDescription className="max-w-2xl">
+                                    هر فرمت کتابخانهٔ خودش را دارد. خودِ فایل
+                                    تصمیم می‌گیرد چه چاپ شود: اگر{" "}
+                                    <span
+                                        className="mx-1 font-medium"
+                                        dir="ltr"
+                                    >
+                                        {"{{content}}"}
+                                    </span>{" "}
+                                    داشته باشد سند تولیدی همان‌جا نوشته می‌شود،
+                                    و اگر نداشته باشد خودِ فایل سند است و فقط
+                                    نام‌های داخلش پر می‌شوند.
+                                </CardDescription>
+                            </div>
                         </div>
 
-                        <div className="flex flex-wrap items-center gap-2">
+                        <div className="flex items-center gap-2">
                             <Button
                                 type="button"
                                 variant="outline"
+                                size="icon-sm"
+                                title="بازخوانی"
+                                aria-label="بازخوانی"
                                 onClick={() => void refetch()}
                                 disabled={isFetching}
                             >
@@ -167,7 +178,6 @@ export function TemplateSettingsSection() {
                                 ) : (
                                     <IconRefresh className="size-4" />
                                 )}
-                                بازخوانی
                             </Button>
 
                             {canManage && (
@@ -176,18 +186,51 @@ export function TemplateSettingsSection() {
                                     onClick={() => setUploadOpen(true)}
                                 >
                                     <IconUpload className="size-4" />
-                                    بارگذاری قالب
+                                    بارگذاری
                                 </Button>
                             )}
                         </div>
                     </div>
 
+                    <Tabs
+                        value={format}
+                        onValueChange={(value) =>
+                            setFormat(value as TemplateFormat)
+                        }
+                    >
+                        <TabsList className="w-full justify-start sm:w-fit">
+                            {FORMATS.map(({ key, label, icon: Icon }) => (
+                                <TabsTrigger
+                                    key={key}
+                                    value={key}
+                                    className="gap-1.5 px-3"
+                                >
+                                    <Icon className="size-4" />
+                                    {label}
+                                </TabsTrigger>
+                            ))}
+                        </TabsList>
+                    </Tabs>
+                </CardHeader>
+
+                <CardContent className="p-0">
+                    <div className="flex items-center justify-between gap-2 border-b px-4 py-2.5 text-xs text-muted-foreground">
+                        <span>
+                            {current.label} · {templates?.length ?? 0} قالب
+                        </span>
+                        <span className="hidden sm:inline">
+                            بدون قالب، خروجی پیش‌فرض تولید می‌شود.
+                        </span>
+                    </div>
+
+                    {format === "json" && (
+                        <JsonTemplateHint className="m-4" />
+                    )}
+
                     {isLoading ? (
-                        <div className="flex justify-center py-8">
-                            <Spinner />
-                        </div>
+                        <TemplateListSkeleton />
                     ) : templates && templates.length > 0 ? (
-                        <ul className="grid gap-2">
+                        <ul className="divide-y">
                             {templates.map((template) => (
                                 <TemplateRow
                                     key={template.slug}
@@ -195,8 +238,7 @@ export function TemplateSettingsSection() {
                                     canManage={canManage}
                                     canPreview={canPreview}
                                     isPending={
-                                        update.isPending ||
-                                        remove.isPending
+                                        update.isPending || remove.isPending
                                     }
                                     isPreviewing={
                                         preview.isPending &&
@@ -219,15 +261,16 @@ export function TemplateSettingsSection() {
                             ))}
                         </ul>
                     ) : (
-                        <p className="py-8 text-center text-sm text-muted-foreground">
-                            هنوز قالب {current.label} بارگذاری نشده است. بدون
-                            قالب، خروجی همان سند تولیدی همیشگی است.
-                        </p>
+                        <EmptyTemplateState
+                            format={current}
+                            canManage={canManage}
+                            onUpload={() => setUploadOpen(true)}
+                        />
                     )}
                 </CardContent>
             </Card>
 
-            <TemplateAuthoringGuide />
+            <TemplateAuthoringGuide format={format} />
 
             <UploadTemplateDialog
                 open={uploadOpen}
@@ -243,6 +286,104 @@ export function TemplateSettingsSection() {
                     }
                 }}
             />
+        </div>
+    );
+}
+
+/**
+ * The one JSON rule an author cannot guess from a Word-shaped cheat sheet.
+ *
+ * A template language layered on JSON is not JSON until it is filled: a text
+ * placeholder belongs inside a JSON string, while `{{content}}` belongs where
+ * an object goes and is deliberately unquoted. Saying that here is cheaper than
+ * letting the first export answer with a 422.
+ */
+function JsonTemplateHint({ className }: { className?: string }) {
+    return (
+        <div
+            className={cn(
+                "flex gap-2 rounded-lg border border-amber-500/25 bg-amber-500/5 p-3 text-xs",
+                className,
+            )}
+        >
+            <IconInfoCircle className="mt-0.5 size-4 shrink-0 text-amber-600" />
+
+            <div className="grid gap-1">
+                <p className="font-medium text-amber-900 dark:text-amber-200">
+                    در JSON، مقدار متنی را داخل گیومه بگذارید
+                </p>
+                <p className="text-muted-foreground">
+                    <code dir="ltr" className="font-mono">
+                        {'"title": "{{title}}"'}
+                    </code>{" "}
+                    درست است؛{" "}
+                    <code dir="ltr" className="font-mono">
+                        {'"meeting": {{content}}'}
+                    </code>{" "}
+                    تنها استثناست و بدون گیومه می‌آید. نوشتن{" "}
+                    <code dir="ltr" className="font-mono">
+                        {"{{title}}"}
+                    </code>{" "}
+                    بدون گیومه خروجی را نامعتبر می‌کند و خطای ۴۲۲ می‌گیرد.
+                </p>
+            </div>
+        </div>
+    );
+}
+
+function TemplateListSkeleton() {
+    return (
+        <ul className="divide-y">
+            {[0, 1, 2].map((row) => (
+                <li key={row} className="flex items-center gap-3 px-4 py-3">
+                    <Skeleton className="size-10 rounded-xl" />
+                    <div className="grid flex-1 gap-2">
+                        <Skeleton className="h-4 w-40" />
+                        <Skeleton className="h-3 w-24" />
+                    </div>
+                </li>
+            ))}
+        </ul>
+    );
+}
+
+function EmptyTemplateState({
+    format,
+    canManage,
+    onUpload,
+}: {
+    format: (typeof FORMATS)[number];
+    canManage: boolean;
+    onUpload: () => void;
+}) {
+    const Icon = format.icon;
+
+    return (
+        <div className="flex flex-col items-center gap-3 px-6 py-12 text-center">
+            <div
+                className={cn(
+                    "grid size-12 place-items-center rounded-2xl border",
+                    format.tone,
+                )}
+            >
+                <Icon className="size-6" />
+            </div>
+
+            <div className="grid gap-1">
+                <p className="font-medium">هنوز قالب {format.label} ندارید</p>
+                <p className="max-w-sm text-sm text-muted-foreground">
+                    بدون قالب، خروجی همان سند تولیدی همیشگی است. یک فایل{" "}
+                    {format.accept} بارگذاری کنید تا چیدمان خودتان را داشته
+                    باشید.
+                </p>
+            </div>
+
+            {canManage && (
+                <Button onClick={onUpload}>
+                    <IconUpload className="size-4" />
+                    بارگذاری اولین قالب
+                </Button>
+            )}
         </div>
     );
 }
@@ -266,11 +407,23 @@ function TemplateRow({
     onMakeDefault: () => void;
     onDelete: () => void;
 }) {
+    const meta = FORMATS.find((option) => option.key === template.format);
+    const Icon = meta?.icon ?? IconFileText;
+
     return (
-        <li className="flex flex-wrap items-center justify-between gap-3 rounded-lg border px-3 py-2">
-            <div className="flex min-w-0 flex-col">
+        <li className="group flex flex-wrap items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/40">
+            <div
+                className={cn(
+                    "grid size-10 shrink-0 place-items-center rounded-xl border",
+                    meta?.tone ?? "bg-muted text-muted-foreground",
+                )}
+            >
+                <Icon className="size-5" />
+            </div>
+
+            <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="truncate font-medium text-sm">
+                    <span className="truncate text-sm font-medium">
                         {template.name}
                     </span>
 
@@ -282,16 +435,17 @@ function TemplateRow({
                     )}
                 </div>
 
-                <span className="text-xs text-muted-foreground">
+                <p className="text-xs text-muted-foreground">
+                    {meta?.label ?? template.format} ·{" "}
                     {new Intl.NumberFormat("fa-IR", {
                         maximumFractionDigits: 0,
                     }).format(template.size / 1024)}{" "}
                     کیلوبایت
-                </span>
+                </p>
             </div>
 
             {canManage && (
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1 sm:opacity-0 sm:transition-opacity sm:group-focus-within:opacity-100 sm:group-hover:opacity-100">
                     {canPreview && (
                         <Button
                             type="button"
@@ -345,7 +499,6 @@ function UploadTemplateDialog({
     onUploaded: (format: string) => void;
 }) {
     const upload = useUploadTemplate();
-    const input = useRef<HTMLInputElement>(null);
     const current = FORMATS.find((option) => option.key === format)!;
 
     const [name, setName] = useState("");
@@ -360,10 +513,6 @@ function UploadTemplateDialog({
             setFile(null);
             setName("");
             setIsDefault(false);
-
-            if (input.current) {
-                input.current.value = "";
-            }
         }
 
         onOpenChange(next);
@@ -395,7 +544,11 @@ function UploadTemplateDialog({
             open={open}
             onOpenChange={close}
             title="بارگذاری قالب"
-            description={`فایل ${current.label} را انتخاب کنید. اگر در آن content بنویسید، سند تولیدی همان‌جا نوشته می‌شود؛ اگر نگویید، خودِ فایل سند است و فقط نام‌های داخلش پر می‌شوند.`}
+            description={
+                format === "json"
+                    ? "فایل JSON را انتخاب کنید. مقدارهای متنی را داخل گیومه بگذارید؛ {{content}} تنها استثناست و بدون گیومه می‌آید."
+                    : `فایل ${current.label} را انتخاب کنید. اگر در آن {{content}} بنویسید، سند تولیدی همان‌جا نوشته می‌شود؛ اگر نه، خودِ فایل سند است و فقط نام‌ها پر می‌شوند.`
+            }
             footer={
                 <>
                     <Button
@@ -413,7 +566,7 @@ function UploadTemplateDialog({
                         {upload.isPending ? (
                             <Spinner className="size-4" />
                         ) : (
-                            <IconPlus className="size-4" />
+                            <IconUpload className="size-4" />
                         )}
                         بارگذاری
                     </Button>
@@ -421,18 +574,28 @@ function UploadTemplateDialog({
             }
         >
             <div className="grid gap-4">
-                <div className="grid gap-2">
-                    <Label htmlFor="template-file">فایل</Label>
-                    <Input
-                        id="template-file"
-                        type="file"
-                        ref={input}
-                        accept={current.accept}
-                        onChange={(event) =>
-                            setFile(event.target.files?.[0] ?? null)
+                <FileUpload
+                    // Remount on open so a cancelled file never reappears.
+                    key={open ? "open" : "closed"}
+                    accept={current.accept}
+                    acceptedFileTypes={[
+                        { label: current.label, icon: current.icon },
+                    ]}
+                    multiple={false}
+                    title={`فایل ${current.label} را اینجا رها کنید`}
+                    description={`فقط ${current.accept} — نام فایل در کلید ذخیره‌سازی می‌آید و تغییر نمی‌کند.`}
+                    browseLabel="انتخاب فایل"
+                    onFilesAccepted={(files) =>
+                        setFile(files[0] ?? null)
+                    }
+                    onFilesChange={(items) => {
+                        if (items.length === 0) {
+                            setFile(null);
                         }
-                    />
-                </div>
+                    }}
+                />
+
+                {format === "json" && <JsonTemplateHint />}
 
                 <div className="grid gap-2">
                     <Label htmlFor="template-name">نام قالب</Label>
@@ -458,8 +621,9 @@ function UploadTemplateDialog({
                 </div>
 
                 <p className="text-xs text-muted-foreground">
-                    نام فایل شما در کلیدِ ذخیره‌سازی می‌آید و هرگز تغییر نمی‌کند؛
-                    نامی که اینجا می‌نویسید فقط برای نمایش است.
+                    نام فایلی که انتخاب می‌کنید در کلیدِ ذخیره‌سازی می‌آید و
+                    هرگز تغییر نمی‌کند؛ نامی که اینجا می‌نویسید فقط برای نمایش
+                    است.
                 </p>
             </div>
         </ResponsiveDialog>

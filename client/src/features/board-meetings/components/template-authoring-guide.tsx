@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { useTemplateFields } from "@/features/board-meetings/hooks/use-templates";
 import {
@@ -47,7 +48,7 @@ import {
  * with what it had to say, and five groups each carried their own copy of the
  * paragraph explaining separators.
  */
-export function TemplateAuthoringGuide() {
+export function TemplateAuthoringGuide({ format }: { format?: string }) {
     const { data: fields } = useTemplateFields();
 
     if (!fields) {
@@ -65,11 +66,41 @@ export function TemplateAuthoringGuide() {
     };
 
     return (
-        <div className="grid gap-6">
-            <TemplateTester payload={payload} syntax={fields.syntax} />
-            <SyntaxGuide syntax={fields.syntax} />
-            <PlaceholderCatalogue payload={payload} sections={fields.sections ?? []} />
-        </div>
+        <Tabs defaultValue="tester" className="gap-3">
+            <TabsList className="w-full justify-start sm:w-fit">
+                <TabsTrigger value="tester">
+                    <IconCheck className="size-4" />
+                    بررسی
+                </TabsTrigger>
+                <TabsTrigger value="shapes">
+                    <IconInfoCircle className="size-4" />
+                    شکل‌ها
+                </TabsTrigger>
+                <TabsTrigger value="names">
+                    <IconBraces className="size-4" />
+                    نام‌ها
+                </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="tester">
+                <TemplateTester
+                    payload={payload}
+                    syntax={fields.syntax}
+                    format={format}
+                />
+            </TabsContent>
+
+            <TabsContent value="shapes">
+                <SyntaxGuide syntax={fields.syntax} />
+            </TabsContent>
+
+            <TabsContent value="names">
+                <PlaceholderCatalogue
+                    payload={payload}
+                    sections={fields.sections ?? []}
+                />
+            </TabsContent>
+        </Tabs>
     );
 }
 
@@ -89,14 +120,23 @@ export function TemplateAuthoringGuide() {
 function TemplateTester({
     payload,
     syntax,
+    format,
 }: {
     payload: TemplatePayload;
     syntax: { open: string; close: string };
+    format?: string;
 }) {
     const [text, setText] = useState("");
 
     const issues = useMemo(() => validateTemplate(text, payload), [text, payload]);
     const { open, close } = syntax;
+
+    // A JSON template is not JSON until it is filled, so the example has to show
+    // both spellings: text inside a string, `{{content}}` where an object goes.
+    const placeholder =
+        format === "json"
+            ? `{\n  "title": "${open}title${close}",\n  "meeting": ${open}content${close}\n}`
+            : `مثلا:\n${open}held_on${close}  /  ${open}held_on@jalali${close}\n${open}#attendee${close}\n${open}attendee.name${close}\n${open}/attendee${close}\n${open}«|tag.name|» ${close}`;
 
     return (
         <Card>
@@ -118,7 +158,7 @@ function TemplateTester({
                     dir="ltr"
                     rows={7}
                     className="font-mono text-xs"
-                    placeholder={`مثلا:\n${open}held_on${close}  /  ${open}held_on@jalali${close}\n${open}#attendee${close}\n${open}attendee.name${close}\n${open}/attendee${close}\n${open}«|tag.name|» ${close}`}
+                    placeholder={placeholder}
                 />
 
                 {text.trim() === "" ? (
