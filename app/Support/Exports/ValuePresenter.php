@@ -145,8 +145,8 @@ final class ValuePresenter
     private function presentBoolean(string|int|float|bool $value, PresentationOptions $options): string|int|float|bool
     {
         $label = filter_var($value, FILTER_VALIDATE_BOOLEAN)
-            ? (string) trans('employee.exports.boolean.true')
-            : (string) trans('employee.exports.boolean.false');
+            ? (string) trans('exports.boolean.true')
+            : (string) trans('exports.boolean.false');
 
         return $this->withDigits($label, $options->digits);
     }

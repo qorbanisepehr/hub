@@ -3,6 +3,10 @@
 return [
     'generated_at' => 'Generated at',
     'row_count' => 'Rows',
+    'boolean' => [
+        'true' => 'Yes',
+        'false' => 'No',
+    ],
 
     // One label per registered renderer, so the bundle dialog can name a format
     // in the reader's language without a client change per renderer. A format

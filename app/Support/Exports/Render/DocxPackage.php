@@ -960,7 +960,7 @@ final class DocxPackage
      */
     private function holdsOnlyMacros(DOMXPath $xpath, DOMElement $row): bool
     {
-        $rest = preg_replace('/\{\{.+?\}\}/s', '', $this->textOf($xpath, $row));
+        $rest = preg_replace(MacroSyntax::pattern(), '', $this->textOf($xpath, $row));
 
         if ($rest === null || trim($rest) !== '') {
             return false;
@@ -981,7 +981,7 @@ final class DocxPackage
 
         foreach ($xpath->query('.//w:t', $row) ?: [] as $text) {
             $replaced = preg_replace_callback(
-                '/\{\{(.+?)\}\}/s',
+                MacroSyntax::pattern(),
                 static fn (array $match): string => trim($match[1]) === $name ? '' : $match[0],
                 $text->textContent,
             );
@@ -1199,9 +1199,7 @@ final class DocxPackage
      */
     private function macrosIn(string $text): array
     {
-        $pattern = '/'.preg_quote(MacroSyntax::OPEN, '/').'(.+?)'.preg_quote(MacroSyntax::CLOSE, '/').'/s';
-
-        preg_match_all($pattern, $text, $matches);
+        preg_match_all(MacroSyntax::pattern(), $text, $matches);
 
         $names = [];
 

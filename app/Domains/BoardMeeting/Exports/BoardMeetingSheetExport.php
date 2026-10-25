@@ -3,10 +3,7 @@
 namespace App\Domains\BoardMeeting\Exports;
 
 use App\Domains\BoardMeeting\Models\BoardMeeting;
-use App\Domains\BoardMeeting\Value\AgendaItem;
-use App\Domains\BoardMeeting\Value\Attendee;
 use App\Domains\BoardMeeting\Value\MeetingSummary;
-use App\Domains\Document\Models\DocumentUsage;
 use App\Support\Exports\Contract\DocumentSource;
 use App\Support\Exports\Templates\TemplateResolver;
 use App\Support\Exports\Value\Document\DocumentField;
@@ -53,6 +50,7 @@ final class BoardMeetingSheetExport implements DocumentSource
 
     public function __construct(
         private readonly TemplateResolver $templates,
+        private readonly BoardMeetingTemplateFields $templateFields,
         private readonly BoardMeetingProfile $profile = new BoardMeetingProfile,
     ) {}
 
@@ -75,6 +73,17 @@ final class BoardMeetingSheetExport implements DocumentSource
 
     /** The meeting this instance was asked about, kept so the filename can name it. */
     private ?BoardMeeting $meeting = null;
+
+    /**
+     * The template values for the meeting currently on the page.
+     *
+     * The sheet and a template must print the same rows, so the sheet reads the
+     * one implementation instead of rebuilding them. Cleared in `document()`
+     * because this instance answers for more than one meeting.
+     *
+     * @var array<string, mixed>|null
+     */
+    private ?array $templateValues = null;
 
     /**
      * Every section name a template may use, in the order this sheet prints
@@ -202,6 +211,7 @@ final class BoardMeetingSheetExport implements DocumentSource
         $this->meeting = $entity instanceof BoardMeeting
             ? $entity
             : BoardMeeting::query()->findOrFail((int) $entity);
+        $this->templateValues = null;
 
         $meeting = $this->meeting->loadMissing(['tags', 'documentUsages.document']);
 
@@ -229,6 +239,16 @@ final class BoardMeetingSheetExport implements DocumentSource
             ])),
             sections: $sections,
         );
+    }
+
+    /**
+     * The template values for the meeting currently on the page.
+     *
+     * @return array<string, mixed>
+     */
+    private function templateValues(BoardMeeting $meeting): array
+    {
+        return $this->templateValues ??= $this->templateFields->values($meeting);
     }
 
     /**
@@ -262,19 +282,15 @@ final class BoardMeetingSheetExport implements DocumentSource
 
     private function attendeesSection(BoardMeeting $meeting): DocumentSection
     {
+        $rows = $this->templateValues($meeting)['attendee'];
+
         return new DocumentSection(
             heading: $this->label('sections.attendees'),
             tables: [$this->table(
                 columns: ['name', 'role', 'present'],
                 rows: array_map(
-                    fn (Attendee $attendee): array => [
-                        $attendee->name,
-                        $this->label('roles.'.$attendee->role->value, $attendee->role->value),
-                        $attendee->isPresent
-                            ? $this->label('yes')
-                            : $this->label('no'),
-                    ],
-                    $meeting->attendees,
+                    static fn (array $row): array => [$row['name'], $row['role'], $row['present']],
+                    $rows,
                 ),
             )],
         );
@@ -282,16 +298,15 @@ final class BoardMeetingSheetExport implements DocumentSource
 
     private function agendaSection(BoardMeeting $meeting): DocumentSection
     {
+        $rows = $this->templateValues($meeting)['agenda'];
+
         return new DocumentSection(
             heading: $this->label('sections.agenda'),
             tables: [$this->table(
                 columns: ['position', 'agenda_title'],
                 rows: array_map(
-                    fn (AgendaItem $item): array => [
-                        ValuePresenter::persianDigits((string) $item->position),
-                        $item->title,
-                    ],
-                    $meeting->agenda,
+                    static fn (array $row): array => [$row['position'], $row['title']],
+                    $rows,
                 ),
             )],
         );
@@ -393,33 +408,32 @@ final class BoardMeetingSheetExport implements DocumentSource
      */
     private function approvalsSection(BoardMeeting $meeting): DocumentSection
     {
+        $rows = $this->templateValues($meeting)['approval'];
+
         return new DocumentSection(
             heading: $this->label('sections.approvals'),
             tables: [$this->table(
                 columns: ['registry_number', 'document_title'],
-                rows: $meeting->documentUsages
-                    ->filter(fn (DocumentUsage $usage): bool => ! $usage->trashed()
-                        && isset($usage->metadata['registry_number']))
-                    ->map(fn (DocumentUsage $usage): array => [
-                        ValuePresenter::persianDigits((string) $usage->metadata['registry_number']),
-                        (string) ($usage->metadata['title'] ?? ''),
-                    ])
-                    ->values()
-                    ->all(),
+                rows: array_map(
+                    static fn (array $row): array => [$row['registry_number'], $row['document_title']],
+                    $rows,
+                ),
             )],
         );
     }
 
     private function tagsSection(BoardMeeting $meeting): DocumentSection
     {
+        $rows = $this->templateValues($meeting)['tag'];
+
         return new DocumentSection(
             heading: $this->label('sections.tags'),
             tables: [$this->table(
                 columns: ['tag'],
-                rows: $meeting->tags
-                    ->map(fn ($tag): array => [$tag->name])
-                    ->values()
-                    ->all(),
+                rows: array_map(
+                    static fn (array $row): array => [$row['name']],
+                    $rows,
+                ),
             )],
         );
     }
@@ -430,22 +444,21 @@ final class BoardMeetingSheetExport implements DocumentSource
      */
     private function attachmentsSection(BoardMeeting $meeting): DocumentSection
     {
+        $rows = $this->templateValues($meeting)['attachment'];
+
         return new DocumentSection(
             heading: $this->label('sections.attachments'),
             tables: [$this->table(
                 columns: ['file_name', 'size', 'mime', 'uploaded_at'],
-                rows: $meeting->documentUsages
-                    ->filter(fn (DocumentUsage $usage): bool => ! $usage->trashed())
-                    ->map(fn (DocumentUsage $usage): array => [
-                        (string) $usage->document?->original_name,
-                        $usage->document?->size !== null
-                            ? ValuePresenter::persianDigits(number_format($usage->document->size / 1024, 1).' KB')
-                            : '',
-                        (string) $usage->document?->mime_type,
-                        $usage->created_at?->format('Y/m/d H:i') ?? '',
-                    ])
-                    ->values()
-                    ->all(),
+                rows: array_map(
+                    static fn (array $row): array => [
+                        $row['file_name'],
+                        $row['size'],
+                        $row['mime'],
+                        $row['uploaded_at'],
+                    ],
+                    $rows,
+                ),
             )],
         );
     }

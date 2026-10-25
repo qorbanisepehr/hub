@@ -474,52 +474,8 @@ final class TemplateValues
         // after the brace and before it and neither is part of the name. The
         // SEPARATOR is untouched — it is everything after the pipe, where a
         // trailing space is a character the author chose and one they can see.
-        $key = trim($macro->key);
+        $items = $this->itemsFor(trim($macro->key), $fields, $values);
 
-        $dot = strpos($key, '.');
-
-        if ($dot === false) {
-            return null;
-        }
-
-        $group = substr($key, 0, $dot);
-        $column = substr($key, $dot + 1);
-
-        $entries = $values[$group] ?? [];
-
-        if (! is_array($entries)) {
-            return null;
-        }
-
-        // NOT A ROW GROUP, but the registry still publishes this column as a list. The
-        // summary's four fields are exactly this: prose that happens to be a list,
-        // which the document prints inline and a template may want to join its own way.
-        //
-        // Without this, {{summary.topics|; }} was refused because a row field was
-        // required — so a separator the author could see in the cheat sheet silently did
-        // nothing, which is the worst of the three outcomes: it looks supported.
-        if (! $this->hasColumn($fields, $group, $column)) {
-            $list = $values[$key.self::LIST_SUFFIX] ?? null;
-
-            return is_array($list)
-                ? implode($macro->separator, array_map(strval(...), $list))
-                : null;
-        }
-
-        $parts = [];
-
-        foreach ($entries as $entry) {
-            if (! is_array($entry)) {
-                continue;
-            }
-
-            $value = $entry[$column] ?? null;
-
-            if (is_scalar($value) || $value === null) {
-                $parts[] = (string) $value;
-            }
-        }
-
-        return implode($macro->separator, $parts);
+        return $items === null ? null : implode($macro->separator, $items);
     }
 }
