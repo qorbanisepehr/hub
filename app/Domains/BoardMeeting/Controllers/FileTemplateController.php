@@ -12,6 +12,7 @@ use App\Domains\BoardMeeting\Exports\BoardMeetingTemplateFields;
 use App\Domains\BoardMeeting\Models\BoardMeeting;
 use App\Domains\BoardMeeting\Requests\ReplaceFileTemplateRequest;
 use App\Domains\BoardMeeting\Requests\StoreFileTemplateRequest;
+use App\Models\User;
 use App\Support\Exports\Exceptions\InvalidFileTemplate;
 use App\Support\Exports\Templates\FileTemplate;
 use App\Support\Exports\Templates\FileTemplateLibrary;
@@ -24,6 +25,7 @@ use App\Support\Exports\Templates\TemplateFillerRegistry;
 use App\Support\Exports\Templates\TemplateKind;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
@@ -56,6 +58,10 @@ final class FileTemplateController
     public function index(Request $request): JsonResponse
     {
         $domain = $this->domain($request);
+        $templates = $this->library->forFormatDomain($this->format($request), $domain, $this->entity($request));
+
+        $changes = $this->library->lastChanges($templates);
+        $actors = $this->actorNames($changes);
 
         return response()->json([
             'message' => __('board_meeting.template.library'),
@@ -65,8 +71,12 @@ final class FileTemplateController
                 // offers a Markdown frame it could not export from.
                 'format' => $this->format($request),
                 'templates' => array_map(
-                    fn (FileTemplate $template): array => $this->present($template),
-                    $this->library->forFormatDomain($this->format($request), $domain, $this->entity($request)),
+                    fn (FileTemplate $template): array => $this->present(
+                        $template,
+                        $changes[$template->key()] ?? null,
+                        $actors,
+                    ),
+                    $templates,
                 ),
             ],
         ]);
@@ -237,7 +247,7 @@ final class FileTemplateController
 
         return response()->json([
             'message' => __('board_meeting.template.saved'),
-            'data' => $this->present($template),
+            'data' => $this->present($template, ['at' => now(), 'by' => $this->actor($request)]),
             // What the file turned out to be, at the moment the person who
             // uploaded it can still do something about it. Whether the generated
             // meeting is written into a template is read off the file rather than
@@ -284,7 +294,7 @@ final class FileTemplateController
 
         return response()->json([
             'message' => __('board_meeting.template.saved'),
-            'data' => $this->present($template),
+            'data' => $this->present($template, ['at' => now(), 'by' => $this->actor($request)]),
         ]);
     }
 
@@ -322,7 +332,7 @@ final class FileTemplateController
 
         return response()->json([
             'message' => __('board_meeting.template.replaced'),
-            'data' => $this->present($replacement),
+            'data' => $this->present($replacement, ['at' => now(), 'by' => $this->actor($request)]),
             // The same rule the upload response follows: the kind is read off
             // the FILE, and the person who replaced it is the only one who can
             // still act on it — the export is the first place a Frame turned
@@ -389,7 +399,7 @@ final class FileTemplateController
     /**
      * @return array<string, mixed>
      */
-    private function present(FileTemplate $template): array
+    private function present(FileTemplate $template, ?array $change = null, array $actors = []): array
     {
         return [
             'slug' => $template->slug(),
@@ -401,7 +411,31 @@ final class FileTemplateController
             'format' => $template->format(),
             'size' => $template->size(),
             'is_default' => $template->isDefault(),
+            // Who last wrote this row and when — the question a letterhead's
+            // list is for. Write responses pass the change that just happened
+            // (the actor's own request, so the name resolves on the next list
+            // read); the list reads the stamp from the store.
+            'updated_at' => ($change['at'] ?? null)?->toISOString(),
+            'updated_by' => $change['by'] ?? null,
+            'updated_by_name' => isset($change['by']) ? ($actors[$change['by']] ?? null) : null,
         ];
+    }
+
+    /**
+     * The readable name behind every actor id in the changes, in one query.
+     *
+     * @param  array<string, array{at: Carbon|null, by: int|null}>  $changes
+     * @return array<int, string>
+     */
+    private function actorNames(array $changes): array
+    {
+        $ids = array_values(array_filter(array_column($changes, 'by')));
+
+        if ($ids === []) {
+            return [];
+        }
+
+        return User::query()->whereIn('id', $ids)->pluck('name', 'id')->all();
     }
 
     /**

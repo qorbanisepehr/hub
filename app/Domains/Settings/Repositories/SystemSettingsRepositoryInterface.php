@@ -4,6 +4,7 @@ namespace App\Domains\Settings\Repositories;
 
 use App\Contracts\Settings\Setting;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Carbon;
 
 /**
  * Key-addressed storage for system configuration, one setting per key.
@@ -100,4 +101,19 @@ interface SystemSettingsRepositoryInterface
      * caller can ask either store the same question.
      */
     public function lastModified(string $setting, string $key): int;
+
+    /**
+     * When each of these keys was last written, and by whom.
+     *
+     * One query for the whole batch, because a list page asks this of every row
+     * at once and a query per key is the N+1 this store refuses. The stamp
+     * lives on the row's columns rather than in its value, which is why it is
+     * answered here instead of carried by the Setting itself. A key with no row
+     * is simply absent from the answer.
+     *
+     * @param  class-string<Setting>  $setting
+     * @param  list<string>  $keys
+     * @return array<string, array{at: Carbon|null, by: int|null}>
+     */
+    public function lastChanges(string $setting, array $keys): array;
 }

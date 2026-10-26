@@ -131,6 +131,22 @@ final class DatabaseSystemSettingsRepository implements SystemSettingsRepository
         return $this->find($setting, $key)?->updated_at?->getTimestamp() ?? 0;
     }
 
+    public function lastChanges(string $setting, array $keys): array
+    {
+        if ($keys === []) {
+            return [];
+        }
+
+        return SystemSetting::query()
+            ->where('group', $setting::group())
+            ->whereIn('key', $keys)
+            ->get(['key', 'updated_at', 'updated_by'])
+            ->mapWithKeys(fn (SystemSetting $row): array => [
+                $row->key => ['at' => $row->updated_at, 'by' => $row->updated_by],
+            ])
+            ->all();
+    }
+
     /**
      * One page of the settings of a kind, ordered by key unless asked otherwise.
      *

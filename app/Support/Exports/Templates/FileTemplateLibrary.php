@@ -6,6 +6,7 @@ use App\Contracts\Settings\Setting;
 use App\Domains\Settings\Repositories\SystemSettingsRepositoryInterface;
 use App\Support\Exports\Exceptions\InvalidFileTemplate;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -314,6 +315,26 @@ final class FileTemplateLibrary
         }
 
         return null;
+    }
+
+    /**
+     * When each of these templates was last written, and by whom, keyed by the
+     * template's key.
+     *
+     * The stamp is on the settings ROW rather than in the value, so it is not
+     * part of {@see FileTemplate} and needs no reissue to carry it — one
+     * batched read beside the list is the whole cost of showing it, and the
+     * write paths pay nothing.
+     *
+     * @param  list<FileTemplate>  $templates
+     * @return array<string, array{at: Carbon|null, by: int|null}>
+     */
+    public function lastChanges(array $templates): array
+    {
+        return $this->settings->lastChanges(
+            FileTemplate::class,
+            array_map(fn (FileTemplate $template): string => $template->key(), $templates),
+        );
     }
 
     /**

@@ -509,6 +509,27 @@ describe('exporting with a template', function () {
         'board-meeting.export',
     ]);
 
+    it('reports who last changed a template and when', function () use ($upload) {
+        // The stamp lives on the settings row, not in the value, so the list is
+        // the one place the two meet: the actor is resolved to a name there, or
+        // the row shows a bare time and nobody knows whose letterhead this is.
+        $author = createUserWithPermissions(['export-template.manage', 'export-template.view']);
+        $this->library->upload(
+            $upload('letterhead.docx', 'نسخهٔ اول'),
+            'docx',
+            'boardmeeting',
+            'سربرگ',
+            uploadedBy: $author->getKey(),
+        );
+
+        $this->actingAs($author)
+            ->get('/api/templates?format=docx')
+            ->assertOk()
+            ->assertJsonPath('data.templates.0.updated_by', $author->id)
+            ->assertJsonPath('data.templates.0.updated_by_name', $author->name)
+            ->assertJsonPath('data.templates.0.updated_at', fn (string $at) => now()->diffInSeconds($at) < 60);
+    });
+
     it('generates the document when nobody has configured a template', function () {
         $meeting = BoardMeeting::factory()->create(['title' => 'بودجه']);
 
