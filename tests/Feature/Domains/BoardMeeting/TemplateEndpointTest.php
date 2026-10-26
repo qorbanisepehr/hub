@@ -416,6 +416,64 @@ describe('the template library endpoints', function () {
         $this->actingAs($reader())
             ->post('/api/templates/anything/file', ['file' => $upload('x.docx')])
             ->assertForbidden();
+
+        $this->actingAs($reader())
+            ->get('/api/templates/anything/file')
+            ->assertForbidden();
+    });
+
+    it('downloads the stored template file, raw', function () use ($manager, $upload) {
+        $author = $manager();
+        $template = $this->library->upload(
+            $upload('letterhead.docx', 'نسخهٔ فعلی'),
+            'docx',
+            'boardmeeting',
+            'سربرگ',
+        );
+
+        $bytes = (string) file_get_contents($this->store->path($template));
+
+        $response = $this->actingAs($author)
+            ->get('/api/templates/'.$template->slug().'/file?format=docx')
+            ->assertOk()
+            ->assertHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+
+        // The bytes are the STORED ones: no meeting is filled in, so what comes
+        // back is exactly the file that was uploaded — that is the whole point
+        // of the download-edit-replace loop.
+        expect($response->streamedContent())->toBe($bytes);
+    });
+
+    it('answers 404 when a template’s file is missing from disk', function () use ($manager, $upload) {
+        $author = $manager();
+        $template = $this->library->upload(
+            $upload('letterhead.docx'),
+            'docx',
+            'boardmeeting',
+            'سربرگ',
+        );
+
+        $this->store->delete($template);
+
+        $this->actingAs($author)
+            ->get('/api/templates/'.$template->slug().'/file?format=docx')
+            ->assertNotFound()
+            ->assertJsonPath('message', __('board_meeting.template.file_missing'));
+    });
+
+    it('refuses a replacement without a file', function () use ($manager, $upload) {
+        $author = $manager();
+        $template = $this->library->upload(
+            $upload('letterhead.docx'),
+            'docx',
+            'boardmeeting',
+            'سربرگ',
+        );
+
+        $this->actingAs($author)
+            ->post('/api/templates/'.$template->slug().'/file?format=docx')
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('file');
     });
 });
 

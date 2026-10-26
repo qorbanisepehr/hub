@@ -16,6 +16,7 @@ use App\Support\Exports\Exceptions\InvalidFileTemplate;
 use App\Support\Exports\Templates\FileTemplate;
 use App\Support\Exports\Templates\FileTemplateLibrary;
 use App\Support\Exports\Templates\FileTemplateService;
+use App\Support\Exports\Templates\FileTemplateStore;
 use App\Support\Exports\Templates\GeneralValues;
 use App\Support\Exports\Templates\RangeMacro;
 use App\Support\Exports\Templates\TemplateField;
@@ -46,6 +47,7 @@ final class FileTemplateController
     public function __construct(
         private readonly FileTemplateLibrary $library,
         private readonly FileTemplateService $files,
+        private readonly FileTemplateStore $store,
     ) {}
 
     /**
@@ -332,6 +334,40 @@ final class FileTemplateController
         ]);
     }
 
+    /**
+     * The stored template file, raw.
+     *
+     * The first half of the replace loop: a person downloads the current file,
+     * edits it, and posts it back through the replacement endpoint. The bytes
+     * are the STORED ones — no meeting is filled into them — so this asks for
+     * template management alone, not the meeting-export permission the preview
+     * needs.
+     */
+    public function download(Request $request, string $slug): StreamedResponse
+    {
+        $template = $this->library->find($this->format($request), $this->domain($request), $slug);
+
+        if ($template === null) {
+            abort(404, __('board_meeting.template.not_found'));
+        }
+
+        $stream = $this->store->readStream($template);
+
+        if ($stream === null) {
+            // The row outlived its file. A named 404 rather than a download of
+            // nothing, the same honesty the export path applies.
+            abort(404, __('board_meeting.template.file_missing'));
+        }
+
+        return response()->streamDownload(function () use ($stream): void {
+            stream_copy_to_stream($stream, fopen('php://output', 'w'));
+            fclose($stream);
+        }, $template->slug().'.'.$template->format(), [
+            'Content-Type' => $this->rawMime($template->format()),
+            'Cache-Control' => 'no-store',
+        ]);
+    }
+
     public function destroy(Request $request, string $slug): JsonResponse
     {
         $domain = $this->domain($request);
@@ -430,6 +466,24 @@ final class FileTemplateController
     private function domain(Request $request): string
     {
         return (string) $request->input('domain', BoardMeetingSheetExport::TEMPLATE_DOMAIN);
+    }
+
+    /**
+     * What the raw download claims to be, by the format it is filed under.
+     *
+     * The stored mime is what the uploader's browser guessed off the bytes, and
+     * for a Word file that guess is usually application/zip — the container, not
+     * the document. The format is the key the template lives under, so it
+     * decides.
+     */
+    private function rawMime(string $format): string
+    {
+        return match ($format) {
+            FileTemplate::FORMAT_DOCX => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'md' => 'text/markdown',
+            'json' => 'application/json',
+            default => 'application/octet-stream',
+        };
     }
 
     /**

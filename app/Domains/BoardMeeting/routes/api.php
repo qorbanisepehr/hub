@@ -162,6 +162,15 @@ Route::middleware('auth:sanctum')->group(function () {
             ])
             ->where('slug', '[A-Za-z0-9][A-Za-z0-9._-]*');
 
+        // The raw bytes of a template's file, for the download-edit-replace
+        // loop. GET because it is a pure read; no meeting is filled into the
+        // bytes, so it asks for template management alone and not the
+        // meeting-export permission the preview needs.
+        Route::get('{slug}/file', [FileTemplateController::class, 'download'])
+            ->name('templates.download')
+            ->middleware('permission:export-template.manage')
+            ->where('slug', '[A-Za-z0-9][A-Za-z0-9._-]*');
+
         // The replacement of a template's FILE. A POST rather than the PUT the
         // review suggested: PHP does not populate `$_FILES` for a PUT multipart
         // request, and a replacement that works only in tests is worse than no

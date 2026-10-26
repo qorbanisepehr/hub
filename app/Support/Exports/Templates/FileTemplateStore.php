@@ -41,6 +41,25 @@ final class FileTemplateStore
     }
 
     /**
+     * The template's file as a readable stream, or null when it is gone.
+     *
+     * A row whose file has vanished is a state the library never creates — the
+     * path is derived and the writes land in step — but a download must not
+     * guess: null is the caller's signal to answer 404, the same honesty the
+     * export path applies to a template nobody has.
+     *
+     * @return resource|null
+     */
+    public function readStream(FileTemplate $template)
+    {
+        if ($this->disk()->exists($template->filePath()) === false) {
+            return null;
+        }
+
+        return $this->disk()->readStream($template->filePath());
+    }
+
+    /**
      * @throws \RuntimeException when the file cannot be written
      */
     public function write(FileTemplate $template, string $bytes): void

@@ -137,6 +137,7 @@ return [
         'file_required' => 'Choose a template file.',
         'file_must_be_file' => 'That upload is not a readable file.',
         'format_mismatch' => 'This template only accepts .:format files.',
+        'file_missing' => 'The file behind this template could not be found on disk.',
         'replaced' => 'The template file was replaced.',
     ],
 ];
