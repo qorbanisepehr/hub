@@ -18,6 +18,7 @@ import {
     CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { CopyButton } from "@/components/ui/copy-button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
@@ -418,9 +419,20 @@ function PlaceholderCatalogue({
                             key={row.key}
                             className="flex flex-wrap items-center gap-2 rounded-md bg-muted px-2 py-1.5 text-xs"
                         >
-                            <code dir="ltr" className="font-medium">
+                            {/* The chip copies the name WITH its braces, ready to
+                                paste: the whole point of this list is to move a
+                                name from here into a file, and making the author
+                                type the braces by hand is the part worth
+                                removing. */}
+                            <CopyButton
+                                dir="ltr"
+                                variant="ghost"
+                                size="xs"
+                                className="h-6 justify-self-start gap-1 px-1.5 font-mono text-xs font-medium"
+                                value={`${payload.syntax.open}${row.key}${payload.syntax.close}`}
+                            >
                                 {row.key}
-                            </code>
+                            </CopyButton>
 
                             <span className="text-muted-foreground">
                                 {row.label}

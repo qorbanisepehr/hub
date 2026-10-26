@@ -22,6 +22,14 @@ export type TemplateDto = {
     format: string;
     size: number;
     is_default: boolean;
+    /**
+     * The stamp of the row's last write. List responses also resolve the actor
+     * to a name; a write response carries the stamp but not the name, because
+     * the list refetch that follows resolves it.
+     */
+    updated_at?: string | null;
+    updated_by?: number | null;
+    updated_by_name?: string | null;
 };
 
 export type TemplateListResponse = {

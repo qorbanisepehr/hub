@@ -1,5 +1,6 @@
 import { useState } from "react";
 import {
+    IconBook,
     IconBraces,
     IconDownload,
     IconEye,
@@ -28,10 +29,17 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { ConfirmDeleteButton } from "@/components/ui/confirm-delete-button";
 import { ResponsiveDialog } from "@/components/ui/responsive-dialog";
 import { EXPORT_MIME_TYPES, saveBlobResponse } from "@/lib/download";
+import { toPersianRelative } from "@/lib/date-format";
 import { cn } from "@/lib/utils";
 import { SectionTemplateSettingsCard } from "@/features/board-meetings/pages/section-template-settings-card";
 import { TemplateAuthoringGuide } from "@/features/board-meetings/components/template-authoring-guide";
@@ -154,156 +162,174 @@ export function TemplateSettingsSection() {
 
     return (
         <div className="grid gap-6">
-            {/* Sections first. A template that decides WHICH parts of a meeting
-                print is the more fundamental question than the file Word is built
-                from, and it is the one with no screen anywhere else. */}
-            <SectionTemplateSettingsCard />
+            <Tabs defaultValue="templates" className="grid gap-6">
+                <TabsList className="w-full justify-start sm:w-fit">
+                    <TabsTrigger value="templates" className="gap-1.5 px-3">
+                        <IconFileText className="size-4" />
+                        قالب‌ها
+                    </TabsTrigger>
+                    <TabsTrigger value="guide" className="gap-1.5 px-3">
+                        <IconBook className="size-4" />
+                        راهنمای نگارش
+                    </TabsTrigger>
+                </TabsList>
 
-            <Card className="gap-0 overflow-hidden py-0">
-                <CardHeader className="gap-4 border-b bg-muted/30 p-4">
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div className="flex min-w-0 items-start gap-3">
-                            <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
-                                <IconFileText className="size-5" />
-                            </div>
+                <TabsContent value="templates" className="grid gap-6">
+                    {/* Sections first. A template that decides WHICH parts of a
+                        meeting print is the more fundamental question than the file
+                        Word is built from, and it is the one with no screen anywhere
+                        else. */}
+                    <SectionTemplateSettingsCard />
 
-                            <div className="grid gap-1">
-                                <CardTitle className="text-base">
-                                    کتابخانهٔ قالب‌ها
-                                </CardTitle>
-                                <CardDescription className="max-w-2xl">
-                                    هر فرمت کتابخانهٔ خودش را دارد. خودِ فایل
-                                    تصمیم می‌گیرد چه چاپ شود: اگر{" "}
-                                    <span
-                                        className="mx-1 font-medium"
-                                        dir="ltr"
+                    <Card className="gap-0 overflow-hidden py-0">
+                        <CardHeader className="gap-4 border-b bg-muted/30 p-4">
+                            <div className="flex flex-wrap items-start justify-between gap-3">
+                                <div className="flex min-w-0 items-start gap-3">
+                                    <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
+                                        <IconFileText className="size-5" />
+                                    </div>
+
+                                    <div className="grid gap-1">
+                                        <CardTitle className="text-base">
+                                            کتابخانهٔ قالب‌ها
+                                        </CardTitle>
+                                        <CardDescription className="max-w-2xl">
+                                            هر فرمت کتابخانهٔ خودش را دارد. خودِ فایل
+                                            تصمیم می‌گیرد چه چاپ شود: اگر{" "}
+                                            <span
+                                                className="mx-1 font-medium"
+                                                dir="ltr"
+                                            >
+                                                {"{{content}}"}
+                                            </span>{" "}
+                                            داشته باشد سند تولیدی همان‌جا نوشته می‌شود،
+                                            و اگر نداشته باشد خودِ فایل سند است و فقط
+                                            نام‌های داخلش پر می‌شوند.
+                                        </CardDescription>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center gap-2">
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="icon-sm"
+                                        title="بازخوانی"
+                                        aria-label="بازخوانی"
+                                        onClick={() => void refetch()}
+                                        disabled={isFetching}
                                     >
-                                        {"{{content}}"}
-                                    </span>{" "}
-                                    داشته باشد سند تولیدی همان‌جا نوشته می‌شود،
-                                    و اگر نداشته باشد خودِ فایل سند است و فقط
-                                    نام‌های داخلش پر می‌شوند.
-                                </CardDescription>
+                                        {isFetching ? (
+                                            <Spinner className="size-4" />
+                                        ) : (
+                                            <IconRefresh className="size-4" />
+                                        )}
+                                    </Button>
+
+                                    {canManage && (
+                                        <Button
+                                            type="button"
+                                            onClick={() => setUploadOpen(true)}
+                                        >
+                                            <IconUpload className="size-4" />
+                                            بارگذاری
+                                        </Button>
+                                    )}
+                                </div>
                             </div>
-                        </div>
 
-                        <div className="flex items-center gap-2">
-                            <Button
-                                type="button"
-                                variant="outline"
-                                size="icon-sm"
-                                title="بازخوانی"
-                                aria-label="بازخوانی"
-                                onClick={() => void refetch()}
-                                disabled={isFetching}
+                            <Tabs
+                                value={format}
+                                onValueChange={(value) =>
+                                    setFormat(value as TemplateFormat)
+                                }
                             >
-                                {isFetching ? (
-                                    <Spinner className="size-4" />
-                                ) : (
-                                    <IconRefresh className="size-4" />
-                                )}
-                            </Button>
+                                <TabsList className="w-full justify-start sm:w-fit">
+                                    {FORMATS.map(({ key, label, icon: Icon }) => (
+                                        <TabsTrigger
+                                            key={key}
+                                            value={key}
+                                            className="gap-1.5 px-3"
+                                        >
+                                            <Icon className="size-4" />
+                                            {label}
+                                        </TabsTrigger>
+                                    ))}
+                                </TabsList>
+                            </Tabs>
+                        </CardHeader>
 
-                            {canManage && (
-                                <Button
-                                    type="button"
-                                    onClick={() => setUploadOpen(true)}
-                                >
-                                    <IconUpload className="size-4" />
-                                    بارگذاری
-                                </Button>
+                        <CardContent className="p-0">
+                            <div className="flex items-center justify-between gap-2 border-b px-4 py-2.5 text-xs text-muted-foreground">
+                                <span>
+                                    {current.label} · {templates?.length ?? 0} قالب
+                                </span>
+                                <span className="hidden sm:inline">
+                                    بدون قالب، خروجی پیش‌فرض تولید می‌شود.
+                                </span>
+                            </div>
+
+                            {format === "json" && (
+                                <JsonTemplateHint className="m-4" />
                             )}
-                        </div>
-                    </div>
 
-                    <Tabs
-                        value={format}
-                        onValueChange={(value) =>
-                            setFormat(value as TemplateFormat)
-                        }
-                    >
-                        <TabsList className="w-full justify-start sm:w-fit">
-                            {FORMATS.map(({ key, label, icon: Icon }) => (
-                                <TabsTrigger
-                                    key={key}
-                                    value={key}
-                                    className="gap-1.5 px-3"
-                                >
-                                    <Icon className="size-4" />
-                                    {label}
-                                </TabsTrigger>
-                            ))}
-                        </TabsList>
-                    </Tabs>
-                </CardHeader>
-
-                <CardContent className="p-0">
-                    <div className="flex items-center justify-between gap-2 border-b px-4 py-2.5 text-xs text-muted-foreground">
-                        <span>
-                            {current.label} · {templates?.length ?? 0} قالب
-                        </span>
-                        <span className="hidden sm:inline">
-                            بدون قالب، خروجی پیش‌فرض تولید می‌شود.
-                        </span>
-                    </div>
-
-                    {format === "json" && (
-                        <JsonTemplateHint className="m-4" />
-                    )}
-
-                    {isLoading ? (
-                        <TemplateListSkeleton />
-                    ) : templates && templates.length > 0 ? (
-                        <ul className="divide-y">
-                            {templates.map((template) => (
-                                <TemplateRow
-                                    key={template.slug}
-                                    template={template}
+                            {isLoading ? (
+                                <TemplateListSkeleton />
+                            ) : templates && templates.length > 0 ? (
+                                <ul className="divide-y">
+                                    {templates.map((template) => (
+                                        <TemplateRow
+                                            key={template.slug}
+                                            template={template}
+                                            canManage={canManage}
+                                            canPreview={canPreview}
+                                            isPending={
+                                                update.isPending || remove.isPending
+                                            }
+                                            isPreviewing={
+                                                preview.isPending &&
+                                                preview.variables?.slug ===
+                                                    template.slug
+                                            }
+                                            isDownloading={
+                                                download.isPending &&
+                                                download.variables?.slug ===
+                                                    template.slug
+                                            }
+                                            onPreview={() =>
+                                                downloadPreview(template)
+                                            }
+                                            onDownload={() => downloadFile(template)}
+                                            onReplace={() =>
+                                                setReplacing(template)
+                                            }
+                                            onMakeDefault={() =>
+                                                update.mutate({
+                                                    slug: template.slug,
+                                                    is_default: true,
+                                                })
+                                            }
+                                            onDelete={() =>
+                                                remove.mutate(template.slug)
+                                            }
+                                        />
+                                    ))}
+                                </ul>
+                            ) : (
+                                <EmptyTemplateState
+                                    format={current}
                                     canManage={canManage}
-                                    canPreview={canPreview}
-                                    isPending={
-                                        update.isPending || remove.isPending
-                                    }
-                                    isPreviewing={
-                                        preview.isPending &&
-                                        preview.variables?.slug ===
-                                            template.slug
-                                    }
-                                    isDownloading={
-                                        download.isPending &&
-                                        download.variables?.slug ===
-                                            template.slug
-                                    }
-                                    onPreview={() =>
-                                        downloadPreview(template)
-                                    }
-                                    onDownload={() => downloadFile(template)}
-                                    onReplace={() =>
-                                        setReplacing(template)
-                                    }
-                                    onMakeDefault={() =>
-                                        update.mutate({
-                                            slug: template.slug,
-                                            is_default: true,
-                                        })
-                                    }
-                                    onDelete={() =>
-                                        remove.mutate(template.slug)
-                                    }
+                                    onUpload={() => setUploadOpen(true)}
                                 />
-                            ))}
-                        </ul>
-                    ) : (
-                        <EmptyTemplateState
-                            format={current}
-                            canManage={canManage}
-                            onUpload={() => setUploadOpen(true)}
-                        />
-                    )}
-                </CardContent>
-            </Card>
+                            )}
+                        </CardContent>
+                    </Card>
+                </TabsContent>
 
-            <TemplateAuthoringGuide format={format} />
+                <TabsContent value="guide">
+                    <TemplateAuthoringGuide format={format} />
+                </TabsContent>
+            </Tabs>
 
             <UploadTemplateDialog
                 open={uploadOpen}
@@ -492,73 +518,116 @@ function TemplateRow({
                         maximumFractionDigits: 0,
                     }).format(template.size / 1024)}{" "}
                     کیلوبایت
+                    {template.updated_at && (
+                        <>
+                            {" · "}
+                            آخرین تغییر:{" "}
+                            {template.updated_by_name ?? "کاربر حذف‌شده"}،{" "}
+                            {toPersianRelative(template.updated_at)}
+                        </>
+                    )}
                 </p>
             </div>
 
             {canManage && (
-                <div className="flex items-center gap-1 sm:opacity-0 sm:transition-opacity sm:group-focus-within:opacity-100 sm:group-hover:opacity-100">
-                    {canPreview && (
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon-sm"
-                            title="پیش‌نمایش با جدیدترین جلسه"
-                            onClick={onPreview}
-                            disabled={isPending || isPreviewing}
-                        >
-                            {isPreviewing ? (
-                                <Spinner className="size-4" />
-                            ) : (
-                                <IconEye className="size-4" />
-                            )}
-                        </Button>
-                    )}
-
-                    {!template.is_default && (
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon-sm"
-                            title="پیش‌فرض کردن"
-                            onClick={onMakeDefault}
-                            disabled={isPending}
-                        >
-                            <IconStar className="size-4" />
-                        </Button>
-                    )}
-
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon-sm"
-                        title="دانلود فایل"
-                        onClick={onDownload}
-                        disabled={isPending}
-                    >
-                        {isDownloading ? (
-                            <Spinner className="size-4" />
-                        ) : (
-                            <IconDownload className="size-4" />
+                // Always visible rather than hover-revealed: icon-only actions
+                // that appear on hover are undiscoverable until stumbled on, and
+                // invisible on touch. The tooltip carries the name hover used to.
+                <TooltipProvider>
+                    <div className="flex items-center gap-1">
+                        {canPreview && (
+                            <Tooltip>
+                                <TooltipTrigger
+                                    render={
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="icon-sm"
+                                            aria-label="پیش‌نمایش با جدیدترین جلسه"
+                                            onClick={onPreview}
+                                            disabled={isPending || isPreviewing}
+                                        >
+                                            {isPreviewing ? (
+                                                <Spinner className="size-4" />
+                                            ) : (
+                                                <IconEye className="size-4" />
+                                            )}
+                                        </Button>
+                                    }
+                                />
+                                <TooltipContent>
+                                    پیش‌نمایش با جدیدترین جلسه
+                                </TooltipContent>
+                            </Tooltip>
                         )}
-                    </Button>
 
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon-sm"
-                        title="جایگزینی فایل"
-                        onClick={onReplace}
-                        disabled={isPending}
-                    >
-                        <IconReplace className="size-4" />
-                    </Button>
+                        {!template.is_default && (
+                            <Tooltip>
+                                <TooltipTrigger
+                                    render={
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="icon-sm"
+                                            aria-label="پیش‌فرض کردن"
+                                            onClick={onMakeDefault}
+                                            disabled={isPending}
+                                        >
+                                            <IconStar className="size-4" />
+                                        </Button>
+                                    }
+                                />
+                                <TooltipContent>پیش‌فرض کردن</TooltipContent>
+                            </Tooltip>
+                        )}
 
-                    <ConfirmDeleteButton
-                        iconOnly
-                        onConfirm={onDelete}
-                        isPending={isPending}
-                    />
-                </div>
+                        <Tooltip>
+                            <TooltipTrigger
+                                render={
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon-sm"
+                                        aria-label="دانلود فایل"
+                                        onClick={onDownload}
+                                        disabled={isPending}
+                                    >
+                                        {isDownloading ? (
+                                            <Spinner className="size-4" />
+                                        ) : (
+                                            <IconDownload className="size-4" />
+                                        )}
+                                    </Button>
+                                }
+                            />
+                            <TooltipContent>دانلود فایل</TooltipContent>
+                        </Tooltip>
+
+                        <Tooltip>
+                            <TooltipTrigger
+                                render={
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon-sm"
+                                        aria-label="جایگزینی فایل"
+                                        onClick={onReplace}
+                                        disabled={isPending}
+                                    >
+                                        <IconReplace className="size-4" />
+                                    </Button>
+                                }
+                            />
+                            <TooltipContent>جایگزینی فایل</TooltipContent>
+                        </Tooltip>
+
+                        <ConfirmDeleteButton
+                            iconOnly
+                            onConfirm={onDelete}
+                            isPending={isPending}
+                        />
+                    </div>
+                </TooltipProvider>
             )}
         </li>
     );
