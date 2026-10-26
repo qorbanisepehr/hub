@@ -262,6 +262,24 @@ export function replaceTemplateFile(
     });
 }
 
+/**
+ * The stored bytes of a template, raw.
+ *
+ * The first half of the download-edit-replace loop: nothing is filled into the
+ * file — no meeting, no values — so what comes back is exactly what was
+ * uploaded, in the template's own format.
+ */
+export function downloadTemplateFile(
+    slug: string,
+    format = "docx",
+    domain = "boardmeeting",
+) {
+    return api.get(`/templates/${slug}/file`, {
+        params: { domain, format },
+        responseType: "blob",
+    });
+}
+
 /*
  * The Word export used to live here as well as in `api.ts`, with a different
  * signature - this one took a template. An import that reached for the wrong copy

@@ -49,6 +49,7 @@ export const EXPORT_MIME_TYPES: Record<string, string> = {
     xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     csv: "text/csv;charset=utf-8",
     jsonl: "application/x-ndjson",
+    json: "application/json",
     md: "text/markdown;charset=utf-8",
     pdf: "application/pdf",
     docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",

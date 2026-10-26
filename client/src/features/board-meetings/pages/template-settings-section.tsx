@@ -1,6 +1,7 @@
 import { useState } from "react";
 import {
     IconBraces,
+    IconDownload,
     IconEye,
     IconFileText,
     IconFileTypeDoc,
@@ -37,6 +38,7 @@ import { TemplateAuthoringGuide } from "@/features/board-meetings/components/tem
 import { usePermission } from "@/features/auth/components/permission-guard";
 import {
     useDeleteTemplate,
+    useDownloadTemplate,
     usePreviewTemplate,
     useReplaceTemplate,
     useUpdateTemplate,
@@ -109,6 +111,7 @@ export function TemplateSettingsSection() {
     const update = useUpdateTemplate(format);
     const remove = useDeleteTemplate(format);
     const preview = usePreviewTemplate();
+    const download = useDownloadTemplate();
 
     const [uploadOpen, setUploadOpen] = useState(false);
     const [replacing, setReplacing] = useState<TemplateDto | null>(null);
@@ -123,6 +126,24 @@ export function TemplateSettingsSection() {
                     saveBlobResponse(
                         response,
                         `preview-${template.slug}.${template.format}`,
+                        EXPORT_MIME_TYPES[template.format] ??
+                            "application/octet-stream",
+                    );
+                },
+            },
+        );
+    };
+
+    // The stored bytes, exactly as uploaded — the first half of the
+    // download-edit-replace loop.
+    const downloadFile = (template: TemplateDto) => {
+        download.mutate(
+            { slug: template.slug, format: template.format },
+            {
+                onSuccess: (response) => {
+                    saveBlobResponse(
+                        response,
+                        `${template.slug}.${template.format}`,
                         EXPORT_MIME_TYPES[template.format] ??
                             "application/octet-stream",
                     );
@@ -248,9 +269,15 @@ export function TemplateSettingsSection() {
                                         preview.variables?.slug ===
                                             template.slug
                                     }
+                                    isDownloading={
+                                        download.isPending &&
+                                        download.variables?.slug ===
+                                            template.slug
+                                    }
                                     onPreview={() =>
                                         downloadPreview(template)
                                     }
+                                    onDownload={() => downloadFile(template)}
                                     onReplace={() =>
                                         setReplacing(template)
                                     }
@@ -295,6 +322,9 @@ export function TemplateSettingsSection() {
 
             <ReplaceTemplateDialog
                 template={replacing}
+                onDownload={
+                    replacing ? () => downloadFile(replacing) : undefined
+                }
                 onOpenChange={(open) => {
                     if (!open) {
                         setReplacing(null);
@@ -409,7 +439,9 @@ function TemplateRow({
     canPreview,
     isPending,
     isPreviewing,
+    isDownloading,
     onPreview,
+    onDownload,
     onReplace,
     onMakeDefault,
     onDelete,
@@ -419,7 +451,9 @@ function TemplateRow({
     canPreview: boolean;
     isPending: boolean;
     isPreviewing: boolean;
+    isDownloading: boolean;
     onPreview: () => void;
+    onDownload: () => void;
     onReplace: () => void;
     onMakeDefault: () => void;
     onDelete: () => void;
@@ -492,6 +526,21 @@ function TemplateRow({
                             <IconStar className="size-4" />
                         </Button>
                     )}
+
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        title="دانلود فایل"
+                        onClick={onDownload}
+                        disabled={isPending}
+                    >
+                        {isDownloading ? (
+                            <Spinner className="size-4" />
+                        ) : (
+                            <IconDownload className="size-4" />
+                        )}
+                    </Button>
 
                     <Button
                         type="button"
@@ -668,9 +717,11 @@ function UploadTemplateDialog({
  */
 function ReplaceTemplateDialog({
     template,
+    onDownload,
     onOpenChange,
 }: {
     template: TemplateDto | null;
+    onDownload?: () => void;
     onOpenChange: (open: boolean) => void;
 }) {
     const activeFormat = template?.format ?? "docx";
@@ -755,6 +806,22 @@ function ReplaceTemplateDialog({
                 />
 
                 {activeFormat === "json" && <JsonTemplateHint />}
+
+                {onDownload && (
+                    // The safe half of the loop, offered where the risky half
+                    // happens: the person about to overwrite the file is the
+                    // one who most wants the current bytes first.
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="justify-self-start"
+                        onClick={onDownload}
+                    >
+                        <IconDownload className="size-4" />
+                        دانلود فایل فعلی
+                    </Button>
+                )}
 
                 <p className="text-xs text-muted-foreground">
                     فایل فعلی بازنویسی می‌شود و بازگشتی ندارد. اگر می‌خواهید

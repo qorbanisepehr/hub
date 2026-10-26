@@ -5,6 +5,7 @@ import { exportTemplateKeys } from "@/lib/query-keys";
 import { getApiError } from "@/lib/error-utils";
 import {
     deleteTemplate,
+    downloadTemplateFile,
     fetchTemplateFields,
     fetchTemplates,
     previewTemplate,
@@ -68,6 +69,22 @@ export function usePreviewTemplate(domain = "boardmeeting") {
     return useMutation({
         mutationFn: ({ slug, format }: { slug: string; format: string }) =>
             previewTemplate(slug, domain, format),
+        onError: (error) => toast.error(getApiError(error)),
+    });
+}
+
+/**
+ * The stored file of a template, raw, for the download-edit-replace loop.
+ *
+ * Like the preview, a mutation rather than a query because the answer is a
+ * file, not state to cache — and the bytes on the server change with every
+ * replacement, so a cached copy would be exactly the stale file the loop exists
+ * to avoid.
+ */
+export function useDownloadTemplate(domain = "boardmeeting") {
+    return useMutation({
+        mutationFn: ({ slug, format }: { slug: string; format: string }) =>
+            downloadTemplateFile(slug, format, domain),
         onError: (error) => toast.error(getApiError(error)),
     });
 }
