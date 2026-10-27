@@ -1,6 +1,9 @@
+import { useMemo, useRef } from "react";
+import { IconBrain, IconFileImport, IconFileTypography, IconListDetails, IconPalette, IconShieldLock, IconTag } from "@tabler/icons-react";
 import { Outlet, useRouterState, useNavigate } from "@tanstack/react-router";
 import { PageLayout, PageHeader } from "@/components/layout";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+// vertical rail removed in favour of a top segmented nav
 import { usePermission } from "@/features/auth/components/permission-guard";
 import { PERMISSIONS } from "@/lib/permissions";
 
@@ -50,6 +53,92 @@ export function SettingsPage() {
                     ? "ai"
                     : "branding";
 
+    const settingsTabs = useMemo(
+        () => [
+            ...(canBranding
+                ? [
+                      {
+                          key: "branding",
+                          label: "برندینگ",
+                          icon: <IconPalette className="size-5" />,
+                          description: "هویت بصری سیستم",
+                      },
+                  ]
+                : []),
+            ...(canPermissions
+                ? [
+                      {
+                          key: "permissions",
+                          label: "مجوزها",
+                          icon: <IconShieldLock className="size-5" />,
+                          description: "دسترسی‌ها و نقش‌ها",
+                      },
+                  ]
+                : []),
+            ...(canFormOptions
+                ? [
+                      {
+                          key: "form-options",
+                          label: "گزینه‌های فرم",
+                          icon: <IconListDetails className="size-5" />,
+                          description: "مقادیر قابل انتخاب",
+                      },
+                  ]
+                : []),
+            ...(canImports
+                ? [
+                      {
+                          key: "imports",
+                          label: "ورود اطلاعات",
+                          icon: <IconFileImport className="size-5" />,
+                          description: "وارد کردن دسته‌ای",
+                      },
+                  ]
+                : []),
+            ...(canTags
+                ? [
+                      {
+                          key: "tags",
+                          label: "برچسب‌ها",
+                          icon: <IconTag className="size-5" />,
+                          description: " برچسب‌گذاری",
+                      },
+                  ]
+                : []),
+            ...(canAi
+                ? [
+                      {
+                          key: "ai",
+                          label: "هوش مصنوعی",
+                          icon: <IconBrain className="size-5" />,
+                          description: "ارائه‌دهندگان AI",
+                      },
+                  ]
+                : []),
+            ...(canTemplates
+                ? [
+                      {
+                          key: "templates",
+                          label: "قالب خروجی",
+                          icon: <IconFileTypography className="size-5" />,
+                          description: "فایل‌های قالب",
+                      },
+                  ]
+                : []),
+        ],
+        [
+            canBranding,
+            canPermissions,
+            canFormOptions,
+            canImports,
+            canTags,
+            canAi,
+            canTemplates,
+        ],
+    );
+
+    const contentRef = useRef<HTMLDivElement>(null);
+
     return (
         <PageLayout>
             <PageHeader
@@ -60,37 +149,36 @@ export function SettingsPage() {
             <Tabs
                 value={activeTab}
                 onValueChange={(tab) => {
-                    const target = `/settings/${tab}`;
-                    void navigate({ to: target as never });
+                    if (tab) {
+                        const target = `/settings/${tab}`;
+                        void navigate({ to: target as never });
+                    }
                 }}
+                className="grid gap-4"
             >
-                <TabsList>
-                    {canBranding && (
-                        <TabsTrigger value="branding">برندینگ</TabsTrigger>
-                    )}
-                    {canPermissions && (
-                        <TabsTrigger value="permissions">مجوزها</TabsTrigger>
-                    )}
-                    {canFormOptions && (
-                        <TabsTrigger value="form-options">
-                            گزینه‌های فرم
-                        </TabsTrigger>
-                    )}
-                    {canImports && (
-                        <TabsTrigger value="imports">ورود اطلاعات</TabsTrigger>
-                    )}
-                    {canTags && (
-                        <TabsTrigger value="tags">برچسب‌ها</TabsTrigger>
-                    )}
-                    {canAi && <TabsTrigger value="ai">هوش مصنوعی</TabsTrigger>}
-                    {canTemplates && (
-                        <TabsTrigger value="templates">
-                            قالب خروجی
-                        </TabsTrigger>
-                    )}
-                </TabsList>
+                <div className="sticky top-0 z-10 rounded-2xl border border-border/60 bg-card/80 p-2 shadow-sm backdrop-blur">
+                    <TabsList className="flex w-full gap-1 overflow-x-auto bg-transparent p-0 scroll-fade-x no-scrollbar">
+                        {settingsTabs.map((tab) => (
+                            <TabsTrigger
+                                key={tab.key}
+                                value={tab.key}
+                                className="flex shrink-0 items-center gap-2 rounded-xl px-3 py-2 text-sm"
+                            >
+                                {tab.icon}
+                                <span className="font-medium">
+                                    {tab.label}
+                                </span>
+                            </TabsTrigger>
+                        ))}
+                    </TabsList>
+                </div>
 
-                <Outlet />
+                <div
+                    ref={contentRef}
+                    className="rounded-2xl border border-border/60 bg-card shadow-sm p-4 lg:p-6 min-w-0"
+                >
+                    <Outlet />
+                </div>
             </Tabs>
         </PageLayout>
     );

@@ -163,12 +163,12 @@ export function TemplateSettingsSection() {
     return (
         <div className="grid gap-6">
             <Tabs defaultValue="templates" className="grid gap-6">
-                <TabsList className="w-full justify-start sm:w-fit">
-                    <TabsTrigger value="templates" className="gap-1.5 px-3">
+                <TabsList className="inline-flex w-full max-w-full items-center gap-1 rounded-xl bg-muted/60 p-1 sm:w-auto">
+                    <TabsTrigger value="templates" className="gap-1.5 rounded-lg px-4 py-2">
                         <IconFileText className="size-4" />
                         قالب‌ها
                     </TabsTrigger>
-                    <TabsTrigger value="guide" className="gap-1.5 px-3">
+                    <TabsTrigger value="guide" className="gap-1.5 rounded-lg px-4 py-2">
                         <IconBook className="size-4" />
                         راهنمای نگارش
                     </TabsTrigger>
@@ -181,8 +181,8 @@ export function TemplateSettingsSection() {
                         else. */}
                     <SectionTemplateSettingsCard />
 
-                    <Card className="gap-0 overflow-hidden py-0">
-                        <CardHeader className="gap-4 border-b bg-muted/30 p-4">
+                    <Card className="gap-0 overflow-hidden rounded-2xl border border-border/60 bg-card shadow-md">
+                        <CardHeader className="gap-4 border-b bg-gradient-to-br from-primary/5 via-muted/20 to-transparent p-5">
                             <div className="flex flex-wrap items-start justify-between gap-3">
                                 <div className="flex min-w-0 items-start gap-3">
                                     <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
@@ -244,13 +244,12 @@ export function TemplateSettingsSection() {
                                     setFormat(value as TemplateFormat)
                                 }
                             >
-                                <TabsList className="w-full justify-start sm:w-fit">
+                                <TabsList className="grid w-full grid-cols-3 gap-1 rounded-xl bg-muted/60 p-1 sm:flex sm:w-fit">
                                     {FORMATS.map(({ key, label, icon: Icon }) => (
                                         <TabsTrigger
                                             key={key}
                                             value={key}
-                                            className="gap-1.5 px-3"
-                                        >
+                                            className="gap-1.5 rounded-lg px-3 py-2 data-[state=active]:shadow-sm"                                        >
                                             <Icon className="size-4" />
                                             {label}
                                         </TabsTrigger>
@@ -260,7 +259,7 @@ export function TemplateSettingsSection() {
                         </CardHeader>
 
                         <CardContent className="p-0">
-                            <div className="flex items-center justify-between gap-2 border-b px-4 py-2.5 text-xs text-muted-foreground">
+                            <div className="flex items-center justify-between gap-2 border-b bg-muted/10 px-5 py-3 text-xs text-muted-foreground">
                                 <span>
                                     {current.label} · {templates?.length ?? 0} قالب
                                 </span>
@@ -488,7 +487,13 @@ function TemplateRow({
     const Icon = meta?.icon ?? IconFileText;
 
     return (
-        <li className="group flex flex-wrap items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/40">
+        <li
+            className={cn(
+                "group flex flex-wrap items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/40",
+                template.is_default &&
+                    "border-s-4 border-s-primary/40 bg-primary/5",
+            )}
+        >
             <div
                 className={cn(
                     "grid size-10 shrink-0 place-items-center rounded-xl border",
@@ -534,7 +539,7 @@ function TemplateRow({
                 // that appear on hover are undiscoverable until stumbled on, and
                 // invisible on touch. The tooltip carries the name hover used to.
                 <TooltipProvider>
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1 rounded-lg border border-border/60 bg-card/70 p-1 shadow-xs">
                         {canPreview && (
                             <Tooltip>
                                 <TooltipTrigger
