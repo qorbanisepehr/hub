@@ -406,6 +406,12 @@ final readonly class MeetingSummary
 
         $status = self::deriveStatus($fields);
 
+        // The SDK wraps a prose answer from a structured agent as a
+        // structured response with an empty array, so null and [] are the
+        // same no-structure case here. A non-empty structure that filled
+        // nothing is the other failure.
+        $hasStructuredOutput = $structured !== null && $structured !== [];
+
         return new self(
             status: $status,
             values: $values,
@@ -419,7 +425,7 @@ final readonly class MeetingSummary
             // arrived: prose where fields were asked for is a different
             // failure from a structure with nothing usable in it.
             error: $status === self::STATUS_FAILED
-                ? ($structured === null ? self::REASON_NO_STRUCTURED_OUTPUT : self::REASON_NO_FIELDS_RETURNED)
+                ? ($hasStructuredOutput ? self::REASON_NO_FIELDS_RETURNED : self::REASON_NO_STRUCTURED_OUTPUT)
                 : null,
             // Stamped even when nothing was filled, because it answers "when
             // was the row's current state established" — and a run that
