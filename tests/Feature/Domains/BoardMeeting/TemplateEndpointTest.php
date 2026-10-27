@@ -111,7 +111,11 @@ describe('the template library endpoints', function () {
             // a person whether their file needed placeholders to do anything. It
             // told them the wrong thing about a letterhead with a placeholder in
             // its footer, so there is no kind to report.
-            ->assertJsonMissingPath('data.kind');
+            ->assertJsonMissingPath('data.kind')
+            // The 201 still carries what the file turned out to be, inspected
+            // once and passed through upload() rather than read a second time.
+            ->assertJsonPath('inspection.kind', 'detail')
+            ->assertJsonPath('inspection.placeholders', ['title']);
     });
 
     it('reports a template with no placeholders the same way', function () use ($manager, $upload) {

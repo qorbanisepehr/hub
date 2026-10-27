@@ -117,6 +117,8 @@ final class FileTemplateLibrary
      * inventing a transliteration would produce a slug that looks machine-made in
      * a key somebody may read in a log.
      *
+     * @param  array{size: int, kind: string, placeholders: list<string>}|null  $inspected  A caller that already inspected this file passes the result; omitted to inspect here.
+     *
      * @throws InvalidFileTemplate
      */
     public function upload(
@@ -127,10 +129,11 @@ final class FileTemplateLibrary
         ?string $entity = null,
         bool $isDefault = false,
         ?int $uploadedBy = null,
+        ?array $inspected = null,
     ): FileTemplate {
         // Before anything is read from the file a second time, so a file refused
         // for its size or for carrying macros never reaches the store.
-        $inspected = $this->inspector->inspect($file, $format);
+        $inspected ??= $this->inspector->inspect($file, $format);
 
         $bytes = $this->bytesOf($file);
 

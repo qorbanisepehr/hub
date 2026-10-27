@@ -223,15 +223,22 @@ final class FileTemplateController
 
     public function store(StoreFileTemplateRequest $request): JsonResponse
     {
+        $file = $request->file('file');
+        $format = $request->templateFormat();
+
         try {
+            // Inspected once here because the 201 needs the result, then passed
+            // into upload() so it does not re-open the same file.
+            $inspection = $this->library->inspect($file, $format);
             $template = $this->library->upload(
-                file: $request->file('file'),
-                format: $request->templateFormat(),
+                file: $file,
+                format: $format,
                 domain: $request->domain(),
                 name: $request->name(),
                 entity: null,
                 isDefault: $request->isDefault(),
                 uploadedBy: $this->actor($request),
+                inspected: $inspection,
             );
         } catch (InvalidFileTemplate $rejected) {
             // 422 rather than 500: the file was refused for something about
@@ -254,15 +261,7 @@ final class FileTemplateController
             // chosen, so the answer arrives as a result instead of an intention —
             // and the first place it would otherwise show up is an export somebody
             // has to open to find out they got the other kind.
-            //
-            // The file is inspected a second time rather than carried out of
-            // `upload()`, which would mean returning two values from a method
-            // thirty call sites already use. The work is repeated; the LOGIC is
-            // not, which is the half that would drift.
-            'inspection' => $this->library->inspect(
-                $request->file('file'),
-                $request->templateFormat(),
-            ),
+            'inspection' => $inspection,
         ], 201);
     }
 
