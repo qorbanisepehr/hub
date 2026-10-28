@@ -80,6 +80,37 @@ export const PERMISSIONS = {
     // Form Options
     FORM_OPTIONS_VIEW: "form-options.view",
     FORM_OPTIONS_MANAGE: "form-options.manage",
+
+    // Reporting
+    REPORT_ATTENDANCE_VIEW: "report.attendance.view",
+    REPORT_UNIFIED_INBOX_VIEW: "report.unified-inbox.view",
+
+    // Board Meetings
+    BOARD_MEETING_VIEW: "board-meeting.view",
+    BOARD_MEETING_UPDATE: "board-meeting.update",
+    BOARD_MEETING_SYNC: "board-meeting.sync",
+    BOARD_MEETING_EXPORT: "board-meeting.export",
+
+    // Board Meeting Documents
+    BOARD_MEETING_DOCUMENTS_VIEW: "board-meeting.documents.view",
+    BOARD_MEETING_DOCUMENTS_UPLOAD: "board-meeting.documents.upload",
+    BOARD_MEETING_DOCUMENTS_DOWNLOAD: "board-meeting.documents.download",
+    BOARD_MEETING_DOCUMENTS_DELETE: "board-meeting.documents.delete",
+
+    // Tags
+    TAG_VIEW: "tag.view",
+    TAG_MANAGE: "tag.manage",
+
+    // AI
+    AI_PROVIDER_VIEW: "ai.provider.view",
+    AI_PROVIDER_MANAGE: "ai.provider.manage",
+
+    // Export templates: which sections a document contains, and which uploaded
+    // Word template it is built from. One pair for every domain rather than a
+    // pair per domain - "how does this document print" is the same question
+    // wherever the document lives.
+    EXPORT_TEMPLATE_VIEW: "export-template.view",
+    EXPORT_TEMPLATE_MANAGE: "export-template.manage",
 } as const;
 
 export type PermissionValue = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];

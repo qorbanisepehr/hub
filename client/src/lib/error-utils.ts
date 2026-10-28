@@ -33,6 +33,23 @@ export function getApiError(e: unknown): string | null {
 }
 
 /**
+ * The HTTP status of a failed request, or null when there wasn't one.
+ *
+ * For the responses whose *meaning* is in the status rather than in the body:
+ * a 409 says the thing being acted on is gone and the caller should re-read,
+ * which is a different instruction from "the message says what went wrong".
+ * Without this, every caller that needs the distinction reaches into axios
+ * itself, and the retry-vs-refresh decision gets written once per feature.
+ */
+export function getApiErrorStatus(e: unknown): number | null {
+    if (isAxiosError(e)) {
+        return e.response?.status ?? null;
+    }
+
+    return null;
+}
+
+/**
  * Extract every server validation message from a submit (422) response,
  * falling back to a single generic message. Shared by all final-submit
  * mutations so their error banners stay identical.

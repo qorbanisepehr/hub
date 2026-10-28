@@ -15,6 +15,8 @@ export type EntityDocument = {
     category: { id: number; name: string; slug: string } | null;
     section_key: string | null;
     field_key: string | null;
+    /** The hub document's own id, where the endpoint reports it. Optional. */
+    document_id?: number | null;
     metadata: Record<string, unknown> | null;
     notes: string | null;
     deleted_at?: string | null;
@@ -54,9 +56,11 @@ const NO_CAPABILITIES: DocumentCapabilities = {
 /**
  * Entities whose document API is protected by Sanctum auth instead of an access
  * grant. The entity value doubles as the API path prefix, so the auth model is
- * derived from it (questionnaire/cv use grant tokens, employees use the session).
+ * derived from it (questionnaire/cv use grant tokens, employees and board
+ * meetings use the session — both sit behind hub permissions rather than
+ * participant grants).
  */
-const AUTHED_DOCUMENT_ENTITIES = new Set(["employees"]);
+const AUTHED_DOCUMENT_ENTITIES = new Set(["employees", "board-meetings"]);
 
 export function isAuthedDocumentEntity(entity: string): boolean {
     return AUTHED_DOCUMENT_ENTITIES.has(entity);

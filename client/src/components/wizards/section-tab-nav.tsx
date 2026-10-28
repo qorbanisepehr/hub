@@ -15,6 +15,7 @@ export type SectionTabItem = {
     key: string;
     label: string;
     description?: string;
+    icon?: React.ReactNode;
 };
 
 type SectionTabNavProps = {
@@ -81,23 +82,43 @@ export function SectionTabNav({
             )}
         >
             {/* Desktop vertical rail */}
-            <TabsList className="hidden w-full rounded bg-sidebar text-sidebar-foreground border border-sidebar-border p-2 flex-col items-stretch gap-0.5 self-start lg:flex">
-                {tabs.map((tab) => (
-                    <TabsTrigger
-                        key={tab.key}
-                        value={tab.key}
-                        ref={
-                            tab.key === active?.key
-                                ? activeTriggerRef
-                                : undefined
-                        }
-                        onSelect={() => selectTab(tab.key)}
-                        className="relative h-auto justify-start rounded-md px-3 py-2 text-start text-sm font-medium text-sidebar-foreground hover:text-sidebar-foreground data-active:hover:text-primary data-active:hover:cursor-default"
-                    >
-                        {tab.label}
-                    </TabsTrigger>
-                ))}
-            </TabsList>
+            <div className="hidden lg:block rounded-2xl border border-border/70 bg-card/70 p-2 shadow-sm backdrop-blur">
+                <TabsList className="flex w-full flex-col items-stretch gap-1 bg-transparent p-0">
+                    {tabs.map((tab) => (
+                        <TabsTrigger
+                            key={tab.key}
+                            value={tab.key}
+                            ref={
+                                tab.key === active?.key
+                                    ? activeTriggerRef
+                                    : undefined
+                            }
+                            onSelect={() => selectTab(tab.key)}
+                            className={cn(
+                                "group h-auto justify-start gap-3 rounded-xl border border-transparent px-3 py-2.5 text-start transition-colors",
+                                "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+                                "data-[state=active]:border-primary/20 data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm",
+                            )}
+                        >
+                            {tab.icon ? (
+                                <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted/70 text-foreground/80 transition-colors group-data-[state=active]:bg-primary/15 group-data-[state=active]:text-primary">
+                                    {tab.icon}
+                                </span>
+                            ) : null}
+                            <span className="min-w-0 flex-1">
+                                <span className="block text-sm font-semibold">
+                                    {tab.label}
+                                </span>
+                                {tab.description ? (
+                                    <span className="mt-0.5 block text-xs font-normal text-muted-foreground/80">
+                                        {tab.description}
+                                    </span>
+                                ) : null}
+                            </span>
+                        </TabsTrigger>
+                    ))}
+                </TabsList>
+            </div>
 
             {/* Mobile dropdown selector */}
             <DropdownMenu>

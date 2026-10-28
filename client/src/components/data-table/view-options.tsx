@@ -3,68 +3,49 @@ import {
     type StockFeatures,
     type Table,
 } from "@tanstack/react-table";
-import { Button } from "@/components/ui/button";
-import {
-    DropdownMenu,
-    DropdownMenuCheckboxItem,
-    DropdownMenuContent,
-    DropdownMenuGroup,
-    DropdownMenuLabel,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { IconTableOptions } from "@tabler/icons-react";
+import { DropdownMenuCheckboxItem } from "@/components/ui/dropdown-menu";
 
-type DataTableViewOptionsProps<TData extends RowData> = {
+type ColumnVisibilityProps<TData extends RowData> = {
     table: Table<StockFeatures, TData>;
 };
 
-export function DataTableViewOptions<TData extends RowData>({
+/** Hideable accessor columns of the table — shared source for the desktop
+ *  and mobile column-visibility menus, and for deciding whether the
+ *  toolbar has any settings content to show at all. */
+export function hideableColumns<TData extends RowData>(
+    table: Table<StockFeatures, TData>,
+) {
+    return table
+        .getAllColumns()
+        .filter(
+            (column) =>
+                typeof column.accessorFn !== "undefined" &&
+                column.getCanHide(),
+        );
+}
+
+/**
+ * Column show/hide rows as menu items, embedded wherever the shell needs
+ * them — the desktop «⚙ تنظیمات جدول» dropdown and the mobile «تنظیمات»
+ * submenu. One content, two shells, so both always list the same columns.
+ * `DropdownMenuCheckboxItem` so toggling never closes the menu.
+ */
+export function ColumnVisibilityMenuItems<TData extends RowData>({
     table,
-}: DataTableViewOptionsProps<TData>) {
+}: ColumnVisibilityProps<TData>) {
     return (
-        <DropdownMenu>
-            <DropdownMenuTrigger
-                render={
-                    <Button
-                        variant="outline"
-                        size="icon"
-                        className="ms-auto hidden h-8 lg:flex"
-                    >
-                        <IconTableOptions className="size-4" />
-                    </Button>
-                }
-            />
-            <DropdownMenuContent align="end" className="w-38">
-                <DropdownMenuGroup>
-                    <DropdownMenuLabel>
-                        نمایش/مخفی کردن ستون‌ها
-                    </DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    {table
-                        .getAllColumns()
-                        .filter(
-                            (column) =>
-                                typeof column.accessorFn !== "undefined" &&
-                                column.getCanHide(),
-                        )
-                        .map((column) => {
-                            return (
-                                <DropdownMenuCheckboxItem
-                                    key={column.id}
-                                    className="capitalize"
-                                    checked={column.getIsVisible()}
-                                    onCheckedChange={(value: boolean) =>
-                                        column.toggleVisibility(!!value)
-                                    }
-                                >
-                                    {column.columnDef.meta?.displayName ??
-                                        column.id}
-                                </DropdownMenuCheckboxItem>
-                            );
-                        })}
-                </DropdownMenuGroup>
-            </DropdownMenuContent>
-        </DropdownMenu>
+        <>
+            {hideableColumns(table).map((column) => (
+                <DropdownMenuCheckboxItem
+                    key={column.id}
+                    checked={column.getIsVisible()}
+                    onCheckedChange={(value: boolean) =>
+                        column.toggleVisibility(!!value)
+                    }
+                >
+                    {column.columnDef.meta?.displayName ?? column.id}
+                </DropdownMenuCheckboxItem>
+            ))}
+        </>
     );
 }

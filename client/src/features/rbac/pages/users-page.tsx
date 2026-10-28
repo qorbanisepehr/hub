@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, getRouteApi } from "@tanstack/react-router";
-import { IconPlus, IconUsers } from "@tabler/icons-react";
+import { IconPlus, IconRefresh, IconUsers } from "@tabler/icons-react";
 
 import { Button } from "@/components/ui/button";
 import { fetchUsers, fetchRoleOptions } from "@/features/rbac/api";
@@ -53,7 +53,7 @@ export function UsersPage() {
     const activeIsActive = url.activeValue("is_active");
     const { ensurePageInRange } = url;
 
-    const { data, isLoading, isError } = useQuery({
+    const { data, isLoading, isError, isFetching } = useQuery({
         queryKey: userKeys.list({
             page: url.pagination.pageIndex + 1,
             per_page: url.pagination.pageSize,
@@ -164,6 +164,18 @@ export function UsersPage() {
                         { label: "فعال", value: "true" },
                         { label: "غیرفعال", value: "false" },
                     ],
+                },
+            ]}
+            actions={[
+                {
+                    id: "refresh",
+                    label: "بازخوانی",
+                    icon: IconRefresh,
+                    onClick: () =>
+                        queryClient.invalidateQueries({
+                            queryKey: userKeys.all,
+                        }),
+                    disabled: isFetching,
                 },
             ]}
             emptyAction={

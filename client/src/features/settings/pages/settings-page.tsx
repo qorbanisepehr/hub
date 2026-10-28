@@ -1,25 +1,15 @@
-import { useEffect } from "react";
-import { getRouteApi } from "@tanstack/react-router";
-
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { useMemo, useRef } from "react";
+import { IconBrain, IconFileImport, IconFileTypography, IconListDetails, IconPalette, IconShieldLock, IconTag } from "@tabler/icons-react";
+import { Outlet, useRouterState, useNavigate } from "@tanstack/react-router";
 import { PageLayout, PageHeader } from "@/components/layout";
-import {
-    PermissionGuard,
-    usePermission,
-} from "@/features/auth/components/permission-guard";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+// vertical rail removed in favour of a top segmented nav
+import { usePermission } from "@/features/auth/components/permission-guard";
 import { PERMISSIONS } from "@/lib/permissions";
-import { BrandingSettingsSection } from "@/features/settings/pages/branding-settings-page";
-import { PermissionsSection } from "@/features/rbac/pages/permissions-section";
-import { FormOptionsSection } from "@/features/settings/pages/form-options-section";
-import { ImportSection } from "@/features/imports/import-section";
-
-const route = getRouteApi("/protected/settings");
-
-export type SettingsTab = "branding" | "permissions" | "form-options" | "imports";
 
 export function SettingsPage() {
-    const search = route.useSearch();
-    const navigate = route.useNavigate();
+    const pathname = useRouterState({ select: (s) => s.location.pathname });
+    const navigate = useNavigate();
 
     const canBranding = usePermission([
         PERMISSIONS.BRANDING_VIEW,
@@ -34,36 +24,120 @@ export function SettingsPage() {
         PERMISSIONS.FORM_OPTIONS_MANAGE,
     ]);
     const canImports = usePermission([PERMISSIONS.EMPLOYEE_IMPORT]);
-
-    const defaultTab: SettingsTab = canBranding
-        ? "branding"
-        : canPermissions
-          ? "permissions"
-          : canFormOptions
-            ? "form-options"
-            : "imports";
-    const activeTab = search.tab ?? defaultTab;
-
-    useEffect(() => {
-        if (
-            (activeTab === "branding" && !canBranding) ||
-            (activeTab === "permissions" && !canPermissions) ||
-            (activeTab === "form-options" && !canFormOptions) ||
-            (activeTab === "imports" && !canImports)
-        ) {
-            navigate({
-                search: (prev) => ({ ...prev, tab: defaultTab }),
-            });
-        }
-    }, [
-        activeTab,
-        canBranding,
-        canPermissions,
-        canFormOptions,
-        canImports,
-        defaultTab,
-        navigate,
+    const canTags = usePermission([
+        PERMISSIONS.TAG_VIEW,
+        PERMISSIONS.TAG_MANAGE,
     ]);
+    const canAi = usePermission([
+        PERMISSIONS.AI_PROVIDER_VIEW,
+        PERMISSIONS.AI_PROVIDER_MANAGE,
+    ]);
+    const canTemplates = usePermission([
+        PERMISSIONS.EXPORT_TEMPLATE_VIEW,
+        PERMISSIONS.EXPORT_TEMPLATE_MANAGE,
+    ]);
+
+    const activeTab = pathname.endsWith("/branding")
+        ? "branding"
+        : pathname.endsWith("/permissions")
+          ? "permissions"
+          : pathname.endsWith("/form-options")
+            ? "form-options"
+            : pathname.endsWith("/imports")
+              ? "imports"
+              : pathname.endsWith("/templates")
+                ? "templates"
+                : pathname.endsWith("/tags")
+                  ? "tags"
+                  : pathname.endsWith("/ai")
+                    ? "ai"
+                    : "branding";
+
+    const settingsTabs = useMemo(
+        () => [
+            ...(canBranding
+                ? [
+                      {
+                          key: "branding",
+                          label: "برندینگ",
+                          icon: <IconPalette className="size-5" />,
+                          description: "هویت بصری سیستم",
+                      },
+                  ]
+                : []),
+            ...(canPermissions
+                ? [
+                      {
+                          key: "permissions",
+                          label: "مجوزها",
+                          icon: <IconShieldLock className="size-5" />,
+                          description: "دسترسی‌ها و نقش‌ها",
+                      },
+                  ]
+                : []),
+            ...(canFormOptions
+                ? [
+                      {
+                          key: "form-options",
+                          label: "گزینه‌های فرم",
+                          icon: <IconListDetails className="size-5" />,
+                          description: "مقادیر قابل انتخاب",
+                      },
+                  ]
+                : []),
+            ...(canImports
+                ? [
+                      {
+                          key: "imports",
+                          label: "ورود اطلاعات",
+                          icon: <IconFileImport className="size-5" />,
+                          description: "وارد کردن دسته‌ای",
+                      },
+                  ]
+                : []),
+            ...(canTags
+                ? [
+                      {
+                          key: "tags",
+                          label: "برچسب‌ها",
+                          icon: <IconTag className="size-5" />,
+                          description: " برچسب‌گذاری",
+                      },
+                  ]
+                : []),
+            ...(canAi
+                ? [
+                      {
+                          key: "ai",
+                          label: "هوش مصنوعی",
+                          icon: <IconBrain className="size-5" />,
+                          description: "ارائه‌دهندگان AI",
+                      },
+                  ]
+                : []),
+            ...(canTemplates
+                ? [
+                      {
+                          key: "templates",
+                          label: "قالب خروجی",
+                          icon: <IconFileTypography className="size-5" />,
+                          description: "فایل‌های قالب",
+                      },
+                  ]
+                : []),
+        ],
+        [
+            canBranding,
+            canPermissions,
+            canFormOptions,
+            canImports,
+            canTags,
+            canAi,
+            canTemplates,
+        ],
+    );
+
+    const contentRef = useRef<HTMLDivElement>(null);
 
     return (
         <PageLayout>
@@ -74,73 +148,37 @@ export function SettingsPage() {
 
             <Tabs
                 value={activeTab}
-                onValueChange={(tab) =>
-                    navigate({ search: (prev) => ({ ...prev, tab }) })
-                }
+                onValueChange={(tab) => {
+                    if (tab) {
+                        const target = `/settings/${tab}`;
+                        void navigate({ to: target as never });
+                    }
+                }}
+                className="grid gap-4"
             >
-                <TabsList>
-                    {canBranding && (
-                        <TabsTrigger value="branding">برندینگ</TabsTrigger>
-                    )}
-                    {canPermissions && (
-                        <TabsTrigger value="permissions">مجوزها</TabsTrigger>
-                    )}
-                    {canFormOptions && (
-                        <TabsTrigger value="form-options">گزینه‌های فرم</TabsTrigger>
-                    )}
-                    {canImports && (
-                        <TabsTrigger value="imports">ورود اطلاعات</TabsTrigger>
-                    )}
-                </TabsList>
+                <div className="sticky top-0 z-10 rounded-2xl border border-border/60 bg-card/80 p-2 shadow-sm backdrop-blur">
+                    <TabsList className="flex w-full gap-1 overflow-x-auto bg-transparent p-0 scroll-fade-x no-scrollbar">
+                        {settingsTabs.map((tab) => (
+                            <TabsTrigger
+                                key={tab.key}
+                                value={tab.key}
+                                className="flex shrink-0 items-center gap-2 rounded-xl px-3 py-2 text-sm"
+                            >
+                                {tab.icon}
+                                <span className="font-medium">
+                                    {tab.label}
+                                </span>
+                            </TabsTrigger>
+                        ))}
+                    </TabsList>
+                </div>
 
-                {canBranding && (
-                    <TabsContent value="branding">
-                        <PermissionGuard
-                            permission={[
-                                PERMISSIONS.BRANDING_VIEW,
-                                PERMISSIONS.BRANDING_MANAGE,
-                            ]}
-                        >
-                            <BrandingSettingsSection />
-                        </PermissionGuard>
-                    </TabsContent>
-                )}
-
-                {canPermissions && (
-                    <TabsContent value="permissions">
-                        <PermissionGuard
-                            permission={[
-                                PERMISSIONS.DOCUMENT_CATEGORY_VIEW,
-                                PERMISSIONS.DOCUMENT_CATEGORY_MANAGE,
-                            ]}
-                        >
-                            <PermissionsSection />
-                        </PermissionGuard>
-                    </TabsContent>
-                )}
-
-                {canFormOptions && (
-                    <TabsContent value="form-options">
-                        <PermissionGuard
-                            permission={[
-                                PERMISSIONS.FORM_OPTIONS_VIEW,
-                                PERMISSIONS.FORM_OPTIONS_MANAGE,
-                            ]}
-                        >
-                            <FormOptionsSection />
-                        </PermissionGuard>
-                    </TabsContent>
-                )}
-
-                {canImports && (
-                    <TabsContent value="imports">
-                        <PermissionGuard
-                            permission={PERMISSIONS.EMPLOYEE_IMPORT}
-                        >
-                            <ImportSection />
-                        </PermissionGuard>
-                    </TabsContent>
-                )}
+                <div
+                    ref={contentRef}
+                    className="rounded-2xl border border-border/60 bg-card shadow-sm p-4 lg:p-6 min-w-0"
+                >
+                    <Outlet />
+                </div>
             </Tabs>
         </PageLayout>
     );

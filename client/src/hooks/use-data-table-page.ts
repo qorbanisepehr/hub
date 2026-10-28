@@ -4,7 +4,9 @@ import {
     stockFeatures,
     type ColumnDef,
     type ColumnVisibilityState,
+    type OnChangeFn,
     type RowData,
+    type RowSelectionState,
     type StockFeatures,
     type Table as TanStackTable,
 } from "@tanstack/react-table";
@@ -115,6 +117,25 @@ type UseDataTableParams<TData extends RowData> = {
     meta?: Meta;
     /** State produced by useDataTableUrlState (part 1). */
     url: UseDataTableUrlStateReturn;
+    /**
+     * Turn on row selection for this table (off by default — existing tables
+     * change nothing). Row ids come from `getRowId` below, so selection keys
+     * stay stable across pagination on server-driven tables.
+     */
+    enableRowSelection?: boolean;
+    /**
+     * Selection state owned by the page (hoisted, deliberately NOT URL
+     * state — a selection is ephemeral and has no meaning in a URL). Pass
+     * only together with `onRowSelectionChange`.
+     */
+    rowSelection?: RowSelectionState;
+    onRowSelectionChange?: OnChangeFn<RowSelectionState>;
+    /**
+     * Stable row identity for selection. Required with selection on these
+     * tables: rows are paged server-side, so the default index-based `row.id`
+     * would silently move with every page change.
+     */
+    getRowId?: (row: TData) => string;
 };
 
 /**
@@ -128,6 +149,10 @@ export function useDataTable<TData extends RowData>({
     data,
     meta,
     url,
+    enableRowSelection = false,
+    rowSelection,
+    onRowSelectionChange,
+    getRowId,
 }: UseDataTableParams<TData>): TanStackTable<StockFeatures, TData> {
     const [columnVisibility, setColumnVisibility] =
         useState<ColumnVisibilityState>({});
@@ -142,11 +167,18 @@ export function useDataTable<TData extends RowData>({
             pagination: url.pagination,
             columnVisibility,
             columnFilters: url.columnFilters,
+            ...(enableRowSelection && rowSelection !== undefined
+                ? { rowSelection }
+                : {}),
         },
         onSortingChange: url.onSortingChange,
         onPaginationChange: url.onPaginationChange,
         onColumnVisibilityChange: setColumnVisibility,
         onColumnFiltersChange: url.onColumnFiltersChange,
+        ...(enableRowSelection && onRowSelectionChange
+            ? { onRowSelectionChange }
+            : {}),
+        getRowId,
         manualPagination: true,
         manualSorting: true,
         pageCount: meta?.last_page ?? 1,

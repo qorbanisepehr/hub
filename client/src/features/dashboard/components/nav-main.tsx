@@ -61,10 +61,16 @@ function NavLeaf({ item }: { item: NavItem }) {
 function NavGroup({ item }: { item: NavItem }) {
     const children = item.children ?? [];
     const pathname = usePathname();
+    const routerState = useRouterState({ select: (s) => s.location.search }) as Record<string, unknown>;
     const [open, setOpen] = useState(() =>
-        children.some(
-            (child) => child.url !== undefined && isActivePath(pathname, child.url),
-        ),
+        children.some((child) => {
+            if (child.url === undefined) return false;
+            if (!isActivePath(pathname, child.url)) return false;
+            const search = child.search as Record<string, unknown> | undefined;
+            if (!search) return true;
+            const current = routerState;
+            return Object.keys(search).every((k) => current[k] === search[k]);
+        }),
     );
 
     const menu = (
@@ -91,7 +97,7 @@ function NavGroup({ item }: { item: NavItem }) {
                                 <SidebarMenuSubButton
                                     isActive={
                                         child.url !== undefined &&
-                                        pathname === child.url
+                                        isActivePath(pathname, child.url)
                                     }
                                     render={
                                         <Link

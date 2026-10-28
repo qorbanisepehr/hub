@@ -14,7 +14,14 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { ResponsiveDialog } from "@/components/ui/responsive-dialog";
 import { getApiError } from "@/lib/error-utils";
 
-export type ExportFormat = "xlsx" | "csv";
+export type ExportFormat = "xlsx" | "csv" | "pdf" | "docx";
+
+/** Formats rendered as one printed document (capped rows, forced human form). */
+export const DOCUMENT_FORMATS: ExportFormat[] = ["pdf", "docx"];
+
+export function isDocumentFormat(format: ExportFormat): boolean {
+    return DOCUMENT_FORMATS.includes(format);
+}
 
 export type ExportPresentation = {
     /** Header language: machine keys or Persian labels. */
@@ -110,6 +117,11 @@ export function ExportDialog({
     const allSelected =
         fields.length > 0 && selectedFields.length === fields.length;
 
+    // PDF/Word route through the kernel's document bridge, which forces the
+    // human presentation (label headers, Jalali dates, Persian digits) and
+    // ignores detail sheets. Showing the controls would be misleading.
+    const isDocument = isDocumentFormat(format);
+
     const toggleField = (key: string) => {
         setSelectedFields((prev) =>
             prev.includes(key)
@@ -163,7 +175,9 @@ export function ExportDialog({
                         <Button
                             variant="outline"
                             onClick={handleTemplate}
-                            disabled={isTemplateDownloading || isExporting}
+                            disabled={
+                                isTemplateDownloading || isExporting || isDocument
+                            }
                         >
                             {isTemplateDownloading ? (
                                 <IconLoader2 className="size-4 animate-spin" />
@@ -204,7 +218,7 @@ export function ExportDialog({
                     </div>
                 )}
 
-                {showPresentation && (
+                {showPresentation && !isDocument && (
                     <div className="space-y-4">
                         <div className="space-y-2">
                             <Label>تقویم تاریخ‌ها</Label>
@@ -344,6 +358,15 @@ export function ExportDialog({
                             </div>
                         ))}
                     </RadioGroup>
+                    {isDocument && (
+                        <p className="text-xs text-muted-foreground">
+                            خروجی PDF و Word برای مطالعه انسانی است: سرستونها،
+                            تاریخ شمسی و اعداد فارسی همیشه اعمال میشوند و
+                            تعداد ردیفها محدود به سقف خروجی همزمان است؛ بیش از
+                            آن خطا میگیرید — فیلترها را دقیقتر کنید یا اکسل
+                            بگیرید.
+                        </p>
+                    )}
                 </div>
 
                 <div className="space-y-2">

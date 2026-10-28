@@ -12,6 +12,7 @@ import {
     IconChevronRight,
     IconChevronDown,
     IconDownload,
+    IconFileText,
 } from "@tabler/icons-react";
 
 import { useAuditLogs, useAuditEvents, useAuditLogDetail } from "@/features/audit/hooks";
@@ -24,7 +25,11 @@ import {
     useDataTableUrlState,
 } from "@/hooks/use-data-table-page";
 import { getApiError } from "@/lib/error-utils";
-import { saveBlobResponse, exportDateStamp } from "@/lib/download";
+import {
+    saveBlobResponse,
+    exportDateStamp,
+    EXPORT_MIME_TYPES,
+} from "@/lib/download";
 import { toast } from "sonner";
 import { auditKeys } from "@/lib/query-keys";
 import {
@@ -218,12 +223,12 @@ export function AuditLogsPage() {
         }
     }, [table, ensurePageInRange, isLoading, meta]);
 
-    const handleExport = async () => {
+    const handleExport = async (format: "csv" | "pdf") => {
         setIsExporting(true);
 
         try {
             const response = await exportAuditLogs({
-                format: "csv",
+                format,
                 filter: url.globalFilter || undefined,
                 category: activeCategory,
                 category_not: activeCategoryNot || undefined,
@@ -235,8 +240,8 @@ export function AuditLogsPage() {
 
             saveBlobResponse(
                 response,
-                `audit-logs-${exportDateStamp()}.csv`,
-                "text/csv;charset=utf-8",
+                `audit-logs-${exportDateStamp()}.${format}`,
+                EXPORT_MIME_TYPES[format],
             );
         } catch (err) {
             toast.error(getApiError(err) ?? "خطا در دریافت فایل خروجی");
@@ -311,7 +316,14 @@ export function AuditLogsPage() {
                     id: "export",
                     label: "خروجی CSV",
                     icon: IconDownload,
-                    onClick: handleExport,
+                    onClick: () => handleExport("csv"),
+                    disabled: isExporting,
+                },
+                {
+                    id: "export-pdf",
+                    label: "سند PDF",
+                    icon: IconFileText,
+                    onClick: () => handleExport("pdf"),
                     disabled: isExporting,
                 },
                 {

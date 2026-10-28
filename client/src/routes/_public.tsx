@@ -7,6 +7,12 @@ import { ensureFormOptions } from "@/features/form-options/hooks/use-form-option
 import { queryClient } from "@/lib/query-client";
 import { COMPANY_NAME } from "@/lib/brand";
 
+/**
+ * Footer year, resolved once at module load. Render has to stay pure, so
+ * `new Date()` cannot be called inside the component (react purity rule).
+ */
+const CURRENT_YEAR = new Date().getFullYear();
+
 export const Route = createRoute({
     getParentRoute: () => RootRoute,
     id: "public",
@@ -37,8 +43,7 @@ function PublicLayout() {
                             </span>
                         </div>
                         <p className="text-sm text-muted-foreground">
-                            تمامی حقوق محفوظ است &copy;{" "}
-                            {new Date().getFullYear()}
+                            تمامی حقوق محفوظ است &copy; {CURRENT_YEAR}
                         </p>
                     </div>
                 </div>

@@ -1,6 +1,7 @@
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { AppBreadcrumb } from "@/components/layout/app-breadcrumb";
+import { NotificationsBell } from "@/components/navigation";
 import { ThemeToggle } from "@/components/navigation";
 
 export function SiteHeader() {
@@ -14,7 +15,8 @@ export function SiteHeader() {
                 />
                 <AppBreadcrumb />
 
-                <div className="ms-auto">
+                <div className="ms-auto flex items-center gap-1">
+                    <NotificationsBell />
                     <ThemeToggle />
                 </div>
             </div>

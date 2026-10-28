@@ -1,10 +1,19 @@
 import { z } from "zod";
 
+import {
+    isValidCardNumber,
+    isValidIban,
+    optionalCardNumber,
+    optionalIban,
+} from "@/lib/field-rules";
+
 const bankAccountRowSchema = z.object({
     bank_name: z.string().max(100).or(z.literal("")).default(""),
     account_number: z.string().max(30).or(z.literal("")).default(""),
-    card_number: z.string().max(30).or(z.literal("")).default(""),
-    shaba_number: z.string().max(30).or(z.literal("")).default(""),
+    // Format (16 digits / IR + mod-97) is checked when a value is present;
+    // requiredness per row is enforced by the submit refinement below.
+    card_number: optionalCardNumber().default(""),
+    shaba_number: optionalIban().default(""),
 });
 
 export const financialFieldSchema = z.object({
@@ -35,6 +44,23 @@ export const financialSubmitSchema = financialFieldSchema.superRefine(
             require("account_number", "شماره حساب الزامی است.");
             require("card_number", "شماره کارت الزامی است.");
             require("shaba_number", "شماره شبا الزامی است.");
+
+            // Format checks mirror the backend completion rules
+            // (BankCardNumberRule / IbanNumberRule).
+            if (row.card_number && !isValidCardNumber(row.card_number)) {
+                ctx.addIssue({
+                    code: "custom",
+                    path: ["bank_accounts", index, "card_number"],
+                    message: "شماره کارت معتبر نیست (۱۶ رقم با پیشوند ۶).",
+                });
+            }
+            if (row.shaba_number && !isValidIban(row.shaba_number)) {
+                ctx.addIssue({
+                    code: "custom",
+                    path: ["bank_accounts", index, "shaba_number"],
+                    message: "شماره شبا معتبر نیست (IR و ۲۴ رقم).",
+                });
+            }
         });
     },
 );

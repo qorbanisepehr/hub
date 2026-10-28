@@ -34,6 +34,8 @@ const PAGE_CRUMBS: Record<string, string> = {
 
     "/cvs/:id": "جزئیات رزومه",
 
+    "/notifications": "اعلان‌ها",
+
     "/audit/retention": "سیاست نگهداری لاگ‌ها",
     "/audit/:logId": "جزئیات رویداد",
 };

@@ -1,17 +1,24 @@
 import type { ReactNode } from "react";
 import {
     IconClipboardList,
+    IconClipboardText,
     IconDashboard,
     IconFileImport,
     IconFileCv,
+    IconFileText,
     IconHierarchy2,
     IconIdBadge2,
+    IconInbox,
     IconListDetails,
     IconMasksTheater,
     IconPalette,
     IconSettings,
     IconShield,
+    IconTag,
     IconUsers,
+    IconCalendarStats,
+    IconGavel,
+    IconRobot,
 } from "@tabler/icons-react";
 
 import { PERMISSIONS } from "@/lib/permissions";
@@ -65,6 +72,12 @@ export const NAV_ITEMS: NavItem[] = [
         permission: PERMISSIONS.CV_VIEW,
     },
     {
+        title: "پرسشنامه‌ها",
+        url: "/questionnaires",
+        icon: <IconClipboardText />,
+        permission: PERMISSIONS.QUESTIONNAIRE_VIEW,
+    },
+    {
         title: "تنظیمات",
         icon: <IconSettings />,
         permission: [
@@ -75,44 +88,59 @@ export const NAV_ITEMS: NavItem[] = [
             PERMISSIONS.FORM_OPTIONS_VIEW,
             PERMISSIONS.FORM_OPTIONS_MANAGE,
             PERMISSIONS.EMPLOYEE_IMPORT,
+            PERMISSIONS.TAG_VIEW,
+            PERMISSIONS.TAG_MANAGE,
+            PERMISSIONS.AI_PROVIDER_VIEW,
+            PERMISSIONS.AI_PROVIDER_MANAGE,
         ],
         children: [
             {
                 title: "برندینگ",
-                url: "/settings",
-                search: { tab: "branding" },
+                url: "/settings/branding",
                 icon: <IconPalette />,
-                permission: [
-                    PERMISSIONS.BRANDING_VIEW,
-                    PERMISSIONS.BRANDING_MANAGE,
-                ],
+                permission: [PERMISSIONS.BRANDING_VIEW, PERMISSIONS.BRANDING_MANAGE],
             },
             {
                 title: "مجوزها",
-                url: "/settings",
-                search: { tab: "permissions" },
+                url: "/settings/permissions",
                 icon: <IconShield />,
-                permission: [
-                    PERMISSIONS.DOCUMENT_CATEGORY_VIEW,
-                PERMISSIONS.DOCUMENT_CATEGORY_MANAGE,
-                ],
+                permission: [PERMISSIONS.DOCUMENT_CATEGORY_VIEW, PERMISSIONS.DOCUMENT_CATEGORY_MANAGE],
             },
             {
                 title: "گزینه‌های فرم",
-                url: "/settings",
-                search: { tab: "form-options" },
+                url: "/settings/form-options",
                 icon: <IconListDetails />,
-                permission: [
-                    PERMISSIONS.FORM_OPTIONS_VIEW,
-                    PERMISSIONS.FORM_OPTIONS_MANAGE,
-                ],
+                permission: [PERMISSIONS.FORM_OPTIONS_VIEW, PERMISSIONS.FORM_OPTIONS_MANAGE],
             },
             {
                 title: "ورود اطلاعات",
-                url: "/settings",
-                search: { tab: "imports" },
+                url: "/settings/imports",
                 icon: <IconFileImport />,
                 permission: PERMISSIONS.EMPLOYEE_IMPORT,
+            },
+            {
+                title: "برچسب‌ها",
+                url: "/settings/tags",
+                icon: <IconTag />,
+                permission: [PERMISSIONS.TAG_VIEW, PERMISSIONS.TAG_MANAGE],
+            },
+            {
+                title: "هوش مصنوعی",
+                url: "/settings/ai",
+                icon: <IconRobot />,
+                permission: [PERMISSIONS.AI_PROVIDER_VIEW, PERMISSIONS.AI_PROVIDER_MANAGE],
+            },
+            {
+                // Beside AI rather than under a document heading: this is a
+                // cross-domain setting like the AI registry, not part of the
+                // board-meeting feature it happens to be used by first.
+                title: "قالب خروجی",
+                url: "/settings/templates",
+                icon: <IconFileText />,
+                permission: [
+                    PERMISSIONS.EXPORT_TEMPLATE_VIEW,
+                    PERMISSIONS.EXPORT_TEMPLATE_MANAGE,
+                ],
             },
         ],
     },
@@ -121,6 +149,24 @@ export const NAV_ITEMS: NavItem[] = [
         url: "/audit",
         icon: <IconClipboardList />,
         permission: PERMISSIONS.AUDIT_VIEW,
+    },
+    {
+        title: "حضور و غیاب",
+        url: "/reports/attendance",
+        icon: <IconCalendarStats />,
+        permission: PERMISSIONS.REPORT_ATTENDANCE_VIEW,
+    },
+    {
+        title: "کارتابل",
+        url: "/reports/unified-inbox",
+        icon: <IconInbox />,
+        permission: PERMISSIONS.REPORT_UNIFIED_INBOX_VIEW,
+    },
+    {
+        title: "جلسات هیئت مدیره",
+        url: "/board-meetings",
+        icon: <IconGavel />,
+        permission: PERMISSIONS.BOARD_MEETING_VIEW,
     },
 ];
 

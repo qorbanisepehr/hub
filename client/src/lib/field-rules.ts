@@ -125,7 +125,97 @@ export function birthCertificateNumber(message = "شماره شناسنامه ا
     );
 }
 
-/** Required postal code (10 chars). */
+/** Required postal code: exactly 10 digits. */
 export function postalCode(message = "کد پستی الزامی است.") {
-    return requiredText(message, 10);
+    return requiredText(message, 10).refine(
+        (v) => /^\d{10}$/.test(v),
+        "کد پستی باید دقیقاً ۱۰ رقم باشد.",
+    );
+}
+
+/** Optional postal code (empty is valid, non-empty must be 10 digits). */
+export function optionalPostalCode() {
+    return text(10, "حداکثر ۱۰ کاراکتر.").refine(
+        (v) => v === "" || /^\d{10}$/.test(v),
+        "کد پستی باید دقیقاً ۱۰ رقم باشد.",
+    );
+}
+
+/**
+ * Luhn checksum over a digit string.
+ */
+export function isValidLuhn(digits: string): boolean {
+    let sum = 0;
+    let double = false;
+    for (let i = digits.length - 1; i >= 0; i--) {
+        let d = Number(digits[i]);
+        if (double) {
+            d *= 2;
+            if (d > 9) d -= 9;
+        }
+        sum += d;
+        double = !double;
+    }
+    return sum % 10 === 0;
+}
+
+/**
+ * Validates an Iranian bank card number: 16 digits starting with 6 and a
+ * valid Luhn checksum. Returns `true` for any other-shaped input so callers
+ * can chain it after a format check.
+ */
+export function isValidCardNumber(val: string): boolean {
+    if (!/^6\d{15}$/.test(val)) return false;
+    return isValidLuhn(val);
+}
+
+/** Required bank card number (16 digits + Luhn). */
+export function cardNumber(message = "شماره کارت الزامی است.") {
+    return requiredText(message, 30)
+        .refine(
+            (v) => /^6\d{15}$/.test(v),
+            "شماره کارت باید ۱۶ رقم و با عدد ۶ شروع شود.",
+        )
+        .refine(isValidLuhn, "شماره کارت معتبر نیست.");
+}
+
+/** Optional bank card number (empty is valid). */
+export function optionalCardNumber() {
+    return text(30).refine(
+        (v) => v === "" || isValidCardNumber(v),
+        "شماره کارت معتبر نیست (۱۶ رقم با پیشوند ۶).",
+    );
+}
+
+/**
+ * Validates an Iranian IBAN: "IR" + 24 digits passing ISO 7064 MOD-97-10.
+ */
+export function isValidIban(val: string): boolean {
+    const normalized = val.toUpperCase().replace(/[\s-]/g, "");
+    if (!/^IR\d{24}$/.test(normalized)) return false;
+    // Move IR + check digits to the end (I=18, R=27) and run rolling mod-97.
+    const rearranged = normalized.slice(4) + "1827" + normalized.slice(2, 4);
+    let rem = 0;
+    for (const ch of rearranged) {
+        rem = (rem * 10 + Number(ch)) % 97;
+    }
+    return rem === 1;
+}
+
+/** Required IBAN/شبا (IR + 24 digits + mod-97 checksum). */
+export function iban(message = "شماره شبا الزامی است.") {
+    return requiredText(message, 30)
+        .refine(
+            (v) => /^IR\d{24}$/.test(v.toUpperCase().replace(/[\s-]/g, "")),
+            "شماره شبا باید با IR شروع شده و ۲۴ رقم بعد از آن بیاید.",
+        )
+        .refine(isValidIban, "شماره شبا معتبر نیست.");
+}
+
+/** Optional IBAN/شبا (empty is valid). */
+export function optionalIban() {
+    return text(30).refine(
+        (v) => v === "" || isValidIban(v),
+        "شماره شبا معتبر نیست (IR و ۲۴ رقم).",
+    );
 }

@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, getRouteApi } from "@tanstack/react-router";
-import { IconDownload, IconPlus, IconUsers } from "@tabler/icons-react";
+import { IconDownload, IconPlus, IconRefresh, IconUsers } from "@tabler/icons-react";
 
 import { Button } from "@/components/ui/button";
-import { ExportDialog } from "@/components/shared";
+import { ExportDialog, type ExportFormat } from "@/components/shared";
 import {
     exportEmployees,
     fetchEmployeeExportFields,
@@ -12,6 +12,8 @@ import {
     fetchEmployees,
 } from "@/features/employees/api";
 import { employeeColumns } from "@/features/employees/columns";
+import { employmentLabels } from "@/features/employees/constants";
+import { useFormOptionsByGroup } from "@/features/form-options/hooks/use-form-options";
 import { DataTablePage } from "@/components/data-table";
 import { ListPageHeader } from "@/components/layout";
 import {
@@ -20,11 +22,21 @@ import {
 } from "@/hooks/use-data-table-page";
 import { PERMISSIONS } from "@/lib/permissions";
 import { employeeKeys } from "@/lib/query-keys";
-import { saveBlobResponse, exportDateStamp } from "@/lib/download";
+import {
+    saveBlobResponse,
+    exportDateStamp,
+    EXPORT_MIME_TYPES,
+} from "@/lib/download";
 
 const route = getRouteApi("/protected/employees");
 
-async function downloadEmployeeExportTemplate(format: "xlsx" | "csv") {
+async function downloadEmployeeExportTemplate(format: ExportFormat) {
+    // The template endpoint only serves the tabular formats; the dialog
+    // disables this button while a document format is selected.
+    if (format !== "xlsx" && format !== "csv") {
+        return;
+    }
+
     const response = await fetchEmployeeExportTemplate(format);
 
     saveBlobResponse(
@@ -58,12 +70,36 @@ export function EmployeesPage() {
                     searchKey: "status_not",
                     type: "string",
                 },
+                {
+                    columnId: "employment_type",
+                    searchKey: "employment_type",
+                    type: "string",
+                },
+                {
+                    columnId: "gender",
+                    searchKey: "gender",
+                    type: "string",
+                },
+                {
+                    columnId: "hire_date_from",
+                    searchKey: "hire_date_from",
+                    type: "string",
+                },
+                {
+                    columnId: "hire_date_to",
+                    searchKey: "hire_date_to",
+                    type: "string",
+                },
             ],
         },
     });
 
     const activeStatus = url.activeValue("employment_status");
     const activeStatusNot = url.activeValue("employment_status_not");
+    const activeEmploymentType = url.activeValue("employment_type");
+    const activeGender = url.activeValue("gender");
+    const activeHireDateFrom = url.activeValue("hire_date_from");
+    const activeHireDateTo = url.activeValue("hire_date_to");
     const { ensurePageInRange } = url;
 
     const statusFilterOptions = [
@@ -71,6 +107,16 @@ export function EmployeesPage() {
         { label: "غیرفعال", value: "inactive" },
         { label: "تعلیق", value: "suspended" },
     ];
+
+    const employmentTypeFilterOptions = Object.entries(employmentLabels).map(
+        ([value, label]) => ({ value, label }),
+    );
+
+    const { data: genderOptions } = useFormOptionsByGroup("gender");
+    const genderFilterOptions = (genderOptions ?? []).map((option) => ({
+        value: option.value,
+        label: option.label,
+    }));
 
     const { data: exportFields, isLoading: exportFieldsLoading } = useQuery({
         queryKey: ["employee-export-fields"],
@@ -93,7 +139,7 @@ export function EmployeesPage() {
         activeStatusNotLabel ? `به‌جز وضعیت: ${activeStatusNotLabel}` : null,
     ].filter((f): f is string => f !== null);
 
-    const { data, isLoading, isError } = useQuery({
+    const { data, isLoading, isError, isFetching } = useQuery({
         queryKey: employeeKeys.list({
             page: url.pagination.pageIndex + 1,
             per_page: url.pagination.pageSize,
@@ -102,6 +148,10 @@ export function EmployeesPage() {
             filter: url.globalFilter,
             status: activeStatus,
             status_not: activeStatusNot,
+            employment_type: activeEmploymentType,
+            gender: activeGender,
+            hire_date_from: activeHireDateFrom,
+            hire_date_to: activeHireDateTo,
         }),
         queryFn: async () => {
             const { data: response } = await fetchEmployees({
@@ -110,8 +160,12 @@ export function EmployeesPage() {
                 sort: url.activeSort?.id,
                 order: url.activeSort?.desc ? "desc" : "asc",
                 filter: url.globalFilter || undefined,
-                status: activeStatus,
-                status_not: activeStatusNot,
+                status: activeStatus || undefined,
+                status_not: activeStatusNot || undefined,
+                employment_type: activeEmploymentType || undefined,
+                gender: activeGender || undefined,
+                hire_date_from: activeHireDateFrom || undefined,
+                hire_date_to: activeHireDateTo || undefined,
             });
             return response;
         },
@@ -139,7 +193,7 @@ export function EmployeesPage() {
         presentation,
     }: {
         fields: string[];
-        format: "xlsx" | "csv";
+        format: ExportFormat;
         presentation: import("@/features/employees/api").EmployeeExportPresentation;
     }) => {
         const response = await exportEmployees({
@@ -153,9 +207,7 @@ export function EmployeesPage() {
         saveBlobResponse(
             response,
             `employees-${exportDateStamp()}.${format}`,
-            format === "csv"
-                ? "text/csv;charset=utf-8"
-                : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            EXPORT_MIME_TYPES[format],
         );
     };
 
@@ -174,12 +226,6 @@ export function EmployeesPage() {
                         title="کارمندان"
                         description="مدیریت اطلاعات کارمندان شرکت"
                         actions={[
-                            {
-                                label: "خروجی",
-                                icon: <IconDownload className="size-4" />,
-                                onClick: () => setIsExportOpen(true),
-                                permission: PERMISSIONS.EMPLOYEE_EXPORT,
-                            },
                             {
                                 label: "کارمند جدید",
                                 icon: <IconPlus className="size-4" />,
@@ -201,6 +247,47 @@ export function EmployeesPage() {
                         type: "select",
                         options: statusFilterOptions,
                         negatable: true,
+                    },
+                    {
+                        id: "employment_type",
+                        label: "نوع استخدام",
+                        type: "select",
+                        options: employmentTypeFilterOptions,
+                    },
+                    {
+                        id: "gender",
+                        label: "جنسیت",
+                        type: "select",
+                        options: genderFilterOptions,
+                    },
+                    {
+                        id: "hire_date_from",
+                        label: "از تاریخ استخدام",
+                        type: "date",
+                    },
+                    {
+                        id: "hire_date_to",
+                        label: "تا تاریخ استخدام",
+                        type: "date",
+                    },
+                ]}
+                actions={[
+                    {
+                        id: "export",
+                        label: "خروجی",
+                        icon: IconDownload,
+                        onClick: () => setIsExportOpen(true),
+                        permission: PERMISSIONS.EMPLOYEE_EXPORT,
+                    },
+                    {
+                        id: "refresh",
+                        label: "بازخوانی",
+                        icon: IconRefresh,
+                        onClick: () =>
+                            queryClient.invalidateQueries({
+                                queryKey: employeeKeys.all,
+                            }),
+                        disabled: isFetching,
                     },
                 ]}
                 emptyAction={
@@ -225,9 +312,15 @@ export function EmployeesPage() {
                 open={isExportOpen}
                 onOpenChange={setIsExportOpen}
                 title="خروجی کارمندان"
-                description="خروجی اکسل یا CSV از پروفایل کارمندان"
+                description="خروجی اکسل، CSV یا سند چاپی (PDF/Word) از پروفایل کارمندان"
                 fields={exportFields ?? []}
                 fieldsLoading={exportFieldsLoading}
+                formats={[
+                    { value: "xlsx", label: "اکسل (xlsx)" },
+                    { value: "csv", label: "CSV (سازگار با Excel)" },
+                    { value: "pdf", label: "سند PDF" },
+                    { value: "docx", label: "سند Word" },
+                ]}
                 activeFilters={exportFilterSummary}
                 showPresentation
                 showDetailSheets

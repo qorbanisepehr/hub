@@ -5,7 +5,7 @@ import { toast } from "sonner";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FormTextField } from "@/components/forms";
-import { FormMobileNumberField } from "@/components/forms";
+import { FormMobileNumberField, FormPhoneField } from "@/components/forms";
 import { AddressForm } from "@/components/forms";
 import { OtpVerifiedInput } from "@/components/forms";
 import type { SectionFormApi } from "@/types/form-types";
@@ -203,11 +203,7 @@ export function ContactInfoSection({
                         validators={zodFieldValidators(fieldSchemas.phone)}
                     >
                         {(field) => (
-                            <FormTextField
-                                field={field}
-                                label="تلفن ثابت"
-                                dir="ltr"
-                            />
+                            <FormPhoneField field={field} label="تلفن ثابت" />
                         )}
                     </form.Field>
                     <form.Field
@@ -217,10 +213,9 @@ export function ContactInfoSection({
                         )}
                     >
                         {(field) => (
-                            <FormTextField
+                            <FormPhoneField
                                 field={field}
                                 label="تلفن اضطراری"
-                                dir="ltr"
                             />
                         )}
                     </form.Field>

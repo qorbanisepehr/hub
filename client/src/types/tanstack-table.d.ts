@@ -8,5 +8,7 @@ declare module "@tanstack/react-table" {
         TValue extends CellData = CellData,
     > {
         displayName?: string;
+        /** وضعیت column: render icon-only (compact surfaces) vs icon+label. */
+        statusDisplay?: "icon" | "badge";
     }
 }

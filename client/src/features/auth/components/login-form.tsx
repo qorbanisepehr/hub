@@ -1,12 +1,14 @@
 "use client";
 
-import * as React from "react";
 import { useForm } from "@tanstack/react-form";
-import { useStore } from "@tanstack/react-store";
 import { useNavigate } from "@tanstack/react-router";
+import { useStore } from "@tanstack/react-store";
+import * as React from "react";
 import { z } from "zod";
 
+import { Logo, LogoType } from "@/components/navigation";
 import { Button } from "@/components/ui/button";
+import { ButtonGroup } from "@/components/ui/button-group";
 import {
     Card,
     CardContent,
@@ -16,17 +18,15 @@ import {
 } from "@/components/ui/card";
 import { FieldError, FieldGroup } from "@/components/ui/field";
 import { Skeleton } from "@/components/ui/skeleton";
-import { IconLoader2 } from "@tabler/icons-react";
-import { cn } from "@/lib/utils";
 import { useAuth } from "@/features/auth";
-import { IdentifierField } from "@/features/auth/components/identifier-field";
 import { CodeField } from "@/features/auth/components/code-field";
+import { IdentifierField } from "@/features/auth/components/identifier-field";
 import { PasswordField } from "@/features/auth/components/password-field";
-import type { LoginMode } from "@/features/auth/types";
-import { getApiError } from "@/lib/error-utils";
-import { COMPANY_NAME } from "@/lib/brand";
-import { useBranding } from "@/features/settings/hooks/use-branding";
+import type { LoginChannel, LoginMode } from "@/features/auth/types";
 import { useOtpVerification } from "@/hooks/use-otp-verification";
+import { getApiError } from "@/lib/error-utils";
+import { cn } from "@/lib/utils";
+import { IconLoader2, IconMail, IconPhone } from "@tabler/icons-react";
 
 const identifierSchema = z.string().min(1, "این فیلد الزامی است");
 const codeSchema = z.string().length(6, "لطفا کد تایید را وارد کنید");
@@ -39,8 +39,8 @@ export function LoginForm({
 }: React.ComponentProps<"div"> & { redirectTo?: string }) {
     const { loginOtp, loginPassword, verifyOtp } = useAuth();
     const navigate = useNavigate();
-    const { data: branding } = useBranding();
     const [mode, setMode] = React.useState<LoginMode>("otp");
+    const [otpChannel, setOtpChannel] = React.useState<LoginChannel>("email");
     const [otpSent, setOtpSent] = React.useState(false);
     const [signedIn, setSignedIn] = React.useState(false);
     const [otpDestination, setOtpDestination] = React.useState<string | null>(
@@ -75,7 +75,10 @@ export function LoginForm({
     const handleRequestOtp = async () => {
         const { identifier } = form.state.values;
 
-        const result = await loginOtp.mutateAsync(identifier);
+        const result = await loginOtp.mutateAsync({
+            identifier,
+            channel: otpChannel,
+        });
 
         if (result.data.destination) {
             setOtpDestination(result.data.destination);
@@ -100,6 +103,7 @@ export function LoginForm({
             verifyOtp.mutateAsync({
                 identifier: form.state.values.identifier,
                 code,
+                channel: otpChannel,
             }),
         onVerified: () => {
             setSignedIn(true);
@@ -131,11 +135,25 @@ export function LoginForm({
         <div className={cn("flex flex-col gap-6", className)} {...props}>
             <Card>
                 <CardHeader className="text-center">
-                    <CardTitle>{branding?.name ?? COMPANY_NAME}</CardTitle>
+                    <CardTitle>
+                        <div className="flex mx-auto gap-1 w-full justify-center">
+                            <LogoType className="w-18 self-end" />
+                            <Logo className="size-12" />
+                        </div>
+                    </CardTitle>
                     <CardDescription>
-                        {otpSent
-                            ? `کد تایید به ${otpDestination} ارسال شد`
-                            : "ورود به حساب کاربری"}
+                        <div className="relative my-4">
+                            <div className="absolute inset-0 flex items-center">
+                                <span className="w-full border-t" />
+                            </div>
+                            <div className="relative flex justify-center text-xs uppercase">
+                                <span className="bg-card px-2 text-muted-foreground">
+                                    {otpSent
+                                        ? `کد تایید به ${otpDestination} ارسال شد`
+                                        : "ورود به حساب کاربری"}
+                                </span>
+                            </div>
+                        </div>
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -225,15 +243,62 @@ export function LoginForm({
                                 ) : (
                                     <>
                                         {mode === "otp" && (
-                                            <Button
-                                                type="submit"
-                                                disabled={isSending}
-                                                className="w-full"
-                                            >
-                                                {isSending
-                                                    ? "در حال ارسال..."
-                                                    : "ارسال کد یکبار مصرف"}
-                                            </Button>
+                                            <div className="flex items-center gap-1">
+                                                <Button
+                                                    type="submit"
+                                                    disabled={isSending}
+                                                    className="flex-1"
+                                                >
+                                                    {isSending
+                                                        ? "در حال ارسال..."
+                                                        : "ارسال کد یکبار مصرف"}
+                                                </Button>
+
+                                                <ButtonGroup className="shrink-0 bg-secondary rounded border">
+                                                    <Button
+                                                        size="icon-sm"
+                                                        variant="ghost"
+                                                        onClick={() =>
+                                                            otpChannel !==
+                                                                "email" &&
+                                                            setOtpChannel(
+                                                                "email",
+                                                            )
+                                                        }
+                                                    >
+                                                        {otpChannel ===
+                                                        "email" ? (
+                                                            <div className="relative">
+                                                                <IconMail className="size-4 text-primary" />
+                                                                <span className="h-0.75 w-full inline-block rounded-full absolute -bottom-1.5 right-0 bg-primary" />
+                                                            </div>
+                                                        ) : (
+                                                            <IconMail className="size-4 text-primary/50" />
+                                                        )}
+                                                    </Button>
+                                                    <Button
+                                                        size="icon-sm"
+                                                        variant="ghost"
+                                                        onClick={() =>
+                                                            otpChannel !==
+                                                                "mobile" &&
+                                                            setOtpChannel(
+                                                                "mobile",
+                                                            )
+                                                        }
+                                                    >
+                                                        {otpChannel ===
+                                                        "mobile" ? (
+                                                            <div className="relative">
+                                                                <IconPhone className="size-4 text-primary" />
+                                                                <span className="h-0.75 w-full inline-block rounded-full absolute -bottom-1.5 right-0 bg-primary" />
+                                                            </div>
+                                                        ) : (
+                                                            <IconPhone className="size-4 text-primary/50" />
+                                                        )}
+                                                    </Button>
+                                                </ButtonGroup>
+                                            </div>
                                         )}
 
                                         {mode === "password" && (

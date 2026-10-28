@@ -1,0 +1,527 @@
+import {
+    keepPreviousData,
+    useInfiniteQuery,
+    useMutation,
+    useQuery,
+    useQueryClient,
+} from "@tanstack/react-query";
+import { toast } from "sonner";
+
+import { boardMeetingKeys } from "@/lib/query-keys";
+import { getApiError, getApiErrorStatus } from "@/lib/error-utils";
+import {
+    acceptMeetingSummary,
+    bulkGenerateMeetingSummary,
+    cancelMeetingSummary,
+    cancelSummaryBatch,
+    deleteMeetingDocument,
+    dismissMeetingSummary,
+    fetchBoardMeeting,
+    fetchBoardMeetings,
+    fetchLiveSummaryBatches,
+    fetchMeetingDocuments,
+    fetchSummaryCandidates,
+    generateMeetingSummary,
+    syncBoardMeetings,
+    updateBoardMeeting,
+    uploadMeetingDocument,
+    uploadMeetingDocumentsBulk,
+} from "../api";
+import type {
+    AcceptSummaryPayload,
+    BoardMeetingListParams,
+    GenerateSummaryPayload,
+    SummaryBulkPayload,
+    SummaryBulkResult,
+    SummaryCandidateParams,
+    UpdateBoardMeetingPayload,
+} from "../types";
+
+/**
+ * Server-paginated board meeting list. The params object is the URL-driven
+ * state produced by `useDataTableUrlState` — page/per_page/sort/order plus
+ * the optional date window — so the query key changes exactly when the URL
+ * does and the shared pagination footer drives the server.
+ */
+export function useBoardMeetings(params: BoardMeetingListParams) {
+    return useQuery({
+        queryKey: boardMeetingKeys.list(params as Record<string, unknown>),
+        queryFn: async () => {
+            const { data } = await fetchBoardMeetings(params);
+            return data;
+        },
+        // Keep the rows already on screen while the next month/page/filter
+        // loads. Without this, changing the key drops the query to `pending`,
+        // `isLoading` goes true, and the shell replaces the whole body with a
+        // skeleton — which unmounts the active view. The calendar keeps its
+        // drill-down level in local state, so that remount closed the picker
+        // on every «قبل/بعد».
+        placeholderData: keepPreviousData,
+    });
+}
+
+export function useBoardMeeting(id: number | string) {
+    return useQuery({
+        queryKey: boardMeetingKeys.detail(id),
+        queryFn: async () => {
+            const { data } = await fetchBoardMeeting(id);
+            // The detail endpoint speaks the standard envelope; the hook
+            // unwraps it — consumers get the meeting object itself.
+            return data.data;
+        },
+    });
+}
+
+/**
+ * Meeting documents + capabilities — the only place a meeting's registry
+ * numbers are read now (vault idea 567): each number sits on its usage's
+ * `metadata`, not on the meeting row. Upload/delete refresh it, and the
+ * detail page reads the same query for its tab badge and stats tile.
+ */
+export function useMeetingDocuments(meetingId: number | string) {
+    return useQuery({
+        queryKey: boardMeetingKeys.documents(meetingId),
+        queryFn: async () => {
+            const { data } = await fetchMeetingDocuments(meetingId);
+            return data;
+        },
+    });
+}
+
+/** Update UI-owned meeting fields; refreshes detail + lists. */
+export function useUpdateBoardMeeting(meetingId: number | string) {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (payload: UpdateBoardMeetingPayload) =>
+            updateBoardMeeting(meetingId, payload),
+        onSuccess: () => {
+            void queryClient.invalidateQueries({
+                queryKey: boardMeetingKeys.detail(meetingId),
+            });
+            void queryClient.invalidateQueries({
+                queryKey: boardMeetingKeys.lists(),
+            });
+        },
+    });
+}
+
+/**
+ * Ask for a run, or record a decision about the last one.
+ *
+ * Both write the meeting, and both are what the summary tab's own mutations
+ * do, so they live together and share the same invalidation: the detail query
+ * is the only cache that holds a summary, and the list only needs the tag
+ * counts and the meeting's identity back.
+ *
+ * `onSettled` rather than `onSuccess` on the generate, because the run may
+ * still be queued when the request returns — under the async queue the row is
+ * stamped `pending` and nothing else, and the tab has to show that rather than
+ * the value it had a moment ago.
+ */
+export function useGenerateMeetingSummary(meetingId: number | string) {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (payload: GenerateSummaryPayload) =>
+            generateMeetingSummary(meetingId, payload),
+        onError: (error) => {
+            // The endpoint refuses a second run while the first is going, and
+            // a person who has just been refused needs to know why rather than
+            // to see nothing happen. The re-read in `onSettled` then shows the
+            // run they are already waiting for, which is the actual answer.
+            if (getApiErrorStatus(error) === 409) {
+                toast.error("اجرای این جلسه هنوز تمام نشده است", {
+                    description:
+                        "تا پایان همین اجرا امکان شروع اجرای تازه نیست؛ پس از پایان، نتیجه همین‌جا می‌آید.",
+                });
+            }
+        },
+        onSettled: () => {
+            void queryClient.invalidateQueries({
+                queryKey: boardMeetingKeys.detail(meetingId),
+            });
+        },
+    });
+}
+
+/**
+ * Accept or dismiss a proposal.
+ *
+ * The 409 is worth naming: it means the proposal is gone, because the run was
+ * applied instead of proposed or somebody else decided first. The meeting is
+ * still there, so the recovery is a re-read, and saying so is better than
+ * retrying into the same conflict or swallowing the failure.
+ */
+export function useAcceptMeetingSummary(meetingId: number | string) {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (payload: AcceptSummaryPayload) =>
+            acceptMeetingSummary(meetingId, payload),
+        onSuccess: () => {
+            void queryClient.invalidateQueries({
+                queryKey: boardMeetingKeys.detail(meetingId),
+            });
+            void queryClient.invalidateQueries({
+                queryKey: boardMeetingKeys.lists(),
+            });
+        },
+        onError: (error) => {
+            if (getApiErrorStatus(error) === 409) {
+                toast.error("پیشنهادی برای تصمیم باقی نمانده است", {
+                    description:
+                        "اجرای دیگری این خلاصه را ثبت کرده یا پیشنهاد قبلی جایگزین شده است.",
+                });
+
+                return;
+            }
+
+            toast.error("ثبت تصمیم ناموفق بود", {
+                description: getApiError(error) ?? "خطای ناشناخته",
+            });
+        },
+    });
+}
+
+/**
+ * Refuse the pending proposal without changing anything.
+ *
+ * Not `accept` with an empty selection: that request has to carry the meeting's
+ * tags in full, so it cannot express "none of this, and leave my tags alone" —
+ * and sending the tags back re-wrote the pivot, which quietly undid any
+ * re-tagging done while the proposal sat undecided.
+ *
+ * The 409 means the same thing it does on accept: the proposal is gone because
+ * the run was applied instead, or somebody else decided first. The meeting is
+ * still there, so the recovery is a re-read.
+ */
+export function useDismissMeetingSummary(meetingId: number | string) {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: () => dismissMeetingSummary(meetingId),
+        onSuccess: () => {
+            void queryClient.invalidateQueries({
+                queryKey: boardMeetingKeys.detail(meetingId),
+            });
+            void queryClient.invalidateQueries({
+                queryKey: boardMeetingKeys.lists(),
+            });
+        },
+        onError: (error) => {
+            if (getApiErrorStatus(error) === 409) {
+                toast.error("این پیشنهاد دیگر وجود ندارد.", {
+                    description:
+                        "پیشنهاد پیش‌تر پذیرفته یا کنار گذاشته شده است؛ وضعیت جلسه به‌روز شد.",
+                });
+
+                return;
+            }
+
+            toast.error("بستن پیشنهاد انجام نشد.", {
+                description: getApiError(error) ?? "خطای ناشناخته",
+            });
+        },
+    });
+}
+
+/**
+ * The meetings a bulk run could still generate for, under the list's filters.
+ *
+ * Paged rather than fetched whole, and only while the picker is open
+ * (`enabled`): the registry runs to hundreds of meetings and every one of them
+ * is a slow model call, so the dialog loads a page and appends on request. It
+ * is the server's `meta.total` that the dialog's count is checked against — a
+ * "select all" that quietly meant "all of the hundred that loaded" would be a
+ * checkbox lying.
+ */
+export function useSummaryCandidates(
+    params: SummaryCandidateParams,
+    enabled: boolean,
+) {
+    return useInfiniteQuery({
+        queryKey: boardMeetingKeys.summaryCandidates(
+            params as Record<string, unknown>,
+        ),
+        queryFn: async ({ pageParam }) => {
+            const { data } = await fetchSummaryCandidates({
+                ...params,
+                page: pageParam as number,
+            });
+
+            return data;
+        },
+        initialPageParam: 1,
+        getNextPageParam: (lastPage) => {
+            const meta = lastPage?.meta;
+
+            // The server's own `last_page` rather than arithmetic on `total`,
+            // which can shrink between two requests as meetings gain
+            // summaries. The empty-page guard covers the other direction: rows
+            // that disappeared after the count was taken must end the walk
+            // rather than spin it.
+            if (!meta || lastPage.data.length === 0) {
+                return undefined;
+            }
+
+            return meta.current_page < meta.last_page
+                ? meta.current_page + 1
+                : undefined;
+        },
+        enabled,
+    });
+}
+
+/**
+ * Queue a run for a chosen set of meetings.
+ *
+ * The server re-checks eligibility and reports what it skipped, so the count
+ * in the toast is the count that actually ran — a dialog that rendered
+ * "214 meetings" minutes before somebody generated three of them should not
+ * claim 214.
+ */
+export function useBulkGenerateMeetingSummary() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: async (payload: SummaryBulkPayload): Promise<SummaryBulkResult> => {
+            const { data } = await bulkGenerateMeetingSummary(payload);
+
+            return data.data;
+        },
+        onSuccess: ({ queued, skipped }) => {
+            // One dispatch can now carry both kinds — a first summary and a
+            // replacement somebody opted into per row — so the toast does not
+            // name a scope. A skip is the same story either way: the meeting
+            // moved between the list and the button, and the count that ran is
+            // the one that actually ran.
+            toast.success("درخواست خلاصه ثبت شد", {
+                description:
+                    skipped > 0
+                        ? `${queued.toLocaleString("fa-IR")} جلسه در صف قرار گرفت؛ ${skipped.toLocaleString("fa-IR")} مورد دیگر واجد شرایط نبود.`
+                        : `${queued.toLocaleString("fa-IR")} جلسه در صف قرار گرفت.`,
+            });
+
+            void queryClient.invalidateQueries({
+                queryKey: boardMeetingKeys.all,
+            });
+        },
+        onError: (error) => {
+            toast.error("ثبت درخواست ناموفق بود", {
+                description: getApiError(error) ?? "خطای ناشناخته",
+            });
+        },
+    });
+}
+
+/**
+ * Stop one meeting's run.
+ *
+ * The 409 is the one that needs a voice: it means there was nothing in flight
+ * to stop — the run already reported, or has not started — and a person who
+ * pressed stop and saw nothing happen would press it again. The re-read in
+ * `onSettled` shows the row the server settled on either way.
+ */
+export function useCancelMeetingSummary(meetingId: number | string) {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: () => cancelMeetingSummary(meetingId),
+        onSuccess: () => {
+            toast.success("اجرای خلاصه متوقف شد");
+        },
+        onError: (error) => {
+            if (getApiErrorStatus(error) === 409) {
+                toast.error("اجرایی برای توقف وجود ندارد", {
+                    description:
+                        "این اجرا به پایان رسیده یا هنوز آغاز نشده است؛ وضعیت جلسه به‌روز شد.",
+                });
+
+                return;
+            }
+
+            toast.error("توقف اجرا ناموفق بود", {
+                description: getApiError(error) ?? "خطای ناشناخته",
+            });
+        },
+        onSettled: () => {
+            void queryClient.invalidateQueries({
+                queryKey: boardMeetingKeys.detail(meetingId),
+            });
+        },
+    });
+}
+
+/**
+ * The bulk runs this person still has producing.
+ *
+ * Polled only while something is live: a batch is minutes of slow model calls,
+ * so a stop offered on the table page has to keep up with it — but a page with
+ * nothing running asks once and then stops asking rather than polling an empty
+ * list forever. Reverb carries the same news to an open tab, but the count is
+ * read here after a reload, which is the case the broadcast cannot cover.
+ */
+export function useLiveSummaryBatches(enabled = true) {
+    return useQuery({
+        queryKey: boardMeetingKeys.liveSummaryBatches(),
+        queryFn: async () => {
+            const { data } = await fetchLiveSummaryBatches();
+
+            return data.data;
+        },
+        enabled,
+        refetchInterval: (query) =>
+            (query.state.data?.length ?? 0) > 0 ? 5_000 : false,
+    });
+}
+
+/**
+ * Stop every run a bulk dispatch has not reported on.
+ *
+ * The batch leaves the live list on success, so the banner the button lives in
+ * goes with it — which is why the toast carries the count rather than leaving
+ * the person to read it off a control that is no longer there.
+ */
+export function useCancelSummaryBatch() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: async (batchId: string) => {
+            const { data } = await cancelSummaryBatch(batchId);
+
+            return data.data;
+        },
+        onSuccess: ({ stopped }) => {
+            toast.success("تولید گروهی متوقف شد", {
+                description: `${stopped.toLocaleString("fa-IR")} اجرای در انتظار لغو شد.`,
+            });
+
+            void queryClient.invalidateQueries({
+                queryKey: boardMeetingKeys.liveSummaryBatches(),
+            });
+        },
+        onError: (error) => {
+            toast.error("توقف تولید گروهی ناموفق بود", {
+                description: getApiError(error) ?? "خطای ناشناخته",
+            });
+
+            void queryClient.invalidateQueries({
+                queryKey: boardMeetingKeys.liveSummaryBatches(),
+            });
+        },
+    });
+}
+
+/**
+ * Run the registry sync. Lived behind the toolbar gear rather than a
+ * top-level button: it reaches out to the source and rewrites the
+ * registry columns, so it is not part of the everyday read rhythm even
+ * though it is idempotent and never destructive.
+ */
+export function useSyncBoardMeetings() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: async () => {
+            const { data } = await syncBoardMeetings();
+            return data;
+        },
+        onSuccess: (result) => {
+            const { created, refreshed, locked } = result.meetings;
+
+            toast.success("همگام‌سازی انجام شد", {
+                description: `${created.toLocaleString("fa-IR")} جلسهٔ جدید، ${refreshed.toLocaleString("fa-IR")} به‌روزرسانی، ${locked.toLocaleString("fa-IR")} مورد قفل‌شده دست‌نخورده`,
+            });
+
+            void queryClient.invalidateQueries({
+                queryKey: boardMeetingKeys.all,
+            });
+        },
+        onError: (error) => {
+            toast.error("همگام‌سازی ناموفق بود", {
+                description: getApiError(error) ?? "خطای ناشناخته",
+            });
+        },
+    });
+}
+
+export function useUploadMeetingDocument(meetingId: number | string) {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (formData: FormData) =>
+            uploadMeetingDocument(meetingId, formData),
+        onSuccess: () => {
+            void queryClient.invalidateQueries({
+                queryKey: boardMeetingKeys.documents(meetingId),
+            });
+            void queryClient.invalidateQueries({
+                queryKey: boardMeetingKeys.detail(meetingId),
+            });
+        },
+    });
+}
+
+/**
+ * Import several مصوب in one pass. The server returns a per-file report; the
+ * toast leads with the count that actually landed and says how many were
+ * skipped as duplicates — uploading a number the meeting already has should
+ * be heard, not silently dropped.
+ */
+export function useBulkUploadMeetingDocuments(meetingId: number | string) {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (formData: FormData) =>
+            uploadMeetingDocumentsBulk(meetingId, formData),
+        onSuccess: (result) => {
+            const { imported, skipped, failed } = result.data.data;
+
+            toast.success("بارگذاری گروهی انجام شد", {
+                description: [
+                    imported.length > 0
+                        ? `${imported.length.toLocaleString("fa-IR")} مصوبه بارگذاری شد`
+                        : null,
+                    skipped.length > 0
+                        ? `${skipped.length.toLocaleString("fa-IR")} تکراری رد شد`
+                        : null,
+                    failed.length > 0
+                        ? `${failed.length.toLocaleString("fa-IR")} ناموفق`
+                        : null,
+                ]
+                    .filter(Boolean)
+                    .join(" · "),
+            });
+
+            void queryClient.invalidateQueries({
+                queryKey: boardMeetingKeys.documents(meetingId),
+            });
+            void queryClient.invalidateQueries({
+                queryKey: boardMeetingKeys.detail(meetingId),
+            });
+        },
+        onError: (error) => {
+            toast.error("بارگذاری گروهی ناموفق بود", {
+                description: getApiError(error) ?? "خطای ناشناخته",
+            });
+        },
+    });
+}
+
+export function useDeleteMeetingDocument(meetingId: number | string) {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (usageId: number) =>
+            deleteMeetingDocument(meetingId, usageId),
+        onSuccess: () => {
+            void queryClient.invalidateQueries({
+                queryKey: boardMeetingKeys.documents(meetingId),
+            });
+            void queryClient.invalidateQueries({
+                queryKey: boardMeetingKeys.detail(meetingId),
+            });
+        },
+    });
+}

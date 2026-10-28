@@ -78,7 +78,9 @@ export function ImportSection() {
         queryFn: async () => (await fetchImportEntities()).data.data,
     });
 
-    const entities: ImportEntity[] = entitiesQuery.data ?? [];
+    const entities: ImportEntity[] = (entitiesQuery.data ?? []).filter(
+        (entity) => (entity.kind ?? "tabular") === "tabular",
+    );
 
     const dryRun = useMutation({
         mutationFn: async () => {

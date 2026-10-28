@@ -4,8 +4,11 @@ import {
     FormTextField,
     FormCardNumberField,
     FormAccountNumberField,
+    FormIbanField,
 } from "@/components/forms";
 import type { TableColumn } from "@/components/forms";
+import { optionalCardNumber, optionalIban } from "@/lib/field-rules";
+import { zodFieldValidators } from "@/lib/validation-helpers";
 import type { EmployeeFormApi } from "@/features/employees/types";
 
 type SectionProps = {
@@ -75,6 +78,9 @@ export function FinancialSection({ form, onPersist }: SectionProps) {
 
                                     <form.Field
                                         name={`financial.bank_accounts.${index}.card_number`}
+                                        validators={zodFieldValidators(
+                                            optionalCardNumber(),
+                                        )}
                                     >
                                         {(f) => (
                                             <FormCardNumberField
@@ -86,12 +92,14 @@ export function FinancialSection({ form, onPersist }: SectionProps) {
 
                                     <form.Field
                                         name={`financial.bank_accounts.${index}.shaba_number`}
+                                        validators={zodFieldValidators(
+                                            optionalIban(),
+                                        )}
                                     >
                                         {(f) => (
-                                            <FormAccountNumberField
+                                            <FormIbanField
                                                 field={f}
                                                 label="شماره شبا"
-                                                placeholder="IR"
                                             />
                                         )}
                                     </form.Field>

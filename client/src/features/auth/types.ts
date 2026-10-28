@@ -16,9 +16,12 @@ export type User = {
     employee: LinkedEmployee | null;
 };
 
+export type LoginChannel = "email" | "mobile";
+
 export type LoginResponse = {
     message: string;
     destination?: string;
+    channel?: LoginChannel;
     user?: User;
     retry_after?: number;
     expires_in?: number;

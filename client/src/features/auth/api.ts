@@ -1,16 +1,25 @@
 import { api, FORM_DATA_HEADERS } from "@/lib/api";
 import type {
     AuthorizationResponse,
+    LoginChannel,
     LoginResponse,
     User,
 } from "@/features/auth/types";
 
-export function requestOtp(identifier: string) {
-    return api.post<LoginResponse>("/auth/login", { identifier });
+export function requestOtp(identifier: string, channel: LoginChannel) {
+    return api.post<LoginResponse>("/auth/login", { identifier, channel });
 }
 
-export function verifyOtp(identifier: string, code: string) {
-    return api.post<LoginResponse>("/auth/verify-otp", { identifier, code });
+export function verifyOtp(
+    identifier: string,
+    code: string,
+    channel: LoginChannel,
+) {
+    return api.post<LoginResponse>("/auth/verify-otp", {
+        identifier,
+        code,
+        channel,
+    });
 }
 
 export function loginWithPassword(identifier: string, password: string) {

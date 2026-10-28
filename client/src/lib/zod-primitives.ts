@@ -56,6 +56,35 @@ export function numberField(
 }
 
 /**
+ * A list search param that a human can also type.
+ *
+ * The list routes declare array params as `z.array(z.string())`, which only
+ * round-trips through the router's JSON-ish encoding — `?tags=["a","b"]`. That
+ * is fine for the table's own writes and useless for a link somebody sends to
+ * a colleague, and it is exactly the shape a clickable tag has to produce: the
+ * detail page knows one slug, not a serialized array.
+ *
+ * So this accepts either form and always hands the rest of the app a real
+ * array. Comma-separated is the reading a person expects, and a tag slug never
+ * contains a comma, so the two forms cannot be confused.
+ */
+export function csvArray() {
+    return z.preprocess((value) => {
+        if (value == null || value === "") return undefined;
+        if (Array.isArray(value)) return value;
+
+        if (typeof value === "string") {
+            return value
+                .split(",")
+                .map((item) => item.trim())
+                .filter((item) => item !== "");
+        }
+
+        return value;
+    }, z.array(z.string()).optional());
+}
+
+/**
  * Shared list-route search schema: `page`/`per_page`/`sort`/`order`/`filter`
  * plus any feature-specific query params. List route files call
  * `paginatedSearchSchema({ status: z.string().optional() })` instead of

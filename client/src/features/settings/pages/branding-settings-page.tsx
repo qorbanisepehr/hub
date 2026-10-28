@@ -26,6 +26,7 @@ import {
 } from "@/components/forms";
 import { ImageUpload } from "@/components/shared/image-upload";
 import { Logo, LogoType } from "@/components/navigation";
+
 import type { BrandingImageKind } from "@/features/settings/api";
 import type { BrandingSettings } from "@/features/settings/types";
 import {

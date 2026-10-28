@@ -20,6 +20,14 @@ import { Route as UserViewRoute } from "@/routes/_protected/users/$userId";
 import { Route as UserEditRoute } from "@/routes/_protected/users/$userId.edit";
 import { Route as UserRolesRoute } from "@/routes/_protected/users/$userId.roles";
 import { Route as SettingsRoute } from "@/routes/_protected/settings";
+import { Route as SettingsIndexRoute } from "@/routes/_protected/settings/index";
+import { Route as SettingsBrandingRoute } from "@/routes/_protected/settings/branding";
+import { Route as SettingsPermissionsRoute } from "@/routes/_protected/settings/permissions";
+import { Route as SettingsFormOptionsRoute } from "@/routes/_protected/settings/form-options";
+import { Route as SettingsImportsRoute } from "@/routes/_protected/settings/imports";
+import { Route as SettingsTagsRoute } from "@/routes/_protected/settings/tags";
+import { Route as SettingsAiRoute } from "@/routes/_protected/settings/ai";
+import { Route as SettingsTemplatesRoute } from "@/routes/_protected/settings/templates";
 import { Route as ProfileRoute } from "@/routes/_protected/profile";
 import { Route as ProfileEditRoute } from "@/routes/_protected/profile.edit";
 import { Route as UnauthorizedRoute } from "@/routes/_protected/unauthorized";
@@ -32,9 +40,16 @@ import { Route as CvIndexRoute } from "@/routes/_public/cv/index";
 import { Route as CvUuidRoute } from "@/routes/_public/cv/$uuid";
 import { Route as CvsRoute } from "@/routes/_protected/cvs/index";
 import { Route as CvBankDetailRoute } from "@/routes/_protected/cvs/$id";
+import { Route as QuestionnairesRoute } from "@/routes/_protected/questionnaires/index";
+import { Route as QuestionnaireBankDetailRoute } from "@/routes/_protected/questionnaires/$id";
 import { Route as AuditRoute } from "@/routes/_protected/audit/index";
 import { Route as AuditLogDetailRoute } from "@/routes/_protected/audit/$logId";
 import { Route as AuditRetentionRoute } from "@/routes/_protected/audit/retention";
+import { Route as NotificationsRoute } from "@/routes/_protected/notifications/index";
+import { Route as ReportsAttendanceRoute } from "@/routes/_protected/reports/attendance";
+import { Route as ReportsUnifiedInboxRoute } from "@/routes/_protected/reports/unified-inbox";
+import { Route as BoardMeetingsRoute } from "@/routes/_protected/board-meetings/index";
+import { Route as BoardMeetingDetailRoute } from "@/routes/_protected/board-meetings/$meetingId";
 
 const routeTree = RootRoute.addChildren([
     PublicRoute.addChildren([
@@ -61,16 +76,32 @@ const routeTree = RootRoute.addChildren([
         UserViewRoute,
         UserEditRoute,
         UserRolesRoute,
-        SettingsRoute,
+        SettingsRoute.addChildren([
+            SettingsIndexRoute,
+            SettingsBrandingRoute,
+            SettingsPermissionsRoute,
+            SettingsFormOptionsRoute,
+            SettingsImportsRoute,
+            SettingsTagsRoute,
+            SettingsAiRoute,
+            SettingsTemplatesRoute,
+        ]),
         ProfileRoute,
         ProfileEditRoute,
         UnauthorizedRoute,
         CatchAllRoute,
         CvsRoute,
         CvBankDetailRoute,
+        QuestionnairesRoute,
+        QuestionnaireBankDetailRoute,
         AuditRoute,
         AuditLogDetailRoute,
         AuditRetentionRoute,
+        NotificationsRoute,
+        ReportsAttendanceRoute,
+        ReportsUnifiedInboxRoute,
+        BoardMeetingsRoute,
+        BoardMeetingDetailRoute,
     ]),
 ]);
 

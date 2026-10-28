@@ -80,6 +80,11 @@ export const ruleBuilderKeys = {
 export const questionnaireKeys = {
     all: ["questionnaire"] as const,
     detail: (uuid: string) => [...questionnaireKeys.all, uuid] as const,
+    lists: () => [...questionnaireKeys.all, "list"] as const,
+    list: (params: Record<string, unknown>) =>
+        [...questionnaireKeys.lists(), params] as const,
+    managementDetail: (id: number | string) =>
+        [...questionnaireKeys.all, "management", id] as const,
 };
 
 export const cvKeys = {
@@ -112,6 +117,40 @@ export const auditKeys = {
         [...auditKeys.all, "retention-policy", id] as const,
 };
 
+export const reportingKeys = {
+    all: ["reports"] as const,
+    attendance: (params: Record<string, unknown>) =>
+        [...reportingKeys.all, "attendance", params] as const,
+    unifiedInbox: (params: Record<string, unknown>) =>
+        [...reportingKeys.all, "unified-inbox", params] as const,
+};
+
+export const boardMeetingKeys = {
+    all: ["board-meetings"] as const,
+    lists: () => [...boardMeetingKeys.all, "list"] as const,
+    list: (params: Record<string, unknown>) =>
+        [...boardMeetingKeys.lists(), params] as const,
+    details: () => [...boardMeetingKeys.all, "detail"] as const,
+    detail: (id: number | string) =>
+        [...boardMeetingKeys.details(), id] as const,
+    documents: (meetingId: number | string) =>
+        ["board-meeting-documents", meetingId] as const,
+    /** The bulk picker: meetings still waiting for a first summary. */
+    summaryCandidates: (params: Record<string, unknown>) =>
+        ["board-meeting-summary-candidates", params] as const,
+    /** The bulk runs still producing, so the table page can offer to stop them. */
+    liveSummaryBatches: () =>
+        [...boardMeetingKeys.all, "summary-batches"] as const,
+};
+
+export const tagKeys = {
+    all: ["tags"] as const,
+    lists: () => [...tagKeys.all, "list"] as const,
+    list: (params: Record<string, unknown>) =>
+        [...tagKeys.lists(), params] as const,
+    options: () => [...tagKeys.all, "options"] as const,
+};
+
 export const formOptionKeys = {
     all: () => ["form-options"] as const,
     byGroup: (group: string, parentValue?: string, search?: string) =>
@@ -132,4 +171,40 @@ export const formOptionKeys = {
         ] as const,
     adminGroups: () =>
         [...formOptionKeys.all(), "admin-groups"] as const,
+};
+
+export const notificationKeys = {
+    all: ["notifications"] as const,
+    lists: () => [...notificationKeys.all, "list"] as const,
+    list: (params: Record<string, unknown>) =>
+        [...notificationKeys.lists(), params] as const,
+    unreadCount: () => [...notificationKeys.all, "unread-count"] as const,
+};
+
+export const aiKeys = {
+    all: ["ai"] as const,
+    providers: () => [...aiKeys.all, "providers"] as const,
+    providerList: (params: Record<string, unknown>) =>
+        [...aiKeys.providers(), params] as const,
+    agents: () => [...aiKeys.all, "agents"] as const,
+    agentList: (params: Record<string, unknown>) =>
+        [...aiKeys.agents(), params] as const,
+    /** The flat, cross-provider list a per-run model picker reads. */
+    models: () => [...aiKeys.all, "models"] as const,
+};
+
+export const exportTemplateKeys = {
+    all: ["export-templates"] as const,
+    list: (domain: string, format: string) =>
+        [...exportTemplateKeys.all, "list", domain, format] as const,
+    /** Every format's library for a domain, as an invalidation prefix. */
+    lists: (domain: string) =>
+        [...exportTemplateKeys.all, "list", domain] as const,
+    /**
+     * The names a template may contain. A property of the DOMAIN, not of the
+     * current library, so it is keyed separately from the list — uploading a file
+     * must not make it look like the vocabulary changed.
+     */
+    fields: (domain: string) =>
+        [...exportTemplateKeys.all, "fields", domain] as const,
 };

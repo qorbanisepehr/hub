@@ -9,6 +9,7 @@ import {
     requestOtp,
     verifyOtp,
 } from "@/features/auth/api";
+import type { LoginChannel } from "@/features/auth/types";
 import { authKeys } from "@/lib/query-keys";
 
 export function useAuth() {
@@ -40,12 +41,25 @@ export function useAuth() {
     }, [isError, isLoading, queryClient, navigate]);
 
     const loginOtpMutation = useMutation({
-        mutationFn: (identifier: string) => requestOtp(identifier),
+        mutationFn: ({
+            identifier,
+            channel,
+        }: {
+            identifier: string;
+            channel: LoginChannel;
+        }) => requestOtp(identifier, channel),
     });
 
     const verifyOtpMutation = useMutation({
-        mutationFn: ({ identifier, code }: { identifier: string; code: string }) =>
-            verifyOtp(identifier, code),
+        mutationFn: ({
+            identifier,
+            code,
+            channel,
+        }: {
+            identifier: string;
+            code: string;
+            channel: LoginChannel;
+        }) => verifyOtp(identifier, code, channel),
         onSuccess: () => {
             authClient.setSession();
             queryClient.invalidateQueries({ queryKey: authKeys.me() });

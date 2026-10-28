@@ -58,9 +58,58 @@ type SocialInsuranceViewProps = {
 /** Display label for a stored Jalali month value (falls back to the raw value). */
 function monthLabel(value: unknown): string {
     if (typeof value !== "string" || value === "") return "-";
-    return JALALI_MONTH_OPTIONS.find((option) => option.value === value)
-        ?.label ?? value;
+    return (
+        JALALI_MONTH_OPTIONS.find((option) => option.value === value)?.label ??
+        value
+    );
 }
+
+/** Expanded row: this history's monthly breakdown + description. */
+const renderHistoryDetail = (item: Record<string, unknown>) => {
+    const breakdown = Array.isArray(item.monthly_breakdown)
+        ? item.monthly_breakdown
+        : [];
+
+    return (
+        <div className="space-y-4 p-4">
+            {typeof item.description === "string" &&
+                item.description !== "" && (
+                    <SectionRow
+                        variant="between"
+                        label="توضیحات"
+                        value={item.description}
+                    />
+                )}
+
+            <div className="space-y-2">
+                <p className="text-xs font-medium text-muted-foreground">
+                    تفکیک ماهانه
+                </p>
+                <SectionRepeaterTable
+                    items={breakdown}
+                    emptyLabel="ماهی ثبت نشده است."
+                    columns={[
+                        {
+                            label: "ماه",
+                            render: (row) => monthLabel(row.month),
+                        },
+                        {
+                            label: "روز",
+                            render: (row) =>
+                                row.days === null || row.days === undefined
+                                    ? "-"
+                                    : String(row.days),
+                        },
+                        {
+                            label: "دستمزد",
+                            render: (row) => row.wage,
+                        },
+                    ]}
+                />
+            </div>
+        </div>
+    );
+};
 
 export function SocialInsuranceView({
     employee,
@@ -69,8 +118,9 @@ export function SocialInsuranceView({
     action,
     extra,
 }: SocialInsuranceViewProps) {
-    const section =
-        (data ?? (employee.section_social_insurance ?? {})) as SocialInsuranceData;
+    const section = (data ??
+        employee.section_social_insurance ??
+        {}) as SocialInsuranceData;
 
     const histories = Array.isArray(section.histories) ? section.histories : [];
 
@@ -94,54 +144,6 @@ export function SocialInsuranceView({
         ...getDocumentsBySlug(DOC_CATEGORY_SLUGS.INSURANCE_HISTORY_OVERALL),
         ...getDocumentsBySlug(DOC_CATEGORY_SLUGS.INSURANCE_LAST_JOB_TITLES),
     ];
-
-    /** Expanded row: this history's monthly breakdown + description. */
-    const renderHistoryDetail = (item: Record<string, unknown>) => {
-        const breakdown = Array.isArray(item.monthly_breakdown)
-            ? item.monthly_breakdown
-            : [];
-
-        return (
-            <div className="space-y-4 p-4">
-                {typeof item.description === "string" &&
-                    item.description !== "" && (
-                        <SectionRow
-                            variant="between"
-                            label="توضیحات"
-                            value={item.description}
-                        />
-                    )}
-
-                <div className="space-y-2">
-                    <p className="text-xs font-medium text-muted-foreground">
-                        تفکیک ماهانه
-                    </p>
-                    <SectionRepeaterTable
-                        items={breakdown}
-                        emptyLabel="ماهی ثبت نشده است."
-                        columns={[
-                            {
-                                label: "ماه",
-                                render: (row) => monthLabel(row.month),
-                            },
-                            {
-                                label: "روز",
-                                render: (row) =>
-                                    row.days === null ||
-                                    row.days === undefined
-                                        ? "-"
-                                        : String(row.days),
-                            },
-                            {
-                                label: "دستمزد",
-                                render: (row) => row.wage,
-                            },
-                        ]}
-                    />
-                </div>
-            </div>
-        );
-    };
 
     return (
         <Card>
@@ -226,13 +228,21 @@ export function SocialInsuranceView({
                                 },
                                 {
                                     label: "از تاریخ",
-                                    render: (i) => toPersianDate(i.start_date as string | null | undefined),
+                                    render: (i) =>
+                                        toPersianDate(
+                                            i.start_date as
+                                                | string
+                                                | null
+                                                | undefined,
+                                        ),
                                 },
                                 {
                                     label: "تا تاریخ",
                                     render: (i) =>
                                         i.end_date
-                                            ? toPersianDate(i.end_date as string)
+                                            ? toPersianDate(
+                                                  i.end_date as string,
+                                              )
                                             : "ادامه دارد",
                                 },
                             ]}
