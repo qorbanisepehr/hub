@@ -1,0 +1,542 @@
+<?php
+
+use App\Domains\BoardMeeting\Enums\AttendeeRole;
+use App\Domains\BoardMeeting\Exports\BoardMeetingSheetExport;
+use App\Domains\BoardMeeting\Exports\BoardMeetingTemplateFields;
+use App\Domains\BoardMeeting\Models\BoardMeeting;
+use App\Domains\BoardMeeting\Value\Attendee;
+use App\Support\Exports\Render\DocxRenderer;
+use App\Support\Exports\Templates\DocxTemplateFiller;
+use App\Support\Exports\Templates\FileTemplate;
+use App\Support\Exports\Templates\FileTemplateService;
+use App\Support\Exports\Templates\FileTemplateStore;
+use Illuminate\Support\Facades\Storage;
+use PhpOffice\PhpWord\Element\Table;
+use PhpOffice\PhpWord\IOFactory;
+use PhpOffice\PhpWord\PhpWord;
+use ZipArchive;
+
+/**
+ * Filling an uploaded Word template.
+ *
+ * Built against real .docx files rather than mocked, because every claim here is
+ * about what PHPWord does to the XML: that `cloneRow` finds the row a token sits
+ * in, that cloning re-indexes macros into `#1`, `#2`, and that the order inline
+ * substitution runs in actually matters. A mock would agree with every one of
+ * those assumptions.
+ */
+describe('filling a template', function () {
+    beforeEach(function () {
+        Storage::fake('local');
+
+        $this->store = app(FileTemplateStore::class);
+        $this->registry = new BoardMeetingTemplateFields;
+        $this->sheet = app(BoardMeetingSheetExport::class);
+    });
+
+    /**
+     * Fill a template with a meeting, and return the path of what came out.
+     *
+     * Every case goes through this rather than calling the filler directly,
+     * because the filler now takes the generated document as well as the entity
+     * — the meeting is added to the file, then the file is filled. A test that
+     * passed only the entity would be testing the path this feature no longer
+     * has.
+     */
+    $fill = function (string $source, BoardMeeting $meeting): string {
+        app(DocxTemplateFiller::class)->fill(
+            $source,
+            app(BoardMeetingSheetExport::class)->document($meeting),
+            $meeting,
+            new BoardMeetingTemplateFields,
+            $stream = fopen('php://temp', 'r+'),
+        );
+
+        rewind($stream);
+        $out = tempnam(sys_get_temp_dir(), 'tpl-out-').'.docx';
+        file_put_contents($out, stream_get_contents($stream));
+
+        return $out;
+    };
+
+    /**
+     * A template file at a path, built the way a person would in Word: a
+     * paragraph with tokens, optionally a one-row table whose cells hold them.
+     *
+     * The table goes through the section rather than being built standalone,
+     * because a table PHPWord has not been given to a section never reaches the
+     * document and the test would pass for the wrong reason.
+     *
+     * @param  list<string>|null  $rowCells
+     */
+    $makeTemplate = function (string $paragraph = '', ?array $rowCells = null): string {
+        $phpWord = new PhpWord;
+        $section = $phpWord->addSection();
+
+        if ($paragraph !== '') {
+            $section->addText($paragraph);
+        }
+
+        if ($rowCells !== null) {
+            $table = $section->addTable([
+                'borderSize' => 4,
+                'unit' => 'pct',
+                'width' => 100,
+                'bidiVisual' => true,
+            ]);
+
+            $row = $table->addRow();
+
+            foreach ($rowCells as $cell) {
+                $row->addCell()->addText($cell);
+            }
+        }
+
+        $path = tempnam(sys_get_temp_dir(), 'tpl-src-').'.docx';
+
+        IOFactory::createWriter($phpWord, 'Word2007')->save($path);
+
+        return $path;
+    };
+
+    /**
+     * The text of the produced document, read straight out of the archive.
+     *
+     * From `word/document.xml` rather than through PHPWord: this asserts on the
+     * FILE a person receives, and the library has no API for "give me the text of
+     * what you just wrote" in this version.
+     */
+    $textOf = function (string $path): string {
+        $zip = new ZipArchive;
+        $zip->open($path);
+        $xml = (string) $zip->getFromName('word/document.xml');
+        $zip->close();
+
+        return trim((string) preg_replace('/\s+/u', ' ', strip_tags($xml)));
+    };
+
+    it('substitutes an inline macro with the field value', function () use ($makeTemplate, $textOf, $fill) {
+        $source = $makeTemplate('جلسه {{title}} در تاریخ {{held_on}} برگزار شد.');
+
+        $meeting = BoardMeeting::factory()->create(['title' => 'بودجهٔ سالانه']);
+
+        $filled = $fill($source, $meeting);
+
+        expect($textOf($filled))->toContain('بودجهٔ سالانه')
+            ->and($textOf($filled))->not->toContain('{{title}}');
+
+        @unlink($source);
+        @unlink($filled);
+    });
+
+    it('repeats a table row once per record', function () use ($makeTemplate, $textOf, $fill) {
+        // The whole feature rests on this: a table row holding {{attendee.name}}
+        // becomes three rows for three attendees, with each clone getting its own
+        // value rather than the row being copied verbatim.
+        $source = $makeTemplate('حاضران', ['{{attendee.name}}', '{{attendee.role}}']);
+
+        $meeting = BoardMeeting::factory()
+            ->withAttendees(
+                new Attendee('الف', AttendeeRole::Chair, true),
+                new Attendee('ب', AttendeeRole::Member, false),
+                new Attendee('ج', AttendeeRole::Observer, true),
+            )
+            ->create();
+
+        $filled = $fill($source, $meeting);
+
+        $text = $textOf($filled);
+
+        expect($text)->toContain('الف')
+            ->and($text)->toContain('ب')
+            ->and($text)->toContain('ج')
+            ->and($text)->not->toContain('{{attendee.name}}');
+
+        @unlink($source);
+        @unlink($filled);
+    });
+
+    it('leaves a row macro alone when it is not inside a table row', function () use ($makeTemplate, $textOf, $fill) {
+        // The decision for this feature is to teach the convention rather than
+        // enforce it, so a template that gets it wrong renders with its own text
+        // visible instead of failing the export.
+        $source = $makeTemplate('{{attendee.name}} در جلسه حاضر بود.');
+
+        $meeting = BoardMeeting::factory()
+            ->withAttendees(new Attendee('الف', AttendeeRole::Chair, true))
+            ->create();
+
+        $filled = $fill($source, $meeting);
+
+        expect($textOf($filled))->toContain('{{attendee.name}}');
+
+        @unlink($source);
+        @unlink($filled);
+    });
+
+    it('leaves a macro it has no field for exactly as the author typed it', function () use ($makeTemplate, $textOf, $fill) {
+        // A typo has to be visible somewhere, and the document is the only place
+        // the author will look.
+        $source = $makeTemplate('{{attende}} و {{title}}');
+
+        $meeting = BoardMeeting::factory()->create(['title' => 'صورتجلسه']);
+
+        $filled = $fill($source, $meeting);
+
+        expect($textOf($filled))->toContain('{{attende}}')
+            ->and($textOf($filled))->toContain('صورتجلسه');
+
+        @unlink($source);
+        @unlink($filled);
+    });
+
+    it('produces no row for a group the meeting has no records for', function () use ($makeTemplate, $textOf, $fill) {
+        $source = $makeTemplate('برچسب‌ها', ['{{tag.name}}']);
+
+        $filled = $fill($source, BoardMeeting::factory()->create());
+
+        // A blank row would read as a tag whose name could not be read.
+        expect($textOf($filled))->not->toContain('{{tag.name}}')
+            ->and($textOf($filled))->toContain('برچسب‌ها');
+
+        @unlink($source);
+        @unlink($filled);
+    });
+});
+
+describe('choosing between a generated document and a template', function () {
+    beforeEach(function () {
+        Storage::fake('local');
+
+        $this->store = app(FileTemplateStore::class);
+        $this->service = app(FileTemplateService::class);
+        $this->sheet = app(BoardMeetingSheetExport::class);
+    });
+
+    /** A minimal docx with a recognisable body, used as a style base. */
+    $base = function (string $text): string {
+        $phpWord = new PhpWord;
+        $phpWord->addSection()->addText($text);
+
+        $path = tempnam(sys_get_temp_dir(), 'style-').'.docx';
+        IOFactory::createWriter($phpWord, 'Word2007')->save($path);
+
+        return $path;
+    };
+
+    $textOf = function (string $path): string {
+        $zip = new ZipArchive;
+        $zip->open($path);
+        $xml = (string) $zip->getFromName('word/document.xml');
+        $zip->close();
+
+        return trim((string) preg_replace('/\s+/u', ' ', strip_tags($xml)));
+    };
+
+    it('generates the document when there is no template', function () {
+        $meeting = BoardMeeting::factory()->create(['title' => 'بودجه']);
+
+        $file = $this->service->render($this->sheet, $meeting, new BoardMeetingTemplateFields);
+
+        expect($file->filename)->toEndWith('.docx')
+            ->and($file->mimeType)->toContain('wordprocessingml');
+    });
+
+    it('keeps the template body and adds the meeting under it', function () use ($base, $textOf) {
+        // A style template's own content is preserved rather than cleared: that
+        // is what makes a letterhead with the board's name work, and "what is
+        // under this" is the whole meaning of the thing.
+        $path = $base('سربرگ هیئت مدیره');
+
+        $template = FileTemplate::make('docx', 'boardmeeting', 'house', null, 'سبک خانه', 10, '', false);
+        $this->store->write($template, (string) file_get_contents($path));
+
+        $meeting = BoardMeeting::factory()->create(['title' => 'بودجه']);
+
+        $file = $this->service->render($this->sheet, $meeting, new BoardMeetingTemplateFields, $template);
+
+        $out = tempnam(sys_get_temp_dir(), 'out-').'.docx';
+        rewind($file->stream);
+        file_put_contents($out, stream_get_contents($file->stream));
+
+        $text = $textOf($out);
+
+        expect($text)->toContain('سربرگ هیئت مدیره')
+            ->and($text)->toContain('بودجه');
+
+        @unlink($path);
+        @unlink($out);
+    });
+
+    it('refuses a template whose file is gone, rather than rendering nothing', function () {
+        $template = FileTemplate::make('docx', 'boardmeeting', 'missing', null, 'گمشده', 10, '', false);
+
+        expect(fn () => $this->service->render(
+            $this->sheet,
+            BoardMeeting::factory()->create(),
+            new BoardMeetingTemplateFields,
+            $template,
+        ))->toThrow(RuntimeException::class);
+    });
+
+    it('leaves a document the author wrote alone, generating nothing onto it', function () use ($textOf) {
+        // THE REPORTED BUG. A template holding {{title}} and no {{content}} is a
+        // document somebody wrote by hand: they wanted the title in it. Appending
+        // the generated meeting underneath meant every such file came out as the
+        // author's page with a second, differently-formatted copy of the meeting
+        // stapled below it — which is what was reported.
+        //
+        // Decided by the file rather than by a stored flag, so the author's own
+        // `{{title}}` is the only evidence needed. See {@see TemplateKind}.
+        $phpWord = new PhpWord;
+        $phpWord->addSection()->addText('{{title}}');
+
+        $path = tempnam(sys_get_temp_dir(), 'detail-').'.docx';
+        IOFactory::createWriter($phpWord, 'Word2007')->save($path);
+
+        $template = FileTemplate::make('docx', 'boardmeeting', 'official', null, 'نامهٔ رسمی', 10, '');
+        $this->store->write($template, (string) file_get_contents($path));
+
+        $file = $this->service->render(
+            $this->sheet,
+            BoardMeeting::factory()->create(['title' => 'صورتجلسه']),
+            new BoardMeetingTemplateFields,
+            $template,
+        );
+
+        $out = tempnam(sys_get_temp_dir(), 'out-').'.docx';
+        rewind($file->stream);
+        file_put_contents($out, stream_get_contents($file->stream));
+
+        $text = $textOf($out);
+
+        expect($text)->not->toContain('{{title}}')
+            ->and($text)->toContain('صورتجلسه');
+
+        // Once, not twice. `toContain` on its own would pass against the old
+        // behaviour too, which is precisely why it was allowed to stand; the
+        // count is the assertion that pins the bug shut.
+        expect(substr_count($text, 'صورتجلسه'))->toBe(1);
+
+        @unlink($path);
+        @unlink($out);
+    });
+
+    it('adds the meeting to a frame that also has placeholders, and fills both', function () use ($textOf) {
+        // THE OTHER HALF, AND THE REGRESSION THIS FEATURE WAS REBUILT FOR. The
+        // earlier version classified uploads by whether they held ANY placeholder,
+        // so a letterhead carrying {{date}} in its footer was read as a template
+        // that replaces the meeting — the export came out with no meeting on it
+        // and nothing anywhere to say so.
+        //
+        // The fix is that only {{content}} decides. A footer date no longer
+        // changes the answer, which is what this file exists to prove: it holds
+        // both, and the meeting is still generated.
+        $phpWord = new PhpWord;
+        $phpWord->addSection()->addText('{{title}}');
+        $phpWord->addSection()->addText('{{content}}');
+
+        $path = tempnam(sys_get_temp_dir(), 'frame-').'.docx';
+        IOFactory::createWriter($phpWord, 'Word2007')->save($path);
+
+        $template = FileTemplate::make('docx', 'boardmeeting', 'framed', null, 'قالب', 10, '');
+        $this->store->write($template, (string) file_get_contents($path));
+
+        $meeting = BoardMeeting::factory()->create(['title' => 'صورتجلسه']);
+
+        $file = $this->service->render($this->sheet, $meeting, new BoardMeetingTemplateFields, $template);
+
+        $out = tempnam(sys_get_temp_dir(), 'out-').'.docx';
+        rewind($file->stream);
+        file_put_contents($out, stream_get_contents($file->stream));
+
+        $text = $textOf($out);
+
+        expect($text)->not->toContain('{{title}}')
+            ->and($text)->not->toContain('{{content}}')
+            ->and($text)->toContain('صورتجلسه')
+            ->and(substr_count($text, 'صورتجلسه'))->toBeGreaterThan(1);
+
+        @unlink($path);
+        @unlink($out);
+    });
+});
+
+/**
+ * The generated body, written under somebody else's letterhead.
+ *
+ * A generated Word document needs a font and a type scale when it is the only
+ * document there is. Written into a letterhead it must not bring them, because a
+ * docx only NAMES its font: naming Tahoma over a template that says B Nazanin
+ * yields a document in two typefaces, which reads as a broken template rather than
+ * as a generated body.
+ *
+ * Read off the XML rather than off the rendered page, because this is the whole
+ * claim — what the writer emitted — and no test can open Word.
+ */
+describe('the style of a generated body under a template', function () {
+    beforeEach(function () {
+        Storage::fake('local');
+
+        $this->sheet = app(BoardMeetingSheetExport::class);
+    });
+
+    /** The document.xml of a docx, as a string. */
+    $xml = function (string $path): string {
+        $zip = new ZipArchive;
+        $zip->open($path);
+
+        $document = (string) $zip->getFromName('word/document.xml');
+
+        $zip->close();
+
+        return $document;
+    };
+
+    /** A frame template: a letterhead paragraph and the document marker. */
+    $frame = function (): string {
+        $phpWord = new PhpWord;
+        $section = $phpWord->addSection();
+        $section->addText('سربرگ هیئت مدیره');
+        $section->addText('{{content}}');
+
+        $path = tempnam(sys_get_temp_dir(), 'style-').'.docx';
+        IOFactory::createWriter($phpWord, 'Word2007')->save($path);
+
+        return $path;
+    };
+
+    it('names no font of its own, so the template decides', function () use ($frame, $xml) {
+        $path = $frame();
+
+        app(DocxTemplateFiller::class)->fill(
+            $path,
+            $this->sheet->document(BoardMeeting::factory()->create(['title' => 'بودجه'])),
+            BoardMeeting::factory()->create(['title' => 'بودجه']),
+            new BoardMeetingTemplateFields,
+            $stream = fopen('php://temp', 'r+'),
+        );
+
+        rewind($stream);
+        $out = tempnam(sys_get_temp_dir(), 'style-out-').'.docx';
+        file_put_contents($out, stream_get_contents($stream));
+
+        $document = $xml($out);
+
+        // The configured font, by name rather than by value, so changing the config
+        // does not quietly turn this test into one that asserts nothing.
+        $configured = (string) config('exports.documents.docx_font');
+
+        expect($configured)->not->toBe('')
+            ->and($document)->not->toContain($configured);
+
+        @unlink($path);
+        @unlink($out);
+    });
+
+    it('keeps right-to-left, because a template must not be able to break Persian', function () use ($frame, $xml) {
+        // The one thing inheriting does NOT give up. A letterhead that shapes
+        // Persian left-to-right is broken rather than plain, so this is not
+        // something a template is allowed to switch off — and it is the reason
+        // "inherit the style" cannot simply mean "set no properties at all".
+        $path = $frame();
+
+        app(DocxTemplateFiller::class)->fill(
+            $path,
+            $this->sheet->document(BoardMeeting::factory()->create(['title' => 'بودجه'])),
+            BoardMeeting::factory()->create(['title' => 'بودجه']),
+            new BoardMeetingTemplateFields,
+            $stream = fopen('php://temp', 'r+'),
+        );
+
+        rewind($stream);
+        $out = tempnam(sys_get_temp_dir(), 'style-out-').'.docx';
+        file_put_contents($out, stream_get_contents($stream));
+
+        expect($xml($out))->toContain('<w:rtl/>');
+
+        @unlink($path);
+        @unlink($out);
+    });
+
+    it('still names a font when there is no template, so the plain export is unchanged', function () use ($xml) {
+        // The other side of the same line. Inheriting everywhere would leave a
+        // document written from scratch with whatever PHPWord happens to default
+        // to, which is not a font anybody chose.
+        $stream = fopen('php://temp', 'r+');
+
+        app(DocxRenderer::class)->render(
+            $this->sheet->document(BoardMeeting::factory()->create(['title' => 'بودجه'])),
+            $stream,
+        );
+
+        rewind($stream);
+        $out = tempnam(sys_get_temp_dir(), 'plain-out-').'.docx';
+        file_put_contents($out, stream_get_contents($stream));
+
+        expect($xml($out))->toContain((string) config('exports.documents.docx_font'));
+
+        @unlink($out);
+    });
+
+    it('declares the content right-to-left when there is no template either', function () use ($xml) {
+        // The plain export is what a user means by "the Word export". A section that
+        // says `w:bidi` lays the page out right to left and decides nothing about the
+        // text, so every paragraph and run has to say it too — including the ones
+        // PHPWord writes with no style at all, such as a text break.
+        $stream = fopen('php://temp', 'r+');
+
+        app(DocxRenderer::class)->render(
+            $this->sheet->document(BoardMeeting::factory()->create(['title' => 'بودجه'])),
+            $stream,
+        );
+
+        rewind($stream);
+        $out = tempnam(sys_get_temp_dir(), 'plain-rtl-').'.docx';
+        file_put_contents($out, stream_get_contents($stream));
+
+        $dom = new DOMDocument;
+        $dom->loadXML($xml($out));
+
+        $xpath = new DOMXPath($dom);
+        $xpath->registerNamespace('w', 'http://schemas.openxmlformats.org/wordprocessingml/2006/main');
+
+        $paragraphs = $xpath->query('//w:p');
+
+        expect($paragraphs->length)->toBeGreaterThan(0);
+
+        foreach ($paragraphs as $paragraph) {
+            expect($xpath->query('./w:pPr/w:bidi', $paragraph)->length)->toBe(1);
+        }
+
+        expect(substr_count($xml($out), '<w:rtl/>'))->toBeGreaterThan(0);
+
+        @unlink($out);
+    });
+
+    it('leaves no blank paragraph where the document marker was', function () use ($frame, $xml) {
+        // The marker used to be searched for as a `Text` element, and the body of a
+        // section holds `TextRun` elements in this version — so it was never
+        // removed. The placeholder pass emptied it instead, and every frame carried
+        // a blank paragraph where its marker had been. Invisible in the XML, plain
+        // on the page.
+        $path = $frame();
+
+        app(DocxTemplateFiller::class)->fill(
+            $path,
+            $this->sheet->document(BoardMeeting::factory()->create(['title' => 'بودجه'])),
+            BoardMeeting::factory()->create(['title' => 'بودجه']),
+            new BoardMeetingTemplateFields,
+            $stream = fopen('php://temp', 'r+'),
+        );
+
+        rewind($stream);
+        $out = tempnam(sys_get_temp_dir(), 'style-out-').'.docx';
+        file_put_contents($out, stream_get_contents($stream));
+
+        expect($xml($out))->not->toContain('<w:t xml:space="preserve"></w:t>');
+
+        @unlink($path);
+        @unlink($out);
+    });
+});

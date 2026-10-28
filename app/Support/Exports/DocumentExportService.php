@@ -1,0 +1,86 @@
+<?php
+
+namespace App\Support\Exports;
+
+use App\Support\Exports\Contract\DocumentSource;
+use App\Support\Exports\Value\Document\DocumentSpec;
+use App\Support\Exports\Value\ExportFile;
+use Illuminate\Support\Str;
+
+/**
+ * The document-side orchestrator for single-record exports (an employee
+ * profile, a CV, a questionnaire): ask the domain source for its
+ * DocumentSpec, resolve the renderer for the format, stream the bytes, and
+ * compose the file. Data-side mirrors ExportService's role for tabular
+ * formats; the two share nothing but filenames and the renderer registry.
+ */
+final class DocumentExportService
+{
+    public function __construct(
+        private readonly DocumentRendererRegistry $renderers,
+    ) {}
+
+    /**
+     * @param  resource|null  $stream
+     * @param  list<string>|null  $sections  the parts to print, for THIS export
+     *                                       only. Null asks the source for its own
+     *                                       default; an empty list asks for nothing,
+     *                                       which is a request and not an absence
+     *                                       of one.
+     */
+    public function run(
+        DocumentSource $source,
+        mixed $entity,
+        string $format,
+        $stream = null,
+        ?array $sections = null,
+    ): ExportFile {
+        $renderer = $this->renderers->get($format);
+        $stream ??= fopen('php://temp', 'r+');
+
+        $renderer->render($source->document($entity, $sections), $stream);
+
+        return new ExportFile(
+            filename: ExportFilename::make($source->baseFilename(), $renderer->extension()),
+            mimeType: $renderer->contentType(),
+            stream: $stream,
+        );
+    }
+
+    /**
+     * Render a spec that is already built, rather than one that has to come
+     * from an entity.
+     *
+     * For the documents nobody owns: a bundle manifest, a cover sheet, an
+     * index. Wrapping a ready-made DocumentSpec in a DocumentSource just to get
+     * it through `run()` would mean inventing an entity for every such page,
+     * and the alternative — reaching for the renderer registry directly — would
+     * put the filename and stream handling in two places.
+     *
+     * @param  resource|null  $stream
+     */
+    public function render(DocumentSpec $spec, string $format, $stream = null): ExportFile
+    {
+        $renderer = $this->renderers->get($format);
+        $stream ??= fopen('php://temp', 'r+');
+
+        $renderer->render($spec, $stream);
+
+        return new ExportFile(
+            filename: ExportFilename::make('document', $renderer->extension()),
+            mimeType: $renderer->contentType(),
+            stream: $stream,
+        );
+    }
+
+    /**
+     * Content-Disposition filename for the HTTP response, with the same
+     * RFC 5987 non-ASCII fallback the tabular side uses.
+     */
+    public function dispositionFilename(ExportFile $file): string
+    {
+        $ascii = Str::ascii($file->filename);
+
+        return $ascii === $file->filename ? $file->filename : rawurlencode($file->filename);
+    }
+}

@@ -1,0 +1,282 @@
+<?php
+
+use App\Domains\BoardMeeting\Controllers\BoardMeetingController;
+use App\Domains\BoardMeeting\Controllers\BoardMeetingDocumentController;
+use App\Domains\BoardMeeting\Controllers\BoardMeetingTemplateController;
+use App\Domains\BoardMeeting\Controllers\FileTemplateController;
+use App\Domains\BoardMeeting\Controllers\MeetingSummaryController;
+use Illuminate\Support\Facades\Route;
+
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('board-meetings', [BoardMeetingController::class, 'index'])
+        ->name('board-meetings.index')
+        ->middleware('permission:board-meeting.view');
+
+    // The source behind the sync is the integration's business, so the
+    // route is declared before `{meeting}` and needs no source knowledge.
+    Route::post('board-meetings/sync', [BoardMeetingController::class, 'sync'])
+        ->name('board-meetings.sync')
+        ->middleware('permission:board-meeting.sync');
+
+    // Export: also declared before `{meeting}` (a literal path must never
+    // be captured by the parameter).
+    Route::get('board-meetings/export/fields', [BoardMeetingController::class, 'exportFields'])
+        ->name('board-meetings.export-fields')
+        ->middleware('permission:board-meeting.export');
+
+    Route::get('board-meetings/export', [BoardMeetingController::class, 'export'])
+        ->name('board-meetings.export')
+        ->middleware('permission:board-meeting.export');
+
+    // One meeting as a printable PDF, on `board-meeting.export` like the
+    // registry export above: taking a copy of a meeting away is that
+    // permission's job, whether the copy is a table of many or one sheet.
+    Route::get('board-meetings/{meeting}/export/pdf', [BoardMeetingController::class, 'exportPdf'])
+        ->name('board-meetings.export.pdf')
+        ->middleware('permission:board-meeting.export');
+
+    // The same sheet as Word. A separate action rather than a `?format=` on the
+    // PDF one: the route then says what it returns, and a .docx is editable —
+    // "print this" and "hand me something I can change" are different requests.
+    Route::get('board-meetings/{meeting}/export/docx', [BoardMeetingController::class, 'exportDocx'])
+        ->name('board-meetings.export.docx')
+        ->middleware('permission:board-meeting.export');
+
+    // The whole meeting as one archive: the sheet plus its scans. Gated on
+    // `board-meeting.export` for the sheet, and on each scan's own
+    // board-meeting.documents.download inside the action — deny-all, because a
+    // bundle that quietly contained a file the user may not download would be a
+    // way around that permission rather than a use of it.
+    Route::get('board-meetings/{meeting}/export/zip', [BoardMeetingController::class, 'exportBundle'])
+        ->name('board-meetings.export.zip')
+        ->middleware('permission:board-meeting.export');
+
+    // The sheet as Markdown — diffable, greppable, and readable by an agent
+    // with no parser in between. Free in the kernel: a registered renderer and
+    // one line through the same streamMeetingSheet the other formats use.
+    Route::get('board-meetings/{meeting}/export/md', [BoardMeetingController::class, 'exportMarkdown'])
+        ->name('board-meetings.export.md')
+        ->middleware('permission:board-meeting.export');
+
+    // The same sheet as JSON, for a system on the other end rather than for a
+    // person. No button on purpose: an interchange surface is API-first, and the
+    // hub's whole purpose is that another system can read what this one holds.
+    Route::get('board-meetings/{meeting}/export/json', [BoardMeetingController::class, 'exportJson'])
+        ->name('board-meetings.export.json')
+        ->middleware('permission:board-meeting.export');
+
+    // Many meetings as one archive. POST rather than GET because the request
+    // carries a selection and a set of options, and both outgrow a query string
+    // comfortably — the same reason the document bundle is POST.
+    // The formats a bundle can be rendered in. Read from the renderer registry so
+    // the dialog cannot offer a stale list — a hardcoded one fails by omission.
+    Route::get('board-meetings/export/bundle/formats', [BoardMeetingController::class, 'bundleFormats'])
+        ->name('board-meetings.export.bundle-formats')
+        ->middleware('permission:board-meeting.export');
+
+    Route::post('board-meetings/export/bundle', [BoardMeetingController::class, 'exportBundleBulk'])
+        ->name('board-meetings.export.bundle')
+        ->middleware('permission:board-meeting.export');
+
+    // A queued bundle is downloaded with the same permission that queued it: the
+    // token is the primary key, so this is not a back door around the route
+    // above — it is the same gate reached by a different route.
+    Route::get('board-meetings/export/bundle/{token}', [BoardMeetingController::class, 'downloadBundle'])
+        ->name('board-meetings.export.bundle-download')
+        ->middleware('permission:board-meeting.export');
+
+    Route::post('board-meetings/export/bundle/{token}/cancel', [BoardMeetingController::class, 'cancelBundle'])
+        ->name('board-meetings.export.bundle-cancel')
+        ->middleware('permission:board-meeting.export');
+
+    /*
+     * Which sections a printed meeting contains.
+     *
+     * Declared BEFORE `board-meetings/{meeting}` below, and that is load-bearing
+     * rather than stylistic: a literal segment declared after a parameter is
+     * never reached, because `{meeting}` captures `templates` first and the
+     * request 404s on a meeting id of "templates". Every route above is a
+     * literal for the same reason and sits above it too.
+     *
+     * On the cross-domain `export-template.*` permissions rather than
+     * `board-meeting.*`, because what is being configured is how a document is
+     * rendered — the same question for every domain with a `DocumentSource`, and
+     * deliberately asked once rather than per domain.
+     *
+     * `view` reads, `manage` writes, including dropping an override: clearing one
+     * is not a lesser read, it hands the decision back to the domain's template
+     * and so changes what the meeting prints.
+     */
+    Route::prefix('board-meetings/templates')->group(function (): void {
+        Route::get('/', [BoardMeetingTemplateController::class, 'index'])
+            ->name('board-meetings.templates.index')
+            ->middleware('permission:export-template.view');
+
+        Route::put('/', [BoardMeetingTemplateController::class, 'update'])
+            ->name('board-meetings.templates.update')
+            ->middleware('permission:export-template.manage');
+
+        Route::get('{meeting}', [BoardMeetingTemplateController::class, 'show'])
+            ->name('board-meetings.templates.show')
+            ->middleware('permission:export-template.view');
+
+        Route::put('{meeting}', [BoardMeetingTemplateController::class, 'updateForMeeting'])
+            ->name('board-meetings.templates.meeting-update')
+            ->middleware('permission:export-template.manage');
+
+        Route::delete('{meeting}', [BoardMeetingTemplateController::class, 'destroyForMeeting'])
+            ->name('board-meetings.templates.meeting-destroy')
+            ->middleware('permission:export-template.manage');
+    });
+
+    /*
+     * TEMPLATE FILES a meeting can be exported with.
+     *
+     * Above `{meeting}` for the same reason the other literal paths are: a
+     * parameter declared first would capture `word-templates` as a meeting id.
+     */
+    Route::prefix('templates')->group(function (): void {
+        Route::get('/', [FileTemplateController::class, 'index'])
+            ->name('templates.index')
+            ->middleware('permission:export-template.view');
+
+        // The cheat sheet. A separate path from the library because it is the
+        // answer to a different question — what may a template contain — and the
+        // export button needs only the list.
+        Route::get('fields', [FileTemplateController::class, 'fields'])
+            ->name('templates.fields')
+            ->middleware('permission:export-template.view');
+
+        Route::post('/', [FileTemplateController::class, 'store'])
+            ->name('templates.store')
+            ->middleware('permission:export-template.manage');
+
+        // The authoring loop: fill the stored template with the newest meeting
+        // so a person can see the layout instead of guessing from the syntax
+        // checker. It reads a real meeting, so it needs both permissions.
+        Route::post('{slug}/preview', [FileTemplateController::class, 'preview'])
+            ->name('templates.preview')
+            ->middleware([
+                'permission:export-template.manage',
+                'permission:board-meeting.export',
+            ])
+            ->where('slug', '[A-Za-z0-9][A-Za-z0-9._-]*');
+
+        // The raw bytes of a template's file, for the download-edit-replace
+        // loop. GET because it is a pure read; no meeting is filled into the
+        // bytes, so it asks for template management alone and not the
+        // meeting-export permission the preview needs.
+        Route::get('{slug}/file', [FileTemplateController::class, 'download'])
+            ->name('templates.download')
+            ->middleware('permission:export-template.manage')
+            ->where('slug', '[A-Za-z0-9][A-Za-z0-9._-]*');
+
+        // The replacement of a template's FILE. A POST rather than the PUT the
+        // review suggested: PHP does not populate `$_FILES` for a PUT multipart
+        // request, and a replacement that works only in tests is worse than no
+        // endpoint. The slug, name, format and default flag stay; only the bytes
+        // and the size/mime that describe them change.
+        Route::post('{slug}/file', [FileTemplateController::class, 'replace'])
+            ->name('templates.replace')
+            ->middleware('permission:export-template.manage')
+            ->where('slug', '[A-Za-z0-9][A-Za-z0-9._-]*');
+
+        Route::put('{slug}', [FileTemplateController::class, 'update'])
+            ->name('templates.update')
+            ->middleware('permission:export-template.manage')
+            ->where('slug', '[A-Za-z0-9][A-Za-z0-9._-]*');
+
+        Route::delete('{slug}', [FileTemplateController::class, 'destroy'])
+            ->name('templates.destroy')
+            ->middleware('permission:export-template.manage')
+            ->where('slug', '[A-Za-z0-9][A-Za-z0-9._-]*');
+    });
+
+    Route::get('board-meetings/{meeting}', [BoardMeetingController::class, 'show'])
+        ->name('board-meetings.show')
+        ->middleware('permission:board-meeting.view');
+
+    Route::put('board-meetings/{meeting}', [BoardMeetingController::class, 'update'])
+        ->name('board-meetings.update')
+        ->middleware('permission:board-meeting.update');
+
+    // Documents (K4): scoped to a resolved meeting, flat placements.
+    Route::get('board-meetings/{meeting}/documents', [BoardMeetingDocumentController::class, 'index'])
+        ->name('board-meetings.documents.index')
+        ->middleware('permission:board-meeting.documents.view');
+
+    Route::post('board-meetings/{meeting}/documents', [BoardMeetingDocumentController::class, 'store'])
+        ->name('board-meetings.documents.store')
+        ->middleware('permission:board-meeting.documents.upload');
+
+    // Bulk import (idea basket, D30 — the only path new مصوب enter the hub).
+    // Declared before `{usage}`: a literal path segment must never be bound
+    // as the usage parameter of the delete route below.
+    Route::post('board-meetings/{meeting}/documents/bulk', [BoardMeetingDocumentController::class, 'bulkStore'])
+        ->name('board-meetings.documents.bulk')
+        ->middleware('permission:board-meeting.documents.upload');
+
+    Route::delete('board-meetings/{meeting}/documents/{usage}', [BoardMeetingDocumentController::class, 'destroy'])
+        ->name('board-meetings.documents.destroy')
+        ->middleware('permission:board-meeting.documents.delete');
+
+    // File serving is uuid-addressed (documentPayload url/download_url).
+    Route::get('board-meetings/documents/{uuid}/serve', [BoardMeetingDocumentController::class, 'serve'])
+        ->name('board-meeting.documents.serve')
+        ->middleware('permission:board-meeting.documents.download');
+
+    // AI summary. Both paths write the meeting's own record, so both sit on
+    // `board-meeting.update` rather than a permission of their own: asking for
+    // a run and deciding what it produced are the same write, at two moments.
+    Route::post('board-meetings/{meeting}/summary', [MeetingSummaryController::class, 'store'])
+        ->name('board-meetings.summary.store')
+        ->middleware('permission:board-meeting.update');
+
+    Route::post('board-meetings/{meeting}/summary/accept', [MeetingSummaryController::class, 'accept'])
+        ->name('board-meetings.summary.accept')
+        ->middleware('permission:board-meeting.update');
+
+    // Refusing a proposal, which is not the same request as accepting an empty
+    // selection and does not share its endpoint. Accept has to carry the
+    // meeting's tags in full, so a person with no opinion about tags has
+    // nothing they could send; routing refusal through accept made them repeat
+    // the tag list to say "none of this", and re-wrote the pivot on the way.
+    Route::post('board-meetings/{meeting}/summary/dismiss', [MeetingSummaryController::class, 'dismiss'])
+        ->name('board-meetings.summary.dismiss')
+        ->middleware('permission:board-meeting.update');
+
+    // Stopping a run that is queued or under way. Same permission as the other
+    // three: it is a write to this meeting's record made by somebody allowed to
+    // curate it. It is not a fourth kind of decision - a decision needs a
+    // proposal to decide about, and this is for when there is not one yet.
+    Route::post('board-meetings/{meeting}/summary/cancel', [MeetingSummaryController::class, 'cancel'])
+        ->name('board-meetings.summary.cancel')
+        ->middleware('permission:board-meeting.update');
+
+    // The registry-level pair, on the sync permission rather than update: both
+    // act on the whole registry instead of one row, so they belong beside the
+    // registry sync rather than beside a single meeting's write.
+    Route::get('board-meetings/summary/candidates', [MeetingSummaryController::class, 'candidates'])
+        ->name('board-meetings.summary.candidates')
+        ->middleware('permission:board-meeting.sync');
+
+    Route::post('board-meetings/summary/bulk', [MeetingSummaryController::class, 'bulk'])
+        ->name('board-meetings.summary.bulk')
+        ->middleware('permission:board-meeting.sync');
+
+    // Stopping the part of a bulk that has not run yet. On the sync permission
+    // for the same reason the dispatch is: it acts on a registry-wide batch
+    // rather than on one row. Declared after the literal segments above so a
+    // batch id can never be read as one of them.
+    Route::post('board-meetings/summary/batches/{batchId}/cancel', [MeetingSummaryController::class, 'cancelBatch'])
+        ->name('board-meetings.summary.batch-cancel')
+        ->middleware('permission:board-meeting.sync');
+
+    // The batches still outstanding, so a page that was reloaded can still find
+    // the one it dispatched. A read, but on the same permission as the stop it
+    // makes reachable rather than on `view`: it exists to feed that control,
+    // and what it describes is registry-wide work, not one meeting's record.
+    Route::get('board-meetings/summary/batches', [MeetingSummaryController::class, 'liveBatches'])
+        ->name('board-meetings.summary.batches')
+        ->middleware('permission:board-meeting.sync');
+});

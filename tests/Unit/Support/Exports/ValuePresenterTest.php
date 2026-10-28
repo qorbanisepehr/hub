@@ -115,6 +115,48 @@ final class ValuePresenterTest extends TestCase
         $this->assertSame('unknown_slug', $row['personal_info.first_name']);
     }
 
+    public function test_persian_calendar_shapes_date_styled_raw_text_cells(): void
+    {
+        // military_status.from/to are stored as plain Y-m-d strings behind
+        // `string` rules, so they arrive here as Text columns; human calendar
+        // modes still owe the reader a Jalali date.
+        $presenter = new ValuePresenter(null);
+        $options = new PresentationOptions(calendar: 'persian');
+
+        $row = $presenter->present(['personal_info.marital_status' => '2010-02-20'], $this->columnsByKey(), $options);
+
+        $this->assertSame('1388/12/01', $row['personal_info.marital_status']);
+
+        // Machine mode keeps the import-safe stored form untouched.
+        $machine = $presenter->present(
+            ['personal_info.marital_status' => '2010-02-20'],
+            $this->columnsByKey(),
+            new PresentationOptions,
+        );
+
+        $this->assertSame('2010-02-20', $machine['personal_info.marital_status']);
+    }
+
+    public function test_persian_digits_shape_raw_text_cells_without_option_vocabulary(): void
+    {
+        // The document builder presents without a vocabulary source; raw
+        // cells (phones, codes) must still take the requested digit glyphs.
+        $presenter = new ValuePresenter(null);
+        $options = new PresentationOptions(calendar: 'persian', digits: 'persian');
+
+        $row = $presenter->present(['personal_info.first_name' => '09123456789'], $this->columnsByKey(), $options);
+
+        $this->assertSame('۰۹۱۲۳۴۵۶۷۸۹', $row['personal_info.first_name']);
+    }
+
+    public function test_generated_at_stamp_is_jalali_with_persian_digits(): void
+    {
+        $stamp = ValuePresenter::generatedAtStamp();
+
+        // ۱۴۰۵/۰۷/۰۴ ۱۲:۲۰ — no Latin digits, no Gregorian year leak.
+        $this->assertMatchesRegularExpression('/^[۰-۹]{4}\/[۰-۹]{2}\/[۰-۹]{2} [۰-۹]{2}:[۰-۹]{2}$/u', $stamp);
+    }
+
     public function test_booleans_become_labels_from_the_lang_files(): void
     {
         $presenter = new ValuePresenter(null);
