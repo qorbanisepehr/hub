@@ -214,13 +214,13 @@ final class FileTemplateLibrary
         $path = $file->getRealPath();
 
         if ($path === false) {
-            throw InvalidFileTemplate::because('فایل بارگذاری‌شده خوانده نشد.');
+            throw InvalidFileTemplate::because(__('board_meeting.template.bytes_unreadable'));
         }
 
         $bytes = file_get_contents($path);
 
         if ($bytes === false) {
-            throw InvalidFileTemplate::because('فایل بارگذاری‌شده خوانده نشد.');
+            throw InvalidFileTemplate::because(__('board_meeting.template.bytes_unreadable'));
         }
 
         return $bytes;
@@ -262,7 +262,7 @@ final class FileTemplateLibrary
             }
         }
 
-        throw InvalidFileTemplate::because('نامِ این قالب همین حالا گرفته شد؛ دوباره تلاش کنید.');
+        throw InvalidFileTemplate::because(__('board_meeting.template.slug_collision'));
     }
 
     /**

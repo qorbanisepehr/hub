@@ -81,7 +81,7 @@ final class FileTemplateInspector
         $limit = $this->maxBytes();
 
         if ($size <= 0) {
-            throw InvalidFileTemplate::because('فایل خالی است.');
+            throw InvalidFileTemplate::because(__('board_meeting.template.empty_file'));
         }
 
         if ($size > $limit) {
@@ -91,7 +91,7 @@ final class FileTemplateInspector
         $path = $file->getRealPath();
 
         if ($path === false || ! is_readable($path)) {
-            throw InvalidFileTemplate::because('فایل بارگذاری‌شده خوانده نشد.');
+            throw InvalidFileTemplate::because(__('board_meeting.template.bytes_unreadable'));
         }
 
         if ($format !== 'docx') {
@@ -102,7 +102,7 @@ final class FileTemplateInspector
             $text = (string) file_get_contents($path);
 
             if (! mb_check_encoding($text, 'UTF-8')) {
-                throw InvalidFileTemplate::because('فایل متنی با کدگذاری UTF-8 نیست.');
+                throw InvalidFileTemplate::because(__('board_meeting.template.invalid_encoding'));
             }
 
             return [
@@ -114,22 +114,18 @@ final class FileTemplateInspector
         $zip = new ZipArchive;
 
         if ($zip->open($path) !== true) {
-            throw InvalidFileTemplate::because('فایل یک آرشیو معتبر Word نیست.');
+            throw InvalidFileTemplate::because(__('board_meeting.template.invalid_word_archive'));
         }
 
         try {
             if ($zip->locateName(self::MACRO_PART) !== false) {
                 // Named plainly: the person uploading needs to know the file is
                 // rejected for carrying macros, not that "something was wrong".
-                throw InvalidFileTemplate::because(
-                    'این فایل ماکرو دارد و پذیرفته نمی‌شود؛ قالب باید یک سند Word بدون ماکرو باشد.',
-                );
+                throw InvalidFileTemplate::because(__('board_meeting.template.macro_file'));
             }
 
             if ($zip->locateName(self::DOCUMENT_PART) === false) {
-                throw InvalidFileTemplate::because(
-                    'این فایل یک سند Word نیست؛ بخش اصلی آن یافت نشد.',
-                );
+                throw InvalidFileTemplate::because(__('board_meeting.template.missing_document_part'));
             }
 
             return [
