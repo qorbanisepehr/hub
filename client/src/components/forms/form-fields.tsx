@@ -21,6 +21,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { ColorPicker, ColorPickerContent, ColorPickerInput } from "@/components/reui/color-picker";
 import { cn } from "@/lib/utils";
 
 // ── Text Input ──
@@ -187,8 +188,6 @@ export function FormDatePicker({
 
 // ── Color Input ──
 
-const HEX_COLOR_6 = /^#[0-9a-fA-F]{6}$/;
-
 type FormColorFieldProps = {
     field: AnyFieldApi;
     label: string;
@@ -198,33 +197,25 @@ type FormColorFieldProps = {
 export function FormColorField({ field, label, hint }: FormColorFieldProps) {
     const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid;
     const value = (field.state.value ?? "") as string;
-    const pickerValue = HEX_COLOR_6.test(value) ? value : "#000000";
 
     return (
         <Field data-invalid={isInvalid}>
             <FieldLabel htmlFor={field.name}>{label}</FieldLabel>
             <div className="flex items-center gap-2">
-                <Input
-                    id={field.name}
-                    name={field.name}
-                    type="color"
-                    aria-label={label}
-                    value={pickerValue}
-                    onBlur={field.handleBlur}
-                    onChange={(e) =>
-                        field.handleChange(e.target.value.toUpperCase())
-                    }
-                    className="size-10 cursor-pointer rounded-md border p-1"
-                />
-                <Input
-                    type="text"
+                <ColorPicker
                     value={value}
-                    onBlur={field.handleBlur}
-                    onChange={(e) => field.handleChange(e.target.value)}
-                    placeholder="#db7868"
-                    dir="ltr"
-                    className="font-mono"
-                />
+                    onValueChange={(next) => field.handleChange(next ?? "")}
+                    format="hex"
+                >
+                    <ColorPickerInput
+                        id={field.name}
+                        onBlur={field.handleBlur}
+                        placeholder="#db7868"
+                        dir="ltr"
+                        className="font-mono"
+                    />
+                    <ColorPickerContent />
+                </ColorPicker>
             </div>
             {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
             {isInvalid && <FieldError errors={field.state.meta.errors} />}
