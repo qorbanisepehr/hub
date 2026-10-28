@@ -15,6 +15,17 @@ import {
 } from "../templates-api";
 
 /**
+ * The frame-vs-detail wording an inspection turns into.
+ */
+export function inspectionToast(
+    kind: "frame" | "detail" | undefined,
+): string {
+    return kind === "frame"
+        ? "سند تولیدی در جای نشان‌داده‌شده نوشته می‌شود."
+        : "فقط نام‌های داخل آن پر می‌شوند و سندی ساخته نمی‌شود.";
+}
+
+/**
  * The uploaded templates of ONE format.
  *
  * The server scopes the library by format, because a Word picker must not offer a
@@ -110,9 +121,7 @@ export function useUploadTemplate(domain = "boardmeeting") {
             const inspection = response.data.inspection;
 
             toast.success(
-                inspection?.kind === "frame"
-                    ? "قالب بارگذاری شد — سند تولیدی در جای نشان‌داده‌شده نوشته می‌شود."
-                    : "قالب بارگذاری شد — فقط نام‌های داخل آن پر می‌شوند و سندی ساخته نمی‌شود.",
+                `قالب بارگذاری شد — ${inspectionToast(inspection?.kind)}`,
             );
         },
         // The server's own reason, verbatim: it knows which part of the archive
@@ -192,9 +201,7 @@ export function useReplaceTemplate(
             const inspection = response.data.inspection;
 
             toast.success(
-                inspection?.kind === "frame"
-                    ? "فایل قالب جایگزین شد — سند تولیدی در جای نشان‌داده‌شده نوشته می‌شود."
-                    : "فایل قالب جایگزین شد — فقط نام‌های داخل آن پر می‌شوند و سندی ساخته نمی‌شود.",
+                `فایل قالب جایگزین شد — ${inspectionToast(inspection?.kind)}`,
             );
         },
         onError: (error) => toast.error(getApiError(error)),

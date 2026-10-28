@@ -4,10 +4,16 @@ const persianDateFormatter = new Intl.DateTimeFormat("fa-IR", {
     day: "2-digit",
 });
 
+function parseDate(value: string | Date | null | undefined): Date | null {
+    if (!value) return null;
+    const date = typeof value === "string" ? new Date(value) : value;
+    return Number.isNaN(date.getTime()) ? null : date;
+}
+
 export function toPersianDate(value: string | Date | null | undefined): string {
     if (!value) return "—";
-    const date = typeof value === "string" ? new Date(value) : value;
-    if (Number.isNaN(date.getTime())) {
+    const date = parseDate(value);
+    if (!date) {
         return typeof value === "string" ? value : String(value);
     }
     return persianDateFormatter.format(date);
@@ -20,8 +26,8 @@ const persianTimeFormatter = new Intl.DateTimeFormat("fa-IR", {
 
 export function toPersianTime(value: string | Date | null | undefined): string {
     if (!value) return "—";
-    const date = typeof value === "string" ? new Date(value) : value;
-    if (Number.isNaN(date.getTime())) {
+    const date = parseDate(value);
+    if (!date) {
         return typeof value === "string" ? value : String(value);
     }
     return persianTimeFormatter.format(date);
@@ -42,8 +48,8 @@ export function toPersianRelative(
     value: string | Date | null | undefined,
 ): string {
     if (!value) return "—";
-    const date = typeof value === "string" ? new Date(value) : value;
-    if (Number.isNaN(date.getTime())) {
+    const date = parseDate(value);
+    if (!date) {
         return typeof value === "string" ? value : String(value);
     }
 
