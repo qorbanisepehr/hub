@@ -5,9 +5,24 @@ use App\Domains\Authorization\Models\Role;
 use App\Domains\Cv\Models\Cv;
 use App\Domains\Employee\Models\Employee;
 use App\Domains\FormOptions\Models\FormOption;
+use App\Domains\Questionnaire\Models\Questionnaire;
 use App\Models\User;
+use Illuminate\Support\Str;
 
 use function Pest\Laravel\actingAs;
+
+function createListQuestionnaire(string $status = 'submitted', array $extra = []): Questionnaire
+{
+    $suffix = substr((string) Str::uuid(), 0, 8);
+
+    return Questionnaire::create(array_merge([
+        'first_name' => 'Test',
+        'last_name' => 'User',
+        'email' => "test{$suffix}@example.com",
+        'mobile' => '0912'.substr($suffix, 0, 7),
+        'status' => $status,
+    ], $extra));
+}
 
 beforeEach(function () {
     $this->admin = createUserWithPermissions([
@@ -63,6 +78,43 @@ describe('ListQuery contract', function () {
                 ->assertOk()
                 ->assertJsonCount(1, 'data')
                 ->assertJsonPath('data.0.id', $other->id);
+        });
+
+        it('filters by employment type', function () {
+            $official = Employee::factory()->create(['employment_type' => 'official']);
+            Employee::factory()->create(['employment_type' => 'contractual']);
+
+            actingAs($this->admin)
+                ->getJson('/api/employees?employment_type=official')
+                ->assertOk()
+                ->assertJsonCount(1, 'data')
+                ->assertJsonPath('data.0.id', $official->id);
+        });
+
+        it('filters by gender', function () {
+            $male = Employee::factory()->create(['gender' => 'male']);
+            Employee::factory()->create(['gender' => 'female']);
+
+            actingAs($this->admin)
+                ->getJson('/api/employees?gender=male')
+                ->assertOk()
+                ->assertJsonCount(1, 'data')
+                ->assertJsonPath('data.0.id', $male->id);
+        });
+
+        it('filters by the hire date range', function () {
+            $hired = Employee::factory()->create([
+                'hire_date' => now()->subDays(2)->toDateString(),
+            ]);
+            Employee::factory()->create([
+                'hire_date' => now()->subDays(30)->toDateString(),
+            ]);
+
+            actingAs($this->admin)
+                ->getJson('/api/employees?hire_date_from='.now()->subDays(5)->toDateString().'&hire_date_to='.now()->toDateString())
+                ->assertOk()
+                ->assertJsonCount(1, 'data')
+                ->assertJsonPath('data.0.id', $hired->id);
         });
 
         it('sorts ascending and descending', function () {
@@ -321,6 +373,179 @@ describe('ListQuery contract', function () {
                 ->getJson('/api/cv/bank?sort=bogus_column')
                 ->assertOk()
                 ->assertJsonCount(1, 'data');
+        });
+
+        it('filters by the email verification flag', function () {
+            $verified = Cv::create([
+                'first_name' => 'A',
+                'last_name' => 'B',
+                'email' => 'verified@example.com',
+                'mobile' => '09120000005',
+                'status' => 'submitted',
+                'email_verified_at' => now(),
+            ]);
+            Cv::create([
+                'first_name' => 'C',
+                'last_name' => 'D',
+                'email' => 'unverified@example.com',
+                'mobile' => '09120000006',
+                'status' => 'submitted',
+            ]);
+
+            actingAs($this->admin)
+                ->getJson('/api/cv/bank?email_verified=true')
+                ->assertOk()
+                ->assertJsonCount(1, 'data')
+                ->assertJsonPath('data.0.id', $verified->id);
+
+            actingAs($this->admin)
+                ->getJson('/api/cv/bank?email_verified=false')
+                ->assertOk()
+                ->assertJsonCount(1, 'data');
+        });
+
+        it('filters by the created_at date range', function () {
+            $recent = Cv::create([
+                'first_name' => 'E',
+                'last_name' => 'F',
+                'email' => 'recent@example.com',
+                'mobile' => '09120000007',
+                'status' => 'submitted',
+            ])->refresh();
+            Cv::where('id', $recent->id)->update(['created_at' => now()->subDays(2)]);
+
+            $old = Cv::create([
+                'first_name' => 'G',
+                'last_name' => 'H',
+                'email' => 'old@example.com',
+                'mobile' => '09120000008',
+                'status' => 'submitted',
+            ])->refresh();
+            Cv::where('id', $old->id)->update(['created_at' => now()->subDays(30)]);
+
+            actingAs($this->admin)
+                ->getJson('/api/cv/bank?date_from='.now()->subDays(5)->toDateString().'&date_to='.now()->toDateString())
+                ->assertOk()
+                ->assertJsonCount(1, 'data')
+                ->assertJsonPath('data.0.id', $recent->id);
+        });
+    });
+
+    describe('questionnaires', function () {
+        it('lists questionnaires of every status', function () {
+            $viewer = createUserWithPermissions(['questionnaire.view']);
+            createListQuestionnaire('submitted');
+            createListQuestionnaire('draft');
+
+            $this->actingAs($viewer)
+                ->getJson('/api/questionnaires')
+                ->assertOk()
+                ->assertJsonCount(2, 'data');
+        });
+
+        it('filters by status and excludes by the negated param', function () {
+            $viewer = createUserWithPermissions(['questionnaire.view']);
+            $draft = createListQuestionnaire('draft');
+            createListQuestionnaire('submitted');
+
+            $this->actingAs($viewer)
+                ->getJson('/api/questionnaires?status=draft')
+                ->assertOk()
+                ->assertJsonCount(1, 'data')
+                ->assertJsonPath('data.0.id', $draft->id);
+
+            $this->actingAs($viewer)
+                ->getJson('/api/questionnaires?status_not=draft')
+                ->assertOk()
+                ->assertJsonCount(1, 'data');
+        });
+
+        it('filters by gender, marital status and employment type', function () {
+            $viewer = createUserWithPermissions(['questionnaire.view']);
+            $match = createListQuestionnaire('submitted', [
+                'gender' => 'female',
+                'marital_status' => 'married',
+                'employment_type' => 'part_time',
+            ]);
+            createListQuestionnaire('submitted', [
+                'gender' => 'male',
+                'marital_status' => 'single',
+                'employment_type' => 'full_time',
+            ]);
+
+            $this->actingAs($viewer)
+                ->getJson('/api/questionnaires?gender=female')
+                ->assertOk()
+                ->assertJsonCount(1, 'data')
+                ->assertJsonPath('data.0.id', $match->id);
+
+            $this->actingAs($viewer)
+                ->getJson('/api/questionnaires?marital_status=married&employment_type=part_time')
+                ->assertOk()
+                ->assertJsonCount(1, 'data')
+                ->assertJsonPath('data.0.id', $match->id);
+        });
+
+        it('filters by the currently-employed and verification flags', function () {
+            $viewer = createUserWithPermissions(['questionnaire.view']);
+            $employed = createListQuestionnaire('submitted', [
+                'currently_employed' => true,
+                'mobile_verified_at' => now(),
+            ]);
+            createListQuestionnaire('submitted', [
+                'currently_employed' => false,
+            ]);
+
+            $this->actingAs($viewer)
+                ->getJson('/api/questionnaires?currently_employed=true')
+                ->assertOk()
+                ->assertJsonCount(1, 'data')
+                ->assertJsonPath('data.0.id', $employed->id);
+
+            $this->actingAs($viewer)
+                ->getJson('/api/questionnaires?mobile_verified=true')
+                ->assertOk()
+                ->assertJsonCount(1, 'data')
+                ->assertJsonPath('data.0.id', $employed->id);
+
+            $this->actingAs($viewer)
+                ->getJson('/api/questionnaires?mobile_verified=false')
+                ->assertOk()
+                ->assertJsonCount(1, 'data');
+        });
+
+        it('filters by the created_at date range', function () {
+            $viewer = createUserWithPermissions(['questionnaire.view']);
+            $recent = createListQuestionnaire('submitted');
+            Questionnaire::where('id', $recent->id)->update(['created_at' => now()->subDays(2)]);
+            $old = createListQuestionnaire('submitted');
+            Questionnaire::where('id', $old->id)->update(['created_at' => now()->subDays(30)]);
+
+            $this->actingAs($viewer)
+                ->getJson('/api/questionnaires?date_from='.now()->subDays(5)->toDateString().'&date_to='.now()->toDateString())
+                ->assertOk()
+                ->assertJsonCount(1, 'data')
+                ->assertJsonPath('data.0.id', $recent->id);
+        });
+
+        it('sorts by status', function () {
+            $viewer = createUserWithPermissions(['questionnaire.view']);
+            createListQuestionnaire('draft');
+            $reviewed = createListQuestionnaire('reviewed');
+
+            $this->actingAs($viewer)
+                ->getJson('/api/questionnaires?sort=status&order=desc')
+                ->assertOk()
+                ->assertJsonPath('data.0.id', $reviewed->id);
+        });
+
+        it('rejects a malformed date range without erroring', function () {
+            $viewer = createUserWithPermissions(['questionnaire.view']);
+            createListQuestionnaire('submitted');
+
+            $this->actingAs($viewer)
+                ->getJson('/api/questionnaires?date_from=not-a-date')
+                ->assertStatus(422);
         });
     });
 

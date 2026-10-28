@@ -1,0 +1,191 @@
+<?php
+
+namespace Tests\Unit\Services;
+
+use App\Enums\OtpContext;
+use App\Models\User;
+use App\Services\OtpService;
+use App\Support\Mail\OtpDeliveryContext;
+use App\Support\Mail\OtpMail;
+use App\Support\Sms\Contracts\SmsSender;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
+use Tests\TestCase;
+
+class OtpServiceTest extends TestCase
+{
+    use RefreshDatabase;
+
+    private OtpService $service;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->service = app(OtpService::class);
+    }
+
+    public function test_email_send_queues_otp_mail_to_the_recipient(): void
+    {
+        $user = User::factory()->create();
+        Mail::fake();
+
+        $code = $this->service->send($user, 'email', OtpContext::Login, 'jane@example.com');
+
+        Mail::assertQueued(
+            OtpMail::class,
+            fn (OtpMail $mail): bool => $mail->hasTo('jane@example.com'),
+        );
+
+        $this->assertSame(6, strlen($code));
+    }
+
+    public function test_email_send_forwards_delivery_context_to_the_mail(): void
+    {
+        $user = User::factory()->create();
+        Mail::fake();
+
+        $issuedAt = now();
+
+        $this->service->send(
+            $user,
+            'email',
+            OtpContext::Login,
+            'jane@example.com',
+            new OtpDeliveryContext('192.168.1.42', $issuedAt),
+        );
+
+        Mail::assertQueued(
+            OtpMail::class,
+            function (OtpMail $mail) use ($issuedAt): bool {
+                $delivery = $mail->deliveryContext();
+
+                return $delivery !== null
+                    && $delivery->ipAddress === '192.168.1.42'
+                    && $delivery->issuedAt?->timestamp === $issuedAt->timestamp;
+            },
+        );
+    }
+
+    public function test_email_send_without_delivery_context_queues_mail_without_one(): void
+    {
+        $user = User::factory()->create();
+        Mail::fake();
+
+        $this->service->send($user, 'email', OtpContext::Login, 'jane@example.com');
+
+        Mail::assertQueued(
+            OtpMail::class,
+            fn (OtpMail $mail): bool => $mail->deliveryContext() === null,
+        );
+    }
+
+    public function test_mobile_send_does_not_queue_mail(): void
+    {
+        $user = User::factory()->create();
+        $sender = new class implements SmsSender
+        {
+            public array $sent = [];
+
+            public function send(string $phone, string $message): void
+            {
+                $this->sent[] = ['phone' => $phone, 'message' => $message];
+            }
+        };
+        app()->instance(SmsSender::class, $sender);
+        Mail::fake();
+
+        $this->service->send($user, 'mobile', OtpContext::Login);
+
+        Mail::assertNothingQueued();
+        $this->assertSame([], $sender->sent);
+    }
+
+    public function test_mobile_send_delivers_sms_when_recipient_is_given(): void
+    {
+        $user = User::factory()->create();
+        $sender = new class implements SmsSender
+        {
+            public array $sent = [];
+
+            public function send(string $phone, string $message): void
+            {
+                $this->sent[] = ['phone' => $phone, 'message' => $message];
+            }
+        };
+        app()->instance(SmsSender::class, $sender);
+        Mail::fake();
+
+        $code = $this->service->send($user, 'mobile', OtpContext::Login, '+989121112233');
+
+        Mail::assertNothingQueued();
+        $this->assertCount(1, $sender->sent);
+        $this->assertSame('+989121112233', $sender->sent[0]['phone']);
+        $this->assertStringContainsString($code, $sender->sent[0]['message']);
+    }
+
+    public function test_mobile_send_without_recipient_does_not_deliver_sms(): void
+    {
+        $user = User::factory()->create();
+        $sender = new class implements SmsSender
+        {
+            public array $sent = [];
+
+            public function send(string $phone, string $message): void
+            {
+                $this->sent[] = ['phone' => $phone, 'message' => $message];
+            }
+        };
+        app()->instance(SmsSender::class, $sender);
+
+        $this->service->send($user, 'mobile', OtpContext::Login);
+
+        $this->assertSame([], $sender->sent);
+    }
+
+    public function test_email_send_without_recipient_does_not_queue_mail(): void
+    {
+        $user = User::factory()->create();
+        Mail::fake();
+
+        $this->service->send($user, 'email', OtpContext::Login);
+
+        Mail::assertNothingQueued();
+    }
+
+    public function test_email_channel_uses_separate_ttl(): void
+    {
+        $user = User::factory()->create();
+        Mail::fake();
+
+        $code = $this->service->send($user, 'email', OtpContext::Login, 'jane@example.com');
+
+        $data = Cache::get("otp:login:user:{$user->id}:email");
+        $this->assertNotNull($data);
+        $this->assertTrue(Hash::check($code, $data['hash']));
+        $this->assertNotSame($code, $data['hash'], 'stored value must be the hash, not plaintext');
+
+        $emailTtl = (int) config('otp.ttl_email', 300);
+        $expected = now()->addSeconds($emailTtl)->timestamp;
+        $this->assertSame($expected, (int) $data['expires_at']);
+    }
+
+    public function test_generated_code_is_real_random_six_digits(): void
+    {
+        $user = User::factory()->create();
+        Mail::fake();
+
+        $codes = [];
+        for ($i = 0; $i < 5; $i++) {
+            $codes[] = $this->service->send($user, 'email', OtpContext::Login, 'jane@example.com');
+            $this->service->verify($user, 'email', OtpContext::Login, $codes[$i]);
+        }
+
+        $this->assertCount(5, array_unique($codes), 'codes should not all be identical');
+        foreach ($codes as $code) {
+            $this->assertMatchesRegularExpression('/^\d{6}$/', $code);
+            $this->assertNotSame('123456', $code);
+        }
+    }
+}

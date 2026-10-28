@@ -1,13 +1,18 @@
 <?php
 
+use App\Domains\Auth\Events\LoginFailed;
 use App\Domains\Authorization\Models\Permission;
 use App\Domains\Authorization\Models\PermissionGroup;
 use App\Domains\Authorization\Models\Role;
 use App\Domains\Employee\Models\Employee;
 use App\Models\User;
+use App\Support\Mail\OtpMail;
+use App\Support\Sms\Contracts\SmsSender;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
@@ -17,12 +22,12 @@ function stateful(): array
     return ['Referer' => 'http://localhost'];
 }
 
-function seedLoginOtp(User $user, string $code = '123456', bool $expired = false): void
+function seedLoginOtp(User $user, string $code = '123456', bool $expired = false, string $channel = 'email'): void
 {
     $expiresAt = $expired ? now()->subMinute() : now()->addMinutes(5);
 
     Cache::put(
-        "otp:login:user:{$user->id}:email",
+        "otp:login:user:{$user->id}:{$channel}",
         [
             'hash' => Hash::make($code),
             'expires_at' => $expiresAt->timestamp,
@@ -32,9 +37,76 @@ function seedLoginOtp(User $user, string $code = '123456', bool $expired = false
 }
 
 describe('auth endpoints', function () {
+    describe('failed sign-in reporting', function () {
+        it('reports a wrong password against the resolved account with request context', function () {
+            Event::fake([LoginFailed::class]);
+
+            $user = User::factory()->create();
+
+            $this->postJson('/api/auth/login-with-password', [
+                'identifier' => $user->email,
+                'password' => 'wrong-password',
+            ])->assertStatus(401);
+
+            Event::assertDispatched(
+                LoginFailed::class,
+                fn (LoginFailed $event): bool => $event->userId() === $user->id
+                    && $event->reason() === 'invalid_password',
+            );
+        });
+
+        it('reports a wrong verification code against the resolved account', function () {
+            Event::fake([LoginFailed::class]);
+
+            $user = User::factory()->create();
+            seedLoginOtp($user, '123456');
+
+            $this->postJson('/api/auth/verify-otp', [
+                'identifier' => $user->email,
+                'code' => '000000',
+            ])->assertStatus(422);
+
+            Event::assertDispatched(
+                LoginFailed::class,
+                fn (LoginFailed $event): bool => $event->userId() === $user->id
+                    && $event->reason() === 'invalid_code',
+            );
+        });
+
+        it('reports an unknown identifier without an account', function () {
+            Event::fake([LoginFailed::class]);
+
+            $this->postJson('/api/auth/login-with-password', [
+                'identifier' => 'nobody@example.com',
+                'password' => 'whatever',
+            ])->assertStatus(401);
+
+            Event::assertDispatched(
+                LoginFailed::class,
+                fn (LoginFailed $event): bool => $event->userId() === null
+                    && $event->reason() === 'user_not_found',
+            );
+        });
+
+        it('does not report a successful sign-in', function () {
+            Event::fake([LoginFailed::class]);
+
+            $user = User::factory()->create(['password' => Hash::make('correct-password')]);
+
+            $this->postJson('/api/auth/login-with-password', [
+                'identifier' => $user->email,
+                'password' => 'correct-password',
+            ])->assertStatus(200);
+
+            Event::assertNotDispatched(LoginFailed::class);
+        });
+    });
+
     describe('login (request OTP)', function () {
         it('sends OTP via email', function () {
             $user = User::factory()->create();
+
+            Mail::fake();
 
             $response = $this->postJson('/api/auth/login', [
                 'identifier' => $user->email,
@@ -44,6 +116,44 @@ describe('auth endpoints', function () {
                 ->assertJsonStructure(['message', 'destination']);
 
             expect(Cache::has("otp:login:user:{$user->id}:email"))->toBeTrue();
+
+            Mail::assertQueued(
+                OtpMail::class,
+                fn (OtpMail $mail): bool => $mail->hasTo($user->email),
+            );
+        });
+
+        it('carries the request context into the OTP mail', function () {
+            $user = User::factory()->create();
+
+            Mail::fake();
+
+            $this->postJson('/api/auth/login', [
+                'identifier' => $user->email,
+            ])->assertStatus(200);
+
+            Mail::assertQueued(
+                OtpMail::class,
+                function (OtpMail $mail): bool {
+                    $delivery = $mail->deliveryContext();
+
+                    return $delivery !== null
+                        && $delivery->ipAddress === '127.0.0.1'
+                        && $delivery->issuedAt !== null;
+                },
+            );
+        });
+
+        it('does not queue mail for SMS login', function () {
+            $user = User::factory()->create();
+
+            Mail::fake();
+
+            $this->postJson('/api/auth/login', [
+                'identifier' => $user->phone,
+            ])->assertStatus(200);
+
+            Mail::assertNothingQueued();
         });
 
         it('sends OTP via SMS for phone identifier', function () {
@@ -60,6 +170,81 @@ describe('auth endpoints', function () {
             $this->postJson('/api/auth/login', [
                 'identifier' => $user->username,
             ])->assertStatus(200);
+        });
+
+        it('sends via the explicitly chosen email channel when the identifier is a phone', function () {
+            $user = User::factory()->create([
+                'email' => 'jane@example.com',
+                'phone' => '+989121112233',
+            ]);
+            Mail::fake();
+
+            $this->postJson('/api/auth/login', [
+                'identifier' => $user->phone,
+                'channel' => 'email',
+            ])->assertStatus(200)
+                ->assertJsonPath('channel', 'email')
+                ->assertJsonPath('destination', 'j***e@example.com');
+
+            Mail::assertQueued(
+                OtpMail::class,
+                fn (OtpMail $mail): bool => $mail->hasTo('jane@example.com'),
+            );
+        });
+
+        it('sends via the explicitly chosen mobile channel when the identifier is an email', function () {
+            $user = User::factory()->create([
+                'email' => 'jane@example.com',
+                'phone' => '+989121112233',
+            ]);
+            $sender = new class implements SmsSender
+            {
+                public array $sent = [];
+
+                public function send(string $phone, string $message): void
+                {
+                    $this->sent[] = ['phone' => $phone, 'message' => $message];
+                }
+            };
+            app()->instance(SmsSender::class, $sender);
+            Mail::fake();
+
+            $this->postJson('/api/auth/login', [
+                'identifier' => $user->email,
+                'channel' => 'mobile',
+            ])->assertStatus(200)
+                ->assertJsonPath('channel', 'mobile')
+                ->assertJsonPath('destination', '+98***112233');
+
+            expect($sender->sent)->toHaveCount(1);
+            expect($sender->sent[0]['phone'])->toBe('+989121112233');
+
+            // Locale-independent: the body must be the translated template plus a 6-digit code.
+            $quotedBody = preg_quote(__('auth.sms_otp_body', ['code' => '{code}']), '/');
+            $pattern = str_replace(preg_quote('{code}', '/'), '\d{6}', $quotedBody);
+            expect($sender->sent[0]['message'])->toMatch("/^{$pattern}$/");
+
+            Mail::assertNothingQueued();
+        });
+
+        it('rejects sending when the chosen channel is not available on the account', function () {
+            $user = User::factory()->create(['phone' => null]);
+
+            $this->postJson('/api/auth/login', [
+                'identifier' => $user->email,
+                'channel' => 'mobile',
+            ])->assertStatus(422)
+                ->assertJsonPath('message', __('auth.channel_unavailable_mobile'));
+        });
+
+        it('rejects an invalid channel value', function () {
+            $user = User::factory()->create();
+
+            $this->postJson('/api/auth/login', [
+                'identifier' => $user->email,
+                'channel' => 'fax',
+            ])->assertStatus(422)
+                ->assertJsonValidationErrors(['channel']);
         });
 
         it('fails with unknown identifier', function () {
@@ -141,6 +326,33 @@ describe('auth endpoints', function () {
                 ->assertJsonStructure(['user', 'token']);
 
             expect(Cache::has("otp:login:user:{$user->id}:email"))->toBeFalse();
+        });
+
+        it('verifies on the explicitly chosen channel even when the identifier implies another', function () {
+            $user = User::factory()->create();
+            seedLoginOtp($user, channel: 'mobile');
+
+            $this->postJson('/api/auth/verify-otp', [
+                'identifier' => $user->email,
+                'channel' => 'mobile',
+                'code' => '123456',
+            ])->assertStatus(200);
+
+            expect(Cache::has("otp:login:user:{$user->id}:mobile"))->toBeFalse();
+            expect(Cache::has("otp:login:user:{$user->id}:email"))->toBeFalse();
+        });
+
+        it('does not verify on a channel with no issued code', function () {
+            $user = User::factory()->create();
+            seedLoginOtp($user);
+
+            $this->postJson('/api/auth/verify-otp', [
+                'identifier' => $user->email,
+                'channel' => 'mobile',
+                'code' => '123456',
+            ])->assertStatus(422);
+
+            expect(Cache::has("otp:login:user:{$user->id}:email"))->toBeTrue();
         });
 
         it('increments attempt count on invalid code', function () {

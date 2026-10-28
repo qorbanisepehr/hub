@@ -46,7 +46,7 @@ describe('questionnaire management authorization', function () {
             ->assertStatus(403);
     });
 
-    it('lists submitted questionnaires with the questionnaire.view permission', function () {
+    it('lists questionnaires of every status with the questionnaire.view permission', function () {
         $user = createUserWithPermissions(['questionnaire.view']);
         createQuestionnaire('submitted');
         createQuestionnaire('draft');
@@ -54,8 +54,7 @@ describe('questionnaire management authorization', function () {
         $this->actingAs($user)
             ->getJson('/api/questionnaires')
             ->assertOk()
-            ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.status', 'submitted');
+            ->assertJsonCount(2, 'data');
     });
 
     it('shows a questionnaire with the questionnaire.view permission', function () {
@@ -66,6 +65,29 @@ describe('questionnaire management authorization', function () {
             ->getJson("/api/questionnaires/{$questionnaire->id}")
             ->assertOk()
             ->assertJsonPath('data.status', 'submitted');
+    });
+
+    it('resolves the management detail by uuid or numeric id', function () {
+        $user = createUserWithPermissions(['questionnaire.view']);
+        $questionnaire = createQuestionnaire('submitted');
+
+        $this->actingAs($user)
+            ->getJson("/api/questionnaires/{$questionnaire->uuid}")
+            ->assertOk()
+            ->assertJsonPath('data.id', $questionnaire->id);
+
+        $this->actingAs($user)
+            ->getJson("/api/questionnaires/{$questionnaire->id}")
+            ->assertOk()
+            ->assertJsonPath('data.id', $questionnaire->id);
+    });
+
+    it('returns 404 for a malformed questionnaire reference', function () {
+        $user = createUserWithPermissions(['questionnaire.view']);
+
+        $this->actingAs($user)
+            ->getJson('/api/questionnaires/not-a-real-reference')
+            ->assertStatus(404);
     });
 
     it('denies review without the questionnaire.review permission', function () {

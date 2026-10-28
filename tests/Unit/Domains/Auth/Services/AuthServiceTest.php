@@ -56,25 +56,25 @@ class AuthServiceTest extends TestCase
         $this->assertSame('mobile', $this->service->channelFor('+989121112233'));
     }
 
-    public function test_destination_masks_email_address(): void
+    public function test_destination_masks_email_for_email_channel(): void
     {
         $user = User::factory()->create(['email' => 'jane@example.com']);
 
-        $this->assertSame('j***e@example.com', $this->service->destination('jane@example.com', $user));
+        $this->assertSame('j***e@example.com', $this->service->destination('email', $user));
     }
 
-    public function test_destination_masks_phone_number(): void
+    public function test_destination_masks_phone_for_mobile_channel(): void
     {
         $user = User::factory()->create(['phone' => '+989121112233']);
 
-        $this->assertSame('+98***112233', $this->service->destination('+989121112233', $user));
+        $this->assertSame('+98***112233', $this->service->destination('mobile', $user));
     }
 
-    public function test_destination_falls_back_to_email_when_user_has_no_phone(): void
+    public function test_destination_masks_email_when_user_has_no_phone(): void
     {
         $user = User::factory()->create(['email' => 'jane@example.com', 'phone' => null]);
 
-        $this->assertSame('jane@example.com', $this->service->destination('jane', $user));
+        $this->assertSame('j***e@example.com', $this->service->destination('mobile', $user));
     }
 
     public function test_lockout_detected_after_reaching_attempt_limit(): void

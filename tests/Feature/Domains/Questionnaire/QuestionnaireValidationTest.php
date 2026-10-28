@@ -9,10 +9,12 @@ use App\Domains\Questionnaire\Services\QuestionnaireService;
 use App\Enums\OtpContext;
 use App\Models\PendingVerification;
 use App\Services\OtpService;
+use App\Support\Mail\OtpMail;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
@@ -1577,9 +1579,18 @@ describe('questionnaire regression coverage', function () {
         it('returns code_sent=true on send-email-otp', function () {
             $uuid = createDraft();
 
-            $this->postJson("/api/questionnaire/{$uuid}/send-email-otp")
+            Mail::fake();
+
+            $this->postJson("/api/questionnaire/{$uuid}/send-email-otp", [
+                'email' => 'new@example.com',
+            ])
                 ->assertOk()
                 ->assertJsonPath('code_sent', true);
+
+            Mail::assertQueued(
+                OtpMail::class,
+                fn (OtpMail $mail): bool => $mail->hasTo('new@example.com'),
+            );
         });
     });
 
