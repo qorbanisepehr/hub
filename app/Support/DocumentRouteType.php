@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Domains\BoardMeeting\Models\BoardMeeting;
 use App\Domains\Cv\Models\Cv;
 use App\Domains\Employee\Models\Employee;
 use App\Domains\Questionnaire\Models\Questionnaire;
@@ -20,6 +21,7 @@ final class DocumentRouteType
         'employee' => Employee::class,
         'questionnaire' => Questionnaire::class,
         'cv' => Cv::class,
+        'board-meeting' => BoardMeeting::class,
     ];
 
     /** @return list<string> */

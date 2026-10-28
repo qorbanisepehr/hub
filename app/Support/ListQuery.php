@@ -2,8 +2,10 @@
 
 namespace App\Support;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Standard clamps and typed reads for list endpoints: per-page ceiling, sort
@@ -57,6 +59,35 @@ final class ListQuery
         $filter = $request->input('filter');
 
         return is_string($filter) && $filter !== '' ? $filter : null;
+    }
+
+    /**
+     * Guards the flat date-range params list filters accept (created_at on
+     * most endpoints, hire_date on employees) against malformed input —
+     * the same contract the audit log endpoint enforces. A non-date value
+     * raises a ValidationException (422) instead of a query-level 500.
+     *
+     * @param  array<int, string>  $params
+     *
+     * @throws ValidationException
+     */
+    public static function validateDateFilters(Request $request, array $params = ['date_from', 'date_to']): void
+    {
+        foreach ($params as $param) {
+            $value = $request->input($param);
+
+            if ($value === null) {
+                continue;
+            }
+
+            try {
+                Carbon::parse($value);
+            } catch (\InvalidArgumentException) {
+                throw ValidationException::withMessages([
+                    $param => "The {$param} must be a valid date.",
+                ]);
+            }
+        }
     }
 
     /**

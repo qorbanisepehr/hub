@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Notifications\Notification;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
 use Laravel\Sanctum\HasApiTokens;
@@ -55,6 +56,16 @@ class User extends Authenticatable implements OtpVerifiable
     public function employee(): HasOne
     {
         return $this->hasOne(Employee::class);
+    }
+
+    /**
+     * Per-recipient private broadcast channel (architecture §31). Resolved by
+     * the framework when a notification's `broadcastOn()` is empty, so one
+     * shared notification instance stays isolated per user.
+     */
+    public function receivesBroadcastNotificationsOn(Notification $notification): string
+    {
+        return 'users.'.$this->getKey().'.notifications';
     }
 
     public function getAvatarDisk(): string
