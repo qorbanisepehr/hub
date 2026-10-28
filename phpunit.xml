@@ -11,6 +11,15 @@
         <testsuite name="Feature">
             <directory>tests/Feature</directory>
         </testsuite>
+        <!--
+            Architectural boundary tests. These are the enforcement mechanism
+            behind the namespace rules in architecture/domain-boundaries.md, so
+            they have to run with the default suite - otherwise a boundary can
+            be violated silently.
+        -->
+        <testsuite name="Arch">
+            <directory>tests/Arch</directory>
+        </testsuite>
     </testsuites>
     <source>
         <include>

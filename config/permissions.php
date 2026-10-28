@@ -17,6 +17,20 @@ return [
 
     'groups' => [
 
+        'export-template' => [
+            'name' => 'Export Templates',
+            // Deliberately one group for every domain rather than a
+            // `board-meeting.template` beside the rest: a template says which
+            // sections a printed document contains, and every domain with a
+            // `DocumentSource` has one. Per-domain permissions would make "who
+            // may change how minutes are printed" and "who may change how a CV
+            // is printed" the same question asked twice with two answers.
+            'permissions' => [
+                'export-template.view' => 'View which sections a document is rendered with',
+                'export-template.manage' => 'Change which sections a document is rendered with',
+            ],
+        ],
+
         'user' => [
             'name' => 'User Management',
             'permissions' => [
@@ -151,6 +165,50 @@ return [
                 'audit.view' => 'View audit log',
                 'audit.export' => 'Export audit log',
                 'audit.manage' => 'Manage retention policies',
+            ],
+        ],
+
+        'report' => [
+            'name' => 'Reports',
+            'permissions' => [
+                'report.attendance.view' => 'View attendance report',
+                'report.unified-inbox.view' => 'View unified inbox report',
+            ],
+        ],
+
+        'board-meeting' => [
+            'name' => 'Board Meetings',
+            'permissions' => [
+                'board-meeting.view' => 'View board meetings',
+                'board-meeting.update' => 'Update board meetings',
+                'board-meeting.sync' => 'Run board meeting synchronization',
+                'board-meeting.export' => 'Export board meetings to a file',
+            ],
+        ],
+
+        'board-meeting.documents' => [
+            'name' => 'Board Meeting Documents',
+            'permissions' => [
+                'board-meeting.documents.view' => "View a meeting's documents",
+                'board-meeting.documents.upload' => 'Upload meeting documents',
+                'board-meeting.documents.download' => 'Download meeting documents',
+                'board-meeting.documents.delete' => 'Delete meeting documents',
+            ],
+        ],
+
+        'tag' => [
+            'name' => 'Tags',
+            'permissions' => [
+                'tag.view' => 'View tags',
+                'tag.manage' => 'Create, update, and delete tags',
+            ],
+        ],
+
+        'ai' => [
+            'name' => 'AI',
+            'permissions' => [
+                'ai.provider.view' => 'View AI providers, models, and agents',
+                'ai.provider.manage' => 'Manage AI providers, models, credentials, and agent bindings',
             ],
         ],
 

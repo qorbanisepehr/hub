@@ -111,6 +111,9 @@ return [
         'document.placed' => ['category' => 'document', 'sensitivity' => 'medium'],
         'document.restored' => ['category' => 'document', 'sensitivity' => 'medium'],
         'document.uploaded' => ['category' => 'document', 'sensitivity' => 'medium'],
+        // One bundle download is many document leaves leaving at once — same
+        // weight class as the single-file `downloaded` event.
+        'document.zipped' => ['category' => 'document', 'sensitivity' => 'high'],
 
         // Employees
         'employee.created' => ['category' => 'employee', 'sensitivity' => 'medium'],
@@ -122,6 +125,28 @@ return [
         'questionnaire.rejected' => ['category' => 'questionnaire', 'sensitivity' => 'medium'],
         'questionnaire.reviewed' => ['category' => 'questionnaire', 'sensitivity' => 'medium'],
         'questionnaire.submitted' => ['category' => 'questionnaire', 'sensitivity' => 'medium'],
+
+        // Board meetings
+        'boardmeeting.updated' => ['category' => 'boardmeeting', 'sensitivity' => 'high'],
+        'boardmeeting.synced' => ['category' => 'boardmeeting', 'sensitivity' => 'low'],
+        // A run is the model's act and may have changed nothing; a decision
+        // about one is a person changing a board record, like `updated`.
+        'boardmeeting.summary_generated' => ['category' => 'boardmeeting', 'sensitivity' => 'medium'],
+        'boardmeeting.summary_accepted' => ['category' => 'boardmeeting', 'sensitivity' => 'high'],
+        // Refusing a proposal changed no record at all - the same fields, the same
+        // tags, one fewer open question - so it is not an `updated`-weight event
+        // the way accepting one is.
+        'boardmeeting.summary_dismissed' => ['category' => 'boardmeeting', 'sensitivity' => 'low'],
+        // Export templates carry the board's letterhead. Replacing, retitling or
+        // deleting one is a person changing the document every export is made
+        // from, which is exactly what the log is for.
+        'boardmeeting.file_template.uploaded' => ['category' => 'boardmeeting', 'sensitivity' => 'medium'],
+        'boardmeeting.file_template.updated' => ['category' => 'boardmeeting', 'sensitivity' => 'medium'],
+        'boardmeeting.file_template.deleted' => ['category' => 'boardmeeting', 'sensitivity' => 'medium'],
+
+        // Tagging — a merge is a person collapsing vocabulary rows, content
+        // change with a diff, same weight class as the other content events.
+        'tagging.merged' => ['category' => 'tagging', 'sensitivity' => 'medium'],
     ],
 
 ];

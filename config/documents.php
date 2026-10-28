@@ -29,6 +29,12 @@ return [
         'allowed_mime_types' => ['pdf', 'jpg', 'jpeg', 'png', 'webp'],
     ],
 
+    'board-meeting' => [
+        'max_file_size' => env('BOARD_MEETING_DOC_MAX_SIZE', 20 * 1024 * 1024),
+        'max_files' => env('BOARD_MEETING_DOC_MAX_FILES', 50),
+        'allowed_mime_types' => ['pdf', 'jpg', 'jpeg', 'png', 'webp'],
+    ],
+
     /**
      * Documentable entity type → SectionRegistry class. Lets the document
      * domain resolve placement labels through the owning domain's sections
@@ -51,5 +57,30 @@ return [
         'max_width' => 300,
         'max_height' => 300,
         'quality' => 80,
+    ],
+
+    /**
+     * Structured zip download (POST /documents/zip), and the document half of a
+     * single meeting's own archive.
+     *
+     * The archive is built on a temporary local file before the first byte
+     * leaves the process, so — like exports.sync_row_limit for PDF/Word renders
+     * — these caps are the only protection against an unbounded build, and this
+     * one is still built in-request.
+     *
+     * Two caps because they bound different things. `max_files` bounds how much
+     * work the archive is; `max_bytes` bounds what it costs to build and hold.
+     * A hundred small files and a hundred enormous ones both satisfy the first
+     * and neither should satisfy the second. Sized for a board meeting's scans
+     * rather than for a library: comfortably past any real meeting, and well
+     * short of the temp disk filling up.
+     *
+     * Cross-record bundles are a different shape of work — many small rendered
+     * sheets rather than a few large scans — so they carry their own, larger
+     * caps in `exports.bundle` and are built by a job rather than by a request.
+     */
+    'zip' => [
+        'max_files' => (int) env('DOCUMENTS_ZIP_MAX_FILES', 100),
+        'max_bytes' => (int) env('DOCUMENTS_ZIP_MAX_BYTES', 536_870_912),
     ],
 ];

@@ -250,6 +250,7 @@ return [
         ],
         'contact_info.address.postal_code' => [
             'required' => 'Postal code is required.',
+            'regex' => 'Postal code must be exactly 10 digits.',
         ],
         'contact_info.address.province' => [
             'required' => 'Province is required.',

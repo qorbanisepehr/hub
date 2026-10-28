@@ -1,7 +1,15 @@
 <?php
 
 use App\Http\Controllers\GrantAccessController;
+use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Route;
+
+// Realtime broadcasting auth (Echo private channels): registers
+// POST /api/broadcasting/auth under the api group (session cookie, Sanctum
+// stateful, no CSRF) and loads the channel definitions. This Laravel version
+// registers only /broadcasting/auth — no /broadcasting/connecting route.
+Broadcast::routes(['middleware' => ['auth:sanctum']]);
+require base_path('routes/channels.php');
 
 // Generic grant issuance (public, OTP-gated) for any entity in
 // config/grants.php. Registered once here instead of being duplicated across
@@ -25,3 +33,8 @@ require base_path('app/Domains/Settings/routes/api.php');
 require base_path('app/Domains/FormOptions/routes/api.php');
 require base_path('app/Domains/Audit/routes/api.php');
 require base_path('app/Domains/Import/routes/api.php');
+require base_path('app/Domains/Notification/routes/api.php');
+require base_path('app/Domains/Reporting/routes/api.php');
+require base_path('app/Domains/BoardMeeting/routes/api.php');
+require base_path('app/Domains/Tagging/routes/api.php');
+require base_path('app/Domains/Ai/routes/api.php');

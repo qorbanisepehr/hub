@@ -237,6 +237,7 @@ return [
         ],
         'contact_info.address.postal_code' => [
             'required' => 'کد پستی الزامی است.',
+            'regex' => 'کد پستی باید دقیقاً ۱۰ رقم باشد.',
         ],
         'contact_info.address.province' => [
             'required' => 'استان الزامی است.',
@@ -535,6 +536,8 @@ return [
         'job_request.job_priority_2' => 'اولویت شغلی ۲',
         'job_request.currently_employed' => 'شاغل در حال حاضر',
         'job_request.available_start_date' => 'تاریخ شروع به کار',
+        'registry_number' => 'شمارهٔ مصوبه',
+        'title' => 'عنوان',
     ],
 
 ];

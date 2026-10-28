@@ -18,6 +18,11 @@ return [
     // How long a code stays valid, in seconds.
     'ttl' => (int) env('OTP_TTL', 120),
 
+    // How long an email-delivered code stays valid, in seconds. Email
+    // delivery adds delivery latency, so email codes get a longer lifetime
+    // than the default channel TTL above.
+    'ttl_email' => (int) env('OTP_TTL_EMAIL', 300),
+
     // Per-entity failed-attempt lockout (the route limiters guard IPs).
     'attempts' => [
         'limit' => (int) env('OTP_ATTEMPTS_LIMIT', 5),
