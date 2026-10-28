@@ -3,7 +3,9 @@
 namespace App\Domains\Employee\Controllers;
 
 use App\Contracts\Authorization;
+use App\Domains\Authorization\Services\FieldAccess;
 use App\Domains\Employee\Exports\EmployeeExporter;
+use App\Domains\Employee\Exports\EmployeeProfileDocument;
 use App\Domains\Employee\Models\Employee;
 use App\Domains\Employee\Requests\SaveEmployeeSectionRequest;
 use App\Domains\Employee\Requests\StoreEmployeeRequest;
@@ -11,10 +13,12 @@ use App\Domains\Employee\Requests\SubmitEmployeeRequest;
 use App\Domains\Employee\Requests\UpdateEmployeeRequest;
 use App\Domains\Employee\Resources\EmployeeResource;
 use App\Domains\Employee\Services\EmployeeService;
+use App\Domains\FormOptions\Services\FormOptionService;
+use App\Support\Exports\Concerns\StreamsTabularExports;
+use App\Support\Exports\DocumentExportService;
 use App\Support\Exports\ExportService;
-use App\Support\Exports\Value\ExportFile;
+use App\Support\Exports\Value\ExportOptions;
 use App\Support\Exports\Value\ExportRequest;
-use App\Support\Exports\Value\PresentationOptions;
 use App\Support\ListQuery;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -24,6 +28,8 @@ use Symfony\Component\HttpFoundation\StreamedResponse as SymfonyStreamedResponse
 
 class EmployeeController
 {
+    use StreamsTabularExports;
+
     private const SORTABLE = [
         'personnel_code',
         'first_name',
@@ -45,6 +51,9 @@ class EmployeeController
         private EmployeeService $employeeService,
         private Authorization $authorization,
         private ExportService $exports,
+        private DocumentExportService $documents,
+        private FieldAccess $fieldAccess,
+        private FormOptionService $formOptions,
     ) {}
 
     /**
@@ -64,12 +73,30 @@ class EmployeeController
 
         ListQuery::search($query, ListQuery::filter($request), self::SEARCHABLE);
 
+        ListQuery::validateDateFilters($request, ['hire_date_from', 'hire_date_to']);
+
         if ($request->filled('status')) {
             $query->where('employment_status', $request->input('status'));
         }
 
         if ($request->filled('status_not')) {
             $query->where('employment_status', '!=', $request->input('status_not'));
+        }
+
+        if ($request->filled('employment_type')) {
+            $query->where('employment_type', $request->input('employment_type'));
+        }
+
+        if ($request->filled('gender')) {
+            $query->where('gender', $request->input('gender'));
+        }
+
+        if ($request->filled('hire_date_from')) {
+            $query->where('hire_date', '>=', $request->input('hire_date_from'));
+        }
+
+        if ($request->filled('hire_date_to')) {
+            $query->where('hire_date', '<=', $request->input('hire_date_to'));
         }
 
         $query->orderBy(
@@ -112,7 +139,7 @@ class EmployeeController
             new ExportRequest(format: $format, options: EmployeeExporter::defaultOptions($format)),
         );
 
-        return $this->streamFile($file);
+        return $this->streamExport($this->exports, $file);
     }
 
     /**
@@ -124,21 +151,53 @@ class EmployeeController
     {
         $format = $request->query('format', 'xlsx');
 
-        if (! in_array($format, ['xlsx', 'csv'], true)) {
+        if (! in_array($format, ['xlsx', 'csv', 'pdf', 'docx'], true)) {
             return response()->json(['message' => __('authorization.format_not_supported')], 422);
         }
 
         $file = $this->exports->run(
             $this->employeeService->exporter($this->scopedQuery($request)),
             new ExportRequest(
-                fields: EmployeeController::fieldsFromQuery($request),
+                fields: self::exportFieldsQuery($request),
                 format: $format,
-                options: EmployeeExporter::defaultOptions($format),
-                presentation: EmployeeController::presentationFromQuery($request),
+                options: in_array($format, ['pdf', 'docx'], true)
+                    ? new ExportOptions
+                    : EmployeeExporter::defaultOptions($format),
+                presentation: self::exportPresentationQuery($request),
             ),
         );
 
-        return $this->streamFile($file);
+        return $this->streamExport($this->exports, $file);
+    }
+
+    /**
+     * The printable employee-profile document (one record as PDF/Word). Gated
+     * by employee.view — the same permission as show() — and honors the same
+     * deny-based field access, so the printout never contains what the API
+     * strips. The document source resolves the actor's visible sections.
+     */
+    public function document(Request $request, Employee $employee): SymfonyStreamedResponse|JsonResponse
+    {
+        $this->authorization->authorize($request->user(), 'employee.view', $employee);
+
+        $format = $request->query('format', 'pdf');
+
+        if (! in_array($format, ['pdf', 'docx'], true)) {
+            return response()->json(['message' => __('authorization.format_not_supported')], 422);
+        }
+
+        $employee->load(['user']);
+
+        $source = new EmployeeProfileDocument(
+            $this->employeeService,
+            $this->fieldAccess,
+            $this->formOptions,
+            $request->user(),
+        );
+
+        $file = $this->documents->run($source, $employee, $format);
+
+        return $this->streamExport($this->exports, $file);
     }
 
     public function store(StoreEmployeeRequest $request): EmployeeResource
@@ -235,50 +294,6 @@ class EmployeeController
         }
 
         return $query;
-    }
-
-    /**
-     * Stream an ExportFile as a download response.
-     */
-    private function streamFile(ExportFile $file): SymfonyStreamedResponse
-    {
-        return response()->streamDownload(function () use ($file): void {
-            $stream = fopen('php://output', 'w');
-            $file->copyTo($stream);
-        }, $this->exports->dispositionFilename($file), [
-            'Content-Type' => $file->mimeType,
-            'Cache-Control' => 'no-store',
-        ]);
-    }
-
-    /**
-     * Comma-separated `fields` query param → list<string> for ExportRequest.
-     */
-    private static function fieldsFromQuery(Request $request): array
-    {
-        return array_values(array_filter(array_map(
-            'trim',
-            explode(',', (string) $request->query('fields', '')),
-        )));
-    }
-
-    /**
-     * Presentation query params → PresentationOptions. Whitelisted so a
-     * stray query value degrades to the default (machine) form instead of
-     * erroring.
-     */
-    private static function presentationFromQuery(Request $request): PresentationOptions
-    {
-        $headers = $request->query('headers');
-        $calendar = $request->query('calendar');
-        $digits = $request->query('digits');
-
-        return new PresentationOptions(
-            headers: in_array($headers, ['key', 'label'], true) ? $headers : 'key',
-            calendar: in_array($calendar, ['gregorian', 'persian', 'both'], true) ? $calendar : 'gregorian',
-            digits: $digits === 'persian' ? 'persian' : 'latin',
-            detailSheets: $request->boolean('details'),
-        );
     }
 
     /**

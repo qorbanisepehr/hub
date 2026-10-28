@@ -128,7 +128,7 @@ class CvController extends Controller
 
         $pendingEmail = $data['email'] ?? null;
 
-        $status = $this->otpService->sendWithCooldown($cv, 'email', OtpContext::VerifyEmail);
+        $status = $this->otpService->sendWithCooldown($cv, 'email', OtpContext::VerifyEmail, $pendingEmail);
 
         if ($pendingEmail !== null && $status === OtpSendStatus::Sent) {
             $this->otpService->storePendingValue($cv, 'email', OtpContext::VerifyEmail, $pendingEmail);

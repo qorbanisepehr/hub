@@ -21,6 +21,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use Throwable;
 
 class DocumentService
 {
@@ -186,6 +187,85 @@ class DocumentService
         event(new DocumentUploaded($document, $entity, $category->name));
 
         return $document;
+    }
+
+    /**
+     * Import several files onto one entity in a single pass, reporting each
+     * file's outcome instead of failing the batch (web bulk upload). Request
+     * validation already happened; here the batch is written. An entry whose
+     * dedupe key already exists on the entity is reported as skipped rather
+     * than duplicated, and a file that fails mid-write is reported rather
+     * than silently dropped — an import that mostly landed is a normal result,
+     * not an error the caller has to guess about.
+     *
+     * `imported` carries the same payloads the entity's document list does,
+     * so a client can render the report with what it already knows.
+     *
+     * @param  list<array{file: UploadedFile, metadata?: array<string, mixed>}>  $entries
+     * @return array{
+     *     imported: list<array<string, mixed>>,
+     *     skipped: list<array{file: string, metadata: array<string, mixed>, reason: string}>,
+     *     failed: list<array{file: string, metadata: array<string, mixed>, reason: string}>,
+     * }
+     */
+    public function bulkUpload(
+        Documentable $entity,
+        DocumentCategory $category,
+        array $entries,
+        string $dedupeKey,
+        string $serveRouteName,
+    ): array {
+        $imported = [];
+        $skipped = [];
+        $failed = [];
+
+        foreach ($entries as $entry) {
+            $file = $entry['file'];
+            $metadata = $entry['metadata'] ?? [];
+
+            if ($this->usageExistsWithMetadata($entity, $dedupeKey, $metadata[$dedupeKey] ?? null)) {
+                $skipped[] = [
+                    'file' => $file->getClientOriginalName(),
+                    'metadata' => $metadata,
+                    'reason' => 'duplicate',
+                ];
+
+                continue;
+            }
+
+            try {
+                $document = $this->upload($entity, $file, $category, metadata: $metadata);
+                $usage = $this->newestUsageFor($entity, $document->id);
+                $imported[] = $this->documentPayload($document, $usage, $serveRouteName);
+            } catch (Throwable $exception) {
+                $failed[] = [
+                    'file' => $file->getClientOriginalName(),
+                    'metadata' => $metadata,
+                    'reason' => $exception->getMessage(),
+                ];
+            }
+        }
+
+        return compact('imported', 'skipped', 'failed');
+    }
+
+    /**
+     * Whether the entity already carries a usage with this metadata value —
+     * the dedupe check behind bulk upload (registry numbers are unique per
+     * meeting). Blank values never match, so a missing key can never claim
+     * "everything is a duplicate".
+     */
+    private function usageExistsWithMetadata(Documentable $entity, string $key, mixed $value): bool
+    {
+        if ($value === null || $value === '') {
+            return false;
+        }
+
+        return DocumentUsage::query()
+            ->where('entity_type', get_class($entity))
+            ->where('entity_id', $entity->getKey())
+            ->where("metadata->{$key}", $value)
+            ->exists();
     }
 
     /**

@@ -16,6 +16,12 @@ class QuestionnaireSubmitted extends BaseAuditEvent
         return 'questionnaire.submitted';
     }
 
+    /** Stable ID for listeners (never the full model graph — see §77–§78). */
+    public function questionnaireId(): string
+    {
+        return (string) $this->questionnaire->getKey();
+    }
+
     public function category(): string
     {
         return 'questionnaire';

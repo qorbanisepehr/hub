@@ -38,6 +38,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('documents/{document}/restore', [DocumentController::class, 'restore'])
         ->middleware('permission:employee.documents.restore');
 
+    Route::post('documents/zip', [DocumentController::class, 'zip'])
+        ->name('documents.zip')
+        ->middleware('permission:employee.documents.download');
+
     Route::get('documents/{document}/download', [DocumentController::class, 'download'])
         ->name('documents.download')
         ->middleware('permission:employee.documents.download');

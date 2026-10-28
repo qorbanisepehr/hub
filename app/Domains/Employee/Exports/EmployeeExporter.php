@@ -6,6 +6,7 @@ use App\Domains\Employee\Models\Employee;
 use App\Domains\Employee\Services\EmployeeService;
 use App\Domains\FormOptions\Services\FormOptionService;
 use App\Support\Exports\Contract\ProvidesDetailSheets;
+use App\Support\Exports\Contract\ProvidesDocumentTitle;
 use App\Support\Exports\Contract\ProvidesOptionLabels;
 use App\Support\Exports\Contract\TabularExporter;
 use App\Support\Exports\Contract\TemplateMetaProvider;
@@ -46,7 +47,7 @@ use Illuminate\Support\LazyCollection;
  * by the caller (same pattern as RoleChartExporter): the exporter never
  * sees the HTTP request or the authenticated user.
  */
-final class EmployeeExporter implements ProvidesDetailSheets, ProvidesOptionLabels, TabularExporter, TemplateMetaProvider
+final class EmployeeExporter implements ProvidesDetailSheets, ProvidesDocumentTitle, ProvidesOptionLabels, TabularExporter, TemplateMetaProvider
 {
     /**
      * Bumped whenever the column catalog changes shape in a way the import
@@ -225,6 +226,11 @@ final class EmployeeExporter implements ProvidesDetailSheets, ProvidesOptionLabe
     public function baseFilename(): string
     {
         return 'employees';
+    }
+
+    public function documentTitle(): string
+    {
+        return (string) __('exports.documents.titles.employees');
     }
 
     /**
