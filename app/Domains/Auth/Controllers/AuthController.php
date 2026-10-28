@@ -12,9 +12,11 @@ use App\Domains\Auth\Requests\VerifyOtpRequest;
 use App\Domains\Auth\Resources\UserResource;
 use App\Domains\Auth\Services\AuthService;
 use App\Enums\OtpContext;
+use App\Enums\OtpVerifyStatus;
 use App\Http\Responses\OtpResponder;
 use App\Models\User;
 use App\Services\OtpService;
+use App\Support\Mail\OtpDeliveryContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -45,14 +47,31 @@ class AuthController
             return $inactive;
         }
 
-        $channel = $this->authService->channelFor($request->identifier);
+        $channel = $request->validated('channel') ?? $this->authService->channelFor($request->identifier);
 
-        $status = $this->otpService->sendWithCooldown($user, $channel, OtpContext::Login);
+        $recipient = $channel === 'email' ? $user->email : $user->phone;
+
+        if (blank($recipient)) {
+            return response()->json([
+                'message' => $channel === 'email'
+                    ? __('auth.channel_unavailable_email')
+                    : __('auth.channel_unavailable_mobile'),
+            ], 422);
+        }
+
+        $status = $this->otpService->sendWithCooldown(
+            $user,
+            $channel,
+            OtpContext::Login,
+            $recipient,
+            new OtpDeliveryContext(ipAddress: $request->ip(), issuedAt: now()),
+        );
 
         $response = $this->respondToSend($user, $channel, OtpContext::Login, $status);
 
         $data = $response->getData(true);
-        $data['destination'] = $this->authService->destination($request->identifier, $user);
+        $data['destination'] = $this->authService->destination($channel, $user);
+        $data['channel'] = $channel;
 
         return response()->json($data, $response->getStatusCode());
     }
@@ -71,8 +90,21 @@ class AuthController
             return $inactive;
         }
 
-        $channel = $this->authService->channelFor($request->identifier);
+        $channel = $request->validated('channel') ?? $this->authService->channelFor($request->identifier);
         $status = $this->otpService->attemptVerification($user, $channel, OtpContext::Login, $request->code);
+
+        // A wrong code is a failed attempt on a known account, so it is
+        // reported like a wrong password. Locked/expired are deliberately not
+        // reported: they repeat on every poll of an already-blocked attempt.
+        if ($status === OtpVerifyStatus::Invalid) {
+            event(new LoginFailed(
+                $request->identifier,
+                'invalid_code',
+                $user->id,
+                $request->ip(),
+                $request->userAgent(),
+            ));
+        }
 
         if ($response = $this->respondToVerification($user, $channel, OtpContext::Login, $status)) {
             return $response;
@@ -108,7 +140,13 @@ class AuthController
         if (! Hash::check($request->password, $user->password)) {
             $this->authService->hitFailedAttempt($user);
 
-            event(new LoginFailed($request->identifier, 'invalid_password'));
+            event(new LoginFailed(
+                $request->identifier,
+                'invalid_password',
+                $user->id,
+                $request->ip(),
+                $request->userAgent(),
+            ));
 
             return response()->json([
                 'message' => __('auth.failed'),

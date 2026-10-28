@@ -3,6 +3,7 @@
 namespace App\Domains\Auth\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class LoginRequest extends FormRequest
 {
@@ -11,11 +12,12 @@ class LoginRequest extends FormRequest
         return true;
     }
 
-    /** @return array<string, array<int, string>> */
+    /** @return array<string, array<int, mixed>> */
     public function rules(): array
     {
         return [
             'identifier' => ['required', 'string'],
+            'channel' => ['sometimes', 'string', Rule::in(['email', 'mobile'])],
         ];
     }
 }

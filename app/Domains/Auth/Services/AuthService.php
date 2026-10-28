@@ -40,21 +40,42 @@ class AuthService
     }
 
     /**
-     * Build a masked destination (email or phone) for the send response.
+     * Build a masked destination (email or phone) for the send response,
+     * based on the channel the user chose rather than the identifier shape.
      */
-    public function destination(string $identifier, User $user): string
+    public function destination(string $channel, User $user): string
     {
-        if (filter_var($identifier, FILTER_VALIDATE_EMAIL) !== false && $user->email) {
-            $at = strpos($user->email, '@');
-
-            return substr_replace($user->email, '***', 1, max(1, $at - 2));
+        if ($channel === 'email' && $user->email) {
+            return $this->maskEmail($user->email);
         }
 
+        if ($channel === 'mobile' && $user->phone) {
+            return $this->maskPhone($user->phone);
+        }
+
+        // Defensive fallback (the controller 422s before this is reachable):
+        // mask whichever contact exists so no raw address ever leaks.
         if ($user->phone) {
-            return substr_replace($user->phone, '***', 3, 4);
+            return $this->maskPhone($user->phone);
         }
 
-        return $user->email ?: $identifier;
+        if ($user->email) {
+            return $this->maskEmail($user->email);
+        }
+
+        return '';
+    }
+
+    private function maskEmail(string $email): string
+    {
+        $at = strpos($email, '@');
+
+        return substr_replace($email, '***', 1, max(1, $at - 2));
+    }
+
+    private function maskPhone(string $phone): string
+    {
+        return substr_replace($phone, '***', 3, 4);
     }
 
     public function rateLimiterKey(User $user): string
