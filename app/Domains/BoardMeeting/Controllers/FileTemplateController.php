@@ -520,14 +520,6 @@ final class FileTemplateController
     }
 
     /**
-     * The format whose templates this request is about.
-     *
-     * Read from the request so the library can grow without this controller
-     * gaining a branch per format, but constrained to a registered renderer:
-     * an unknown format would otherwise write a key no renderer can serve, and
-     * the template would sit in the library offering itself to nobody.
-     */
-    /**
      * The format a READ is about, from the query string.
      *
      * Deliberately different from the upload path, which derives the format from the

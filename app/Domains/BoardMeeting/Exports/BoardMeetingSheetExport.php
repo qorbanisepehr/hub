@@ -83,7 +83,7 @@ final class BoardMeetingSheetExport implements DocumentSource
      *
      * @var array<string, mixed>|null
      */
-    private ?array $templateValues = null;
+    private ?array $cachedTemplateValues = null;
 
     /**
      * Every section name a template may use, in the order this sheet prints
@@ -211,7 +211,7 @@ final class BoardMeetingSheetExport implements DocumentSource
         $this->meeting = $entity instanceof BoardMeeting
             ? $entity
             : BoardMeeting::query()->findOrFail((int) $entity);
-        $this->templateValues = null;
+        $this->cachedTemplateValues = null;
 
         $meeting = $this->meeting->loadMissing(['tags', 'documentUsages.document']);
 
@@ -246,9 +246,9 @@ final class BoardMeetingSheetExport implements DocumentSource
      *
      * @return array<string, mixed>
      */
-    private function templateValues(BoardMeeting $meeting): array
+    private function templateValuesFor(BoardMeeting $meeting): array
     {
-        return $this->templateValues ??= $this->templateFields->values($meeting);
+        return $this->cachedTemplateValues ??= $this->templateFields->values($meeting);
     }
 
     /**
@@ -282,7 +282,7 @@ final class BoardMeetingSheetExport implements DocumentSource
 
     private function attendeesSection(BoardMeeting $meeting): DocumentSection
     {
-        $rows = $this->templateValues($meeting)['attendee'];
+        $rows = $this->templateValuesFor($meeting)['attendee'];
 
         return new DocumentSection(
             heading: $this->label('sections.attendees'),
@@ -298,7 +298,7 @@ final class BoardMeetingSheetExport implements DocumentSource
 
     private function agendaSection(BoardMeeting $meeting): DocumentSection
     {
-        $rows = $this->templateValues($meeting)['agenda'];
+        $rows = $this->templateValuesFor($meeting)['agenda'];
 
         return new DocumentSection(
             heading: $this->label('sections.agenda'),
@@ -408,7 +408,7 @@ final class BoardMeetingSheetExport implements DocumentSource
      */
     private function approvalsSection(BoardMeeting $meeting): DocumentSection
     {
-        $rows = $this->templateValues($meeting)['approval'];
+        $rows = $this->templateValuesFor($meeting)['approval'];
 
         return new DocumentSection(
             heading: $this->label('sections.approvals'),
@@ -424,7 +424,7 @@ final class BoardMeetingSheetExport implements DocumentSource
 
     private function tagsSection(BoardMeeting $meeting): DocumentSection
     {
-        $rows = $this->templateValues($meeting)['tag'];
+        $rows = $this->templateValuesFor($meeting)['tag'];
 
         return new DocumentSection(
             heading: $this->label('sections.tags'),
@@ -444,7 +444,7 @@ final class BoardMeetingSheetExport implements DocumentSource
      */
     private function attachmentsSection(BoardMeeting $meeting): DocumentSection
     {
-        $rows = $this->templateValues($meeting)['attachment'];
+        $rows = $this->templateValuesFor($meeting)['attachment'];
 
         return new DocumentSection(
             heading: $this->label('sections.attachments'),
