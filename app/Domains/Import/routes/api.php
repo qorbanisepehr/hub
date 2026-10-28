@@ -14,4 +14,10 @@ Route::middleware('auth:sanctum')->group(function () {
         ->middleware('permission:employee.import');
     Route::post('imports/{entity}/confirm', [ImportController::class, 'confirm'])
         ->middleware('permission:employee.import');
+    // The document-bundle arm: a bulk of scanned files resolved by the
+    // user's filename pattern (same dry-run → confirm → report shape).
+    Route::post('imports/{entity}/documents/dry-run', [ImportController::class, 'documentDryRun'])
+        ->middleware('permission:employee.import');
+    Route::post('imports/{entity}/documents/confirm', [ImportController::class, 'documentConfirm'])
+        ->middleware('permission:employee.import');
 });
