@@ -2,7 +2,6 @@
 
 namespace App\Domains\Employee\Imports;
 
-use App\Domains\Employee\Exports\EmployeeExporter;
 use App\Domains\Employee\Models\Employee;
 use App\Domains\Employee\Services\EmployeeService;
 use App\Domains\FormOptions\Services\FormOptionService;
@@ -129,10 +128,7 @@ final class EmployeeImportDefinition implements ImportDefinition, NormalizesValu
 
     private function normalizer(): EmployeeValueNormalizer
     {
-        return new EmployeeValueNormalizer(
-            $this->employees->exporter(Employee::query()),
-            app(FormOptionService::class),
-        );
+        return new EmployeeValueNormalizer(app(FormOptionService::class));
     }
 
     /**

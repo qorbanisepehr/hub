@@ -258,7 +258,9 @@ final class DocxTemplateFiller implements TemplateFiller
                 }
 
                 $processor->cloneRowAndSetValues($search, $rows);
-            } catch (\Exception) {
+            } catch (\Exception $e) {
+                report($e);
+
                 continue;
             }
         }
