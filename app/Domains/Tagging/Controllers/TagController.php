@@ -46,11 +46,13 @@ class TagController
     {
         $query = Tag::query()->orderBy('name');
 
-        if (($search = ListQuery::filter($request)) !== null) {
-            $query->where('name', 'like', "%{$search}%");
+        if (ListQuery::filter($request) !== null) {
+            ListQuery::search($query, ListQuery::filter($request), self::SEARCHABLE);
         }
 
-        return TagResource::collection($query->limit(100)->get());
+        return TagResource::collection(
+            $query->limit(ListQuery::perPage($request, 100, 500))->get()
+        );
     }
 
     public function store(TagRequest $request): TagResource
@@ -65,9 +67,13 @@ class TagController
 
     public function update(TagRequest $request, Tag $tag): TagResource
     {
-        $tag->update([
-            'name' => $request->string('name')->toString(),
-        ]);
+        $attributes = ['name' => $request->string('name')->toString()];
+
+        if ($request->filled('slug')) {
+            $attributes['slug'] = $request->string('slug')->toString();
+        }
+
+        $tag->update($attributes);
 
         return new TagResource($tag->refresh());
     }

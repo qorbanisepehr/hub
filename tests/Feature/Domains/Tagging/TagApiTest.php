@@ -58,6 +58,16 @@ describe('POST /api/tags', function () {
             ->assertUnprocessable();
     });
 
+    it('rejects duplicate names instead of failing on the database constraint', function () {
+        Tag::create(['name' => 'موجود', 'slug' => 'existing']);
+        $user = createUserWithPermissions(['tag.manage']);
+
+        actingAs($user)
+            ->postJson('/api/tags', ['name' => 'موجود', 'slug' => 'brand-new'])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('name');
+    });
+
     it('forbids a user without tag.manage', function () {
         $user = createUserWithPermissions(['tag.view']);
 
@@ -68,7 +78,7 @@ describe('POST /api/tags', function () {
 });
 
 describe('PUT+DELETE /api/tags/{tag}', function () {
-    it('renames but never re-slugs', function () {
+    it('renames and re-slugs', function () {
         $tag = Tag::create(['name' => 'قدیم', 'slug' => 'old']);
         $user = createUserWithPermissions(['tag.manage']);
 
@@ -77,7 +87,58 @@ describe('PUT+DELETE /api/tags/{tag}', function () {
             ->assertOk();
 
         expect($response->json('data.name'))->toBe('نو')
-            ->and($response->json('data.slug'))->toBe('old');
+            ->and($response->json('data.slug'))->toBe('new');
+    });
+
+    it('keeps the slug when the update only sends a name', function () {
+        $tag = Tag::create(['name' => 'قدیم', 'slug' => 'keep-me']);
+        $user = createUserWithPermissions(['tag.manage']);
+
+        $response = actingAs($user)
+            ->putJson("/api/tags/{$tag->id}", ['name' => 'نو'])
+            ->assertOk();
+
+        expect($response->json('data.slug'))->toBe('keep-me');
+    });
+
+    it('rejects renaming a tag to another existing slug', function () {
+        Tag::create(['name' => 'الف', 'slug' => 'taken-slug']);
+        $tag = Tag::create(['name' => 'ب', 'slug' => 'free-slug']);
+        $user = createUserWithPermissions(['tag.manage']);
+
+        actingAs($user)
+            ->putJson("/api/tags/{$tag->id}", ['name' => 'ب', 'slug' => 'taken-slug'])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('slug');
+    });
+
+    it('rejects an invalid slug on update', function () {
+        $tag = Tag::create(['name' => 'نام', 'slug' => 'valid-slug']);
+        $user = createUserWithPermissions(['tag.manage']);
+
+        actingAs($user)
+            ->putJson("/api/tags/{$tag->id}", ['name' => 'نام', 'slug' => 'bad slug!'])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('slug');
+    });
+
+    it('allows saving a tag without changing its name', function () {
+        $tag = Tag::create(['name' => 'پروژه تغلیظ فاز ۳ میدوک', 'slug' => 'meadow']);
+        $user = createUserWithPermissions(['tag.manage']);
+
+        actingAs($user)
+            ->putJson("/api/tags/{$tag->id}", ['name' => 'پروژه تغلیظ فاز ۳ میدوک'])
+            ->assertOk();
+    });
+
+    it('rejects renaming a tag to another existing name', function () {
+        Tag::create(['name' => 'موجود', 'slug' => 'existing-name']);
+        $tag = Tag::create(['name' => 'دیگری', 'slug' => 'other']);
+        $user = createUserWithPermissions(['tag.manage']);
+
+        actingAs($user)
+            ->putJson("/api/tags/{$tag->id}", ['name' => 'موجود'])
+            ->assertUnprocessable();
     });
 
     it('deletes a tag and its attachments', function () {
