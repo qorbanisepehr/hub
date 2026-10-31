@@ -34,12 +34,12 @@ export function useTags(params: TagListParams) {
     });
 }
 
-/** Flat option list for pickers / filter bars (tag.view, capped at 100). */
-export function useTagOptions(search?: string) {
+/** Flat option list for pickers / filter bars (tag.view, default cap 100). */
+export function useTagOptions(search?: string, perPage?: number) {
     return useQuery({
-        queryKey: [...tagKeys.options(), search ?? ""] as const,
+        queryKey: [...tagKeys.options(), search ?? "", perPage ?? ""] as const,
         queryFn: async () => {
-            const { data } = await fetchTagOptions(search);
+            const { data } = await fetchTagOptions(search, perPage);
             return data.data;
         },
     });
@@ -60,8 +60,8 @@ export function useUpdateTag() {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: ({ id, name }: { id: number; name: string }) =>
-            updateTag(id, { name }),
+        mutationFn: ({ id, name, slug }: { id: number; name: string; slug: string }) =>
+            updateTag(id, { name, slug }),
         onSuccess: () => {
             void queryClient.invalidateQueries({ queryKey: tagKeys.all });
             // Meetings embed tag names; a rename must refresh them.

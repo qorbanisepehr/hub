@@ -61,6 +61,9 @@ interface DataTablePageProps<TData extends RowData> {
     searchPlaceholder?: string;
     globalFilter?: string;
     onGlobalFilterChange?: (value: string) => void;
+    /** "auto" debounces a commit while typing; "manual" waits for Enter or
+     *  the search button. Defaults to "auto". */
+    searchMode?: "auto" | "manual";
     columnFilters?: ColumnFiltersState;
     onColumnFiltersChange?: (updater: ColumnFiltersState | ((prev: ColumnFiltersState) => ColumnFiltersState)) => void;
     filterFields?: ListFilterFieldDef[];
@@ -113,6 +116,7 @@ export function DataTablePage<TData extends RowData>({
     searchPlaceholder,
     globalFilter,
     onGlobalFilterChange,
+    searchMode,
     columnFilters,
     onColumnFiltersChange,
     filterFields,
@@ -143,6 +147,7 @@ export function DataTablePage<TData extends RowData>({
                     onGlobalFilterChange={
                         onGlobalFilterChange as (value: string) => void
                     }
+                    searchMode={searchMode}
                     actions={actions}
                     settings={settings}
                     views={views}

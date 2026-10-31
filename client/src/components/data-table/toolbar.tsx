@@ -81,6 +81,10 @@ type DataTableToolbarProps<TData extends RowData> = {
     searchKey?: string;
     globalFilter?: string;
     onGlobalFilterChange?: (value: string) => void;
+    /** "auto" commits as the user types (debounced); "manual" waits for
+     *  Enter or the search button. Tables that page server-side over a large
+     *  set (tags) ask for "manual" so one keystroke is not a round-trip. */
+    searchMode?: "auto" | "manual";
     filterBar?: React.ReactNode;
     /** Descriptor-based actions: one source, rendered as desktop icon buttons
      *  (+ tooltip) and mobile «...» menu items alike, with optional backend
@@ -152,6 +156,7 @@ export function DataTableToolbar<TData extends RowData>({
     searchKey,
     globalFilter,
     onGlobalFilterChange,
+    searchMode = "auto",
     filterBar,
     actions,
     settings,
@@ -160,6 +165,7 @@ export function DataTableToolbar<TData extends RowData>({
     onViewChange,
 }: DataTableToolbarProps<TData>) {
     const { can } = useAuthorization();
+    const manualSearch = searchMode === "manual";
     const committedValue = searchKey
         ? ((table.getColumn(searchKey)?.getFilterValue() as string) ?? "")
         : (globalFilter ?? "");
@@ -197,6 +203,9 @@ export function DataTableToolbar<TData extends RowData>({
     const handleInputChange = (value: string) => {
         setLocalValue(value);
         cancelPending();
+        // Manual mode waits for Enter / the search button — a keystroke is
+        // never a round-trip.
+        if (manualSearch) return;
         // Auto-commit shortly after the user stops typing, but only for
         // queries of MIN_AUTO_SEARCH_CHARS or more; a URL re-sync (or
         // Enter/clear below) never re-arms it because the value matches.
@@ -233,14 +242,37 @@ export function DataTableToolbar<TData extends RowData>({
     return (
         <div className="flex w-full items-center gap-2">
             {hasSearch ? (
-                <SearchField
-                    placeholder={searchPlaceholder}
-                    value={localValue}
-                    onValueChange={handleInputChange}
-                    onCommit={commit}
-                    onClear={clear}
-                    className="w-full lg:w-64 lg:shrink-0"
-                />
+                manualSearch ? (
+                    <div className="flex w-full items-center gap-2 lg:w-auto lg:shrink-0">
+                        <SearchField
+                            placeholder={searchPlaceholder}
+                            value={localValue}
+                            onValueChange={handleInputChange}
+                            onCommit={commit}
+                            onClear={clear}
+                            className="min-w-0 flex-1 lg:w-64 lg:flex-none"
+                        />
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-8 shrink-0"
+                            onClick={commit}
+                        >
+                            <IconSearch className="size-4" />
+                            جستجو
+                        </Button>
+                    </div>
+                ) : (
+                    <SearchField
+                        placeholder={searchPlaceholder}
+                        value={localValue}
+                        onValueChange={handleInputChange}
+                        onCommit={commit}
+                        onClear={clear}
+                        className="w-full lg:w-64 lg:shrink-0"
+                    />
+                )
             ) : null}
 
             {/* Desktop: everything inline; actions are icon-only + tooltip. */}

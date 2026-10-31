@@ -1,6 +1,11 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { getRouteApi } from "@tanstack/react-router";
-import type { ColumnDef, Row, StockFeatures } from "@tanstack/react-table";
+import type {
+    ColumnDef,
+    Row,
+    RowSelectionState,
+    StockFeatures,
+} from "@tanstack/react-table";
 import {
     IconGitMerge,
     IconPencil,
@@ -8,8 +13,9 @@ import {
     IconRefresh,
     IconTag,
 } from "@tabler/icons-react";
+import { toast } from "sonner";
 
-import { DataTablePage } from "@/components/data-table";
+import { DataTablePage, dataTableSelectColumn } from "@/components/data-table";
 import { Button } from "@/components/ui/button";
 import {
     Card,
@@ -40,11 +46,15 @@ import {
     useCreateTag,
     useDeleteTag,
     useProposeTagMerges,
+    useTagOptions,
     useTags,
     useUpdateTag,
 } from "../hooks";
 import { TagMergeDialog } from "./tag-merge-dialog";
+import { ManualTagMergeDialog } from "./manual-tag-merge-dialog";
+
 import type { TagDto, TagMergeProposalDto } from "../types";
+import { getApiError, getApiErrorStatus } from "@/lib/error-utils";
 import { PERMISSIONS } from "@/lib/permissions";
 
 const tagsRoute = getRouteApi("/protected/settings/tags");
@@ -52,7 +62,7 @@ const tagsRoute = getRouteApi("/protected/settings/tags");
 /** The slug rule the backend enforces — mirrored client-side for UX. */
 // Built from a string: TS's regex type-checker does not know Script property
 // names (\p{Arabic}/\p{Latin}) even though the runtime accepts them.
-const SLUG_PATTERN = new RegExp("^[\\p{Arabic}\\p{Latin}\\p{N}_-]+$/u");
+const SLUG_PATTERN = new RegExp("^[\\p{Script=Arabic}\\p{Script=Latin}\\p{Number}_-]+$", "u");
 
 /**
  * Tag management (Phase 4, K3 = general service): a Settings tab on the
@@ -82,12 +92,32 @@ export function TagsSection() {
         order: url.activeSort?.desc ? "desc" : "asc",
         filter: url.globalFilter || undefined,
     });
+    // The merge picker needs the whole vocabulary; the default options cap is
+    // 100 and the hub already carries more tags than that.
+    const { data: allTagOptions } = useTagOptions(undefined, 500);
 
-    const create = useCreateTag();
-    const update = useUpdateTag();
-    const remove = useDeleteTag();
-    const propose = useProposeTagMerges();
-    const accept = useAcceptTagMerges();
+    const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+
+    const selectedTags = useMemo(
+        () =>
+            (data?.data ?? []).filter(
+                (tag) => Boolean(rowSelection[String(tag.id)]),
+            ),
+        [data?.data, rowSelection],
+    );
+
+    const selectionScope = [
+        url.globalFilter ?? "",
+        url.activeSort?.id ?? "",
+        url.activeSort?.desc ? "desc" : "asc",
+    ].join("|");
+
+    useEffect(() => {
+        // The ticked ids belonged to one result set; carrying them into
+        // another would make the bulk count a claim about rows nobody sees.
+        setRowSelection({});
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectionScope]);
 
     const [dialogOpen, setDialogOpen] = useState(false);
     const [editing, setEditing] = useState<TagDto | null>(null);
@@ -99,6 +129,12 @@ export function TagsSection() {
     // person decides, so there is nothing here to load on mount.
     const [mergeOpen, setMergeOpen] = useState(false);
     const [proposal, setProposal] = useState<TagMergeProposalDto | null>(null);
+    const [manualMergeOpen, setManualMergeOpen] = useState(false);
+    const [manualCanonicalSlug, setManualCanonicalSlug] = useState<string | null>(null);
+    const [manualDuplicateSlugs, setManualDuplicateSlugs] = useState<string[]>([]);
+    const [manualSingleSourceSlug, setManualSingleSourceSlug] = useState<string | null>(null);
+    const [manualMode, setManualMode] = useState<"bulk" | "manual" | "single">("manual");
+    const [manualTags, setManualTags] = useState<TagDto[] | null>(null);
 
     const openMerge = () => {
         propose.mutate(undefined, {
@@ -123,28 +159,70 @@ export function TagsSection() {
         setDialogOpen(true);
     };
 
+    const create = useCreateTag();
+    const update = useUpdateTag();
+    const remove = useDeleteTag();
+    const propose = useProposeTagMerges();
+    const accept = useAcceptTagMerges();
+
     const slugValid = SLUG_PATTERN.test(slug);
     const saveDisabled =
         name.trim() === "" ||
+        slug === "" ||
+        !slugValid ||
         create.isPending ||
-        update.isPending ||
-        (!editing && (slug === "" || !slugValid));
+        update.isPending;
 
     const handleSave = () => {
         if (editing) {
             update.mutate(
-                { id: editing.id, name: name.trim() },
-                { onSuccess: () => setDialogOpen(false) },
+                { id: editing.id, name: name.trim(), slug },
+                {
+                    onSuccess: () => setDialogOpen(false),
+                    // A name collision is a signal, not a dead end: the hub
+                    // already carries that label, so the person most likely
+                    // wants the two tags to become one. Send them straight to
+                    // the merge dialog with the colliding tag pre-picked.
+                    onError: (error) => {
+                        const existing = (allTagOptions ?? []).find(
+                            (tag) =>
+                                tag.name === name.trim() &&
+                                tag.slug !== editing.slug,
+                        );
+
+                        if (getApiErrorStatus(error) === 422 && existing) {
+                            toast.info(
+                                `برچسب «${existing.name}» از قبل هست؛ برای ادغام همان را انتخاب کردیم.`,
+                            );
+                            setDialogOpen(false);
+                            setManualMode("single");
+                            setManualDuplicateSlugs([]);
+                            setManualSingleSourceSlug(editing.slug);
+                            setManualCanonicalSlug(existing.slug);
+                            setManualMergeOpen(true);
+                            return;
+                        }
+
+                        toast.error(getApiError(error) ?? "خطا در ذخیره برچسب");
+                    },
+                },
             );
         } else {
             create.mutate(
                 { name: name.trim(), slug },
-                { onSuccess: () => setDialogOpen(false) },
+                {
+                    onSuccess: () => setDialogOpen(false),
+                    onError: (error) =>
+                        toast.error(getApiError(error) ?? "خطا در ساخت برچسب"),
+                },
             );
         }
     };
 
     const columns: ColumnDef<StockFeatures, TagDto>[] = [
+        ...(canManage
+            ? [dataTableSelectColumn<TagDto>()]
+            : []),
         {
             accessorKey: "name",
             header: "عنوان",
@@ -215,6 +293,10 @@ export function TagsSection() {
         data: data?.data ?? [],
         meta: data?.meta,
         url,
+        enableRowSelection: canManage,
+        rowSelection,
+        onRowSelectionChange: setRowSelection,
+        getRowId: (row: TagDto) => String(row.id),
     });
 
     return (
@@ -263,6 +345,7 @@ export function TagsSection() {
                     icon={IconTag}
                     embedded
                     searchPlaceholder="جستجوی عنوان یا شناسه…"
+                    searchMode="manual"
                     globalFilter={url.globalFilter}
                     onGlobalFilterChange={url.onGlobalFilterChange}
                     actions={[
@@ -277,6 +360,26 @@ export function TagsSection() {
                     onRetry={() => refetch()}
                     colSpan={columns.length}
                     emptyMessage="هنوز برچسبی ثبت نشده است"
+                    bulkActions={
+                        canManage
+                            ? [
+                                  {
+                                      id: "merge-selected",
+                                      label: "ادغام برچسب‌های انتخاب‌شده",
+                                      icon: IconGitMerge,
+                                      onClick: () => {
+                                          setManualMode("bulk");
+                                          setManualTags(selectedTags);
+                                          setManualSingleSourceSlug(null);
+                                          setManualCanonicalSlug(null);
+                                          setManualDuplicateSlugs([]);
+                                          setManualMergeOpen(true);
+                                      },
+                                      disabled: selectedTags.length < 2,
+                                  },
+                              ]
+                            : undefined
+                    }
                 />
             </CardContent>
 
@@ -288,7 +391,7 @@ export function TagsSection() {
                         </DialogTitle>
                         <DialogDescription>
                             {editing
-                                ? "شناسه برچسب پس از ایجاد تغییر نمی‌کند؛ فقط عنوان قابل ویرایش است."
+                                ? "عنوان و شناسه هر دو قابل ویرایش‌اند؛ شناسه همان کلیدی است که فیلترها و ورود اطلاعات با آن تطبیق می‌دهند."
                                 : "شناسه، کلید پایدار برچسب برای فیلترها و اتصال‌ها است."}
                         </DialogDescription>
                     </DialogHeader>
@@ -308,12 +411,11 @@ export function TagsSection() {
                             <Input
                                 id="tag-slug"
                                 dir="ltr"
-                                value={editing ? editing.slug : slug}
+                                value={slug}
                                 onChange={(e) => setSlug(e.target.value)}
-                                disabled={editing !== null}
                                 placeholder="project-soongon"
                             />
-                            {!editing && slug !== "" && !slugValid && (
+                            {slug !== "" && !slugValid && (
                                 <p className="text-destructive text-xs">
                                     فقط حروف فارسی/انگلیسی، عدد، خط تیره و زیرخط
                                     مجاز است
@@ -323,6 +425,23 @@ export function TagsSection() {
                     </div>
 
                     <DialogFooter>
+                        {editing && (
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                onClick={() => {
+                                    setDialogOpen(false);
+                                    setManualMode("single");
+                                    setManualDuplicateSlugs([]);
+                                    setManualSingleSourceSlug(editing.slug);
+                                    setManualCanonicalSlug(null);
+                                    setManualMergeOpen(true);
+                                }}
+                            >
+                                <IconGitMerge className="size-4" />
+                                ادغام در...
+                            </Button>
+                        )}
                         <Button
                             type="button"
                             variant="outline"
@@ -350,6 +469,39 @@ export function TagsSection() {
                     accept.mutate(
                         { groups },
                         { onSuccess: () => setMergeOpen(false) },
+                    )
+                }
+            />
+            <ManualTagMergeDialog
+                open={manualMergeOpen}
+                onOpenChange={(open) => {
+                    setManualMergeOpen(open);
+                    if (!open) {
+                        setManualSingleSourceSlug(null);
+                        setManualCanonicalSlug(null);
+                        setManualDuplicateSlugs([]);
+                    }
+                }}
+                mode={manualMode}
+                tags={
+                    manualMode === "bulk"
+                        ? manualTags ?? []
+                        : allTagOptions ?? data?.data ?? []
+                }
+                isAccepting={accept.isPending}
+                defaultCanonicalSlug={manualCanonicalSlug}
+                defaultDuplicateSlugs={manualDuplicateSlugs}
+                singleSourceSlug={manualSingleSourceSlug}
+                onAccept={(groups) =>
+                    accept.mutate(
+                        { groups },
+                        { onSuccess: () => {
+                            setManualMergeOpen(false);
+                            setManualCanonicalSlug(null);
+                            setManualDuplicateSlugs([]);
+                            setManualSingleSourceSlug(null);
+                            setRowSelection({});
+                        } },
                     )
                 }
             />

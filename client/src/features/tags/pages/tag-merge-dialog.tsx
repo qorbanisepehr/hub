@@ -35,6 +35,18 @@ interface TagMergeDialogProps {
  * Every group starts selected. Accepting all of it is the common case, and
  * un-ticking one is cheaper than ticking many.
  */
+export function toAcceptPayload(
+    groups: NonNullable<TagMergeProposalDto["groups"]>,
+    selectedSlugs: ReadonlySet<string>,
+): AcceptTagMergeGroup[] {
+    return groups
+        .filter((group) => selectedSlugs.has(group.canonical.slug))
+        .map((group) => ({
+            canonical: group.canonical.slug,
+            duplicates: group.duplicates.map((tag) => tag.slug),
+        }));
+}
+
 export function TagMergeDialog({
     open,
     onOpenChange,
@@ -42,40 +54,33 @@ export function TagMergeDialog({
     isAccepting,
     onAccept,
 }: TagMergeDialogProps) {
-    const [selected, setSelected] = useState<Set<number>>(new Set());
+    const [selected, setSelected] = useState<Set<string>>(new Set());
 
     // Re-seed on every new proposal. Depending on `proposal` rather than the
     // derived list is what makes this run once per run, not once per render.
     useEffect(() => {
         setSelected(
-            new Set((proposal?.groups ?? []).map((_, index) => index)),
+            new Set((proposal?.groups ?? []).map((group) => group.canonical.slug)),
         );
     }, [proposal]);
 
     const groups = proposal?.groups ?? [];
     const nothingToMerge = groups.length === 0;
 
-    const toggle = (index: number) => {
+    const toggle = (slug: string) => {
         setSelected((current) => {
             const next = new Set(current);
-            if (next.has(index)) {
-                next.delete(index);
+            if (next.has(slug)) {
+                next.delete(slug);
             } else {
-                next.add(index);
+                next.add(slug);
             }
             return next;
         });
     };
 
     const accept = () => {
-        onAccept(
-            groups
-                .filter((_, index) => selected.has(index))
-                .map((group) => ({
-                    canonical: group.canonical.slug,
-                    duplicates: group.duplicates.map((tag) => tag.slug),
-                })),
-        );
+        onAccept(toAcceptPayload(groups, selected));
     };
 
     return (
@@ -97,7 +102,7 @@ export function TagMergeDialog({
                 ) : (
                     <ScrollArea className="max-h-[60vh] pe-3">
                         <ul className="grid gap-3">
-                            {groups.map((group, index) => (
+                            {groups.map((group) => (
                                 <li
                                     key={group.canonical.slug}
                                     className="rounded-lg border p-3"
@@ -105,9 +110,9 @@ export function TagMergeDialog({
                                     <label className="flex items-start gap-3">
                                         <Checkbox
                                             className="mt-1"
-                                            checked={selected.has(index)}
+                                            checked={selected.has(group.canonical.slug)}
                                             onCheckedChange={() =>
-                                                toggle(index)
+                                                toggle(group.canonical.slug)
                                             }
                                         />
                                         <div className="grid gap-2">

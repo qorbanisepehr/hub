@@ -15,9 +15,10 @@ export function fetchTags(params: TagListParams) {
 }
 
 /** Picker options (unpaginated, capped server-side). */
-export function fetchTagOptions(search?: string) {
+export function fetchTagOptions(search?: string, perPage?: number) {
     const params: Record<string, string> = {};
     if (search) params.filter = search;
+    if (perPage) params.per_page = String(perPage);
     return api.get<{ data: TagDto[] }>("/tags/options", { params });
 }
 
@@ -25,8 +26,8 @@ export function createTag(payload: { name: string; slug: string }) {
     return api.post<{ data: TagDto }>("/tags", payload);
 }
 
-/** Rename only — the backend ignores `slug` on update (it is immutable). */
-export function updateTag(id: number, payload: { name: string }) {
+/** Rename / re-slug — both halves are editable on update. */
+export function updateTag(id: number, payload: { name: string; slug: string }) {
     return api.put<{ data: TagDto }>(`/tags/${id}`, payload);
 }
 
