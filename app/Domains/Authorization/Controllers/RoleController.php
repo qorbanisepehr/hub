@@ -5,6 +5,7 @@ namespace App\Domains\Authorization\Controllers;
 use App\Contracts\Authorization;
 use App\Domains\Authorization\Exports\RoleChartExporter;
 use App\Domains\Authorization\Models\Role;
+use App\Domains\Authorization\Requests\BatchAssignPermissionsRoleRequest;
 use App\Domains\Authorization\Requests\StoreRoleRequest;
 use App\Domains\Authorization\Requests\UpdateRoleRequest;
 use App\Domains\Authorization\Resources\RoleResource;
@@ -185,17 +186,8 @@ class RoleController
         return response()->json(['message' => __('authorization.role_deleted')]);
     }
 
-    public function batchAssignPermissions(Request $request): JsonResponse
+    public function batchAssignPermissions(BatchAssignPermissionsRoleRequest $request): JsonResponse
     {
-        $request->validate([
-            'role_ids' => 'required|array',
-            'role_ids.*' => 'exists:roles,id',
-            'permission_ids' => 'required_without:permission_group_ids|array',
-            'permission_ids.*' => 'exists:permissions,id',
-            'permission_group_ids' => 'required_without:permission_ids|array',
-            'permission_group_ids.*' => 'exists:permission_groups,id',
-        ]);
-
         $roles = Role::whereIn('id', $request->role_ids)->get();
 
         $permissionIds = $this->roleService->resolvePermissionIds(
