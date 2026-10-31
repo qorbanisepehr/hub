@@ -1,14 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from "@/components/ui/dialog";
+import { ResponsiveDialog } from "@/components/ui/responsive-dialog";
 import { Label } from "@/components/ui/label";
 import {
     Select,
@@ -121,99 +114,21 @@ export function AiAgentDialog({
     };
 
     return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-md">
-                <DialogHeader>
-                    <DialogTitle>اتصال عامل</DialogTitle>
-                    <DialogDescription>
-                        <span dir="ltr" className="font-medium">
-                            {agent.key}
-                        </span>
-                        {agent.label ? ` — ${agent.label}` : ""}
-                        <br />
-                        کلاس عامل و کلید آن متعلق به دامنه مصرف‌کننده است و از
-                        اینجا تغییر نمی‌کنند.
-                    </DialogDescription>
-                </DialogHeader>
-
-                <div className="grid gap-4 py-2">
-                    <div className="grid gap-2">
-                        <Label htmlFor="ai-agent-provider">ارائه‌دهنده</Label>
-                        <Select
-                            value={providerName}
-                            items={providerLabels}
-                            onValueChange={(value) => {
-                                setProviderName(value ?? INHERIT);
-                                // Switching provider invalidates the model: the
-                                // old one belongs to a gateway the agent can no
-                                // longer reach, and leaving it selected would
-                                // submit a pair the server rejects.
-                                setModelName(INHERIT);
-                            }}
-                        >
-                            <SelectTrigger id="ai-agent-provider">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value={INHERIT}>
-                                    ارائه‌دهنده پیش‌فرض (بدون اتصال)
-                                </SelectItem>
-                                {activeProviders.map((provider) => (
-                                    <SelectItem
-                                        key={provider.name}
-                                        value={provider.name}
-                                    >
-                                        {provider.name}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                        <p className="text-muted-foreground text-xs">
-                            {providerName === INHERIT
-                                ? "با تغییر ارائه‌دهنده پیش‌فرض، این عامل هم دنبال آن می‌رود."
-                                : "این عامل همیشه همین ارائه‌دهنده را به کار می‌برد، حتی وقتی پیش‌فرض عوض شود."}
-                        </p>
-                    </div>
-
-                    <div className="grid gap-2">
-                        <Label htmlFor="ai-agent-model">مدل</Label>
-                        <Select
-                            value={modelName}
-                            items={modelLabels}
-                            onValueChange={(value) =>
-                                // Base UI can report null on a cleared
-                                // selection; there is no cleared state here,
-                                // so it means "inherit" like the empty option.
-                                setModelName(value ?? INHERIT)
-                            }
-                            disabled={availableModels.length === 0}
-                        >
-                            <SelectTrigger id="ai-agent-model" dir="ltr">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value={INHERIT}>
-                                    مدل پیش‌فرض ارائه‌دهنده
-                                </SelectItem>
-                                {availableModels.map((model) => (
-                                    <SelectItem
-                                        key={model.model_name}
-                                        value={model.model_name}
-                                    >
-                                        {model.display_label}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                        {providerName === INHERIT && (
-                            <p className="text-muted-foreground text-xs">
-                                برای انتخاب مدل، اول یک ارائه‌دهنده انتخاب کنید.
-                            </p>
-                        )}
-                    </div>
-                </div>
-
-                <DialogFooter>
+        <ResponsiveDialog
+            open={open} onOpenChange={onOpenChange}
+            size="md"
+            title={<>اتصال عامل</>}
+            description={<>
+                <span dir="ltr" className="font-medium">
+                    {agent.key}
+                </span>
+                {agent.label ? ` — ${agent.label}` : ""}
+                <br />
+                کلاس عامل و کلید آن متعلق به دامنه مصرف‌کننده است و از
+                اینجا تغییر نمی‌کنند.
+            </>}
+            footer={
+                <>
                     <Button
                         type="button"
                         variant="outline"
@@ -228,8 +143,85 @@ export function AiAgentDialog({
                     >
                         ذخیره
                     </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
+                </>
+            }
+        >
+            <div className="grid gap-4 py-2">
+                <div className="grid gap-2">
+                    <Label htmlFor="ai-agent-provider">ارائه‌دهنده</Label>
+                    <Select
+                        value={providerName}
+                        items={providerLabels}
+                        onValueChange={(value) => {
+                            setProviderName(value ?? INHERIT);
+                            // Switching provider invalidates the model: the
+                            // old one belongs to a gateway the agent can no
+                            // longer reach, and leaving it selected would
+                            // submit a pair the server rejects.
+                            setModelName(INHERIT);
+                        }}
+                    >
+                        <SelectTrigger id="ai-agent-provider">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value={INHERIT}>
+                                ارائه‌دهنده پیش‌فرض (بدون اتصال)
+                            </SelectItem>
+                            {activeProviders.map((provider) => (
+                                <SelectItem
+                                    key={provider.name}
+                                    value={provider.name}
+                                >
+                                    {provider.name}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                    <p className="text-muted-foreground text-xs">
+                        {providerName === INHERIT
+                            ? "با تغییر ارائه‌دهنده پیش‌فرض، این عامل هم دنبال آن می‌رود."
+                            : "این عامل همیشه همین ارائه‌دهنده را به کار می‌برد، حتی وقتی پیش‌فرض عوض شود."}
+                    </p>
+                </div>
+
+                <div className="grid gap-2">
+                    <Label htmlFor="ai-agent-model">مدل</Label>
+                    <Select
+                        value={modelName}
+                        items={modelLabels}
+                        onValueChange={(value) =>
+                            // Base UI can report null on a cleared
+                            // selection; there is no cleared state here,
+                            // so it means "inherit" like the empty option.
+                            setModelName(value ?? INHERIT)
+                        }
+                        disabled={availableModels.length === 0}
+                    >
+                        <SelectTrigger id="ai-agent-model" dir="ltr">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value={INHERIT}>
+                                مدل پیش‌فرض ارائه‌دهنده
+                            </SelectItem>
+                            {availableModels.map((model) => (
+                                <SelectItem
+                                    key={model.model_name}
+                                    value={model.model_name}
+                                >
+                                    {model.display_label}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                    {providerName === INHERIT && (
+                        <p className="text-muted-foreground text-xs">
+                            برای انتخاب مدل، اول یک ارائه‌دهنده انتخاب کنید.
+                        </p>
+                    )}
+                </div>
+            </div>
+        </ResponsiveDialog>
     );
 }

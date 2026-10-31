@@ -2,14 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from "@/components/ui/dialog";
+import { ResponsiveDialog } from "@/components/ui/responsive-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -232,189 +225,25 @@ export function ManualTagMergeDialog({
         : selection.duplicates.length === 0 || canonical === "" || isAccepting;
 
     return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-2xl">
-                <DialogHeader>
-                    <DialogTitle>
-                        {isSingle
-                            ? "ادغام برچسب جاری"
-                            : mode === "bulk"
-                              ? "ادغام برچسب‌های انتخاب‌شده"
-                              : "ادغام برچسب‌ها"}
-                    </DialogTitle>
-                    <DialogDescription>
-                        {isSingle
-                            ? "برچسب جاری را به یک برچسب دیگر ادغام کنید؛ برچسب جاری حذف و ارجاع‌هایش منتقل می‌شوند."
-                            : mode === "bulk"
-                              ? "همهٔ برچسب‌های انتخاب‌شده در یک برچسب مقصد ادغام می‌شوند."
-                              : "یک برچسب مقصد برگزینید و برچسب‌های تکراری را به آن ادغام کنید."}
-                    </DialogDescription>
-                </DialogHeader>
-
-                <div className="grid gap-4 py-2">
-                    {isSingle ? (
-                        <>
-                            <div className="rounded-md border bg-muted/40 p-3">
-                                <p className="text-sm font-medium">
-                                    برچسب جاری: {singleSourceTag?.name ?? singleSourceSlug}
-                                </p>
-                                <p dir="ltr" className="text-xs text-muted-foreground font-mono">
-                                    {singleSourceSlug}
-                                </p>
-                            </div>
-
-                            <div className="grid gap-2">
-                                <div className="relative">
-                                    <div className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2">
-                                        <svg className="size-4 text-muted-foreground" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                                            <path d="m21 21-4.35-4.35M11 18a7 7 0 1 1 0-14 7 7 0 0 1 0 14Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                                        </svg>
-                                    </div>
-                                    <Input
-                                        value={query}
-                                        onChange={(e) => setQuery(e.target.value)}
-                                        placeholder="جستجوی عنوان یا شناسه…"
-                                        className="ps-9"
-                                        dir="ltr"
-                                    />
-                                </div>
-
-                                <div className="rounded-md border bg-card">
-                                    <ScrollArea className="h-64 w-full">
-                                        {singleCandidates.length === 0 ? (
-                                            <p className="text-muted-foreground py-4 text-center text-sm">
-                                                نتیجه‌ای یافت نشد.
-                                            </p>
-                                        ) : (
-                                            <RadioGroup
-                                                value={canonical}
-                                                onValueChange={(value) => {
-                                                    if (value) setCanonical(value);
-                                                }}
-                                                className="grid gap-1 p-2"
-                                            >
-                                                {singleCandidates.map((tag) => (
-                                                    <div
-                                                        key={tag.slug}
-                                                        className="flex items-center gap-3 rounded-md px-2 py-1.5 hover:bg-muted/40"
-                                                    >
-                                                        <RadioGroupItem
-                                                            value={tag.slug}
-                                                            id={`single-tag-${tag.slug}`}
-                                                        />
-                                                        <Label
-                                                            htmlFor={`single-tag-${tag.slug}`}
-                                                            className="flex flex-1 cursor-pointer items-center gap-3"
-                                                        >
-                                                            <span className="truncate font-medium">
-                                                                {tag.name}
-                                                            </span>
-                                                            <span
-                                                                dir="ltr"
-                                                                className="ms-auto text-xs text-muted-foreground font-mono shrink-0"
-                                                            >
-                                                                {tag.slug}
-                                                            </span>
-                                                        </Label>
-                                                    </div>
-                                                ))}
-                                            </RadioGroup>
-                                        )}
-                                    </ScrollArea>
-                                </div>
-                            </div>
-                        </>
-                    ) : (
-                        <>
-                            <div className="grid gap-2">
-                                <Label htmlFor="manual-canonical">برچسب مقصد</Label>
-                                <Select value={canonical} onValueChange={(value) => { if (value) setCanonical(value); }}>
-                                    <SelectTrigger id="manual-canonical" className="w-full">
-                                        <SelectValue placeholder="برچسب مقصد…" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {tags.map((tag) => (
-                                            <SelectItem key={tag.slug} value={tag.slug}>
-                                                <div className="flex flex-col">
-                                                    <span>{tag.name}</span>
-                                                    <span className="text-xs text-muted-foreground" dir="ltr">
-                                                        {tag.slug}
-                                                    </span>
-                                                </div>
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-
-                            <div className="grid gap-2">
-                                <div className="relative">
-                                    <div className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2">
-                                        <svg className="size-4 text-muted-foreground" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                                            <path d="m21 21-4.35-4.35M11 18a7 7 0 1 1 0-14 7 7 0 0 1 0 14Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                                        </svg>
-                                    </div>
-                                    <Input
-                                        value={query}
-                                        onChange={(e) => setQuery(e.target.value)}
-                                        placeholder="جستجوی عنوان یا شناسه…"
-                                        className="ps-9"
-                                        dir="ltr"
-                                    />
-                                </div>
-
-                                <div className="rounded-md border bg-card">
-                                    <ScrollArea className="h-64 w-full">
-                                        <ul className="grid gap-2 p-2">
-                                            {candidateTags.length === 0 ? (
-                                                <li className="text-muted-foreground py-4 text-center text-sm">
-                                                    نتیجه‌ای یافت نشد.
-                                                </li>
-                                            ) : (
-                                                candidateTags.map((tag) => {
-                                                    const checked = selected.has(tag.slug);
-
-                                                    return (
-                                                        <li
-                                                            key={tag.slug}
-                                                            className="flex items-center gap-3 rounded-md px-2 py-1.5 hover:bg-muted/40"
-                                                        >
-                                                            {mode === "manual" ? (
-                                                                <Checkbox
-                                                                    checked={checked}
-                                                                    onCheckedChange={() => handleCheckedChange(tag.slug, !checked)}
-                                                                    aria-label={tag.name}
-                                                                />
-                                                            ) : null}
-                                                            <div className="flex min-w-0 flex-1 items-baseline gap-2">
-                                                                <span className="truncate font-medium">
-                                                                    {tag.name}
-                                                                </span>
-                                                                <span
-                                                                    dir="ltr"
-                                                                    className="text-xs text-muted-foreground font-mono shrink-0"
-                                                                >
-                                                                    {tag.slug}
-                                                                </span>
-                                                            </div>
-                                                        </li>
-                                                    );
-                                                })
-                                            )}
-                                        </ul>
-                                    </ScrollArea>
-                                </div>
-                            </div>
-
-                            <p className="text-muted-foreground text-sm">
-                                مقصد: {canonicalTag?.name ?? "—"} · برای ادغام:{" "}
-                                {selection.duplicates.length}
-                            </p>
-                        </>
-                    )}
-                </div>
-
-                <DialogFooter>
+        <ResponsiveDialog
+            open={open} onOpenChange={onOpenChange}
+            size="2xl"
+            title={
+                isSingle
+                ? "ادغام برچسب جاری"
+                : mode === "bulk"
+                  ? "ادغام برچسب‌های انتخاب‌شده"
+                  : "ادغام برچسب‌ها"
+            }
+            description={
+                isSingle
+                ? "برچسب جاری را به یک برچسب دیگر ادغام کنید؛ برچسب جاری حذف و ارجاع‌هایش منتقل می‌شوند."
+                : mode === "bulk"
+                  ? "همهٔ برچسب‌های انتخاب‌شده در یک برچسب مقصد ادغام می‌شوند."
+                  : "یک برچسب مقصد برگزینید و برچسب‌های تکراری را به آن ادغام کنید."
+            }
+            footer={
+                <>
                     <Button
                         type="button"
                         variant="outline"
@@ -427,8 +256,171 @@ export function ManualTagMergeDialog({
                         {isAccepting ? <Spinner /> : null}
                         ادغام
                     </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
+                </>
+            }
+        >
+            <div className="grid gap-4 py-2">
+                {isSingle ? (
+                    <>
+                        <div className="rounded-md border bg-muted/40 p-3">
+                            <p className="text-sm font-medium">
+                                برچسب جاری: {singleSourceTag?.name ?? singleSourceSlug}
+                            </p>
+                            <p dir="ltr" className="text-xs text-muted-foreground font-mono">
+                                {singleSourceSlug}
+                            </p>
+                        </div>
+
+                        <div className="grid gap-2">
+                            <div className="relative">
+                                <div className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2">
+                                    <svg className="size-4 text-muted-foreground" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                                        <path d="m21 21-4.35-4.35M11 18a7 7 0 1 1 0-14 7 7 0 0 1 0 14Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                                    </svg>
+                                </div>
+                                <Input
+                                    value={query}
+                                    onChange={(e) => setQuery(e.target.value)}
+                                    placeholder="جستجوی عنوان یا شناسه…"
+                                    className="ps-9"
+                                    dir="ltr"
+                                />
+                            </div>
+
+                            <div className="rounded-md border bg-card">
+                                <ScrollArea className="h-64 w-full">
+                                    {singleCandidates.length === 0 ? (
+                                        <p className="text-muted-foreground py-4 text-center text-sm">
+                                            نتیجه‌ای یافت نشد.
+                                        </p>
+                                    ) : (
+                                        <RadioGroup
+                                            value={canonical}
+                                            onValueChange={(value) => {
+                                                if (value) setCanonical(value);
+                                            }}
+                                            className="grid gap-1 p-2"
+                                        >
+                                            {singleCandidates.map((tag) => (
+                                                <div
+                                                    key={tag.slug}
+                                                    className="flex items-center gap-3 rounded-md px-2 py-1.5 hover:bg-muted/40"
+                                                >
+                                                    <RadioGroupItem
+                                                        value={tag.slug}
+                                                        id={`single-tag-${tag.slug}`}
+                                                    />
+                                                    <Label
+                                                        htmlFor={`single-tag-${tag.slug}`}
+                                                        className="flex flex-1 cursor-pointer items-center gap-3"
+                                                    >
+                                                        <span className="truncate font-medium">
+                                                            {tag.name}
+                                                        </span>
+                                                        <span
+                                                            dir="ltr"
+                                                            className="ms-auto text-xs text-muted-foreground font-mono shrink-0"
+                                                        >
+                                                            {tag.slug}
+                                                        </span>
+                                                    </Label>
+                                                </div>
+                                            ))}
+                                        </RadioGroup>
+                                    )}
+                                </ScrollArea>
+                            </div>
+                        </div>
+                    </>
+                ) : (
+                    <>
+                        <div className="grid gap-2">
+                            <Label htmlFor="manual-canonical">برچسب مقصد</Label>
+                            <Select value={canonical} onValueChange={(value) => { if (value) setCanonical(value); }}>
+                                <SelectTrigger id="manual-canonical" className="w-full">
+                                    <SelectValue placeholder="برچسب مقصد…" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {tags.map((tag) => (
+                                        <SelectItem key={tag.slug} value={tag.slug}>
+                                            <div className="flex flex-col">
+                                                <span>{tag.name}</span>
+                                                <span className="text-xs text-muted-foreground" dir="ltr">
+                                                    {tag.slug}
+                                                </span>
+                                            </div>
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <div className="grid gap-2">
+                            <div className="relative">
+                                <div className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2">
+                                    <svg className="size-4 text-muted-foreground" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                                        <path d="m21 21-4.35-4.35M11 18a7 7 0 1 1 0-14 7 7 0 0 1 0 14Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                                    </svg>
+                                </div>
+                                <Input
+                                    value={query}
+                                    onChange={(e) => setQuery(e.target.value)}
+                                    placeholder="جستجوی عنوان یا شناسه…"
+                                    className="ps-9"
+                                    dir="ltr"
+                                />
+                            </div>
+
+                            <div className="rounded-md border bg-card">
+                                <ScrollArea className="h-64 w-full">
+                                    <ul className="grid gap-2 p-2">
+                                        {candidateTags.length === 0 ? (
+                                            <li className="text-muted-foreground py-4 text-center text-sm">
+                                                نتیجه‌ای یافت نشد.
+                                            </li>
+                                        ) : (
+                                            candidateTags.map((tag) => {
+                                                const checked = selected.has(tag.slug);
+
+                                                return (
+                                                    <li
+                                                        key={tag.slug}
+                                                        className="flex items-center gap-3 rounded-md px-2 py-1.5 hover:bg-muted/40"
+                                                    >
+                                                        {mode === "manual" ? (
+                                                            <Checkbox
+                                                                checked={checked}
+                                                                onCheckedChange={() => handleCheckedChange(tag.slug, !checked)}
+                                                                aria-label={tag.name}
+                                                            />
+                                                        ) : null}
+                                                        <div className="flex min-w-0 flex-1 items-baseline gap-2">
+                                                            <span className="truncate font-medium">
+                                                                {tag.name}
+                                                            </span>
+                                                            <span
+                                                                dir="ltr"
+                                                                className="text-xs text-muted-foreground font-mono shrink-0"
+                                                            >
+                                                                {tag.slug}
+                                                            </span>
+                                                        </div>
+                                                    </li>
+                                                );
+                                            })
+                                        )}
+                                    </ul>
+                                </ScrollArea>
+                            </div>
+                        </div>
+
+                        <p className="text-muted-foreground text-sm">
+                            مقصد: {canonicalTag?.name ?? "—"} · برای ادغام:{" "}
+                            {selection.duplicates.length}
+                        </p>
+                    </>
+                )}
+            </div>
+        </ResponsiveDialog>
     );
 }

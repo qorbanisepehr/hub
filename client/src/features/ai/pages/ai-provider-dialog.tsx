@@ -1,14 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from "@/components/ui/dialog";
+import { ResponsiveDialog } from "@/components/ui/responsive-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -151,165 +144,17 @@ export function AiProviderDialog({
     };
 
     return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-lg">
-                <DialogHeader>
-                    <DialogTitle>
-                        {isEdit ? "ویرایش ارائه‌دهنده" : "افزودن ارائه‌دهنده"}
-                    </DialogTitle>
-                    <DialogDescription>
-                        {isEdit
-                            ? "نام ارائه‌دهنده پس از ایجاد تغییر نمی‌کند؛ کلید ذخیره‌شده هم هرگز به مرورگر بازگردانده نمی‌شود."
-                            : "نام، شناسه پایدار ارائه‌دهنده است و در گزارش اجراها ثبت می‌شود. فقط حروف کوچک انگلیسی، عدد، خط تیره و زیرخط."}
-                    </DialogDescription>
-                </DialogHeader>
-
-                <div className="grid gap-4 py-2">
-                    <div className="grid gap-2">
-                        <Label htmlFor="ai-provider-name">نام</Label>
-                        <Input
-                            id="ai-provider-name"
-                            dir="ltr"
-                            value={isEdit ? (provider?.name ?? "") : name}
-                            onChange={(e) => setName(e.target.value)}
-                            disabled={isEdit}
-                            placeholder="local"
-                        />
-                        {!isEdit && name !== "" && !nameValid && (
-                            <p className="text-destructive text-xs">
-                                فقط حروف کوچک انگلیسی، عدد، خط تیره و زیرخط مجاز
-                                است
-                            </p>
-                        )}
-                    </div>
-
-                    <div className="grid gap-2">
-                        <Label htmlFor="ai-provider-driver">نوع درگاه</Label>
-                        <Select
-                            value={driver}
-                            items={DRIVER_LABELS}
-                            onValueChange={(value) =>
-                                setDriver(value as AiDriver)
-                            }
-                        >
-                            <SelectTrigger id="ai-provider-driver" dir="ltr">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {AI_DRIVERS.map((d) => (
-                                    <SelectItem key={d.value} value={d.value}>
-                                        {d.label}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
-
-                    <div className="grid gap-2">
-                        <Label htmlFor="ai-provider-url">نشانی درگاه</Label>
-                        <Input
-                            id="ai-provider-url"
-                            dir="ltr"
-                            value={baseUrl}
-                            onChange={(e) => setBaseUrl(e.target.value)}
-                            placeholder={
-                                driver === "ollama"
-                                    ? "http://localhost:11434"
-                                    : "https://api.example.com/v1"
-                            }
-                        />
-                        <p className="text-muted-foreground text-xs">
-                            {driver === "ollama" && !baseUrl
-                                ? "خالی گذاشتن یعنی نشانی پیش‌فرض Ollama محلی استفاده می‌شود."
-                                : "برای درگاه‌های میزبانی‌شده خالی بگذارید؛ نشانی پیش‌فرض خودشان استفاده می‌شود."}
-                        </p>
-                        {baseUrl !== "" && !baseUrlValid && (
-                            <p className="text-destructive text-xs">
-                                نشانی باید با http:// یا https:// شروع شود
-                            </p>
-                        )}
-                    </div>
-
-                    <div className="grid gap-2">
-                        <Label htmlFor="ai-provider-key">کلید دسترسی</Label>
-                        <Input
-                            id="ai-provider-key"
-                            dir="ltr"
-                            type="password"
-                            autoComplete="off"
-                            value={apiKey}
-                            onChange={(e) => {
-                                setApiKey(e.target.value);
-                                // Typing a new key and asking to clear the old
-                                // one at the same time is a contradiction; the
-                                // typed value wins because it is the newer
-                                // intent.
-                                if (e.target.value !== "") {
-                                    setClearApiKey(false);
-                                }
-                            }}
-                            disabled={clearApiKey}
-                            placeholder={
-                                isEdit && provider?.has_api_key
-                                    ? "•••••••• (ذخیره شده — برای تغییر، مقدار جدید بنویسید)"
-                                    : driverMeta?.keyless
-                                      ? "برای Ollama لازم نیست"
-                                      : "sk-…"
-                            }
-                        />
-                        {isEdit && provider?.has_api_key && !clearApiKey && (
-                            <p className="text-muted-foreground text-xs">
-                                خالی گذاشتن این کادر یعنی کلید فعلی دست‌نخورده
-                                بماند.
-                            </p>
-                        )}
-                        {isEdit && provider?.has_api_key && (
-                            <div className="flex items-center justify-between gap-2 rounded-md border px-3 py-2">
-                                <Label
-                                    htmlFor="ai-provider-clear-key"
-                                    className="text-xs font-normal"
-                                >
-                                    حذف کلید ذخیره‌شده
-                                </Label>
-                                <Switch
-                                    id="ai-provider-clear-key"
-                                    checked={clearApiKey}
-                                    onCheckedChange={setClearApiKey}
-                                />
-                            </div>
-                        )}
-                    </div>
-
-                    <div className="grid gap-3 rounded-md border px-3 py-3">
-                        <div className="flex items-center justify-between gap-2">
-                            <Label
-                                htmlFor="ai-provider-active"
-                                className="font-normal"
-                            >
-                                فعال
-                            </Label>
-                            <Switch
-                                id="ai-provider-active"
-                                checked={isActive}
-                                onCheckedChange={setIsActive}
-                            />
-                        </div>
-                        <p className="text-muted-foreground -mt-1 text-xs">
-                            ارائه‌دهنده غیرفعال در اجرای عامل‌ها استفاده
-                            نمی‌شود؛ عامل‌های متصل به آن به ارائه‌دهنده پیش‌فرض
-                            برمی‌گردند.
-                        </p>
-
-                        {!isEdit && (
-                            <p className="text-muted-foreground -mt-1 text-xs">
-                                پس از ساخت، با دکمهٔ ستاره در فهرست می‌توان
-                                این ارائه‌دهنده را پیش‌فرض کرد.
-                            </p>
-                        )}
-                    </div>
-                </div>
-
-                <DialogFooter>
+        <ResponsiveDialog
+            open={open} onOpenChange={onOpenChange}
+            size="lg"
+            title={isEdit ? "ویرایش ارائه‌دهنده" : "افزودن ارائه‌دهنده"}
+            description={
+                isEdit
+                ? "نام ارائه‌دهنده پس از ایجاد تغییر نمی‌کند؛ کلید ذخیره‌شده هم هرگز به مرورگر بازگردانده نمی‌شود."
+                : "نام، شناسه پایدار ارائه‌دهنده است و در گزارش اجراها ثبت می‌شود. فقط حروف کوچک انگلیسی، عدد، خط تیره و زیرخط."
+            }
+            footer={
+                <>
                     <Button
                         type="button"
                         variant="outline"
@@ -331,8 +176,153 @@ export function AiProviderDialog({
                     >
                         ذخیره
                     </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
+                </>
+            }
+        >
+            <div className="grid gap-4 py-2">
+                <div className="grid gap-2">
+                    <Label htmlFor="ai-provider-name">نام</Label>
+                    <Input
+                        id="ai-provider-name"
+                        dir="ltr"
+                        value={isEdit ? (provider?.name ?? "") : name}
+                        onChange={(e) => setName(e.target.value)}
+                        disabled={isEdit}
+                        placeholder="local"
+                    />
+                    {!isEdit && name !== "" && !nameValid && (
+                        <p className="text-destructive text-xs">
+                            فقط حروف کوچک انگلیسی، عدد، خط تیره و زیرخط مجاز
+                            است
+                        </p>
+                    )}
+                </div>
+
+                <div className="grid gap-2">
+                    <Label htmlFor="ai-provider-driver">نوع درگاه</Label>
+                    <Select
+                        value={driver}
+                        items={DRIVER_LABELS}
+                        onValueChange={(value) =>
+                            setDriver(value as AiDriver)
+                        }
+                    >
+                        <SelectTrigger id="ai-provider-driver" dir="ltr">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {AI_DRIVERS.map((d) => (
+                                <SelectItem key={d.value} value={d.value}>
+                                    {d.label}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+
+                <div className="grid gap-2">
+                    <Label htmlFor="ai-provider-url">نشانی درگاه</Label>
+                    <Input
+                        id="ai-provider-url"
+                        dir="ltr"
+                        value={baseUrl}
+                        onChange={(e) => setBaseUrl(e.target.value)}
+                        placeholder={
+                            driver === "ollama"
+                                ? "http://localhost:11434"
+                                : "https://api.example.com/v1"
+                        }
+                    />
+                    <p className="text-muted-foreground text-xs">
+                        {driver === "ollama" && !baseUrl
+                            ? "خالی گذاشتن یعنی نشانی پیش‌فرض Ollama محلی استفاده می‌شود."
+                            : "برای درگاه‌های میزبانی‌شده خالی بگذارید؛ نشانی پیش‌فرض خودشان استفاده می‌شود."}
+                    </p>
+                    {baseUrl !== "" && !baseUrlValid && (
+                        <p className="text-destructive text-xs">
+                            نشانی باید با http:// یا https:// شروع شود
+                        </p>
+                    )}
+                </div>
+
+                <div className="grid gap-2">
+                    <Label htmlFor="ai-provider-key">کلید دسترسی</Label>
+                    <Input
+                        id="ai-provider-key"
+                        dir="ltr"
+                        type="password"
+                        autoComplete="off"
+                        value={apiKey}
+                        onChange={(e) => {
+                            setApiKey(e.target.value);
+                            // Typing a new key and asking to clear the old
+                            // one at the same time is a contradiction; the
+                            // typed value wins because it is the newer
+                            // intent.
+                            if (e.target.value !== "") {
+                                setClearApiKey(false);
+                            }
+                        }}
+                        disabled={clearApiKey}
+                        placeholder={
+                            isEdit && provider?.has_api_key
+                                ? "•••••••• (ذخیره شده — برای تغییر، مقدار جدید بنویسید)"
+                                : driverMeta?.keyless
+                                  ? "برای Ollama لازم نیست"
+                                  : "sk-…"
+                        }
+                    />
+                    {isEdit && provider?.has_api_key && !clearApiKey && (
+                        <p className="text-muted-foreground text-xs">
+                            خالی گذاشتن این کادر یعنی کلید فعلی دست‌نخورده
+                            بماند.
+                        </p>
+                    )}
+                    {isEdit && provider?.has_api_key && (
+                        <div className="flex items-center justify-between gap-2 rounded-md border px-3 py-2">
+                            <Label
+                                htmlFor="ai-provider-clear-key"
+                                className="text-xs font-normal"
+                            >
+                                حذف کلید ذخیره‌شده
+                            </Label>
+                            <Switch
+                                id="ai-provider-clear-key"
+                                checked={clearApiKey}
+                                onCheckedChange={setClearApiKey}
+                            />
+                        </div>
+                    )}
+                </div>
+
+                <div className="grid gap-3 rounded-md border px-3 py-3">
+                    <div className="flex items-center justify-between gap-2">
+                        <Label
+                            htmlFor="ai-provider-active"
+                            className="font-normal"
+                        >
+                            فعال
+                        </Label>
+                        <Switch
+                            id="ai-provider-active"
+                            checked={isActive}
+                            onCheckedChange={setIsActive}
+                        />
+                    </div>
+                    <p className="text-muted-foreground -mt-1 text-xs">
+                        ارائه‌دهنده غیرفعال در اجرای عامل‌ها استفاده
+                        نمی‌شود؛ عامل‌های متصل به آن به ارائه‌دهنده پیش‌فرض
+                        برمی‌گردند.
+                    </p>
+
+                    {!isEdit && (
+                        <p className="text-muted-foreground -mt-1 text-xs">
+                            پس از ساخت، با دکمهٔ ستاره در فهرست می‌توان
+                            این ارائه‌دهنده را پیش‌فرض کرد.
+                        </p>
+                    )}
+                </div>
+            </div>
+        </ResponsiveDialog>
     );
 }

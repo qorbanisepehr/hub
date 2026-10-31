@@ -13,14 +13,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from "@/components/ui/dialog";
+import { ResponsiveDialog } from "@/components/ui/responsive-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -223,73 +216,16 @@ function MeetingUploadDialog({
     }
 
     return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-md">
-                <DialogHeader>
-                    <DialogTitle>بارگذاری سند جلسه</DialogTitle>
-                    <DialogDescription>
-                        مصوبات و پیوست‌های جلسه در آرشیو اسناد هاب نگهداری
-                        می‌شوند.
-                    </DialogDescription>
-                </DialogHeader>
-
-                <div className="grid gap-4 py-2">
-                    <div className="grid gap-2">
-                        <Label>فایل</Label>
-                        <Input
-                            ref={fileInputRef}
-                            type="file"
-                            accept=".pdf,.jpg,.jpeg,.png,.webp"
-                            onChange={(e) =>
-                                setFile(e.target.files?.[0] ?? null)
-                            }
-                        />
-                    </div>
-
-                    <div className="grid gap-2">
-                        <Label htmlFor="meeting-doc-registry">
-                            شمارهٔ مصوبه
-                        </Label>
-                        <Input
-                            id="meeting-doc-registry"
-                            dir="ltr"
-                            placeholder="مثلاً ۱۰۰۱/ص/۱۴۰۴"
-                            value={registryNumber}
-                            onChange={(e) =>
-                                setRegistryNumber(e.target.value)
-                            }
-                        />
-                    </div>
-
-                    <div className="grid gap-2">
-                        <Label htmlFor="meeting-doc-title">
-                            عنوان (اختیاری)
-                        </Label>
-                        <Input
-                            id="meeting-doc-title"
-                            value={title}
-                            onChange={(e) => setTitle(e.target.value)}
-                        />
-                    </div>
-
-                    <div className="grid gap-2">
-                        <Label htmlFor="meeting-doc-notes">
-                            یادداشت (اختیاری)
-                        </Label>
-                        <Textarea
-                            id="meeting-doc-notes"
-                            rows={2}
-                            value={notes}
-                            onChange={(e) => setNotes(e.target.value)}
-                        />
-                    </div>
-
-                    {error && (
-                        <p className="text-destructive text-sm">{error}</p>
-                    )}
-                </div>
-
-                <DialogFooter>
+        <ResponsiveDialog
+            open={open} onOpenChange={onOpenChange}
+            size="md"
+            title={<>بارگذاری سند جلسه</>}
+            description={<>
+                مصوبات و پیوست‌های جلسه در آرشیو اسناد هاب نگهداری
+                می‌شوند.
+            </>}
+            footer={
+                <>
                     <Button
                         type="button"
                         variant="outline"
@@ -309,9 +245,65 @@ function MeetingUploadDialog({
                         <IconFileUpload data-icon="inline-start" />
                         بارگذاری
                     </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
+                </>
+            }
+        >
+            <div className="grid gap-4 py-2">
+                <div className="grid gap-2">
+                    <Label>فایل</Label>
+                    <Input
+                        ref={fileInputRef}
+                        type="file"
+                        accept=".pdf,.jpg,.jpeg,.png,.webp"
+                        onChange={(e) =>
+                            setFile(e.target.files?.[0] ?? null)
+                        }
+                    />
+                </div>
+
+                <div className="grid gap-2">
+                    <Label htmlFor="meeting-doc-registry">
+                        شمارهٔ مصوبه
+                    </Label>
+                    <Input
+                        id="meeting-doc-registry"
+                        dir="ltr"
+                        placeholder="مثلاً ۱۰۰۱/ص/۱۴۰۴"
+                        value={registryNumber}
+                        onChange={(e) =>
+                            setRegistryNumber(e.target.value)
+                        }
+                    />
+                </div>
+
+                <div className="grid gap-2">
+                    <Label htmlFor="meeting-doc-title">
+                        عنوان (اختیاری)
+                    </Label>
+                    <Input
+                        id="meeting-doc-title"
+                        value={title}
+                        onChange={(e) => setTitle(e.target.value)}
+                    />
+                </div>
+
+                <div className="grid gap-2">
+                    <Label htmlFor="meeting-doc-notes">
+                        یادداشت (اختیاری)
+                    </Label>
+                    <Textarea
+                        id="meeting-doc-notes"
+                        rows={2}
+                        value={notes}
+                        onChange={(e) => setNotes(e.target.value)}
+                    />
+                </div>
+
+                {error && (
+                    <p className="text-destructive text-sm">{error}</p>
+                )}
+            </div>
+        </ResponsiveDialog>
     );
 }
 
@@ -440,113 +432,24 @@ function MeetingBulkUploadDialog({
     }
 
     return (
-        <Dialog
-            open={open}
-            onOpenChange={(next) => {
-                onOpenChange(next);
-                if (!next) {
-                    reset();
-                }
-            }}
-        >
-            {report === null ? (
-                <DialogContent className="sm:max-w-lg">
-                    <DialogHeader>
-                        <DialogTitle>بارگذاری گروهی اسناد</DialogTitle>
-                        <DialogDescription>
-                            چندین مصوبه را یکجا برای این جلسه بارگذاری کنید؛
-                            شمارهٔ مصوبهٔ هر فایل جداگانه ثبت می‌شود و نتیجهٔ
-                            هر فایل در پایان گزارش داده می‌شود.
-                        </DialogDescription>
-                    </DialogHeader>
-
-                    <div className="grid gap-4 py-2">
-                        <div className="grid gap-2">
-                            <Label>فایل‌ها</Label>
-                            <Input
-                                ref={fileInputRef}
-                                type="file"
-                                multiple
-                                accept=".pdf,.jpg,.jpeg,.png,.webp"
-                                onChange={(event) => addFiles(event.target.files)}
-                            />
-                            <p className="text-xs text-muted-foreground">
-                                پس از انتخاب، شمارهٔ مصوبهٔ هر فایل را وارد
-                                کنید.
-                            </p>
-                        </div>
-
-                        {rows.length > 0 && (
-                            <div className="flex max-h-64 flex-col gap-3 overflow-y-auto">
-                                {rows.map((row) => (
-                                    <div
-                                        key={row.key}
-                                        className="grid gap-2 rounded-lg border p-3"
-                                    >
-                                        <div className="flex items-center justify-between gap-2">
-                                            <span
-                                                className="truncate text-sm font-medium"
-                                                dir="ltr"
-                                            >
-                                                {row.file.name}
-                                            </span>
-                                            <div className="flex shrink-0 items-center gap-2">
-                                                <span className="text-xs text-muted-foreground">
-                                                    {formatBytes(row.file.size)}
-                                                </span>
-                                                <Button
-                                                    type="button"
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="size-7"
-                                                    onClick={() =>
-                                                        removeRow(row.key)
-                                                    }
-                                                >
-                                                    <IconX className="size-4" />
-                                                </Button>
-                                            </div>
-                                        </div>
-                                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                                            <div className="grid gap-1">
-                                                <Label>شمارهٔ مصوبه</Label>
-                                                <Input
-                                                    dir="ltr"
-                                                    placeholder="۱۰۰۱/ص/۱۴۰۴"
-                                                    value={row.registryNumber}
-                                                    onChange={(event) =>
-                                                        updateRow(row.key, {
-                                                            registryNumber:
-                                                                event.target
-                                                                    .value,
-                                                        })
-                                                    }
-                                                />
-                                            </div>
-                                            <div className="grid gap-1">
-                                                <Label>عنوان (اختیاری)</Label>
-                                                <Input
-                                                    value={row.title}
-                                                    onChange={(event) =>
-                                                        updateRow(row.key, {
-                                                            title: event.target
-                                                                .value,
-                                                        })
-                                                    }
-                                                />
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-
-                        {error && (
-                            <p className="text-sm text-destructive">{error}</p>
-                        )}
-                    </div>
-
-                    <DialogFooter>
+        report === null ? (
+            <ResponsiveDialog
+                open={open}
+                onOpenChange={(next) => {
+                    onOpenChange(next);
+                    if (!next) {
+                        reset();
+                    }
+                }}
+                size="lg"
+                title={<>بارگذاری گروهی اسناد</>}
+                description={<>
+                    چندین مصوبه را یکجا برای این جلسه بارگذاری کنید؛
+                    شمارهٔ مصوبهٔ هر فایل جداگانه ثبت می‌شود و نتیجهٔ
+                    هر فایل در پایان گزارش داده می‌شود.
+                </>}
+                footer={
+                    <>
                         <Button
                             type="button"
                             variant="outline"
@@ -569,122 +472,215 @@ function MeetingBulkUploadDialog({
                             )}
                             بارگذاری گروهی
                         </Button>
-                    </DialogFooter>
-                </DialogContent>
-            ) : (
-                <DialogContent className="sm:max-w-lg">
-                    <DialogHeader>
-                        <DialogTitle>گزارش بارگذاری</DialogTitle>
-                        <DialogDescription>
-                            {[
-                                `${report.imported.length.toLocaleString("fa-IR")} فایل بارگذاری شد`,
-                                report.skipped.length > 0
-                                    ? `${report.skipped.length.toLocaleString("fa-IR")} تکراری رد شد`
-                                    : null,
-                                report.failed.length > 0
-                                    ? `${report.failed.length.toLocaleString("fa-IR")} ناموفق بود`
-                                    : null,
-                            ]
-                                .filter(Boolean)
-                                .join(" · ")}
-                        </DialogDescription>
-                    </DialogHeader>
-
-                    <div className="flex max-h-64 flex-col gap-2 overflow-y-auto py-2">
-                        {report.imported.map((doc, index) => (
-                            <div
-                                key={doc.usage_id}
-                                className="flex items-center justify-between gap-2 rounded-lg border p-2.5"
-                            >
-                                <div className="flex min-w-0 items-center gap-2">
-                                    <IconCircleCheck className="size-4 shrink-0 text-emerald-500" />
-                                    <span
-                                        className="truncate text-sm font-medium"
-                                        dir="ltr"
-                                    >
-                                        {typeof doc.metadata
-                                            ?.registry_number === "string"
-                                            ? doc.metadata.registry_number
-                                            : `سند ${index + 1}`}
-                                    </span>
-                                </div>
-                                {typeof doc.metadata?.title === "string" && (
-                                    <span className="shrink-0 truncate text-xs text-muted-foreground">
-                                        {doc.metadata.title}
-                                    </span>
-                                )}
-                            </div>
-                        ))}
-
-                        {report.skipped.map((row) => (
-                            <div
-                                key={`skipped-${row.file}-${
-                                    typeof row.metadata.registry_number ===
-                                    "string"
-                                        ? row.metadata.registry_number
-                                        : "no-number"
-                                }`}
-                                className="flex items-center justify-between gap-2 rounded-lg border p-2.5"
-                            >
-                                <div className="flex min-w-0 items-center gap-2">
-                                    <IconCircleMinus className="size-4 shrink-0 text-amber-500" />
-                                    <span
-                                        className="truncate text-sm"
-                                        dir="ltr"
-                                    >
-                                        {row.file}
-                                    </span>
-                                </div>
-                                <span className="shrink-0 text-xs text-muted-foreground">
-                                    تکراری
-                                </span>
-                            </div>
-                        ))}
-
-                        {report.failed.map((row) => (
-                            <div
-                                key={`failed-${row.file}-${
-                                    typeof row.metadata.registry_number ===
-                                    "string"
-                                        ? row.metadata.registry_number
-                                        : "no-number"
-                                }`}
-                                className="flex items-center justify-between gap-2 rounded-lg border p-2.5"
-                            >
-                                <div className="flex min-w-0 items-center gap-2">
-                                    <IconCircleX className="size-4 shrink-0 text-red-500" />
-                                    <span
-                                        className="truncate text-sm"
-                                        dir="ltr"
-                                    >
-                                        {row.file}
-                                    </span>
-                                </div>
-                                <span className="shrink-0 text-xs text-muted-foreground">
-                                    {row.reason}
-                                </span>
-                            </div>
-                        ))}
-
-                        {report.imported.length === 0 &&
-                            report.skipped.length === 0 &&
-                            report.failed.length === 0 && (
-                                <p className="text-sm text-muted-foreground">
-                                    چیزی بارگذاری نشد.
-                                </p>
-                            )}
+                    </>
+                }
+            >
+                <div className="grid gap-4 py-2">
+                    <div className="grid gap-2">
+                        <Label>فایل‌ها</Label>
+                        <Input
+                            ref={fileInputRef}
+                            type="file"
+                            multiple
+                            accept=".pdf,.jpg,.jpeg,.png,.webp"
+                            onChange={(event) => addFiles(event.target.files)}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                            پس از انتخاب، شمارهٔ مصوبهٔ هر فایل را وارد
+                            کنید.
+                        </p>
                     </div>
 
-                    <DialogFooter>
+                    {rows.length > 0 && (
+                        <div className="flex max-h-64 flex-col gap-3 overflow-y-auto">
+                            {rows.map((row) => (
+                                <div
+                                    key={row.key}
+                                    className="grid gap-2 rounded-lg border p-3"
+                                >
+                                    <div className="flex items-center justify-between gap-2">
+                                        <span
+                                            className="truncate text-sm font-medium"
+                                            dir="ltr"
+                                        >
+                                            {row.file.name}
+                                        </span>
+                                        <div className="flex shrink-0 items-center gap-2">
+                                            <span className="text-xs text-muted-foreground">
+                                                {formatBytes(row.file.size)}
+                                            </span>
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="icon"
+                                                className="size-7"
+                                                onClick={() =>
+                                                    removeRow(row.key)
+                                                }
+                                            >
+                                                <IconX className="size-4" />
+                                            </Button>
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                        <div className="grid gap-1">
+                                            <Label>شمارهٔ مصوبه</Label>
+                                            <Input
+                                                dir="ltr"
+                                                placeholder="۱۰۰۱/ص/۱۴۰۴"
+                                                value={row.registryNumber}
+                                                onChange={(event) =>
+                                                    updateRow(row.key, {
+                                                        registryNumber:
+                                                            event.target
+                                                                .value,
+                                                    })
+                                                }
+                                            />
+                                        </div>
+                                        <div className="grid gap-1">
+                                            <Label>عنوان (اختیاری)</Label>
+                                            <Input
+                                                value={row.title}
+                                                onChange={(event) =>
+                                                    updateRow(row.key, {
+                                                        title: event.target
+                                                            .value,
+                                                    })
+                                                }
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    {error && (
+                        <p className="text-sm text-destructive">{error}</p>
+                    )}
+                </div>
+            </ResponsiveDialog>
+        ) : (
+            <ResponsiveDialog
+                open={open}
+                onOpenChange={(next) => {
+                    onOpenChange(next);
+                    if (!next) {
+                        reset();
+                    }
+                }}
+                size="lg"
+                title={<>گزارش بارگذاری</>}
+                description={
+                    [
+                        `${report.imported.length.toLocaleString("fa-IR")} فایل بارگذاری شد`,
+                        report.skipped.length > 0
+                            ? `${report.skipped.length.toLocaleString("fa-IR")} تکراری رد شد`
+                            : null,
+                        report.failed.length > 0
+                            ? `${report.failed.length.toLocaleString("fa-IR")} ناموفق بود`
+                            : null,
+                    ]
+                        .filter(Boolean)
+                        .join(" · ")
+                }
+                footer={
+                    <>
                         <Button
                             type="button"
                             onClick={() => onOpenChange(false)}
                         >
                             پایان
                         </Button>
-                    </DialogFooter>
-                </DialogContent>
-            )}
-        </Dialog>
+                    </>
+                }
+            >
+                <div className="flex max-h-64 flex-col gap-2 overflow-y-auto py-2">
+                    {report.imported.map((doc, index) => (
+                        <div
+                            key={doc.usage_id}
+                            className="flex items-center justify-between gap-2 rounded-lg border p-2.5"
+                        >
+                            <div className="flex min-w-0 items-center gap-2">
+                                <IconCircleCheck className="size-4 shrink-0 text-emerald-500" />
+                                <span
+                                    className="truncate text-sm font-medium"
+                                    dir="ltr"
+                                >
+                                    {typeof doc.metadata
+                                        ?.registry_number === "string"
+                                        ? doc.metadata.registry_number
+                                        : `سند ${index + 1}`}
+                                </span>
+                            </div>
+                            {typeof doc.metadata?.title === "string" && (
+                                <span className="shrink-0 truncate text-xs text-muted-foreground">
+                                    {doc.metadata.title}
+                                </span>
+                            )}
+                        </div>
+                    ))}
+
+                    {report.skipped.map((row) => (
+                        <div
+                            key={`skipped-${row.file}-${
+                                typeof row.metadata.registry_number ===
+                                "string"
+                                    ? row.metadata.registry_number
+                                    : "no-number"
+                            }`}
+                            className="flex items-center justify-between gap-2 rounded-lg border p-2.5"
+                        >
+                            <div className="flex min-w-0 items-center gap-2">
+                                <IconCircleMinus className="size-4 shrink-0 text-amber-500" />
+                                <span
+                                    className="truncate text-sm"
+                                    dir="ltr"
+                                >
+                                    {row.file}
+                                </span>
+                            </div>
+                            <span className="shrink-0 text-xs text-muted-foreground">
+                                تکراری
+                            </span>
+                        </div>
+                    ))}
+
+                    {report.failed.map((row) => (
+                        <div
+                            key={`failed-${row.file}-${
+                                typeof row.metadata.registry_number ===
+                                "string"
+                                    ? row.metadata.registry_number
+                                    : "no-number"
+                            }`}
+                            className="flex items-center justify-between gap-2 rounded-lg border p-2.5"
+                        >
+                            <div className="flex min-w-0 items-center gap-2">
+                                <IconCircleX className="size-4 shrink-0 text-red-500" />
+                                <span
+                                    className="truncate text-sm"
+                                    dir="ltr"
+                                >
+                                    {row.file}
+                                </span>
+                            </div>
+                            <span className="shrink-0 text-xs text-muted-foreground">
+                                {row.reason}
+                            </span>
+                        </div>
+                    ))}
+
+                    {report.imported.length === 0 &&
+                        report.skipped.length === 0 &&
+                        report.failed.length === 0 && (
+                            <p className="text-sm text-muted-foreground">
+                                چیزی بارگذاری نشد.
+                            </p>
+                        )}
+                </div>
+            </ResponsiveDialog>
+        )
     );
 }

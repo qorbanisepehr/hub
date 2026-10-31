@@ -1,14 +1,6 @@
 import { useState } from "react";
 import { IconAlertTriangle } from "@tabler/icons-react";
 import { ResponsiveDialog } from "@/components/ui/responsive-dialog";
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { DocumentUploadForm } from "./document-upload-form";
 
@@ -57,28 +49,30 @@ export function DocumentUploadModal({
                 />
             </ResponsiveDialog>
 
-            <Dialog open={confirmClose} onOpenChange={setConfirmClose}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2">
-                            <IconAlertTriangle className="size-5 text-orange-500" />
-                            تغییرات ذخیره نشده
-                        </DialogTitle>
-                        <DialogDescription className="py-4 leading-6">
-                            تغییراتی اعمال کرده‌اید که ذخیره نشده است. آیا مطمئن
-                            هستید که می‌خواهید این پنجره را ببندید؟
-                        </DialogDescription>
-                    </DialogHeader>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setConfirmClose(false)}>
+            <ResponsiveDialog
+                open={confirmClose}
+                onOpenChange={setConfirmClose}
+                title={
+                    <span className="flex items-center gap-2">
+                        <IconAlertTriangle className="size-5 text-orange-500" />
+                        تغییرات ذخیره نشده
+                    </span>
+                }
+                description="تغییراتی اعمال کرده‌اید که ذخیره نشده است. آیا مطمئن هستید که می‌خواهید این پنجره را ببندید؟"
+                footer={
+                    <>
+                        <Button
+                            variant="outline"
+                            onClick={() => setConfirmClose(false)}
+                        >
                             بازگشت
                         </Button>
                         <Button variant="default" onClick={handleConfirmClose}>
                             بستن
                         </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+                    </>
+                }
+            />
         </>
     );
 }

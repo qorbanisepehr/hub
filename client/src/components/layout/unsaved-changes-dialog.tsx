@@ -2,14 +2,7 @@ import { useBlocker } from "@tanstack/react-router";
 import { IconAlertTriangle } from "@tabler/icons-react";
 
 import { Button } from "@/components/ui/button";
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from "@/components/ui/dialog";
+import { ResponsiveDialog } from "@/components/ui/responsive-dialog";
 
 type UnsavedChangesDialogProps = {
     isDirty: boolean;
@@ -38,24 +31,20 @@ export function UnsavedChangesDialog({ isDirty, isSubmitting }: UnsavedChangesDi
     });
 
     return (
-        <Dialog
+        <ResponsiveDialog
             open={blocker.status === "blocked"}
             onOpenChange={(open) => {
                 if (!open) blocker.reset?.();
             }}
-        >
-            <DialogContent>
-                <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2">
-                        <IconAlertTriangle className="size-5 text-orange-500" />
-                        تغییرات ذخیره نشده
-                    </DialogTitle>
-                    <DialogDescription className="py-4 leading-6">
-                        تغییرات شما ذخیره نشده است. اگر خارج شوید، تغییرات
-                        از دست می‌رود.
-                    </DialogDescription>
-                </DialogHeader>
-                <DialogFooter>
+            title={
+                <span className="flex items-center gap-2">
+                    <IconAlertTriangle className="size-5 text-orange-500" />
+                    تغییرات ذخیره نشده
+                </span>
+            }
+            description="تغییرات شما ذخیره نشده است. اگر خارج شوید، تغییرات از دست می‌رود."
+            footer={
+                <>
                     <Button variant="outline" onClick={() => blocker.reset?.()}>
                         بازگشت
                     </Button>
@@ -65,8 +54,8 @@ export function UnsavedChangesDialog({ isDirty, isSubmitting }: UnsavedChangesDi
                     >
                         خروج بدون ذخیره
                     </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
+                </>
+            }
+        />
     );
 }
