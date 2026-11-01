@@ -10,4 +10,8 @@ return [
     'permission_deleted' => 'Permission deleted.',
     'format_not_supported' => 'This format is not supported yet.',
     'subtree_root_required' => 'Selecting a root role is required for the subtree export.',
+    'role_not_found' => 'The selected role was not found.',
+    'role_inactive' => 'Cannot switch to an inactive role.',
+    'role_not_assigned' => 'The user does not have this role assigned.',
+
 ];
