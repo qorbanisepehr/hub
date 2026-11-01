@@ -335,14 +335,19 @@ class Role extends Model
      */
     public function getInheritedRoleIds(): array
     {
+        // ONE READ: the parent map for the whole table, then the chain is
+        // walked in memory — so a role five levels up costs one query, not
+        // five, and the cycle-safe hand from the original walk is untouched.
+        $parents = Role::query()->pluck('parent_id', 'id');
+
         $ids = [$this->id];
         $seen = [$this->id => true];
-        $parentId = $this->parent_id;
+        $parentId = $parents[$this->id] ?? null;
 
         while ($parentId !== null && ! isset($seen[$parentId])) {
             $seen[$parentId] = true;
             $ids[] = (int) $parentId;
-            $parentId = Role::query()->whereKey($parentId)->value('parent_id');
+            $parentId = $parents[$parentId] ?? null;
         }
 
         return $ids;

@@ -25,7 +25,7 @@ class AuthorizationCheckController
 
             abort_unless(is_string($model), 422, 'Invalid resource type.');
 
-            /** @var Model $model */
+            /** @var class-string<Model> $model */
             $resource = $model::query()->findOrFail($data['resource_id']);
         }
 

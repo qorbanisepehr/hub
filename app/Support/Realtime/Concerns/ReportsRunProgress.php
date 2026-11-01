@@ -96,8 +96,11 @@ trait ReportsRunProgress
                 subject: $this->progressSubject,
                 context: $context,
             );
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
             // Progress is an courtesy. The outcome is written either way.
+            // Recorded rather than left silent, so a channel that stops
+            // delivering shows up in the logs instead of nowhere.
+            report($e);
         }
     }
 }
