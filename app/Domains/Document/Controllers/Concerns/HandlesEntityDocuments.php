@@ -156,6 +156,13 @@ trait HandlesEntityDocuments
         return $this->documentService->serve($document, $request);
     }
 
+    public function requirements(): JsonResponse
+    {
+        return response()->json([
+            'data' => $this->documentRequirements(),
+        ]);
+    }
+
     /**
      * The route that serves a stored document's bytes to its owner — every
      * payload response links its usages against it, keyed by the domain.

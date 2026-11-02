@@ -29,7 +29,8 @@ trait ParsesReportDates
 
         try {
             $parsed = PersianDateTime::parse($raw);
-        } catch (InvalidArgumentException) {
+        } catch (InvalidArgumentException $e) {
+            report($e);
             $parsed = null;
         }
 

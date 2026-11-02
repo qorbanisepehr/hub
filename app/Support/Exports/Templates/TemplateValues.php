@@ -112,7 +112,9 @@ final class TemplateValues
             // take the whole export down with it.
             try {
                 $date = PersianDateTime::parse(is_scalar($value) ? (string) $value : null);
-            } catch (\InvalidArgumentException) {
+            } catch (\InvalidArgumentException $e) {
+                report($e);
+
                 continue;
             }
 

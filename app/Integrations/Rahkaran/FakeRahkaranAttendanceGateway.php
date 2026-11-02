@@ -44,7 +44,8 @@ final class FakeRahkaranAttendanceGateway implements AttendanceGateway
         foreach ($rows as $row) {
             try {
                 $records[] = $this->mapper->map($row);
-            } catch (InvalidArgumentException) {
+            } catch (InvalidArgumentException $e) {
+                report($e);
                 // The fake must never crash the report on its own data; a
                 // bad row counts as an unmapped row instead.
                 $failures++;
