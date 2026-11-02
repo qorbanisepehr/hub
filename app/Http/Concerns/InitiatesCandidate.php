@@ -114,28 +114,8 @@ trait InitiatesCandidate
 
         $finalized = $this->candidateIsFinalized($existing);
 
-        if ($existing && ! $finalized && $existing->isSubmitted()) {
-            $existing->update(['status' => 'draft']);
-        }
-
-        // For existing records only re-apply contact info so the user can
-        // re-access after changing email/mobile. Names are set at creation
-        // and edited inside the wizard, so they must not be overwritten here.
-        // Finalized records must not be silently mutated at all.
-        $updateData = $existing && ! $finalized
-            ? Arr::only($pending->payload, ['email', 'mobile'])
-            : [];
-
-        if ($existing && $updateData) {
-            // Reset verification if contact data changed.
-            if (isset($updateData['email']) && $updateData['email'] !== null && $updateData['email'] !== $existing->email) {
-                $updateData['email_verified_at'] = null;
-            }
-            if (isset($updateData['mobile']) && $updateData['mobile'] !== null && $updateData['mobile'] !== $existing->mobile) {
-                $updateData['mobile_verified_at'] = null;
-            }
-            $existing->update($updateData);
-        }
+        $this->restoreDraftIfNeeded($existing, $finalized);
+        $this->applyPendingContactUpdates($existing, $pending, $finalized);
 
         $record = $existing ?? $this->candidateService()->create($pending->payload);
 
@@ -244,5 +224,39 @@ trait InitiatesCandidate
         }
 
         return $this->otpVerifiedResponse($record, $channel);
+    }
+
+    private function restoreDraftIfNeeded(?object $existing, bool $finalized): void
+    {
+        if ($existing !== null && ! $finalized && $existing->isSubmitted()) {
+            $existing->update(['status' => 'draft']);
+        }
+    }
+
+    private function applyPendingContactUpdates(?object $existing, PendingVerification $pending, bool $finalized): void
+    {
+        if ($existing === null || $finalized) {
+            return;
+        }
+
+        // For existing records only re-apply contact info so the user can
+        // re-access after changing email/mobile. Names are set at creation
+        // and edited inside the wizard, so they must not be overwritten here.
+        // Finalized records must not be silently mutated at all.
+        $updateData = Arr::only($pending->payload, ['email', 'mobile']);
+
+        if ($updateData === []) {
+            return;
+        }
+
+        // Reset verification if contact data changed.
+        if (isset($updateData['email']) && $updateData['email'] !== null && $updateData['email'] !== $existing->email) {
+            $updateData['email_verified_at'] = null;
+        }
+        if (isset($updateData['mobile']) && $updateData['mobile'] !== null && $updateData['mobile'] !== $existing->mobile) {
+            $updateData['mobile_verified_at'] = null;
+        }
+
+        $existing->update($updateData);
     }
 }
