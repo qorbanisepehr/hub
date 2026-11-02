@@ -21,6 +21,7 @@ use App\Support\Exports\Value\ExportOptions;
 use App\Support\Exports\Value\ExportRequest;
 use App\Support\ListQuery;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -131,12 +132,21 @@ class EmployeeController
         $format = $request->query('format', 'xlsx');
 
         if (! in_array($format, ['xlsx', 'csv'], true)) {
-            return response()->json(['message' => __('authorization.format_not_supported')], 422);
+            throw new HttpResponseException(
+                response()->json(
+                    ['message' => __('authorization.format_not_supported')],
+                    422,
+                ),
+            );
         }
 
         $file = $this->exports->template(
             $this->employeeService->exporter($this->baseQuery()),
-            new ExportRequest(format: $format, options: EmployeeExporter::defaultOptions($format)),
+            new ExportRequest(
+                fields: self::exportFieldsQuery($request),
+                format: $format,
+                options: EmployeeExporter::defaultOptions($format),
+            ),
         );
 
         return $this->streamExport($this->exports, $file);

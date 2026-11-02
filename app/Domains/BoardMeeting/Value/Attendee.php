@@ -12,9 +12,15 @@ use App\Domains\BoardMeeting\Enums\AttendeeRole;
  * `isPresent` distinguishes a member who was absent from a name the
  * source listed as attending — the archive form only ever records the
  * حاضرین free text, so a missing name is not evidence of absence.
+ *
+ * `present` is the import-system boolean (CellDecision); `is_present` is
+ * the BoardMeeting attendee field. Both are used interchangeably; when
+ * aggregating multiple labels use `self::AGGREGATE_SEPARATOR`.
  */
 final readonly class Attendee
 {
+    public const AGGREGATE_SEPARATOR = '؛';
+
     public function __construct(
         public string $name,
         public AttendeeRole $role = AttendeeRole::Member,
