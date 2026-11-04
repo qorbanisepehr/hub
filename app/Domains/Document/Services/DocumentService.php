@@ -179,7 +179,6 @@ class DocumentService
             GenerateDocumentThumbnail::dispatch($document);
         }
 
-        // Attach usage
         $this->repository->attachUsage($document, $entity, $sectionKey, $fieldKey, $metadata);
 
         $document = $document->load('usages');

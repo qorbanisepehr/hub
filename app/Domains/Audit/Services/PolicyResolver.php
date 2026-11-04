@@ -39,7 +39,6 @@ final class PolicyResolver
             return $match;
         }
 
-        // 4. Safe fallback
         return new AuditRetentionPolicy([
             'name' => 'Fallback',
             'retention_days' => config('audit.default_retention_days', 365),
@@ -79,7 +78,6 @@ final class PolicyResolver
      */
     private function findMatch($policies, string $event, string $category): ?AuditRetentionPolicy
     {
-        // 1. Exact event match
         $policy = $policies->first(
             fn (array $row): bool => $row['event'] === $event
         );
@@ -88,7 +86,6 @@ final class PolicyResolver
             return new AuditRetentionPolicy($policy);
         }
 
-        // 2. Category match
         $policy = $policies->first(
             fn (array $row): bool => $row['category'] === $category && $row['event'] === null
         );
@@ -97,7 +94,6 @@ final class PolicyResolver
             return new AuditRetentionPolicy($policy);
         }
 
-        // 3. Default policy (no category, no event)
         $policy = $policies->first(
             fn (array $row): bool => $row['category'] === null && $row['event'] === null
         );
