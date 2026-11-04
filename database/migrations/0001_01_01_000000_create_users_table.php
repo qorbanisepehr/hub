@@ -33,7 +33,10 @@ return new class extends Migration
 
         Schema::create('sessions', function (Blueprint $table) {
             $table->string('id')->primary();
-            $table->foreignId('user_id')->nullable()->index();
+            // Sessions belong to the user who owns them; a deleted user's
+            // sessions are meaningless, so cascade. The app itself never
+            // deletes users, so this only guards direct database writes.
+            $table->foreignId('user_id')->nullable()->constrained()->cascadeOnDelete();
             $table->string('ip_address', 45)->nullable();
             $table->text('user_agent')->nullable();
             $table->longText('payload');

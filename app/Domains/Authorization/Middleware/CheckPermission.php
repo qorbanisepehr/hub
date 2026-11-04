@@ -2,39 +2,17 @@
 
 namespace App\Domains\Authorization\Middleware;
 
-use Closure;
-use Illuminate\Http\Request;
-use Symfony\Component\HttpFoundation\Response;
+use App\Models\User;
 
-class CheckPermission
+class CheckPermission extends AuthorizationMiddleware
 {
-    /**
-     * Handle an incoming request.
-     *
-     * @param  Closure(Request): (Response)  $next
-     */
-    public function handle(Request $request, Closure $next, string ...$permissions): Response
+    protected function subject(): string
     {
-        if (empty($permissions)) {
-            throw new \InvalidArgumentException('CheckPermission middleware requires at least one permission argument.');
-        }
+        return 'permission';
+    }
 
-        $user = $request->user();
-
-        if (! $user) {
-            abort(401);
-        }
-
-        if (! $user->is_active) {
-            abort(401, __('auth.inactive'));
-        }
-
-        foreach ($permissions as $permission) {
-            if ($user->hasPermissionTo($permission)) {
-                return $next($request);
-            }
-        }
-
-        abort(403, __('messages.permission_denied'));
+    protected function carries(User $user, string $subject): bool
+    {
+        return $user->hasPermissionTo($subject);
     }
 }

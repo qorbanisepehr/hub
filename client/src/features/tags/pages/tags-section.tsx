@@ -26,14 +26,7 @@ import {
 } from "@/components/ui/card";
 import { ConfirmDeleteButton } from "@/components/ui/confirm-delete-button";
 import { Spinner } from "@/components/ui/spinner";
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from "@/components/ui/dialog";
+import { ResponsiveDialog } from "@/components/ui/responsive-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -383,48 +376,17 @@ export function TagsSection() {
                 />
             </CardContent>
 
-            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-                <DialogContent className="sm:max-w-md">
-                    <DialogHeader>
-                        <DialogTitle>
-                            {editing ? "ویرایش برچسب" : "افزودن برچسب"}
-                        </DialogTitle>
-                        <DialogDescription>
-                            {editing
-                                ? "عنوان و شناسه هر دو قابل ویرایش‌اند؛ شناسه همان کلیدی است که فیلترها و ورود اطلاعات با آن تطبیق می‌دهند."
-                                : "شناسه، کلید پایدار برچسب برای فیلترها و اتصال‌ها است."}
-                        </DialogDescription>
-                    </DialogHeader>
-
-                    <div className="grid gap-4 py-2">
-                        <div className="grid gap-2">
-                            <Label htmlFor="tag-name">عنوان</Label>
-                            <Input
-                                id="tag-name"
-                                value={name}
-                                onChange={(e) => setName(e.target.value)}
-                                placeholder="مثلاً پروژه سونگون"
-                            />
-                        </div>
-                        <div className="grid gap-2">
-                            <Label htmlFor="tag-slug">شناسه</Label>
-                            <Input
-                                id="tag-slug"
-                                dir="ltr"
-                                value={slug}
-                                onChange={(e) => setSlug(e.target.value)}
-                                placeholder="project-soongon"
-                            />
-                            {slug !== "" && !slugValid && (
-                                <p className="text-destructive text-xs">
-                                    فقط حروف فارسی/انگلیسی، عدد، خط تیره و زیرخط
-                                    مجاز است
-                                </p>
-                            )}
-                        </div>
-                    </div>
-
-                    <DialogFooter>
+            <ResponsiveDialog
+                open={dialogOpen} onOpenChange={setDialogOpen}
+                size="md"
+                title={editing ? "ویرایش برچسب" : "افزودن برچسب"}
+                description={
+                    editing
+                    ? "عنوان و شناسه هر دو قابل ویرایش‌اند؛ شناسه همان کلیدی است که فیلترها و ورود اطلاعات با آن تطبیق می‌دهند."
+                    : "شناسه، کلید پایدار برچسب برای فیلترها و اتصال‌ها است."
+                }
+                footer={
+                    <>
                         {editing && (
                             <Button
                                 type="button"
@@ -456,9 +418,37 @@ export function TagsSection() {
                         >
                             ذخیره
                         </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+                    </>
+                }
+            >
+                <div className="grid gap-4 py-2">
+                    <div className="grid gap-2">
+                        <Label htmlFor="tag-name">عنوان</Label>
+                        <Input
+                            id="tag-name"
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
+                            placeholder="مثلاً پروژه سونگون"
+                        />
+                    </div>
+                    <div className="grid gap-2">
+                        <Label htmlFor="tag-slug">شناسه</Label>
+                        <Input
+                            id="tag-slug"
+                            dir="ltr"
+                            value={slug}
+                            onChange={(e) => setSlug(e.target.value)}
+                            placeholder="project-soongon"
+                        />
+                        {slug !== "" && !slugValid && (
+                            <p className="text-destructive text-xs">
+                                فقط حروف فارسی/انگلیسی، عدد، خط تیره و زیرخط
+                                مجاز است
+                            </p>
+                        )}
+                    </div>
+                </div>
+            </ResponsiveDialog>
 
             <TagMergeDialog
                 open={mergeOpen}

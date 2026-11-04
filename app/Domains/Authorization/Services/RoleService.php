@@ -10,6 +10,7 @@ use App\Domains\Authorization\Events\RoleUpdated;
 use App\Domains\Authorization\Models\PermissionGroup;
 use App\Domains\Authorization\Models\Role;
 use App\Models\User;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -85,8 +86,17 @@ class RoleService
      */
     public function batchAssign(array $roleIds, array $permissionIds): void
     {
+        // ONE READ, rewritten events kept: the loop stays because every role
+        // writes its own rules and fires its own event — only the lookups go.
+        $roles = Role::whereIn('id', $roleIds)->get()->keyBy('id');
+
         foreach ($roleIds as $roleId) {
-            $role = Role::findOrFail($roleId);
+            $role = $roles[$roleId] ?? null;
+
+            if ($role === null) {
+                throw (new ModelNotFoundException)->setModel(Role::class, [(int) $roleId]);
+            }
+
             $role->grantPermissions($permissionIds);
             $this->flushRoleUsersCaches($role);
             event(new PermissionAssigned($role, $permissionIds));
@@ -105,9 +115,23 @@ class RoleService
     {
         $ids = array_map(fn ($id) => (int) $id, $permissionIds);
 
+        // ONE READ for every group and its permissions, with the ids-only
+        // select preserved: the original plucked `id` alone and that shape is
+        // the contract, not an accident.
+        $groups = PermissionGroup::whereIn('id', $permissionGroupIds)
+            ->with('permissions:id,group_id')
+            ->get()
+            ->keyBy('id');
+
         foreach ($permissionGroupIds as $groupId) {
-            foreach (PermissionGroup::findOrFail($groupId)->permissions()->pluck('id') as $permissionId) {
-                $ids[] = (int) $permissionId;
+            $group = $groups[$groupId] ?? null;
+
+            if ($group === null) {
+                throw (new ModelNotFoundException)->setModel(PermissionGroup::class, [(int) $groupId]);
+            }
+
+            foreach ($group->permissions as $permission) {
+                $ids[] = (int) $permission->id;
             }
         }
 

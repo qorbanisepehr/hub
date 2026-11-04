@@ -33,7 +33,6 @@ final class EmployeeValueNormalizer implements NormalizesValues
     private const GREGORIAN_YEAR_MIN = 1900;
 
     public function __construct(
-        private readonly EmployeeExporter $exporter,
         private readonly FormOptionService $formOptions,
     ) {}
 
@@ -67,7 +66,7 @@ final class EmployeeValueNormalizer implements NormalizesValues
             }
         }
 
-        // Fixed enums: invert the exporter's own label map (official ↔ رسمی).
+        // Fixed enums: invert the export label map (official ↔ رسمی).
         $maps = trans('employee.exports.options');
 
         if (is_array($maps) && is_array($maps[$columnKey] ?? null)) {

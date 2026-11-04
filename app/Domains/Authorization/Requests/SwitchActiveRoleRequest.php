@@ -2,46 +2,26 @@
 
 namespace App\Domains\Authorization\Requests;
 
-use App\Domains\Authorization\Models\Role;
+use App\Domains\Authorization\Requests\Concerns\ValidatesActiveRoleSwitch;
 use Illuminate\Foundation\Http\FormRequest;
 
 class SwitchActiveRoleRequest extends FormRequest
 {
+    use ValidatesActiveRoleSwitch;
+
     public function authorize(): bool
     {
         return true;
     }
 
+    /** @return array<string, mixed> */
     public function rules(): array
     {
-        $userId = $this->route('user')->id;
-
+        // The admin switch validates the ROUTE user's roles — the caller may
+        // switch somebody else's active role, so the id source is the route
+        // model, not the authenticated user.
         return [
-            'role_id' => [
-                'required',
-                'exists:roles,id',
-                function ($attribute, $value, $fail) use ($userId) {
-                    $role = Role::find($value);
-
-                    if (! $role) {
-                        $fail('Role not found.');
-
-                        return;
-                    }
-
-                    if (! $role->is_active) {
-                        $fail('Cannot switch to an inactive role.');
-
-                        return;
-                    }
-
-                    $hasRole = $role->users()->where('user_id', $userId)->exists();
-
-                    if (! $hasRole) {
-                        $fail('The user does not have this role assigned.');
-                    }
-                },
-            ],
+            'role_id' => $this->activeRoleRule($this->route('user')->id),
         ];
     }
 }

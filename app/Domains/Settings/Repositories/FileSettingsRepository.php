@@ -28,7 +28,9 @@ class FileSettingsRepository implements SettingsRepositoryInterface
 
         try {
             $decoded = json_decode((string) file_get_contents($path), true, flags: JSON_THROW_ON_ERROR);
-        } catch (\JsonException) {
+        } catch (\JsonException $e) {
+            report($e);
+
             return $this->cache[$key] = [];
         }
 

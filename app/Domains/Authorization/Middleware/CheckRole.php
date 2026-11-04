@@ -2,39 +2,17 @@
 
 namespace App\Domains\Authorization\Middleware;
 
-use Closure;
-use Illuminate\Http\Request;
-use Symfony\Component\HttpFoundation\Response;
+use App\Models\User;
 
-class CheckRole
+class CheckRole extends AuthorizationMiddleware
 {
-    /**
-     * Handle an incoming request.
-     *
-     * @param  Closure(Request): (Response)  $next
-     */
-    public function handle(Request $request, Closure $next, string ...$roles): Response
+    protected function subject(): string
     {
-        if (empty($roles)) {
-            throw new \InvalidArgumentException('CheckRole middleware requires at least one role argument.');
-        }
+        return 'role';
+    }
 
-        $user = $request->user();
-
-        if (! $user) {
-            abort(401);
-        }
-
-        if (! $user->is_active) {
-            abort(401, __('auth.inactive'));
-        }
-
-        foreach ($roles as $role) {
-            if ($user->hasRole($role)) {
-                return $next($request);
-            }
-        }
-
-        abort(403, __('messages.permission_denied'));
+    protected function carries(User $user, string $subject): bool
+    {
+        return $user->hasRole($subject);
     }
 }

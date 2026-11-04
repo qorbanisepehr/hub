@@ -222,50 +222,17 @@ final class MarkdownTemplateFiller implements TemplateFiller
     private function expandRanges(string $text, array $fields, array $values, array $present): array
     {
         $unterminated = [];
+
         foreach ($this->values->groups($fields, $values, $present) as [$search, $rows]) {
             $group = $this->values->groupOf($search);
 
-            $lines = explode("\n", $text);
-            $out = [];
-            $inside = false;
-            $block = [];
+            [$out, $dropped] = $this->expandRange(
+                explode("\n", $text),
+                $group,
+                $rows,
+            );
 
-            foreach ($lines as $line) {
-                if (! $inside && trim($line) === RangeMacro::open($group)) {
-                    $inside = true;
-
-                    continue;
-                }
-
-                if ($inside && trim($line) === RangeMacro::close($group)) {
-                    foreach ($rows as $row) {
-                        foreach ($block as $piece) {
-                            $out[] = $this->fillRangeLine($piece, $row);
-                        }
-                    }
-
-                    $inside = false;
-                    $block = [];
-
-                    continue;
-                }
-
-                if ($inside) {
-                    $block[] = $line;
-
-                    continue;
-                }
-
-                $out[] = $line;
-            }
-
-            // An unterminated range is a typo. Everything from the marker onwards is
-            // left as the author wrote it rather than silently deleted — and the group
-            // is reported, because the line-repeating pass below would otherwise treat
-            // the restored lines as an ordinary repeated row and expand them anyway,
-            // which is the opposite of leaving them alone.
-            if ($inside) {
-                $out = [...$out, RangeMacro::open($group), ...$block];
+            if ($dropped) {
                 $unterminated[] = $group;
             }
 
@@ -273,6 +240,79 @@ final class MarkdownTemplateFiller implements TemplateFiller
         }
 
         return [$text, $unterminated];
+    }
+
+    /**
+     * One range in a Markdown document, re-written to hold one filled copy of
+     * its body per record.
+     *
+     * @param  list<string>  $lines
+     * @param  array<string, string>[]  $rows
+     * @return array{0: list<string>, 1: bool} the rewritten lines and whether
+     *                                         an open marker was never closed
+     */
+    private function expandRange(array $lines, string $group, array $rows): array
+    {
+        $out = [];
+        $inside = false;
+        $block = [];
+
+        foreach ($lines as $line) {
+            if (! $inside && trim($line) === RangeMacro::open($group)) {
+                $inside = true;
+
+                continue;
+            }
+
+            if ($inside && trim($line) === RangeMacro::close($group)) {
+                array_push($out, ...$this->filledBlock($block, $rows));
+
+                $inside = false;
+                $block = [];
+
+                continue;
+            }
+
+            if ($inside) {
+                $block[] = $line;
+
+                continue;
+            }
+
+            $out[] = $line;
+        }
+
+        // An unterminated range is a typo. Everything from the marker onwards is
+        // left as the author wrote it rather than silently deleted — and the group
+        // is reported, because the line-repeating pass below would otherwise treat
+        // the restored lines as an ordinary repeated row and expand them anyway,
+        // which is the opposite of leaving them alone.
+        if ($inside) {
+            $out = [...$out, RangeMacro::open($group), ...$block];
+        }
+
+        return [$out, $inside];
+    }
+
+    /**
+     * A range body repeated once per record and filled with that record's
+     * values.
+     *
+     * @param  list<string>  $block
+     * @param  array<string, string>[]  $rows
+     * @return list<string>
+     */
+    private function filledBlock(array $block, array $rows): array
+    {
+        $out = [];
+
+        foreach ($rows as $row) {
+            foreach ($block as $piece) {
+                $out[] = $this->fillRangeLine($piece, $row);
+            }
+        }
+
+        return $out;
     }
 
     /**

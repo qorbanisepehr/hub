@@ -10,18 +10,30 @@ import {
     DrawerTitle,
     DrawerTrigger,
 } from "@/components/ui/drawer";
+import { cn } from "@/lib/utils";
 import { useMediaQuery } from "@/hooks/use-media-query";
+
+/** Desktop dialog width. The mobile drawer is always full-width. */
+type ResponsiveDialogSize = "md" | "lg" | "2xl";
+
+const DESKTOP_WIDTH: Record<ResponsiveDialogSize, string> = {
+    md: "sm:max-w-md",
+    lg: "sm:max-w-lg",
+    "2xl": "sm:max-w-2xl",
+};
 
 type ResponsiveDialogProps = {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     title?: React.ReactNode;
     description?: React.ReactNode;
+    /** Desktop dialog width; defaults to `lg`. */
+    size?: ResponsiveDialogSize;
     /** Header-level actions (menus, buttons) aligned with the title row. */
     actions?: React.ReactNode;
     /** Optional controlled trigger element rendered for both dialog and drawer. */
     trigger?: React.ReactElement;
-    children: React.ReactNode;
+    children?: React.ReactNode;
     footer?: React.ReactNode;
 };
 
@@ -30,6 +42,7 @@ export function ResponsiveDialog({
     onOpenChange,
     title,
     description,
+    size = "lg",
     actions,
     trigger,
     children,
@@ -43,7 +56,10 @@ export function ResponsiveDialog({
                 {trigger && <DialogTrigger render={trigger} />}
                 <DialogContent
                     showCloseButton
-                    className="flex max-h-[85dvh] flex-col gap-0 overflow-clip p-0 sm:max-w-lg"
+                    className={cn(
+                        "flex max-h-[85dvh] flex-col gap-0 overflow-clip p-0",
+                        DESKTOP_WIDTH[size],
+                    )}
                 >
                     {title && (
                         <div className="flex items-start gap-2 px-4 pt-4">
@@ -65,9 +81,11 @@ export function ResponsiveDialog({
                             )}
                         </div>
                     )}
-                    <div className="min-h-0 flex-1 overflow-y-auto overflow-x-clip p-4">
-                        {children}
-                    </div>
+                    {children && (
+                        <div className="min-h-0 flex-1 overflow-y-auto overflow-x-clip p-4">
+                            {children}
+                        </div>
+                    )}
                     {footer && (
                         <div className="flex shrink-0 items-center gap-2 border-t p-4">
                             {footer}
@@ -97,9 +115,11 @@ export function ResponsiveDialog({
                         </div>
                     )}
                 </DrawerHeader>
-                <div className="min-h-0 flex-1 overflow-y-auto overflow-x-clip px-4 pb-4">
-                    {children}
-                </div>
+                {children && (
+                    <div className="min-h-0 flex-1 overflow-y-auto overflow-x-clip px-4 pb-4">
+                        {children}
+                    </div>
+                )}
                 {footer && (
                     <DrawerFooter>{footer}</DrawerFooter>
                 )}

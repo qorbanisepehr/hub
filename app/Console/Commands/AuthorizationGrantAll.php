@@ -116,8 +116,12 @@ class AuthorizationGrantAll extends Command
                 continue;
             }
 
+            // ONE READ PER USER for the roles it already has, instead of one
+            // query per user × role to grant.
+            $assigned = $user->roles()->pluck('roles.id')->all();
+
             foreach ($roles as $role) {
-                if ($user->roles()->where('roles.id', $role->id)->exists()) {
+                if (in_array($role->id, $assigned, true)) {
                     continue;
                 }
 
@@ -176,12 +180,30 @@ class AuthorizationGrantAll extends Command
         $arguments = $this->argument('roles') ?? [];
 
         if ($arguments !== []) {
+            // BOTH LOOKUPS IN TWO QUERIES, whatever the number of arguments:
+            // digit arguments into the id map, the rest into the name map. The
+            // final sweep over the arguments preserves the caller's order and
+            // the per-argument missing-name error.
+            $ids = [];
+            $names = [];
+
+            foreach ($arguments as $argument) {
+                if (ctype_digit((string) $argument)) {
+                    $ids[(int) $argument] = $argument;
+                } else {
+                    $names[$argument] = $argument;
+                }
+            }
+
+            $byId = Role::whereIn('id', array_keys($ids))->get()->keyBy('id');
+            $byName = Role::whereIn('name', array_keys($names))->get()->keyBy('name');
+
             $roles = [];
 
             foreach ($arguments as $argument) {
                 $role = ctype_digit((string) $argument)
-                    ? Role::find((int) $argument)
-                    : Role::where('name', $argument)->first();
+                    ? $byId->get((int) $argument)
+                    : $byName->get($argument);
 
                 if ($role === null) {
                     $this->error("Role [{$argument}] was not found.");

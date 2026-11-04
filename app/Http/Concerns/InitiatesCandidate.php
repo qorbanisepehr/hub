@@ -7,11 +7,14 @@ use App\Enums\OtpContext;
 use App\Enums\OtpSendStatus;
 use App\Http\Requests\Candidate\InitCandidateRequest;
 use App\Http\Requests\Candidate\VerifyInitOtpRequest;
+use App\Http\Requests\Candidate\VerifyOtpCodeRequest;
 use App\Models\PendingVerification;
 use App\Services\OtpService;
 use App\Services\SessionGrantStore;
 use App\Support\MobileNumber;
+use App\Support\ValidationRules;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 
 /**
@@ -38,7 +41,7 @@ trait InitiatesCandidate
     /** @return class-string */
     abstract protected function candidateModel(): string;
 
-    /** Service exposing `create(array $baseData)`. */
+    /** Service exposing `create(array $baseData)` and `findByUuidOrFail(string $uuid)`. */
     abstract protected function candidateService(): object;
 
     abstract protected function candidateResource(mixed $record): mixed;
@@ -111,28 +114,8 @@ trait InitiatesCandidate
 
         $finalized = $this->candidateIsFinalized($existing);
 
-        if ($existing && ! $finalized && $existing->isSubmitted()) {
-            $existing->update(['status' => 'draft']);
-        }
-
-        // For existing records only re-apply contact info so the user can
-        // re-access after changing email/mobile. Names are set at creation
-        // and edited inside the wizard, so they must not be overwritten here.
-        // Finalized records must not be silently mutated at all.
-        $updateData = $existing && ! $finalized
-            ? Arr::only($pending->payload, ['email', 'mobile'])
-            : [];
-
-        if ($existing && $updateData) {
-            // Reset verification if contact data changed.
-            if (isset($updateData['email']) && $updateData['email'] !== null && $updateData['email'] !== $existing->email) {
-                $updateData['email_verified_at'] = null;
-            }
-            if (isset($updateData['mobile']) && $updateData['mobile'] !== null && $updateData['mobile'] !== $existing->mobile) {
-                $updateData['mobile_verified_at'] = null;
-            }
-            $existing->update($updateData);
-        }
+        $this->restoreDraftIfNeeded($existing, $finalized);
+        $this->applyPendingContactUpdates($existing, $pending, $finalized);
 
         $record = $existing ?? $this->candidateService()->create($pending->payload);
 
@@ -152,5 +135,128 @@ trait InitiatesCandidate
             'expires_in' => $this->otpService->getGrantExpiresIn(GrantPurpose::Edit),
             'message' => $existing ? $this->otpLang('verified') : $this->otpLang('created'),
         ]);
+    }
+
+    /**
+     * The public contact-verification endpoints, shared by every candidate
+     * controller: the record is always the one `candidateService()` resolves
+     * from the uuid, so only the channel differs.
+     */
+    public function resendInitOtp(string $uuid): JsonResponse
+    {
+        $pending = PendingVerification::where('uuid', $uuid)->firstOrFail();
+
+        if ($pending->isVerified()) {
+            return response()->json(['message' => $this->otpLang('already_verified')], 422);
+        }
+
+        $status = $this->otpService->sendWithCooldown($pending, 'mobile', OtpContext::Register);
+
+        return $this->respondToSend($pending, 'mobile', OtpContext::Register, $status);
+    }
+
+    public function sendMobileOtp(string $uuid, Request $request): JsonResponse
+    {
+        $record = $this->candidateService()->findByUuidOrFail($uuid);
+
+        $data = $request->validate([
+            'mobile' => ['nullable', 'string', 'max:15', ValidationRules::MOBILE_ACCEPTED],
+        ]);
+
+        $pendingMobile = isset($data['mobile']) ? MobileNumber::normalize($data['mobile']) : null;
+
+        $status = $this->otpService->sendWithCooldown($record, 'mobile', OtpContext::VerifyMobile);
+
+        if ($pendingMobile !== null && $status === OtpSendStatus::Sent) {
+            $this->otpService->storePendingValue($record, 'mobile', OtpContext::VerifyMobile, $pendingMobile);
+        }
+
+        return $this->respondToSend($record, 'mobile', OtpContext::VerifyMobile, $status);
+    }
+
+    public function sendEmailOtp(string $uuid, Request $request): JsonResponse
+    {
+        $record = $this->candidateService()->findByUuidOrFail($uuid);
+
+        $data = $request->validate([
+            'email' => 'nullable|email|max:255',
+        ]);
+
+        $pendingEmail = $data['email'] ?? null;
+
+        $status = $this->otpService->sendWithCooldown($record, 'email', OtpContext::VerifyEmail, $pendingEmail);
+
+        if ($pendingEmail !== null && $status === OtpSendStatus::Sent) {
+            $this->otpService->storePendingValue($record, 'email', OtpContext::VerifyEmail, $pendingEmail);
+        }
+
+        return $this->respondToSend($record, 'email', OtpContext::VerifyEmail, $status);
+    }
+
+    public function verifyMobileOtp(VerifyOtpCodeRequest $request, string $uuid): JsonResponse
+    {
+        return $this->verifyContactOtp($request, $uuid, 'mobile');
+    }
+
+    public function verifyEmailOtp(VerifyOtpCodeRequest $request, string $uuid): JsonResponse
+    {
+        return $this->verifyContactOtp($request, $uuid, 'email');
+    }
+
+    private function verifyContactOtp(VerifyOtpCodeRequest $request, string $uuid, string $channel): JsonResponse
+    {
+        $record = $this->candidateService()->findByUuidOrFail($uuid);
+
+        $context = $channel === 'mobile' ? OtpContext::VerifyMobile : OtpContext::VerifyEmail;
+
+        $status = $this->otpService->attemptVerification($record, $channel, $context, $request->validated('otp'));
+
+        if ($response = $this->respondToVerification($record, $channel, $context, $status)) {
+            return $response;
+        }
+
+        // The verified value may differ from the stored one (the user edited
+        // it on the send step) — only then is it written back.
+        $pending = $this->otpService->pullPendingValue($record, $channel, $context);
+
+        if ($pending !== null && $pending !== $record->{$channel}) {
+            $record->update([$channel => $pending]);
+        }
+
+        return $this->otpVerifiedResponse($record, $channel);
+    }
+
+    private function restoreDraftIfNeeded(?object $existing, bool $finalized): void
+    {
+        if ($existing !== null && ! $finalized && $existing->isSubmitted()) {
+            $existing->update(['status' => 'draft']);
+        }
+    }
+
+    private function applyPendingContactUpdates(?object $existing, PendingVerification $pending, bool $finalized): void
+    {
+        if ($existing === null || $finalized) {
+            return;
+        }
+
+        // For existing records only re-apply contact info so the user can
+        // re-access after changing email/mobile. Names are set at creation
+        // and edited inside the wizard, so they must not be overwritten here.
+        // Finalized records must not be silently mutated at all.
+        $updateData = Arr::only($pending->payload, ['email', 'mobile']);
+
+        if ($updateData === []) {
+            return;
+        }
+
+        // Reset verification if contact data changed.
+        if (isset($updateData['email']) && $updateData['email'] !== null && $updateData['email'] !== $existing->email) {
+            $updateData['email_verified_at'] = null;
+        }
+        if (isset($updateData['mobile']) && $updateData['mobile'] !== null && $updateData['mobile'] !== $existing->mobile) {
+            $updateData['mobile_verified_at'] = null;
+        }
+
+        $existing->update($updateData);
     }
 }

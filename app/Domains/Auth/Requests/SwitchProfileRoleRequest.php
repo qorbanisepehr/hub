@@ -2,11 +2,13 @@
 
 namespace App\Domains\Auth\Requests;
 
-use App\Domains\Authorization\Models\Role;
+use App\Domains\Authorization\Requests\Concerns\ValidatesActiveRoleSwitch;
 use Illuminate\Foundation\Http\FormRequest;
 
 class SwitchProfileRoleRequest extends FormRequest
 {
+    use ValidatesActiveRoleSwitch;
+
     public function authorize(): bool
     {
         return true;
@@ -15,34 +17,9 @@ class SwitchProfileRoleRequest extends FormRequest
     /** @return array<string, mixed> */
     public function rules(): array
     {
-        $userId = $this->user()->id;
-
+        // The profile switch is always about the signed-in user.
         return [
-            'role_id' => [
-                'required',
-                'exists:roles,id',
-                function ($attribute, $value, $fail) use ($userId) {
-                    $role = Role::find($value);
-
-                    if (! $role) {
-                        $fail('نقش یافت نشد.');
-
-                        return;
-                    }
-
-                    if (! $role->is_active) {
-                        $fail('این نقش غیرفعال است.');
-
-                        return;
-                    }
-
-                    $hasRole = $role->users()->where('user_id', $userId)->exists();
-
-                    if (! $hasRole) {
-                        $fail('شما این نقش را ندارید.');
-                    }
-                },
-            ],
+            'role_id' => $this->activeRoleRule($this->user()->id),
         ];
     }
 }

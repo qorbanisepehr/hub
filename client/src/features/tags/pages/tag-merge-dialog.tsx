@@ -4,15 +4,7 @@ import { IconCheck } from "@tabler/icons-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from "@/components/ui/dialog";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { ResponsiveDialog } from "@/components/ui/responsive-dialog";
 import { Spinner } from "@/components/ui/spinner";
 import type { AcceptTagMergeGroup, TagMergeProposalDto } from "../types";
 
@@ -84,78 +76,14 @@ export function TagMergeDialog({
     };
 
     return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-2xl">
-                <DialogHeader>
-                    <DialogTitle>ادغام برچسب‌های هم‌معنا</DialogTitle>
-                    <DialogDescription>
-                        برچسب‌هایی که به یک مفهوم اشاره می‌کنند در یک برچسب جمع
-                        می‌شوند؛ اتصال‌های بقیه به برچسب باقی‌مانده منتقل و
-                        خودشان حذف می‌شوند.
-                    </DialogDescription>
-                </DialogHeader>
-
-                {nothingToMerge ? (
-                    <p className="text-muted-foreground py-6 text-center text-sm">
-                        برچسب هم‌معنایی برای ادغام پیدا نشد.
-                    </p>
-                ) : (
-                    <ScrollArea className="max-h-[60vh] pe-3">
-                        <ul className="grid gap-3">
-                            {groups.map((group) => (
-                                <li
-                                    key={group.canonical.slug}
-                                    className="rounded-lg border p-3"
-                                >
-                                    <label className="flex items-start gap-3">
-                                        <Checkbox
-                                            className="mt-1"
-                                            checked={selected.has(group.canonical.slug)}
-                                            onCheckedChange={() =>
-                                                toggle(group.canonical.slug)
-                                            }
-                                        />
-                                        <div className="grid gap-2">
-                                            <div className="flex flex-wrap items-center gap-2">
-                                                <Badge>
-                                                    {group.canonical.name}
-                                                </Badge>
-                                                <span className="text-muted-foreground text-xs">
-                                                    {(
-                                                        group.canonical
-                                                            .usage_count ?? 0
-                                                    ).toLocaleString("fa-IR")}{" "}
-                                                    استفاده
-                                                </span>
-                                                <span className="text-muted-foreground">
-                                                    ←
-                                                </span>
-                                                {group.duplicates.map(
-                                                    (tag) => (
-                                                        <Badge
-                                                            key={tag.slug}
-                                                            variant="secondary"
-                                                            className="line-through"
-                                                        >
-                                                            {tag.name}
-                                                        </Badge>
-                                                    ),
-                                                )}
-                                            </div>
-                                            {group.reason !== "" && (
-                                                <p className="text-muted-foreground text-xs">
-                                                    {group.reason}
-                                                </p>
-                                            )}
-                                        </div>
-                                    </label>
-                                </li>
-                            ))}
-                        </ul>
-                    </ScrollArea>
-                )}
-
-                <DialogFooter>
+        <ResponsiveDialog
+            open={open}
+            onOpenChange={onOpenChange}
+            size="2xl"
+            title="ادغام برچسب‌های هم‌معنا"
+            description="برچسب‌هایی که به یک مفهوم اشاره می‌کنند در یک برچسب جمع می‌شوند؛ اتصال‌های بقیه به برچسب باقی‌مانده منتقل و خودشان حذف می‌شوند."
+            footer={
+                <>
                     <Button
                         type="button"
                         variant="outline"
@@ -178,8 +106,64 @@ export function TagMergeDialog({
                             ادغام {selected.size.toLocaleString("fa-IR")} گروه
                         </Button>
                     )}
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
+                </>
+            }
+        >
+            {nothingToMerge ? (
+                <p className="text-muted-foreground py-6 text-center text-sm">
+                    برچسب هم‌معنایی برای ادغام پیدا نشد.
+                </p>
+            ) : (
+                <ul className="grid gap-3">
+                    {groups.map((group) => (
+                        <li
+                            key={group.canonical.slug}
+                            className="rounded-lg border p-3"
+                        >
+                            <label className="flex items-start gap-3">
+                                <Checkbox
+                                    className="mt-1"
+                                    checked={selected.has(group.canonical.slug)}
+                                    onCheckedChange={() =>
+                                        toggle(group.canonical.slug)
+                                    }
+                                />
+                                <div className="grid gap-2">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <Badge>
+                                            {group.canonical.name}
+                                        </Badge>
+                                        <span className="text-muted-foreground text-xs">
+                                            {(
+                                                group.canonical
+                                                    .usage_count ?? 0
+                                            ).toLocaleString("fa-IR")}{" "}
+                                            استفاده
+                                        </span>
+                                        <span className="text-muted-foreground">
+                                            ←
+                                        </span>
+                                        {group.duplicates.map((tag) => (
+                                            <Badge
+                                                key={tag.slug}
+                                                variant="secondary"
+                                                className="line-through"
+                                            >
+                                                {tag.name}
+                                            </Badge>
+                                        ))}
+                                    </div>
+                                    {group.reason !== "" && (
+                                        <p className="text-muted-foreground text-xs">
+                                            {group.reason}
+                                        </p>
+                                    )}
+                                </div>
+                            </label>
+                        </li>
+                    ))}
+                </ul>
+            )}
+        </ResponsiveDialog>
     );
 }
