@@ -8,6 +8,7 @@ import {
 } from "@/components/documents";
 import { DocumentViewer } from "@/components/documents";
 import type { EntityDocument } from "@/hooks/use-entity-documents";
+import { formatMobile } from "@/lib/formatters";
 import {
     CV_DOC_CATEGORY_SLUGS,
     CV_STATUS_BADGE_VARIANTS,
@@ -68,7 +69,7 @@ export function CvResumeView({
                                     label="موبایل"
                                     value={
                                         <span dir="ltr" className="text-sm">
-                                            {cv.mobile}
+                                            {formatMobile(cv.mobile)}
                                         </span>
                                     }
                                 />

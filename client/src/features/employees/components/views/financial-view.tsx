@@ -5,7 +5,7 @@ import type { Employee } from "@/features/employees/types";
 import { useEmployeeDocuments } from "@/features/employees/hooks/use-employee-documents";
 import { DocumentFileItem } from "@/components/documents";
 import { DOC_CATEGORY_SLUGS } from "@/features/questionnaire/constants";
-import { formatCardNumber } from "@/lib/date-format";
+import { formatCardNumber, formatIban } from "@/lib/formatters";
 
 type BankAccountRow = {
     bank_name?: string;
@@ -65,7 +65,15 @@ export function FinancialView({
                                     : null,
                             ),
                     },
-                    { label: "شماره شبا", render: (i) => i.shaba_number },
+                    {
+                        label: "شماره شبا",
+                        render: (i) =>
+                            formatIban(
+                                typeof i.shaba_number === "string"
+                                    ? i.shaba_number
+                                    : null,
+                            ),
+                    },
                 ]}
             />
 
