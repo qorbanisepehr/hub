@@ -1,9 +1,22 @@
 import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { getRouteApi } from "@tanstack/react-router";
-import { IconInbox, IconRefresh } from "@tabler/icons-react";
+import {
+    IconBuildingBank,
+    IconInbox,
+    IconRefresh,
+    IconSend,
+    IconTag,
+} from "@tabler/icons-react";
 
-import { DataTablePage } from "@/components/data-table";
+import {
+    DataTablePage,
+    type RowAction,
+    RecordCard,
+    RecordCardGrid,
+    TABLE_AND_CARD_VIEWS,
+    useListView,
+} from "@/components/data-table";
 import { ListPageHeader } from "@/components/layout";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -17,6 +30,8 @@ import {
     STATUS_CONFIG,
     documentTypeLabel,
     sourceLabel,
+    statusIcon,
+    statusLabel,
 } from "../constants";
 import { unifiedInboxColumns } from "../columns";
 import { useUnifiedInbox } from "../hooks";
@@ -60,6 +75,8 @@ export function UnifiedInboxPage() {
     const queryClient = useQueryClient();
     const search = route.useSearch();
     const navigate = route.useNavigate();
+
+    const listView = useListView({ search, navigate });
 
     const url = useDataTableUrlState({
         search: search as unknown as Record<string, unknown>,
@@ -184,6 +201,72 @@ export function UnifiedInboxPage() {
             emptyMessage="اقلامی برای نمایش وجود ندارد"
             onRetry={refresh}
             colSpan={unifiedInboxColumns.length}
+            views={TABLE_AND_CARD_VIEWS}
+            view={listView.view}
+            onViewChange={listView.setView}
+            renderView={(mode) =>
+                mode === "card" ? (
+                    <RecordCardGrid>
+                        {(data?.data ?? []).map((item) => (
+                            <RecordCard
+                                key={item.external_reference}
+                                title={item.title}
+                                subtitle={
+                                    item.sender.display_name ||
+                                    item.sender.external_name ||
+                                    undefined
+                                }
+                                icon={statusIcon(item.status)}
+                                badges={[
+                                    {
+                                        label: statusLabel(item.status),
+                                        tone:
+                                            STATUS_CONFIG[item.status]
+                                                ?.variant ?? "secondary",
+                                    },
+                                    {
+                                        label: sourceLabel(item.source),
+                                        tone: "outline",
+                                    },
+                                ]}
+                                items={[
+                                    {
+                                        icon: IconTag,
+                                        label: documentTypeLabel(
+                                            item.document_type,
+                                        ),
+                                    },
+                                    {
+                                        icon: IconBuildingBank,
+                                        label: String(item.document_number),
+                                    },
+                                ]}
+                                actions={
+                                    item.external_url
+                                        ? ([
+                                              {
+                                                  icon: (
+                                                      <IconSend className="size-4" />
+                                                  ),
+                                                  label: "مشاهده در منبع",
+                                                  onClick: () => {
+                                                      if (item.external_url) {
+                                                          window.open(
+                                                              item.external_url,
+                                                              "_blank",
+                                                              "noopener,noreferrer",
+                                                          );
+                                                      }
+                                                  },
+                                              },
+                                          ] satisfies RowAction[])
+                                        : undefined
+                                }
+                            />
+                        ))}
+                    </RecordCardGrid>
+                ) : null
+            }
         />
     );
 }

@@ -10,18 +10,22 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Switch } from "@/components/ui/switch";
-import { PermissionGuard } from "@/features/auth/components/permission-guard";
+import { PermissionGuard, usePermission } from "@/features/auth/components/permission-guard";
 
-type ButtonAction = {
+export type ButtonAction = {
     type?: "button";
     icon: ReactNode;
     label: string;
     onClick?: () => void;
     href?: string;
+    disabled?: boolean;
+    /** `href` is not an app route (an API download URL, another site), so it
+     *  must not be handed to the router. */
+    external?: boolean;
     permission?: string;
 };
 
-type SwitchAction = {
+export type SwitchAction = {
     type: "switch";
     checked: boolean;
     onCheckedChange: (checked: boolean) => void;
@@ -29,7 +33,7 @@ type SwitchAction = {
     permission?: string;
 };
 
-type ConfirmDeleteAction = {
+export type ConfirmDeleteAction = {
     type: "confirm-delete";
     label?: string;
     message?: string;
@@ -38,16 +42,34 @@ type ConfirmDeleteAction = {
     permission?: string;
 };
 
-type RowAction = ButtonAction | SwitchAction | ConfirmDeleteAction;
+export type RowAction = ButtonAction | SwitchAction | ConfirmDeleteAction;
 
 type RowActionsProps = {
     actions: RowAction[];
+    /** "auto" is the table cell: inline icons on desktop, «...» on mobile.
+     *  "menu" is one «...» at every width — the card header's shape, where an
+     *  inline row of icons would compete with the record it labels. */
+    variant?: "auto" | "menu";
+    /** An ancestor is itself a link (a card), so menu clicks must not also
+     *  navigate to the record. */
+    stopPropagation?: boolean;
 };
 
 function ActionButton({ action }: { action: ButtonAction }) {
     const buttonProps = action.href
-        ? { render: <Link to={action.href} />, nativeButton: false as const }
-        : { onClick: action.onClick };
+        ? action.external
+            ? {
+                  render: (
+                      <a
+                          href={action.href}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                      />
+                  ),
+                  nativeButton: false as const,
+              }
+            : { render: <Link to={action.href} />, nativeButton: false as const }
+        : { onClick: action.onClick, disabled: action.disabled };
 
     return (
         <Button variant="ghost" size="icon-sm" aria-label={action.label} {...buttonProps}>
@@ -58,8 +80,18 @@ function ActionButton({ action }: { action: ButtonAction }) {
 
 function ActionMenuItem({ action }: { action: ButtonAction }) {
     const itemProps = action.href
-        ? { render: <Link to={action.href} /> }
-        : { onClick: action.onClick };
+        ? action.external
+            ? {
+                  render: (
+                      <a
+                          href={action.href}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                      />
+                  ),
+              }
+            : { render: <Link to={action.href} /> }
+        : { onClick: action.onClick, disabled: action.disabled };
 
     return (
         <DropdownMenuItem {...itemProps}>
@@ -161,12 +193,29 @@ function DesktopAction({ action }: { action: RowAction }) {
     return <ActionButton action={action} />;
 }
 
-function MobileActions({ actions }: { actions: RowAction[] }) {
+function ActionMenu({
+    actions,
+    className,
+    stopPropagation = false,
+}: {
+    actions: RowAction[];
+    className?: string;
+    stopPropagation?: boolean;
+}) {
     return (
-        <div className="md:hidden">
+        <div className={className}>
             <DropdownMenu>
                 <DropdownMenuTrigger
-                    render={<Button variant="ghost" size="icon-sm" />}
+                    render={<Button variant="ghost" size="icon-sm" aria-label="عملیات" />}
+                    onClick={
+                        stopPropagation
+                            ? (event) => {
+                                  // The click is the menu's, not the link's.
+                                  event.stopPropagation();
+                                  event.preventDefault();
+                              }
+                            : undefined
+                    }
                 >
                     <IconDotsVertical className="size-4" />
                 </DropdownMenuTrigger>
@@ -200,7 +249,7 @@ function MobileAction({ action }: { action: RowAction }) {
         return (
             <div className="flex items-center justify-between px-1.5 py-1">
                 <span className="text-sm">
-                    {action.checked ? "فعال" : "غیرفعال"}
+                    {action.checked ? "غیرفعال کردن" : "فعال کردن"}
                 </span>
                 <Switch
                     size="sm"
@@ -297,15 +346,34 @@ function DeleteConfirmMenuItem({
     );
 }
 
-export function RowActions({ actions }: RowActionsProps) {
-    if (actions.length === 0) {
+export function RowActions({
+    actions,
+    variant = "auto",
+    stopPropagation = false,
+}: RowActionsProps) {
+    // A menu whose every item is permission-hidden must not render at all,
+    // or the card offers a «...» that opens onto nothing. Ungated actions are
+    // always visible, so one of them is enough to keep the trigger.
+    const hasUngated = actions.some((action) => !action.permission);
+    const gated = actions
+        .map((action) => action.permission)
+        .filter((permission): permission is string => Boolean(permission));
+    const canAnyGated = usePermission(gated);
+
+    if (actions.length === 0 || (!hasUngated && !canAnyGated)) {
         return null;
+    }
+
+    if (variant === "menu") {
+        return (
+            <ActionMenu actions={actions} stopPropagation={stopPropagation} />
+        );
     }
 
     return (
         <div className="flex items-center gap-1">
             <DesktopActions actions={actions} />
-            <MobileActions actions={actions} />
+            <ActionMenu actions={actions} className="md:hidden" />
         </div>
     );
 }

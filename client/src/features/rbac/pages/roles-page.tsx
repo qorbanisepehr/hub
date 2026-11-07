@@ -1,15 +1,21 @@
 import { useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, getRouteApi } from "@tanstack/react-router";
-import { IconPlus, IconRefresh, IconUserCog } from "@tabler/icons-react";
+import { IconHash, IconPlus, IconRefresh, IconUserCog } from "@tabler/icons-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { deleteRole, fetchRoles, toggleRole } from "@/features/rbac/api";
-import { getRoleColumns } from "@/features/rbac/columns";
+import { RoleRowActions, getRoleColumns } from "@/features/rbac/columns";
 import { getApiError } from "@/lib/error-utils";
 import { PERMISSIONS } from "@/lib/permissions";
-import { DataTablePage } from "@/components/data-table";
+import {
+    DataTablePage,
+    RecordCard,
+    RecordCardGrid,
+    TABLE_AND_CARD_VIEWS,
+    useListView,
+} from "@/components/data-table";
 import { ListPageHeader } from "@/components/layout";
 import {
     useDataTable,
@@ -23,6 +29,8 @@ export function RolesPage() {
     const queryClient = useQueryClient();
     const search = route.useSearch();
     const navigate = route.useNavigate();
+
+    const listView = useListView({ search, navigate });
 
     const url = useDataTableUrlState({
         search: search as unknown as Record<string, unknown>,
@@ -188,6 +196,65 @@ export function RolesPage() {
                 })
             }
             colSpan={columns.length}
+            views={TABLE_AND_CARD_VIEWS}
+            view={listView.view}
+            onViewChange={listView.setView}
+            renderView={(mode) =>
+                mode === "card" ? (
+                    <RecordCardGrid>
+                        {tableData.map((role) => (
+                            <RecordCard
+                                key={role.id}
+                                title={role.display_name}
+                                subtitle={role.description ?? undefined}
+                                icon={IconUserCog}
+                                link={{
+                                    to: "/roles/$roleId",
+                                    params: { roleId: String(role.id) },
+                                }}
+                                badges={[
+                                    {
+                                        label: role.is_active
+                                            ? "فعال"
+                                            : "غیرفعال",
+                                        tone: role.is_active
+                                            ? "success"
+                                            : "secondary",
+                                    },
+                                    ...(role.parent
+                                        ? [
+                                              {
+                                                  label: role.parent
+                                                      .display_name,
+                                                  tone: "outline" as const,
+                                              },
+                                          ]
+                                        : []),
+                                ]}
+                                actionsMenu={
+                                    <RoleRowActions
+                                        role={role}
+                                        variant="menu"
+                                        actions={{
+                                            onToggle: (r) =>
+                                                toggleMutation.mutate(r.id),
+                                            onDelete: (r) =>
+                                                deleteMutation.mutate(r.id),
+                                            isToggling:
+                                                toggleMutation.isPending,
+                                            isDeleting:
+                                                deleteMutation.isPending,
+                                        }}
+                                    />
+                                }
+                                items={[
+                                    { icon: IconHash, label: role.name },
+                                ]}
+                            />
+                        ))}
+                    </RecordCardGrid>
+                ) : null
+            }
         />
     );
 }

@@ -3,7 +3,10 @@ import { useQueryClient } from "@tanstack/react-query";
 import { getRouteApi } from "@tanstack/react-router";
 import {
     IconBell,
+    IconCalendarEvent,
+    IconCheck,
     IconChecklist,
+    IconDownload,
     IconLoader2,
     IconRefresh,
     IconTrash,
@@ -11,13 +14,21 @@ import {
 
 import { toast } from "sonner";
 
-import { DataTablePage } from "@/components/data-table";
+import {
+    DataTablePage,
+    type RowAction,
+    RecordCard,
+    RecordCardGrid,
+    TABLE_AND_CARD_VIEWS,
+    useListView,
+} from "@/components/data-table";
 import { ListPageHeader } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { ResponsiveDialog } from "@/components/ui/responsive-dialog";
 import { downloadQueuedBundle } from "@/features/board-meetings/api";
 import { getNotificationColumns } from "@/features/notifications/columns";
 import { NOTIFICATION_STATUS_OPTIONS } from "@/features/notifications/constants";
+import { notificationBundleToken } from "@/features/notifications/notification-href";
 import {
     useDeleteReadNotifications,
     useMarkAllNotificationsRead,
@@ -25,6 +36,7 @@ import {
     useNotifications,
 } from "@/features/notifications/hooks";
 import { notificationHref } from "@/features/notifications/notification-href";
+import { toPersianDate } from "@/lib/date-format";
 import type { AppNotification } from "@/features/notifications/types";
 import { useDataTable, useDataTableUrlState } from "@/hooks/use-data-table-page";
 import {
@@ -40,6 +52,8 @@ export function NotificationsPage() {
     const queryClient = useQueryClient();
     const search = route.useSearch();
     const navigate = route.useNavigate();
+
+    const listView = useListView({ search, navigate });
 
     const url = useDataTableUrlState({
         search: search as unknown as Record<string, unknown>,
@@ -134,6 +148,40 @@ export function NotificationsPage() {
         url,
     });
 
+    // The card must offer what the row offers: open, mark read, and the
+    // bundle download when this notification carries one.
+    const cardActions = (notification: AppNotification): RowAction[] => {
+        const token = notificationBundleToken(notification);
+        const unread = notification.read_at === null;
+
+        return [
+            {
+                icon: <IconChecklist className="size-4" />,
+                label: "باز کردن",
+                onClick: () => openNotification(notification),
+            },
+            ...(unread
+                ? [
+                      {
+                          icon: <IconCheck className="size-4" />,
+                          label: "علامت‌گذاری به‌عنوان خوانده‌شده",
+                          onClick: () => markRead.mutate(notification.id),
+                      } satisfies RowAction,
+                  ]
+                : []),
+            ...(token !== null
+                ? [
+                      {
+                          icon: <IconDownload className="size-4" />,
+                          label: "دانلود بسته",
+                          onClick: () => void downloadBundle(token),
+                          disabled: downloadingToken === token,
+                      } satisfies RowAction,
+                  ]
+                : []),
+        ];
+    };
+
     useEffect(() => {
         if (!isLoading && meta) {
             ensurePageInRange(table.getPageCount());
@@ -200,6 +248,45 @@ export function NotificationsPage() {
                 })
             }
             colSpan={columns.length}
+            views={TABLE_AND_CARD_VIEWS}
+            view={listView.view}
+            onViewChange={listView.setView}
+            renderView={(mode) =>
+                mode === "card" ? (
+                    <RecordCardGrid>
+                        {tableData.map((notification) => {
+                            const unread = notification.read_at === null;
+                            return (
+                                <RecordCard
+                                    key={notification.id}
+                                    title={notification.title}
+                                    subtitle={notification.body ?? undefined}
+                                    icon={IconBell}
+                                    badges={[
+                                        {
+                                            label: unread
+                                                ? "خوانده‌نشده"
+                                                : "خوانده‌شده",
+                                            tone: unread
+                                                ? "warning"
+                                                : "outline",
+                                        },
+                                    ]}
+                                    items={[
+                                        {
+                                            icon: IconCalendarEvent,
+                                            label: toPersianDate(
+                                                notification.created_at,
+                                            ),
+                                        },
+                                    ]}
+                                    actions={cardActions(notification)}
+                                />
+                            );
+                        })}
+                    </RecordCardGrid>
+                ) : null
+            }
         />
 
         <ResponsiveDialog

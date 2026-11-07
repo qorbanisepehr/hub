@@ -5,12 +5,13 @@ import { LazyRoute, RouteLoadingFallback } from "@/components/layout/lazy-route"
 import { requirePermission } from "@/features/auth/guards";
 import { PERMISSIONS } from "@/lib/permissions";
 import { paginatedSearchSchema } from "@/lib/zod-primitives";
+import { listViewSchema } from "@/components/data-table";
 
 const TagsSection = lazy(() =>
     import("@/features/tags/pages/tags-section").then((m) => ({ default: m.TagsSection }))
 );
 
-const tagsSearchSchema = paginatedSearchSchema();
+const tagsSearchSchema = paginatedSearchSchema({ view: listViewSchema });
 
 export const Route = createRoute({
     getParentRoute: () => SettingsRoute,

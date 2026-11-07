@@ -6,6 +6,7 @@ import { LazyRoute, RouteLoadingFallback } from "@/components/layout/lazy-route"
 import { requirePermission } from "@/features/auth/guards";
 import { PERMISSIONS } from "@/lib/permissions";
 import { paginatedSearchSchema } from "@/lib/zod-primitives";
+import { listViewSchema } from "@/components/data-table";
 
 const UsersPage = lazy(() =>
     import("@/features/rbac/pages/users-page").then((m) => ({ default: m.UsersPage }))
@@ -14,6 +15,7 @@ const UsersPage = lazy(() =>
 const usersSearchSchema = paginatedSearchSchema({
     role: z.string().optional(),
     is_active: z.boolean().optional(),
+    view: listViewSchema,
 });
 
 export const Route = createRoute({

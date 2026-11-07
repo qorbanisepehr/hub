@@ -14,6 +14,7 @@ export { ImageUpload } from './image-upload';
 export { QrCode } from './qr-code';
 export { RepeaterEmptyState } from './repeater-empty-state';
 export { RowActions } from './row-actions';
+export type { RowAction } from './row-actions';
 export { SearchSelectModal } from './search-select-modal';
 export { SectionRepeaterTable } from './section-repeater-table';
 export { SectionRow } from './section-row';

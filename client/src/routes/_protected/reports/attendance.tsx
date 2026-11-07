@@ -6,6 +6,7 @@ import { LazyRoute, RouteLoadingFallback } from "@/components/layout/lazy-route"
 import { requirePermission } from "@/features/auth/guards";
 import { PERMISSIONS } from "@/lib/permissions";
 import { paginatedSearchSchema } from "@/lib/zod-primitives";
+import { listViewSchema } from "@/components/data-table";
 
 const AttendanceReportPage = lazy(() =>
     import("@/features/reporting/pages/attendance-report-page").then((m) => ({
@@ -16,6 +17,7 @@ const AttendanceReportPage = lazy(() =>
 const attendanceSearchSchema = paginatedSearchSchema({
     date_from: z.string().optional(),
     date_to: z.string().optional(),
+    view: listViewSchema,
 });
 
 export const Route = createRoute({

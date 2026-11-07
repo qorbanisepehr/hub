@@ -1,17 +1,37 @@
 import { useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getRouteApi } from "@tanstack/react-router";
-import { IconFileCv, IconRefresh } from "@tabler/icons-react";
+import {
+    IconCalendarEvent,
+    IconDownload,
+    IconEye,
+    IconFileCv,
+    IconVersions,
+    IconPhone,
+    IconRefresh,
+} from "@tabler/icons-react";
 
-import { DataTablePage } from "@/components/data-table";
+import {
+    DataTablePage,
+    RecordCard,
+    RecordCardGrid,
+    TABLE_AND_CARD_VIEWS,
+    useListView,
+} from "@/components/data-table";
 import { ListPageHeader } from "@/components/layout";
 import { fetchCvBank } from "@/features/cv/api";
 import { cvBankColumns } from "@/features/cv/columns";
-import { CV_STATUS_OPTIONS, YES_NO_OPTIONS } from "@/features/cv/constants";
+import {
+    CV_STATUS_BADGE_VARIANTS,
+    CV_STATUS_LABELS,
+    CV_STATUS_OPTIONS,
+    YES_NO_OPTIONS,
+} from "@/features/cv/constants";
 import {
     useDataTable,
     useDataTableUrlState,
 } from "@/hooks/use-data-table-page";
+import { toPersianDate } from "@/lib/date-format";
 import { cvKeys } from "@/lib/query-keys";
 
 const route = getRouteApi("/protected/cvs");
@@ -20,6 +40,8 @@ export function CvsBankPage() {
     const queryClient = useQueryClient();
     const search = route.useSearch();
     const navigate = route.useNavigate();
+
+    const listView = useListView({ search, navigate });
 
     const url = useDataTableUrlState({
         search: search as unknown as Record<string, unknown>,
@@ -202,6 +224,66 @@ export function CvsBankPage() {
                 queryClient.invalidateQueries({ queryKey: cvKeys.all })
             }
             colSpan={cvBankColumns.length}
+            views={TABLE_AND_CARD_VIEWS}
+            view={listView.view}
+            onViewChange={listView.setView}
+            renderView={(mode) =>
+                mode === "card" ? (
+                    <RecordCardGrid>
+                        {tableData.map((cv) => (
+                            <RecordCard
+                                key={cv.id}
+                                title={`${cv.first_name} ${cv.last_name}`}
+                                subtitle={cv.email ?? undefined}
+                                icon={IconFileCv}
+                                link={{
+                                    to: "/cvs/$id",
+                                    params: { id: String(cv.id) },
+                                }}
+                                badges={[
+                                    {
+                                        label:
+                                            CV_STATUS_LABELS[cv.status] ??
+                                            cv.status,
+                                        tone: CV_STATUS_BADGE_VARIANTS[cv.status],
+                                    },
+                                ]}
+                                actions={[
+                                    {
+                                        icon: <IconEye className="size-4" />,
+                                        label: "مشاهده",
+                                        href: `/cvs/${cv.id}`,
+                                    },
+                                    ...(cv.resume_document?.download_url
+                                        ? [
+                                              {
+                                                  icon: (
+                                                      <IconDownload className="size-4" />
+                                                  ),
+                                                  label: "دانلود رزومه",
+                                                  href: cv.resume_document
+                                                      .download_url,
+                                                  external: true,
+                                              },
+                                          ]
+                                        : []),
+                                ]}
+                                items={[
+                                    { icon: IconPhone, label: cv.mobile },
+                                    {
+                                        icon: IconVersions,
+                                        label: `نسخه ${cv.version.toLocaleString("fa-IR")}`,
+                                    },
+                                    {
+                                        icon: IconCalendarEvent,
+                                        label: toPersianDate(cv.created_at),
+                                    },
+                                ]}
+                            />
+                        ))}
+                    </RecordCardGrid>
+                ) : null
+            }
         />
     );
 }

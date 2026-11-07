@@ -8,6 +8,7 @@ import {
 import { requirePermission } from "@/features/auth/guards";
 import { PERMISSIONS } from "@/lib/permissions";
 import { paginatedSearchSchema } from "@/lib/zod-primitives";
+import { listViewSchema } from "@/components/data-table";
 import { z } from "zod";
 
 const AiSettingsSection = lazy(() =>
@@ -20,6 +21,8 @@ const aiSearchSchema = paginatedSearchSchema({
     ai_sort: z.string().optional(),
     ai_order: z.enum(["asc", "desc"]).optional(),
     ai_filter: z.string().optional(),
+    view: listViewSchema,
+    ai_view: listViewSchema,
 });
 
 export const Route = createRoute({

@@ -4,6 +4,7 @@ import { z } from "zod";
 import { Route as ProtectedRoute } from "@/routes/_protected";
 import { LazyRoute, RouteLoadingFallback } from "@/components/layout/lazy-route";
 import { paginatedSearchSchema } from "@/lib/zod-primitives";
+import { listViewSchema } from "@/components/data-table";
 
 const NotificationsPage = lazy(() =>
     import("@/features/notifications/pages/notifications-page").then((m) => ({ default: m.NotificationsPage })),
@@ -13,6 +14,7 @@ const NotificationsPage = lazy(() =>
 // notifications — no permission guard, mirroring the backend routes.
 const notificationsSearchSchema = paginatedSearchSchema({
     unread: z.string().optional(),
+    view: listViewSchema,
 });
 
 export const Route = createRoute({

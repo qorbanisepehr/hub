@@ -1,9 +1,22 @@
 import { useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getRouteApi } from "@tanstack/react-router";
-import { IconClipboardText, IconRefresh } from "@tabler/icons-react";
+import {
+    IconCalendarEvent,
+    IconClipboardText,
+    IconEye,
+    IconVersions,
+    IconPhone,
+    IconRefresh,
+} from "@tabler/icons-react";
 
-import { DataTablePage } from "@/components/data-table";
+import {
+    DataTablePage,
+    RecordCard,
+    RecordCardGrid,
+    TABLE_AND_CARD_VIEWS,
+    useListView,
+} from "@/components/data-table";
 import { ListPageHeader } from "@/components/layout";
 import { questionnaireBankColumns } from "@/features/questionnaire/columns";
 import { fetchQuestionnaires } from "@/features/questionnaire/api";
@@ -11,6 +24,8 @@ import {
     EMPLOYMENT_TYPE_OPTIONS,
     GENDER_OPTIONS,
     MARITAL_STATUS_OPTIONS,
+    QUESTIONNAIRE_STATUS_BADGE_VARIANTS,
+    QUESTIONNAIRE_STATUS_LABELS,
     QUESTIONNAIRE_STATUS_OPTIONS,
     YES_NO_OPTIONS,
 } from "@/features/questionnaire/constants";
@@ -18,6 +33,7 @@ import {
     useDataTable,
     useDataTableUrlState,
 } from "@/hooks/use-data-table-page";
+import { toPersianDate } from "@/lib/date-format";
 import { questionnaireKeys } from "@/lib/query-keys";
 
 const route = getRouteApi("/protected/questionnaires");
@@ -26,6 +42,8 @@ export function QuestionnairesBankPage() {
     const queryClient = useQueryClient();
     const search = route.useSearch();
     const navigate = route.useNavigate();
+
+    const listView = useListView({ search, navigate });
 
     const url = useDataTableUrlState({
         search: search as unknown as Record<string, unknown>,
@@ -275,6 +293,63 @@ export function QuestionnairesBankPage() {
                 })
             }
             colSpan={questionnaireBankColumns.length}
+            views={TABLE_AND_CARD_VIEWS}
+            view={listView.view}
+            onViewChange={listView.setView}
+            renderView={(mode) =>
+                mode === "card" ? (
+                    <RecordCardGrid>
+                        {tableData.map((questionnaire) => (
+                            <RecordCard
+                                key={questionnaire.id}
+                                title={`${questionnaire.first_name} ${questionnaire.last_name}`}
+                                subtitle={questionnaire.email || undefined}
+                                icon={IconClipboardText}
+                                link={{
+                                    to: "/questionnaires/$id",
+                                    params: {
+                                        id: String(questionnaire.id),
+                                    },
+                                }}
+                                badges={[
+                                    {
+                                        label:
+                                            QUESTIONNAIRE_STATUS_LABELS[
+                                                questionnaire.status
+                                            ] ?? questionnaire.status,
+                                        tone: QUESTIONNAIRE_STATUS_BADGE_VARIANTS[
+                                            questionnaire.status
+                                        ],
+                                    },
+                                ]}
+                                actions={[
+                                    {
+                                        icon: <IconEye className="size-4" />,
+                                        label: "مشاهده",
+                                        href: `/questionnaires/${questionnaire.id}`,
+                                    },
+                                ]}
+                                items={[
+                                    {
+                                        icon: IconPhone,
+                                        label: questionnaire.mobile,
+                                    },
+                                    {
+                                        icon: IconVersions,
+                                        label: `نسخه ${questionnaire.version.toLocaleString("fa-IR")}`,
+                                    },
+                                    {
+                                        icon: IconCalendarEvent,
+                                        label: toPersianDate(
+                                            questionnaire.created_at,
+                                        ),
+                                    },
+                                ]}
+                            />
+                        ))}
+                    </RecordCardGrid>
+                ) : null
+            }
         />
     );
 }

@@ -8,6 +8,7 @@ import type {
 } from "@tanstack/react-table";
 import {
     IconGitMerge,
+    IconHash,
     IconPencil,
     IconPlus,
     IconRefresh,
@@ -15,7 +16,14 @@ import {
 } from "@tabler/icons-react";
 import { toast } from "sonner";
 
-import { DataTablePage, dataTableSelectColumn } from "@/components/data-table";
+import {
+    DataTablePage,
+    RecordCard,
+    RecordCardGrid,
+    TABLE_AND_CARD_VIEWS,
+    dataTableSelectColumn,
+    useListView,
+} from "@/components/data-table";
 import { Button } from "@/components/ui/button";
 import {
     Card,
@@ -24,8 +32,8 @@ import {
     CardHeader,
     CardTitle,
 } from "@/components/ui/card";
-import { ConfirmDeleteButton } from "@/components/ui/confirm-delete-button";
 import { Spinner } from "@/components/ui/spinner";
+import { ConfirmDeleteButton } from "@/components/ui/confirm-delete-button";
 import { ResponsiveDialog } from "@/components/ui/responsive-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -67,6 +75,8 @@ export function TagsSection() {
 
     const search = tagsRoute.useSearch();
     const navigate = tagsRoute.useNavigate();
+
+    const listView = useListView({ search, navigate });
 
     const url = useDataTableUrlState({
         search: search as unknown as Record<string, unknown>,
@@ -352,6 +362,54 @@ export function TagsSection() {
                     ]}
                     onRetry={() => refetch()}
                     colSpan={columns.length}
+                    views={TABLE_AND_CARD_VIEWS}
+                    view={listView.view}
+                    onViewChange={listView.setView}
+                    renderView={(mode) =>
+                        mode === "card" ? (
+                            <RecordCardGrid>
+                                {(data?.data ?? []).map((tag) => (
+                                    <RecordCard
+                                        key={tag.id}
+                                        title={tag.name}
+                                        subtitle={
+                                            <span dir="ltr">{tag.slug}</span>
+                                        }
+                                        icon={IconTag}
+                                        items={[
+                                            {
+                                                icon: IconHash,
+                                                label: `${(
+                                                    tag.usage_count ?? 0
+                                                ).toLocaleString("fa-IR")} استفاده`,
+                                            },
+                                        ]}
+                                        actions={[
+                                            {
+                                                icon: (
+                                                    <IconPencil className="size-4" />
+                                                ),
+                                                label: "ویرایش",
+                                                onClick: () => openEdit(tag),
+                                                permission:
+                                                    PERMISSIONS.TAG_MANAGE,
+                                            },
+                                            {
+                                                type: "confirm-delete",
+                                                label: "حذف",
+                                                message: `آیا از حذف برچسب «${tag.name}» اطمینان دارید؟`,
+                                                onConfirm: () =>
+                                                    remove.mutate(tag.id),
+                                                isPending: remove.isPending,
+                                                permission:
+                                                    PERMISSIONS.TAG_MANAGE,
+                                            },
+                                        ]}
+                                    />
+                                ))}
+                            </RecordCardGrid>
+                        ) : null
+                    }
                     emptyMessage="هنوز برچسبی ثبت نشده است"
                     bulkActions={
                         canManage

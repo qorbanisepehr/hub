@@ -8,7 +8,14 @@ import {
 } from "@tabler/icons-react";
 
 import { ActiveBadge } from "@/components/shared/active-badge";
-import { DataTablePage } from "@/components/data-table";
+import {
+    DataTablePage,
+    RecordCard,
+    RecordCardGrid,
+    TABLE_AND_CARD_VIEWS,
+    useListView,
+} from "@/components/data-table";
+import { IconHash, IconListNumbers } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import {
     Card,
@@ -62,6 +69,8 @@ export function FormOptionsSection() {
     const [dialogOpen, setDialogOpen] = useState(false);
     const [editing, setEditing] = useState<FormOption | null>(null);
     const [form, setForm] = useState<OptionFormState>(emptyForm(0));
+
+    const listView = useListView({ search, navigate });
 
     const url = useDataTableUrlState({
         search: search as unknown as Record<string, unknown>,
@@ -350,6 +359,72 @@ export function FormOptionsSection() {
                     onRetry={() => refetch()}
                     colSpan={columns.length}
                     emptyMessage="هنوز گزینه‌ای در این گروه ثبت نشده است"
+                    views={TABLE_AND_CARD_VIEWS}
+                    view={listView.view}
+                    onViewChange={listView.setView}
+                    renderView={(mode) =>
+                        mode === "card" ? (
+                            <RecordCardGrid>
+                                {rows.map((option) => (
+                                    <RecordCard
+                                        key={option.id}
+                                        title={option.label}
+                                        subtitle={
+                                            <span dir="ltr">
+                                                {option.value}
+                                            </span>
+                                        }
+                                        icon={IconListDetails}
+                                        badges={[
+                                            {
+                                                label: option.is_active
+                                                    ? "فعال"
+                                                    : "غیرفعال",
+                                                tone: option.is_active
+                                                    ? "success"
+                                                    : "secondary",
+                                            },
+                                        ]}
+                                        items={[
+                                            {
+                                                icon: IconHash,
+                                                label: option.group,
+                                            },
+                                            {
+                                                icon: IconListNumbers,
+                                                label: `ترتیب ${option.sort_order.toLocaleString("fa-IR")}`,
+                                            },
+                                        ]}
+                                        actions={[
+                                            {
+                                                icon: (
+                                                    <IconPencil className="size-4" />
+                                                ),
+                                                label: "ویرایش",
+                                                onClick: () =>
+                                                    openEdit(option),
+                                                permission:
+                                                    PERMISSIONS.FORM_OPTIONS_MANAGE,
+                                            },
+                                            {
+                                                type: "confirm-delete",
+                                                label: "حذف گزینه",
+                                                message: `آیا از حذف گزینه «${option.label}» اطمینان دارید؟`,
+                                                onConfirm: () =>
+                                                    admin.remove.mutate(
+                                                        option.id,
+                                                    ),
+                                                isPending:
+                                                    admin.remove.isPending,
+                                                permission:
+                                                    PERMISSIONS.FORM_OPTIONS_MANAGE,
+                                            },
+                                        ]}
+                                    />
+                                ))}
+                            </RecordCardGrid>
+                        ) : null
+                    }
                 />
             </CardContent>
 

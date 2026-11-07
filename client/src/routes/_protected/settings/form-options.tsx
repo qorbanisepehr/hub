@@ -6,6 +6,7 @@ import { LazyRoute, RouteLoadingFallback } from "@/components/layout/lazy-route"
 import { requirePermission } from "@/features/auth/guards";
 import { PERMISSIONS } from "@/lib/permissions";
 import { paginatedSearchSchema } from "@/lib/zod-primitives";
+import { listViewSchema } from "@/components/data-table";
 
 const FormOptionsSection = lazy(() =>
     import("@/features/settings/pages/form-options-section").then((m) => ({ default: m.FormOptionsSection }))
@@ -13,6 +14,7 @@ const FormOptionsSection = lazy(() =>
 
 const formOptionsSearchSchema = paginatedSearchSchema({
     group: z.string().optional(),
+    view: listViewSchema,
 });
 
 export const Route = createRoute({

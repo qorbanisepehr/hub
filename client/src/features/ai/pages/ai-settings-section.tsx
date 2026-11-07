@@ -2,9 +2,11 @@ import { useState } from "react";
 import type { ColumnDef, Row, StockFeatures } from "@tanstack/react-table";
 import {
     IconBrain,
-    IconCheck,
+    IconCpu,
+    IconKey,
     IconLink,
     IconPencil,
+    IconPlugConnected,
     IconPlus,
     IconRefresh,
     IconRobot,
@@ -12,7 +14,13 @@ import {
 } from "@tabler/icons-react";
 import { toast } from "sonner";
 
-import { DataTablePage } from "@/components/data-table";
+import {
+    DataTablePage,
+    RecordCard,
+    RecordCardGrid,
+    TABLE_AND_CARD_VIEWS,
+    useListView,
+} from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,7 +30,7 @@ import {
     CardHeader,
     CardTitle,
 } from "@/components/ui/card";
-import { ConfirmDeleteButton } from "@/components/ui/confirm-delete-button";
+import { RowActions, type RowAction } from "@/components/shared/row-actions";
 import {
     useDataTable,
     useDataTableUrlState,
@@ -75,6 +83,9 @@ export function AiSettingsSection() {
             globalFilter: { enabled: true, key: "filter" },
         },
     });
+
+    const providersView = useListView({ search, navigate, key: "view" });
+    const agentsView = useListView({ search, navigate, key: "ai_view" });
 
     const agentsUrl = useDataTableUrlState({
         search: search as unknown as Record<string, unknown>,
@@ -147,6 +158,54 @@ export function AiSettingsSection() {
                 onError: (error) => toast.error(getApiError(error)),
             },
         );
+    };
+
+    // One declaration per row's commands: the table cell and the card menu
+    // are the same menu, so a command cannot exist in one and not the other.
+    const providerRowActions = (provider: AiProviderDto): RowAction[] => {
+        const testing =
+            test.isPending && test.variables?.name === provider.name;
+
+        return [
+            {
+                icon: <IconLink className="size-4" />,
+                label: "تست اتصال",
+                onClick: () => handleTest(provider),
+                disabled: test.isPending,
+                permission: PERMISSIONS.AI_PROVIDER_MANAGE,
+            },
+            {
+                icon: <IconBrain className="size-4" />,
+                label: "مدیریت مدل‌ها",
+                onClick: () => setModelsProvider(provider),
+                permission: PERMISSIONS.AI_PROVIDER_MANAGE,
+            },
+            {
+                icon: <IconPencil className="size-4" />,
+                label: "ویرایش",
+                onClick: () => openEditProvider(provider),
+                permission: PERMISSIONS.AI_PROVIDER_MANAGE,
+            },
+            ...(provider.is_default
+                ? []
+                : [
+                      {
+                          icon: <IconStar className="size-4" />,
+                          label: "پیش‌فرض کردن",
+                          onClick: () => makeDefault.mutate(provider.name),
+                          disabled: makeDefault.isPending,
+                          permission: PERMISSIONS.AI_PROVIDER_MANAGE,
+                      } satisfies RowAction,
+                  ]),
+            {
+                type: "confirm-delete",
+                label: "حذف ارائه‌دهنده",
+                message: `آیا از حذف ارائه‌دهنده «${provider.name}» اطمینان دارید؟`,
+                onConfirm: () => removeProvider.mutate(provider.name),
+                isPending: removeProvider.isPending || testing,
+                permission: PERMISSIONS.AI_PROVIDER_MANAGE,
+            },
+        ];
     };
 
     const providerColumns: ColumnDef<StockFeatures, AiProviderDto>[] = [
@@ -229,64 +288,9 @@ export function AiSettingsSection() {
                       }: {
                           row: Row<StockFeatures, AiProviderDto>;
                       }) => (
-                          <div className="flex items-center gap-1">
-                              <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="icon-sm"
-                                  title="تست اتصال"
-                                  onClick={() => handleTest(row.original)}
-                                  disabled={test.isPending}
-                              >
-                                  {test.isPending &&
-                                  test.variables?.name === row.original.name ? (
-                                      <IconCheck className="size-4 animate-pulse" />
-                                  ) : (
-                                      <IconLink className="size-4" />
-                                  )}
-                              </Button>
-                              <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="icon-sm"
-                                  title="مدل‌ها"
-                                  onClick={() =>
-                                      setModelsProvider(row.original)
-                                  }
-                              >
-                                  <IconBrain className="size-4" />
-                              </Button>
-                              <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="icon-sm"
-                                  title="ویرایش"
-                                  onClick={() => openEditProvider(row.original)}
-                              >
-                                  <IconPencil className="size-4" />
-                              </Button>
-                              {!row.original.is_default && (
-                                  <Button
-                                      type="button"
-                                      variant="ghost"
-                                      size="icon-sm"
-                                      title="پیش‌فرض کردن"
-                                      onClick={() =>
-                                          makeDefault.mutate(row.original.name)
-                                      }
-                                      disabled={makeDefault.isPending}
-                                  >
-                                      <IconStar className="size-4" />
-                                  </Button>
-                              )}
-                              <ConfirmDeleteButton
-                                  iconOnly
-                                  onConfirm={() =>
-                                      removeProvider.mutate(row.original.name)
-                                  }
-                                  isPending={removeProvider.isPending}
-                              />
-                          </div>
+                          <RowActions
+                              actions={providerRowActions(row.original)}
+                          />
                       ),
                   } satisfies ColumnDef<StockFeatures, AiProviderDto>,
               ]
@@ -346,15 +350,18 @@ export function AiSettingsSection() {
                       }: {
                           row: Row<StockFeatures, AiAgentDto>;
                       }) => (
-                          <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon-sm"
-                              title="تغییر اتصال"
-                              onClick={() => setBindingAgent(row.original)}
-                          >
-                              <IconPencil className="size-4" />
-                          </Button>
+                          <RowActions
+                              actions={[
+                                  {
+                                      icon: (
+                                          <IconPlugConnected className="size-4" />
+                                      ),
+                                      label: "تغییر اتصال",
+                                      onClick: () =>
+                                          setBindingAgent(row.original),
+                                  },
+                              ]}
+                          />
                       ),
                   } satisfies ColumnDef<StockFeatures, AiAgentDto>,
               ]
@@ -422,6 +429,67 @@ export function AiSettingsSection() {
                         onRetry={() => refetchProviders()}
                         colSpan={providerColumns.length}
                         emptyMessage="هنوز ارائه‌دهنده‌ای ثبت نشده است"
+                        views={TABLE_AND_CARD_VIEWS}
+                        view={providersView.view}
+                        onViewChange={providersView.setView}
+                        renderView={(mode) =>
+                            mode === "card" ? (
+                                <RecordCardGrid>
+                                    {(providersData?.data ?? []).map(
+                                        (provider) => (
+                                            <RecordCard
+                                                key={provider.name}
+                                                title={provider.name}
+                                                subtitle={
+                                                    provider.base_url ??
+                                                    undefined
+                                                }
+                                                icon={IconBrain}
+                                                badges={[
+                                                    {
+                                                        label: provider
+                                                            .is_active
+                                                            ? "فعال"
+                                                            : "غیرفعال",
+                                                        tone: provider.is_active
+                                                            ? "success"
+                                                            : "secondary",
+                                                    },
+                                                    ...(provider.is_default
+                                                        ? [
+                                                              {
+                                                                  label: "پیش‌فرض",
+                                                                  tone: "default" as const,
+                                                              },
+                                                          ]
+                                                        : []),
+                                                ]}
+                                                items={[
+                                                    {
+                                                        icon: IconCpu,
+                                                        label: `${
+                                                            provider.models
+                                                                .length
+                                                        } مدل`,
+                                                    },
+                                                    ...(provider.has_api_key
+                                                        ? [
+                                                              {
+                                                                  icon: IconKey,
+                                                                  label: "کلید تنظیم شده",
+                                                              },
+                                                          ]
+                                                        : []),
+                                                ]}
+                                                actions={providerRowActions(
+                                                    provider,
+                                                )}
+                                            />
+                                        ),
+                                    )}
+                                </RecordCardGrid>
+                            ) : null
+                        }
                     />
                 </CardContent>
             </Card>
@@ -462,6 +530,68 @@ export function AiSettingsSection() {
                         onRetry={() => refetchAgents()}
                         colSpan={agentColumns.length}
                         emptyMessage="هنوز عاملی ثبت نشده است"
+                        views={TABLE_AND_CARD_VIEWS}
+                        view={agentsView.view}
+                        onViewChange={agentsView.setView}
+                        renderView={(mode) =>
+                            mode === "card" ? (
+                                <RecordCardGrid>
+                                    {(agentsData?.data ?? []).map((agent) => (
+                                        <RecordCard
+                                            key={agent.key}
+                                            title={agent.label ?? agent.key}
+                                            subtitle={agent.agent_class}
+                                            icon={IconRobot}
+                                            badges={[
+                                                {
+                                                    label: agent.is_bound
+                                                        ? "متصل"
+                                                        : "ارث‌بری",
+                                                    tone: agent.is_bound
+                                                        ? "info"
+                                                        : "outline",
+                                                },
+                                            ]}
+                                            items={[
+                                                ...(agent.provider
+                                                    ? [
+                                                          {
+                                                              icon: IconBrain,
+                                                              label: agent
+                                                                  .provider,
+                                                          },
+                                                      ]
+                                                    : []),
+                                                ...(agent.model
+                                                    ? [
+                                                          {
+                                                              icon: IconCpu,
+                                                              label: agent.model,
+                                                          },
+                                                      ]
+                                                    : []),
+                                            ]}
+                                            actions={
+                                                canManage
+                                                    ? [
+                                                          {
+                                                              icon: (
+                                                                  <IconPlugConnected className="size-4" />
+                                                              ),
+                                                              label: "تغییر اتصال",
+                                                              onClick: () =>
+                                                                  setBindingAgent(
+                                                                      agent,
+                                                                  ),
+                                                          },
+                                                      ]
+                                                    : undefined
+                                            }
+                                        />
+                                    ))}
+                                </RecordCardGrid>
+                            ) : null
+                        }
                     />
                 </CardContent>
             </Card>

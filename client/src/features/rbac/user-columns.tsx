@@ -102,20 +102,30 @@ export function getUserColumns(): ColumnDef<StockFeatures, UserListItem>[] {
         {
             id: "actions",
             header: "عملیات",
-            cell: ({ row }) => <UserRowActions user={row.original} />,
+            cell: ({ row }) => (
+                <UserRowActionsCell user={row.original} />
+            ),
             enableSorting: false,
             enableHiding: false,
         },
     ];
 }
 
-function UserRowActions({ user }: { user: UserListItem }) {
-    const [rolesOpen, setRolesOpen] = useState(false);
-
+/** The commands for one user row, shared by the table cell and the card. */
+export function UserRowActions({
+    user,
+    onManageRoles,
+    variant = "auto",
+}: {
+    user: UserListItem;
+    onManageRoles: () => void;
+    variant?: "auto" | "menu";
+}) {
     return (
-        <>
-            <RowActions
-                actions={[
+        <RowActions
+            variant={variant}
+            stopPropagation={variant === "menu"}
+            actions={[
                     {
                         icon: <IconUser className="size-4" />,
                         label: "مشاهده",
@@ -127,13 +137,35 @@ function UserRowActions({ user }: { user: UserListItem }) {
                         href: `/users/${user.id}/edit`,
                         permission: PERMISSIONS.USER_UPDATE,
                     },
-                    {
-                        icon: <IconMasksTheater className="size-4" />,
-                        label: "مدیریت نقش‌ها",
-                        onClick: () => setRolesOpen(true),
-                        permission: PERMISSIONS.USER_ASSIGN_ROLES,
-                    },
-                ]}
+                {
+                    icon: <IconMasksTheater className="size-4" />,
+                    label: "مدیریت نقش‌ها",
+                    onClick: onManageRoles,
+                    permission: PERMISSIONS.USER_ASSIGN_ROLES,
+                },
+            ]}
+        />
+    );
+}
+
+/** The commands for one user, table cell or card menu, plus the dialog the
+ *  «مدیریت نقش‌ها» command needs. The card is itself a link, so the menu
+ *  must not also open the record. */
+export function UserRowActionsCell({
+    user,
+    variant = "auto",
+}: {
+    user: UserListItem;
+    variant?: "auto" | "menu";
+}) {
+    const [rolesOpen, setRolesOpen] = useState(false);
+
+    return (
+        <>
+            <UserRowActions
+                user={user}
+                onManageRoles={() => setRolesOpen(true)}
+                variant={variant}
             />
             <ResponsiveDialog
                 open={rolesOpen}

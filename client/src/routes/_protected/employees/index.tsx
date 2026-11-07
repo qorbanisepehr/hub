@@ -6,6 +6,7 @@ import { LazyRoute, RouteLoadingFallback } from "@/components/layout/lazy-route"
 import { requirePermission } from "@/features/auth/guards";
 import { PERMISSIONS } from "@/lib/permissions";
 import { paginatedSearchSchema } from "@/lib/zod-primitives";
+import { listViewSchema } from "@/components/data-table";
 
 const EmployeesPage = lazy(() =>
     import("@/features/employees/pages/employees-page").then((m) => ({ default: m.EmployeesPage }))
@@ -18,6 +19,7 @@ const employeesSearchSchema = paginatedSearchSchema({
     gender: z.string().optional(),
     hire_date_from: z.string().optional(),
     hire_date_to: z.string().optional(),
+    view: listViewSchema,
 });
 
 export const Route = createRoute({

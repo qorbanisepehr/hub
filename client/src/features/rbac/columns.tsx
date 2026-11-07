@@ -11,12 +11,53 @@ import { ActiveBadge } from "@/components/shared/active-badge";
 import { PERMISSIONS } from "@/lib/permissions";
 import type { Role } from "@/features/rbac/types";
 
-type RoleActions = {
+export type RoleActions = {
     onToggle: (role: Role) => void;
     onDelete: (role: Role) => void;
     isToggling?: boolean;
     isDeleting?: boolean;
 };
+
+/** One role's commands, shared by the table's action cell and the card. */
+export function RoleRowActions({
+    role,
+    actions,
+    variant = "auto",
+}: {
+    role: Role;
+    actions: RoleActions;
+    variant?: "auto" | "menu";
+}) {
+    return (
+        <RowActions
+            variant={variant}
+            stopPropagation={variant === "menu"}
+            actions={[
+                {
+                    icon: <IconPencil className="size-4" />,
+                    label: "ویرایش",
+                    href: `/roles/${role.id}`,
+                    permission: PERMISSIONS.ROLE_UPDATE,
+                },
+                {
+                    type: "switch",
+                    checked: role.is_active,
+                    onCheckedChange: () => actions.onToggle(role),
+                    disabled: actions.isToggling,
+                    permission: PERMISSIONS.ROLE_UPDATE,
+                },
+                {
+                    type: "confirm-delete",
+                    label: "حذف نقش",
+                    message: `آیا از حذف نقش «${role.display_name}» اطمینان دارید؟`,
+                    onConfirm: () => actions.onDelete(role),
+                    isPending: actions.isDeleting,
+                    permission: PERMISSIONS.ROLE_DELETE,
+                },
+            ]}
+        />
+    );
+}
 
 export function getRoleColumns(
     actions: RoleActions,
@@ -81,31 +122,7 @@ export function getRoleColumns(
             id: "actions",
             header: "عملیات",
             cell: ({ row }) => (
-                <RowActions
-                    actions={[
-                        {
-                            icon: <IconPencil className="size-4" />,
-                            label: "ویرایش",
-                            href: `/roles/${row.original.id}`,
-                            permission: PERMISSIONS.ROLE_UPDATE,
-                        },
-                        {
-                            type: "switch",
-                            checked: row.original.is_active,
-                            onCheckedChange: () => actions.onToggle(row.original),
-                            disabled: actions.isToggling,
-                            permission: PERMISSIONS.ROLE_UPDATE,
-                        },
-                        {
-                            type: "confirm-delete",
-                            label: "حذف نقش",
-                            message: `آیا از حذف نقش «${row.original.display_name}» اطمینان دارید؟`,
-                            onConfirm: () => actions.onDelete(row.original),
-                            isPending: actions.isDeleting,
-                            permission: PERMISSIONS.ROLE_DELETE,
-                        },
-                    ]}
-                />
+                <RoleRowActions role={row.original} actions={actions} />
             ),
             enableSorting: false,
             enableHiding: false,

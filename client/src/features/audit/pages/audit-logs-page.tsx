@@ -13,12 +13,29 @@ import {
     IconChevronDown,
     IconDownload,
     IconFileText,
+    IconHistory,
+    IconUser,
+    IconCalendarEvent,
+    IconNetwork,
+    IconEye,
 } from "@tabler/icons-react";
 
 import { useAuditLogs, useAuditEvents, useAuditLogDetail } from "@/features/audit/hooks";
 import { exportAuditLogs } from "@/features/audit/api";
 import { getAuditLogColumns } from "@/features/audit/audit-logs-columns";
-import { DataTablePage } from "@/components/data-table";
+import {
+    DataTablePage,
+    RecordCard,
+    RecordCardGrid,
+    TABLE_AND_CARD_VIEWS,
+    useListView,
+} from "@/components/data-table";
+import {
+    AUDIT_CATEGORY_ICONS,
+    AUDIT_CATEGORY_LABELS,
+    AUDIT_EVENT_LABELS,
+} from "@/features/audit/constants";
+import { toPersianDate } from "@/lib/date-format";
 import { ListPageHeader } from "@/components/layout";
 import {
     useDataTable,
@@ -32,10 +49,6 @@ import {
 } from "@/lib/download";
 import { toast } from "sonner";
 import { auditKeys } from "@/lib/query-keys";
-import {
-    AUDIT_CATEGORY_LABELS,
-    AUDIT_EVENT_LABELS,
-} from "@/features/audit/constants";
 import type { AuditCategory, AuditLog } from "@/features/audit/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -114,6 +127,7 @@ export function AuditLogsPage() {
 
     const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
     const [isExporting, setIsExporting] = useState(false);
+    const listView = useListView({ search, navigate });
 
     const url = useDataTableUrlState({
         search: search as unknown as Record<string, unknown>,
@@ -344,6 +358,69 @@ export function AuditLogsPage() {
                 })
             }
             colSpan={columns.length}
+            views={TABLE_AND_CARD_VIEWS}
+            view={listView.view}
+            onViewChange={listView.setView}
+            renderView={(mode) =>
+                mode === "card" ? (
+                    <RecordCardGrid>
+                        {tableData.map((log) => (
+                            <RecordCard
+                                key={log.id}
+                                title={AUDIT_EVENT_LABELS[log.event] ?? log.event}
+                                subtitle={log.description ?? undefined}
+                                icon={
+                                    AUDIT_CATEGORY_ICONS[log.category] ??
+                                    IconHistory
+                                }
+                                link={{
+                                    to: "/audit/$logId",
+                                    params: { logId: String(log.id) },
+                                }}
+                                actions={[
+                                    {
+                                        icon: <IconEye className="size-4" />,
+                                        label: "مشاهده",
+                                        href: `/audit/${log.id}`,
+                                    },
+                                ]}
+                                badges={[
+                                    {
+                                        label:
+                                            AUDIT_CATEGORY_LABELS[
+                                                log.category
+                                            ] ?? log.category,
+                                        tone: "outline",
+                                    },
+                                ]}
+                                items={[
+                                    {
+                                        icon: IconUser,
+                                        label:
+                                            log.actor.type === "system"
+                                                ? "سیستم"
+                                                : (log.actor.display_name ??
+                                                  log.actor.name ??
+                                                  `کاربر #${log.actor.id}`),
+                                    },
+                                    {
+                                        icon: IconCalendarEvent,
+                                        label: toPersianDate(log.created_at),
+                                    },
+                                    ...(log.ip_address
+                                        ? [
+                                              {
+                                                  icon: IconNetwork,
+                                                  label: log.ip_address,
+                                              },
+                                          ]
+                                        : []),
+                                ]}
+                            />
+                        ))}
+                    </RecordCardGrid>
+                ) : null
+            }
         />
     );
 }

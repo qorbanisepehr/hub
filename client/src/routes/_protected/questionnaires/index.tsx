@@ -6,6 +6,7 @@ import { LazyRoute, RouteLoadingFallback } from "@/components/layout/lazy-route"
 import { requirePermission } from "@/features/auth/guards";
 import { PERMISSIONS } from "@/lib/permissions";
 import { paginatedSearchSchema } from "@/lib/zod-primitives";
+import { listViewSchema } from "@/components/data-table";
 
 const QuestionnairesBankPage = lazy(() =>
     import("@/features/questionnaire/pages/questionnaires-bank-page").then((m) => ({ default: m.QuestionnairesBankPage }))
@@ -22,6 +23,7 @@ const questionnairesSearchSchema = paginatedSearchSchema({
     email_verified: z.string().optional(),
     date_from: z.string().optional(),
     date_to: z.string().optional(),
+    view: listViewSchema,
 });
 
 export const Route = createRoute({

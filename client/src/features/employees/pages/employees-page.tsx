@@ -1,7 +1,16 @@
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, getRouteApi } from "@tanstack/react-router";
-import { IconDownload, IconPlus, IconRefresh, IconUsers } from "@tabler/icons-react";
+import {
+    IconBriefcase,
+    IconCalendarEvent,
+    IconDownload,
+    IconEye,
+    IconPencil,
+    IconPlus,
+    IconRefresh,
+    IconUsers,
+} from "@tabler/icons-react";
 
 import { Button } from "@/components/ui/button";
 import { ExportDialog, type ExportFormat } from "@/components/shared";
@@ -12,15 +21,26 @@ import {
     fetchEmployees,
 } from "@/features/employees/api";
 import { employeeColumns } from "@/features/employees/columns";
-import { employmentLabels } from "@/features/employees/constants";
+import {
+    employmentLabels,
+    statusLabels,
+    statusVariants,
+} from "@/features/employees/constants";
 import { useFormOptionsByGroup } from "@/features/form-options/hooks/use-form-options";
-import { DataTablePage } from "@/components/data-table";
+import {
+    DataTablePage,
+    RecordCard,
+    RecordCardGrid,
+    TABLE_AND_CARD_VIEWS,
+    useListView,
+} from "@/components/data-table";
 import { ListPageHeader } from "@/components/layout";
 import {
     useDataTable,
     useDataTableUrlState,
 } from "@/hooks/use-data-table-page";
 import { PERMISSIONS } from "@/lib/permissions";
+import { toPersianDate } from "@/lib/date-format";
 import { employeeKeys } from "@/lib/query-keys";
 import {
     saveBlobResponse,
@@ -54,6 +74,7 @@ export function EmployeesPage() {
     const navigate = route.useNavigate();
 
     const [isExportOpen, setIsExportOpen] = useState(false);
+    const listView = useListView({ search, navigate });
 
     const url = useDataTableUrlState({
         search: search as unknown as Record<string, unknown>,
@@ -306,6 +327,79 @@ export function EmployeesPage() {
                     })
                 }
                 colSpan={employeeColumns.length}
+                views={TABLE_AND_CARD_VIEWS}
+                view={listView.view}
+                onViewChange={listView.setView}
+                renderView={(mode) =>
+                    mode === "card" ? (
+                        <RecordCardGrid>
+                            {tableData.map((employee) => (
+                                <RecordCard
+                                    key={employee.id}
+                                    title={`${employee.first_name} ${employee.last_name}`}
+                                    subtitle={
+                                        employee.employment_type
+                                            ? employmentLabels[
+                                                  employee.employment_type
+                                              ]
+                                            : undefined
+                                    }
+                                    icon={IconUsers}
+                                    link={{
+                                        to: "/employees/$id",
+                                        params: { id: String(employee.id) },
+                                    }}
+                                    actions={[
+                                        {
+                                            icon: <IconEye className="size-4" />,
+                                            label: "مشاهده",
+                                            href: `/employees/${employee.id}`,
+                                        },
+                                        {
+                                            icon: (
+                                                <IconPencil className="size-4" />
+                                            ),
+                                            label: "ویرایش",
+                                            href: `/employees/${employee.id}/edit`,
+                                            permission:
+                                                PERMISSIONS.EMPLOYEE_UPDATE,
+                                        },
+                                    ]}
+                                    badges={
+                                        employee.employment_status
+                                            ? [
+                                                  {
+                                                      label:
+                                                          statusLabels[
+                                                              employee
+                                                                  .employment_status
+                                                          ] ??
+                                                          employee.employment_status,
+                                                      tone: statusVariants[
+                                                          employee
+                                                              .employment_status
+                                                      ],
+                                                  },
+                                              ]
+                                            : undefined
+                                    }
+                                    items={[
+                                        {
+                                            icon: IconBriefcase,
+                                            label: employee.personnel_code,
+                                        },
+                                        {
+                                            icon: IconCalendarEvent,
+                                            label: toPersianDate(
+                                                employee.hire_date,
+                                            ),
+                                        },
+                                    ]}
+                                />
+                            ))}
+                        </RecordCardGrid>
+                    ) : null
+                }
             />
 
             <ExportDialog

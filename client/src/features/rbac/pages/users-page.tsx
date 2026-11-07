@@ -1,18 +1,30 @@
 import { useEffect, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, getRouteApi } from "@tanstack/react-router";
-import { IconPlus, IconRefresh, IconUsers } from "@tabler/icons-react";
+import {
+    IconPlus,
+    IconRefresh,
+    IconUser,
+    IconUsers,
+} from "@tabler/icons-react";
 
 import { Button } from "@/components/ui/button";
 import { fetchUsers, fetchRoleOptions } from "@/features/rbac/api";
-import { getUserColumns } from "@/features/rbac/user-columns";
-import { DataTablePage } from "@/components/data-table";
+import { UserRowActionsCell, getUserColumns } from "@/features/rbac/user-columns";
+import {
+    DataTablePage,
+    RecordCard,
+    RecordCardGrid,
+    TABLE_AND_CARD_VIEWS,
+    useListView,
+} from "@/components/data-table";
 import { ListPageHeader } from "@/components/layout";
 import {
     useDataTable,
     useDataTableUrlState,
 } from "@/hooks/use-data-table-page";
 import { PERMISSIONS } from "@/lib/permissions";
+import { getUserDisplayName } from "@/lib/user-display";
 import { roleKeys, userKeys } from "@/lib/query-keys";
 
 const route = getRouteApi("/protected/users");
@@ -21,6 +33,8 @@ export function UsersPage() {
     const queryClient = useQueryClient();
     const search = route.useSearch();
     const navigate = route.useNavigate();
+
+    const listView = useListView({ search, navigate });
 
     const url = useDataTableUrlState({
         search: search as unknown as Record<string, unknown>,
@@ -194,6 +208,47 @@ export function UsersPage() {
                 })
             }
             colSpan={columns.length}
+            views={TABLE_AND_CARD_VIEWS}
+            view={listView.view}
+            onViewChange={listView.setView}
+            renderView={(mode) =>
+                mode === "card" ? (
+                    <RecordCardGrid>
+                        {tableData.map((user) => (
+                            <RecordCard
+                                key={user.id}
+                                title={getUserDisplayName(user)}
+                                subtitle={user.email}
+                                icon={IconUser}
+                                link={{
+                                    to: "/users/$userId",
+                                    params: { userId: String(user.id) },
+                                }}
+                                actionsMenu={
+                                    <UserRowActionsCell user={user} />
+                                }
+                                badges={[
+                                    {
+                                        label: user.is_active
+                                            ? "فعال"
+                                            : "غیرفعال",
+                                        tone: user.is_active
+                                            ? "success"
+                                            : "secondary",
+                                    },
+                                    ...(user.roles ?? []).map((role) => ({
+                                        label: role.display_name,
+                                        tone:
+                                            user.active_role?.id === role.id
+                                                ? ("default" as const)
+                                                : ("outline" as const),
+                                    })),
+                                ]}
+                            />
+                        ))}
+                    </RecordCardGrid>
+                ) : null
+            }
         />
     );
 }

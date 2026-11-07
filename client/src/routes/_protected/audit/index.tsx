@@ -6,6 +6,7 @@ import { LazyRoute, RouteLoadingFallback } from "@/components/layout/lazy-route"
 import { requirePermission } from "@/features/auth/guards";
 import { PERMISSIONS } from "@/lib/permissions";
 import { paginatedSearchSchema } from "@/lib/zod-primitives";
+import { listViewSchema } from "@/components/data-table";
 
 const AuditLogsPage = lazy(() =>
     import("@/features/audit/pages/audit-logs-page").then((m) => ({ default: m.AuditLogsPage }))
@@ -18,6 +19,7 @@ const auditLogsSearchSchema = paginatedSearchSchema({
     event_not: z.string().optional(),
     date_from: z.string().optional(),
     date_to: z.string().optional(),
+    view: listViewSchema,
 });
 
 export const Route = createRoute({

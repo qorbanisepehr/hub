@@ -1,9 +1,22 @@
 import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { getRouteApi } from "@tanstack/react-router";
-import { IconCalendarStats, IconRefresh } from "@tabler/icons-react";
+import {
+    IconCalendarStats,
+    IconClock,
+    IconLogin2,
+    IconLogout2,
+    IconRefresh,
+    IconUser,
+} from "@tabler/icons-react";
 
-import { DataTablePage } from "@/components/data-table";
+import {
+    DataTablePage,
+    RecordCard,
+    RecordCardGrid,
+    TABLE_AND_CARD_VIEWS,
+    useListView,
+} from "@/components/data-table";
 import { ListPageHeader } from "@/components/layout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,6 +27,7 @@ import {
 } from "@/hooks/use-data-table-page";
 import { reportingKeys } from "@/lib/query-keys";
 import { attendanceColumns } from "../attendance-columns";
+import { toPersianDate, toPersianTime } from "@/lib/date-format";
 import { useAttendanceReport } from "../hooks";
 import type { AttendanceListParams } from "../types";
 
@@ -55,6 +69,8 @@ export function AttendanceReportPage() {
     const queryClient = useQueryClient();
     const search = route.useSearch();
     const navigate = route.useNavigate();
+
+    const listView = useListView({ search, navigate });
 
     const url = useDataTableUrlState({
         search: search as unknown as Record<string, unknown>,
@@ -167,6 +183,44 @@ export function AttendanceReportPage() {
             }
             onRetry={refresh}
             colSpan={attendanceColumns.length}
+            views={TABLE_AND_CARD_VIEWS}
+            view={listView.view}
+            onViewChange={listView.setView}
+            renderView={(mode) =>
+                mode === "card" ? (
+                    <RecordCardGrid>
+                        {(data?.data ?? []).map((record) => (
+                            <RecordCard
+                                key={`${record.employee_identifier}-${record.date}`}
+                                title={record.employee_identifier}
+                                icon={IconUser}
+                                badges={[
+                                    {
+                                        label: toPersianDate(record.date),
+                                        tone: "outline",
+                                    },
+                                ]}
+                                items={[
+                                    {
+                                        icon: IconLogin2,
+                                        label: `ورود ${toPersianTime(record.entry_at)}`,
+                                    },
+                                    {
+                                        icon: IconLogout2,
+                                        label: `خروج ${toPersianTime(record.exit_at)}`,
+                                    },
+                                    {
+                                        icon: IconClock,
+                                        label: record.worked_minutes
+                                            ? `${Math.floor(record.worked_minutes / 60).toLocaleString("fa-IR")}:${String(record.worked_minutes % 60).padStart(2, "0")}`
+                                            : "بدون کارکرد",
+                                    },
+                                ]}
+                            />
+                        ))}
+                    </RecordCardGrid>
+                ) : null
+            }
         />
     );
 }
