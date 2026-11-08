@@ -1,5 +1,6 @@
 import {
     CalendarDate,
+    GregorianCalendar,
     PersianCalendar,
     endOfMonth,
     getDayOfWeek,
@@ -24,6 +25,7 @@ import {
  */
 
 const persianCalendar = new PersianCalendar();
+const gregorianCalendar = new GregorianCalendar();
 
 export const JALALI_MONTHS: readonly string[] = [
     "فروردین",
@@ -168,4 +170,78 @@ export function buildJalaliMonthWeeks(
     }
 
     return weeks;
+}
+
+/** Persian and Arabic-Indic digits, mapped to Latin so input can be parsed. */
+const PERSIAN_DIGITS = "۰۱۲۳۴۵۶۷۸۹";
+const ARABIC_DIGITS = "٠١٢٣٤٥٦٧٨٩";
+
+/** Persian digit string for a number that is a label, not a quantity. */
+export function toPersianDigits(value: string): string {
+    return value.replace(/\d/g, (digit) => PERSIAN_DIGITS[Number(digit)]);
+}
+
+/** Latin digits from whatever numerals were typed (Persian, Arabic, Latin). */
+export function toLatinDigits(value: string): string {
+    return value.replace(/[۰-۹٠-٩]/g, (digit) => {
+        const persian = PERSIAN_DIGITS.indexOf(digit);
+        return String(persian >= 0 ? persian : ARABIC_DIGITS.indexOf(digit));
+    });
+}
+
+/** Gregorian `yyyy-MM-dd` → Jalali parts, or null when the date is invalid. */
+export function jalaliFromIso(
+    iso: string | null | undefined,
+): JalaliMonthDay | null {
+    if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) {
+        return null;
+    }
+
+    const [year, month, day] = iso.split("-").map(Number);
+    const back = toCalendar(new CalendarDate(gregorianCalendar, year, month, day), persianCalendar);
+
+    return {
+        day: back.day,
+        jalali: `${back.year}-${pad(back.month)}-${pad(back.day)}`,
+        gregorian: iso,
+    };
+}
+
+/**
+ * Parse a typed Jalali date into the Gregorian `yyyy-MM-dd` the API speaks.
+ *
+ * Accepts Persian or Latin digits with `/`, `-` or `.` separators, or a bare
+ * eight-digit `14020311`. A day that does not exist (1403/12/31 in a
+ * non-leap year, 1403/13/01) is rejected rather than rolled into the next
+ * month: `@internationalized/date` normalises overflow silently, so the only
+ * reliable check is to convert and read the result back.
+ */
+export function jalaliInputToIso(value: string): string | null {
+    const latin = toLatinDigits(value).trim();
+    const parts = /^\d{8}$/.test(latin)
+        ? [latin.slice(0, 4), latin.slice(4, 6), latin.slice(6, 8)]
+        : latin.split(/[/\-.]/).map((part) => part.trim());
+
+    if (parts.length !== 3 || parts.some((part) => !/^\d+$/.test(part))) {
+        return null;
+    }
+
+    const [year, month, day] = parts.map(Number);
+
+    if (year < 1200 || year > 1700) {
+        return null;
+    }
+
+    const candidate = new CalendarDate(persianCalendar, year, month, day);
+    const iso = candidate.toString();
+    const roundTrip = jalaliFromIso(iso);
+
+    if (
+        !roundTrip ||
+        roundTrip.jalali !== `${year}-${pad(month)}-${pad(day)}`
+    ) {
+        return null;
+    }
+
+    return iso;
 }

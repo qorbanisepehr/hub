@@ -176,10 +176,12 @@ export function FormDatePicker({
         <Field data-invalid={isInvalid}>
             <FieldLabel htmlFor={field.name}>{label}</FieldLabel>
             <DatePicker
+                id={field.name}
                 value={field.state.value || null}
                 onChange={(val) => field.handleChange(val)}
                 placeholder={placeholder}
                 disabled={disabled}
+                aria-invalid={isInvalid}
             />
             {isInvalid && <FieldError errors={field.state.meta.errors} />}
         </Field>

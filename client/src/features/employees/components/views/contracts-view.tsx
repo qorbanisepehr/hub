@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { SectionRepeaterTable } from "@/components/shared/section-repeater-table";
 import { SectionCard } from "@/components/section-views/section-card";
 import { dateValue } from "@/components/section-views/shared";
+import { toPersianDayCount } from "@/lib/date-format";
 import { RepeaterAttachmentCell } from "@/components/forms";
 import type { Employee } from "@/features/employees/types";
 import { useEmployeeDocuments } from "@/features/employees/hooks/use-employee-documents";
@@ -50,6 +51,19 @@ export function ContractsView({
                     {
                         label: "تا تاریخ",
                         render: (item) => dateValue(item.end_date),
+                    },
+                    {
+                        label: "مدت",
+                        render: (item) => {
+                            const row = item as ContractRow;
+
+                            return (
+                                toPersianDayCount(
+                                    row.start_date,
+                                    row.end_date,
+                                ) ?? "—"
+                            );
+                        },
                     },
                     {
                         label: "پیوست",

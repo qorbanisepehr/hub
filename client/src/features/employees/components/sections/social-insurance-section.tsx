@@ -22,7 +22,7 @@ import { zodFieldValidators } from "@/lib/validation-helpers";
 import { socialInsuranceFieldSchema } from "@/features/employees/schemas/social-insurance.schema";
 import type { EmployeeFormApi } from "@/features/employees/types";
 import { useEffect } from "react";
-import { toPersianDate } from "@/lib/date-format";
+import { toPersianDateRange } from "@/lib/date-format";
 
 type SectionProps = {
     form: EmployeeFormApi;
@@ -51,16 +51,20 @@ const MONTHLY_BREAKDOWN_COLUMNS: TableColumn[] = [
 /** Card title for a job-title row: «عنوان شغلی — از تاریخ». */
 function jobTitleRowTitle(item: Record<string, unknown>): string {
     const title = String(item.job_title ?? "").trim();
-    const start = toPersianDate(String(item.start_date ?? ""));
+    const start = toPersianDateRange(
+        item.start_date as string | undefined,
+        null,
+        "",
+    );
 
-    if (title && item.start_date) {
-        return `${title} — از ${start}`;
+    if (title && start) {
+        return `${title} — ${start}`;
     }
     if (title) {
         return title;
     }
-    if (item.start_date) {
-        return `از ${start}`;
+    if (start) {
+        return start;
     }
     return "سابقه عنوان شغلی";
 }

@@ -4,7 +4,7 @@ import type { TableColumn } from "@/components/forms";
 import { FileUploadField } from "@/components/documents";
 import { repeaterAttachmentColumn } from "@/components/forms";
 import { useEntityDocuments } from "@/hooks/use-entity-documents";
-import { toPersianDate } from "@/lib/date-format";
+import { toPersianDateRange, toPersianDayCount } from "@/lib/date-format";
 import { DOC_CATEGORY_SLUGS } from "@/features/questionnaire/constants";
 import type { EmployeeFormApi } from "@/features/employees/types";
 
@@ -15,23 +15,21 @@ type SectionProps = {
     onPersist?: () => void;
 };
 
-const PERIOD_LABEL = "—";
-
 /** Row title from the contract period, e.g. «۱۴۰۲/۰۳/۱۱ — ۱۴۰۳/۰۳/۱۰». */
 function contractRowTitle(item: Record<string, unknown>): string {
-    const start = toPersianDate(String(item.start_date ?? ""));
-    const end = toPersianDate(String(item.end_date ?? ""));
+    return toPersianDateRange(
+        item.start_date as string | undefined,
+        item.end_date as string | undefined,
+        "قرارداد",
+    );
+}
 
-    if (item.start_date && item.end_date) {
-        return `${start} ${PERIOD_LABEL} ${end}`;
-    }
-    if (item.start_date) {
-        return `از ${start}`;
-    }
-    if (item.end_date) {
-        return `تا ${end}`;
-    }
-    return "قرارداد";
+/** Days of the contract, shown beside the period when both ends exist. */
+function contractPeriodDays(item: Record<string, unknown>): string | null {
+    return toPersianDayCount(
+        item.start_date as string | undefined,
+        item.end_date as string | undefined,
+    );
 }
 
 /**
@@ -73,11 +71,20 @@ export function ContractsSection({ form, uuid, onPersist }: SectionProps) {
                                 start_date: item.start_date,
                                 end_date: item.end_date,
                             })}
-                            renderHeader={(item) => (
-                                <span className="font-medium">
-                                    {contractRowTitle(item)}
-                                </span>
-                            )}
+                            renderHeader={(item) => {
+                                const days = contractPeriodDays(item);
+
+                                return (
+                                    <span className="flex flex-wrap items-center gap-2 font-medium">
+                                        {contractRowTitle(item)}
+                                        {days ? (
+                                            <span className="text-xs font-normal text-muted-foreground">
+                                                ({days})
+                                            </span>
+                                        ) : null}
+                                    </span>
+                                );
+                            }}
                             renderItem={(index) => (
                                 <div className="space-y-4">
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

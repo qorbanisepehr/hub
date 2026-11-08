@@ -74,3 +74,58 @@ export function toPersianRelative(
 
     return persianRelativeFormatter.format(Math.round(seconds), "second");
 }
+
+const persianNumberFormatter = new Intl.NumberFormat("fa-IR");
+
+/**
+ * A start/end pair as one string: «۱۴۰۲/۰۳/۱۱ — ۱۴۰۳/۰۳/۱۰», «از …», «تا …»,
+ * or the given fallback when neither end is set. Open-ended periods are the
+ * normal case (a current contract, a present job), so the half-range forms are
+ * first-class rather than a special case at each call site.
+ */
+export function toPersianDateRange(
+    start: string | Date | null | undefined,
+    end: string | Date | null | undefined,
+    fallback = "—",
+): string {
+    const from = parseDate(start);
+    const to = parseDate(end);
+
+    if (from && to) {
+        return `${toPersianDate(from)} — ${toPersianDate(to)}`;
+    }
+    if (from) {
+        return `از ${toPersianDate(from)}`;
+    }
+    if (to) {
+        return `تا ${toPersianDate(to)}`;
+    }
+    return fallback;
+}
+
+/**
+ * Whole days between two dates, inclusive of both ends — a contract from the
+ * 1st to the 31st is 31 days, which is how a reader counts it. Returns null
+ * when either end is missing or invalid, and also when the end precedes the
+ * start — «−۵ روز» would be a validation error wearing a duration's clothes.
+ */
+export function toPersianDayCount(
+    start: string | Date | null | undefined,
+    end: string | Date | null | undefined,
+): string | null {
+    const from = parseDate(start);
+    const to = parseDate(end);
+
+    if (!from || !to) {
+        return null;
+    }
+
+    const dayMs = 24 * 60 * 60 * 1000;
+    const days = Math.round((to.getTime() - from.getTime()) / dayMs) + 1;
+
+    if (days < 1) {
+        return null;
+    }
+
+    return `${persianNumberFormatter.format(days)} روز`;
+}

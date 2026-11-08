@@ -14,11 +14,10 @@ import {
     IconChevronDown,
 } from "@tabler/icons-react";
 
-function Calendar({
+function CalendarGrid({
     className,
     classNames,
     showOutsideDays = true,
-    captionLayout = "label",
     buttonVariant = "ghost",
     locale,
     formatters,
@@ -38,7 +37,7 @@ function Calendar({
                 String.raw`rtl:**:[.rdp-button\_previous>svg]:rotate-180`,
                 className,
             )}
-            captionLayout={captionLayout}
+            captionLayout={props.captionLayout ?? "label"}
             locale={locale}
             formatters={formatters}
             classNames={{
@@ -78,14 +77,14 @@ function Calendar({
                     defaultClassNames.dropdown_root,
                 ),
                 dropdown: cn(
-                    "absolute inset-0 bg-popover opacity-0",
+                    // Inline (not absolutely placed, not transparent) so a
+                    // caption that swaps in visible controls — see the Jalali
+                    // picker — is read as text rather than a hidden select.
+                    "bg-popover",
                     defaultClassNames.dropdown,
                 ),
                 caption_label: cn(
-                    "font-medium select-none",
-                    captionLayout === "label"
-                        ? "text-sm"
-                        : "flex items-center gap-1 rounded-(--cell-radius) text-sm [&>svg]:size-3.5 [&>svg]:text-muted-foreground",
+                    "font-medium text-sm select-none",
                     defaultClassNames.caption_label,
                 ),
                 month_grid: cn(
@@ -240,4 +239,9 @@ function CalendarDayButton({
     );
 }
 
-export { Calendar, CalendarDayButton };
+/** The stock shadcn calendar: a labelled month grid with arrow navigation. */
+function Calendar(props: React.ComponentProps<typeof CalendarGrid>) {
+    return <CalendarGrid {...props} />;
+}
+
+export { Calendar, CalendarDayButton, CalendarGrid };
