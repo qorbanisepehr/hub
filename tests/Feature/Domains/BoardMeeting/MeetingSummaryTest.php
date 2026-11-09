@@ -697,6 +697,10 @@ describe('run progress', function () {
             expect($event->userId)->toBe(4242);
         }
 
+        // What was asked for travels with each step, so a screen watching the
+        // run can name the fields being written without re-reading the request.
+        expect($events[2]->context['fields'])->toBe(['executive_summary']);
+
         expect($events[5]->context)->toBe(['status' => MeetingSummary::STATUS_OK]);
     });
 

@@ -261,9 +261,18 @@ class GenerateBoardMeetingSummaryJob implements ShouldBeUnique, ShouldQueue
                 // Persian copy, exactly as it owns the status words and the
                 // failure reasons. This closure is the whole of the coupling:
                 // the summarizer knows nothing about broadcasting.
+                //
+                // The requested fields and the model travel with each step so a
+                // screen watching this run can say *what* is being written and
+                // *by which model* while it happens, rather than only at the end
+                // — both are facts of the request, not of its result.
                 onStep: fn (MeetingSummaryStep $step) => $this->reportProgress(
                     RunState::Running,
-                    ['step' => $step->value],
+                    array_filter([
+                        'step' => $step->value,
+                        'fields' => $this->fields,
+                        'model' => $this->model,
+                    ], static fn (mixed $value): bool => $value !== null),
                 ),
             );
         } catch (AiNotConfigured) {
