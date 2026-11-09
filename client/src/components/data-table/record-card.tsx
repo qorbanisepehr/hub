@@ -35,6 +35,10 @@ type RecordCardProps = {
     /** The menu itself, when the commands own state (a dialog). Built from
      *  the shared `RowActions` with `variant="menu"` by the page. */
     actionsMenu?: ReactNode;
+    /** One or two direct commands, for things a person does often enough that
+     *  burying them in the «...» menu costs a click they pay every time. The
+     *  menu keeps everything else. */
+    children?: ReactNode;
     className?: string;
 };
 
@@ -56,6 +60,7 @@ export function RecordCard({
     link,
     actions,
     actionsMenu,
+    children,
     className,
 }: RecordCardProps) {
     const card = (
@@ -118,6 +123,11 @@ export function RecordCard({
                             {item.label}
                         </span>
                     ))}
+                </CardContent>
+            ) : null}
+            {children ? (
+                <CardContent className="flex flex-wrap items-center gap-2">
+                    {children}
                 </CardContent>
             ) : null}
         </Card>

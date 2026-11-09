@@ -1,15 +1,21 @@
-import { useState } from "react";
+import type { ReactNode } from "react";
+import { useMemo, useState } from "react";
+import { getRouteApi } from "@tanstack/react-router";
 import type { ColumnDef, Row, StockFeatures } from "@tanstack/react-table";
 import {
+    IconActivity,
     IconBrain,
+    IconCheck,
+    IconCircleOff,
     IconCpu,
     IconKey,
-    IconLink,
     IconPencil,
     IconPlugConnected,
     IconPlus,
     IconRefresh,
     IconRobot,
+    IconSearch,
+    IconSparkles,
     IconStar,
 } from "@tabler/icons-react";
 import { toast } from "sonner";
@@ -21,6 +27,7 @@ import {
     TABLE_AND_CARD_VIEWS,
     useListView,
 } from "@/components/data-table";
+import { RowActions, type RowAction } from "@/components/shared/row-actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -30,55 +37,98 @@ import {
     CardHeader,
     CardTitle,
 } from "@/components/ui/card";
-import { RowActions, type RowAction } from "@/components/shared/row-actions";
+import { Input } from "@/components/ui/input";
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
     useDataTable,
     useDataTableUrlState,
 } from "@/hooks/use-data-table-page";
-import { usePermission } from "@/features/auth/components/permission-guard";
-import { useRunProgressChannel } from "@/features/realtime/use-run-progress-channel";
 import {
     useAiAgents,
+    useAiModels,
     useAiProviders,
     useDeleteAiProvider,
     useMakeAiProviderDefault,
     useTestAiProvider,
+    useUpdateAiAgentBinding,
 } from "@/features/ai/hooks";
 import { AiAgentDialog } from "@/features/ai/pages/ai-agent-dialog";
 import { AiProviderDialog } from "@/features/ai/pages/ai-provider-dialog";
 import { AiProviderModelsDialog } from "@/features/ai/pages/ai-provider-models-dialog";
 import {
+    AI_CAPABILITIES,
     AI_DRIVERS,
     type AiAgentDto,
+    type AiModelDto,
     type AiProviderDto,
 } from "@/features/ai/types";
+import { usePermission } from "@/features/auth/components/permission-guard";
+import { useRunProgressChannel } from "@/features/realtime/use-run-progress-channel";
 import { getApiError } from "@/lib/error-utils";
 import { PERMISSIONS } from "@/lib/permissions";
-import { getRouteApi } from "@tanstack/react-router";
 
 const aiRoute = getRouteApi("/protected/settings/ai");
 
+/** The tab a person is looking at, kept in the URL so a refresh stays put. */
+type AiTab = "providers" | "models" | "agents";
+
+const isAiTab = (value: unknown): value is AiTab =>
+    value === "providers" || value === "models" || value === "agents";
+
+const driverLabel = (driver: string): string =>
+    AI_DRIVERS.find((d) => d.value === driver)?.label ?? driver;
+
+const isKeyless = (driver: string): boolean =>
+    AI_DRIVERS.find((d) => d.value === driver)?.keyless === true;
+
+const capabilityLabel = (capability: string): string =>
+    AI_CAPABILITIES.find((c) => c.value === capability)?.label ?? capability;
+
 /**
- * The AI tab (R3): bring-your-own-key providers, their models, and what each
- * registered agent is bound to.
+ * The AI console (R3): bring-your-own-key providers, their models, and what
+ * each registered agent is bound to.
  *
- * Two tables, not one. A provider and an agent are different things with
- * different lifecycles — one is a credential, the other is a row a consuming
- * domain registered — and merging them into a single list would have implied
- * that Settings creates agents, which it deliberately does not.
+ * Three tabs rather than one long page, because these are three questions a
+ * person arrives with — "is my gateway reachable", "which models may I pick",
+ * "what does each agent use" — and a single scroll mixed them. The tab lives
+ * in the URL (`?tab=`), so a link into a problem keeps pointing at it.
  *
- * Each table owns its own search keys. They share the settings route's URL, so
- * with the default `page`/`filter` both tables would write to the same
- * parameters and page one while paging the other.
+ * The models tab is the flat, registry-wide list rather than only a
+ * per-provider drawer. A model's identity is the (provider, name) pair, so
+ * "where is model X" is a question the list has to be able to answer; the
+ * drawer remains the place a provider's set is edited.
+ *
+ * Each table owns its own search keys, since they share the URL: with the
+ * default `page`/`filter` both tables would write to the same parameters and
+ * page one while paging the other.
  */
 export function AiSettingsSection() {
     const canManage = usePermission([PERMISSIONS.AI_PROVIDER_MANAGE]);
 
-    const search = aiRoute.useSearch();
+    const search = aiRoute.useSearch() as Record<string, unknown> & {
+        tab?: unknown;
+    };
     const navigate = aiRoute.useNavigate();
 
+    const tab: AiTab = isAiTab(search.tab) ? search.tab : "providers";
+    const selectTab = (next: string) => {
+        if (!isAiTab(next) || next === tab) {
+            return;
+        }
+
+        void navigate({ search: (prev) => ({ ...prev, tab: next }) });
+    };
+
     const providersUrl = useDataTableUrlState({
-        search: search as unknown as Record<string, unknown>,
+        search,
         navigate,
         urlState: {
             globalFilter: { enabled: true, key: "filter" },
@@ -89,7 +139,7 @@ export function AiSettingsSection() {
     const agentsView = useListView({ search, navigate, key: "ai_view" });
 
     const agentsUrl = useDataTableUrlState({
-        search: search as unknown as Record<string, unknown>,
+        search,
         navigate,
         urlState: {
             pagination: { pageKey: "ai_page", pageSizeKey: "ai_per_page" },
@@ -112,6 +162,17 @@ export function AiSettingsSection() {
         filter: providersUrl.globalFilter || undefined,
     });
 
+    // The flat list, for the models tab only: the providers tab already
+    // carries its models nested, and a list nobody is looking at is not worth
+    // a request.
+    const {
+        data: modelsData,
+        isLoading: modelsLoading,
+        isError: modelsError,
+        isFetching: modelsFetching,
+        refetch: refetchModels,
+    } = useAiModels(tab === "models");
+
     const {
         data: agentsData,
         isLoading: agentsLoading,
@@ -128,6 +189,7 @@ export function AiSettingsSection() {
 
     const removeProvider = useDeleteAiProvider();
     const makeDefault = useMakeAiProviderDefault();
+    const bindAgent = useUpdateAiAgentBinding();
     const test = useTestAiProvider();
 
     const [providerDialog, setProviderDialog] = useState<{
@@ -164,7 +226,10 @@ export function AiSettingsSection() {
     // response - the POST only says the job was queued. Reporting success on
     // it is what once made an unreachable gateway look reachable.
     useRunProgressChannel((progress) => {
-        if (progress.channel !== "ai" || progress.subject?.type !== "ai-provider") {
+        if (
+            progress.channel !== "ai" ||
+            progress.subject?.type !== "ai-provider"
+        ) {
             return;
         }
 
@@ -209,26 +274,25 @@ export function AiSettingsSection() {
         );
     };
 
+    const isTesting = (provider: AiProviderDto): boolean =>
+        (test.isPending && test.variables?.name === provider.name) ||
+        testingRuns.has(provider.name);
+
     // One declaration per row's commands: the table cell and the card menu
     // are the same menu, so a command cannot exist in one and not the other.
-    // The probe is expensive (one model call), so it lives behind the «...»
-    // menu on the menu shape and inline in the table — either way it is the
-    // first thing a person who suspects a gateway reaches for.
     const providerRowActions = (provider: AiProviderDto): RowAction[] => {
-        const testing =
-            (test.isPending && test.variables?.name === provider.name) ||
-            testingRuns.has(provider.name);
+        const testing = isTesting(provider);
 
         return [
             {
-                icon: <IconLink className="size-4" />,
+                icon: <IconActivity className="size-4" />,
                 label: "تست اتصال",
                 onClick: () => handleTest(provider),
                 disabled: testing,
                 permission: PERMISSIONS.AI_PROVIDER_MANAGE,
             },
             {
-                icon: <IconBrain className="size-4" />,
+                icon: <IconCpu className="size-4" />,
                 label: "مدیریت مدل‌ها",
                 onClick: () => setModelsProvider(provider),
                 permission: PERMISSIONS.AI_PROVIDER_MANAGE,
@@ -270,7 +334,34 @@ export function AiSettingsSection() {
             onClick: () => setBindingAgent(agent),
             permission: PERMISSIONS.AI_PROVIDER_MANAGE,
         },
+        ...(agent.is_bound
+            ? [
+                  {
+                      icon: <IconCircleOff className="size-4" />,
+                      label: "بازگشت به پیش‌فرض",
+                      onClick: () =>
+                          bindAgent.mutate({
+                              key: agent.key,
+                              payload: { provider: null, model: null },
+                          }),
+                      disabled: bindAgent.isPending,
+                      permission: PERMISSIONS.AI_PROVIDER_MANAGE,
+                  } satisfies RowAction,
+              ]
+            : []),
     ];
+
+    const providers = providersData?.data ?? [];
+    const modelRows = modelsData?.data ?? [];
+    const agents = agentsData?.data ?? [];
+
+    const defaultProvider = providers.find((provider) => provider.is_default);
+    const activeProviders = providers.filter((provider) => provider.is_active);
+    const modelCount = providers.reduce(
+        (total, provider) => total + provider.models.length,
+        0,
+    );
+    const boundAgents = agents.filter((agent) => agent.is_bound).length;
 
     const providerColumns: ColumnDef<StockFeatures, AiProviderDto>[] = [
         {
@@ -298,8 +389,7 @@ export function AiSettingsSection() {
             header: "نوع",
             cell: ({ row }: { row: Row<StockFeatures, AiProviderDto> }) => (
                 <span dir="ltr" className="text-muted-foreground text-sm">
-                    {AI_DRIVERS.find((d) => d.value === row.original.driver)
-                        ?.label ?? row.original.driver}
+                    {driverLabel(row.original.driver)}
                 </span>
             ),
         },
@@ -329,8 +419,7 @@ export function AiSettingsSection() {
                         <IconKey className="size-3.5" />
                         ذخیره شده
                     </span>
-                ) : AI_DRIVERS.find((d) => d.value === row.original.driver)
-                      ?.keyless ? (
+                ) : isKeyless(row.original.driver) ? (
                     <span className="text-muted-foreground text-sm">
                         لازم نیست
                     </span>
@@ -343,9 +432,13 @@ export function AiSettingsSection() {
             header: "مدل‌ها",
             enableSorting: false,
             cell: ({ row }: { row: Row<StockFeatures, AiProviderDto> }) => (
-                <span className="text-muted-foreground text-sm">
+                <button
+                    type="button"
+                    className="text-muted-foreground text-sm underline-offset-4 hover:underline"
+                    onClick={() => setModelsProvider(row.original)}
+                >
                     {row.original.models.length.toLocaleString("fa-IR")}
-                </span>
+                </button>
             ),
         },
         ...(canManage
@@ -432,220 +525,263 @@ export function AiSettingsSection() {
 
     const providerTable = useDataTable({
         columns: providerColumns,
-        data: providersData?.data ?? [],
+        data: providers,
         meta: providersData?.meta,
         url: providersUrl,
     });
 
     const agentTable = useDataTable({
         columns: agentColumns,
-        data: agentsData?.data ?? [],
+        data: agents,
         meta: agentsData?.meta,
         url: agentsUrl,
     });
 
     return (
         <div className="grid gap-6">
-            <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                        <IconBrain className="size-5" />
-                        ارائه‌دهنده‌های هوش مصنوعی
-                    </CardTitle>
-                    <CardDescription>
-                        درگاه‌ها و کلیدهای دسترسی. هر عاملی که اتصال مشخصی ندارد
-                        از ارائه‌دهنده فعال پیش‌فرض استفاده می‌کند؛ خالی بودن
-                        کلید برای Ollama محلی حالت درست است، نه نقص.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent className="p-0">
-                    <div className="flex flex-wrap items-center justify-end gap-3 px-4 pt-4">
-                        {canManage && (
-                            <Button type="button" onClick={openCreateProvider}>
-                                <IconPlus className="size-4" />
-                                افزودن ارائه‌دهنده
-                            </Button>
-                        )}
-                    </div>
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                <StatusTile
+                    icon={IconStar}
+                    label="ارائه‌دهنده پیش‌فرض"
+                    value={
+                        defaultProvider ? (
+                            <span dir="ltr">{defaultProvider.name}</span>
+                        ) : (
+                            "تعیین نشده"
+                        )
+                    }
+                    hint={
+                        defaultProvider
+                            ? driverLabel(defaultProvider.driver)
+                            : "هر عاملی که اتصال ندارد به این ارائه‌دهنده نیاز دارد."
+                    }
+                    tone={defaultProvider ? "success" : "warning"}
+                />
+                <StatusTile
+                    icon={IconBrain}
+                    label="ارائه‌دهنده‌های فعال"
+                    value={`${activeProviders.length.toLocaleString("fa-IR")} از ${providers.length.toLocaleString("fa-IR")}`}
+                    hint="ارائه‌دهندهٔ غیرفعال از انتخاب‌های تازه کنار گذاشته می‌شود."
+                />
+                <StatusTile
+                    icon={IconCpu}
+                    label="مدل‌های ثبت‌شده"
+                    value={modelCount.toLocaleString("fa-IR")}
+                    hint="نام مدل را همان طور که ارائه‌دهنده می‌شناسد ثبت کنید."
+                />
+                <StatusTile
+                    icon={IconRobot}
+                    label="عامل‌های متصل"
+                    value={`${boundAgents.toLocaleString("fa-IR")} از ${agents.length.toLocaleString("fa-IR")}`}
+                    hint="بقیه ارائه‌دهنده و مدل پیش‌فرض را به ارث می‌برند."
+                />
+            </div>
 
-                    <DataTablePage
-                        table={providerTable}
-                        meta={providersData?.meta}
-                        isLoading={providersLoading}
-                        isError={providersError}
-                        title=""
-                        icon={IconBrain}
-                        embedded
-                        searchPlaceholder="جستجوی نام یا نشانی…"
-                        globalFilter={providersUrl.globalFilter}
-                        onGlobalFilterChange={providersUrl.onGlobalFilterChange}
-                        actions={[
-                            {
-                                id: "refresh",
-                                label: "بازخوانی",
-                                icon: IconRefresh,
-                                onClick: () => refetchProviders(),
-                                disabled: providersFetching,
-                            },
-                        ]}
-                        onRetry={() => refetchProviders()}
-                        colSpan={providerColumns.length}
-                        emptyMessage="هنوز ارائه‌دهنده‌ای ثبت نشده است"
-                        views={TABLE_AND_CARD_VIEWS}
-                        view={providersView.view}
-                        onViewChange={providersView.setView}
-                        renderView={(mode) =>
-                            mode === "card" ? (
-                                <RecordCardGrid>
-                                    {(providersData?.data ?? []).map(
-                                        (provider) => (
-                                            <RecordCard
-                                                key={provider.name}
-                                                title={provider.name}
-                                                subtitle={
-                                                    provider.base_url ??
-                                                    undefined
-                                                }
-                                                icon={IconBrain}
-                                                badges={[
-                                                    // The default is the
-                                                    // strongest fact about a
-                                                    // provider, so it leads;
-                                                    // «فعال» is the normal
-                                                    // state and gets no badge.
-                                                    ...(provider.is_default
-                                                        ? [
-                                                              {
-                                                                  label: "پیش‌فرض",
-                                                                  tone: "info" as const,
-                                                              },
-                                                          ]
-                                                        : []),
-                                                    ...(provider.is_active
-                                                        ? []
-                                                        : [
-                                                              {
-                                                                  label: "غیرفعال",
-                                                                  tone: "secondary" as const,
-                                                              },
-                                                          ]),
-                                                ]}
-                                                items={[
-                                                    {
-                                                        icon: IconCpu,
-                                                        label: `${
-                                                            provider.models
-                                                                .length
-                                                        } مدل`,
-                                                    },
-                                                    ...(provider.has_api_key
-                                                        ? [
-                                                              {
-                                                                  icon: IconKey,
-                                                                  label: "کلید تنظیم شده",
-                                                              },
-                                                          ]
-                                                        : []),
-                                                ]}
-                                                actions={providerRowActions(
-                                                    provider,
-                                                )}
-                                            />
-                                        ),
-                                    )}
-                                </RecordCardGrid>
-                            ) : null
-                        }
-                    />
-                </CardContent>
-            </Card>
-
-            <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                        <IconRobot className="size-5" />
+            <Tabs value={tab} onValueChange={selectTab}>
+                <TabsList>
+                    <TabsTrigger value="providers">
+                        <IconBrain className="size-4" />
+                        ارائه‌دهنده‌ها
+                    </TabsTrigger>
+                    <TabsTrigger value="models">
+                        <IconCpu className="size-4" />
+                        مدل‌ها
+                    </TabsTrigger>
+                    <TabsTrigger value="agents">
+                        <IconRobot className="size-4" />
                         عامل‌ها
-                    </CardTitle>
-                    <CardDescription>
-                        عامل‌ها را دامنه‌های مصرف‌کننده تعریف می‌کنند و اینجا
-                        فقط به آن‌ها متصل می‌شوند. عامل بدون اتصال، ارائه‌دهنده
-                        و مدل پیش‌فرض را به ارث می‌برد.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent className="p-0">
-                    <DataTablePage
-                        table={agentTable}
-                        meta={agentsData?.meta}
-                        isLoading={agentsLoading}
-                        isError={agentsError}
-                        title=""
-                        icon={IconRobot}
-                        embedded
-                        searchPlaceholder="جستجوی کلید، عنوان یا کلاس…"
-                        globalFilter={agentsUrl.globalFilter}
-                        onGlobalFilterChange={agentsUrl.onGlobalFilterChange}
-                        actions={[
-                            {
-                                id: "refresh",
-                                label: "بازخوانی",
-                                icon: IconRefresh,
-                                onClick: () => refetchAgents(),
-                                disabled: agentsFetching,
-                            },
-                        ]}
-                        onRetry={() => refetchAgents()}
-                        colSpan={agentColumns.length}
-                        emptyMessage="هنوز عاملی ثبت نشده است"
-                        views={TABLE_AND_CARD_VIEWS}
-                        view={agentsView.view}
-                        onViewChange={agentsView.setView}
-                        renderView={(mode) =>
-                            mode === "card" ? (
-                                <RecordCardGrid>
-                                    {(agentsData?.data ?? []).map((agent) => (
-                                        <RecordCard
-                                            key={agent.key}
-                                            title={agent.label ?? agent.key}
-                                            subtitle={agent.agent_class}
-                                            icon={IconRobot}
-                                            badges={[
-                                                {
-                                                    label: agent.is_bound
-                                                        ? "متصل"
-                                                        : "ارث‌بری",
-                                                    tone: agent.is_bound
-                                                        ? "info"
-                                                        : "outline",
-                                                },
-                                            ]}
-                                            items={[
-                                                ...(agent.provider
-                                                    ? [
-                                                          {
-                                                              icon: IconBrain,
-                                                              label: agent
-                                                                  .provider,
-                                                          },
-                                                      ]
-                                                    : []),
-                                                ...(agent.model
-                                                    ? [
-                                                          {
-                                                              icon: IconCpu,
-                                                              label: agent.model,
-                                                          },
-                                                      ]
-                                                    : []),
-                                            ]}
-                                            actions={agentRowActions(agent)}
+                    </TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="providers">
+                    <Card>
+                        <CardHeader className="flex flex-wrap items-start justify-between gap-3">
+                            <div className="grid gap-1">
+                                <CardTitle>درگاه‌ها و کلیدهای دسترسی</CardTitle>
+                                <CardDescription>
+                                    هر عاملی که اتصال مشخصی ندارد از
+                                    ارائه‌دهنده پیش‌فرض استفاده می‌کند؛ خالی بودن
+                                    کلید برای Ollama محلی حالت درست است، نه
+                                    نقص.
+                                </CardDescription>
+                            </div>
+                            {canManage && (
+                                <Button
+                                    type="button"
+                                    onClick={openCreateProvider}
+                                >
+                                    <IconPlus className="size-4" />
+                                    افزودن ارائه‌دهنده
+                                </Button>
+                            )}
+                        </CardHeader>
+                        <CardContent className="p-0">
+                            <DataTablePage
+                                table={providerTable}
+                                meta={providersData?.meta}
+                                isLoading={providersLoading}
+                                isError={providersError}
+                                title=""
+                                icon={IconBrain}
+                                embedded
+                                searchPlaceholder="جستجوی نام یا نشانی…"
+                                globalFilter={providersUrl.globalFilter}
+                                onGlobalFilterChange={
+                                    providersUrl.onGlobalFilterChange
+                                }
+                                actions={[
+                                    {
+                                        id: "refresh",
+                                        label: "بازخوانی",
+                                        icon: IconRefresh,
+                                        onClick: () => void refetchProviders(),
+                                        disabled: providersFetching,
+                                    },
+                                ]}
+                                onRetry={() => void refetchProviders()}
+                                colSpan={providerColumns.length}
+                                emptyMessage="هنوز ارائه‌دهنده‌ای ثبت نشده است"
+                                emptyAction={
+                                    canManage ? (
+                                        <Button
+                                            type="button"
+                                            onClick={openCreateProvider}
+                                        >
+                                            <IconPlus className="size-4" />
+                                            افزودن ارائه‌دهنده
+                                        </Button>
+                                    ) : undefined
+                                }
+                                views={TABLE_AND_CARD_VIEWS}
+                                view={providersView.view}
+                                onViewChange={providersView.setView}
+                                renderView={(mode) =>
+                                    mode === "card" ? (
+                                        <ProviderCardGrid
+                                            providers={providers}
+                                            defaultProvider={defaultProvider}
+                                            actions={providerRowActions}
+                                            isTesting={isTesting}
+                                            onTest={handleTest}
+                                            onOpenModels={(provider) =>
+                                                setModelsProvider(provider)
+                                            }
                                         />
-                                    ))}
-                                </RecordCardGrid>
-                            ) : null
-                        }
+                                    ) : null
+                                }
+                            />
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+
+                <TabsContent value="models">
+                    <ModelsTab
+                        models={modelRows}
+                        providers={providers}
+                        isLoading={modelsLoading}
+                        isError={modelsError}
+                        isFetching={modelsFetching}
+                        canManage={canManage}
+                        onRetry={() => void refetchModels()}
+                        onRefresh={() => void refetchModels()}
+                        onManage={(provider) => setModelsProvider(provider)}
                     />
-                </CardContent>
-            </Card>
+                </TabsContent>
+
+                <TabsContent value="agents">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>عامل‌ها</CardTitle>
+                            <CardDescription>
+                                عامل‌ها را دامنه‌های مصرف‌کننده تعریف می‌کنند و
+                                اینجا فقط به آن‌ها متصل می‌شوند. عامل بدون اتصال،
+                                ارائه‌دهنده و مدل پیش‌فرض را به ارث می‌برد
+                                {defaultProvider
+                                    ? ` — اکنون «${defaultProvider.name}».`
+                                    : " — و هنوز پیش‌فرضی تعیین نشده است."}
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="p-0">
+                            <DataTablePage
+                                table={agentTable}
+                                meta={agentsData?.meta}
+                                isLoading={agentsLoading}
+                                isError={agentsError}
+                                title=""
+                                icon={IconRobot}
+                                embedded
+                                searchPlaceholder="جستجوی کلید، عنوان یا کلاس…"
+                                globalFilter={agentsUrl.globalFilter}
+                                onGlobalFilterChange={
+                                    agentsUrl.onGlobalFilterChange
+                                }
+                                actions={[
+                                    {
+                                        id: "refresh",
+                                        label: "بازخوانی",
+                                        icon: IconRefresh,
+                                        onClick: () => void refetchAgents(),
+                                        disabled: agentsFetching,
+                                    },
+                                ]}
+                                onRetry={() => void refetchAgents()}
+                                colSpan={agentColumns.length}
+                                emptyMessage="هنوز عاملی ثبت نشده است"
+                                views={TABLE_AND_CARD_VIEWS}
+                                view={agentsView.view}
+                                onViewChange={agentsView.setView}
+                                renderView={(mode) =>
+                                    mode === "card" ? (
+                                        <RecordCardGrid>
+                                            {agents.map((agent) => (
+                                                <RecordCard
+                                                    key={agent.key}
+                                                    title={
+                                                        agent.label ?? agent.key
+                                                    }
+                                                    subtitle={agent.agent_class}
+                                                    icon={IconRobot}
+                                                    badges={[
+                                                        {
+                                                            label: agent.is_bound
+                                                                ? "متصل"
+                                                                : "ارث‌بری",
+                                                            tone: agent.is_bound
+                                                                ? "info"
+                                                                : "outline",
+                                                        },
+                                                    ]}
+                                                    items={[
+                                                        ...(agent.provider
+                                                            ? [
+                                                                  {
+                                                                      icon: IconBrain,
+                                                                      label: agent.provider,
+                                                                  },
+                                                              ]
+                                                            : []),
+                                                        ...(agent.model
+                                                            ? [
+                                                                  {
+                                                                      icon: IconCpu,
+                                                                      label: agent.model,
+                                                                  },
+                                                              ]
+                                                            : []),
+                                                    ]}
+                                                    actions={agentRowActions(
+                                                        agent,
+                                                    )}
+                                                />
+                                            ))}
+                                        </RecordCardGrid>
+                                    ) : null
+                                }
+                            />
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+            </Tabs>
 
             <AiProviderDialog
                 open={providerDialog.open}
@@ -658,14 +794,17 @@ export function AiSettingsSection() {
             {modelsProvider && (
                 <AiProviderModelsDialog
                     open
-                    onOpenChange={(open) => !open && setModelsProvider(null)}
+                    onOpenChange={(open) => {
+                        if (!open) {
+                            setModelsProvider(null);
+                        }
+                    }}
                     // The list is the source of truth for the models, not the
                     // row captured when the dialog opened: a model added or
                     // deleted elsewhere must be visible here too.
                     provider={
-                        providersData?.data.find(
-                            (p) => p.name === modelsProvider.name,
-                        ) ?? modelsProvider
+                        providers.find((p) => p.name === modelsProvider.name) ??
+                        modelsProvider
                     }
                 />
             )}
@@ -673,11 +812,431 @@ export function AiSettingsSection() {
             {bindingAgent && (
                 <AiAgentDialog
                     open
-                    onOpenChange={(open) => !open && setBindingAgent(null)}
-                    agent={bindingAgent}
-                    providers={providersData?.data ?? []}
+                    onOpenChange={(open) => {
+                        if (!open) {
+                            setBindingAgent(null);
+                        }
+                    }}
+                    // Re-read through the list so a binding made in this dialog
+                    // is reflected the next time it opens.
+                    agent={
+                        agents.find((a) => a.key === bindingAgent.key) ??
+                        bindingAgent
+                    }
+                    providers={providers}
                 />
             )}
         </div>
+    );
+}
+
+/**
+ * The models tab: every registered model, whichever gateway it belongs to.
+ *
+ * It is the one list that answers "where is model X", so it reads across
+ * providers instead of nesting them. One page of models is small (the
+ * registry caps a provider at a few dozen), so search and paging run here
+ * rather than through the URL — the providers and agents tables already own
+ * the shared query parameters, and a third writer would make paging one
+ * table page the others.
+ */
+function ModelsTab({
+    models,
+    providers,
+    isLoading,
+    isError,
+    isFetching,
+    canManage,
+    onRetry,
+    onRefresh,
+    onManage,
+}: {
+    models: AiModelDto[];
+    providers: AiProviderDto[];
+    isLoading: boolean;
+    isError: boolean;
+    isFetching: boolean;
+    canManage: boolean;
+    onRetry: () => void;
+    onRefresh: () => void;
+    onManage: (provider: AiProviderDto) => void;
+}) {
+    const [query, setQuery] = useState("");
+    const [providerFilter, setProviderFilter] = useState<string>("all");
+
+    const filtered = useMemo(() => {
+        const needle = query.trim().toLowerCase();
+
+        return models.filter((model) => {
+            if (
+                providerFilter !== "all" &&
+                (model.provider_name ?? "") !== providerFilter
+            ) {
+                return false;
+            }
+
+            if (needle === "") {
+                return true;
+            }
+
+            return [model.model_name, model.label ?? "", model.provider_name ?? ""]
+                .join(" ")
+                .toLowerCase()
+                .includes(needle);
+        });
+    }, [models, query, providerFilter]);
+
+    const providerNames = useMemo(
+        () =>
+            Array.from(
+                new Set(
+                    models
+                        .map((model) => model.provider_name)
+                        .filter((name): name is string => Boolean(name)),
+                ),
+            ),
+        [models],
+    );
+
+    return (
+        <Card>
+            <CardHeader className="flex flex-wrap items-start justify-between gap-3">
+                <div className="grid gap-1">
+                    <CardTitle>مدل‌های ثبت‌شده</CardTitle>
+                    <CardDescription>
+                        یک نام مدل فقط در محدوده ارائه‌دهنده خودش یکتاست؛ پس هر
+                        ردیف می‌گوید متعلق به کدام درگاه است. افزودن، ویرایش و
+                        حذف از کنار همان ارائه‌دهنده انجام می‌شود.
+                    </CardDescription>
+                </div>
+            </CardHeader>
+            <CardContent className="grid gap-3">
+                <div className="flex flex-wrap items-center gap-2">
+                    <div className="relative min-w-56 flex-1">
+                        <IconSearch className="text-muted-foreground pointer-events-none absolute start-2.5 top-1/2 size-4 -translate-y-1/2" />
+                        <Input
+                            value={query}
+                            onChange={(event) => setQuery(event.target.value)}
+                            placeholder="جستجوی نام مدل یا ارائه‌دهنده…"
+                            className="ps-8"
+                        />
+                    </div>
+                    {providerNames.length > 1 && (
+                        <div className="flex flex-wrap gap-1">
+                            <Button
+                                type="button"
+                                size="sm"
+                                variant={
+                                    providerFilter === "all"
+                                        ? "secondary"
+                                        : "ghost"
+                                }
+                                onClick={() => setProviderFilter("all")}
+                            >
+                                همه
+                            </Button>
+                            {providerNames.map((name) => (
+                                <Button
+                                    key={name}
+                                    type="button"
+                                    size="sm"
+                                    variant={
+                                        providerFilter === name
+                                            ? "secondary"
+                                            : "ghost"
+                                    }
+                                    onClick={() => setProviderFilter(name)}
+                                >
+                                    <span dir="ltr">{name}</span>
+                                </Button>
+                            ))}
+                        </div>
+                    )}
+                    <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={isFetching}
+                        onClick={onRefresh}
+                    >
+                        <IconRefresh className="size-3.5" />
+                        بازخوانی
+                    </Button>
+                </div>
+
+                {isError ? (
+                    <div className="grid place-items-center gap-2 py-10 text-center">
+                        <p className="text-muted-foreground text-sm">
+                            فهرست مدل‌ها خوانده نشد.
+                        </p>
+                        <Button type="button" variant="outline" onClick={onRetry}>
+                            تلاش دوباره
+                        </Button>
+                    </div>
+                ) : isLoading ? (
+                    <div className="bg-muted/40 h-40 animate-pulse rounded-lg" />
+                ) : filtered.length === 0 ? (
+                    <p className="text-muted-foreground py-10 text-center text-sm">
+                        {models.length === 0
+                            ? "هنوز مدلی ثبت نشده است. از تب ارائه‌دهنده‌ها، «مدیریت مدل‌ها» را باز کنید."
+                            : "مدلی با این جستجو پیدا نشد."}
+                    </p>
+                ) : (
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>مدل</TableHead>
+                                <TableHead>ارائه‌دهنده</TableHead>
+                                <TableHead>قابلیت‌ها</TableHead>
+                                <TableHead className="w-0" />
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {filtered.map((model) => {
+                                const owner = providers.find(
+                                    (provider) =>
+                                        provider.name === model.provider_name,
+                                );
+
+                                return (
+                                    <TableRow
+                                        key={`${model.provider_name ?? ""}-${model.model_name}`}
+                                    >
+                                        <TableCell>
+                                            <div className="flex flex-wrap items-center gap-1.5">
+                                                <span
+                                                    dir="ltr"
+                                                    className="font-medium"
+                                                >
+                                                    {model.model_name}
+                                                </span>
+                                                {!model.is_active && (
+                                                    <Badge variant="outline">
+                                                        غیرفعال
+                                                    </Badge>
+                                                )}
+                                            </div>
+                                            {model.label &&
+                                                model.label !==
+                                                    model.model_name && (
+                                                    <span className="text-muted-foreground block text-sm">
+                                                        {model.label}
+                                                    </span>
+                                                )}
+                                        </TableCell>
+                                        <TableCell>
+                                            <span
+                                                dir="ltr"
+                                                className="text-muted-foreground text-sm"
+                                            >
+                                                {model.provider_name ?? "—"}
+                                            </span>
+                                        </TableCell>
+                                        <TableCell>
+                                            {model.capabilities.length === 0 ? (
+                                                <span className="text-muted-foreground text-sm">
+                                                    —
+                                                </span>
+                                            ) : (
+                                                <div className="flex flex-wrap gap-1">
+                                                    {model.capabilities.map(
+                                                        (capability) => (
+                                                            <Badge
+                                                                key={capability}
+                                                                variant="secondary"
+                                                            >
+                                                                {capabilityLabel(
+                                                                    capability,
+                                                                )}
+                                                            </Badge>
+                                                        ),
+                                                    )}
+                                                </div>
+                                            )}
+                                        </TableCell>
+                                        <TableCell className="text-end">
+                                            {owner && canManage && (
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() =>
+                                                        onManage(owner)
+                                                    }
+                                                >
+                                                    <IconPencil className="size-4" />
+                                                    ویرایش
+                                                </Button>
+                                            )}
+                                        </TableCell>
+                                    </TableRow>
+                                );
+                            })}
+                        </TableBody>
+                    </Table>
+                )}
+            </CardContent>
+        </Card>
+    );
+}
+
+/**
+ * One headline fact. Deliberately quiet: it states the number, names what it
+ * is, and adds one sentence about what it means.
+ */
+function StatusTile({
+    icon: Icon,
+    label,
+    value,
+    hint,
+    tone = "default",
+}: {
+    icon: typeof IconBrain;
+    label: string;
+    value: ReactNode;
+    hint?: string;
+    tone?: "default" | "success" | "warning";
+}) {
+    return (
+        <Card className="gap-2 py-4">
+            <CardContent className="flex items-start gap-3 px-4">
+                <span
+                    className={
+                        tone === "warning"
+                            ? "bg-warning/10 text-warning grid size-9 shrink-0 place-items-center rounded-lg"
+                            : tone === "success"
+                              ? "bg-success/10 text-success grid size-9 shrink-0 place-items-center rounded-lg"
+                              : "bg-muted text-muted-foreground grid size-9 shrink-0 place-items-center rounded-lg"
+                    }
+                >
+                    {tone === "success" ? (
+                        <IconCheck className="size-4" />
+                    ) : (
+                        <Icon className="size-4" />
+                    )}
+                </span>
+                <div className="min-w-0">
+                    <p className="text-muted-foreground text-xs">{label}</p>
+                    <p className="truncate text-lg font-semibold">{value}</p>
+                    {hint && (
+                        <p className="text-muted-foreground mt-0.5 line-clamp-2 text-xs">
+                            {hint}
+                        </p>
+                    )}
+                </div>
+            </CardContent>
+        </Card>
+    );
+}
+
+/** The providers tab's card body; the default leads. */
+function ProviderCardGrid({
+    providers,
+    defaultProvider,
+    actions,
+    isTesting,
+    onTest,
+    onOpenModels,
+}: {
+    providers: AiProviderDto[];
+    defaultProvider?: AiProviderDto;
+    actions: (provider: AiProviderDto) => RowAction[];
+    isTesting: (provider: AiProviderDto) => boolean;
+    onTest: (provider: AiProviderDto) => void;
+    onOpenModels: (provider: AiProviderDto) => void;
+}) {
+    // The default first, then the rest in the order the server sent them.
+    const ordered = defaultProvider
+        ? [
+              defaultProvider,
+              ...providers.filter((p) => p.name !== defaultProvider.name),
+          ]
+        : providers;
+
+    return (
+        <RecordCardGrid>
+            {ordered.map((provider) => {
+                const testing = isTesting(provider);
+
+                return (
+                    <RecordCard
+                        key={provider.name}
+                        title={
+                            <span dir="ltr" className="font-medium">
+                                {provider.name}
+                            </span>
+                        }
+                        subtitle={provider.base_url ?? undefined}
+                        icon={IconBrain}
+                        badges={[
+                            {
+                                label: driverLabel(provider.driver),
+                                tone: "outline",
+                            },
+                            ...(provider.is_default
+                                ? [
+                                      {
+                                          label: "پیش‌فرض",
+                                          tone: "info" as const,
+                                      },
+                                  ]
+                                : []),
+                            ...(provider.is_active
+                                ? []
+                                : [
+                                      {
+                                          label: "غیرفعال",
+                                          tone: "secondary" as const,
+                                      },
+                                  ]),
+                            ...(!provider.has_api_key &&
+                            !isKeyless(provider.driver)
+                                ? [
+                                      {
+                                          label: "کلید ندارد",
+                                          tone: "warning" as const,
+                                      },
+                                  ]
+                                : []),
+                        ]}
+                        items={[
+                            {
+                                icon: IconCpu,
+                                label: `${provider.models.length.toLocaleString("fa-IR")} مدل`,
+                            },
+                            ...(provider.has_api_key
+                                ? [
+                                      {
+                                          icon: IconKey,
+                                          label: "کلید ذخیره شده",
+                                      },
+                                  ]
+                                : []),
+                        ]}
+                        actions={actions(provider)}
+                    >
+                        <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            disabled={testing}
+                            onClick={() => onTest(provider)}
+                        >
+                            <IconActivity className="size-3.5" />
+                            {testing ? "در حال تست…" : "تست اتصال"}
+                        </Button>
+                        <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => onOpenModels(provider)}
+                        >
+                            <IconSparkles className="size-3.5" />
+                            مدل‌ها
+                        </Button>
+                    </RecordCard>
+                );
+            })}
+        </RecordCardGrid>
     );
 }

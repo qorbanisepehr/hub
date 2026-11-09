@@ -21,6 +21,7 @@ const aiSearchSchema = paginatedSearchSchema({
     ai_sort: z.string().optional(),
     ai_order: z.enum(["asc", "desc"]).optional(),
     ai_filter: z.string().optional(),
+    tab: z.enum(["providers", "models", "agents"]).optional(),
     view: listViewSchema,
     ai_view: listViewSchema,
 });
