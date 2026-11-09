@@ -5,12 +5,20 @@ import {
     IconChevronDown,
     IconInfoCircle,
     IconSparkles,
+    IconTargetArrow,
 } from "@tabler/icons-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ResponsiveDialog } from "@/components/ui/responsive-dialog";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import type { AcceptTagMergeGroup, TagMergeProposalDto } from "../types";
 
@@ -41,13 +49,33 @@ interface TagMergeDialogProps {
 export function toAcceptPayload(
     groups: NonNullable<TagMergeProposalDto["groups"]>,
     selectedSlugs: ReadonlySet<string>,
+    canonicalOverrides?: Readonly<Record<string, string>>,
 ): AcceptTagMergeGroup[] {
     return groups
         .filter((group) => selectedSlugs.has(group.canonical.slug))
-        .map((group) => ({
-            canonical: group.canonical.slug,
-            duplicates: group.duplicates.map((tag) => tag.slug),
-        }));
+        .map((group) => {
+            // A group whose keeper was changed by hand: the chosen tag stays
+            // and every other member — the model's canonical included — folds
+            // into it. The server re-validates all of them either way.
+            const chosen = canonicalOverrides?.[group.canonical.slug];
+
+            if (chosen !== undefined && chosen !== group.canonical.slug) {
+                return {
+                    canonical: chosen,
+                    duplicates: [
+                        group.canonical.slug,
+                        ...group.duplicates
+                            .map((tag) => tag.slug)
+                            .filter((slug) => slug !== chosen),
+                    ],
+                };
+            }
+
+            return {
+                canonical: group.canonical.slug,
+                duplicates: group.duplicates.map((tag) => tag.slug),
+            };
+        });
 }
 
 export function TagMergeDialog({
@@ -58,6 +86,7 @@ export function TagMergeDialog({
     onAccept,
 }: TagMergeDialogProps) {
     const [selected, setSelected] = useState<Set<string>>(new Set());
+    const [overrides, setOverrides] = useState<Record<string, string>>({});
 
     // Re-seed on every new proposal. Depending on `proposal` rather than the
     // derived list is what makes this run once per run, not once per render.
@@ -65,6 +94,7 @@ export function TagMergeDialog({
         setSelected(
             new Set((proposal?.groups ?? []).map((group) => group.canonical.slug)),
         );
+        setOverrides({});
     }, [proposal]);
 
     const groups = proposal?.groups ?? [];
@@ -83,22 +113,33 @@ export function TagMergeDialog({
     };
 
     const chosen = groups.filter((group) => selected.has(group.canonical.slug));
-    const tagsRemoved = chosen.reduce(
+    // Counted from the payload the button sends, not from the model's proposal:
+    // a group whose keeper was swapped removes one more tag and moves that
+    // tag's attachments too, and the footer must not disagree with the act.
+    const payload = toAcceptPayload(groups, selected, overrides);
+    const tagsRemoved = payload.reduce(
         (total, group) => total + group.duplicates.length,
         0,
     );
-    const attachmentsMoving = chosen.reduce(
-        (total, group) =>
+    const tagsKept = payload.filter(
+        (group) => group.duplicates.length > 0,
+    ).length;
+    const attachmentsMoving = chosen.reduce((total, group) => {
+        const keep = overrides[group.canonical.slug] ?? group.canonical.slug;
+        const members = [group.canonical, ...group.duplicates];
+
+        return (
             total +
-            group.duplicates.reduce(
-                (sum, tag) => sum + (tag.usage_count ?? 0),
+            members.reduce(
+                (sum, tag) =>
+                    tag.slug === keep ? sum : sum + (tag.usage_count ?? 0),
                 0,
-            ),
-        0,
-    );
+            )
+        );
+    }, 0);
 
     const accept = () => {
-        onAccept(toAcceptPayload(groups, selected));
+        onAccept(toAcceptPayload(groups, selected, overrides));
     };
 
     return (
@@ -112,8 +153,8 @@ export function TagMergeDialog({
                 <>
                     {!nothingToMerge && (
                         <output className="text-muted-foreground me-auto text-xs">
-                            {chosen.length > 0
-                                ? `${chosen.length.toLocaleString("fa-IR")} برچسب می‌ماند، ${tagsRemoved.toLocaleString("fa-IR")} برچسب حذف و ${attachmentsMoving.toLocaleString("fa-IR")} اتصال منتقل می‌شود.`
+                            {tagsRemoved > 0
+                                ? `${tagsKept.toLocaleString("fa-IR")} برچسب می‌ماند، ${tagsRemoved.toLocaleString("fa-IR")} برچسب حذف و ${attachmentsMoving.toLocaleString("fa-IR")} اتصال منتقل می‌شود.`
                                 : "هیچ گروهی برای ادغام انتخاب نشده است."}
                         </output>
                     )}
@@ -169,6 +210,16 @@ export function TagMergeDialog({
                             گروه را سرور دوباره با وضعیت زنده بررسی می‌کند.
                         </p>
                     )}
+                    {proposal?.term ? (
+                        <p className="text-muted-foreground flex flex-wrap items-center gap-1.5 text-xs">
+                            <IconTargetArrow className="size-3.5" />
+                            فقط برچسب‌های مرتبط با
+                            <span className="text-foreground font-medium">
+                                «{proposal.term}»
+                            </span>
+                            بررسی شده‌اند؛ بقیهٔ واژه‌نامه در این پیشنهاد نیست.
+                        </p>
+                    ) : null}
 
                     <ul className="grid gap-2">
                         {groups.map((group) => (
@@ -186,7 +237,19 @@ export function TagMergeDialog({
                                             toggle(group.canonical.slug)
                                         }
                                     />
-                                    <GroupBody group={group} />
+                                    <GroupBody
+                                        group={group}
+                                        canonical={
+                                            overrides[group.canonical.slug] ??
+                                            group.canonical.slug
+                                        }
+                                        onCanonicalChange={(value) =>
+                                            setOverrides((current) => ({
+                                                ...current,
+                                                [group.canonical.slug]: value,
+                                            }))
+                                        }
+                                    />
                                 </label>
                             </li>
                         ))}
@@ -199,21 +262,30 @@ export function TagMergeDialog({
 
 function GroupBody({
     group,
+    canonical,
+    onCanonicalChange,
 }: {
     group: NonNullable<TagMergeProposalDto["groups"]>[number];
+    canonical: string;
+    onCanonicalChange: (slug: string) => void;
 }) {
     const [open, setOpen] = useState(false);
+
+    const members = [group.canonical, ...group.duplicates];
+    const keeper =
+        members.find((tag) => tag.slug === canonical) ?? group.canonical;
+    const removed = members.filter((tag) => tag.slug !== keeper.slug);
+    const swapped = keeper.slug !== group.canonical.slug;
 
     return (
         <div className="grid min-w-0 flex-1 gap-2">
             <div className="flex flex-wrap items-center gap-2">
-                <Badge>{group.canonical.name}</Badge>
+                <Badge>{keeper.name}</Badge>
                 <span className="text-muted-foreground text-xs">
-                    {(group.canonical.usage_count ?? 0).toLocaleString("fa-IR")}{" "}
-                    استفاده
+                    {(keeper.usage_count ?? 0).toLocaleString("fa-IR")} استفاده
                 </span>
                 <IconArrowRight className="text-muted-foreground size-3.5" />
-                {group.duplicates.map((tag) => (
+                {removed.map((tag) => (
                     <Badge
                         key={tag.slug}
                         variant="secondary"
@@ -222,10 +294,15 @@ function GroupBody({
                         {tag.name}
                     </Badge>
                 ))}
-                {group.duplicates.length > 1 && (
+                {removed.length > 1 && (
                     <span className="text-muted-foreground text-xs">
-                        {group.duplicates.length.toLocaleString("fa-IR")} برچسب
+                        {removed.length.toLocaleString("fa-IR")} برچسب
                     </span>
+                )}
+                {swapped && (
+                    <Badge variant="warning" className="text-[10px]">
+                        برچسب باقی‌مانده تغییر کرد
+                    </Badge>
                 )}
             </div>
 
@@ -234,9 +311,9 @@ function GroupBody({
             )}
 
             <div className="flex flex-wrap items-center gap-2">
-                {group.duplicates.length > 0 && (
+                {removed.length > 0 && (
                     <span className="text-muted-foreground inline-flex items-center gap-1 text-xs">
-                        {group.duplicates
+                        {removed
                             .reduce(
                                 (sum, tag) => sum + (tag.usage_count ?? 0),
                                 0,
@@ -244,6 +321,31 @@ function GroupBody({
                             .toLocaleString("fa-IR")}
                         اتصال منتقل می‌شود
                     </span>
+                )}
+                {members.length > 1 && (
+                    <Select
+                        value={keeper.slug}
+                        onValueChange={(value) => {
+                            if (value) {
+                                onCanonicalChange(value);
+                            }
+                        }}
+                    >
+                        <SelectTrigger
+                            size="sm"
+                            className="text-muted-foreground h-6 w-auto gap-1 px-1.5 text-xs"
+                            aria-label="انتخاب برچسب باقی‌مانده"
+                        >
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {members.map((tag) => (
+                                <SelectItem key={tag.slug} value={tag.slug}>
+                                    {tag.name}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
                 )}
                 <Button
                     type="button"

@@ -18,6 +18,7 @@ import type {
     AcceptTagMergePayload,
     AttachTagsPayload,
     TagListParams,
+    TagMergeFocus,
 } from "../types";
 
 /**
@@ -112,8 +113,8 @@ export function useAttachTags() {
  */
 export function useProposeTagMerges() {
     return useMutation({
-        mutationFn: () =>
-            proposeTagMerges().then((response) => response.data.data.run_id),
+        mutationFn: (focus?: TagMergeFocus) =>
+            proposeTagMerges(focus).then((response) => response.data.data.run_id),
         onError: (error) => toast.error(getApiError(error)),
     });
 }
@@ -128,7 +129,8 @@ export function useProposeTagMerges() {
  */
 export function useFetchTagMergeProposal() {
     return useMutation({
-        mutationFn: () => fetchTagMergeProposal().then((response) => response.data.data),
+        mutationFn: (focus?: TagMergeFocus) =>
+            fetchTagMergeProposal(focus).then((response) => response.data.data),
         onError: (error) => toast.error(getApiError(error)),
     });
 }

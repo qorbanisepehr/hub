@@ -54,10 +54,11 @@ import {
     useUpdateTag,
 } from "../hooks";
 import { TagMergeDialog } from "./tag-merge-dialog";
+import { TagMergeAskDialog } from "./tag-merge-ask-dialog";
 import { ManualTagMergeDialog } from "./manual-tag-merge-dialog";
 import { TagMergePendingAlert } from "../components/tag-merge-pending-alert";
 
-import type { TagDto, TagMergeProposalDto } from "../types";
+import type { TagDto, TagMergeFocus, TagMergeProposalDto } from "../types";
 import { getApiError, getApiErrorStatus } from "@/lib/error-utils";
 import { PERMISSIONS } from "@/lib/permissions";
 
@@ -142,12 +143,21 @@ export function TagsSection() {
     const [manualMode, setManualMode] = useState<"bulk" | "manual" | "single">("manual");
     const [manualTags, setManualTags] = useState<TagDto[] | null>(null);
 
+    // The question the current run was asked, held beside the proposal so the
+    // dialog can say what it covers and the re-read asks the same thing.
+    const [mergeFocus, setMergeFocus] = useState<TagMergeFocus | null>(null);
+    const [askOpen, setAskOpen] = useState(false);
+
     // The run whose proposal we are waiting for. Held so the button keeps its
     // spinner until the answer exists, and cleared the moment it does.
     const [pendingMergeRun, setPendingMergeRun] = useState<string | null>(null);
 
-    const openMerge = () => {
-        propose.mutate(undefined, {
+    const openMerge = () => setAskOpen(true);
+
+    const startMerge = (focus: TagMergeFocus) => {
+        setMergeFocus(focus);
+        setAskOpen(false);
+        propose.mutate(focus, {
             onSuccess: (runId) => setPendingMergeRun(runId),
         });
     };
@@ -165,7 +175,7 @@ export function TagsSection() {
 
         if (progress.state === "finished") {
             setPendingMergeRun(null);
-            fetchProposal.mutate(undefined, {
+            fetchProposal.mutate(mergeFocus ?? undefined, {
                 onSuccess: (result) => {
                     setProposal(result);
                     setMergeOpen(true);
@@ -359,7 +369,7 @@ export function TagsSection() {
                     {canManage && (
                         <>
                             {pendingMergeRun !== null && (
-                                <TagMergePendingAlert />
+                                <TagMergePendingAlert focus={mergeFocus} />
                             )}
                             <Button
                                 type="button"
@@ -551,6 +561,12 @@ export function TagsSection() {
                 </div>
             </ResponsiveDialog>
 
+            <TagMergeAskDialog
+                open={askOpen}
+                onOpenChange={setAskOpen}
+                isProposing={propose.isPending}
+                onSubmit={startMerge}
+            />
             <TagMergeDialog
                 open={mergeOpen}
                 onOpenChange={setMergeOpen}

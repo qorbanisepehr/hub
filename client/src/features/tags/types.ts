@@ -47,10 +47,24 @@ export interface TagMergeGroupDto {
     reason: string;
 }
 
+/**
+ * How boldly a consolidation run may call two tags one subject. The backend's
+ * rules are the source of truth; these are the same three keys.
+ */
+export type ConsolidationStrategy = "conservative" | "balanced" | "aggressive";
+
+/** What a run was asked to look at — echoed back so the result says what it covers. */
+export interface TagMergeFocus {
+    strategy: ConsolidationStrategy;
+    term: string | null;
+}
+
 export interface TagMergeProposalDto {
     groups: TagMergeGroupDto[];
     provider: string;
     model: string | null;
+    strategy?: ConsolidationStrategy | null;
+    term?: string | null;
 }
 
 /**

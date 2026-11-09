@@ -76,6 +76,8 @@ export function FormOptionsSection() {
         search: search as unknown as Record<string, unknown>,
         navigate,
         urlState: {
+            pagination: { pageKey: "page", pageSizeKey: "per_page" },
+            sorting: { sortKey: "sort", orderKey: "order" },
             globalFilter: { enabled: true, key: "filter" },
         },
     });
@@ -88,6 +90,8 @@ export function FormOptionsSection() {
             url.pagination.pageIndex + 1,
             url.pagination.pageSize,
             url.globalFilter || undefined,
+            url.activeSort?.id,
+            url.activeSort?.desc ? "desc" : "asc",
         );
 
     const rows = data?.data ?? [];
@@ -151,6 +155,7 @@ export function FormOptionsSection() {
         {
             accessorKey: "parent_value",
             header: "وابسته به",
+            enableSorting: false,
             cell: ({ row }: { row: Row<StockFeatures, FormOption> }) => (
                 <span className="text-muted-foreground">
                     {row.original.parent_value || <span>—</span>}

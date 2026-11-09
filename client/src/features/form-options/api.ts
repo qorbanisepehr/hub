@@ -43,6 +43,8 @@ export function fetchAdminFormOptions(
     page = 1,
     perPage = 20,
     filter?: string,
+    sort?: string,
+    order?: "asc" | "desc",
 ) {
     return api.get<PaginatedResponse<FormOption>>("/admin/form-options", {
         params: {
@@ -50,6 +52,8 @@ export function fetchAdminFormOptions(
             page,
             per_page: perPage,
             filter: filter || undefined,
+            sort: sort || undefined,
+            order: sort ? order : undefined,
         },
     });
 }

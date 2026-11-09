@@ -7,6 +7,7 @@ import type {
     TagDto,
     TagListParams,
     TagListResponse,
+    TagMergeFocus,
     TagMergeProposalDto,
 } from "./types";
 
@@ -46,8 +47,11 @@ export function attachTags(payload: AttachTagsPayload) {
  * The model call happens on a worker, so this only says the run was accepted.
  * The proposal arrives by asking again — see `fetchTagMergeProposal`.
  */
-export function proposeTagMerges() {
-    return api.post<{ data: { run_id: string } }>("/tags/consolidate");
+export function proposeTagMerges(focus?: TagMergeFocus) {
+    return api.post<{ data: { run_id: string } & Partial<TagMergeFocus> }>(
+        "/tags/consolidate",
+        focus ?? {},
+    );
 }
 
 /**
@@ -55,8 +59,12 @@ export function proposeTagMerges() {
  * server still answers with a header call, because the answer was never
  * stored anywhere a read could find it.
  */
-export function fetchTagMergeProposal() {
-    return api.get<{ data: TagMergeProposalDto }>("/tags/consolidate");
+export function fetchTagMergeProposal(focus?: TagMergeFocus) {
+    // The re-read asks the same question the run was queued for — the proposal
+    // was never stored, so a different focus here would answer a different one.
+    return api.get<{ data: TagMergeProposalDto }>("/tags/consolidate", {
+        params: focus ?? undefined,
+    });
 }
 
 /** Apply the chosen groups: attachments move to the canonical tag, duplicates go. */

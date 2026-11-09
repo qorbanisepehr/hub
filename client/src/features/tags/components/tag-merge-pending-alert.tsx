@@ -7,6 +7,13 @@ import {
     AlertTitle,
 } from "@/components/ui/alert";
 import { Spinner } from "@/components/ui/spinner";
+import type { TagMergeFocus } from "../types";
+
+const STRATEGY_LABEL: Record<TagMergeFocus["strategy"], string> = {
+    conservative: "محافظه‌کارانه",
+    balanced: "متعادل",
+    aggressive: "پرخاشگرانه",
+};
 
 /**
  * The wait, where the result will appear.
@@ -21,7 +28,7 @@ import { Spinner } from "@/components/ui/spinner";
  * The proposal is not streamed: it is one answer, not a sequence, so elapsed
  * time is the whole of the progress there is.
  */
-export function TagMergePendingAlert() {
+export function TagMergePendingAlert({ focus }: { focus?: TagMergeFocus | null }) {
     const [startedAt] = useState(() => Date.now());
     const [now, setNow] = useState(() => Date.now());
 
@@ -44,8 +51,10 @@ export function TagMergePendingAlert() {
 
             <AlertDescription className="flex flex-wrap items-center gap-x-2 gap-y-1">
                 <span>
-                    مدل برچسب‌های هم‌معنا را پیدا می‌کند؛ پیشنهاد که آماده شد،
-                    همین‌جا باز می‌شود.
+                    {focus?.term
+                        ? `برچسب‌های مرتبط با «${focus.term}» با رویکرد ${STRATEGY_LABEL[focus.strategy]} بررسی می‌شوند`
+                        : `کل واژه‌نامه با رویکرد ${focus ? STRATEGY_LABEL[focus.strategy] : "متعادل"} بررسی می‌شود`}
+                    ؛ پیشنهاد که آماده شد، همین‌جا باز می‌شود.
                 </span>
                 <span
                     dir="ltr"

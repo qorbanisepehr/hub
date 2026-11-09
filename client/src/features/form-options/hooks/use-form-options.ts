@@ -157,11 +157,26 @@ export function useAdminFormOptions(
     page = 1,
     perPage = 20,
     filter?: string,
+    sort?: string,
+    order?: "asc" | "desc",
 ) {
     return useQuery({
-        queryKey: formOptionKeys.admin(group, { page, per_page: perPage, filter }),
+        queryKey: formOptionKeys.admin(group, {
+            page,
+            per_page: perPage,
+            filter,
+            sort,
+            order: sort ? order : undefined,
+        }),
         queryFn: async () => {
-            const { data } = await fetchAdminFormOptions(group, page, perPage, filter);
+            const { data } = await fetchAdminFormOptions(
+                group,
+                page,
+                perPage,
+                filter,
+                sort,
+                order,
+            );
             return data;
         },
     });
