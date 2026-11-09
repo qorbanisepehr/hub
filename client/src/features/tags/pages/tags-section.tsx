@@ -55,6 +55,7 @@ import {
 } from "../hooks";
 import { TagMergeDialog } from "./tag-merge-dialog";
 import { ManualTagMergeDialog } from "./manual-tag-merge-dialog";
+import { TagMergePendingAlert } from "../components/tag-merge-pending-alert";
 
 import type { TagDto, TagMergeProposalDto } from "../types";
 import { getApiError, getApiErrorStatus } from "@/lib/error-utils";
@@ -357,6 +358,9 @@ export function TagsSection() {
                 <div className="flex flex-wrap items-center justify-end gap-3 px-4 pt-4">
                     {canManage && (
                         <>
+                            {pendingMergeRun !== null && (
+                                <TagMergePendingAlert />
+                            )}
                             <Button
                                 type="button"
                                 variant="outline"

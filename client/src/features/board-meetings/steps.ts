@@ -44,3 +44,23 @@ export const SUMMARY_STEP_DONE_LABELS: Readonly<Record<string, string>> = {
 export function summaryStepDoneLabel(step: string): string {
     return SUMMARY_STEP_DONE_LABELS[step] ?? step;
 }
+
+/**
+ * What each phase is waiting on, for the line under the current step.
+ *
+ * A step label says where the run is; this says what that means for the person
+ * watching — whether waiting longer will help, and whether a slow queue or a
+ * slow model is the thing in front of them.
+ */
+export const SUMMARY_STEP_HINTS: Readonly<Record<string, string>> = {
+    preparing: "صورتجلسه و تنظیمات خوانده می‌شود؛ اتصالی به مدل هنوز باز نشده است.",
+    prompting: "درخواست به ارائه‌دهنده فرستاده می‌شود.",
+    calling_model:
+        "پاسخ مدل معمولاً چند ده ثانیه طول می‌کشد؛ چیزی از دست نمی‌رود اگر این برگه را ببندید.",
+    parsing: "پاسخ مدل به بخش‌های خلاصه تبدیل می‌شود.",
+    storing: "خلاصه در حال ذخیره است؛ نتیجه به‌صورت پیشنهاد ثبت می‌شود.",
+};
+
+export function summaryStepHint(step: string): string | null {
+    return SUMMARY_STEP_HINTS[step] ?? null;
+}

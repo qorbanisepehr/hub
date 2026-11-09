@@ -13,7 +13,8 @@ import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import type { RunProgress, RunState, RunStep } from "@/features/realtime/types";
 
-import { summaryStepDoneLabel, summaryStepLabel } from "../steps";
+import { summaryStepDoneLabel, summaryStepHint, summaryStepLabel } from "../steps";
+import { fieldLabel } from "../summary-copy";
 
 /**
  * What the run is doing right now, for somebody waiting on it.
@@ -165,6 +166,12 @@ export function RunStatus({
     const trail = (steps ?? []).slice(0, -1).toReversed();
     const current = steps?.at(-1)?.step;
 
+    // The fields the request named, if it named any. A full run names none.
+    const requested = run?.context?.["fields"];
+    const requestedFields = Array.isArray(requested)
+        ? requested.map(String)
+        : null;
+
     return (
         <Alert variant="default" className={className}>
             {waiting ? <IconClock /> : <Spinner />}
@@ -204,19 +211,36 @@ export function RunStatus({
                 </Button>
             </AlertAction>
 
-            <AlertDescription className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                {waiting ? (
-                    <span>هنوز کارگری این اجرا را برنداشته است.</span>
-                ) : (
-                    <span>نتیجه همین‌جا به‌روز می‌شود.</span>
-                )}
+            <AlertDescription className="flex flex-col gap-1">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                    {waiting ? (
+                        <span>هنوز کارگری این اجرا را برنداشته است.</span>
+                    ) : current !== undefined &&
+                      summaryStepHint(current) !== null ? (
+                        <span>{summaryStepHint(current)}</span>
+                    ) : (
+                        <span>نتیجه همین‌جا به‌روز می‌شود.</span>
+                    )}
 
-                {!waiting && since !== null && <Elapsed since={since} />}
+                    {!waiting && since !== null && <Elapsed since={since} />}
 
-                {run?.context?.model != null && (
-                    <Badge variant="secondary" className="font-normal">
-                        {String(run.context.model)}
-                    </Badge>
+                    {run?.context?.model != null && (
+                        <Badge variant="secondary" className="font-normal">
+                            {String(run.context.model)}
+                        </Badge>
+                    )}
+                </div>
+
+                {/* The fields a partial run was asked for. A multi-field
+                    regeneration is a different request from a full one, and a
+                    person watching should be told which one they are waiting
+                    on rather than having to remember what they ticked. */}
+                {!waiting && requestedFields !== null && (
+                    <span className="text-xs">
+                        {requestedFields.length === 0
+                            ? "همهٔ بخش‌ها دوباره نوشته می‌شوند."
+                            : `${requestedFields.length.toLocaleString("fa-IR")} بخش: ${requestedFields.map(fieldLabel).join("، ")}`}
+                    </span>
                 )}
             </AlertDescription>
 

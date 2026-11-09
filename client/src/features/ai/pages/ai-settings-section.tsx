@@ -60,6 +60,8 @@ import {
     useTestAiProvider,
     useUpdateAiAgentBinding,
 } from "@/features/ai/hooks";
+import { AgentRunBadge } from "@/features/ai/components/agent-run-badge";
+import { AiActivityDialog } from "@/features/ai/components/ai-activity-dialog";
 import { AiAgentDialog } from "@/features/ai/pages/ai-agent-dialog";
 import { AiProviderDialog } from "@/features/ai/pages/ai-provider-dialog";
 import { AiProviderModelsDialog } from "@/features/ai/pages/ai-provider-models-dialog";
@@ -72,6 +74,7 @@ import {
 } from "@/features/ai/types";
 import { usePermission } from "@/features/auth/components/permission-guard";
 import { useRunProgressChannel } from "@/features/realtime/use-run-progress-channel";
+import { useAgentActivity } from "@/lib/run-activity";
 import { getApiError } from "@/lib/error-utils";
 import { PERMISSIONS } from "@/lib/permissions";
 
@@ -362,6 +365,9 @@ export function AiSettingsSection() {
         0,
     );
     const boundAgents = agents.filter((agent) => agent.is_bound).length;
+    const agentActivity = useAgentActivity();
+    const runningAgents = Object.keys(agentActivity).length;
+    const [activityOpen, setActivityOpen] = useState(false);
 
     const providerColumns: ColumnDef<StockFeatures, AiProviderDto>[] = [
         {
@@ -503,6 +509,24 @@ export function AiSettingsSection() {
                 </span>
             ),
         },
+        {
+            id: "activity",
+            header: "الان",
+            enableSorting: false,
+            // The one column that comes from the live channel rather than the
+            // registry: it says which agent is being asked *right now*, so an
+            // administrator opening Settings with no run of their own still
+            // sees the nightly summary they started in another tab.
+            cell: ({ row }: { row: Row<StockFeatures, AiAgentDto> }) => {
+                const activity = agentActivity[row.original.key];
+
+                return activity === undefined ? (
+                    <span className="text-muted-foreground text-xs">—</span>
+                ) : (
+                    <AgentRunBadge activity={activity} />
+                );
+            },
+        },
         ...(canManage
             ? [
                   {
@@ -573,7 +597,12 @@ export function AiSettingsSection() {
                     icon={IconRobot}
                     label="عامل‌های متصل"
                     value={`${boundAgents.toLocaleString("fa-IR")} از ${agents.length.toLocaleString("fa-IR")}`}
-                    hint="بقیه ارائه‌دهنده و مدل پیش‌فرض را به ارث می‌برند."
+                    hint={
+                        runningAgents > 0
+                            ? `${runningAgents.toLocaleString("fa-IR")} اجرا همین حالا در جریان است.`
+                            : "بقیه ارائه‌دهنده و مدل پیش‌فرض را به ارث می‌برند."
+                    }
+                    onClick={runningAgents > 0 ? () => setActivityOpen(true) : undefined}
                 />
             </div>
 
@@ -590,6 +619,11 @@ export function AiSettingsSection() {
                     <TabsTrigger value="agents">
                         <IconRobot className="size-4" />
                         عامل‌ها
+                        {runningAgents > 0 && (
+                            <Badge variant="info" className="ms-1">
+                                {runningAgents.toLocaleString("fa-IR")}
+                            </Badge>
+                        )}
                     </TabsTrigger>
                 </TabsList>
 
@@ -768,6 +802,16 @@ export function AiSettingsSection() {
                                                                   },
                                                               ]
                                                             : []),
+                                                        ...(agentActivity[
+                                                            agent.key
+                                                        ] !== undefined
+                                                            ? [
+                                                                  {
+                                                                      icon: IconActivity,
+                                                                      label: "در حال اجرا",
+                                                                  },
+                                                              ]
+                                                            : []),
                                                     ]}
                                                     actions={agentRowActions(
                                                         agent,
@@ -782,6 +826,13 @@ export function AiSettingsSection() {
                     </Card>
                 </TabsContent>
             </Tabs>
+
+            <AiActivityDialog
+                open={activityOpen}
+                onOpenChange={setActivityOpen}
+                agents={agents}
+                activity={agentActivity}
+            />
 
             <AiProviderDialog
                 open={providerDialog.open}
@@ -1090,41 +1141,58 @@ function StatusTile({
     value,
     hint,
     tone = "default",
+    onClick,
 }: {
     icon: typeof IconBrain;
     label: string;
     value: ReactNode;
     hint?: string;
     tone?: "default" | "success" | "warning";
+    /** Makes the whole tile a button, for a tile that has somewhere to go. */
+    onClick?: () => void;
 }) {
+    const body = (
+        <CardContent className="flex items-start gap-3 px-4">
+            <span
+                className={
+                    tone === "warning"
+                        ? "bg-warning/10 text-warning grid size-9 shrink-0 place-items-center rounded-lg"
+                        : tone === "success"
+                          ? "bg-success/10 text-success grid size-9 shrink-0 place-items-center rounded-lg"
+                          : "bg-muted text-muted-foreground grid size-9 shrink-0 place-items-center rounded-lg"
+                }
+            >
+                {tone === "success" ? (
+                    <IconCheck className="size-4" />
+                ) : (
+                    <Icon className="size-4" />
+                )}
+            </span>
+            <div className="min-w-0">
+                <p className="text-muted-foreground text-xs">{label}</p>
+                <p className="truncate text-lg font-semibold">{value}</p>
+                {hint && (
+                    <p className="text-muted-foreground mt-0.5 line-clamp-2 text-xs">
+                        {hint}
+                    </p>
+                )}
+            </div>
+        </CardContent>
+    );
+
+    if (onClick === undefined) {
+        return <Card className="gap-2 py-4">{body}</Card>;
+    }
+
     return (
-        <Card className="gap-2 py-4">
-            <CardContent className="flex items-start gap-3 px-4">
-                <span
-                    className={
-                        tone === "warning"
-                            ? "bg-warning/10 text-warning grid size-9 shrink-0 place-items-center rounded-lg"
-                            : tone === "success"
-                              ? "bg-success/10 text-success grid size-9 shrink-0 place-items-center rounded-lg"
-                              : "bg-muted text-muted-foreground grid size-9 shrink-0 place-items-center rounded-lg"
-                    }
-                >
-                    {tone === "success" ? (
-                        <IconCheck className="size-4" />
-                    ) : (
-                        <Icon className="size-4" />
-                    )}
-                </span>
-                <div className="min-w-0">
-                    <p className="text-muted-foreground text-xs">{label}</p>
-                    <p className="truncate text-lg font-semibold">{value}</p>
-                    {hint && (
-                        <p className="text-muted-foreground mt-0.5 line-clamp-2 text-xs">
-                            {hint}
-                        </p>
-                    )}
-                </div>
-            </CardContent>
+        <Card className="hover:border-ring gap-2 py-4 transition-colors">
+            <button
+                type="button"
+                onClick={onClick}
+                className="rounded-xl text-start outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+            >
+                {body}
+            </button>
         </Card>
     );
 }

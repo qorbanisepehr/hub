@@ -1,5 +1,11 @@
 import { useEffect, useState } from "react";
-import { IconCheck } from "@tabler/icons-react";
+import {
+    IconArrowRight,
+    IconCheck,
+    IconChevronDown,
+    IconInfoCircle,
+    IconSparkles,
+} from "@tabler/icons-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -26,6 +32,11 @@ interface TagMergeDialogProps {
  *
  * Every group starts selected. Accepting all of it is the common case, and
  * un-ticking one is cheaper than ticking many.
+ *
+ * The footer states the consequence before it is agreed to — how many tags
+ * disappear and how many attachments move — because «ادغام» alone does not say
+ * that a group's duplicates cease to exist. The explanation is derived from the
+ * same selection the button acts on, so the two cannot disagree.
  */
 export function toAcceptPayload(
     groups: NonNullable<TagMergeProposalDto["groups"]>,
@@ -71,6 +82,21 @@ export function TagMergeDialog({
         });
     };
 
+    const chosen = groups.filter((group) => selected.has(group.canonical.slug));
+    const tagsRemoved = chosen.reduce(
+        (total, group) => total + group.duplicates.length,
+        0,
+    );
+    const attachmentsMoving = chosen.reduce(
+        (total, group) =>
+            total +
+            group.duplicates.reduce(
+                (sum, tag) => sum + (tag.usage_count ?? 0),
+                0,
+            ),
+        0,
+    );
+
     const accept = () => {
         onAccept(toAcceptPayload(groups, selected));
     };
@@ -84,6 +110,13 @@ export function TagMergeDialog({
             description="برچسب‌هایی که به یک مفهوم اشاره می‌کنند در یک برچسب جمع می‌شوند؛ اتصال‌های بقیه به برچسب باقی‌مانده منتقل و خودشان حذف می‌شوند."
             footer={
                 <>
+                    {!nothingToMerge && (
+                        <output className="text-muted-foreground me-auto text-xs">
+                            {chosen.length > 0
+                                ? `${chosen.length.toLocaleString("fa-IR")} برچسب می‌ماند، ${tagsRemoved.toLocaleString("fa-IR")} برچسب حذف و ${attachmentsMoving.toLocaleString("fa-IR")} اتصال منتقل می‌شود.`
+                                : "هیچ گروهی برای ادغام انتخاب نشده است."}
+                        </output>
+                    )}
                     <Button
                         type="button"
                         variant="outline"
@@ -110,60 +143,147 @@ export function TagMergeDialog({
             }
         >
             {nothingToMerge ? (
-                <p className="text-muted-foreground py-6 text-center text-sm">
-                    برچسب هم‌معنایی برای ادغام پیدا نشد.
-                </p>
+                <div className="flex flex-col items-center gap-2 py-8 text-center">
+                    <span className="bg-success/10 text-success grid size-10 place-items-center rounded-full">
+                        <IconSparkles className="size-5" />
+                    </span>
+                    <p className="text-sm font-medium">
+                        برچسب هم‌معنایی برای ادغام پیدا نشد.
+                    </p>
+                    <p className="text-muted-foreground max-w-sm text-xs">
+                        واژه‌نامه در وضعیت یکدستی است؛ هر وقت برچسب تازه‌ای شبیه
+                        به یکی از برچسب‌های موجود ساخته شد، اینجا پیشنهاد می‌شود.
+                    </p>
+                </div>
             ) : (
-                <ul className="grid gap-3">
-                    {groups.map((group) => (
-                        <li
-                            key={group.canonical.slug}
-                            className="rounded-lg border p-3"
-                        >
-                            <label className="flex items-start gap-3">
-                                <Checkbox
-                                    className="mt-1"
-                                    checked={selected.has(group.canonical.slug)}
-                                    onCheckedChange={() =>
-                                        toggle(group.canonical.slug)
-                                    }
-                                />
-                                <div className="grid gap-2">
-                                    <div className="flex flex-wrap items-center gap-2">
-                                        <Badge>
-                                            {group.canonical.name}
-                                        </Badge>
-                                        <span className="text-muted-foreground text-xs">
-                                            {(
-                                                group.canonical
-                                                    .usage_count ?? 0
-                                            ).toLocaleString("fa-IR")}{" "}
-                                            استفاده
-                                        </span>
-                                        <span className="text-muted-foreground">
-                                            ←
-                                        </span>
-                                        {group.duplicates.map((tag) => (
-                                            <Badge
-                                                key={tag.slug}
-                                                variant="secondary"
-                                                className="line-through"
-                                            >
-                                                {tag.name}
-                                            </Badge>
-                                        ))}
-                                    </div>
-                                    {group.reason !== "" && (
-                                        <p className="text-muted-foreground text-xs">
-                                            {group.reason}
-                                        </p>
-                                    )}
-                                </div>
-                            </label>
-                        </li>
-                    ))}
-                </ul>
+                <div className="flex flex-col gap-3">
+                    {proposal !== null && (
+                        <p className="text-muted-foreground flex flex-wrap items-center gap-1.5 text-xs">
+                            <IconInfoCircle className="size-3.5" />
+                            پیشنهاد
+                            <span dir="ltr" className="font-medium">
+                                {proposal.provider}
+                                {proposal.model ? `/${proposal.model}` : ""}
+                            </span>
+                            است آن هم بر پایهٔ فهرست فعلی برچسب‌ها؛ پذیرفتن هر
+                            گروه را سرور دوباره با وضعیت زنده بررسی می‌کند.
+                        </p>
+                    )}
+
+                    <ul className="grid gap-2">
+                        {groups.map((group) => (
+                            <li
+                                key={group.canonical.slug}
+                                className="hover:border-ring rounded-lg border transition-colors"
+                            >
+                                <label className="flex cursor-pointer items-start gap-3 p-3">
+                                    <Checkbox
+                                        className="mt-1"
+                                        checked={selected.has(
+                                            group.canonical.slug,
+                                        )}
+                                        onCheckedChange={() =>
+                                            toggle(group.canonical.slug)
+                                        }
+                                    />
+                                    <GroupBody group={group} />
+                                </label>
+                            </li>
+                        ))}
+                    </ul>
+                </div>
             )}
         </ResponsiveDialog>
+    );
+}
+
+function GroupBody({
+    group,
+}: {
+    group: NonNullable<TagMergeProposalDto["groups"]>[number];
+}) {
+    const [open, setOpen] = useState(false);
+
+    return (
+        <div className="grid min-w-0 flex-1 gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+                <Badge>{group.canonical.name}</Badge>
+                <span className="text-muted-foreground text-xs">
+                    {(group.canonical.usage_count ?? 0).toLocaleString("fa-IR")}{" "}
+                    استفاده
+                </span>
+                <IconArrowRight className="text-muted-foreground size-3.5" />
+                {group.duplicates.map((tag) => (
+                    <Badge
+                        key={tag.slug}
+                        variant="secondary"
+                        className="line-through"
+                    >
+                        {tag.name}
+                    </Badge>
+                ))}
+                {group.duplicates.length > 1 && (
+                    <span className="text-muted-foreground text-xs">
+                        {group.duplicates.length.toLocaleString("fa-IR")} برچسب
+                    </span>
+                )}
+            </div>
+
+            {group.reason !== "" && (
+                <p className="text-muted-foreground text-xs">{group.reason}</p>
+            )}
+
+            <div className="flex flex-wrap items-center gap-2">
+                {group.duplicates.length > 0 && (
+                    <span className="text-muted-foreground inline-flex items-center gap-1 text-xs">
+                        {group.duplicates
+                            .reduce(
+                                (sum, tag) => sum + (tag.usage_count ?? 0),
+                                0,
+                            )
+                            .toLocaleString("fa-IR")}
+                        اتصال منتقل می‌شود
+                    </span>
+                )}
+                <Button
+                    type="button"
+                    variant="ghost"
+                    size="xs"
+                    className="text-muted-foreground h-6 px-1.5 text-xs"
+                    onClick={(event) => {
+                        // The whole card is a label for the checkbox; a click on
+                        // this button must not also tick the group.
+                        event.preventDefault();
+                        setOpen((value) => !value);
+                    }}
+                >
+                    جزئیات
+                    <IconChevronDown
+                        className={
+                            open
+                                ? "size-3.5 rotate-180 transition-transform"
+                                : "size-3.5 transition-transform"
+                        }
+                    />
+                </Button>
+            </div>
+
+            {open && (
+                <dl className="bg-muted/40 grid gap-1 rounded-md p-2 text-xs">
+                    <div className="flex items-center justify-between gap-2">
+                        <dt className="text-muted-foreground">برچسب می‌ماند</dt>
+                        <dd dir="ltr" className="font-medium">
+                            {group.canonical.slug}
+                        </dd>
+                    </div>
+                    <div className="flex items-start justify-between gap-2">
+                        <dt className="text-muted-foreground">حذف می‌شوند</dt>
+                        <dd dir="ltr" className="text-end">
+                            {group.duplicates.map((tag) => tag.slug).join("، ")}
+                        </dd>
+                    </div>
+                </dl>
+            )}
+        </div>
     );
 }

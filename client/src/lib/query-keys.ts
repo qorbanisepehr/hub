@@ -191,6 +191,12 @@ export const aiKeys = {
         [...aiKeys.agents(), params] as const,
     /** The flat, cross-provider list a per-run model picker reads. */
     models: () => [...aiKeys.all, "models"] as const,
+    /**
+     * Runs in flight, tracked live rather than fetched: the cache holds a map
+     * of agent key to its latest run so Settings and the features that start
+     * runs agree on what is happening right now.
+     */
+    activity: () => [...aiKeys.all, "activity"] as const,
 };
 
 export const exportTemplateKeys = {

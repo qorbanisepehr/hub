@@ -10,6 +10,7 @@ import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { requireAuth } from "@/features/auth/guards";
 import { ensureFormOptions } from "@/features/form-options/hooks/use-form-options";
 import { queryClient } from "@/lib/query-client";
+import { RunActivityListener } from "@/lib/run-activity";
 import { ErrorPage } from "@/components/layout";
 
 export const Route = createRoute({
@@ -55,6 +56,11 @@ function ProtectedLayout() {
         >
             <AppSidebar variant="inset" side="right" collapsible="icon" />
             <SidebarInset className="max-w-svw overflow-hidden md:peer-data-[variant=inset]:peer-data-[state=collapsed]:ms-0">
+                {/* One subscription for the signed-in app: a page that was never
+                    opened still knows which agents are running, and an unmounted
+                    page cannot silence the rest. Mounted here rather than in
+                    `main` so it starts with the session and drops with it. */}
+                <RunActivityListener />
                 <SiteHeader />
                 <Outlet />
             </SidebarInset>
