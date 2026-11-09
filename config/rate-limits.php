@@ -59,4 +59,29 @@ return [
         'limit' => (int) env('QUESTIONNAIRE_OTP_VERIFY_LIMIT', 5),
         'period' => (int) env('QUESTIONNAIRE_OTP_VERIFY_PERIOD', 300),
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | AI Rate Limiters
+    |--------------------------------------------------------------------------
+    |
+    | Spend: every route that costs a model call, per user (default: 12 per
+    |        minute). A person may legitimately start a summary, test a
+    |        provider, and ask for a merge proposal in one sitting; past this it
+    |        is a loop, and the bill is the hub's.
+    | Read:  the model registry pickers (default: 120 per minute per user). They
+    |        cost nothing at the gateway, so they get a wide bucket of their own
+    |        rather than sharing the spend allowance.
+    |
+    */
+
+    'ai-spend' => [
+        'limit' => (int) env('AI_SPEND_LIMIT', 12),
+        'period' => (int) env('AI_SPEND_PERIOD', 60),
+    ],
+
+    'ai-read' => [
+        'limit' => (int) env('AI_READ_LIMIT', 120),
+        'period' => (int) env('AI_READ_PERIOD', 60),
+    ],
 ];

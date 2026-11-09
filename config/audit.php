@@ -34,6 +34,9 @@ return [
         'secret',
         'api_key',
         'api_secret',
+        // AI provider headers are a credential-shaped bag: an API key sent as
+        // `x-api-key`, a bearer token, a signed gateway key.
+        'authorization',
         'ssn',
         'national_id',
         'id_number',
@@ -125,6 +128,13 @@ return [
         'questionnaire.rejected' => ['category' => 'questionnaire', 'sensitivity' => 'medium'],
         'questionnaire.reviewed' => ['category' => 'questionnaire', 'sensitivity' => 'medium'],
         'questionnaire.submitted' => ['category' => 'questionnaire', 'sensitivity' => 'medium'],
+
+        // AI registry. The credential itself never reaches a snapshot — only
+        // whether one exists and which headers are set — so `high` is about who
+        // changed the routing, not about what was written.
+        'ai.agent.bound' => ['category' => 'ai', 'sensitivity' => 'medium'],
+        'ai.model.changed' => ['category' => 'ai', 'sensitivity' => 'medium'],
+        'ai.provider.changed' => ['category' => 'ai', 'sensitivity' => 'high'],
 
         // Board meetings
         'boardmeeting.updated' => ['category' => 'boardmeeting', 'sensitivity' => 'high'],

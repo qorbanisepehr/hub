@@ -228,9 +228,11 @@ Route::middleware('auth:sanctum')->group(function () {
     // AI summary. Both paths write the meeting's own record, so both sit on
     // `board-meeting.update` rather than a permission of their own: asking for
     // a run and deciding what it produced are the same write, at two moments.
+    // Only the two paths that start a run sit on the AI spend bucket; accepting,
+    // dismissing and cancelling cost nothing at the gateway.
     Route::post('board-meetings/{meeting}/summary', [MeetingSummaryController::class, 'store'])
         ->name('board-meetings.summary.store')
-        ->middleware('permission:board-meeting.update');
+        ->middleware(['permission:board-meeting.update', 'throttle:ai-spend']);
 
     Route::post('board-meetings/{meeting}/summary/accept', [MeetingSummaryController::class, 'accept'])
         ->name('board-meetings.summary.accept')
@@ -262,7 +264,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::post('board-meetings/summary/bulk', [MeetingSummaryController::class, 'bulk'])
         ->name('board-meetings.summary.bulk')
-        ->middleware('permission:board-meeting.sync');
+        ->middleware(['permission:board-meeting.sync', 'throttle:ai-spend']);
 
     // Stopping the part of a bulk that has not run yet. On the sync permission
     // for the same reason the dispatch is: it acts on a registry-wide batch

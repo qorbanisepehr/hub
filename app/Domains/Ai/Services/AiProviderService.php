@@ -2,6 +2,9 @@
 
 namespace App\Domains\Ai\Services;
 
+use App\Domains\Ai\Events\AiAgentBound;
+use App\Domains\Ai\Events\AiModelChanged;
+use App\Domains\Ai\Events\AiProviderChanged;
 use App\Domains\Ai\Value\AiAgent;
 use App\Domains\Ai\Value\AiDefaultProvider;
 use App\Domains\Ai\Value\AiModel;
@@ -32,6 +35,12 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
  * process and reads its config at that moment, so a credential saved here
  * would otherwise keep answering with the one that was there before the save.
  * Doing it here rather than in the controller means no caller can forget.
+ *
+ * Every mutation also emits its own audit event. Emitted here for the same
+ * reason: a credential and the routing it decides are the two things an audit
+ * trail is for, and a controller that forgot one of the four write paths would
+ * leave a silent hole. The events carry snapshots, never the key — see
+ * {@see AiProviderChanged}.
  */
 class AiProviderService
 {
@@ -73,14 +82,35 @@ class AiProviderService
 
         $this->resolver->forget();
 
+        event(new AiProviderChanged(
+            $provider->name(),
+            AiProviderChanged::CREATED,
+            null,
+            $provider->auditSnapshot(),
+        ));
+
         return $provider;
     }
 
     public function updateProvider(AiProvider $provider, ?int $updatedBy = null): AiProvider
     {
+        $before = $this->store->get(AiProvider::class, $provider->key());
+
         $this->store->put($provider, $updatedBy);
 
         $this->resolver->forget();
+
+        // A create path that goes through here (the model helpers do) has no
+        // previous document; the create event already reported that document,
+        // so an update with a null `before` would be a second, emptier row.
+        if ($before !== null) {
+            event(new AiProviderChanged(
+                $provider->name(),
+                AiProviderChanged::UPDATED,
+                $before->auditSnapshot(),
+                $provider->auditSnapshot(),
+            ));
+        }
 
         return $provider;
     }
@@ -95,6 +125,8 @@ class AiProviderService
      */
     public function deleteProvider(string $name, ?int $updatedBy = null): void
     {
+        $before = $this->store->get(AiProvider::class, AiRegistryKey::PROVIDERS.$name);
+
         $this->store->forget(AiProvider::class, AiRegistryKey::PROVIDERS.$name);
 
         if ($this->defaultProviderName() === $name) {
@@ -108,6 +140,13 @@ class AiProviderService
         }
 
         $this->resolver->forget();
+
+        event(new AiProviderChanged(
+            $name,
+            AiProviderChanged::DELETED,
+            $before?->auditSnapshot(),
+            null,
+        ));
     }
 
     /**
@@ -121,10 +160,21 @@ class AiProviderService
     public function makeDefault(string $name, ?int $updatedBy = null): AiProvider
     {
         $provider = $this->provider($name);
+        $previous = $this->defaultProviderName();
 
         $this->store->put(AiDefaultProvider::make($provider->name()), $updatedBy);
 
         $this->resolver->forget();
+
+        // The whole routing change, not just the insert: promoting one provider
+        // demotes another in the same write, and a trail that named only the
+        // winner would leave the loser's disappearance unexplained.
+        event(new AiProviderChanged(
+            $provider->name(),
+            AiProviderChanged::DEFAULTED,
+            ['default_provider' => $previous],
+            ['default_provider' => $provider->name()],
+        ));
 
         return $provider;
     }
@@ -194,11 +244,15 @@ class AiProviderService
             ]);
         }
 
+        $before = $agent;
+
         $agent = $agent->boundTo($provider, $model);
 
         $this->store->put($agent, $updatedBy);
 
         $this->resolver->forget();
+
+        event(new AiAgentBound($before, $agent));
 
         return $agent;
     }
@@ -214,10 +268,20 @@ class AiProviderService
             ]);
         }
 
-        return $this->updateProvider($provider->withModels(
+        $updated = $this->updateProvider($provider->withModels(
             [...$provider->models(), $model->name => $model],
             $provider->defaultModel(),
         ), $updatedBy);
+
+        event(new AiModelChanged(
+            $provider->name(),
+            $model->name,
+            AiModelChanged::CREATED,
+            null,
+            $model,
+        ));
+
+        return $updated;
     }
 
     /**
@@ -250,7 +314,17 @@ class AiProviderService
             default => $provider->defaultModel(),
         };
 
-        return $this->updateProvider($provider->withModels($models, $default), $updatedBy);
+        $updated = $this->updateProvider($provider->withModels($models, $default), $updatedBy);
+
+        event(new AiModelChanged(
+            $provider->name(),
+            $from,
+            AiModelChanged::UPDATED,
+            $provider->model($from),
+            $model,
+        ));
+
+        return $updated;
     }
 
     /**
@@ -270,6 +344,8 @@ class AiProviderService
 
         abort_unless(isset($models[$name]), 404, __('ai.model_not_found'));
 
+        $removed = $models[$name];
+
         unset($models[$name]);
 
         $default = $provider->defaultModel() === $name
@@ -282,7 +358,17 @@ class AiProviderService
             }
         }
 
-        return $this->updateProvider($provider->withModels($models, $default), $updatedBy);
+        $updated = $this->updateProvider($provider->withModels($models, $default), $updatedBy);
+
+        event(new AiModelChanged(
+            $provider->name(),
+            $name,
+            AiModelChanged::DELETED,
+            $removed,
+            null,
+        ));
+
+        return $updated;
     }
 
     /**

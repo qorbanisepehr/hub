@@ -479,7 +479,23 @@ describe('POST /api/board-meetings/summary/bulk', function () {
 
         actingAs(createUserWithPermissions(['board-meeting.sync']))
             ->postJson('/api/board-meetings/summary/bulk', [
-                'meeting_ids' => range(1, 501),
+                'meeting_ids' => range(1, 201),
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('meeting_ids');
+
+        Queue::assertNotPushed(GenerateBoardMeetingSummaryJob::class);
+    });
+
+    it('caps both lists together, so two half-lists are not a full one twice over', function () {
+        Queue::fake();
+
+        // Each list is under the cap on its own; together they are not. The
+        // selection is what costs money, not the shape it arrived in.
+        actingAs(createUserWithPermissions(['board-meeting.sync']))
+            ->postJson('/api/board-meetings/summary/bulk', [
+                'meeting_ids' => range(1, 150),
+                'regenerate_ids' => range(1000, 1150),
             ])
             ->assertUnprocessable()
             ->assertJsonValidationErrors('meeting_ids');

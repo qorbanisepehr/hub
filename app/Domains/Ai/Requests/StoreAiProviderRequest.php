@@ -3,9 +3,11 @@
 namespace App\Domains\Ai\Requests;
 
 use App\Domains\Ai\Enums\AiDriver;
+use App\Domains\Ai\Value\AiHeaderRules;
 use App\Domains\Ai\Value\AiRegistryKey;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 /**
  * HTTP boundary for creating an AI provider.
@@ -43,11 +45,30 @@ class StoreAiProviderRequest extends FormRequest
         return [
             'name' => ['required', 'string', 'max:100', 'regex:'.AiRegistryKey::SEGMENT_PATTERN],
             'driver' => ['required', Rule::enum(AiDriver::class)],
-            'base_url' => ['nullable', 'string', 'max:255', 'url'],
+            'base_url' => ['nullable', 'string', 'max:255', 'url:http,https'],
             'api_key' => [$this->requiredWithoutKeyRule(), 'nullable', 'string', 'max:255'],
-            'headers' => ['nullable', 'array'],
-            'headers.*' => ['string', 'max:255'],
+            'headers' => ['nullable', 'array', 'max:20'],
+            'headers.*' => ['string', 'max:255', AiHeaderRules::valueRule()],
             'is_active' => ['sometimes', 'boolean'],
+        ];
+    }
+
+    /**
+     * Header names are array keys, so no rule on `headers.*` can see them.
+     *
+     * @return list<callable>
+     */
+    public function after(): array
+    {
+        return [
+            function (Validator $validator): void {
+                /** @var array<mixed> $headers */
+                $headers = $this->input('headers') ?? [];
+
+                if (is_array($headers) && ! AiHeaderRules::namesAreValid($headers)) {
+                    $validator->errors()->add('headers', __('ai.header_name_invalid'));
+                }
+            },
         ];
     }
 

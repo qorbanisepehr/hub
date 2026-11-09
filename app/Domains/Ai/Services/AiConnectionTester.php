@@ -5,6 +5,7 @@ namespace App\Domains\Ai\Services;
 use App\Domains\Ai\Exceptions\AiProviderUnreachable;
 use App\Domains\Ai\Value\AiProvider;
 use Laravel\Ai\AnonymousAgent;
+use RuntimeException;
 use Throwable;
 
 /**
@@ -44,6 +45,20 @@ class AiConnectionTester
     ) {}
 
     /**
+     * The probe that makes the call. Overridable so the outcome rules — which
+     * replies count as proof of a working credential — can be tested without
+     * a gateway on the other end.
+     */
+    protected function agent(): AnonymousAgent
+    {
+        return new AnonymousAgent(
+            instructions: self::PROBE_INSTRUCTIONS,
+            messages: [],
+            tools: [],
+        );
+    }
+
+    /**
      * @return array{ok: true, model: string|null, reply: string, tokens: int|null}
      *
      * @throws AiProviderUnreachable when the provider cannot answer
@@ -61,14 +76,8 @@ class AiConnectionTester
         // uses: request first, provider's preference second.
         $model = $requestedModel ?? $provider->preferredModel();
 
-        $agent = new AnonymousAgent(
-            instructions: self::PROBE_INSTRUCTIONS,
-            messages: [],
-            tools: [],
-        );
-
         try {
-            $response = $agent->prompt(
+            $response = $this->agent()->prompt(
                 'ok',
                 provider: $provider->name(),
                 model: $model,
@@ -78,12 +87,26 @@ class AiConnectionTester
             throw AiProviderUnreachable::because($provider, $e);
         }
 
+        // A response is only evidence if something was actually generated.
+        // A gateway that answers every request with an empty body — a wrong
+        // path, a proxy's HTML error page, a model name nobody serves — used
+        // to come back as a green "connection established", which is the one
+        // wrong answer this button must not give.
+        $reply = trim((string) $response->text);
+
+        if ($reply === '') {
+            throw AiProviderUnreachable::because(
+                $provider,
+                new RuntimeException('The provider answered with an empty reply.'),
+            );
+        }
+
         $usage = $response->usage;
 
         return [
             'ok' => true,
             'model' => $response->meta->model ?? $model,
-            'reply' => $response->text,
+            'reply' => $reply,
             'tokens' => is_object($usage) && method_exists($usage, 'totalTokens')
                 ? $usage->totalTokens()
                 : null,

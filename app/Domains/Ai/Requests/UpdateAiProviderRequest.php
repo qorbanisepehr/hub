@@ -2,7 +2,9 @@
 
 namespace App\Domains\Ai\Requests;
 
+use App\Domains\Ai\Value\AiHeaderRules;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Validator;
 
 /**
  * HTTP boundary for updating an AI provider.
@@ -46,12 +48,31 @@ class UpdateAiProviderRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'base_url' => ['sometimes', 'nullable', 'string', 'max:255', 'url'],
+            'base_url' => ['sometimes', 'nullable', 'string', 'max:255', 'url:http,https'],
             'api_key' => ['sometimes', 'nullable', 'string', 'max:255'],
             'clear_api_key' => ['sometimes', 'boolean'],
-            'headers' => ['sometimes', 'nullable', 'array'],
-            'headers.*' => ['string', 'max:255'],
+            'headers' => ['sometimes', 'nullable', 'array', 'max:20'],
+            'headers.*' => ['string', 'max:255', AiHeaderRules::valueRule()],
             'is_active' => ['sometimes', 'boolean'],
+        ];
+    }
+
+    /**
+     * Header names are array keys, so no rule on `headers.*` can see them.
+     *
+     * @return list<callable>
+     */
+    public function after(): array
+    {
+        return [
+            function (Validator $validator): void {
+                /** @var array<mixed> $headers */
+                $headers = $this->input('headers') ?? [];
+
+                if (is_array($headers) && ! AiHeaderRules::namesAreValid($headers)) {
+                    $validator->errors()->add('headers', __('ai.header_name_invalid'));
+                }
+            },
         ];
     }
 }

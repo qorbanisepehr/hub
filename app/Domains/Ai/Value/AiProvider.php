@@ -82,6 +82,37 @@ final class AiProvider implements Setting
         return $this->driver;
     }
 
+    /**
+     * The provider as a person configured it, for an audit diff.
+     *
+     * `toValue()` is the stored document and is not this: it carries every
+     * model's full body, which makes a one-field edit look like a rewrite of
+     * the whole list. This is the five things somebody actually decides — and
+     * deliberately neither the key nor any header *value*: the credential is
+     * proven changed by what it became (`has_api_key`), and a header can carry
+     * one. Only the header names travel, sorted, so reordering the map is not a
+     * change.
+     *
+     * @return array{driver: string, base_url: string|null, headers: list<string>, is_active: bool, has_api_key: bool, default_model: string|null, models: list<string>}
+     */
+    public function auditSnapshot(): array
+    {
+        $headers = array_keys($this->headers);
+        sort($headers);
+        $models = array_keys($this->models);
+        sort($models);
+
+        return [
+            'driver' => $this->driver->value,
+            'base_url' => $this->baseUrl,
+            'headers' => $headers,
+            'is_active' => $this->isActive,
+            'has_api_key' => $this->apiKey !== null,
+            'default_model' => $this->defaultModel,
+            'models' => $models,
+        ];
+    }
+
     public function baseUrl(): ?string
     {
         return $this->baseUrl;

@@ -27,8 +27,14 @@ use Illuminate\Validation\Rule;
  */
 class BulkMeetingSummaryRequest extends FormRequest
 {
-    /** A few hundred slow model calls; past this it is an import, not a click. */
-    private const MAX_MEETINGS = 500;
+    /**
+     * A few hundred slow model calls; past this it is an import, not a click.
+     *
+     * Applies to both groups *together* as well as to each: the two lists used
+     * to be capped separately, so 500 generate + 500 regenerate passed — a
+     * thousand paid calls from one press, which is twice what the cap is for.
+     */
+    private const MAX_MEETINGS = 200;
 
     public function authorize(): bool
     {
@@ -129,6 +135,15 @@ class BulkMeetingSummaryRequest extends FormRequest
 
             if (array_intersect($generate, $regenerate) !== []) {
                 $validator->errors()->add('regenerate_ids', __('validation.distinct', ['attribute' => 'regenerate_ids']));
+
+                return;
+            }
+
+            if (count($generate) + count($regenerate) > self::MAX_MEETINGS) {
+                $validator->errors()->add('meeting_ids', __('validation.max.numeric', [
+                    'attribute' => 'meeting_ids + regenerate_ids',
+                    'max' => self::MAX_MEETINGS,
+                ]));
 
                 return;
             }

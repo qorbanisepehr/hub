@@ -2,16 +2,32 @@
 
 use App\Domains\Ai\Enums\AiCapability;
 use App\Domains\Ai\Enums\AiDriver;
+use App\Domains\Ai\Events\AiAgentBound;
+use App\Domains\Ai\Events\AiModelChanged;
+use App\Domains\Ai\Events\AiProviderChanged;
 use App\Domains\Ai\Exceptions\AiProviderUnreachable;
+use App\Domains\Ai\Jobs\TestAiProviderConnectionJob;
 use App\Domains\Ai\Services\AiConnectionTester;
+use App\Domains\Ai\Services\AiProviderResolver;
+use App\Domains\Ai\Services\AiProviderService;
 use App\Domains\Ai\Value\AiAgent;
 use App\Domains\Ai\Value\AiDefaultProvider;
 use App\Domains\Ai\Value\AiModel;
 use App\Domains\Ai\Value\AiProvider;
+use App\Domains\Ai\Value\AiRegistryKey;
 use App\Domains\Settings\Repositories\SystemSettingsRepositoryInterface;
 use App\Models\User;
+use App\Support\Realtime\RunProgressed;
+use App\Support\Realtime\RunState;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\RateLimiter;
+use Laravel\Ai\AnonymousAgent;
 use Laravel\Ai\Contracts\Agent;
+use Laravel\Ai\Responses\Data\Meta;
+use Laravel\Ai\Responses\Data\TextUsage;
+use Laravel\Ai\Responses\TextResponse;
 
 use function Pest\Laravel\actingAs;
 
@@ -243,7 +259,7 @@ describe('PUT /api/ai/providers/{provider}', function () {
             ->putJson('/api/ai/providers/local', ['base_url' => 'http://ollama.internal:11434'])
             ->assertOk();
 
-        expect(stored()->get(AiProvider::class, 'providers/local')?->apiKey())->toBe('sk-original');
+        expect(stored()->get(AiProvider::class, AiRegistryKey::PROVIDERS.'local')?->apiKey())->toBe('sk-original');
     });
 
     it('replaces the key when one is sent', function () {
@@ -253,7 +269,7 @@ describe('PUT /api/ai/providers/{provider}', function () {
             ->putJson('/api/ai/providers/local', ['api_key' => 'sk-replaced'])
             ->assertOk();
 
-        expect(stored()->get(AiProvider::class, 'providers/local')?->apiKey())->toBe('sk-replaced');
+        expect(stored()->get(AiProvider::class, AiRegistryKey::PROVIDERS.'local')?->apiKey())->toBe('sk-replaced');
     });
 
     it('clears a stored key only when asked explicitly', function () {
@@ -263,7 +279,7 @@ describe('PUT /api/ai/providers/{provider}', function () {
             ->putJson('/api/ai/providers/local', ['clear_api_key' => true])
             ->assertOk();
 
-        expect(stored()->get(AiProvider::class, 'providers/local')?->apiKey())->toBeNull();
+        expect(stored()->get(AiProvider::class, AiRegistryKey::PROVIDERS.'local')?->apiKey())->toBeNull();
     });
 
     it('keeps the key when the flag and a new key are both sent', function () {
@@ -273,7 +289,7 @@ describe('PUT /api/ai/providers/{provider}', function () {
             ->putJson('/api/ai/providers/local', ['api_key' => 'sk-new', 'clear_api_key' => true])
             ->assertOk();
 
-        expect(stored()->get(AiProvider::class, 'providers/local')?->apiKey())->toBeNull();
+        expect(stored()->get(AiProvider::class, AiRegistryKey::PROVIDERS.'local')?->apiKey())->toBeNull();
     });
 
     it('never renames a provider', function () {
@@ -303,7 +319,7 @@ describe('PUT /api/ai/providers/{provider}', function () {
 
         expect($response->json('data.driver'))->toBe('ollama')
             ->and($response->json('data.base_url'))->toBe('http://x.internal')
-            ->and(stored()->get(AiProvider::class, 'providers/local')?->driver())->toBe(AiDriver::Ollama);
+            ->and(stored()->get(AiProvider::class, AiRegistryKey::PROVIDERS.'local')?->driver())->toBe(AiDriver::Ollama);
     });
 
     it('answers 404 for a provider that is not there', function () {
@@ -372,7 +388,7 @@ describe('provider models', function () {
             ->postJson('/api/ai/providers/local/models', ['model_name' => 'gpt-oss:20b'])
             ->assertCreated();
 
-        expect(stored()->get(AiProvider::class, 'providers/local')?->hasModel('gpt-oss:20b'))->toBeTrue();
+        expect(stored()->get(AiProvider::class, AiRegistryKey::PROVIDERS.'local')?->hasModel('gpt-oss:20b'))->toBeTrue();
     });
 
     it('rejects a model name the gateway would never publish', function () {
@@ -425,7 +441,7 @@ describe('provider models', function () {
             ->putJson('/api/ai/providers/local/models/gpt-oss:20b', ['model_name' => 'gpt-oss:120b'])
             ->assertOk();
 
-        $provider = stored()->get(AiProvider::class, 'providers/local');
+        $provider = stored()->get(AiProvider::class, AiRegistryKey::PROVIDERS.'local');
 
         expect($provider?->hasModel('gpt-oss:20b'))->toBeFalse()
             ->and($provider?->hasModel('gpt-oss:120b'))->toBeTrue();
@@ -440,7 +456,7 @@ describe('provider models', function () {
 
         // The pointer names a model, so leaving it on the old name would make
         // the stored document refuse to load at all.
-        expect(stored()->get(AiProvider::class, 'providers/local')?->defaultModel())->toBe('gpt-oss:120b');
+        expect(stored()->get(AiProvider::class, AiRegistryKey::PROVIDERS.'local')?->defaultModel())->toBe('gpt-oss:120b');
     });
 
     it('refuses to edit a model through the wrong provider', function () {
@@ -477,7 +493,7 @@ describe('provider models', function () {
             ->deleteJson('/api/ai/providers/local/models/gpt-oss:20b')
             ->assertOk();
 
-        expect(stored()->get(AiProvider::class, 'providers/local')?->hasModel('gpt-oss:20b'))->toBeFalse();
+        expect(stored()->get(AiProvider::class, AiRegistryKey::PROVIDERS.'local')?->hasModel('gpt-oss:20b'))->toBeFalse();
     });
 
     it('forbids a viewer', function () {
@@ -687,51 +703,141 @@ describe('PUT /api/ai/agents/{agent}', function () {
 });
 
 describe('POST /api/ai/providers/{provider}/test', function () {
-    it('reports a reachable provider', function () {
+    it('queues the probe and answers 202 with the run it started', function () {
+        Queue::fake();
+
         storeProvider('local');
+
+        $response = actingAs(createUserWithPermissions(['ai.provider.manage']))
+            ->postJson('/api/ai/providers/local/test')
+            ->assertStatus(202);
+
+        expect($response->json('data.run_id'))->toBe(TestAiProviderConnectionJob::runId('local', null));
+
+        Queue::assertPushed(
+            TestAiProviderConnectionJob::class,
+            fn (TestAiProviderConnectionJob $job): bool => $job->provider === 'local' && $job->model === null,
+        );
+    });
+
+    it('passes the model it was asked to test through', function () {
+        Queue::fake();
+
+        storeProvider('local', models: ['registered:1b' => new AiModel('registered:1b', null, [], true)]);
+
+        // The registry already serves a model, and the point of the box is to
+        // try a *different* one - usually one about to be saved.
+        actingAs(createUserWithPermissions(['ai.provider.manage']))
+            ->postJson('/api/ai/providers/local/test', ['model' => 'unregistered:7b'])
+            ->assertStatus(202);
+
+        Queue::assertPushed(
+            TestAiProviderConnectionJob::class,
+            fn (TestAiProviderConnectionJob $job): bool => $job->model === 'unregistered:7b',
+        );
+    });
+
+    it('answers 404 for a provider that is not there, without queueing anything', function () {
+        Queue::fake();
+
+        actingAs(createUserWithPermissions(['ai.provider.manage']))
+            ->postJson('/api/ai/providers/ghost/test')
+            ->assertNotFound();
+
+        Queue::assertNothingPushed();
+    });
+
+    it('forbids a viewer', function () {
+        storeProvider();
+
+        actingAs(createUserWithPermissions(['ai.provider.view']))
+            ->postJson('/api/ai/providers/local/test')
+            ->assertForbidden();
+    });
+});
+
+describe('AiConnectionTester', function () {
+    it('refuses an empty reply, so a gateway that answers nothing is not "reachable"', function () {
+        storeProvider('local');
+
+        // The one wrong answer this button must not give: a gateway that
+        // returns an empty body - a wrong path, a proxy's error page, a model
+        // nobody serves - used to read as "connection established".
+        $response = new TextResponse('   ', new TextUsage(1, 1), new Meta);
+
+        $agent = Mockery::mock(AnonymousAgent::class);
+        $agent->shouldReceive('prompt')->once()->andReturn($response);
+
+        $tester = new class(app(AiProviderResolver::class), $agent) extends AiConnectionTester
+        {
+            public function __construct(
+                AiProviderResolver $resolver,
+                private readonly AnonymousAgent $probe,
+            ) {
+                parent::__construct($resolver);
+            }
+
+            protected function agent(): AnonymousAgent
+            {
+                return $this->probe;
+            }
+        };
+
+        expect(fn () => $tester->test(
+            stored()->get(AiProvider::class, AiRegistryKey::PROVIDERS.'local'),
+        ))->toThrow(AiProviderUnreachable::class);
+    });
+});
+
+describe('TestAiProviderConnectionJob', function () {
+    it('reports the model and reply when the provider answers', function () {
+        storeProvider('local');
+
+        $user = User::factory()->create();
 
         $this->partialMock(AiConnectionTester::class)
             ->shouldReceive('test')
             ->once()
             ->andReturn(['ok' => true, 'model' => 'gemma3:latest', 'reply' => 'ok', 'tokens' => 3]);
 
-        actingAs(createUserWithPermissions(['ai.provider.manage']))
-            ->postJson('/api/ai/providers/local/test')
-            ->assertOk()
-            ->assertJsonPath('ok', true);
+        Event::fake([RunProgressed::class]);
+
+        (new TestAiProviderConnectionJob('local', null, $user->getKey()))->handle(
+            app(AiConnectionTester::class),
+            app(AiProviderService::class),
+        );
+
+        Event::assertDispatched(
+            RunProgressed::class,
+            fn (RunProgressed $event): bool => $event->state === RunState::Finished
+                && $event->context['model'] === 'gemma3:latest'
+                && $event->userId === $user->getKey(),
+        );
     });
 
-    it('passes the model it was asked to test through', function () {
-        storeProvider('local', models: ['registered:1b' => new AiModel('registered:1b', null, [], true)]);
-
-        // The registry already serves a model, and the point of the box is to
-        // try a *different* one - usually one about to be saved.
-        $this->partialMock(AiConnectionTester::class)
-            ->shouldReceive('test')
-            ->once()
-            ->with(Mockery::on(fn (AiProvider $p): bool => $p->name() === 'local'), 'unregistered:7b')
-            ->andReturn(['ok' => true, 'model' => 'unregistered:7b', 'reply' => 'ok', 'tokens' => 3]);
-
-        actingAs(createUserWithPermissions(['ai.provider.manage']))
-            ->postJson('/api/ai/providers/local/test', ['model' => 'unregistered:7b'])
-            ->assertOk();
-    });
-
-    it('answers 422 with the reason when the provider cannot be reached', function () {
+    it('reports the vendor reason when the provider cannot be reached', function () {
         storeProvider('local');
 
         $this->partialMock(AiConnectionTester::class)
             ->shouldReceive('test')
             ->once()
             ->andThrow(AiProviderUnreachable::because(
-                stored()->get(AiProvider::class, 'providers/local'),
+                stored()->get(AiProvider::class, AiRegistryKey::PROVIDERS.'local'),
                 new RuntimeException('401 Unauthorized'),
             ));
 
-        actingAs(createUserWithPermissions(['ai.provider.manage']))
-            ->postJson('/api/ai/providers/local/test')
-            ->assertUnprocessable()
-            ->assertJsonPath('message', 'AI provider [local] could not be reached: 401 Unauthorized');
+        Event::fake([RunProgressed::class]);
+
+        (new TestAiProviderConnectionJob('local', null, User::factory()->create()->getKey()))->handle(
+            app(AiConnectionTester::class),
+            app(AiProviderService::class),
+        );
+
+        Event::assertDispatched(
+            RunProgressed::class,
+            fn (RunProgressed $event): bool => $event->state === RunState::Failed
+                && str_contains($event->context['reason'] ?? '', '401 Unauthorized'),
+        );
     });
 
     it('never puts the credential in the failure it reports', function () {
@@ -741,23 +847,20 @@ describe('POST /api/ai/providers/{provider}/test', function () {
             ->shouldReceive('test')
             ->once()
             ->andThrow(AiProviderUnreachable::because(
-                stored()->get(AiProvider::class, 'providers/local'),
+                stored()->get(AiProvider::class, AiRegistryKey::PROVIDERS.'local'),
                 new RuntimeException('401 Unauthorized'),
             ));
 
-        $response = actingAs(createUserWithPermissions(['ai.provider.manage']))
-            ->postJson('/api/ai/providers/local/test')
-            ->assertUnprocessable();
+        Event::fake([RunProgressed::class]);
 
-        expect($response->getContent())->not->toContain('sk-secret-value');
-    });
+        (new TestAiProviderConnectionJob('local', null, User::factory()->create()->getKey()))->handle(
+            app(AiConnectionTester::class),
+            app(AiProviderService::class),
+        );
 
-    it('forbids a viewer', function () {
-        storeProvider();
-
-        actingAs(createUserWithPermissions(['ai.provider.view']))
-            ->postJson('/api/ai/providers/local/test')
-            ->assertForbidden();
+        Event::assertDispatched(RunProgressed::class, function (RunProgressed $event): bool {
+            return ! str_contains(json_encode($event->context, JSON_THROW_ON_ERROR), 'sk-secret-value');
+        });
     });
 });
 
@@ -794,5 +897,179 @@ describe('the capability vocabulary', function () {
         }
 
         expect(stored()->all(AiProvider::class))->toHaveCount(count(AiDriver::cases()));
+    });
+});
+
+describe('the audit trail', function () {
+    it('records a provider change without recording the credential or a header value', function () {
+        Event::fake([AiProviderChanged::class]);
+
+        actingAs(createUserWithPermissions(['ai.provider.manage']))
+            ->postJson('/api/ai/providers', [
+                'name' => 'openai',
+                'driver' => AiDriver::OpenAI->value,
+                'api_key' => 'sk-secret-value',
+                'headers' => ['authorization' => 'Bearer-top-secret'],
+            ])
+            ->assertCreated();
+
+        Event::assertDispatched(AiProviderChanged::class, function (AiProviderChanged $event): bool {
+            $row = json_encode([
+                $event->description(),
+                $event->changes(),
+                $event->metadata(),
+            ], JSON_THROW_ON_ERROR);
+
+            return $event->metadata()['op'] === AiProviderChanged::CREATED
+                && $event->metadata()['provider'] === 'openai'
+                && ! str_contains($row, 'sk-secret-value')
+                && ! str_contains($row, 'Bearer-top-secret');
+        });
+    });
+
+    it('records which header was set and that a key exists, so the change is not invisible', function () {
+        Event::fake([AiProviderChanged::class]);
+
+        actingAs(createUserWithPermissions(['ai.provider.manage']))
+            ->postJson('/api/ai/providers', [
+                'name' => 'openai',
+                'driver' => AiDriver::OpenAI->value,
+                'api_key' => 'sk-secret-value',
+                'headers' => ['authorization' => 'Bearer-top-secret'],
+            ])
+            ->assertCreated();
+
+        Event::assertDispatched(AiProviderChanged::class, function (AiProviderChanged $event): bool {
+            $after = $event->changes()['has_api_key']['new'] ?? null;
+            $headers = $event->changes()['headers']['new'] ?? null;
+
+            return $after === true && $headers === ['authorization'];
+        });
+    });
+
+    it('records a decision about the default as the move it is', function () {
+        storeProvider('local');
+        storeProvider('remote', AiDriver::OpenAI, 'sk-remote');
+        stored()->put(AiDefaultProvider::make('local'));
+
+        Event::fake([AiProviderChanged::class]);
+
+        actingAs(createUserWithPermissions(['ai.provider.manage']))
+            ->postJson('/api/ai/providers/remote/default')
+            ->assertOk();
+
+        Event::assertDispatched(AiProviderChanged::class, function (AiProviderChanged $event): bool {
+            return $event->metadata()['op'] === AiProviderChanged::DEFAULTED
+                && $event->changes()['default_provider'] === ['old' => 'local', 'new' => 'remote'];
+        });
+    });
+
+    it('records a binding change with the pair it moved between', function () {
+        storeProvider('local', models: ['gpt-oss:20b' => new AiModel('gpt-oss:20b', null, [], true)]);
+        storeAgent('board-meeting.summary');
+
+        Event::fake([AiAgentBound::class]);
+
+        actingAs(createUserWithPermissions(['ai.provider.manage']))
+            ->putJson('/api/ai/agents/board-meeting.summary', [
+                'provider' => 'local',
+                'model' => 'gpt-oss:20b',
+            ])
+            ->assertOk();
+
+        Event::assertDispatched(AiAgentBound::class, function (AiAgentBound $event): bool {
+            return $event->metadata()['agent'] === 'board-meeting.summary'
+                && isset($event->changes()['binding']);
+        });
+    });
+
+    it('records a model change against the model, not against its provider', function () {
+        storeProvider('local');
+
+        Event::fake([AiModelChanged::class]);
+
+        actingAs(createUserWithPermissions(['ai.provider.manage']))
+            ->postJson('/api/ai/providers/local/models', ['model_name' => 'gpt-oss:20b'])
+            ->assertCreated();
+
+        Event::assertDispatched(AiModelChanged::class, function (AiModelChanged $event): bool {
+            return $event->metadata() === [
+                'op' => AiModelChanged::CREATED,
+                'provider' => 'local',
+                'model' => 'gpt-oss:20b',
+            ];
+        });
+    });
+});
+
+describe('the spend throttle', function () {
+    it('answers 429 with retry_after once a person has spent their allowance', function () {
+        Queue::fake();
+
+        $user = createUserWithPermissions(['ai.provider.manage']);
+        storeProvider('local');
+
+        RateLimiter::clear('ai-spend');
+
+        for ($i = 0; $i < (int) config('rate-limits.ai-spend.limit'); $i++) {
+            actingAs($user)->postJson('/api/ai/providers/local/test')->assertStatus(202);
+        }
+
+        $response = actingAs($user)->postJson('/api/ai/providers/local/test')->assertStatus(429);
+
+        expect($response->json('retry_after'))->toBeInt()->toBeGreaterThan(0);
+        expect($response->json('message'))->toBeString();
+    });
+});
+
+describe('provider headers', function () {
+    it('accepts a credential header, space and all', function () {
+        // The regression this exists for: one "no whitespace" rule applied to
+        // the value as well rejected every `Bearer ...`, which is how almost
+        // every gateway is authenticated.
+        actingAs(createUserWithPermissions(['ai.provider.manage']))
+            ->postJson('/api/ai/providers', [
+                'name' => 'openai',
+                'driver' => AiDriver::OpenAI->value,
+                'api_key' => 'sk-secret',
+                'headers' => ['authorization' => 'Bearer sk-secret'],
+            ])
+            ->assertCreated();
+    });
+
+    it('accepts the same header on an edit', function () {
+        storeProvider('local');
+        $user = createUserWithPermissions(['ai.provider.manage']);
+
+        actingAs($user)
+            ->putJson('/api/ai/providers/local', ['headers' => ['authorization' => 'Bearer sk-secret']])
+            ->assertOk();
+
+        expect(stored()->get(AiProvider::class, AiRegistryKey::PROVIDERS.'local')->headers())
+            ->toBe(['authorization' => 'Bearer sk-secret']);
+    });
+
+    it('refuses a header name that is not a token', function () {
+        actingAs(createUserWithPermissions(['ai.provider.manage']))
+            ->postJson('/api/ai/providers', [
+                'name' => 'openai',
+                'driver' => AiDriver::OpenAI->value,
+                'api_key' => 'sk-secret',
+                'headers' => ['bad name' => 'value'],
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('headers');
+    });
+
+    it('refuses a value that would end the header early', function () {
+        actingAs(createUserWithPermissions(['ai.provider.manage']))
+            ->postJson('/api/ai/providers', [
+                'name' => 'openai',
+                'driver' => AiDriver::OpenAI->value,
+                'api_key' => 'sk-secret',
+                'headers' => ['x-injected' => "a\r\nX-Evil: 1"],
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('headers.x-injected');
     });
 });

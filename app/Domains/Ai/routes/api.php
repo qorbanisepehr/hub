@@ -36,7 +36,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // credentials is what `ai.provider.view` already governs.
     Route::get('ai/models', [AiModelController::class, 'index'])
         ->name('ai.models.index')
-        ->middleware('permission:ai.provider.view');
+        ->middleware(['permission:ai.provider.view', 'throttle:ai-read']);
 
     Route::middleware('permission:ai.provider.manage')->group(function () {
         Route::post('ai/providers', [AiProviderController::class, 'store'])
@@ -50,9 +50,12 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('ai/providers/{provider}/default', [AiProviderController::class, 'makeDefault'])
             ->name('ai.providers.default')
             ->where('provider', '[A-Za-z0-9][A-Za-z0-9._-]*');
+        // Throttled on the shared spend bucket: the test asks the gateway a
+        // real question and is billed like any other run.
         Route::post('ai/providers/{provider}/test', [AiProviderController::class, 'test'])
             ->name('ai.providers.test')
-            ->where('provider', '[A-Za-z0-9][A-Za-z0-9._-]*');
+            ->where('provider', '[A-Za-z0-9][A-Za-z0-9._-]*')
+            ->middleware('throttle:ai-spend');
 
         // Models are edited through the provider that owns them, so the
         // parent is in the path: a model has no address of its own. The model

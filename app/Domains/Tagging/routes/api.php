@@ -22,9 +22,17 @@ Route::middleware('auth:sanctum')->group(function () {
     // Vocabulary-wide consolidation: propose near-duplicate merges (read-only,
     // but a `tag.manage` capability because it is the same audience), and
     // accept the ones a person chose.
+    // Queued, and on the AI spend bucket: proposing is one model call per
+    // press, and the request now returns as soon as the run is accepted.
     Route::post('tags/consolidate', [TagConsolidationController::class, 'store'])
         ->name('tags.consolidate')
-        ->middleware('permission:tag.manage');
+        ->middleware(['permission:tag.manage', 'throttle:ai-spend']);
+    // The re-read behind a finished run. A GET because it answers with the
+    // current vocabulary and writes nothing; the run events are what say when
+    // asking again is worth it.
+    Route::get('tags/consolidate', [TagConsolidationController::class, 'proposal'])
+        ->name('tags.consolidate.proposal')
+        ->middleware(['permission:tag.manage', 'throttle:ai-spend']);
     Route::post('tags/consolidate/accept', [TagConsolidationController::class, 'accept'])
         ->name('tags.consolidate.accept')
         ->middleware('permission:tag.manage');

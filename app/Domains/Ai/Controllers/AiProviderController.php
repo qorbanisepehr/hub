@@ -4,13 +4,12 @@ namespace App\Domains\Ai\Controllers;
 
 use App\Domains\Ai\Enums\AiCapability;
 use App\Domains\Ai\Enums\AiDriver;
-use App\Domains\Ai\Exceptions\AiProviderUnreachable;
+use App\Domains\Ai\Jobs\TestAiProviderConnectionJob;
 use App\Domains\Ai\Requests\AiModelRequest;
 use App\Domains\Ai\Requests\StoreAiProviderRequest;
 use App\Domains\Ai\Requests\UpdateAiProviderRequest;
 use App\Domains\Ai\Resources\AiModelResource;
 use App\Domains\Ai\Resources\AiProviderResource;
-use App\Domains\Ai\Services\AiConnectionTester;
 use App\Domains\Ai\Services\AiProviderService;
 use App\Domains\Ai\Value\AiModel;
 use App\Domains\Ai\Value\AiProvider;
@@ -20,6 +19,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Http\Response;
 
 /**
  * The provider and model registry surface (`ai.provider.view` to read,
@@ -152,31 +152,38 @@ class AiProviderController
     }
 
     /**
-     * Run one minimal prompt against the stored credential.
+     * Queue one minimal prompt against the stored credential.
      *
      * An optional `?model=` lets an administrator check a model name before
      * saving it — most "the provider is broken" reports are really "this
      * gateway does not serve that model", and finding that out here is cheaper
      * than finding it out on a meeting.
      *
-     * 422 rather than 5xx on failure: the cause is almost always something the
-     * administrator can fix on the form they are looking at, and the vendor's
-     * own message is the useful part. It is reported, not rendered.
+     * 202, not the probe's own answer: the probe is a model call that can take
+     * a minute against a cold local model, and holding the request open for it
+     * was the one place in this surface where a browser wait equalled the
+     * model's latency. The outcome arrives as a run event; a vendor's own
+     * message is still the useful part of a failure, and it travels there
+     * instead of in a 422 body.
+     *
+     * The provider is resolved here first, so a name that does not exist is a
+     * 404 now rather than a failed run a minute from now.
      */
-    public function test(AiConnectionTester $tester, Request $request, string $provider): JsonResponse
+    public function test(Request $request, string $provider): JsonResponse
     {
-        try {
-            $result = $tester->test(
-                $this->providers->provider($provider),
-                $request->string('model')->toString() ?: null,
-            );
-        } catch (AiProviderUnreachable $e) {
-            report($e);
+        $this->providers->provider($provider);
 
-            return response()->json(['message' => $e->getMessage()], 422);
-        }
+        $model = $request->string('model')->toString() ?: null;
 
-        return response()->json($result);
+        TestAiProviderConnectionJob::dispatch(
+            provider: $provider,
+            model: $model,
+            requestedBy: $request->user()?->getKey(),
+        );
+
+        return response()->json([
+            'data' => ['run_id' => TestAiProviderConnectionJob::runId($provider, $model)],
+        ], Response::HTTP_ACCEPTED);
     }
 
     public function storeModel(AiModelRequest $request, string $provider): JsonResponse

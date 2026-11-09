@@ -43,6 +43,37 @@ class RateLimitServiceProvider extends ServiceProvider
                 ->by($request->route('uuid', '').'|verify|'.$request->ip())
                 ->response($this->tooManyAttemptsResponse());
         });
+
+        /*
+         | Every route that spends money on a model, on one bucket: a provider
+         | test, a consolidation proposal, one meeting's summary, and a bulk
+         | dispatch. Separate buckets would let a user burn a minute's worth on
+         | each in turn, which defeats the point of having a limit at all.
+         |
+         | Per user rather than per IP: the caller is authenticated, and an
+         | office behind one NAT address would otherwise share one allowance.
+         */
+        RateLimiter::for('ai-spend', function (Request $request) {
+            $config = config('rate-limits.ai-spend');
+
+            return Limit::perSecond($config['limit'], $config['period'])
+                ->by('user:'.($request->user()?->getKey() ?? $request->ip()))
+                ->response($this->tooManyAttemptsResponse());
+        });
+
+        /*
+         | Reads of the model registry. Separate from the spend bucket because
+         | they cost nothing at the gateway: the summary dialogs read this list
+         | every time they mount, and sharing a bucket would make opening a
+         | dialog spend a paid request's allowance.
+         */
+        RateLimiter::for('ai-read', function (Request $request) {
+            $config = config('rate-limits.ai-read');
+
+            return Limit::perSecond($config['limit'], $config['period'])
+                ->by('user:'.($request->user()?->getKey() ?? $request->ip()))
+                ->response($this->tooManyAttemptsResponse());
+        });
     }
 
     /**
