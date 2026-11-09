@@ -6,6 +6,7 @@ export {
     useDeleteTag,
     useAttachTags,
     useProposeTagMerges,
+    useFetchTagMergeProposal,
     useAcceptTagMerges,
 } from "./hooks/use-tags";
 export type {

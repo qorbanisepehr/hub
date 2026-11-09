@@ -35,9 +35,16 @@ import {
  * No polling fallback, unlike notifications. The queries this invalidates
  * already carry their own staleness behaviour, and a second timer would be a
  * second thing to reason about for no gain.
+ *
+ * `channelPrefix` narrows the re-read to the runs of one feature. A page that
+ * only starts provider tests does not want a board-meeting summary run —
+ * started in another tab — to flush the AI registry it is showing; the run's
+ * own `channel` already names the cache key, so this only filters, it does not
+ * translate.
  */
 export function useRunProgressChannel(
     onProgress?: (progress: RunProgress) => void,
+    channelPrefix?: string,
 ) {
     const { user } = useAuth();
     const queryClient = useQueryClient();
@@ -48,6 +55,9 @@ export function useRunProgressChannel(
     // constantly enough to drop real events between the two.
     const handler = useRef(onProgress);
     handler.current = onProgress;
+
+    const prefix = useRef(channelPrefix);
+    prefix.current = channelPrefix;
 
     useEffect(() => {
         if (!user) {
@@ -62,6 +72,20 @@ export function useRunProgressChannel(
         const channel = echo.private(`users.${user.id}.runs`);
 
         const onEvent = (progress: RunProgress): void => {
+            const scope = prefix.current;
+
+            if (scope !== undefined) {
+                // Delivered regardless: the caller's own filter is what knows
+                // which subjects it cares about. Only the flush is skipped,
+                // because re-reading somebody else's feature is pure cost.
+                if (progress.channel === scope) {
+                    reRunAffectedQueries(queryClient, progress);
+                }
+                handler.current?.(progress);
+
+                return;
+            }
+
             reRunAffectedQueries(queryClient, progress);
             handler.current?.(progress);
         };

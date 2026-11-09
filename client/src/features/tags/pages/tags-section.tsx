@@ -42,10 +42,12 @@ import {
     useDataTableUrlState,
 } from "@/hooks/use-data-table-page";
 import { usePermission } from "@/features/auth/components/permission-guard";
+import { useRunProgressChannel } from "@/features/realtime/use-run-progress-channel";
 import {
     useAcceptTagMerges,
     useCreateTag,
     useDeleteTag,
+    useFetchTagMergeProposal,
     useProposeTagMerges,
     useTagOptions,
     useTags,
@@ -139,14 +141,49 @@ export function TagsSection() {
     const [manualMode, setManualMode] = useState<"bulk" | "manual" | "single">("manual");
     const [manualTags, setManualTags] = useState<TagDto[] | null>(null);
 
+    // The run whose proposal we are waiting for. Held so the button keeps its
+    // spinner until the answer exists, and cleared the moment it does.
+    const [pendingMergeRun, setPendingMergeRun] = useState<string | null>(null);
+
     const openMerge = () => {
         propose.mutate(undefined, {
-            onSuccess: (result) => {
-                setProposal(result);
-                setMergeOpen(true);
-            },
+            onSuccess: (runId) => setPendingMergeRun(runId),
         });
     };
+
+    // The proposal is computed on a worker, so `POST` only starts it. The run
+    // events say when to ask for the answer — and a run that failed says why,
+    // which is the one thing a spinner alone could never tell.
+    useRunProgressChannel((progress) => {
+        if (
+            progress.channel !== "tags" ||
+            progress.run_id !== pendingMergeRun
+        ) {
+            return;
+        }
+
+        if (progress.state === "finished") {
+            setPendingMergeRun(null);
+            fetchProposal.mutate(undefined, {
+                onSuccess: (result) => {
+                    setProposal(result);
+                    setMergeOpen(true);
+                },
+            });
+        } else if (progress.state === "failed") {
+            setPendingMergeRun(null);
+
+            const reason = progress.context["reason"];
+
+            toast.error(
+                reason === "not_configured"
+                    ? "هیچ ارائه‌دهندهٔ فعالی برای هوش مصنوعی تنظیم نشده است."
+                    : typeof reason === "string" && reason !== ""
+                      ? reason
+                      : "پیشنهاد ادغام دریافت نشد.",
+            );
+        }
+    }, "tags");
 
     const openCreate = () => {
         setEditing(null);
@@ -166,7 +203,9 @@ export function TagsSection() {
     const update = useUpdateTag();
     const remove = useDeleteTag();
     const propose = useProposeTagMerges();
+    const fetchProposal = useFetchTagMergeProposal();
     const accept = useAcceptTagMerges();
+    const proposing = propose.isPending || pendingMergeRun !== null;
 
     const slugValid = SLUG_PATTERN.test(slug);
     const saveDisabled =
@@ -322,9 +361,9 @@ export function TagsSection() {
                                 type="button"
                                 variant="outline"
                                 onClick={openMerge}
-                                disabled={propose.isPending}
+                                disabled={proposing}
                             >
-                                {propose.isPending ? (
+                                {proposing ? (
                                     <Spinner />
                                 ) : (
                                     <IconGitMerge className="size-4" />

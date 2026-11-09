@@ -207,10 +207,3 @@ export interface AiAgentBindingPayload {
     model?: string | null;
 }
 
-/** The result of a successful connection probe. */
-export interface AiConnectionTestResult {
-    ok: boolean;
-    model: string | null;
-    reply: string;
-    tokens: number | null;
-}

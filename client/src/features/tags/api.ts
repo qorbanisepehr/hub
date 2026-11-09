@@ -41,11 +41,22 @@ export function attachTags(payload: AttachTagsPayload) {
 }
 
 /**
- * Ask the consolidator for near-duplicate merge groups. Side-effect free — the
- * proposal is a view of the current vocabulary, not a stored resource.
+ * Start a consolidation run and get its id back (202).
+ *
+ * The model call happens on a worker, so this only says the run was accepted.
+ * The proposal arrives by asking again — see `fetchTagMergeProposal`.
  */
 export function proposeTagMerges() {
-    return api.post<{ data: TagMergeProposalDto }>("/tags/consolidate");
+    return api.post<{ data: { run_id: string } }>("/tags/consolidate");
+}
+
+/**
+ * The proposal for a run that has finished. A read, so it is a `GET`; the
+ * server still answers with a header call, because the answer was never
+ * stored anywhere a read could find it.
+ */
+export function fetchTagMergeProposal() {
+    return api.get<{ data: TagMergeProposalDto }>("/tags/consolidate");
 }
 
 /** Apply the chosen groups: attachments move to the canonical tag, duplicates go. */

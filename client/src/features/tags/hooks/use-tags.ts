@@ -8,6 +8,7 @@ import {
     attachTags,
     createTag,
     deleteTag,
+    fetchTagMergeProposal,
     fetchTagOptions,
     fetchTags,
     proposeTagMerges,
@@ -103,16 +104,31 @@ export function useAttachTags() {
 }
 
 /**
- * Ask the consolidator for merge groups.
+ * Start a consolidation run, resolving with the run's id.
+ *
+ * The answer is not here: the model call happens on a worker and the run's
+ * `run.progressed` events say when asking again is worth it — a finished run
+ * means `fetchTagMergeProposal`, a failed one carries its reason.
+ */
+export function useProposeTagMerges() {
+    return useMutation({
+        mutationFn: () =>
+            proposeTagMerges().then((response) => response.data.data.run_id),
+        onError: (error) => toast.error(getApiError(error)),
+    });
+}
+
+/**
+ * The proposal for a run that has finished.
  *
  * Nothing is cached or invalidated: the proposal is not hub state, it is an
  * answer about the hub's state, and re-asking is how a person gets a fresh one.
  * The axios envelope is unwrapped here so the dialog receives the proposal
  * itself rather than a response object it would have to know the shape of.
  */
-export function useProposeTagMerges() {
+export function useFetchTagMergeProposal() {
     return useMutation({
-        mutationFn: () => proposeTagMerges().then((response) => response.data.data),
+        mutationFn: () => fetchTagMergeProposal().then((response) => response.data.data),
         onError: (error) => toast.error(getApiError(error)),
     });
 }

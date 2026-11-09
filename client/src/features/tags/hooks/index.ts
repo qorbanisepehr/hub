@@ -6,5 +6,6 @@ export {
     useDeleteTag,
     useAttachTags,
     useProposeTagMerges,
+    useFetchTagMergeProposal,
     useAcceptTagMerges,
 } from "./use-tags";

@@ -6,6 +6,7 @@ export type AuditCategory =
     | "questionnaire"
     | "workflow"
     | "boardmeeting"
+    | "ai"
     | "audit";
 
 export type AuditActorType = "user" | "system";

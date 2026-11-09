@@ -207,7 +207,7 @@ export function AiProviderDialog({
                             setDriver(value as AiDriver)
                         }
                     >
-                        <SelectTrigger id="ai-provider-driver" dir="ltr">
+                        <SelectTrigger id="ai-provider-driver">
                             <SelectValue />
                         </SelectTrigger>
                         <SelectContent>

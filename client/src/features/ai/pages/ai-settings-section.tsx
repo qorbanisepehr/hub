@@ -36,6 +36,7 @@ import {
     useDataTableUrlState,
 } from "@/hooks/use-data-table-page";
 import { usePermission } from "@/features/auth/components/permission-guard";
+import { useRunProgressChannel } from "@/features/realtime/use-run-progress-channel";
 import {
     useAiAgents,
     useAiProviders,
@@ -144,17 +145,65 @@ export function AiSettingsSection() {
     const openEditProvider = (provider: AiProviderDto) =>
         setProviderDialog({ open: true, provider });
 
+    // The run each row is waiting on, so the row keeps its spinner until the
+    // *answer* arrives and a second press on it is refused while one is out.
+    const [testingRuns, setTestingRuns] = useState<
+        ReadonlyMap<string, string>
+    >(new Map());
+
+    const settleRun = (provider: string) =>
+        setTestingRuns((previous) => {
+            const next = new Map(previous);
+
+            next.delete(provider);
+
+            return next;
+        });
+
+    // The probe's outcome comes back as a run event, not as the POST's
+    // response - the POST only says the job was queued. Reporting success on
+    // it is what once made an unreachable gateway look reachable.
+    useRunProgressChannel((progress) => {
+        if (progress.channel !== "ai" || progress.subject?.type !== "ai-provider") {
+            return;
+        }
+
+        const provider = String(progress.subject.id);
+
+        if (testingRuns.get(provider) !== progress.run_id) {
+            return;
+        }
+
+        const reason = progress.context["reason"];
+        const model = progress.context["model"];
+
+        if (progress.state === "finished") {
+            toast.success(
+                `ارتباط برقرار شد${typeof model === "string" ? ` — مدل ${model}` : ""}`,
+            );
+            settleRun(provider);
+        } else if (progress.state === "failed") {
+            // The vendor's own reason is the whole point of the button, so it
+            // is shown verbatim rather than replaced with a generic
+            // "connection failed". The queued job falls back to its own copy
+            // when the worker died without one.
+            toast.error(
+                typeof reason === "string" && reason !== ""
+                    ? reason
+                    : "ارتباط با ارائه‌دهنده برقرار نشد.",
+            );
+            settleRun(provider);
+        }
+    }, "ai");
+
     const handleTest = (provider: AiProviderDto) => {
         test.mutate(
             { name: provider.name },
             {
-                onSuccess: (result) =>
-                    toast.success(
-                        `ارتباط برقرار شد${result.model ? ` — مدل ${result.model}` : ""}`,
+                onSuccess: (runId) =>
+                    setTestingRuns((previous) =>
+                        new Map(previous).set(provider.name, runId),
                     ),
-                // The vendor's own reason is the whole point of the button, so
-                // it is shown verbatim rather than replaced with a generic
-                // "connection failed".
                 onError: (error) => toast.error(getApiError(error)),
             },
         );
@@ -164,14 +213,15 @@ export function AiSettingsSection() {
     // are the same menu, so a command cannot exist in one and not the other.
     const providerRowActions = (provider: AiProviderDto): RowAction[] => {
         const testing =
-            test.isPending && test.variables?.name === provider.name;
+            (test.isPending && test.variables?.name === provider.name) ||
+            testingRuns.has(provider.name);
 
         return [
             {
                 icon: <IconLink className="size-4" />,
                 label: "تست اتصال",
                 onClick: () => handleTest(provider),
-                disabled: test.isPending,
+                disabled: testing,
                 permission: PERMISSIONS.AI_PROVIDER_MANAGE,
             },
             {

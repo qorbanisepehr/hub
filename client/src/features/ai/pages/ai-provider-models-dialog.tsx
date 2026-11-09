@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
-import { IconPencil, IconPlus, IconTrash } from "@tabler/icons-react";
+import { IconPencil, IconPlus } from "@tabler/icons-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { ConfirmDeleteButton } from "@/components/ui/confirm-delete-button";
 import { ResponsiveDialog } from "@/components/ui/responsive-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -138,24 +139,25 @@ export function AiProviderModelsDialog({
                                     type="button"
                                     variant="ghost"
                                     size="icon-sm"
+                                    aria-label={`ویرایش مدل ${model.model_name}`}
                                     onClick={() => openEdit(model)}
                                 >
                                     <IconPencil className="size-4" />
                                 </Button>
-                                <Button
-                                    type="button"
+                                {/* Two presses, not one: a model is bound to
+                                    by agents, and deleting one by a stray
+                                    click unbinds them silently. */}
+                                <ConfirmDeleteButton
+                                    iconOnly
                                     variant="ghost"
-                                    size="icon-sm"
-                                    onClick={() =>
+                                    isPending={remove.isPending}
+                                    onConfirm={() =>
                                         remove.mutate({
                                             providerName: provider.name,
                                             modelName: model.model_name,
                                         })
                                     }
-                                    disabled={remove.isPending}
-                                >
-                                    <IconTrash className="size-4" />
-                                </Button>
+                                />
                             </div>
                         </div>
                     ))

@@ -4,7 +4,6 @@ import type {
     AiAgentDto,
     AiAgentListParams,
     AiAgentListResponse,
-    AiConnectionTestResult,
     AiModelDto,
     AiModelListResponse,
     AiModelPayload,
@@ -82,14 +81,18 @@ export function makeAiProviderDefault(name: string) {
 }
 
 /**
- * Run one minimal prompt against the stored credential.
+ * Queue one minimal prompt against the stored credential.
  *
  * Not `GET` and not a query on a read: it makes an outbound, billable call, so
  * it is an explicit verb. The optional `model` lets an administrator check a
  * name before saving it as a row.
+ *
+ * Answers 202 with the run's id, not the probe's result: the probe can take a
+ * minute against a cold local model. The outcome - and a failure's reason -
+ * arrives as a `run.progressed` event on the per-user run channel.
  */
 export function testAiProviderConnection(name: string, model?: string) {
-    return api.post<AiConnectionTestResult>(
+    return api.post<{ data: { run_id: string } }>(
         `/ai/providers/${encodeURIComponent(name)}/test`,
         null,
         { params: model ? { model } : undefined },

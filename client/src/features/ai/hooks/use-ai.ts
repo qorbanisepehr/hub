@@ -137,18 +137,19 @@ export function useMakeAiProviderDefault() {
 }
 
 /**
- * The connection probe.
+ * Start a connection probe.
  *
- * Its own hook, separate from the registry queries, because its result is not
- * registry state: it is a one-off answer that must not be cached, must not
- * invalidate anything, and reports failure as a *message to read* rather than
- * an error state — the whole point of the button is to be told which of the
- * three common mistakes it is.
+ * Resolves with the run's id as soon as the worker has the job — not with the
+ * answer, which arrives later as a `run.progressed` event on the `ai` channel.
+ * A success here means "sent", never "reachable": treating the 202 as the
+ * verdict is how an unreachable gateway once reported a working connection.
  */
 export function useTestAiProvider() {
     return useMutation({
         mutationFn: ({ name, model }: { name: string; model?: string }) =>
-            testAiProviderConnection(name, model).then((r) => r.data),
+            testAiProviderConnection(name, model).then(
+                (r) => r.data.data.run_id,
+            ),
     });
 }
 

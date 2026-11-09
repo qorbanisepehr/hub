@@ -8,6 +8,7 @@ import {
     IconGavel,
     IconUserKey,
     IconUsers,
+    IconSparkles,
 } from "@tabler/icons-react";
 import {
     badgeVariants,
@@ -23,6 +24,7 @@ export const AUDIT_CATEGORY_LABELS: Record<AuditCategory, string> = {
     questionnaire: "پرسشنامه",
     workflow: "گردش کار",
     boardmeeting: "هیئت مدیره",
+    ai: "هوش مصنوعی",
     audit: "حسابرسی",
 };
 
@@ -41,6 +43,7 @@ export const AUDIT_CATEGORY_VARIANTS: Record<
     questionnaire: "secondary",
     workflow: "secondary",
     boardmeeting: "secondary",
+    ai: "secondary",
     audit: "secondary",
 };
 export const AUDIT_CATEGORY_ICONS: Record<AuditCategory, Icon> = {
@@ -51,6 +54,7 @@ export const AUDIT_CATEGORY_ICONS: Record<AuditCategory, Icon> = {
     questionnaire: IconForms,
     workflow: IconDownload,
     boardmeeting: IconGavel,
+    ai: IconSparkles,
     audit: IconClipboardList,
 };
 
@@ -74,6 +78,10 @@ export const AUDIT_EVENT_LABELS: Record<string, string> = {
     "document.downloaded": "مدرک دانلود شد",
     // Questionnaire
     "questionnaire.submitted": "پرسشنامه ارسال شد",
+    // AI registry
+    "ai.provider.changed": "ارائه‌دهندهٔ هوش مصنوعی تغییر کرد",
+    "ai.model.changed": "مدل هوش مصنوعی تغییر کرد",
+    "ai.agent.bound": "اتصال عامل هوش مصنوعی تغییر کرد",
 };
 
 export const AUDIT_ACTOR_TYPE_LABELS: Record<string, string> = {
