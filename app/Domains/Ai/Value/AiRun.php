@@ -24,6 +24,7 @@ final readonly class AiRun
         public ?string $model,
         public ?array $usage,
         public string $providerKey,
+        public string $reasoning = '',
     ) {}
 
     /**

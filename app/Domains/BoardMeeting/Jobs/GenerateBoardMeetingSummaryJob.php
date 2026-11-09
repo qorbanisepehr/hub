@@ -2,6 +2,7 @@
 
 namespace App\Domains\BoardMeeting\Jobs;
 
+use App\Domains\Ai\Exceptions\AiAgentStopped;
 use App\Domains\Ai\Exceptions\AiNotConfigured;
 use App\Domains\BoardMeeting\Enums\MeetingSummaryStep;
 use App\Domains\BoardMeeting\Enums\SummaryWriteMode;
@@ -257,6 +258,12 @@ class GenerateBoardMeetingSummaryJob implements ShouldBeUnique, ShouldQueue
                 $this->provider,
                 $this->model,
                 $this->merge,
+                // Whether this run is still wanted, asked by the SDK before
+                // each model step. The stop cleared the marker the moment the
+                // person pressed stop, so the same check that skips a queued
+                // run also ends one that is mid-answer — before its next step,
+                // which is the only place a stop can reach.
+                shouldStop: fn (): bool => $canceller->isCancelled($this->meetingId),
                 // The step names travel as stable keys; the client owns the
                 // Persian copy, exactly as it owns the status words and the
                 // failure reasons. This closure is the whole of the coupling:
@@ -277,6 +284,15 @@ class GenerateBoardMeetingSummaryJob implements ShouldBeUnique, ShouldQueue
             );
         } catch (AiNotConfigured) {
             $run = MeetingSummary::failure(MeetingSummary::REASON_NOT_CONFIGURED);
+        } catch (AiAgentStopped) {
+            // Stopped while answering: the SDK ended the run before its next
+            // step, so there is no answer to refuse — only the idle state the
+            // person asked for. Same outcome, and the same reporting, as a run
+            // stopped while it waited.
+            $applier->cancelInFlightRun($meeting);
+            $this->report($meeting, MeetingSummary::cancelled());
+
+            return;
         }
 
         // Stopped while it was answering. A model call in flight cannot be

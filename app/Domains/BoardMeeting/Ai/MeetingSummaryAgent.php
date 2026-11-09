@@ -3,11 +3,14 @@
 namespace App\Domains\BoardMeeting\Ai;
 
 use App\Contracts\Ai\FieldedAgent;
+use App\Contracts\Ai\StoppableAgent;
 use App\Domains\BoardMeeting\Ai\Fields\SummaryFieldContext;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\JsonSchema\Types\Type;
+use Laravel\Ai\Contracts\HasMiddleware;
 use Laravel\Ai\Contracts\HasProviderOptions;
 use Laravel\Ai\Enums\Lab;
+use Laravel\Ai\Middleware\Stop;
 use Laravel\Ai\Promptable;
 
 /**
@@ -26,7 +29,7 @@ use Laravel\Ai\Promptable;
  * from the registry row, so swapping models is a click in Settings rather
  * than a deploy, and nothing here can pin one by accident.
  */
-final class MeetingSummaryAgent implements FieldedAgent, HasProviderOptions
+final class MeetingSummaryAgent implements FieldedAgent, HasMiddleware, HasProviderOptions, StoppableAgent
 {
     use Promptable;
 
@@ -161,6 +164,36 @@ final class MeetingSummaryAgent implements FieldedAgent, HasProviderOptions
     public function isMerging(): bool
     {
         return $this->previous !== [];
+    }
+
+    /**
+     * The run asked the summarizer to abandon before its next model step.
+     *
+     * Asked on every step rather than read from the cache here, because the
+     * agent is the Ai domain's object and knows no concept of cancelled work:
+     * the summarizer, which owns the meeting, decides and hands the question
+     * over. The property is not part of this agent's constructor because only
+     * a finishing question asks it; {@see stopWhen()} answers false otherwise.
+     */
+    private ?\Closure $stopWhen = null;
+
+    public function stopping(\Closure $stopWhen): static
+    {
+        $agent = clone $this;
+
+        $agent->stopWhen = $stopWhen;
+
+        return $agent;
+    }
+
+    public function stopWhen(): bool
+    {
+        return $this->stopWhen instanceof \Closure && ($this->stopWhen)();
+    }
+
+    public function middleware(): array
+    {
+        return [Stop::when(fn (): bool => $this->stopWhen())];
     }
 
     /**

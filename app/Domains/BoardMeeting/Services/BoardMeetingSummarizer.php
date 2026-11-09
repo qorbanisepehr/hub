@@ -125,6 +125,14 @@ class BoardMeetingSummarizer
      *                              the two could never be disagreed with each
      *                              other and the choice could not be expressed
      *                              as "this model, on that gateway"
+     * @param  (\Closure(): bool)|null  $shouldStop  asked before the model is
+     *                                               called and read as the run's
+     *                                               own stop condition. A callback
+     *                                               rather than a stored fact for
+     *                                               the same boundary reason as
+     *                                               `$onStep`: whether this run is
+     *                                               still wanted belongs to the
+     *                                               caller that owns the meeting
      * @param  \Closure(MeetingSummaryStep): void|null  $onStep  Called as each
      *                                                           phase begins. A plain
      *                                                           callback, not a
@@ -146,6 +154,7 @@ class BoardMeetingSummarizer
         ?string $provider = null,
         ?string $model = null,
         bool $merge = false,
+        ?\Closure $shouldStop = null,
         ?\Closure $onStep = null,
     ): MeetingSummary {
         $onStep?->__invoke(MeetingSummaryStep::Preparing);
@@ -184,6 +193,10 @@ class BoardMeetingSummarizer
                 ),
                 'previous' => $previous,
                 'timeout' => self::TIMEOUT_SECONDS,
+                // Read by {@see MeetingSummaryAgent::stopping()}: the stop is
+                // enforced by the SDK between model steps, so a run called off
+                // during a tool loop never pays for its next step.
+                'stop' => $shouldStop,
             ],
         );
 

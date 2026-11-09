@@ -4,15 +4,22 @@ namespace App\Domains\Ai\Services;
 
 use App\Contracts\Ai\FieldedAgent;
 use App\Domains\Ai\Exceptions\AiAgentNotRegistered;
+use App\Domains\Ai\Exceptions\AiAgentStopped;
 use App\Domains\Ai\Exceptions\AiNotConfigured;
 use App\Domains\Ai\Value\AiAgent;
 use App\Domains\Ai\Value\AiRegistryKey;
 use App\Domains\Ai\Value\AiRun;
 use App\Domains\Settings\Repositories\SystemSettingsRepositoryInterface;
+use Closure;
 use Laravel\Ai\Contracts\Agent;
-use Laravel\Ai\Responses\AgentResponse;
+use Laravel\Ai\Contracts\HasStructuredOutput;
+use Laravel\Ai\Responses\Data\FinishReason;
 use Laravel\Ai\Responses\Data\TextUsage;
+use Laravel\Ai\Responses\StreamableAgentResponse;
 use Laravel\Ai\Responses\StructuredAgentResponse;
+use Laravel\Ai\Streaming\Events\StreamEnd;
+use Laravel\Ai\Streaming\Events\TextDelta;
+use RuntimeException;
 
 /**
  * The Ai domain's whole public capability: run the agent registered under a
@@ -32,6 +39,17 @@ use Laravel\Ai\Responses\StructuredAgentResponse;
  * `Agent::fake()` facility, keyed by agent class, and belongs to the test that
  * wants a deterministic answer — a runner that faked on its own would quietly
  * overwrite a test's own stub.
+ *
+ * Agents that return prose are streamed rather than prompted in one block.
+ * Nothing is handed to a socket — the stream is consumed here and the whole
+ * answer returned — so callers see no difference, but the run is read as it is
+ * written rather than in one silent minute at the end, and the domain's own
+ * stop condition is checked between model steps. A structured agent is still
+ * prompted: the SDK does not stream schema-bound output.
+ *
+ * A stream that ends without its final event is an error, not a short answer.
+ * The alternative is a run that was cut off writing a partial text over a good
+ * record with nothing to say it never finished.
  */
 class AiAgentRunner
 {
@@ -83,20 +101,60 @@ class AiAgentRunner
 
         $instance = $this->focusOn($instance, $settings);
 
-        $response = $instance->prompt(
+        $instance = $this->stopOn($instance, $settings);
+
+        return $this->ask($instance, $prompt, $resolved->name(), $resolvedModel, $key, $agent, $settings);
+    }
+
+    /**
+     * Ask the agent, by the one transport its output shape allows.
+     *
+     * A structured agent cannot be streamed: the SDK refuses it outright, because
+     * a schema is answered field by field and a provider streams a finished
+     * document. So the split is by what was asked for, not by preference —
+     * structured runs prompt, everything else streams. The stop middleware runs
+     * inside both paths, since both are step loops.
+     *
+     * @param  array<string, mixed>  $settings
+     */
+    private function ask(Agent $instance, string $prompt, string $provider, ?string $model, string $key, AiAgent $agent, array $settings): AiRun
+    {
+        if ($instance instanceof HasStructuredOutput) {
+            $response = $instance->prompt(
+                $prompt,
+                provider: $provider,
+                model: $model,
+                timeout: $this->timeout($agent, $settings),
+            );
+
+            return new AiRun(
+                text: $response->text,
+                structured: $response instanceof StructuredAgentResponse ? $response->toArray() : null,
+                provider: $response->meta->provider ?? $provider,
+                model: $response->meta->model ?? $model,
+                usage: $this->usage($response->usage),
+                providerKey: $key,
+                reasoning: $response->reasoning,
+            );
+        }
+
+        $stream = $instance->stream(
             $prompt,
-            provider: $resolved->name(),
-            model: $resolvedModel,
+            provider: $provider,
+            model: $model,
             timeout: $this->timeout($agent, $settings),
         );
 
+        [$text, $reasoning] = $this->consume($stream, $key);
+
         return new AiRun(
-            text: $response->text,
-            structured: $response instanceof StructuredAgentResponse ? $response->toArray() : null,
-            provider: $response->meta->provider ?? $resolved->name(),
-            model: $response->meta->model ?? $resolvedModel,
-            usage: $this->usage($response),
+            text: $text,
+            structured: null,
+            provider: $stream->meta?->provider ?? $provider,
+            model: $stream->meta?->model ?? $model,
+            usage: $this->usage($stream->usage),
             providerKey: $key,
+            reasoning: $reasoning,
         );
     }
 
@@ -237,6 +295,66 @@ class AiAgentRunner
     }
 
     /**
+     * Read the whole stream once, keeping only what a run is described by.
+     *
+     * One pass, because the SDK remembers its events on re-iteration — which
+     * would cost a second model call per replay — and because there is nothing
+     * to show until the answer is complete anyway.
+     *
+     * No end is a torn stream, and a stream cut off mid-answer must never be
+     * read as a short one: the caller would take the part for the whole and
+     * write it over a good record, with nothing saying the run did not finish.
+     *
+     * @return array{0: string, 1: string}
+     */
+    private function consume(StreamableAgentResponse $stream, string $key): array
+    {
+        $text = '';
+        $end = null;
+
+        foreach ($stream as $event) {
+            if ($event instanceof TextDelta) {
+                $text .= $event->delta;
+            } elseif ($event instanceof StreamEnd) {
+                $end = $event;
+            }
+        }
+
+        if ($end === null) {
+            throw new RuntimeException("The stream for agent [{$key}] ended before it finished.");
+        }
+
+        if ($end->reason === FinishReason::Cancelled->value) {
+            throw AiAgentStopped::forAgent($key);
+        }
+
+        return [$text, $stream->reasoning];
+    }
+
+    /**
+     * Hand an agent the question "should this run still happen?", asked before
+     * every model step.
+     *
+     * The agent declares the SDK's `Stop` middleware and answers it through
+     * {@see StoppableAgent::stopWhen()}; the runner only passes the stored
+     * answer in. It is the same boundary as {@see focusOn()}: the Ai domain has
+     * no notion of a cancelled summary or an abandoned tag run, only of a
+     * caller that gave it a condition.
+     *
+     * @param  array<string, mixed>  $settings
+     */
+    private function stopOn(Agent $instance, array $settings): Agent
+    {
+        $stop = $settings['stop'] ?? null;
+
+        if (! $stop instanceof Closure || ! method_exists($instance, 'stopping')) {
+            return $instance;
+        }
+
+        return $instance->stopping($stop);
+    }
+
+    /**
      * @param  array<string, mixed>  $settings
      */
     private function timeout(AiAgent $agent, array $settings): ?int
@@ -249,14 +367,8 @@ class AiAgentRunner
     /**
      * @return array{input_tokens: int, output_tokens: int, total_tokens: int}|null
      */
-    private function usage(AgentResponse $response): ?array
+    private function usage(TextUsage $usage): ?array
     {
-        $usage = $response->usage;
-
-        if (! $usage instanceof TextUsage) {
-            return null;
-        }
-
         return [
             'input_tokens' => $usage->inputTokens,
             'output_tokens' => $usage->outputTokens,
