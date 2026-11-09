@@ -1,14 +1,14 @@
 import { useEffect, useState } from "react";
-import { IconPencil, IconPlus } from "@tabler/icons-react";
+import { IconChevronDown, IconPencil, IconPlus, IconPower } from "@tabler/icons-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ConfirmDeleteButton } from "@/components/ui/confirm-delete-button";
 import { ResponsiveDialog } from "@/components/ui/responsive-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { RowActions } from "@/components/shared/row-actions";
 import {
     useCreateAiModel,
     useDeleteAiModel,
@@ -34,6 +34,13 @@ import {
  * would be a table with one column of interest.
  */
 
+/** A capability's Persian label, falling back to its key for an unknown one. */
+function capabilityLabel(capability: string): string {
+    return (
+        AI_CAPABILITIES.find((c) => c.value === capability)?.label ?? capability
+    );
+}
+
 interface AiProviderModelsDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
@@ -47,8 +54,25 @@ export function AiProviderModelsDialog({
 }: AiProviderModelsDialogProps) {
     const [editing, setEditing] = useState<AiModelDto | null>(null);
     const [formOpen, setFormOpen] = useState(false);
+    // Which rows are open. Closed by default: a list of models is scanned by
+    // name, and capabilities are what you open a row to check.
+    const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
 
     const remove = useDeleteAiModel();
+    const toggle = useUpdateAiModel();
+
+    const toggleExpanded = (modelName: string) =>
+        setExpanded((current) => {
+            const next = new Set(current);
+
+            if (next.has(modelName)) {
+                next.delete(modelName);
+            } else {
+                next.add(modelName);
+            }
+
+            return next;
+        });
 
     const openCreate = () => {
         setEditing(null);
@@ -92,75 +116,151 @@ export function AiProviderModelsDialog({
                         هنوز مدلی برای این ارائه‌دهنده ثبت نشده است
                     </p>
                 ) : (
-                    provider.models.map((model) => (
-                        <div
-                            key={model.model_name}
-                            className="flex items-center justify-between gap-3 rounded-md border px-3 py-2"
-                        >
-                            <div className="min-w-0">
-                                <div className="flex flex-wrap items-center gap-2">
-                                    <span
-                                        dir="ltr"
-                                        className="font-medium text-sm"
+                    provider.models.map((model) => {
+                        const detailsOpen = expanded.has(model.model_name);
+
+                        return (
+                            <div
+                                key={model.model_name}
+                                className="rounded-md border"
+                            >
+                                <div className="flex items-start justify-between gap-2 px-3 py-2">
+                                    <button
+                                        type="button"
+                                        className="flex min-w-0 flex-1 items-start gap-2 text-start"
+                                        aria-expanded={detailsOpen}
+                                        onClick={() =>
+                                            toggleExpanded(model.model_name)
+                                        }
                                     >
-                                        {model.model_name}
-                                    </span>
-                                    {model.label &&
-                                        model.label !== model.model_name && (
-                                            <span className="text-muted-foreground text-sm">
-                                                {model.label}
+                                        <IconChevronDown
+                                            className={`text-muted-foreground mt-0.5 size-4 shrink-0 transition-transform ${
+                                                detailsOpen ? "rotate-180" : ""
+                                            }`}
+                                        />
+                                        <span className="min-w-0">
+                                            <span className="flex flex-wrap items-center gap-2">
+                                                <span
+                                                    dir="ltr"
+                                                    className="font-medium text-sm"
+                                                >
+                                                    {model.model_name}
+                                                </span>
+                                                {model.label &&
+                                                    model.label !==
+                                                        model.model_name && (
+                                                        <span className="text-muted-foreground text-sm">
+                                                            {model.label}
+                                                        </span>
+                                                    )}
+                                                {!model.is_active && (
+                                                    <Badge variant="outline">
+                                                        غیرفعال
+                                                    </Badge>
+                                                )}
                                             </span>
-                                        )}
-                                    {!model.is_active && (
-                                        <Badge variant="outline">
-                                            غیرفعال
-                                        </Badge>
-                                    )}
+                                            {/* Collapsed rows still say what
+                                                the model can do: it is the one
+                                                fact a person scans for. */}
+                                            {!detailsOpen &&
+                                                model.capabilities.length >
+                                                    0 && (
+                                                    <span className="text-muted-foreground mt-0.5 block text-xs">
+                                                        {model.capabilities
+                                                            .map(capabilityLabel)
+                                                            .join(" · ")}
+                                                    </span>
+                                                )}
+                                        </span>
+                                    </button>
+
+                                    <RowActions
+                                        variant="menu"
+                                        actions={[
+                                            {
+                                                icon: (
+                                                    <IconPencil className="size-4" />
+                                                ),
+                                                label: "ویرایش",
+                                                onClick: () => openEdit(model),
+                                            },
+                                            {
+                                                icon: (
+                                                    <IconPower className="size-4" />
+                                                ),
+                                                label: model.is_active
+                                                    ? "غیرفعال کردن"
+                                                    : "فعال کردن",
+                                                onClick: () =>
+                                                    toggle.mutate({
+                                                        providerName:
+                                                            provider.name,
+                                                        modelName:
+                                                            model.model_name,
+                                                        payload: {
+                                                            model_name:
+                                                                model.model_name,
+                                                            label: model.label,
+                                                            capabilities:
+                                                                model.capabilities,
+                                                            is_active:
+                                                                !model.is_active,
+                                                        },
+                                                    }),
+                                                disabled: toggle.isPending,
+                                            },
+                                            {
+                                                type: "confirm-delete",
+                                                label: "حذف مدل",
+                                                message: `آیا از حذف مدل «${model.model_name}» اطمینان دارید؟ هر عاملی که به آن متصل است، به مدل پیش‌فرض ارائه‌دهنده برمی‌گردد.`,
+                                                onConfirm: () =>
+                                                    remove.mutate({
+                                                        providerName:
+                                                            provider.name,
+                                                        modelName:
+                                                            model.model_name,
+                                                    }),
+                                                isPending: remove.isPending,
+                                            },
+                                        ]}
+                                    />
                                 </div>
-                                {model.capabilities.length > 0 && (
-                                    <div className="mt-1.5 flex flex-wrap gap-1">
-                                        {model.capabilities.map((capability) => (
-                                            <Badge
-                                                key={capability}
-                                                variant="secondary"
-                                            >
-                                                {AI_CAPABILITIES.find(
-                                                    (c) =>
-                                                        c.value === capability,
-                                                )?.label ?? capability}
-                                            </Badge>
-                                        ))}
+
+                                {detailsOpen && (
+                                    <div className="text-muted-foreground grid gap-2 border-t px-3 py-2 text-xs">
+                                        <div className="flex flex-wrap items-center gap-1.5">
+                                            <span>قابلیت‌ها:</span>
+                                            {model.capabilities.length === 0 ? (
+                                                <span>
+                                                    ثبت نشده — یعنی هیچ
+                                                    قابلیتی ادعا نشده است.
+                                                </span>
+                                            ) : (
+                                                model.capabilities.map(
+                                                    (capability) => (
+                                                        <Badge
+                                                            key={capability}
+                                                            variant="secondary"
+                                                        >
+                                                            {capabilityLabel(
+                                                                capability,
+                                                            )}
+                                                        </Badge>
+                                                    ),
+                                                )
+                                            )}
+                                        </div>
+                                        <div>
+                                            وضعیت:{" "}
+                                            {model.is_active
+                                                ? "فعال — در انتخاب‌های اتصال عامل‌ها دیده می‌شود."
+                                                : "غیرفعال — ثبت است، اما به هیچ اتصال تازه‌ای پیشنهاد نمی‌شود."}
+                                        </div>
                                     </div>
                                 )}
                             </div>
-
-                            <div className="flex shrink-0 items-center gap-1">
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon-sm"
-                                    aria-label={`ویرایش مدل ${model.model_name}`}
-                                    onClick={() => openEdit(model)}
-                                >
-                                    <IconPencil className="size-4" />
-                                </Button>
-                                {/* Two presses, not one: a model is bound to
-                                    by agents, and deleting one by a stray
-                                    click unbinds them silently. */}
-                                <ConfirmDeleteButton
-                                    iconOnly
-                                    variant="ghost"
-                                    isPending={remove.isPending}
-                                    onConfirm={() =>
-                                        remove.mutate({
-                                            providerName: provider.name,
-                                            modelName: model.model_name,
-                                        })
-                                    }
-                                />
-                            </div>
-                        </div>
-                    ))
+                        );
+                    })
                 )}
             </div>
 

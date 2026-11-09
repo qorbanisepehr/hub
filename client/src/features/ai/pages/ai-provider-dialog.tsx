@@ -220,30 +220,35 @@ export function AiProviderDialog({
                     </Select>
                 </div>
 
-                <div className="grid gap-2">
-                    <Label htmlFor="ai-provider-url">نشانی درگاه</Label>
-                    <Input
-                        id="ai-provider-url"
-                        dir="ltr"
-                        value={baseUrl}
-                        onChange={(e) => setBaseUrl(e.target.value)}
-                        placeholder={
-                            driver === "ollama"
-                                ? "http://localhost:11434"
-                                : "https://api.example.com/v1"
-                        }
-                    />
-                    <p className="text-muted-foreground text-xs">
-                        {driver === "ollama" && !baseUrl
-                            ? "خالی گذاشتن یعنی نشانی پیش‌فرض Ollama محلی استفاده می‌شود."
-                            : "برای درگاه‌های میزبانی‌شده خالی بگذارید؛ نشانی پیش‌فرض خودشان استفاده می‌شود."}
-                    </p>
-                    {baseUrl !== "" && !baseUrlValid && (
-                        <p className="text-destructive text-xs">
-                            نشانی باید با http:// یا https:// شروع شود
+                {/* Only where a URL means something. Anthropic and Gemini
+                    have one endpoint, so a box there invites somebody to
+                    "fix" a working provider by pointing it elsewhere. */}
+                {(isEdit || driverMeta?.hasBaseUrl) && (
+                    <div className="grid gap-2">
+                        <Label htmlFor="ai-provider-url">نشانی درگاه</Label>
+                        <Input
+                            id="ai-provider-url"
+                            dir="ltr"
+                            value={baseUrl}
+                            onChange={(e) => setBaseUrl(e.target.value)}
+                            placeholder={
+                                driver === "ollama"
+                                    ? "http://localhost:11434"
+                                    : "https://api.example.com/v1"
+                            }
+                        />
+                        <p className="text-muted-foreground text-xs">
+                            {driver === "ollama" && !baseUrl
+                                ? "خالی گذاشتن یعنی نشانی پیش‌فرض Ollama محلی استفاده می‌شود."
+                                : "برای درگاه‌های میزبانی‌شده خالی بگذارید؛ نشانی پیش‌فرض خودشان استفاده می‌شود."}
                         </p>
-                    )}
-                </div>
+                        {baseUrl !== "" && !baseUrlValid && (
+                            <p className="text-destructive text-xs">
+                                نشانی باید با http:// یا https:// شروع شود
+                            </p>
+                        )}
+                    </div>
+                )}
 
                 <div className="grid gap-2">
                     <Label htmlFor="ai-provider-key">کلید دسترسی</Label>

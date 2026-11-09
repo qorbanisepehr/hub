@@ -211,6 +211,9 @@ export function AiSettingsSection() {
 
     // One declaration per row's commands: the table cell and the card menu
     // are the same menu, so a command cannot exist in one and not the other.
+    // The probe is expensive (one model call), so it lives behind the «...»
+    // menu on the menu shape and inline in the table — either way it is the
+    // first thing a person who suspects a gateway reaches for.
     const providerRowActions = (provider: AiProviderDto): RowAction[] => {
         const testing =
             (test.isPending && test.variables?.name === provider.name) ||
@@ -257,6 +260,17 @@ export function AiSettingsSection() {
             },
         ];
     };
+
+    // One declaration per agent row's commands, for the same reason as the
+    // providers above: the card menu and the table cell are one menu.
+    const agentRowActions = (agent: AiAgentDto): RowAction[] => [
+        {
+            icon: <IconPlugConnected className="size-4" />,
+            label: "تغییر اتصال",
+            onClick: () => setBindingAgent(agent),
+            permission: PERMISSIONS.AI_PROVIDER_MANAGE,
+        },
+    ];
 
     const providerColumns: ColumnDef<StockFeatures, AiProviderDto>[] = [
         {
@@ -307,14 +321,21 @@ export function AiSettingsSection() {
             header: "کلید",
             enableSorting: false,
             cell: ({ row }: { row: Row<StockFeatures, AiProviderDto> }) =>
+                // Only a missing key on a driver that NEEDS one is worth a
+                // word: the zero-credential path (Ollama) is a working setup,
+                // and a "بدون کلید" badge there read as a fault.
                 row.original.has_api_key ? (
-                    <Badge variant="secondary">ذخیره شده</Badge>
-                ) : (
-                    // Said plainly rather than as a dash: for a local provider
-                    // the absent key is the working configuration, not a gap.
-                    <span className="text-muted-foreground text-sm">
-                        بدون کلید
+                    <span className="text-muted-foreground inline-flex items-center gap-1 text-sm">
+                        <IconKey className="size-3.5" />
+                        ذخیره شده
                     </span>
+                ) : AI_DRIVERS.find((d) => d.value === row.original.driver)
+                      ?.keyless ? (
+                    <span className="text-muted-foreground text-sm">
+                        لازم نیست
+                    </span>
+                ) : (
+                    <Badge variant="warning">کلید ندارد</Badge>
                 ),
         },
         {
@@ -401,16 +422,7 @@ export function AiSettingsSection() {
                           row: Row<StockFeatures, AiAgentDto>;
                       }) => (
                           <RowActions
-                              actions={[
-                                  {
-                                      icon: (
-                                          <IconPlugConnected className="size-4" />
-                                      ),
-                                      label: "تغییر اتصال",
-                                      onClick: () =>
-                                          setBindingAgent(row.original),
-                                  },
-                              ]}
+                              actions={agentRowActions(row.original)}
                           />
                       ),
                   } satisfies ColumnDef<StockFeatures, AiAgentDto>,
@@ -496,23 +508,27 @@ export function AiSettingsSection() {
                                                 }
                                                 icon={IconBrain}
                                                 badges={[
-                                                    {
-                                                        label: provider
-                                                            .is_active
-                                                            ? "فعال"
-                                                            : "غیرفعال",
-                                                        tone: provider.is_active
-                                                            ? "success"
-                                                            : "secondary",
-                                                    },
+                                                    // The default is the
+                                                    // strongest fact about a
+                                                    // provider, so it leads;
+                                                    // «فعال» is the normal
+                                                    // state and gets no badge.
                                                     ...(provider.is_default
                                                         ? [
                                                               {
                                                                   label: "پیش‌فرض",
-                                                                  tone: "default" as const,
+                                                                  tone: "info" as const,
                                                               },
                                                           ]
                                                         : []),
+                                                    ...(provider.is_active
+                                                        ? []
+                                                        : [
+                                                              {
+                                                                  label: "غیرفعال",
+                                                                  tone: "secondary" as const,
+                                                              },
+                                                          ]),
                                                 ]}
                                                 items={[
                                                     {
@@ -621,22 +637,7 @@ export function AiSettingsSection() {
                                                       ]
                                                     : []),
                                             ]}
-                                            actions={
-                                                canManage
-                                                    ? [
-                                                          {
-                                                              icon: (
-                                                                  <IconPlugConnected className="size-4" />
-                                                              ),
-                                                              label: "تغییر اتصال",
-                                                              onClick: () =>
-                                                                  setBindingAgent(
-                                                                      agent,
-                                                                  ),
-                                                          },
-                                                      ]
-                                                    : undefined
-                                            }
+                                            actions={agentRowActions(agent)}
                                         />
                                     ))}
                                 </RecordCardGrid>
