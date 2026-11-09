@@ -2,6 +2,7 @@
 
 namespace App\Domains\Tagging\Resources;
 
+use App\Domains\Tagging\Value\ConsolidationFocus;
 use App\Domains\Tagging\Value\TagMergeGroup;
 use App\Domains\Tagging\Value\TagMergeProposal;
 use Illuminate\Http\Request;
@@ -20,6 +21,24 @@ use Illuminate\Http\Resources\Json\JsonResource;
  */
 class TagMergeProposalResource extends JsonResource
 {
+    private ?ConsolidationFocus $focus = null;
+
+    /**
+     * The question this proposal answers.
+     *
+     * Not part of the proposal itself — the groups are the answer, and they do
+     * not change with what was asked — but the client has to be able to say
+     * "this only covers the word «سونگون»" without remembering a request it
+     * made two screens ago. So the focus is stamped on at the edge rather than
+     * threaded through the value object.
+     */
+    public function withFocus(ConsolidationFocus $focus): static
+    {
+        $this->focus = $focus;
+
+        return $this;
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -36,6 +55,8 @@ class TagMergeProposalResource extends JsonResource
             ),
             'provider' => $this->resource->provider,
             'model' => $this->resource->model,
+            'strategy' => $this->focus?->strategy->value,
+            'term' => $this->focus?->term,
         ];
     }
 }

@@ -3,6 +3,7 @@
 namespace App\Domains\Tagging\Ai;
 
 use App\Domains\BoardMeeting\Ai\MeetingSummaryAgent;
+use App\Domains\Tagging\Enums\ConsolidationStrategy;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\JsonSchema\Types\Type;
 use Laravel\Ai\Contracts\Agent;
@@ -60,15 +61,50 @@ final class TagConsolidationAgent implements Agent, HasProviderOptions, HasStruc
      */
     public const KEEP_ALIVE = '10m';
 
+    /**
+     * Both settle with {@see withFocus}, never on the instance the registry
+     * hands the runner: the SDK mutates the agent it prompts, so a run must
+     * never leave its strategy behind for the next one.
+     */
+    private ConsolidationStrategy $strategy = ConsolidationStrategy::Balanced;
+
+    private ?string $term = null;
+
+    /**
+     * Narrow this run to a strategy, and optionally to the tags around one
+     * word.
+     *
+     * A clone for the reason {@see MeetingSummaryAgent::withFields()} clones:
+     * the runner resolves one class from the registry, and two people
+     * consolidating the same vocabulary in different modes must not share an
+     * instance that remembers only the last one's choice.
+     */
+    public function withFocus(mixed $strategy, ?string $term = null): static
+    {
+        $agent = clone $this;
+
+        $agent->strategy = $strategy instanceof ConsolidationStrategy
+            ? $strategy
+            : (ConsolidationStrategy::tryFrom((string) $strategy) ?? ConsolidationStrategy::Balanced);
+        $agent->term = $term;
+
+        return $agent;
+    }
+
     public function instructions(): string
     {
+        $scope = $this->term === null || trim($this->term) === ''
+            ? 'The prompt is the hub\'s complete tag vocabulary, one tag per line as `count | name | slug`, most-used first.'
+            : 'The prompt is the part of the hub\'s tag vocabulary that the person asked about the word «'.$this->term.'», one tag per line as `count | name | slug`, most-used first. Propose groups only within these tags; the rest of the registry is out of scope for this run.';
+
         return implode("\n", [
-            'You are the hub\'s tag librarian. The prompt is the hub\'s complete tag vocabulary, one tag per line as `count | name | slug`, most-used first.',
+            'You are the hub\'s tag librarian. '.$scope,
+            $this->strategy->instruction(),
             'A group of tags belongs together when they name the SAME subject — the same project written two ways, a title with and without a qualifier, an abbreviation beside its full form. Find those groups.',
             'For each group, `canonical` is the slug to keep and `duplicates` are the slugs to fold into it. Copy every slug exactly as it appears in the vocabulary; never invent one, and never name a slug — as canonical or as duplicate — in more than one group.',
             'Choose `canonical` as the tag a person would search for: the one in most use, and a clear full label over an abbreviation.',
             '`reason` is one short sentence in Persian saying why these tags are one subject.',
-            'Only merge tags that genuinely mean the same thing. Tags that merely share a topic, or one that is a broader or narrower version of another, are different tags and must stay apart. When in doubt, leave them alone — a wrong merge discards a real subject, which is worse than a missed one.',
+            'Only merge tags that genuinely mean the same thing within the strategy above. Tags that merely share a topic are different tags and must stay apart. When in doubt, leave them alone — a wrong merge discards a real subject, which is worse than a missed one.',
             'Return an empty list when nothing should merge. That is a normal answer; do not invent groups to fill it.',
         ]);
     }

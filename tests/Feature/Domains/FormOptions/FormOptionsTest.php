@@ -201,6 +201,28 @@ describe('form options admin endpoints', function () {
             ->assertJsonPath('data.0.value', 'v21');
     });
 
+    it('sorts the admin list by a whitelisted column', function () {
+        $user = createUserWithPermissions(['form-options.manage']);
+        makeOption(['group' => 'sorted', 'value' => 'b', 'label' => 'مورد ب', 'sort_order' => 2]);
+        makeOption(['group' => 'sorted', 'value' => 'a', 'label' => 'مورد آ', 'sort_order' => 1]);
+
+        $this->actingAs($user)
+            ->getJson('/api/admin/form-options?group=sorted&sort=label&order=asc')
+            ->assertOk()
+            ->assertJsonPath('data.0.value', 'a');
+    });
+
+    it('ignores a sort column outside the whitelist', function () {
+        $user = createUserWithPermissions(['form-options.manage']);
+        makeOption(['group' => 'sorted', 'value' => 'b', 'sort_order' => 2]);
+        makeOption(['group' => 'sorted', 'value' => 'a', 'sort_order' => 1]);
+
+        $this->actingAs($user)
+            ->getJson('/api/admin/form-options?group=sorted&sort=id+desc;drop&order=desc')
+            ->assertOk()
+            ->assertJsonPath('data.0.value', 'a');
+    });
+
     it('clamps per_page between 1 and 100', function () {
         $user = createUserWithPermissions(['form-options.manage']);
 

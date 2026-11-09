@@ -5,10 +5,10 @@ namespace App\Domains\Tagging\Controllers;
 use App\Domains\Tagging\Events\TagMergeAccepted;
 use App\Domains\Tagging\Jobs\ProposeTagMergesJob;
 use App\Domains\Tagging\Requests\AcceptTagMergeRequest;
+use App\Domains\Tagging\Requests\ProposeTagMergesRequest;
 use App\Domains\Tagging\Resources\TagMergeProposalResource;
 use App\Domains\Tagging\Services\TagConsolidator;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Str;
 
@@ -37,16 +37,23 @@ use Illuminate\Support\Str;
  */
 class TagConsolidationController
 {
-    public function store(Request $request): JsonResponse
+    public function store(ProposeTagMergesRequest $request): JsonResponse
     {
         $runId = (string) Str::uuid();
 
         ProposeTagMergesJob::dispatch(
             requestedBy: $request->user()?->getKey(),
             runId: $runId,
+            focus: $request->focus(),
         );
 
-        return response()->json(['data' => ['run_id' => $runId]], Response::HTTP_ACCEPTED);
+        return response()->json([
+            'data' => [
+                'run_id' => $runId,
+                'strategy' => $request->focus()->strategy->value,
+                'term' => $request->focus()->term,
+            ],
+        ], Response::HTTP_ACCEPTED);
     }
 
     /**
@@ -55,9 +62,12 @@ class TagConsolidationController
      * re-read every run event promises, and it is where the groups actually
      * leave the server.
      */
-    public function proposal(TagConsolidator $consolidator): TagMergeProposalResource
+    public function proposal(ProposeTagMergesRequest $request, TagConsolidator $consolidator): TagMergeProposalResource
     {
-        return new TagMergeProposalResource($consolidator->propose());
+        $focus = $request->focus();
+
+        return (new TagMergeProposalResource($consolidator->propose($focus)))
+            ->withFocus($focus);
     }
 
     public function accept(AcceptTagMergeRequest $request, TagConsolidator $consolidator): JsonResponse

@@ -81,6 +81,8 @@ class AiAgentRunner
 
         $instance = $this->reconcileAgainst($instance, $settings);
 
+        $instance = $this->focusOn($instance, $settings);
+
         $response = $instance->prompt(
             $prompt,
             provider: $resolved->name(),
@@ -208,6 +210,30 @@ class AiAgentRunner
         }
 
         return $instance->withPrevious($previous);
+    }
+
+    /**
+     * Hand the agent the subject this run was asked to look at.
+     *
+     * A third optional capability beside the other two, for the same reason:
+     * most agents are told everything they need by the prompt itself, and only
+     * one whose *rule* changes per run needs a channel to say so. The runner
+     * passes the stored setting through untouched; what a `strategy` key means
+     * is the owning domain's business, and an agent that does not speak it is
+     * left alone.
+     *
+     * @param  array<string, mixed>  $settings
+     */
+    private function focusOn(Agent $instance, array $settings): Agent
+    {
+        if (! isset($settings['strategy']) || ! method_exists($instance, 'withFocus')) {
+            return $instance;
+        }
+
+        return $instance->withFocus(
+            $settings['strategy'],
+            is_string($settings['term'] ?? null) ? $settings['term'] : null,
+        );
     }
 
     /**

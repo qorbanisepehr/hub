@@ -2,7 +2,10 @@
 
 use App\Domains\Ai\Exceptions\AiNotConfigured;
 use App\Domains\Ai\Services\AiAgentRunner;
+use App\Domains\Ai\Services\AiProviderResolver;
+use App\Domains\Ai\Value\AiRun;
 use App\Domains\BoardMeeting\Models\BoardMeeting;
+use App\Domains\Settings\Repositories\SystemSettingsRepositoryInterface;
 use App\Domains\Tagging\Ai\TagConsolidationAgent;
 use App\Domains\Tagging\Events\TagMergeAccepted;
 use App\Domains\Tagging\Jobs\ProposeTagMergesJob;
@@ -140,6 +143,103 @@ describe('GET /api/tags/consolidate', function () {
             ->toContain('1 | پروژه سونگون | soongon')
             ->toContain('0 | بودجه | budget');
     });
+
+    it('narrows a focused run to the tags around the term, and says so', function () {
+        Tag::create(['name' => 'پروژه سونگون', 'slug' => 'soongon']);
+        Tag::create(['name' => 'سونگون', 'slug' => 'soongon-short']);
+        Tag::create(['name' => 'بودجه', 'slug' => 'budget']);
+
+        $sent = null;
+
+        TagConsolidationAgent::fake(function (string $prompt) use (&$sent): array {
+            $sent = $prompt;
+
+            return ['groups' => []];
+        });
+
+        $user = createUserWithPermissions(['tag.manage']);
+
+        $response = actingAs($user)
+            ->getJson('/api/tags/consolidate?term=سونگون')
+            ->assertOk();
+
+        expect($sent)
+            ->toContain('| soongon-short')
+            ->toContain('| soongon')
+            ->not->toContain('| budget')
+            ->and($response->json('data.term'))->toBe('سونگون')
+            ->and($response->json('data.strategy'))->toBe('balanced');
+    });
+
+    it('matches a term across Arabic letter variants and half-spaces', function () {
+        Tag::create(['name' => 'پروژه سونگون فاز یک', 'slug' => 'soongon-phase']);
+
+        $sent = null;
+
+        TagConsolidationAgent::fake(function (string $prompt) use (&$sent): array {
+            $sent = $prompt;
+
+            return ['groups' => []];
+        });
+
+        // «ي» and «ك» are the Arabic forms of the same letters, and the
+        // half-space between «فاز» and «یک» is not a space.
+        actingAs(createUserWithPermissions(['tag.manage']))
+            ->getJson('/api/tags/consolidate?term='.rawurlencode('سونگون فازيك'))
+            ->assertOk();
+
+        expect($sent)->toContain('| soongon-phase');
+    });
+
+    it('sends the chosen strategy to the model and echoes it back', function () {
+        Tag::create(['name' => 'پروژه سونگون', 'slug' => 'soongon']);
+
+        TagConsolidationAgent::fake([['groups' => []]]);
+
+        $user = createUserWithPermissions(['tag.manage']);
+
+        actingAs($user)
+            ->getJson('/api/tags/consolidate?strategy=aggressive')
+            ->assertOk()
+            ->assertJsonPath('data.strategy', 'aggressive')
+            ->assertJsonPath('data.term', null);
+    });
+
+    it('rejects an unknown strategy', function () {
+        actingAs(createUserWithPermissions(['tag.manage']))
+            ->getJson('/api/tags/consolidate?strategy=reckless')
+            ->assertUnprocessable();
+    });
+
+    it('answers an empty proposal without spending a model call when nothing matches the focus', function () {
+        Tag::create(['name' => 'بودجه', 'slug' => 'budget']);
+
+        TagConsolidationAgent::fake([['groups' => []]]);
+
+        $response = actingAs(createUserWithPermissions(['tag.manage']))
+            ->getJson('/api/tags/consolidate?term=ghost')
+            ->assertOk();
+
+        expect($response->json('data.groups'))->toBe([]);
+
+        TagConsolidationAgent::assertNeverPrompted();
+    });
+
+    it('forwards the focus from the queued ask to the job', function () {
+        Queue::fake();
+
+        actingAs(createUserWithPermissions(['tag.manage']))
+            ->postJson('/api/tags/consolidate', ['strategy' => 'conservative', 'term' => 'سونگون'])
+            ->assertStatus(202)
+            ->assertJsonPath('data.strategy', 'conservative')
+            ->assertJsonPath('data.term', 'سونگون');
+
+        Queue::assertPushed(
+            ProposeTagMergesJob::class,
+            fn (ProposeTagMergesJob $job): bool => $job->focus?->strategy->value === 'conservative'
+                && $job->focus?->term === 'سونگون',
+        );
+    });
 });
 
 describe('ProposeTagMergesJob', function () {
@@ -166,17 +266,23 @@ describe('ProposeTagMergesJob', function () {
     });
 
     it('reports a missing provider by the stable reason the client already handles', function () {
-        // No provider at all: the runner is the thing that decides a missing
-        // registry is a state rather than a crash, so it is what is stubbed.
-        $this->mock(AiAgentRunner::class)
-            ->shouldReceive('run')
-            ->once()
-            ->andThrow(AiNotConfigured::forAgent('tagging.consolidate'));
+        Tag::create(['name' => 'بودجه', 'slug' => 'budget']);
 
+        // No provider at all: the runner is the thing that decides a missing
+        // registry is a state rather than a crash, so the consolidator is
+        // built around a stubbed one rather than resolved from the container.
         Event::fake([RunProgressed::class]);
 
+        $runner = new class(app(AiProviderResolver::class), app(SystemSettingsRepositoryInterface::class)) extends AiAgentRunner
+        {
+            public function run(string $key, string $prompt, ?string $agentClass = null, ?string $provider = null, ?string $model = null, array $settings = []): AiRun
+            {
+                throw AiNotConfigured::forAgent($key);
+            }
+        };
+
         (new ProposeTagMergesJob(User::factory()->create()->getKey(), 'run-2'))
-            ->handle(app(TagConsolidator::class));
+            ->handle(new TagConsolidator($runner, app(TagService::class)));
 
         Event::assertDispatched(
             RunProgressed::class,

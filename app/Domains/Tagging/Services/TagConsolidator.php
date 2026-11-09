@@ -5,7 +5,9 @@ namespace App\Domains\Tagging\Services;
 use App\Domains\Ai\Services\AiAgentRunner;
 use App\Domains\Ai\Value\AiRun;
 use App\Domains\Tagging\Ai\TagConsolidationAgent;
+use App\Domains\Tagging\Enums\ConsolidationStrategy;
 use App\Domains\Tagging\Models\Tag;
+use App\Domains\Tagging\Value\ConsolidationFocus;
 use App\Domains\Tagging\Value\TagMergeGroup;
 use App\Domains\Tagging\Value\TagMergeProposal;
 use App\Domains\Tagging\Value\TagMergeResult;
@@ -63,16 +65,35 @@ final class TagConsolidator
     /**
      * Ask the model for merge groups and keep only the ones the vocabulary
      * can actually honour.
+     *
+     * The focus narrows what the model is shown *and* what it is allowed to
+     * name: a focused run's answer about a word is the same kind of answer as
+     * a whole-registry one, so the same normalisation applies — only a smaller
+     * vocabulary goes in.
      */
-    public function propose(): TagMergeProposal
+    public function propose(?ConsolidationFocus $focus = null): TagMergeProposal
     {
-        $inventory = $this->tags->inventory();
+        $focus ??= new ConsolidationFocus(ConsolidationStrategy::Balanced);
+
+        $inventory = $focus->narrow($this->tags->inventory());
+
+        // A term that matches nothing is answered without a model call: there
+        // is nothing to ask about, and spending a run to be told "no groups"
+        // would make an unknown word look like a finished pass over the
+        // registry.
+        if ($focus->term !== null && $inventory === []) {
+            return new TagMergeProposal([], '', null);
+        }
 
         $run = $this->runner->run(
             key: TagConsolidationAgent::REGISTRY_KEY,
             prompt: $this->prompt($inventory),
             agentClass: TagConsolidationAgent::class,
-            settings: ['timeout' => self::TIMEOUT_SECONDS],
+            settings: [
+                'timeout' => self::TIMEOUT_SECONDS,
+                'strategy' => $focus->strategy->value,
+                'term' => $focus->term,
+            ],
         );
 
         return new TagMergeProposal(

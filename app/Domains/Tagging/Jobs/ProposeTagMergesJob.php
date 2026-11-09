@@ -5,6 +5,7 @@ namespace App\Domains\Tagging\Jobs;
 use App\Domains\Ai\Exceptions\AiNotConfigured;
 use App\Domains\Ai\Exceptions\AiProviderUnreachable;
 use App\Domains\Tagging\Services\TagConsolidator;
+use App\Domains\Tagging\Value\ConsolidationFocus;
 use App\Support\Realtime\Concerns\ReportsRunProgress;
 use App\Support\Realtime\RunState;
 use App\Support\Realtime\Value\RunSubject;
@@ -51,6 +52,7 @@ class ProposeTagMergesJob implements ShouldBeUnique, ShouldQueue
     public function __construct(
         public readonly ?int $requestedBy = null,
         public readonly string $runId = '',
+        public readonly ?ConsolidationFocus $focus = null,
     ) {
         $this->reportProgressTo(
             $requestedBy,
@@ -65,7 +67,7 @@ class ProposeTagMergesJob implements ShouldBeUnique, ShouldQueue
         $this->reportProgress(RunState::Running);
 
         try {
-            $proposal = $consolidator->propose();
+            $proposal = $consolidator->propose($this->focus);
         } catch (AiNotConfigured) {
             // Its own reason, the same stable key the summary feature uses: the
             // client already knows how to say "no provider is set up" and to
@@ -93,6 +95,8 @@ class ProposeTagMergesJob implements ShouldBeUnique, ShouldQueue
             'groups' => count($proposal->groups),
             'provider' => $proposal->provider,
             'model' => $proposal->model,
+            'strategy' => $this->focus?->strategy->value,
+            'term' => $this->focus?->term,
         ]);
     }
 

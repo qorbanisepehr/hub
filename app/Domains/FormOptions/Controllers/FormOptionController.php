@@ -15,6 +15,8 @@ use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class FormOptionController
 {
+    private const SORTABLE = ['label', 'value', 'sort_order', 'is_active'];
+
     public function __construct(
         private readonly FormOptionService $service,
         private Authorization $authorization,
@@ -152,6 +154,15 @@ class FormOptionController
         $this->authorization->scope($request->user(), 'form-options.manage', $query);
 
         ListQuery::search($query, ListQuery::filter($request), ['label', 'value']);
+
+        // Sorted before `ordered()` says so: a list that can sort by ten rows a
+        // page can only usefully do it across the whole group, and the columns
+        // on screen (label, value, order, active) are exactly the whitelist.
+        $sort = ListQuery::sort($request, self::SORTABLE);
+
+        if ($sort !== null) {
+            $query->reorder($sort, ListQuery::order($request, 'asc'));
+        }
 
         return FormOptionResource::collection(
             $query->ordered()->paginate(ListQuery::perPage($request, max: 100)),
